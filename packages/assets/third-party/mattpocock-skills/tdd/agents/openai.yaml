@@ -1,0 +1,5 @@
+# workloom: 面向 Claude Code/Codex 的 agent 元数据，DSH/Pi adapter 不消费；原样保留供上游 diff 同步
+# source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
+interface:
+  display_name: "TDD"
+  short_description: "Test-driven red-green-refactor"

@@ -5,3 +5,5 @@ pnpm-lock.yaml
 .claude/
 skills-lock.json
 docs/
+# 三方 vendored 资产保持上游原文，不强制 prettier 格式化（docs/vendoring-plan.md）
+packages/assets/third-party/
