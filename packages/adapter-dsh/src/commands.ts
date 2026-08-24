@@ -9,19 +9,25 @@
  * - 命令名一律用连字符（DSH 命令名正则不支持冒号，故用 workloom-init 等）。
  */
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import type { Context } from '@deepseek-ai/cordis'
 
 import {
   countDirtyLines,
+  detectLegacyTrellis,
   findWorkloomRoot,
   gitStatus,
   initWorkloom,
+  migrateLegacyTrellis,
   readTask,
   resolveActiveTask,
   routeNextStep,
+  WORKLOOM_DIR,
 } from '@workloom/core'
+import type { MigrateLegacyTrellisResult } from '@workloom/core'
 import { readAssetText } from '@workloom/assets'
 
 import { CONTEXT_KEY_PREFIX, SOURCE_PLUGIN } from './constants.js'
@@ -31,9 +37,15 @@ export const COMMAND_INIT = 'workloom-init'
 export const COMMAND_CONTINUE = 'workloom-continue'
 export const COMMAND_FINISH = 'workloom-finish'
 
+/** purge 模式标志：rawInput 以该前缀开头时，迁移后直接删除旧 .trellis 目录。 */
+const PURGE_FLAG = '--purge'
+
 /** 命令指引资源（相对 assets 包根）。 */
 const ASSET_CONTINUE = 'commands/workloom-continue.md'
 const ASSET_FINISH = 'commands/workloom-finish.md'
+
+/** 资产目录内的 developer 身份文件名（与 core 的 init 约定一致）。 */
+const DEVELOPER_FILE = '.developer'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom command'
@@ -46,8 +58,9 @@ const ERR_PREFIX = 'workloom command'
 export function registerCommands(ctx: Context): void {
   ctx.commands.register({
     name: COMMAND_INIT,
-    description: 'Initialize the .workloom skeleton in the current project',
-    input: { hint: 'developer identity' },
+    description:
+      'Initialize the .workloom skeleton, migrate a legacy .trellis project, and purge it with --purge',
+    input: { hint: 'developer identity | --purge' },
     handler: handleInit,
   })
   ctx.commands.register({
@@ -106,14 +119,25 @@ function assetOf(rel: string): CommandResult | string {
   return text
 }
 
-/** init 命令：在会话 cwd 初始化 .workloom 骨架并报告生成项。 */
+/**
+ * init 命令：初始化 .workloom 骨架；存在旧 .trellis 时自动迁移，
+ * --purge 模式（rawInput 精确为 --purge 或以 --purge 空格开头）迁移后直接删除旧目录。
+ */
 function handleInit(invocation: CommandInvocation): CommandResult {
   const cwd = cwdOf(invocation)
   if (typeof cwd !== 'string') return cwd
-  const developer = invocation.rawInput.trim()
-  const [err, result] = initWorkloom(cwd, {
-    developer: developer === '' ? undefined : developer,
-  })
+  const parsed = parseInitArgs(invocation.rawInput)
+  // purge 模式不带身份参数：developer 沿用现有 .developer 内容（force 补建不覆盖）。
+  const developer = parsed.purge
+    ? readExistingDeveloper(cwd)
+    : parsed.developer === ''
+      ? undefined
+      : parsed.developer
+  if (parsed.purge && detectLegacyTrellis(cwd) === null) {
+    // purge 且无旧项目：先判空再 init，避免「已创建 .workloom 才报 nothing to purge」的副作用。
+    return errorResult(`${ERR_PREFIX}: nothing to purge (no legacy .trellis project found)`)
+  }
+  const [err, result] = initWorkloom(cwd, { developer, force: parsed.purge })
   if (err || result === null) {
     return errorResult(`${ERR_PREFIX}: ${err?.message ?? 'init returned no result'}`)
   }
@@ -123,12 +147,84 @@ function handleInit(invocation: CommandInvocation): CommandResult {
   } else {
     lines.push(`Created: ${result.created.join(', ')}.`)
   }
-  if (result.legacyTrellisRoot !== null) {
+  if (result.legacyTrellisRoot === null) {
+    return { kind: 'success', text: lines.join('\n') }
+  }
+  // 迁移失败不阻塞 init 结果，只附 WARNING（init 已完成，可重跑命令重试迁移）。
+  const [migrateErr, migrateResult] = migrateLegacyTrellis(cwd, { deleteLegacy: parsed.purge })
+  if (migrateErr || migrateResult === null) {
     lines.push(
-      `Detected a legacy .trellis project at ${result.legacyTrellisRoot}; migration is planned but not implemented yet.`,
+      `WARNING: legacy migration failed (${migrateErr?.message ?? 'no result'}); init completed, rerun /workloom-init${parsed.purge ? ' --purge' : ''} to retry migration.`,
+    )
+    return { kind: 'success', text: lines.join('\n') }
+  }
+  lines.push(...migrationSummaryLines(migrateResult))
+  return { kind: 'success', text: lines.join('\n') }
+}
+
+/**
+ * 解析 init 命令的自由输入：精确 --purge 或以 --purge 空格开头 → purge 模式；
+ * 其余视为 developer identity（原样 trim）。
+ * @param rawInput 命令自由输入
+ * @returns 解析结果
+ */
+export function parseInitArgs(rawInput: string): { purge: boolean; developer: string } {
+  const raw = rawInput.trim()
+  if (raw === PURGE_FLAG || raw.startsWith(`${PURGE_FLAG} `)) {
+    return { purge: true, developer: '' }
+  }
+  return { purge: false, developer: raw }
+}
+
+/**
+ * 读取现有 .developer 内容（purge 模式复用身份）；无 .workloom 或文件缺失返回 undefined。
+ * @param cwd 会话工作目录
+ */
+function readExistingDeveloper(cwd: string): string | undefined {
+  const found = findWorkloomRoot(cwd)
+  if (found === null) return undefined
+  try {
+    return readFileSync(join(found.root, WORKLOOM_DIR, DEVELOPER_FILE), 'utf8').trim()
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * 组装迁移摘要文本（英文）。
+ * @param result 迁移结果
+ * @returns 摘要行
+ */
+export function migrationSummaryLines(result: MigrateLegacyTrellisResult): string[] {
+  // 二次迁移（区域已全部就位）时 migrated 为空：措辞改为「已迁移，无新增」，避免 Migrated/Skipped 并存误导。
+  const lines =
+    result.migrated.length === 0
+      ? ['Already migrated; nothing new to copy.']
+      : [`Migrated: ${result.migrated.join(', ')}.`]
+  if (result.skipped.length > 0) {
+    lines.push(`Skipped existing entries: ${result.skipped.length}.`)
+  }
+  if (result.unsupported.length > 0) {
+    lines.push(
+      `Unsupported entries (e.g. symlinks) were not migrated: ${result.unsupported.join(', ')}.`,
     )
   }
-  return { kind: 'success', text: lines.join('\n') }
+  if (result.droppedConfigFields.length > 0) {
+    lines.push(`Dropped legacy config fields: ${result.droppedConfigFields.join(', ')}.`)
+  }
+  if (result.archivedWorkflow !== null) {
+    lines.push(
+      `Legacy workflow.md archived to ${result.archivedWorkflow}; its custom guidance must be reworked manually into workflow.override.md.`,
+    )
+  }
+  if (result.legacyRemoved) {
+    lines.push('Legacy .trellis directory was removed.')
+  } else {
+    lines.push(
+      'Legacy .trellis directory is kept; run /workloom-init --purge to delete it once you confirm the migration.',
+    )
+  }
+  return lines
 }
 
 /** continue 命令：解析活跃任务并按状态路由下一步，注入指引触发模型回合。 */

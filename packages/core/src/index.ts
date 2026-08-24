@@ -27,6 +27,8 @@ export {
 
 export { initWorkloom } from './legacy/init.js'
 
+export { migrateLegacyTrellis } from './legacy/migrate.js'
+
 export { parseContract, WorkflowContractError } from './legacy/workflow-contract.js'
 
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './legacy/breadcrumb.js'
@@ -76,6 +78,8 @@ export type {
 } from './legacy/executor-context.d.ts'
 
 export type { InitWorkloomParams, InitWorkloomResult } from './legacy/init.d.ts'
+
+export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './legacy/migrate.d.ts'
 
 export type { WorkflowContract, WorkflowStep } from './legacy/workflow-contract.d.ts'
 
