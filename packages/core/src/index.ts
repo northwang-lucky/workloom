@@ -17,6 +17,14 @@ export {
 
 export { DEFAULT_CONFIG, WorkloomConfigError, loadConfig } from './legacy/config.js'
 
+export {
+  EFFORT_LEVELS,
+  EXECUTOR_KINDS,
+  assertEffort,
+  assertKind,
+  buildExecutorPrompt,
+} from './legacy/executor-context.js'
+
 export { initWorkloom } from './legacy/init.js'
 
 export { parseContract, WorkflowContractError } from './legacy/workflow-contract.js'
@@ -60,6 +68,12 @@ export { assembleSessionContext } from './service/session-context.js'
 export { routeNextStep } from './service/route-service.js'
 
 export type { WorkloomConfig } from './legacy/config.d.ts'
+
+export type {
+  BuildExecutorPromptParams,
+  ExecutorPromptStats,
+  ExecutorPromptResult,
+} from './legacy/executor-context.d.ts'
 
 export type { InitWorkloomParams, InitWorkloomResult } from './legacy/init.d.ts'
 
