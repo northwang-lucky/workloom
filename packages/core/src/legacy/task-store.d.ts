@@ -139,3 +139,9 @@ export function runTaskHooks(
   taskJsonPath: string,
   commands: string[],
 ): Promise<string[]>
+
+/** 读取任务记录；成功时对象附带 taskRelPath。 */
+export function readTask(
+  root: string,
+  taskRelPath: string,
+): [Error | null, TaskRecordWithPath | null]
