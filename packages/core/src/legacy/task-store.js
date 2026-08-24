@@ -111,7 +111,7 @@ export function slugify(title) {
 function requireProjectRoot(root) {
   const found = findWorkloomRoot(root)
   if (!found) {
-    throw new Error(`${ERR_PREFIX}: 未找到 .workloom 目录（起始于 ${root}）`)
+    throw new Error(`${ERR_PREFIX}: no .workloom directory found (searched up from ${root})`)
   }
   return found.root
 }
@@ -167,7 +167,7 @@ function readTask(root, taskRelPath) {
       raw = readFileSync(file, 'utf8')
     } catch (error) {
       if (isEnoent(error)) {
-        return [new Error(`${ERR_PREFIX}: task.json 缺失: ${taskRelPath}`), null]
+        return [new Error(`${ERR_PREFIX}: task.json missing: ${taskRelPath}`), null]
       }
       throw error
     }
@@ -176,12 +176,12 @@ function readTask(root, taskRelPath) {
       parsed = JSON.parse(raw)
     } catch (error) {
       return [
-        new Error(`${ERR_PREFIX}: task.json 解析失败: ${taskRelPath}: ${String(error)}`),
+        new Error(`${ERR_PREFIX}: failed to parse task.json: ${taskRelPath}: ${String(error)}`),
         null,
       ]
     }
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      return [new Error(`${ERR_PREFIX}: task.json 不是对象: ${taskRelPath}`), null]
+      return [new Error(`${ERR_PREFIX}: task.json is not an object: ${taskRelPath}`), null]
     }
     return [null, { ...parsed, taskRelPath }]
   } catch (error) {
@@ -197,7 +197,8 @@ function readTask(root, taskRelPath) {
  */
 function requireTask(root, taskRelPath) {
   const [taskErr, task] = readTask(root, taskRelPath)
-  if (taskErr || !task) throw taskErr ?? new Error(`${ERR_PREFIX}: 任务记录为空: ${taskRelPath}`)
+  if (taskErr || !task)
+    throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`)
   return task
 }
 
@@ -271,10 +272,13 @@ function buildTaskRecord(input) {
 
 /** prd.md 骨架：各小节标题与占位说明（顺序即文档顺序）。 */
 const PRD_SECTIONS = Object.freeze([
-  { heading: 'Goal', placeholder: '（占位：描述本任务要达成的目标）' },
-  { heading: 'Requirements', placeholder: '（占位：列出功能需求）' },
-  { heading: 'Acceptance Criteria', placeholder: '（占位：列出可验证的验收标准）' },
-  { heading: 'Notes', placeholder: '（占位：补充说明与约束）' },
+  { heading: 'Goal', placeholder: '(placeholder: describe the goal this task aims to achieve)' },
+  { heading: 'Requirements', placeholder: '(placeholder: list the functional requirements)' },
+  {
+    heading: 'Acceptance Criteria',
+    placeholder: '(placeholder: list the verifiable acceptance criteria)',
+  },
+  { heading: 'Notes', placeholder: '(placeholder: add notes and constraints)' },
 ])
 
 /**
@@ -290,8 +294,10 @@ function buildPrdContent() {
 
 /** implement/check 日志的 seed 行（无 file 字段，消费者自动跳过）。 */
 const LOG_SEEDS = Object.freeze({
-  implement: '{"_example": "implement 事件日志：每行一个 JSON 对象，无 file 字段的行自动跳过"}',
-  check: '{"_example": "check 事件日志：每行一个 JSON 对象，无 file 字段的行自动跳过"}',
+  implement:
+    '{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}',
+  check:
+    '{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}',
 })
 
 /**
@@ -306,7 +312,7 @@ export async function runTaskHooks(root, taskJsonPath, commands) {
   for (const command of commands) {
     const error = await runHookOnce(root, taskJsonPath, command)
     if (error) {
-      warnings.push(`hook 失败（${command}）: ${error.message}`)
+      warnings.push(`hook failed (${command}): ${error.message}`)
     }
   }
   return warnings
@@ -363,14 +369,16 @@ async function createTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const slug = params.slug ?? slugify(params.title)
   if (slug.length === 0) {
-    throw new Error(`${ERR_PREFIX}: 标题无法生成合法 slug: ${JSON.stringify(params.title)}`)
+    throw new Error(
+      `${ERR_PREFIX}: title cannot produce a valid slug: ${JSON.stringify(params.title)}`,
+    )
   }
   // 单次取 now：目录前缀与 createdAt 时间戳共用同一时刻，避免跨日/跨月不一致。
   const now = new Date()
   const taskRelPath = join(DIR_NAMES.tasks, `${formatMonthDay(now)}-${slug}`)
   const taskDir = insideWorkloom(projectRoot, taskRelPath)
   if (existsSync(taskDir)) {
-    throw new Error(`${ERR_PREFIX}: 任务目录已存在: ${taskRelPath}`)
+    throw new Error(`${ERR_PREFIX}: task directory already exists: ${taskRelPath}`)
   }
   assertPriority(params.priority)
   const creator = readDeveloper(projectRoot)
@@ -400,7 +408,7 @@ async function createTaskInternal(root, params) {
  */
 function assertPriority(priority) {
   if (priority !== undefined && !PRIORITY_SET.has(priority)) {
-    throw new Error(`${ERR_PREFIX}: 非法优先级: ${priority}（可选 P0/P1/P2/P3）`)
+    throw new Error(`${ERR_PREFIX}: invalid priority: ${priority} (must be one of P0/P1/P2/P3)`)
   }
 }
 
@@ -428,7 +436,9 @@ async function startTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, params.taskRelPath)
   if (task.status !== TaskStatus.PLANNING) {
-    throw new Error(`${ERR_PREFIX}: 只能启动 planning 状态的任务（当前 ${task.status}）`)
+    throw new Error(
+      `${ERR_PREFIX}: only tasks in planning state can be started (current: ${task.status})`,
+    )
   }
   task.status = TaskStatus.IN_PROGRESS
   writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task))
@@ -506,7 +516,7 @@ async function archiveTaskInternal(root, params) {
   const archiveRel = join(DIR_NAMES.tasks, DIR_NAMES.archive, formatYearMonth(now), task.name)
   const archiveDir = insideWorkloom(projectRoot, archiveRel)
   if (existsSync(archiveDir)) {
-    throw new Error(`${ERR_PREFIX}: 归档目标已存在: ${archiveRel}`)
+    throw new Error(`${ERR_PREFIX}: archive target already exists: ${archiveRel}`)
   }
   // 先移动、再在归档位置改状态：任一写盘失败都不会把原目录改成 completed。
   mkdirSync(dirname(archiveDir), { recursive: true })
@@ -541,7 +551,7 @@ async function autoCommitIfEnabled(root, autoCommit, slug) {
   }
   if (!autoCommit) return []
   const [gitErr] = await gitAddCommit(root, `${ARCHIVE_COMMIT_PREFIX} ${slug}`)
-  if (gitErr) return [`git 自动提交失败（不阻塞归档）: ${gitErr.message}`]
+  if (gitErr) return [`git auto-commit failed (archival proceeds anyway): ${gitErr.message}`]
   return []
 }
 

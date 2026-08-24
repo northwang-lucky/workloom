@@ -176,7 +176,9 @@ states:
 `
   const [err, contract] = parseContract(doc)
   assert.equal(err, null)
-  assert.deepEqual(contract.warnings, ['状态 completed 已声明但缺少对应 tag 块'])
+  assert.deepEqual(contract.warnings, [
+    'status completed is declared but has no corresponding tag block',
+  ])
 })
 
 test('tag 块状态未在 states 声明报错（状态机对称封闭）', () => {
@@ -192,7 +194,7 @@ states:
 `
   const [err, contract] = parseContract(doc)
   assert.ok(err instanceof WorkflowContractError)
-  assert.match(err.message, /未在 states 中声明/)
+  assert.match(err.message, /not declared in states/)
   assert.equal(contract, null)
 })
 
@@ -210,7 +212,7 @@ states:
 `
   const [err1] = parseContract(nested)
   assert.ok(err1)
-  assert.match(err1.message, /不允许嵌套/)
+  assert.match(err1.message, /must not be nested/)
 
   const strayClose = `---
 version: 1
@@ -222,5 +224,5 @@ states:
 `
   const [err2] = parseContract(strayClose)
   assert.ok(err2)
-  assert.match(err2.message, /多余的闭合 tag/)
+  assert.match(err2.message, /stray closing tag/)
 })

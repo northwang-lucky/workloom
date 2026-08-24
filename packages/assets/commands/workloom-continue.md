@@ -1,22 +1,22 @@
 ---
 name: workloom_continue
-title: 继续任务
-description: 恢复会话时定位上次停在哪一步，并按状态路由到对应 Phase 步骤
+title: Continue the task
+description: On session resume, locate where work left off and route to the matching Phase step by status
 argument-hint: ''
 ---
 
-# 继续任务
+# Continue the task
 
-1. 读取当前活跃任务与 `task.json` 状态。
-2. 读取 git 状态与近期提交。
-3. 按状态与产物路由：
+1. Read the current active task and its `task.json` status.
+2. Read git status and recent commits.
+3. Route by status and artifacts:
 
-   - `planning` + 无 prd → 1.1 需求对齐。
-   - `planning` + 有 prd → 判断轻量/复杂；产物齐备 → 1.4 等评审。
-   - `in_progress` + 未实现 → 2.1 实现。
-   - `in_progress` + 已实现未检查 → 2.2 检查。
-   - 检查已过 → 2.3 提交 → 3.1 收尾。
+   - `planning` without prd → 1.1 Align requirements.
+   - `planning` with prd → judge lightweight vs complex; artifacts ready → 1.4 await review.
+   - `in_progress`, not yet implemented → 2.1 Implement.
+   - `in_progress`, implemented but unchecked → 2.2 Check.
+   - Check passed → 2.3 Commit → 3.1 Wrap up.
 
-4. 加载对应步骤详情后继续执行。
+4. Load the step details and continue from there.
 
-完成判据：定位到具体 Phase 步骤并开始执行。
+Completion criteria: located the exact Phase step and started executing it.

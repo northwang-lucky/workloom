@@ -1,6 +1,6 @@
 ---
 name: writing-for-agents
-description: Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md; workloom 中所有面向 agent 的文档（prd/design/implement/spec/journal）。
+description: Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md; all agent-facing documents in a workloom task (prd/design/implement/spec/journal)。
 license: MIT
 source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
 ---

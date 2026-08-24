@@ -82,7 +82,9 @@ test('mergeOverlay 补齐缺块后 warnings 重新计算', () => {
   const [err, merged] = mergeOverlay(contract, overlay)
   assert.equal(err, null)
   assert.deepEqual(merged.warnings, [])
-  assert.deepEqual(contract.warnings, ['状态 completed 已声明但缺少对应 tag 块'])
+  assert.deepEqual(contract.warnings, [
+    'status completed is declared but has no corresponding tag block',
+  ])
 })
 
 test('buildBreadcrumb 命中块返回正文', () => {
@@ -96,7 +98,7 @@ test('buildBreadcrumb 无块返回通用提示', () => {
   const contract = makeContract()
   const [err, text] = buildBreadcrumb(contract, 'completed')
   assert.equal(err, null)
-  assert.equal(text, '参考工作流文档确认当前步骤。')
+  assert.equal(text, 'Refer to the workflow document to confirm the current step.')
 })
 
 test('buildBreadcrumb 非法状态报错', () => {
@@ -141,7 +143,7 @@ test('mergeOverlay 引入未声明步骤报错', () => {
 `
   const [err, merged] = mergeOverlay(contract, overlay)
   assert.ok(err instanceof WorkflowContractError)
-  assert.match(err.message, /未声明的步骤/)
+  assert.match(err.message, /not declared in the contract/)
   assert.equal(merged, null)
 })
 

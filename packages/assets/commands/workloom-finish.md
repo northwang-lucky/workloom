@@ -1,15 +1,15 @@
 ---
 name: workloom_finish
-title: 收尾
-description: 检查脏文件、归档任务、记录会话 journal，把工作提交与记账提交分离
+title: Wrap up
+description: Check dirty files, archive the task, record the session journal, and separate work commits from bookkeeping commits
 argument-hint: ''
 ---
 
-# 收尾
+# Wrap up
 
-1. 列出活跃任务、git 状态与近期提交。
-2. 检查脏文件：仍属当前任务未提交 → 拒绝收尾并退回 2.3 提交；属其他窗口工作 → 报告后继续；不确定 → 问一次。
-3. 归档：活跃任务执行归档；其他已完成任务经一次性确认后归档。
-4. 记录：调用 journal 记录本次会话（标题 + 工作提交 hash + 摘要）。
+1. List the active task, git status, and recent commits.
+2. Check dirty files: uncommitted files still belonging to this task → refuse to wrap up and go back to 2.3 Commit; work from other windows → report and continue; unclear → ask once.
+3. Archive: archive the active task; archive other completed tasks after a one-time confirmation.
+4. Record: record this session in the journal (title + work commit hash + summary).
 
-完成判据：任务已归档、journal 已记录、git 历史顺序为工作提交 → 归档提交 → 记账提交。
+Completion criteria: the task is archived, the journal is recorded, and git history order is work commits → archive commit → bookkeeping commit.

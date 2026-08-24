@@ -42,7 +42,7 @@ const FILE_NAMES = Object.freeze({
 })
 
 /** index.md 维护提示行（告知勿手改）。 */
-const INDEX_DISCLAIMER = '<!-- 会话索引：由 workloom 维护，勿手改 -->'
+const INDEX_DISCLAIMER = '<!-- Session index: maintained by workloom, do not edit -->'
 
 /** journal 文件名匹配：journal-<数字>.md。 */
 const JOURNAL_FILE_RE = /^journal-(\d+)\.md$/
@@ -61,7 +61,7 @@ const FIRST_JOURNAL_NUMBER = 1
 function requireProjectRoot(root) {
   const found = findWorkloomRoot(root)
   if (!found) {
-    throw new Error(`${ERR_PREFIX}: 未找到 .workloom 目录（起始于 ${root}）`)
+    throw new Error(`${ERR_PREFIX}: no .workloom directory found (searched up from ${root})`)
   }
   return found.root
 }
@@ -73,13 +73,13 @@ function requireProjectRoot(root) {
  */
 function validateDeveloper(developer) {
   if (typeof developer !== 'string' || developer.trim() === '') {
-    return 'developer 不能为空'
+    return 'developer must not be empty'
   }
   if (developer.includes('/') || developer.includes('\\')) {
-    return `developer 不能含路径分隔符: ${JSON.stringify(developer)}`
+    return `developer must not contain path separators: ${JSON.stringify(developer)}`
   }
   if (developer === '.' || developer === '..' || developer.includes('..')) {
-    return `developer 不能含 '..': ${JSON.stringify(developer)}`
+    return `developer must not contain '..': ${JSON.stringify(developer)}`
   }
   return null
 }
@@ -102,9 +102,9 @@ function buildEntryText(input) {
   const text = [
     `## ${input.title}`,
     '',
-    `- 时间: ${input.timestamp}`,
-    `- 提交: ${input.commit}`,
-    `- 摘要: ${input.summary}`,
+    `- Time: ${input.timestamp}`,
+    `- Commit: ${input.commit}`,
+    `- Summary: ${input.summary}`,
     '',
     '',
   ].join('\n')
@@ -201,17 +201,17 @@ async function addSessionInternal(root, params) {
   const developerReason = validateDeveloper(params.developer)
   if (developerReason) throw new Error(`${ERR_PREFIX}: ${developerReason}`)
   if (typeof params.title !== 'string' || params.title.trim() === '') {
-    throw new Error(`${ERR_PREFIX}: title 不能为空`)
+    throw new Error(`${ERR_PREFIX}: title must not be empty`)
   }
   // 条目是行结构：标题与摘要含换行会注入伪造行、破坏行数统计，一律拒绝。
   if (params.title.includes('\n') || params.title.includes('\r')) {
-    throw new Error(`${ERR_PREFIX}: title 不能含换行`)
+    throw new Error(`${ERR_PREFIX}: title must not contain line breaks`)
   }
   if ((params.commit ?? '').includes('\n') || (params.commit ?? '').includes('\r')) {
-    throw new Error(`${ERR_PREFIX}: commit 不能含换行`)
+    throw new Error(`${ERR_PREFIX}: commit must not contain line breaks`)
   }
   if ((params.summary ?? '').includes('\n') || (params.summary ?? '').includes('\r')) {
-    throw new Error(`${ERR_PREFIX}: summary 不能含换行`)
+    throw new Error(`${ERR_PREFIX}: summary must not contain line breaks`)
   }
   const config = loadConfig(projectRoot)
   // 单次取 now：条目、个人索引、全局索引共用同一时刻，避免跨秒不一致。
@@ -231,7 +231,9 @@ async function addSessionInternal(root, params) {
   if (config.sessionAutoCommit) {
     const [gitErr] = await gitAddCommit(projectRoot, config.sessionCommitMessage)
     if (gitErr) {
-      console.warn(`${ERR_PREFIX}: WARNING: git 自动提交失败（不阻塞）: ${gitErr.message}`)
+      console.warn(
+        `${ERR_PREFIX}: WARNING: git auto-commit failed (journal record proceeds anyway): ${gitErr.message}`,
+      )
     }
   }
   return {

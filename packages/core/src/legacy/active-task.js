@@ -92,10 +92,16 @@ export function resolveActiveTask(root, contextKey) {
     try {
       pointer = JSON.parse(raw)
     } catch (error) {
-      return [new Error(`${ERR_PREFIX}: 指针文件解析失败: ${contextKey}: ${String(error)}`), null]
+      return [
+        new Error(`${ERR_PREFIX}: failed to parse pointer file: ${contextKey}: ${String(error)}`),
+        null,
+      ]
     }
     if (typeof pointer?.[FIELD_CURRENT_TASK] !== 'string') {
-      return [new Error(`${ERR_PREFIX}: 指针文件缺少 ${FIELD_CURRENT_TASK}: ${contextKey}`), null]
+      return [
+        new Error(`${ERR_PREFIX}: pointer file missing ${FIELD_CURRENT_TASK}: ${contextKey}`),
+        null,
+      ]
     }
     const taskDir = insideWorkloom(root, pointer[FIELD_CURRENT_TASK])
     if (!existsSync(taskDir)) {
@@ -149,10 +155,13 @@ function readPointer(file) {
   try {
     parsed = JSON.parse(raw)
   } catch (error) {
-    return [new Error(`${ERR_PREFIX}: 指针文件解析失败: ${file}: ${String(error)}`), null]
+    return [
+      new Error(`${ERR_PREFIX}: failed to parse pointer file: ${file}: ${String(error)}`),
+      null,
+    ]
   }
   if (typeof parsed?.[FIELD_CURRENT_TASK] !== 'string') {
-    return [new Error(`${ERR_PREFIX}: 指针文件缺少 ${FIELD_CURRENT_TASK}: ${file}`), null]
+    return [new Error(`${ERR_PREFIX}: pointer file missing ${FIELD_CURRENT_TASK}: ${file}`), null]
   }
   return [null, parsed]
 }
@@ -165,7 +174,9 @@ function readPointer(file) {
  */
 function pointerPath(root, contextKey) {
   if (!CONTEXT_KEY_PATTERN.test(contextKey)) {
-    throw new Error(`${ERR_PREFIX}: 非法 contextKey（仅字母数字下划线连字符）: ${contextKey}`)
+    throw new Error(
+      `${ERR_PREFIX}: invalid contextKey (alphanumerics, underscore, and hyphen only): ${contextKey}`,
+    )
   }
   return insideWorkloom(root, join(RUNTIME_DIR, SESSIONS_DIR, `${contextKey}${POINTER_EXT}`))
 }
