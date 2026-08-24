@@ -1,5 +1,6 @@
 /**
- * adapter-dsh 的 Cordis 插件：向 DSH 注入 workloom breadcrumb 指引与会话上下文快照。
+ * adapter-dsh 的 Cordis 插件：注入 workloom breadcrumb 指引与会话上下文快照，
+ * 并注册 slash 命令、executor 工具、runtime skills 与步骤详情工具。
  *
  * 设计意图：
  * - 通过 systemPrompt 服务注册一个 section（order 90）与一个 context（order 85）：
@@ -27,6 +28,8 @@ import { loadWorkflowContractText } from '@workloom/assets'
 import { registerCommands } from './commands.js'
 import { registerExecutor } from './executor.js'
 import type { ExecutorServices } from './executor.js'
+import { registerSkills, registerStepsTool } from './skills.js'
+import type { SkillsServices, StepsToolServices } from './skills.js'
 
 /** 注入 section 名（systemPrompt 注册键，同名重复注册会抛错）。 */
 const SECTION_NAME = 'workloom-breadcrumb'
@@ -73,11 +76,19 @@ interface InjectionTarget {
 /** 插件名（与 cordis.patch.yml 的插件行 id 一致）。 */
 export const name = PLUGIN_NAME
 
-/** 硬依赖：systemPrompt 注册 section/context，agents 读取发起会话，commands 注册 slash 命令，tools 注册 executor 工具，subagents 派发子代理；缺任一服务插件不激活。 */
-export const inject = ['systemPrompt', 'agents', 'commands', 'tools', 'subagents'] as const
+/** 硬依赖：systemPrompt 注册 section/context，agents 读取发起会话，commands 注册 slash 命令，tools 注册 executor 与步骤详情工具，subagents 派发子代理，skills 注册 runtime skills；缺任一服务插件不激活。 */
+export const inject = [
+  'systemPrompt',
+  'agents',
+  'commands',
+  'tools',
+  'subagents',
+  'skills',
+] as const
 
 /**
- * 插件入口：注册 session-context 与 breadcrumb 两个注入，以及三个 workloom slash 命令。
+ * 插件入口：注册 session-context 与 breadcrumb 两个注入、三个 workloom slash
+ * 命令、executor 工具、4 个 runtime skills 与步骤详情工具。
  * @param ctx 插件作用域上下文
  */
 export function apply(ctx: Context): void {
@@ -105,6 +116,8 @@ export function apply(ctx: Context): void {
   registerCommands(ctx)
   // 服务注入面为局部结构化声明，运行时由宿主满足；断言仅打通类型边界。
   registerExecutor(ctx as Context & ExecutorServices)
+  registerSkills(ctx as Context & SkillsServices)
+  registerStepsTool(ctx as Context & StepsToolServices)
 }
 
 /**
