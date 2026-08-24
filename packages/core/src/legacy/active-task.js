@@ -25,6 +25,12 @@ const POINTER_EXT = '.json'
 /** 指针文件中的当前任务字段名。 */
 const FIELD_CURRENT_TASK = 'current_task'
 
+/** 指针文件中的最近活跃时间字段名。 */
+const FIELD_LAST_SEEN_AT = 'last_seen_at'
+
+/** contextKey 合法字符（字母数字、下划线、连字符），防路径注入。 */
+const CONTEXT_KEY_PATTERN = /^[A-Za-z0-9_-]+$/
+
 /** 错误消息前缀。 */
 const ERR_PREFIX = 'workloom session'
 
@@ -41,8 +47,8 @@ export function setActiveTask(root, contextKey, taskRelPath) {
     mkdirSync(dirname(file), { recursive: true })
     /** @type {import('./active-task.d.ts').SessionPointer} */
     const pointer = {
-      current_task: taskRelPath,
-      last_seen_at: new Date().toISOString(),
+      [FIELD_CURRENT_TASK]: taskRelPath,
+      [FIELD_LAST_SEEN_AT]: new Date().toISOString(),
     }
     writeFileSync(file, `${JSON.stringify(pointer, null, 2)}\n`)
     return [null]
@@ -88,15 +94,15 @@ export function resolveActiveTask(root, contextKey) {
     } catch (error) {
       return [new Error(`${ERR_PREFIX}: 指针文件解析失败: ${contextKey}: ${String(error)}`), null]
     }
-    if (typeof pointer?.current_task !== 'string') {
+    if (typeof pointer?.[FIELD_CURRENT_TASK] !== 'string') {
       return [new Error(`${ERR_PREFIX}: 指针文件缺少 ${FIELD_CURRENT_TASK}: ${contextKey}`), null]
     }
-    const taskDir = insideWorkloom(root, pointer.current_task)
+    const taskDir = insideWorkloom(root, pointer[FIELD_CURRENT_TASK])
     if (!existsSync(taskDir)) {
       rmSync(file, { force: true })
       return [null, null]
     }
-    return [null, pointer.current_task]
+    return [null, pointer[FIELD_CURRENT_TASK]]
   } catch (error) {
     return [toError(error), null]
   }
@@ -117,7 +123,7 @@ export function clearPointersToTask(root, taskRelPath) {
       const file = join(sessionsDir, entry)
       const [readErr, pointer] = readPointer(file)
       if (readErr || !pointer) continue // 损坏的指针文件跳过，不阻塞清理
-      if (pointer.current_task === taskRelPath) {
+      if (pointer[FIELD_CURRENT_TASK] === taskRelPath) {
         rmSync(file, { force: true })
       }
     }
@@ -145,7 +151,7 @@ function readPointer(file) {
   } catch (error) {
     return [new Error(`${ERR_PREFIX}: 指针文件解析失败: ${file}: ${String(error)}`), null]
   }
-  if (typeof parsed?.current_task !== 'string') {
+  if (typeof parsed?.[FIELD_CURRENT_TASK] !== 'string') {
     return [new Error(`${ERR_PREFIX}: 指针文件缺少 ${FIELD_CURRENT_TASK}: ${file}`), null]
   }
   return [null, parsed]
@@ -158,6 +164,9 @@ function readPointer(file) {
  * @returns {string}
  */
 function pointerPath(root, contextKey) {
+  if (!CONTEXT_KEY_PATTERN.test(contextKey)) {
+    throw new Error(`${ERR_PREFIX}: 非法 contextKey（仅字母数字下划线连字符）: ${contextKey}`)
+  }
   return insideWorkloom(root, join(RUNTIME_DIR, SESSIONS_DIR, `${contextKey}${POINTER_EXT}`))
 }
 

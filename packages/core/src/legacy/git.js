@@ -9,11 +9,13 @@
 
 import { execFile } from 'node:child_process'
 
+import { WORKLOOM_DIR } from './locate.js'
+
 /** git 可执行文件名。 */
 const GIT_BIN = 'git'
 
-/** add 固定参数：只暂存 .workloom 资产目录。 */
-const GIT_ADD_ARGS = ['add', '--', '.workloom']
+/** add 固定参数：只暂存资产目录（目录名以 locate 的常量为准）。 */
+const GIT_ADD_ARGS = ['add', '--', WORKLOOM_DIR]
 
 /**
  * 暂存 .workloom 并提交（cwd 为 root）。

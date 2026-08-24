@@ -300,6 +300,95 @@ test('runTaskHooks 返回失败 WARNING 列表', async () => {
   }
 })
 
+test('archiveTask 冲突失败不破坏原任务状态与位置', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dup Keep', slug: 'dup-keep' })
+    const now = new Date()
+    const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    mkdirSync(join(root, '.workloom', 'tasks', 'archive', yyyyMm, 'dup-keep'), { recursive: true })
+    const [err] = await archiveTask(root, { taskRelPath: created.taskRelPath, autoCommit: false })
+    assert.ok(err)
+    // 原目录未被移动，task.json.status 仍是 planning（不能留下半完成态）
+    assert.equal(existsSync(join(root, '.workloom', created.taskRelPath)), true)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('after_archive hooks 执行并注入 TASK_JSON_PATH，失败不阻塞', async () => {
+  const root = makeRoot({
+    config: `
+hooks:
+  after_archive:
+    - "echo archived > archived.txt"
+    - "echo $TASK_JSON_PATH > archived-path.txt"
+    - "exit 1"
+`,
+  })
+  try {
+    const [, created] = await createTask(root, { title: 'Archive Hook' })
+    const [err] = await archiveTask(root, { taskRelPath: created.taskRelPath, autoCommit: false })
+    assert.equal(err, null)
+    assert.equal(readFileSync(join(root, 'archived.txt'), 'utf8').trim(), 'archived')
+    const now = new Date()
+    const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const expectedJson = join(root, '.workloom', 'tasks', 'archive', yyyyMm, 'archive-hook', 'task.json')
+    assert.equal(readFileSync(join(root, 'archived-path.txt'), 'utf8').trim(), expectedJson)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('startTask 传入 contextKey 时写入会话指针', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Start Pointer' })
+    const [err] = await startTask(root, { taskRelPath: created.taskRelPath, contextKey: 'dsh_sp1' })
+    assert.equal(err, null)
+    assert.equal(resolveActiveTask(root, 'dsh_sp1')[1], created.taskRelPath)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask 显式 autoCommit: false 覆盖 config 默认开启', async () => {
+  const root = makeRoot({ config: 'session_auto_commit: true\n' })
+  runGit(root, ['init'])
+  runGit(root, ['config', 'user.email', 'test@example.com'])
+  runGit(root, ['config', 'user.name', 'test'])
+  try {
+    const [, created] = await createTask(root, { title: 'Force Off' })
+    const [err] = await archiveTask(root, { taskRelPath: created.taskRelPath, autoCommit: false })
+    assert.equal(err, null)
+    let hasCommit = true
+    try {
+      execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root, stdio: 'pipe' })
+    } catch {
+      hasCommit = false
+    }
+    assert.equal(hasCommit, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('listTasks 跳过损坏的任务目录', async () => {
+  const root = makeRoot()
+  try {
+    await createTask(root, { title: 'Good One' })
+    // 伪造一个无 task.json 的目录
+    mkdirSync(join(root, '.workloom', 'tasks', '09-01-broken'), { recursive: true })
+    const [err, list] = listTasks(root)
+    assert.equal(err, null)
+    assert.equal(list.length, 1)
+    assert.equal(list[0].name, 'good-one')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('listTasks 摘要与状态过滤，归档后不再出现', async () => {
   const root = makeRoot()
   try {

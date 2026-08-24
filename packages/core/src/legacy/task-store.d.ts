@@ -116,16 +116,16 @@ export function createTask(
 export function startTask(
   root: string,
   params: StartTaskParams,
-): Promise<[Error | null, TaskRecord | null]>
+): Promise<[Error | null, TaskRecordWithPath | null]>
 
 /** 结束任务会话（清指针，不改状态）。 */
 export function finishTask(root: string, params: FinishTaskParams): Promise<[Error | null]>
 
-/** 归档任务（置 completed、移动目录、可选 git 提交）。 */
+/** 归档任务（置 completed、移动目录、可选 git 提交）；返回记录的 taskRelPath 为归档后新路径。 */
 export function archiveTask(
   root: string,
   params: ArchiveTaskParams,
-): Promise<[Error | null, TaskRecord | null]>
+): Promise<[Error | null, TaskRecordWithPath | null]>
 
 /** 列出任务摘要（可按状态过滤）。 */
 export function listTasks(

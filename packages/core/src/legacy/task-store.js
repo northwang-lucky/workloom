@@ -362,16 +362,20 @@ export async function createTask(root, params) {
 async function createTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const slug = params.slug ?? slugify(params.title)
-  const taskRelPath = join(DIR_NAMES.tasks, `${formatMonthDay(new Date())}-${slug}`)
+  if (slug.length === 0) {
+    throw new Error(`${ERR_PREFIX}: 标题无法生成合法 slug: ${JSON.stringify(params.title)}`)
+  }
+  // 单次取 now：目录前缀与 createdAt 时间戳共用同一时刻，避免跨日/跨月不一致。
+  const now = new Date()
+  const taskRelPath = join(DIR_NAMES.tasks, `${formatMonthDay(now)}-${slug}`)
   const taskDir = insideWorkloom(projectRoot, taskRelPath)
   if (existsSync(taskDir)) {
     throw new Error(`${ERR_PREFIX}: 任务目录已存在: ${taskRelPath}`)
   }
   assertPriority(params.priority)
-  const now = new Date().toISOString()
   const creator = readDeveloper(projectRoot)
   const config = loadConfig(projectRoot)
-  const task = buildTaskRecord({ params, slug, creator, config, now })
+  const task = buildTaskRecord({ params, slug, creator, config, now: now.toISOString() })
   mkdirSync(taskDir, { recursive: true })
   writeTaskJson(taskDir, task)
   writeFileSync(join(taskDir, FILE_NAMES.prd), buildPrdContent())
@@ -404,7 +408,7 @@ function assertPriority(priority) {
  * 启动任务：planning → in_progress，可选激活会话并执行 after_start hooks。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').StartTaskParams} params
- * @returns {Promise<[Error | null, import('./task-store.d.ts').TaskRecord | null]>}
+ * @returns {Promise<[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]>}
  */
 export async function startTask(root, params) {
   try {
@@ -418,7 +422,7 @@ export async function startTask(root, params) {
  * 启动任务（内部实现）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').StartTaskParams} params
- * @returns {Promise<import('./task-store.d.ts').TaskRecord>}
+ * @returns {Promise<import('./task-store.d.ts').TaskRecordWithPath>}
  */
 async function startTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
@@ -478,7 +482,7 @@ async function finishTaskInternal(root, params) {
  * 归档任务：置 completed、移动目录、清理会话指针、执行 after_archive hooks，可选 git 自动提交。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').ArchiveTaskParams} params
- * @returns {Promise<[Error | null, import('./task-store.d.ts').TaskRecord | null]>}
+ * @returns {Promise<[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]>}
  */
 export async function archiveTask(root, params) {
   try {
@@ -492,26 +496,24 @@ export async function archiveTask(root, params) {
  * 归档任务（内部实现）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').ArchiveTaskParams} params
- * @returns {Promise<import('./task-store.d.ts').TaskRecord>}
+ * @returns {Promise<import('./task-store.d.ts').TaskRecordWithPath>}
  */
 async function archiveTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, params.taskRelPath)
-  task.status = TaskStatus.COMPLETED
-  task.completedAt = new Date().toISOString()
-  writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task))
-  const archiveRel = join(
-    DIR_NAMES.tasks,
-    DIR_NAMES.archive,
-    formatYearMonth(new Date()),
-    task.name,
-  )
+  // 先查冲突再动手：避免改完状态后因冲突失败留下半完成态。
+  const now = new Date()
+  const archiveRel = join(DIR_NAMES.tasks, DIR_NAMES.archive, formatYearMonth(now), task.name)
   const archiveDir = insideWorkloom(projectRoot, archiveRel)
   if (existsSync(archiveDir)) {
     throw new Error(`${ERR_PREFIX}: 归档目标已存在: ${archiveRel}`)
   }
+  // 先移动、再在归档位置改状态：任一写盘失败都不会把原目录改成 completed。
   mkdirSync(dirname(archiveDir), { recursive: true })
   renameSync(insideWorkloom(projectRoot, params.taskRelPath), archiveDir)
+  task.status = TaskStatus.COMPLETED
+  task.completedAt = now.toISOString()
+  writeTaskJson(archiveDir, stripTaskPath(task))
   const [ptrErr] = clearPointersToTask(projectRoot, params.taskRelPath)
   if (ptrErr) throw ptrErr
   const warnings = await runTaskHooks(
@@ -521,6 +523,8 @@ async function archiveTaskInternal(root, params) {
   )
   warnings.push(...(await autoCommitIfEnabled(projectRoot, params.autoCommit, task.name)))
   logWarnings(warnings)
+  // 返回归档后的新路径，避免调用方拿着旧路径继续操作。
+  task.taskRelPath = archiveRel
   return task
 }
 
