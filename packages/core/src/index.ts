@@ -17,4 +17,44 @@ export {
 
 export { DEFAULT_CONFIG, WorkloomConfigError, loadConfig } from './legacy/config.js'
 
+export {
+  TaskStatus,
+  TaskPriority,
+  slugify,
+  createTask,
+  startTask,
+  finishTask,
+  archiveTask,
+  listTasks,
+  runTaskHooks,
+} from './legacy/task-store.js'
+
+export {
+  setActiveTask,
+  clearActiveTask,
+  resolveActiveTask,
+  clearPointersToTask,
+} from './legacy/active-task.js'
+
+export { gitAddCommit } from './legacy/git.js'
+
 export type { WorkloomConfig } from './legacy/config.d.ts'
+
+export type {
+  TaskStatusKey,
+  TaskStatusValue,
+  TaskPriorityKey,
+  TaskPriorityValue,
+  TaskHooks,
+  TaskRecord,
+  TaskRecordWithPath,
+  TaskSummary,
+  CreateTaskParams,
+  CreateTaskResult,
+  StartTaskParams,
+  FinishTaskParams,
+  ArchiveTaskParams,
+  ListTasksParams,
+} from './legacy/task-store.d.ts'
+
+export type { SessionPointer } from './legacy/active-task.d.ts'
