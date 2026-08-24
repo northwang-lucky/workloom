@@ -7,5 +7,18 @@
  * 本包整体经 tsc 构建发布，不得 import 任何 runtime 包。
  */
 
-/** core 包语义版本（点 1 骨架占位，后续由各模块填充导出）。 */
-export const VERSION = '0.0.0'
+export {
+  WORKLOOM_DIR,
+  LEGACY_TRELLIS_DIR,
+  findWorkloomRoot,
+  detectLegacyTrellis,
+  insideWorkloom,
+} from './legacy/locate.js'
+
+export {
+  DEFAULT_CONFIG,
+  WorkloomConfigError,
+  loadConfig,
+} from './legacy/config.js'
+
+export type { WorkloomConfig } from './legacy/config.d.ts'
