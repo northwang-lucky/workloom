@@ -160,7 +160,7 @@ test('开启自动提交时 commit message 取 config 配置', async () => {
 test('developer 非法值报错（越界/分隔符/空），中文名可用', async () => {
   const root = makeRoot({ config: 'session_auto_commit: false\n' })
   try {
-    for (const developer of ['../evil', 'a/b', 'a\\b', '..', '', '   ']) {
+    for (const developer of ['../evil', 'a/b', 'a\\b', '..', '.', '', '   ']) {
       const [err, result] = await addSession(root, { developer, title: 'X' })
       assert.ok(err, `developer=${JSON.stringify(developer)} 应报错`)
       assert.equal(result, null)
@@ -176,6 +176,10 @@ test('developer 非法值报错（越界/分隔符/空），中文名可用', as
     const [titleErr] = await addSession(root, { developer: 'alice', title: '' })
     assert.ok(titleErr)
     assert.match(titleErr.message, /title/)
+    // title 含换行拒绝（防注入伪造条目）
+    const [newlineErr] = await addSession(root, { developer: 'alice', title: 'a\nb' })
+    assert.ok(newlineErr)
+    assert.match(newlineErr.message, /换行/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
