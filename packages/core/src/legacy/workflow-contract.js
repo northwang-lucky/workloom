@@ -71,7 +71,7 @@ function splitFrontMatter(text) {
     (line, index) => index > 0 && line.trim() === FRONT_MATTER_DELIMITER,
   )
   if (endIndex === -1) {
-    throw new WorkflowContractError(FIELD_FRONT_MATTER, '缺少闭合分隔符 ---')
+    throw new WorkflowContractError(FIELD_FRONT_MATTER, 'missing closing delimiter ---')
   }
   return {
     yamlText: lines.slice(1, endIndex).join('\n'),
@@ -90,19 +90,19 @@ function parseFrontMatter(yamlText) {
   try {
     doc = parseYaml(yamlText) ?? {}
   } catch (error) {
-    throw new WorkflowContractError(FIELD_FRONT_MATTER, `YAML 解析失败: ${String(error)}`)
+    throw new WorkflowContractError(FIELD_FRONT_MATTER, `YAML parse failed: ${String(error)}`)
   }
   if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) {
-    throw new WorkflowContractError(FIELD_FRONT_MATTER, '必须是对象映射')
+    throw new WorkflowContractError(FIELD_FRONT_MATTER, 'must be an object map')
   }
   const record = /** @type {Record<string, unknown>} */ (doc)
   const version = record.version
   if (typeof version !== 'number' || !Number.isInteger(version) || version <= 0) {
-    throw new WorkflowContractError(FIELD_VERSION, '必须是不小于 1 的整数')
+    throw new WorkflowContractError(FIELD_VERSION, 'must be an integer >= 1')
   }
   const states = record.states
   if (!Array.isArray(states) || states.some((item) => typeof item !== 'string')) {
-    throw new WorkflowContractError(FIELD_STATES, '必须是字符串数组')
+    throw new WorkflowContractError(FIELD_STATES, 'must be an array of strings')
   }
   return { version, states: /** @type {string[]} */ (states) }
 }
@@ -129,33 +129,42 @@ function parseTagBlocks(bodyText) {
     if (open !== null) {
       const status = (open[1] ?? '').trim()
       if (status === '') {
-        throw new WorkflowContractError(FIELD_TAG, `第 ${index + 1} 行: 开 tag 的状态不能为空`)
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: open tag status must not be empty`,
+        )
       }
       if (stack.length > 0) {
-        throw new WorkflowContractError(FIELD_TAG, `第 ${index + 1} 行: tag 块不允许嵌套`)
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: tag blocks must not be nested`,
+        )
       }
       stack.push({ status, startLine: index })
       continue
     }
     if (close !== null) {
       if (stack.length === 0) {
-        throw new WorkflowContractError(FIELD_TAG, `第 ${index + 1} 行: 多余的闭合 tag`)
+        throw new WorkflowContractError(FIELD_TAG, `line ${index + 1}: stray closing tag`)
       }
       const top = stack.pop()
       const status = (close[1] ?? '').trim()
       if (top === undefined) {
-        throw new WorkflowContractError(FIELD_TAG, `第 ${index + 1} 行: tag 栈状态异常`)
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: tag stack state is inconsistent`,
+        )
       }
       if (status !== top.status) {
         throw new WorkflowContractError(
           FIELD_TAG,
-          `第 ${index + 1} 行: 闭 tag 状态 ${status} 与开 tag 状态 ${top.status} 不一致`,
+          `line ${index + 1}: closing tag status ${status} does not match opening tag status ${top.status}`,
         )
       }
       if (breadcrumbs.has(top.status)) {
         throw new WorkflowContractError(
           FIELD_TAG,
-          `状态 ${top.status} 出现多个 tag 块（不允许歧义）`,
+          `status ${top.status} has multiple tag blocks (ambiguity not allowed)`,
         )
       }
       for (let j = top.startLine; j <= index; j += 1) masked[j] = TAG_BLOCK_MARKER
@@ -172,7 +181,7 @@ function parseTagBlocks(bodyText) {
   }
   if (stack.length > 0) {
     const top = /** @type {{ status: string, startLine: number }} */ (stack[stack.length - 1])
-    throw new WorkflowContractError(FIELD_TAG, `状态 ${top.status} 的 tag 块未闭合`)
+    throw new WorkflowContractError(FIELD_TAG, `tag block for status ${top.status} is not closed`)
   }
   return { breadcrumbs, masked }
 }
@@ -199,7 +208,7 @@ function extractSteps(masked) {
     if (heading !== null) {
       const id = heading[1] ?? ''
       if (seenIds.has(id)) {
-        throw new WorkflowContractError(FIELD_STEP_ID, `步骤 id ${id} 重复`)
+        throw new WorkflowContractError(FIELD_STEP_ID, `duplicate step id ${id}`)
       }
       seenIds.add(id)
       current = { id, title: heading[2]?.trim() ?? '', bodyLines: [] }
@@ -229,7 +238,7 @@ function extractSteps(masked) {
 export function buildWarnings(states, breadcrumbs) {
   return states
     .filter((status) => !breadcrumbs.has(status))
-    .map((status) => `状态 ${status} 已声明但缺少对应 tag 块`)
+    .map((status) => `status ${status} is declared but has no corresponding tag block`)
 }
 
 /**
@@ -243,7 +252,10 @@ export function parseDocument(markdownText, { requireFrontMatter }) {
   const front = splitFrontMatter(markdownText)
   if (front === null) {
     if (requireFrontMatter) {
-      throw new WorkflowContractError(FIELD_FRONT_MATTER, '文档缺少 --- 分隔的 front-matter')
+      throw new WorkflowContractError(
+        FIELD_FRONT_MATTER,
+        'document is missing --- delimited front-matter',
+      )
     }
     const { breadcrumbs, masked } = parseTagBlocks(markdownText)
     return {
@@ -259,7 +271,10 @@ export function parseDocument(markdownText, { requireFrontMatter }) {
   // 状态机封闭的对称约束：块的状态必须在 states 中声明（与 overlay 侧一致）。
   for (const status of breadcrumbs.keys()) {
     if (!states.includes(status)) {
-      throw new WorkflowContractError(FIELD_STATES, `tag 块状态 ${status} 未在 states 中声明`)
+      throw new WorkflowContractError(
+        FIELD_STATES,
+        `tag block status ${status} is not declared in states`,
+      )
     }
   }
   return {

@@ -155,7 +155,7 @@ test('startTask 状态迁移与非法迁移', async () => {
     assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.IN_PROGRESS)
     const [err2] = await startTask(root, { taskRelPath: created.taskRelPath })
     assert.ok(err2) // 非 planning 不可再启动
-    assert.match(err2.message, /只能启动/)
+    assert.match(err2.message, /can be started/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -261,7 +261,7 @@ test('archiveTask 归档目标已存在返回 err', async () => {
     mkdirSync(join(root, '.workloom', 'tasks', 'archive', yyyyMm, 'dup'), { recursive: true })
     const [err] = await archiveTask(root, { taskRelPath: created.taskRelPath, autoCommit: false })
     assert.ok(err)
-    assert.match(err.message, /归档目标已存在/)
+    assert.match(err.message, /archive target already exists/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

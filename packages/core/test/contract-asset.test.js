@@ -25,9 +25,9 @@ test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {
   const [, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   const ids = contract.steps.map((step) => step.id)
   assert.deepEqual(ids, ['1.0', '1.1', '1.2', '1.3', '1.4', '2.1', '2.2', '2.3', '3.1'])
-  // 关键步骤含完成判据（无灰区 gate 文案在 1.1）
+  // 关键步骤含完成判据（no grey areas gate 文案在 1.1）
   const alignStep = contract.steps.find((step) => step.id === '1.1')
-  assert.match(alignStep.body, /无灰区/)
+  assert.match(alignStep.body, /no grey areas/)
   const loopStep = contract.steps.find((step) => step.id === '2.1')
   assert.match(loopStep.body, /red-green/)
 })

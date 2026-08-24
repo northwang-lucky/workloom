@@ -42,7 +42,7 @@ function hasHead(root) {
 
 /** 组装期望的会话条目文本（与实现格式一致，供行数与内容断言）。 */
 function expectedEntry(params) {
-  return `## ${params.title}\n\n- 时间: ${params.timestamp}\n- 提交: ${params.commit}\n- 摘要: ${params.summary}\n\n`
+  return `## ${params.title}\n\n- Time: ${params.timestamp}\n- Commit: ${params.commit}\n- Summary: ${params.summary}\n\n`
 }
 
 test('首次 addSession 从 journal-1.md 开始，条目格式与两个索引正确', async () => {
@@ -63,14 +63,14 @@ test('首次 addSession 从 journal-1.md 开始，条目格式与两个索引正
     const content = readText(root, 'workspace/alice/journal-1.md')
     assert.match(
       content,
-      /^## Hello\n\n- 时间: \d{4}-\d{2}-\d{2}T.+?\n- 提交: abc123\n- 摘要: first session\n\n$/,
+      /^## Hello\n\n- Time: \d{4}-\d{2}-\d{2}T.+?\n- Commit: abc123\n- Summary: first session\n\n$/,
     )
     // 两个索引均为 sessions=1，含维护提示行
     const personal = readText(root, 'workspace/alice/index.md')
     const global = readText(root, 'workspace/index.md')
     for (const index of [personal, global]) {
       assert.match(index, /^---\nsessions: 1\nlast_active_at: \d{4}-\d{2}-\d{2}T.+?\n---\n\n/)
-      assert.ok(index.includes('<!-- 会话索引：由 workloom 维护，勿手改 -->'))
+      assert.ok(index.includes('<!-- Session index: maintained by workloom, do not edit -->'))
     }
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -91,7 +91,7 @@ test('连续两次 addSession 追加同一文件，索引累计与 last_active_a
     assert.equal(second.rolledOver, false)
     // 同一文件内两条目之间有空行分隔
     const content = readText(root, 'workspace/alice/journal-1.md')
-    assert.ok(content.includes('- 摘要: \n\n## Two'))
+    assert.ok(content.includes('- Summary: \n\n## Two'))
     const personal = readText(root, 'workspace/alice/index.md')
     const global = readText(root, 'workspace/index.md')
     assert.match(personal, /^---\nsessions: 2\n/)
@@ -179,7 +179,7 @@ test('developer 非法值报错（越界/分隔符/空），中文名可用', as
     // title 含换行拒绝（防注入伪造条目）
     const [newlineErr] = await addSession(root, { developer: 'alice', title: 'a\nb' })
     assert.ok(newlineErr)
-    assert.match(newlineErr.message, /换行/)
+    assert.match(newlineErr.message, /line breaks/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -224,11 +224,11 @@ test('找不到 .workloom 时 addSession 与 listJournals 均返回 err', async 
     const [err1, result1] = await addSession(root, { developer: 'alice', title: 'X' })
     assert.ok(err1)
     assert.equal(result1, null)
-    assert.match(err1.message, /未找到 .workloom/)
+    assert.match(err1.message, /no .workloom directory/)
     const [err2, result2] = listJournals(root)
     assert.ok(err2)
     assert.equal(result2, null)
-    assert.match(err2.message, /未找到 .workloom/)
+    assert.match(err2.message, /no .workloom directory/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

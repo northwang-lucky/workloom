@@ -13,7 +13,7 @@
 import { buildWarnings, parseDocument, WorkflowContractError } from './workflow-contract.js'
 
 /** states 内但缺对应块时的通用提示文案。 */
-const GENERIC_BREADCRUMB = '参考工作流文档确认当前步骤。'
+const GENERIC_BREADCRUMB = 'Refer to the workflow document to confirm the current step.'
 
 /** 正则特殊字符（转义用，防止关键词被当作模式语法）。 */
 const REGEX_SPECIAL_CHARS = /[.*+?^${}()|[\]\\]/g
@@ -30,7 +30,7 @@ const FIELD_STATUS = 'status'
  */
 export function mergeOverlay(contract, overlayText) {
   if (typeof overlayText !== 'string') {
-    return [new WorkflowContractError('<overlay>', 'overlay 文本必须是字符串'), null]
+    return [new WorkflowContractError('<overlay>', 'overlay text must be a string'), null]
   }
   /** @type {import('./workflow-contract.d.ts').WorkflowContract} */
   let overlay
@@ -42,7 +42,10 @@ export function mergeOverlay(contract, overlayText) {
   for (const status of overlay.breadcrumbs.keys()) {
     if (!contract.states.includes(status)) {
       return [
-        new WorkflowContractError(FIELD_OVERLAY_STATUS, `overlay 引入了契约未声明的状态 ${status}`),
+        new WorkflowContractError(
+          FIELD_OVERLAY_STATUS,
+          `overlay introduces status ${status} not declared in the contract`,
+        ),
         null,
       ]
     }
@@ -56,7 +59,10 @@ export function mergeOverlay(contract, overlayText) {
     const index = indexById.get(step.id)
     if (index === undefined) {
       return [
-        new WorkflowContractError('<overlay>', `overlay 引入了契约未声明的步骤 ${step.id}`),
+        new WorkflowContractError(
+          '<overlay>',
+          `overlay introduces step ${step.id} not declared in the contract`,
+        ),
         null,
       ]
     }
@@ -86,7 +92,10 @@ export function mergeOverlay(contract, overlayText) {
  */
 export function buildBreadcrumb(contract, status) {
   if (!contract.states.includes(status)) {
-    return [new WorkflowContractError(FIELD_STATUS, `状态 ${status} 不在契约 states 中`), null]
+    return [
+      new WorkflowContractError(FIELD_STATUS, `status ${status} is not in the contract states`),
+      null,
+    ]
   }
   const body = contract.breadcrumbs.get(status)
   if (body === undefined) return [null, GENERIC_BREADCRUMB]

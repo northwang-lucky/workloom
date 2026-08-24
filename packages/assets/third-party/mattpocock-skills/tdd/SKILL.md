@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests; workloom 任务中 prd.md 明确要求 test-first 交付时。
+description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests; and when prd.md in a workloom task explicitly requires test-first delivery.
 license: MIT
 source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
 ---
@@ -19,7 +19,7 @@ See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking g
 
 ## Seams: where tests go
 
-> workloom: seams 确认在 workloom 中并入 Phase 1.1b grilling 对齐（design-tree frontier 拷问），确认结果写入 prd.md 验收标准；无灰区 gate 对 seams 同样生效。原文正文不改。
+> workloom: in workloom, seam confirmation joins Phase 1.1b grilling alignment (design-tree frontier rounds); confirmed seams are recorded in prd.md acceptance criteria, and the no-grey-areas gate applies to seams too. Upstream body unchanged.
 
 A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 
@@ -27,8 +27,8 @@ A **seam** is the public boundary you test at: the interface where you observe b
 
 Ask: "What's the public interface, and which seams should we test?"
 
-接口形态本身存疑时（how deep the module is, where the seam belongs, what the interface should expose），把 seam 归属作为 design-tree 的一个 frontier 节点纳入 Phase 1.1b grilling 拷问。
-<!-- workloom: 原文为 call the Skill tool with "codebase-design" for the vocabulary：workloom 不留外部 skill 依赖，共享术语改由 Phase 1.1b grilling 提供 -->
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), bring the seam's ownership into Phase 1.1b grilling as a frontier node of the design tree.
+<!-- workloom: upstream said call the Skill tool with "codebase-design" for the vocabulary; workloom keeps no external skill dependencies, so the shared vocabulary comes from Phase 1.1b grilling instead -->
 
 ## Anti-patterns
 
@@ -40,5 +40,5 @@ Ask: "What's the public interface, and which seams should we test?"
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** It belongs to the review stage (workloom: W8 check，对照 spec 与验收标准自查自修), not the red → green implementation cycle.
-<!-- workloom: 原文为 (see the `code-review` skill) -->
+- **Refactoring is not part of the loop.** It belongs to the review stage (workloom: the W8 check, self-reviewing against spec and acceptance criteria), not the red → green implementation cycle.
+<!-- workloom: upstream said (see the `code-review` skill) -->

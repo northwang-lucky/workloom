@@ -1,4 +1,4 @@
-# workloom: 面向 Claude Code/Codex 的 agent 元数据，DSH/Pi adapter 不消费；原样保留供上游 diff 同步
+# workloom: agent metadata for Claude Code/Codex; DSH/Pi adapters do not consume it, kept as-is for upstream diff sync
 # source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
 interface:
   display_name: "Grilling"

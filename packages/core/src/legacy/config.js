@@ -84,10 +84,10 @@ export function loadConfig(root) {
   try {
     doc = parseYaml(raw) ?? {}
   } catch (error) {
-    throw new WorkloomConfigError('<yaml>', `解析失败: ${String(error)}`)
+    throw new WorkloomConfigError('<yaml>', `parse failed: ${String(error)}`)
   }
   if (typeof doc !== 'object' || Array.isArray(doc)) {
-    throw new WorkloomConfigError('<root>', '必须是对象映射')
+    throw new WorkloomConfigError('<root>', 'must be an object map')
   }
   return mergeWithDefaults(doc)
 }
@@ -181,14 +181,14 @@ function parsePackages(value) {
 
 /** @param {string} field @param {unknown} value @returns {string} */
 function requireString(field, value) {
-  if (typeof value !== 'string') throw new WorkloomConfigError(field, '必须是字符串')
+  if (typeof value !== 'string') throw new WorkloomConfigError(field, 'must be a string')
   return value
 }
 
 /** @param {string} field @param {unknown} value @returns {number} */
 function requirePositiveInt(field, value) {
   if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-    throw new WorkloomConfigError(field, '必须是正整数')
+    throw new WorkloomConfigError(field, 'must be a positive integer')
   }
   return value
 }
@@ -196,7 +196,7 @@ function requirePositiveInt(field, value) {
 /** @param {string} field @param {unknown} value @returns {number} */
 function requireNonNegativeInt(field, value) {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-    throw new WorkloomConfigError(field, '必须是非负整数（0 表示不限制）')
+    throw new WorkloomConfigError(field, 'must be a non-negative integer (0 means unlimited)')
   }
   return value
 }
@@ -210,13 +210,13 @@ function requireBoolean(field, value) {
   if (typeof value === 'number' && (value === 1 || value === 0)) {
     return value === 1
   }
-  throw new WorkloomConfigError(field, '必须是布尔值（或 true/false/yes/no/1/0/on/off）')
+  throw new WorkloomConfigError(field, 'must be a boolean (or true/false/yes/no/1/0/on/off)')
 }
 
 /** @param {string} field @param {unknown} value @returns {Record<string, unknown>} */
 function requireMap(field, value) {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new WorkloomConfigError(field, '必须是对象映射')
+    throw new WorkloomConfigError(field, 'must be an object map')
   }
   return /** @type {Record<string, unknown>} */ (value)
 }
@@ -225,7 +225,7 @@ function requireMap(field, value) {
 function requireStringList(field, value) {
   if (value === undefined || value === null) return []
   if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
-    throw new WorkloomConfigError(field, '必须是字符串数组')
+    throw new WorkloomConfigError(field, 'must be an array of strings')
   }
   return /** @type {string[]} */ (value)
 }

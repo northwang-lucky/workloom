@@ -7,78 +7,78 @@ states:
   - completed
 ---
 
-# workloom 工作流
+# workloom Workflow
 
-## 总则
+## Principles
 
-1. 一步一状态：任何时刻有且只有一个活跃任务；任务状态由任务管理工具维护，breadcrumb 反映当前状态。
-2. 先对齐后实现：需求未达到“无灰区”标准（每条需求可判定、无歧义、无未决假设）前，不得编写实现代码。
-3. 产物落盘：需求、设计、研究、会话记录一律写入 `.workloom/tasks/` 与 `.workloom/workspace/`，对话会压缩，文件不会。
-4. 提交权在主会话：子代理实现与检查，git 提交只发生在主会话的 Phase 2.3 与 Phase 3。
+1. One step, one state: at any moment there is at most one active task; task state is maintained by the task-management tools, and the breadcrumb reflects it.
+2. Align before implementing: do not write implementation code until the requirements pass the "no grey areas" bar (every requirement is decidable, unambiguous, with no open assumptions).
+3. Persist artifacts: requirements, designs, research, and session records go into `.workloom/tasks/` and `.workloom/workspace/`. Conversations get compacted; files don't.
+4. Commit authority stays in the main session: subagents implement and check; git commits happen only in the main session's Phase 2.3 and Phase 3.
 
-## Phase 1 规划
+## Phase 1 Plan
 
-#### 1.0 创建任务
+#### 1.0 Create task
 
-用户表达值得做的工作后，创建任务（`workloom_task_create`），任务进入 `planning` 状态。
-完成判据：任务目录存在，`task.json` 的 `status` 为 `planning`。
+When the user expresses work worth doing, create a task (`workloom_task_create`); the task enters `planning`.
+Completion criteria: the task directory exists and `task.json` `status` is `planning`.
 
-#### 1.1 需求对齐
+#### 1.1 Align requirements
 
-先加载 brainstorm skill 逐题探索需求，澄清“要什么、约束是什么、验收怎么判”；含设计决策的任务接着加载 grilling skill，用 design-tree 方式轮次拷问方案，每问给出推荐答案。含实现工作的任务必须问固定问题：实现策略是否要求 test-first（A. 是：seams 并入对齐范围；B. 否：常规实现；C. 仅关键路径）。选 A/C 时，seams 确认结果写入 prd.md 验收标准。
-完成判据（硬性 gate）：最终对齐的需求无灰区——每条需求可判定、无歧义表述、frontier 无未决假设。
+First load the brainstorm skill and explore requirements question by question: what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. Tasks involving implementation work must ask the fixed question: does implementation require test-first delivery (A. yes: seams join the alignment scope; B. no: conventional implementation; C. critical paths only). For A/C, the confirmed seams go into prd.md acceptance criteria.
+Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, and the frontier holds no open assumptions.
 
-#### 1.2 研究（可选）
+#### 1.2 Research (optional)
 
-需要代码/技术调研时派发 research 执行体；每个主题一个文件写入任务目录的 `research/`，只回报文件路径与一行摘要。
-完成判据：调研结论落盘，且被 1.3 的上下文清单引用或明确不引用。
+When code or technical investigation is needed, dispatch the research executor; write one file per topic under the task's `research/`, and report back only file paths plus a one-line summary each.
+Completion criteria: findings are persisted and either referenced by 1.3's context lists or explicitly not referenced.
 
-#### 1.3 配置上下文
+#### 1.3 Configure context
 
-为 implement.jsonl 与 check.jsonl 填入真实条目（`{"file": "<路径>", "reason": "<为什么>"}`），只放 spec 与 research，不放代码路径。
-完成判据：两个 jsonl 各至少一条真实条目（seed 的 `_example` 行不算）。
+Fill implement.jsonl and check.jsonl with real entries (`{"file": "<path>", "reason": "<why>"}`): spec and research only, never code paths.
+Completion criteria: each jsonl has at least one real entry (the seeded `_example` line does not count).
 
-#### 1.4 评审与启动
+#### 1.4 Review and start
 
-把 prd.md（复杂任务含 design.md/implement.md）交给用户评审，获确认后 `workloom_task_start`，任务进入 `in_progress`。
-完成判据：`task.json` 的 `status` 为 `in_progress`，且评审已获用户确认。
+Hand prd.md (plus design.md/implement.md for complex tasks) to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`.
+Completion criteria: `task.json` `status` is `in_progress` and the user has confirmed the review.
 
-## Phase 2 执行
+## Phase 2 Execute
 
-#### 2.1 实现
+#### 2.1 Implement
 
-派发 implement 执行体（模型与 effort 按任务配置），上下文由派发方注入（spec、research、prd/design/implement）。子代理写代码、跑 lint 与 typecheck，禁止 git commit。test-first 任务按 tdd skill 的 red-green 循环执行。
-完成判据：改动完成、lint 与 typecheck 通过、按固定格式回报文件清单与验证结果。
+Dispatch the implement executor (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop.
+Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned.
 
-#### 2.2 检查
+#### 2.2 Check
 
-派发 check 执行体对照 spec 与任务产物自查自修，跑 lint 与 typecheck；任务最后一次检查必须全量范围。
-完成判据：对照结果无未解决问题，lint 与 typecheck 全绿。
+Dispatch the check executor to review changes against spec and task artifacts, fix what it finds, and run lint and typecheck; the final check of a task must cover the full scope.
+Completion criteria: no unresolved findings against spec, lint and typecheck all green.
 
-#### 2.3 提交
+#### 2.3 Commit
 
-主会话分批提交：每个逻辑改动一个 commit，message 用 `<type>(<scope>): <描述>` 格式。
-完成判据：`git status` 无本任务相关脏文件。
+The main session commits in batches: one commit per logical change, message format `<type>(<scope>): <description>`.
+Completion criteria: `git status` shows no dirty files belonging to this task.
 
-## Phase 3 收尾
+## Phase 3 Wrap up
 
-#### 3.1 归档与记录
+#### 3.1 Archive and record
 
-执行 `workloom_finish`：检查脏文件 → 归档任务（`workloom_task_archive`）→ 记录会话（journal）。归档与记录各自产生自动提交。
-完成判据：任务在 `archive/` 下且 `status` 为 `completed`，journal 已记录本次会话。
+Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit.
+Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session.
 
 [workflow-state:no_task]
-当前没有活跃任务。用户表达新需求时：先判断是简单问答还是值得建任务的工作；值得建任务的工作走 Phase 1.0 创建任务，再按 planning 指引推进。
+No active task right now. When the user expresses a need: first judge whether it is a simple answer or work worth a task; for work worth a task, follow Phase 1.0 to create it, then proceed by the planning guidance.
 [/workflow-state:no_task]
 
 [workflow-state:planning]
-任务处于规划阶段。按 Phase 1 推进：需求对齐（brainstorm + grilling，无灰区 gate）→ 可选研究 → 配置上下文 → 用户评审后启动。未获评审不得写实现代码；对齐未达无灰区不得进入文档编写。
+The task is in planning. Follow Phase 1: align requirements (brainstorm + grilling, no-grey-areas gate) → optional research → configure context → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
-任务实现中。按 Phase 2 推进：实现 → 检查 → 提交。子代理产物落盘，主会话控制提交；未完成 2.2 检查不得宣布完成。
+The task is in progress. Follow Phase 2: implement → check → commit. Subagent artifacts are persisted; the main session controls commits; do not declare completion before 2.2 has passed.
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
-任务已归档。用户继续提需求时，评估是否新建任务（走 1.0）；不要修改归档目录下的任务。
+The task is archived. When the user asks for more, judge whether a new task is warranted (follow 1.0); do not modify tasks under the archive directory.
 [/workflow-state:completed]

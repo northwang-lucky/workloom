@@ -5,7 +5,7 @@ license: MIT
 source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
 ---
 
-> workloom: 本 skill 在 workloom 中由 Phase 1.1b 驱动；通用方法正文不改。
+> workloom: in workloom this skill is driven by Phase 1.1b; the generic method body is unchanged.
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
