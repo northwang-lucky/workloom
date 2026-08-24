@@ -1,0 +1,35 @@
+{
+  "name": "@workloom/adapter-pi",
+  "version": "0.0.0",
+  "description": "workloom 的 Pi adapter：Pi Package（Extension 事件注入/命令/executor，严格依赖 pi-subagents）",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "skills",
+    "prompts"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "keywords": [
+    "pi-package",
+    "workloom"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.2",
+    "pi-subagents": "^0.53.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,7 @@
+packages:
+  - 'packages/*'
+
+# 传递依赖中不需要构建脚本的包（pi-coding-agent 依赖树），显式关闭以通过供应链检查。
+allowBuilds:
+  '@google/genai': false
+  protobufjs: false

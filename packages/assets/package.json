@@ -1,0 +1,13 @@
+{
+  "name": "@workloom/assets",
+  "version": "0.0.0",
+  "description": "workloom 资源层：workflow 契约与指引、skills/agents/commands 中间表示、三方 skill vendoring",
+  "license": "MIT",
+  "files": [
+    "workflow",
+    "skills",
+    "agents",
+    "commands",
+    "third-party"
+  ]
+}
