@@ -3,6 +3,14 @@
   "version": "0.0.0",
   "description": "workloom 资源层：workflow 契约与指引、skills/agents/commands 中间表示、三方 skill vendoring",
   "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
   "files": [
     "workflow",
     "skills",

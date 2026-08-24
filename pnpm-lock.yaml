@@ -59,6 +59,12 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: ^3.18.1
         version: 3.18.1
+      '@workloom/assets':
+        specifier: workspace:*
+        version: link:../assets
+      '@workloom/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/adapter-pi:
     dependencies:

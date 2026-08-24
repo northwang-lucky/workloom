@@ -154,12 +154,13 @@ function pad2(value) {
 }
 
 /**
- * 读取任务记录（内部）：task.json 缺失或损坏返回 err；成功时对象附带 taskRelPath。
+ * 读取任务记录：task.json 缺失或损坏返回 err；成功时对象附带 taskRelPath。
+ * 导出供 workflow-service 编排使用（读取只读任务状态）。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
  */
-function readTask(root, taskRelPath) {
+export function readTask(root, taskRelPath) {
   try {
     const file = join(insideWorkloom(root, taskRelPath), FILE_NAMES.taskJson)
     let raw
