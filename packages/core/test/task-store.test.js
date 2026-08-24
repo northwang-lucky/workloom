@@ -334,7 +334,15 @@ hooks:
     assert.equal(readFileSync(join(root, 'archived.txt'), 'utf8').trim(), 'archived')
     const now = new Date()
     const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    const expectedJson = join(root, '.workloom', 'tasks', 'archive', yyyyMm, 'archive-hook', 'task.json')
+    const expectedJson = join(
+      root,
+      '.workloom',
+      'tasks',
+      'archive',
+      yyyyMm,
+      'archive-hook',
+      'task.json',
+    )
     assert.equal(readFileSync(join(root, 'archived-path.txt'), 'utf8').trim(), expectedJson)
   } finally {
     rmSync(root, { recursive: true, force: true })
