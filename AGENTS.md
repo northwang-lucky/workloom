@@ -5,7 +5,7 @@ workloom：把 Trellis 式 AI 编码工作流抽象为 runtime 无关的 core/as
 ## 实现循环（每个实现点走一遍）
 
 1. 规格先行：主 agent 拆出实现点后，先写行为规格（输入/输出/数据布局/边界条件）再动手。
-2. flash 写代码：派 deepseek-v4-flash 子代理实现。派发 prompt 必含：目标文件、行为规格、代码风格要求（让它读全局 `~/.dsh/AGENTS.md` 与本文件）、clean-room 红线、工程约束（写文件单次 ≤80 行、模块超 600 行拆分、配 node:test 单测）。
+2. flash 写代码：派 deepseek-v4-flash 子代理实现。派发 prompt 必含：目标文件、行为规格、代码风格要求（让它读全局 `~/.dsh/AGENTS.md` 与本文件）、clean-room 红线、工程约束（写文件单次 ≤80 行、模块超 600 行拆分、配 node:test 单测）；禁止子代理执行 `git restore`/`checkout`/`reset` 等回滚操作（提交与回滚由主 agent 负责）。
 3. pro review：flash 完成后派 deepseek-v4-pro 子代理审查，输出问题清单，逐条给位置与修复建议，覆盖四项：规格符合性、正确性、风格合规、clean-room 红线。
 4. 主 agent 闭环：按清单修复 → 全量验证（`pnpm lint`、`pnpm -r typecheck`、受影响包 `pnpm test`）全绿 → commit（中文 message，每轮一个）→ 向用户汇报，等确认后再进下一个点。
 5. 例外：规格敏感或体量小于一个模块的改动由主 agent 直接写；review 发现结构性问题时把清单发回 flash 子代理修复。
@@ -21,6 +21,11 @@ workloom：把 Trellis 式 AI 编码工作流抽象为 runtime 无关的 core/as
 - `packages/core/src/legacy/`：原 Python 脚本的行为移植模块，纯 JS + JSDoc，免构建直跑；新增抽象用 TS。
 - 移植模块的字段名与默认值对齐原 Trellis 数据布局（数据格式兼容），文案与实现全新撰写。
 - 验证命令：`pnpm lint`、`pnpm -r typecheck`、`pnpm -r build`、`cd packages/core && pnpm test`。
+
+## 语言约定
+
+- 一律英文：工作流分发文档（`packages/assets/` 的 workflow/commands/skills/agents 与 vendored 改写处）、core 写入用户项目的运行时文案（breadcrumb、prd 骨架、jsonl seed、journal 条目、Error/WARNING 消息）。未来新增的资产（agents 定义、自有 skills、init 模板、override 模板）写的时候就直接用英文。
+- 保留中文：项目自身开发文档（`docs/`、ADR、`CONTEXT.md`、本文件、commit message）与源码内部注释（JSDoc、行注释）。
 
 ## 提交
 
