@@ -14,6 +14,7 @@ import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands
 import type { Context } from '@deepseek-ai/cordis'
 
 import {
+  countDirtyLines,
   findWorkloomRoot,
   gitStatus,
   initWorkloom,
@@ -103,11 +104,6 @@ function assetOf(rel: string): CommandResult | string {
     return errorResult(`${ERR_PREFIX}: missing asset: ${rel}`)
   }
   return text
-}
-
-/** 统计 --porcelain 输出中的脏行数（空输出为 0）。 */
-function countDirtyLines(status: string): number {
-  return status.split('\n').filter((line) => line.trim() !== '').length
 }
 
 /** init 命令：在会话 cwd 初始化 .workloom 骨架并报告生成项。 */
