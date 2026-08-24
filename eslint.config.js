@@ -1,9 +1,10 @@
+import { defineConfig } from 'eslint/config'
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
 import globals from 'globals'
 
-export default tseslint.config(
+export default defineConfig([
   {
     ignores: [
       '**/dist/**',
@@ -40,4 +41,4 @@ export default tseslint.config(
     },
   },
   prettier,
-)
+])
