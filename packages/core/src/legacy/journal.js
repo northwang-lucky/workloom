@@ -6,6 +6,8 @@
  *   + <developer>/index.md 个人索引 + workspace/index.md 全局索引；
  * - 写 journal 成功后才更新索引，journal 失败不产生索引变更（先主数据后记账）；
  * - 索引 sessions 按“读现值 +1”累计，文件缺失或损坏按 0 起算并整体重写（自愈）；
+ * - 单写者假设：不提供跨进程文件锁，并发写同一 .workloom 会丢条目
+ *   （多 runtime 并发场景由后续增强处理）；
  * - git 自动提交失败只收集 WARNING（console.warn），不阻塞会话记录；
  * - 路径一律经 locate.insideWorkloom 防越界。
  */
@@ -46,7 +48,7 @@ const INDEX_DISCLAIMER = '<!-- 会话索引：由 workloom 维护，勿手改 --
 const JOURNAL_FILE_RE = /^journal-(\d+)\.md$/
 
 /** front-matter 中 sessions 字段匹配（用于读取累计值）。 */
-const SESSIONS_RE = /^sessions:\s*(\d+)/m
+const SESSIONS_RE = /^sessions:\s*(\d+)\s*$/m
 
 /** 首个日志文件的编号（从 1 起）。 */
 const FIRST_JOURNAL_NUMBER = 1
@@ -201,6 +203,16 @@ async function addSessionInternal(root, params) {
   if (typeof params.title !== 'string' || params.title.trim() === '') {
     throw new Error(`${ERR_PREFIX}: title 不能为空`)
   }
+  // 条目是行结构：标题与摘要含换行会注入伪造行、破坏行数统计，一律拒绝。
+  if (params.title.includes('\n') || params.title.includes('\r')) {
+    throw new Error(`${ERR_PREFIX}: title 不能含换行`)
+  }
+  if ((params.commit ?? '').includes('\n') || (params.commit ?? '').includes('\r')) {
+    throw new Error(`${ERR_PREFIX}: commit 不能含换行`)
+  }
+  if ((params.summary ?? '').includes('\n') || (params.summary ?? '').includes('\r')) {
+    throw new Error(`${ERR_PREFIX}: summary 不能含换行`)
+  }
   const config = loadConfig(projectRoot)
   // 单次取 now：条目、个人索引、全局索引共用同一时刻，避免跨秒不一致。
   const now = new Date().toISOString()
@@ -225,7 +237,8 @@ async function addSessionInternal(root, params) {
   return {
     developer: params.developer,
     journalFile: written.file,
-    journalPath: join(DIR_NAMES.workspace, params.developer, written.file),
+    // 返回值统一正斜杠（与数据布局文档一致）；磁盘路径仍用平台原生 join。
+    journalPath: [DIR_NAMES.workspace, params.developer, written.file].join('/'),
     linesWritten: entry.lineCount,
     rolledOver: written.rolledOver,
   }
