@@ -43,11 +43,19 @@ export {
   clearPointersToTask,
 } from './legacy/active-task.js'
 
-export { gitAddCommit, gitStatus } from './legacy/git.js'
+export {
+  countDirtyLines,
+  gitAddCommit,
+  gitStatus,
+  gitStatusSync,
+  gitCurrentBranchSync,
+} from './legacy/git.js'
 
 export { addSession, listJournals } from './legacy/journal.js'
 
 export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-service.js'
+
+export { assembleSessionContext } from './service/session-context.js'
 
 export { routeNextStep } from './service/route-service.js'
 
@@ -77,6 +85,8 @@ export type {
 export type { SessionPointer } from './legacy/active-task.d.ts'
 
 export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
+
+export type { SessionContextParams } from './service/session-context.js'
 
 export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
 
