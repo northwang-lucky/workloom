@@ -25,6 +25,8 @@ import {
 import { loadWorkflowContractText } from '@workloom/assets'
 
 import { registerCommands } from './commands.js'
+import { registerExecutor } from './executor.js'
+import type { ExecutorServices } from './executor.js'
 
 /** 注入 section 名（systemPrompt 注册键，同名重复注册会抛错）。 */
 const SECTION_NAME = 'workloom-breadcrumb'
@@ -71,8 +73,8 @@ interface InjectionTarget {
 /** 插件名（与 cordis.patch.yml 的插件行 id 一致）。 */
 export const name = PLUGIN_NAME
 
-/** 硬依赖：systemPrompt 注册 section/context，agents 读取发起会话，commands 注册 slash 命令；缺任一服务插件不激活。 */
-export const inject = ['systemPrompt', 'agents', 'commands'] as const
+/** 硬依赖：systemPrompt 注册 section/context，agents 读取发起会话，commands 注册 slash 命令，tools 注册 executor 工具，subagents 派发子代理；缺任一服务插件不激活。 */
+export const inject = ['systemPrompt', 'agents', 'commands', 'tools', 'subagents'] as const
 
 /**
  * 插件入口：注册 session-context 与 breadcrumb 两个注入，以及三个 workloom slash 命令。
@@ -101,6 +103,8 @@ export function apply(ctx: Context): void {
     },
   })
   registerCommands(ctx)
+  // 服务注入面为局部结构化声明，运行时由宿主满足；断言仅打通类型边界。
+  registerExecutor(ctx as Context & ExecutorServices)
 }
 
 /**
