@@ -1,0 +1,18 @@
+{
+  "name": "workloom",
+  "version": "0.0.0",
+  "private": true,
+  "description": "把 Trellis 式 AI 编码工作流抽象为 runtime 无关的 core/assets，经 adapter 插件分发到各 runtime",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

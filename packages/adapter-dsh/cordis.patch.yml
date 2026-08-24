@@ -1,0 +1,5 @@
+# workloom adapter for DeepSeek Harness：把 core/assets 注册为 DSH 原生机制。
+# 插件行自身；点 7-12 逐步填充 host 插件实现与 config。
+- insert:
+    - id: workloom-dsh
+      name: '@workloom/adapter-dsh'
