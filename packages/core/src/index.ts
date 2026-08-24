@@ -17,6 +17,10 @@ export {
 
 export { DEFAULT_CONFIG, WorkloomConfigError, loadConfig } from './legacy/config.js'
 
+export { parseContract, WorkflowContractError } from './legacy/workflow-contract.js'
+
+export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './legacy/breadcrumb.js'
+
 export {
   TaskStatus,
   TaskPriority,
@@ -39,6 +43,8 @@ export {
 export { gitAddCommit } from './legacy/git.js'
 
 export type { WorkloomConfig } from './legacy/config.d.ts'
+
+export type { WorkflowContract, WorkflowStep } from './legacy/workflow-contract.d.ts'
 
 export type {
   TaskStatusKey,
