@@ -39,8 +39,14 @@ export const DEFAULT_CONFIG = {
 
 /** 布尔值合法写法（大小写不敏感），行为对齐原规格。 */
 const BOOLEAN_WORDS = new Map([
-  ['true', true], ['yes', true], ['1', true], ['on', true],
-  ['false', false], ['no', false], ['0', false], ['off', false],
+  ['true', true],
+  ['yes', true],
+  ['1', true],
+  ['on', true],
+  ['false', false],
+  ['no', false],
+  ['0', false],
+  ['off', false],
 ])
 
 /**
@@ -95,7 +101,10 @@ function mergeWithDefaults(doc) {
   const config = structuredClone(DEFAULT_CONFIG)
 
   if (doc.session_commit_message !== undefined) {
-    config.sessionCommitMessage = requireString('session_commit_message', doc.session_commit_message)
+    config.sessionCommitMessage = requireString(
+      'session_commit_message',
+      doc.session_commit_message,
+    )
   }
   if (doc.max_journal_lines !== undefined) {
     config.maxJournalLines = requirePositiveInt('max_journal_lines', doc.max_journal_lines)
@@ -106,19 +115,31 @@ function mergeWithDefaults(doc) {
   if (doc.context_injection !== undefined) {
     const ci = requireMap('context_injection', doc.context_injection)
     if (ci.max_file_bytes !== undefined) {
-      config.contextInjection.maxFileBytes = requireNonNegativeInt('context_injection.max_file_bytes', ci.max_file_bytes)
+      config.contextInjection.maxFileBytes = requireNonNegativeInt(
+        'context_injection.max_file_bytes',
+        ci.max_file_bytes,
+      )
     }
     if (ci.max_artifact_bytes !== undefined) {
-      config.contextInjection.maxArtifactBytes = requireNonNegativeInt('context_injection.max_artifact_bytes', ci.max_artifact_bytes)
+      config.contextInjection.maxArtifactBytes = requireNonNegativeInt(
+        'context_injection.max_artifact_bytes',
+        ci.max_artifact_bytes,
+      )
     }
     if (ci.max_total_bytes !== undefined) {
-      config.contextInjection.maxTotalBytes = requireNonNegativeInt('context_injection.max_total_bytes', ci.max_total_bytes)
+      config.contextInjection.maxTotalBytes = requireNonNegativeInt(
+        'context_injection.max_total_bytes',
+        ci.max_total_bytes,
+      )
     }
   }
   if (doc.prompt_injection !== undefined) {
     const pi = requireMap('prompt_injection', doc.prompt_injection)
     if (pi.skip_keyword !== undefined) {
-      config.promptInjection.skipKeyword = requireString('prompt_injection.skip_keyword', pi.skip_keyword)
+      config.promptInjection.skipKeyword = requireString(
+        'prompt_injection.skip_keyword',
+        pi.skip_keyword,
+      )
     }
   }
   if (doc.hooks !== undefined) {
