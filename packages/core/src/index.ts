@@ -42,6 +42,8 @@ export {
 
 export { gitAddCommit } from './legacy/git.js'
 
+export { addSession, listJournals } from './legacy/journal.js'
+
 export type { WorkloomConfig } from './legacy/config.d.ts'
 
 export type { WorkflowContract, WorkflowStep } from './legacy/workflow-contract.d.ts'
@@ -64,3 +66,10 @@ export type {
 } from './legacy/task-store.d.ts'
 
 export type { SessionPointer } from './legacy/active-task.d.ts'
+
+export type {
+  JournalEntryParams,
+  AddSessionResult,
+  ListJournalsParams,
+  JournalSummary,
+} from './legacy/journal.d.ts'
