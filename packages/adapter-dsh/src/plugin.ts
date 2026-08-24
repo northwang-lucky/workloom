@@ -12,17 +12,18 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 
+import { CONTEXT_KEY_PREFIX, PLUGIN_NAME } from './constants.js'
+
 import { assembleBreadcrumbSync, findWorkloomRoot } from '@workloom/core'
 import { loadWorkflowContractText } from '@workloom/assets'
+
+import { registerCommands } from './commands.js'
 
 /** 注入 section 名（systemPrompt 注册键，同名重复注册会抛错）。 */
 const SECTION_NAME = 'workloom-breadcrumb'
 
 /** 注入顺序：persona(0) 之后、工具指引(100-199)之前。 */
 const SECTION_ORDER = 90
-
-/** 会话指针的 contextKey 前缀（对齐 core 的会话指针约定）。 */
-const CONTEXT_KEY_PREFIX = 'dsh'
 
 /** 注入失败时的告警前缀（运行时文案英文）。 */
 const WARN_PREFIX = 'workloom: breadcrumb injection skipped:'
@@ -41,13 +42,13 @@ interface SystemPromptService {
 }
 
 /** 插件名（与 cordis.patch.yml 的插件行 id 一致）。 */
-export const name = 'workloom-dsh'
+export const name = PLUGIN_NAME
 
-/** 硬依赖：systemPrompt 注册 section，agents 读取发起会话；缺任一服务插件不激活。 */
-export const inject = ['systemPrompt', 'agents'] as const
+/** 硬依赖：systemPrompt 注册 section，agents 读取发起会话，commands 注册 slash 命令；缺任一服务插件不激活。 */
+export const inject = ['systemPrompt', 'agents', 'commands'] as const
 
 /**
- * 插件入口：注册 breadcrumb section。
+ * 插件入口：注册 breadcrumb section 与三个 workloom slash 命令。
  * @param ctx 插件作用域上下文
  */
 export function apply(ctx: Context): void {
@@ -63,6 +64,7 @@ export function apply(ctx: Context): void {
       return renderBreadcrumb(agent)
     },
   })
+  registerCommands(ctx)
 }
 
 /**

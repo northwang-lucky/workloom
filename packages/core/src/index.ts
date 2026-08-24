@@ -17,6 +17,8 @@ export {
 
 export { DEFAULT_CONFIG, WorkloomConfigError, loadConfig } from './legacy/config.js'
 
+export { initWorkloom } from './legacy/init.js'
+
 export { parseContract, WorkflowContractError } from './legacy/workflow-contract.js'
 
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './legacy/breadcrumb.js'
@@ -41,13 +43,17 @@ export {
   clearPointersToTask,
 } from './legacy/active-task.js'
 
-export { gitAddCommit } from './legacy/git.js'
+export { gitAddCommit, gitStatus } from './legacy/git.js'
 
 export { addSession, listJournals } from './legacy/journal.js'
 
 export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-service.js'
 
+export { routeNextStep } from './service/route-service.js'
+
 export type { WorkloomConfig } from './legacy/config.d.ts'
+
+export type { InitWorkloomParams, InitWorkloomResult } from './legacy/init.d.ts'
 
 export type { WorkflowContract, WorkflowStep } from './legacy/workflow-contract.d.ts'
 
@@ -71,6 +77,8 @@ export type {
 export type { SessionPointer } from './legacy/active-task.d.ts'
 
 export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
+
+export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
 
 export type {
   JournalEntryParams,

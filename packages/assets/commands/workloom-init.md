@@ -2,12 +2,14 @@
 name: workloom_init
 title: Initialize workloom
 description: Generate the .workloom asset directory in the current project and migrate a legacy .trellis directory when present
-argument-hint: '[directory]'
+argument-hint: '[developer identity]'
 ---
 
 # Initialize workloom
 
-Generate the `.workloom/` asset directory skeleton in the current project (or the directory given as an argument): `config.yaml`, `tasks/`, `spec/`, `workspace/`, plus a `.developer` identity file.
+Generate the `.workloom/` asset directory skeleton in the current project: `config.yaml`, `tasks/`, `spec/`, `workspace/`, plus a `.developer` identity file.
+
+The free-form argument is the developer identity recorded into `.developer`; omit it to leave the identity empty for now.
 
 If a legacy `.trellis/` directory is detected:
 
