@@ -32,7 +32,7 @@
 
 1. **Phase 1（DSH 先行）** ✅：core 的 Python 移植模块（task 生命周期、契约解析、breadcrumb 组装、journal）→ adapter-dsh（命令、注入、skills、executor 工具）→ `/workloom:init` 与 `.trellis` 迁移 → 自激活。
 2. **Phase 2（Pi）** ✅：adapter-pi Extension（session_start / before_agent_start 注入、registerCommand、registerTool、executor 派发——最终形态为自研 spawn child pi，ADR-0006）。
-3. **Phase 3（收尾）** ⏳：W2/W12 打磨 ✅、effort 全链路 ✅、workflow profile 预留接口评审 ✅（见 architecture-workflows.md）、发布前准备（包名 @workloom-ai / 版本 0.1.0 / assets files 已修）、文档收口进行中、示例仓库待定。
+3. **Phase 3（收尾）** ✅：W2/W12 打磨、effort 全链路（双端实证）、workflow profile 预留接口评审（见 architecture-workflows.md）、发布前准备（包名 @workloom-ai / 版本 0.1.0 / assets files 已修）、文档收口均完成；示例仓库不做（用户项目里 `/workloom-init` 即演示）；npm 发布动作由用户侧执行。
 
 ## 验证清单（已实证）
 
