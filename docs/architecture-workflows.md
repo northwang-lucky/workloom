@@ -59,6 +59,15 @@ graph LR
 - 契约（状态枚举、tag 块约定、迁移关系）随插件版本，项目不可改；overlay 只允许覆盖指引文字，渲染时按“段落键”合并。
 - 契约加载器与 overlay 合并器是 core 的可替换接口，为二期 workflow profile 预留。
 
+### 预留接口评审结论（Phase 3，2026-08-26）
+
+对照二期 workflow profile 需求（按项目/用户切换整套工作流定义）逐点评审，结论：**接口满足，无债，二期只需补一处挂载点**。
+
+1. 解析/合并层已可替换：`parseContract(text)`、`mergeOverlay(contract, text)`、`buildBreadcrumb(contract, status)` 均为纯函数（文本进、结果出），对契约文本来源零假设——切换整套工作流定义时 core 零改动。
+2. 缺失的挂载点唯一：契约文本来源。当前 adapter 经 assets 的 `loadWorkflowContractText()` 读取内置契约（无参、固定）；二期在 adapter 注入处增加「config 声明 profile → 读该 profile 契约文件，缺省回退内置」的分支即可，core 与 assets 均不动。
+3. 边界明确：profile 若需改状态枚举（契约级变化），必须走「profile 指向完整契约文件」（挂载点方案）而非 overlay——overlay 的状态集被内置契约锁定，仅覆盖指引文字，二者语义边界已由 mergeOverlay 校验（overlay 引入未声明状态即报错）。
+4. 逃生舱（shouldSkipBreadcrumb）与 profile 无关，保持现状。
+
 ## Phase 1 需求对齐流程（W5 细化）
 
 ```mermaid
