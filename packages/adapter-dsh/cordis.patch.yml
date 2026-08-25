@@ -2,4 +2,4 @@
 # 插件行自身；点 7-12 逐步填充 host 插件实现与 config。
 - insert:
     - id: workloom-dsh
-      name: '@workloom/adapter-dsh'
+      name: '@workloom-ai/adapter-dsh'

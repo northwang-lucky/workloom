@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { EMPTY_OUTPUT_TEXT } from '@workloom/core'
+import { EMPTY_OUTPUT_TEXT } from '@workloom-ai/core'
 
 import { extractExecutorText, parsePiEventLine, type PiEventState } from '../src/pi-events.ts'
 

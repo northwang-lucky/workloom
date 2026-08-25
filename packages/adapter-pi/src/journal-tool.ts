@@ -17,7 +17,7 @@ import {
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
   TOOL_SNIPPETS,
-} from '@workloom/core'
+} from '@workloom-ai/core'
 
 /** journal 工具参数 schema。 */
 const JOURNAL_PARAMS = Type.Object({

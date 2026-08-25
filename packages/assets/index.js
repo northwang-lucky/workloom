@@ -1,5 +1,5 @@
 /**
- * @workloom/assets 的薄访问器（纯 ESM JS，无构建）。
+ * @workloom-ai/assets 的薄访问器（纯 ESM JS，无构建）。
  *
  * 设计意图：
  * - 只做「相对包根读文件」这一类最小操作，业务编排交给 core/adapter；

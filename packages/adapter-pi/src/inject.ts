@@ -24,8 +24,8 @@ import {
   assembleSessionContext,
   findWorkloomRoot,
   parseContract,
-} from '@workloom/core'
-import { loadWorkflowContractText } from '@workloom/assets'
+} from '@workloom-ai/core'
+import { loadWorkflowContractText } from '@workloom-ai/assets'
 
 import { contextKeyOf, SESSION_CONTEXT_CUSTOM_TYPE } from './constants.ts'
 
