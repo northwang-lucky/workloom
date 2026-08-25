@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -14,6 +14,7 @@ import {
   buildContinueGuidance,
   buildFinishGuidance,
   executeInitCommand,
+  executeJournalEntry,
   migrationSummaryLines,
   parseInitArgs,
 } from '../dist/index.js'
@@ -245,6 +246,87 @@ test('buildFinishGuidance 干净树拼文本', async () => {
     assert.ok(text.includes('Title: Demo Task'))
     assert.ok(text.includes('Status: planning'))
     assert.ok(text.endsWith('\n\nasset body line'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeJournalEntry 成功写 journal 文件（含身份与标题）', async () => {
+  const root = makeRoot()
+  try {
+    initWorkloom(root, { developer: 'alice' })
+    const [err, result] = await executeJournalEntry(root, {
+      title: 'Session One',
+      commit: 'abc123',
+      summary: 'Wrapped up the demo',
+    })
+    assert.equal(err, null)
+    assert.match(result.journalFile, /^journal-\d+\.md$/)
+    assert.ok(result.journalPath.startsWith('workspace/alice/'))
+    const content = readFileSync(join(root, '.workloom', result.journalPath), 'utf8')
+    assert.ok(content.includes('Session One'))
+    assert.ok(content.includes('abc123'))
+    assert.ok(content.includes('Wrapped up the demo'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeJournalEntry 无 developer 身份报错', async () => {
+  const root = makeRoot()
+  try {
+    // init 不带 developer：.developer 为空文件，readExistingDeveloper 返回空串，同视为无身份。
+    initWorkloom(root)
+    const [err, result] = await executeJournalEntry(root, { title: 'No Identity' })
+    assert.ok(err)
+    assert.match(err.message, /no developer identity found/)
+    assert.equal(result, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeJournalEntry 项目不存在（无 .workloom）同样报无身份', async () => {
+  const root = makeRoot()
+  try {
+    // 不 init：readExistingDeveloper 返回 undefined，与空串分支同文案。
+    const [err, result] = await executeJournalEntry(root, { title: 'Nowhere' })
+    assert.ok(err)
+    assert.match(err.message, /no developer identity found/)
+    assert.equal(result, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeJournalEntry 空 title 报错（addSession 校验转发）', async () => {
+  const root = makeRoot()
+  try {
+    initWorkloom(root, { developer: 'alice' })
+    const [err, result] = await executeJournalEntry(root, { title: '' })
+    assert.ok(err)
+    assert.match(err.message, /title must not be empty/)
+    assert.equal(result, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeJournalEntry 空 commit/summary 视为未提供且记录成功', async () => {
+  // 过滤无观测副作用（addSession 对 commit/summary 用 ?? '' 兜底，空串与省略
+  // 落盘相同）：本用例验证空串输入走成功路径、不触发换行校验之外的错误。
+  const root = makeRoot()
+  try {
+    initWorkloom(root, { developer: 'alice' })
+    const [err, result] = await executeJournalEntry(root, {
+      title: 'Session Two',
+      commit: '',
+      summary: '',
+    })
+    assert.equal(err, null)
+    assert.ok(result.journalPath.startsWith('workspace/alice/'))
+    const content = readFileSync(join(root, '.workloom', result.journalPath), 'utf8')
+    assert.ok(content.includes('Session Two'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

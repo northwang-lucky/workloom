@@ -78,6 +78,7 @@ export {
   executeInitCommand,
   buildContinueGuidance,
   buildFinishGuidance,
+  executeJournalEntry,
 } from './service/command-ops.js'
 
 export {
@@ -148,6 +149,8 @@ export type { SessionContextParams } from './service/session-context.js'
 export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
 
 export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './service/task-ops.js'
+
+export type { ExecuteJournalEntryParams } from './service/command-ops.js'
 
 export type {
   JournalEntryParams,
