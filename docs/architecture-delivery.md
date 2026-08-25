@@ -20,7 +20,7 @@
    - Pi：包内 `skills/` 目录由 Pi 官方机制自动发现（渐进式披露）。
 3. agents 资源（research / implement / check 的 Executor 定义）：
    - DSH：不落盘；executor 工具在派发时按 kind 组装 prompt 与上下文。
-   - Pi：经 `pi-subagents/agents` 的 `registerAgent` 运行时注册（front-matter 37 字段）。
+   - Pi：文件式运行时注册——adapter 把三个 executor 定义幂等写入 pi-subagents 的 user agents 目录（`~/.pi/agent/agents/workloom-<kind>.md`，front-matter 37 字段子集），pi-subagents 每次派发懒扫描发现。原 `registerAgent` 方案经 P3 实证失效：Pi 0.84.2 为每个扩展各建 ExtensionAPI 对象，registerAgent 以对象身份做 WeakMap key，跨扩展注册必然 miss（派发报 Unknown agent）。
 
 ## git 自动提交与 hooks（默认开，均可配置）
 
@@ -44,11 +44,11 @@
 6. DSH effort 改写：`agent/request` waterfall（“Replace the frozen call configuration”）+ `EpochHeader.config` 含 reasoningEffort + `Session.append('request/header')` logged channel。
 7. Pi `before_agent_start`：每轮用户提交触发一次（agent-session.js:885）。
 8. Pi `context` 事件：每次 LLM 请求前、不持久化、不重走压缩。
-9. pi-subagents：37 字段 agent 定义、`registerAgent` 运行时注册、`prompt-template:subagent:*` 事件派发、thinking 档位原生。
+9. pi-subagents：37 字段 agent 定义、`registerAgent` 运行时注册、`prompt-template:subagent:*` 事件派发、thinking 档位原生。**⚠️ 2026-08-26 P3 实证修正**：`registerAgent` 跨扩展失效（Pi 0.84.2 每扩展独立 ExtensionAPI 对象 + WeakMap 按对象身份匹配，探针扩展实证两扩展 pi 身份不同），workloom 改用文件式运行时注册（见 §命令与 skills 的资源渲染）。
 
 ## 实现期 PoC 清单（静态分析待实证）
 
 1. P1：DSH 子代理创建后写入 `request/header`（含 reasoningEffort），selection 折叠链是否在下一次请求即生效；`RequestHeaderReason` 合法取值。**✅ 已实证（2026-08-25 真机验证）**：continuable 窗口写入 header（reason 'change'）→ selection 折叠 → 子代理首请求实际携带 `reasoningEffort: 'low'`（llm/stream 观察命中），回合正常完成；header 写入后回读折叠头正确。
 2. P2：`agent/request` 替换 config 与 installModelSelection 后处理的顺序交互（fallback 通道）。
-3. P3：Pi 侧 pi-subagents 事件派发在 adapter Extension 中的最小可跑闭环（registerAgent → request 事件 → response 事件）。
+3. P3：Pi 侧 pi-subagents 事件派发在 adapter Extension 中的最小可跑闭环（registerAgent → request 事件 → response 事件）。**✅ 已实证（2026-08-26 真机验证，模型 qwen-token-plan-cn/qwen3.6-flash）**：jiti 直载 smoke 通过（-e 加载无报错）；`/workloom-init` 命令执行并生成 .workloom；任务工具 create→start 正常；workloom_execute 经文件式 agent 注册 + request/response 事件派发 research 子代理真实运行并返回结果（subagent-artifacts 与子会话文件为证）；session-context 在 session_start 恰好注入一次（custom_message 落盘核实）；before_agent_start 每轮 breadcrumb 注入（before_provider_request 最终 payload 命中 no_task 状态正文的硬证据）。agent 注册机制按实证结果改为文件式（见 §命令与 skills 的资源渲染）。
 4. P4：DSH 命令 handler 内 `agent.followup` 的完整链路（命令执行后模型回合开启、日志生命周期）。

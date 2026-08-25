@@ -279,3 +279,4 @@ Trellis 未使用的能力（推断）：`before_agent_start`/`context`/`input` 
 - 子模块导出：
   - `pi-subagents/delegation`：仅导出 5 个事件常量与类型（无函数，`api/delegation.ts` 全文无函数）。
   - `pi-subagents/agents`：`registerAgent(input: RegisterRuntimeAgentInput): RuntimeAgentRegistration`（`api/agents.ts`）；input=`{pi, name, definition}`（`agents/runtime-agent-registry.ts:53-57`），返回 `{dispose()}`（`:59-61`）——运行时注册 agent，与文件式并存。
+  - **⚠️ 2026-08-26 真机实证修正**：Pi 0.84.2 的 `createExtensionAPI` 为每个扩展各建一个 API 对象（loader.js `const api = {...}`，无共享缓存），而 pi-subagents 的 runtime registry 是 `WeakMap<ExtensionAPI, ...>` 且消费方（extension/index.ts 的 `discoverAgentsForRuntime`）用**自己的 pi** 做 key 查询——跨扩展调用 `registerAgent` 必然 miss（探针扩展实证两扩展 pi 对象身份不同；workloom 派发实测报 `Unknown agent: <kind>`）。**跨扩展 runtime agent 注册在 Pi 0.84.2 + pi-subagents 0.53.0 组合下不可用**；workloom 改用文件式注册（写入 `<agentDir>/agents/*.md`，pi-subagents 每次派发懒扫描目录，已实证生效）。

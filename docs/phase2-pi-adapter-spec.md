@@ -94,12 +94,15 @@
 
 同 DSH：stepId 必填；parseContract(loadWorkflowContractText())；找不到 step 抛错；成功返回 `## <id> <title>\n\n<body>`。
 
-### 4.7 pi-subagents 三 agent 注册（factory 顶层，registerAgent）
+### 4.7 pi-subagents 三 agent 注册（factory 顶层，文件式运行时注册）
 
+> 2026-08-26 P3 真机实证修订：原方案经 pi-subagents/agents 的 registerAgent 运行时注册。实证发现 Pi 0.84.2 为每个扩展各建 ExtensionAPI 对象（两扩展 pi 身份不同，探针扩展实证），而 registerAgent 以对象身份做 WeakMap key，跨扩展注册必然 miss，派发时报 `Unknown agent: <kind>`。改为文件式注册（本节），pi-subagents 每次派发懒扫描目录，写文件即生效，P3 已实证 research 子代理派发成功。
+
+- 落地机制：把三个 executor 定义幂等写入 `<agentDir>/agents/workloom-<kind>.md`（agentDir = PI_CODING_AGENT_DIR 覆盖或默认 ~/.pi/agent，与 pi-subagents 的 getAgentDir 语义一致）；文件内容为 YAML frontmatter（name/description/maxSubagentDepth/systemPromptMode/inheritProjectContext）+ 正文 systemPrompt；内容未变时跳过写入。
 - name = EXECUTOR_KINDS（research/implement/check，与内置 scout/researcher/worker/reviewer/oracle/delegate 不冲突）。
 - definition 公共字段：systemPromptMode:'replace'、inheritProjectContext:false、maxSubagentDepth:1、thinking 不设（派发时 request.thinking 覆盖）；不设 tools/subagentOnlyExtensions（继承默认工具集）。
 - systemPrompt：自写英文角色说明（每 agent ~8-12 行）：角色职责、任务上下文已内联（含 prd/design/implement 与 jsonl 引用文件块，超预算降级为索引行）、工作方法学细节按需 read 文件、完成判据、禁止再派发子代理。**不得照抄 pi-subagents 内置 agent 或其他项目文案**。
-- description：一行英文。registerAgent 抛错 fail loud（严格依赖语义）。
+- description：一行英文。写文件失败 fail loud（严格依赖语义）。
 
 ### 4.8 skills 同步与包形态
 
