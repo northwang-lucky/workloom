@@ -62,6 +62,7 @@ interface ExecutorArgs {
 
 /** 工具执行上下文最小形状（exec 参数，仅消费 agent 与 signal）。 */
 interface ToolExec {
+  [k: string]: unknown
   agent?: MinimalAgent
   signal: AbortSignal
 }
@@ -120,11 +121,11 @@ interface MinimalToolDefinition {
   description: string
   parameters: Record<string, unknown>
   output: {
-    schema: { type: 'json' }
+    schema: { type: "object" }
     render(args: unknown, value: unknown): TextBlockLike[]
   }
   isConcurrencySafe(): boolean
-  execute(args: unknown, exec: ToolExec): Promise<unknown>
+  execute(args: unknown, exec: unknown): Promise<unknown>
 }
 
 /** executor 依赖的服务注入面（运行时由宿主注入）。 */
@@ -180,11 +181,11 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
       },
     },
     output: {
-      schema: { type: 'json' },
+      schema: { type: "object" },
       render: (_args, value) => [renderOutput(value)],
     },
     isConcurrencySafe: () => true,
-    execute: (args, exec) => executeTool(ctx, args, exec),
+    execute: (args, exec: unknown) => executeTool(ctx, args, exec as ToolExec),
   })
 }
 
