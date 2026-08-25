@@ -21,6 +21,7 @@ workloom：把 Trellis 式 AI 编码工作流抽象为 runtime 无关的 core/as
 - `packages/core/src/legacy/`：原 Python 脚本的行为移植模块，纯 JS + JSDoc，免构建直跑；新增抽象用 TS。
 - 移植模块的字段名与默认值对齐原 Trellis 数据布局（数据格式兼容），文案与实现全新撰写。
 - 验证命令：`pnpm lint`、`pnpm -r typecheck`、`pnpm -r build`、`cd packages/core && pnpm test`。
+- **部署同步（必做）**：`pnpm -r build` 产出新 dist 后，必须把产物同步到 dsh web profile——执行 `~/dsh/bin/dsh-sync-workloom` 的 rsync 段（core/adapter-dsh 的 dist 与 assets 全包；可用 `--dry-run` 先核对差异）。profile 的 file: 依赖是硬拷贝，不同步会在用户重启 dsh 时因缺新文件而挂（教训见 `docs/adapter-dsh-postmortem.md` 问题四）。脚本后半段的 dshweb 重启会中断当前会话：重启由用户执行，或经用户确认后在轮次末尾执行。
 
 ## 语言约定
 
