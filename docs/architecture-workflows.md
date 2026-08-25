@@ -9,7 +9,7 @@
 | W3 每轮 breadcrumb | `systemPrompt.section` 每轮渲染 `<workflow-state>`（契约解析 + overlay 合并） | `before_agent_start` 每轮注入 `<workflow-state>` |
 | W4 任务生命周期 | core 的任务管理工具（create/start/finish/archive），模型可调 | Extension 注册同名工具（registerTool） |
 | W5 规划 | Phase 1.1a `workloom-brainstorm` 需求探索 → 1.1b `grilling` 设计树拷问（无灰区 gate）→ 写文档前加载 `writing-for-agents` | 同源 skills 渲染进 Pi 包内 skills/ |
-| W6 研究 | Executor(subagent, agent=research, model/effort 可配) | pi-subagents 派发（文件式 agent 注册 + 事件总线 request） |
+| W6 研究 | Executor(subagent, agent=research, model/effort 可配) | 自研 spawn child pi（ADR-0006） |
 | W7 实现 | Executor(subagent, agent=implement) | 同上，agent=implement |
 | W8 检查 | Executor(subagent, agent=check) | 同上，agent=check |
 | W9 子代理上下文 | executor 工具 execute 内组装（jsonl 物化 + prd/design/implement 内联 + 预算截断） | 同左；agent 定义经 subagentOnlyExtensions 只带必要扩展 |
@@ -32,7 +32,7 @@
 ```
 
 - DSH：adapter 自定义工具（如 `workloom_execute`）接收该结构 → `ctx.subagents.start('spawn', {agentOptions:{model}, ...})` → 若 effort 存在，经 `request/header` logged channel 写入子代理 session（PoC 验证点 P1）。
-- Pi：adapter 经 pi-subagents 事件总线发 `SubagentDelegationRequest`（agent 名 = kind，`thinking` = effort 映射，`model` 原样）；research/implement/check 三个 agent 由 adapter 文件式运行时注册（幂等写入 pi-subagents user agents 目录的 front-matter 文件，37 字段子集；`registerAgent` 经 P3 实证跨扩展失效，见 architecture-delivery.md §验证清单）。
+- Pi：adapter 自研 spawn child pi（`--mode json --no-session --no-extensions --thinking <effort>`，角色说明经 `--append-system-prompt` 注入，ADR-0006）；research/implement/check 三角色的定义保留在 adapter 内存。
 
 ## effort 映射表
 

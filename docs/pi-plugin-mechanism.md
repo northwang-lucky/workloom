@@ -280,3 +280,10 @@ Trellis 未使用的能力（推断）：`before_agent_start`/`context`/`input` 
   - `pi-subagents/delegation`：仅导出 5 个事件常量与类型（无函数，`api/delegation.ts` 全文无函数）。
   - `pi-subagents/agents`：`registerAgent(input: RegisterRuntimeAgentInput): RuntimeAgentRegistration`（`api/agents.ts`）；input=`{pi, name, definition}`（`agents/runtime-agent-registry.ts:53-57`），返回 `{dispose()}`（`:59-61`）——运行时注册 agent，与文件式并存。
   - **⚠️ 2026-08-26 真机实证修正**：Pi 0.84.2 的 `createExtensionAPI` 为每个扩展各建一个 API 对象（loader.js `const api = {...}`，无共享缓存），而 pi-subagents 的 runtime registry 是 `WeakMap<ExtensionAPI, ...>` 且消费方（extension/index.ts 的 `discoverAgentsForRuntime`）用**自己的 pi** 做 key 查询——跨扩展调用 `registerAgent` 必然 miss（探针扩展实证两扩展 pi 对象身份不同；workloom 派发实测报 `Unknown agent: <kind>`）。**跨扩展 runtime agent 注册在 Pi 0.84.2 + pi-subagents 0.53.0 组合下不可用**；workloom 改用文件式注册（写入 `<agentDir>/agents/*.md`，pi-subagents 每次派发懒扫描目录，已实证生效）。
+
+### 12.5 pi --mode json 事件流与 spawn 参数面（实证，workloom ADR-0006 的事实基础）
+
+- 命令：`pi --mode json -p <prompt> --no-session --no-extensions --thinking <level> --model <m>`，输出**逐行 JSONL**（stdout），事件类型依次为：`session`（header：type/version/id/timestamp/cwd）、`agent_start`、`turn_start`、`message_start/message_update/message_end`（assistant 消息含 thinking/text/toolcall 的增量与最终 content 数组）、`tool_execution_start/update/end`、`turn_end`、`agent_end`。
+- 文本提取点：`message_end` 且 `message.role === 'assistant'` 的 `content` 数组中 `type === 'text'` 块；thinking 块与 toolCall 块忽略。
+- 关键参数（`pi --help` 实证）：`--thinking off|minimal|low|medium|high|xhigh|max`（effort 档位同名直通）、`--append-system-prompt <text|file>`、`--no-session`（临时会话不落盘）、`--no-extensions`（子代理仅内置工具，天然无扩展注册的 workloom_execute）、`--tools/-t` 白名单、`--model`、key 经环境变量继承。
+- 子代理为独立进程：取消 = kill 子进程；cwd 由 spawn 指定；与 pi-subagents 的 child Pi session 路线同构（pi-subagents 只是封装了 spawn + 同款事件流解析 + agent 管理）。

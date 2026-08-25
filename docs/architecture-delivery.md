@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 包形态 | npm profile bundle（TS 源码 + tsc 构建产物 + cordis.patch.yml） | Pi Package（TS 源码，jiti 直载；pi manifest） |
 | 安装 | `dsh plugin --profile web add @<scope>/workloom-adapter-dsh` | `pi install npm:@<scope>/workloom-adapter-pi` |
-| 依赖 | core、assets；peer：@deepseek-ai/dsh-* 系列 | core、assets；peer：@earendil-works/pi-*、pi-subagents（严格依赖） |
+| 依赖 | core、assets；peer：@deepseek-ai/dsh-* 系列 | core、assets；peer：@earendil-works/pi-*（不再依赖 pi-subagents，见 ADR-0006） |
 | 激活 | host 插件经 agent.session.header.cwd + workspaceRegistry 检测 `.workloom/` | Extension 经 ExtensionContext.cwd 检测 `.workloom/` |
 | 未激活行为 | 静默，不注入、不注册工作流工具 | 同左 |
 
@@ -20,7 +20,7 @@
    - Pi：包内 `skills/` 目录由 Pi 官方机制自动发现（渐进式披露）。
 3. agents 资源（research / implement / check 的 Executor 定义）：
    - DSH：不落盘；executor 工具在派发时按 kind 组装 prompt 与上下文。
-   - Pi：文件式运行时注册——adapter 把三个 executor 定义幂等写入 pi-subagents 的 user agents 目录（`~/.pi/agent/agents/workloom-<kind>.md`，front-matter 37 字段子集），pi-subagents 每次派发懒扫描发现。原 `registerAgent` 方案经 P3 实证失效：Pi 0.84.2 为每个扩展各建 ExtensionAPI 对象，registerAgent 以对象身份做 WeakMap key，跨扩展注册必然 miss（派发报 Unknown agent）。
+   - Pi：定义保留在 adapter 内存；自研 spawn child pi（`--mode json --no-session --no-extensions`），角色说明经 `--append-system-prompt` 注入（ADR-0006）。历史：pi-subagents 的 `registerAgent` 经 P3 实证跨扩展失效（Pi 0.84.2 为每个扩展各建 ExtensionAPI 对象 + WeakMap 按对象身份匹配），文件式注册为过渡方案，随 ADR-0006 废弃。
 
 ## git 自动提交与 hooks（默认开，均可配置）
 
@@ -31,7 +31,7 @@
 ## 分期路线
 
 1. **Phase 1（DSH 先行）**：core 的 Python 移植模块（task 生命周期、契约解析、breadcrumb 组装、journal）→ adapter-dsh（命令、注入、skills、executor 工具）→ `/workloom:init` 与 `.trellis` 迁移 → 自激活。
-2. **Phase 2（Pi）**：adapter-pi Extension（session_start / before_agent_start 注入、registerCommand、registerTool、pi-subagents 三 agent 注册与派发）。
+2. **Phase 2（Pi）**：adapter-pi Extension（session_start / before_agent_start 注入、registerCommand、registerTool、executor 派发——最终形态为自研 spawn child pi，ADR-0006）。
 3. **Phase 3（收尾）**：W2/W12 打磨、effort 全链路、workflow profile 预留接口评审、文档与示例仓库。
 
 ## 验证清单（已实证）
@@ -44,7 +44,7 @@
 6. DSH effort 改写：`agent/request` waterfall（“Replace the frozen call configuration”）+ `EpochHeader.config` 含 reasoningEffort + `Session.append('request/header')` logged channel。
 7. Pi `before_agent_start`：每轮用户提交触发一次（agent-session.js:885）。
 8. Pi `context` 事件：每次 LLM 请求前、不持久化、不重走压缩。
-9. pi-subagents：37 字段 agent 定义、`registerAgent` 运行时注册、`prompt-template:subagent:*` 事件派发、thinking 档位原生。**⚠️ 2026-08-26 P3 实证修正**：`registerAgent` 跨扩展失效（Pi 0.84.2 每扩展独立 ExtensionAPI 对象 + WeakMap 按对象身份匹配，探针扩展实证两扩展 pi 身份不同），workloom 改用文件式运行时注册（见 §命令与 skills 的资源渲染）。
+9. pi-subagents：37 字段 agent 定义、`registerAgent` 运行时注册、`prompt-template:subagent:*` 事件派发、thinking 档位原生。**⚠️ 2026-08-26 P3 实证修正**：`registerAgent` 跨扩展失效（Pi 0.84.2 每扩展独立 ExtensionAPI 对象 + WeakMap 按对象身份匹配，探针扩展实证两扩展 pi 身份不同）；workloom 最终据此改为自研 spawn child pi（ADR-0006），不再依赖 pi-subagents。
 
 ## 实现期 PoC 清单（静态分析待实证）
 

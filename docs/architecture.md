@@ -17,7 +17,7 @@ workloom 把 Trellis 式 AI 编码工作流抽象为与 runtime 无关的核心�
 | 9 | 术语 | runtime / adapter |
 | 10 | Pi 分发 | 全局 Pi Package + 按 `.workloom` 自激活 |
 | 11 | Pi 注入 | 官方事件 push（session_start / before_agent_start） |
-| 12 | Executor | DSH 自定义 subagent（model+effort）；Pi 严格依赖 pi-subagents |
+| 12 | Executor | DSH 自定义 subagent（model+effort）；Pi 自研 spawn child pi（ADR-0006，不依赖 pi-subagents） |
 | 13 | skills | bundled，禁止项目定制 |
 | 14 | 根 AGENTS.md | 不生成，注入全走插件 |
 | 15 | 命令资源 | DSH 原生斜杠命令；Pi registerCommand/Prompt Templates |
