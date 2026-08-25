@@ -234,11 +234,15 @@ export function registerStepsTool(ctx: Context & StepsToolServices): void {
     description:
       'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
     parameters: {
-      stepId: {
-        type: 'string',
-        required: true,
-        description: 'Workflow step id, e.g. 1.1 or 2.1',
+      type: 'object',
+      properties: {
+        stepId: {
+          type: 'string',
+          description: 'Workflow step id, e.g. 1.1 or 2.1',
+        },
       },
+      required: ['stepId'],
+      additionalProperties: false,
     },
     output: {
       schema: { type: "object" },
