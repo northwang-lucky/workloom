@@ -30,6 +30,8 @@ import { registerExecutor } from './executor.js'
 import type { ExecutorServices } from './executor.js'
 import { registerSkills, registerStepsTool } from './skills.js'
 import type { SkillsServices, StepsToolServices } from './skills.js'
+import { registerTaskTools } from './tasks.js'
+import type { TaskToolsServices } from './tasks.js'
 
 /** 注入 section 名（systemPrompt 注册键，同名重复注册会抛错）。 */
 const SECTION_NAME = 'workloom-breadcrumb'
@@ -118,6 +120,7 @@ export function apply(ctx: Context): void {
   registerExecutor(ctx as Context & ExecutorServices)
   registerSkills(ctx as Context & SkillsServices)
   registerStepsTool(ctx as Context & StepsToolServices)
+  registerTaskTools(ctx as Context & TaskToolsServices)
 }
 
 /**
