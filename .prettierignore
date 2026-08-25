@@ -5,5 +5,7 @@ pnpm-lock.yaml
 .claude/
 skills-lock.json
 docs/
+# 构建产物（adapter-pi 的 skills/ 由 sync-skills 从 assets 拷贝生成）
+packages/adapter-pi/skills/
 # 三方 vendored 资产保持上游原文，不强制 prettier 格式化（docs/vendoring-plan.md）
 packages/assets/third-party/

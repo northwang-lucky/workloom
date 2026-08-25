@@ -75,9 +75,22 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: ^0.84.2
         version: 0.84.2(supports-color@7.2.0)(ws@8.21.3)(zod@4.4.3)
+      '@workloom/assets':
+        specifier: file:../assets
+        version: link:../assets
+      '@workloom/core':
+        specifier: file:../core
+        version: link:../core
       pi-subagents:
         specifier: ^0.53.0
         version: 0.53.0(@earendil-works/pi-agent-core@0.84.2(supports-color@7.2.0)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-ai@0.84.2(supports-color@7.2.0)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.84.2(supports-color@7.2.0)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-tui@0.84.2)
+      typebox:
+        specifier: ^1.3.7
+        version: 1.3.7
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
 
   packages/assets: {}
 
