@@ -23,8 +23,8 @@ export default function workloomExtension(pi: ExtensionAPI): void {
   registerCommands(pi)
   registerTaskTools(pi)
   registerExecutorTool(pi)
-  // 严格依赖 pi-subagents：registerAgent 抛错（重名/非法定义）直接向上抛，不静默降级。
-  registerExecutorAgents(pi)
+  // 严格依赖 pi-subagents：agent 文件写入失败（权限/非法定义）直接向上抛，不静默降级。
+  registerExecutorAgents()
   registerStepsTool(pi)
   registerInjections(pi)
 }
