@@ -63,6 +63,8 @@ export {
 
 export { addSession, listJournals } from './legacy/journal.js'
 
+export { DEVELOPER_PATTERN, assertDeveloper } from './legacy/identity.js'
+
 export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-service.js'
 
 export { assembleSessionContext } from './service/session-context.js'
