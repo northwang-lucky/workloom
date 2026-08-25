@@ -153,32 +153,32 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
     description:
       'Dispatch a workloom executor subagent (research/implement/check) with the task context inlined',
     parameters: {
-      kind: {
-        type: 'string',
-        required: true,
-        description: 'Executor role: research, implement, or check',
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          description: 'Executor role: research, implement, or check',
+        },
+        taskPath: {
+          type: 'string',
+          description:
+            'Task directory relative to .workloom; defaults to the active task of this session',
+        },
+        model: {
+          type: 'string',
+          description: 'Model id for the executor subagent; defaults to the parent session model',
+        },
+        effort: {
+          type: 'string',
+          description: 'Reasoning effort: low/medium/high/xhigh/max',
+        },
+        prompt: {
+          type: 'string',
+          description: 'Task instructions for the executor subagent',
+        },
       },
-      taskPath: {
-        type: 'string',
-        required: false,
-        description:
-          'Task directory relative to .workloom; defaults to the active task of this session',
-      },
-      model: {
-        type: 'string',
-        required: false,
-        description: 'Model id for the executor subagent; defaults to the parent session model',
-      },
-      effort: {
-        type: 'string',
-        required: false,
-        description: 'Reasoning effort: low/medium/high/xhigh/max',
-      },
-      prompt: {
-        type: 'string',
-        required: true,
-        description: 'Task instructions for the executor subagent',
-      },
+      required: ['kind', 'prompt'],
+      additionalProperties: false,
     },
     output: {
       schema: { type: "object" },
