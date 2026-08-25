@@ -10,16 +10,12 @@ import {
   CONTEXT_KEY_FALLBACK,
   CONTEXT_KEY_PREFIX,
   contextKeyOf,
-  NODE_ID_PREFIX,
-  OWNER_RUN_ID_FALLBACK,
   SESSION_CONTEXT_CUSTOM_TYPE,
 } from '../src/constants.ts'
 
 test('static boundary: retained pi-specific constants', () => {
   assert.equal(CONTEXT_KEY_PREFIX, 'pi')
   assert.equal(CONTEXT_KEY_FALLBACK, 'unknown')
-  assert.equal(OWNER_RUN_ID_FALLBACK, 'unknown')
-  assert.equal(NODE_ID_PREFIX, 'workloom-execute-')
   assert.equal(SESSION_CONTEXT_CUSTOM_TYPE, 'workloom-session-context')
 })
 

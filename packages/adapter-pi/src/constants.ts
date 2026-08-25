@@ -12,9 +12,6 @@ export const CONTEXT_KEY_PREFIX = 'pi'
 /** sessionId 为空串时的 contextKey 回退段（最终形如 pi_unknown）。 */
 export const CONTEXT_KEY_FALLBACK = 'unknown'
 
-/** sessionId 为空串时的 ownerRunId 回退值（pi-subagents 关联字段，无前缀约定）。 */
-export const OWNER_RUN_ID_FALLBACK = 'unknown'
-
 /**
  * 组装会话 contextKey（与 DSH 的 `${CONTEXT_KEY_PREFIX}_${sessionId}` 同语义，
  * 空 sessionId 回退 pi_unknown）。
@@ -25,12 +22,6 @@ export function contextKeyOf(sessionId: string): string {
   const id = sessionId === '' ? CONTEXT_KEY_FALLBACK : sessionId
   return `${CONTEXT_KEY_PREFIX}_${id}`
 }
-
-/** executor 派发的 nodeId 前缀（后接 randomUUID 前 8 位）。 */
-export const NODE_ID_PREFIX = 'workloom-execute-'
-
-/** executor agent 注册错误消息前缀（运行时文案英文，Pi 特有模块用）。 */
-export const AGENT_ERR_PREFIX = 'workloom agent'
 
 /** session-context 注入消息的 customType（CustomMessage 参与 LLM 上下文）。 */
 export const SESSION_CONTEXT_CUSTOM_TYPE = 'workloom-session-context'

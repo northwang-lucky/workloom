@@ -48,9 +48,8 @@ export function buildChildPiArgs(params: BuildChildPiArgsParams): string[]
 
 ```ts
 export interface PiEventState {
-  textParts: string[]        // 已捕获的 assistant 文本块
+  textParts: string[]        // 最后一个非空 assistant 消息的 text 块（新消息整体替换）
   done: boolean              // agent_end 已见
-  exitPending: boolean       // 进程已退出待判定
 }
 export function parsePiEventLine(line: string, state: PiEventState): void
 export function extractExecutorText(parts: string[]): string   // 空 → EMPTY_OUTPUT_TEXT
@@ -58,10 +57,10 @@ export function extractExecutorText(parts: string[]): string   // 空 → EMPTY_
 
 行为：
 1. 逐行 JSON.parse；解析失败或非对象行**静默跳过**（流可能混入非事件输出）。
-2. `message_end` 且 `message.role === 'assistant'`：遍历 `message.content`，`type === 'text'` 的块把 `text` 追加进 `state.textParts`（thinking/toolCall 块忽略）。
+2. `message_end` 且 `message.role === 'assistant'`：遍历 `message.content`，提取 `type === 'text'` 的块（thinking/toolCall 块与非对象块忽略）；本消息 text 块非空时**整体替换** `state.textParts`（只保留最后一个非空 assistant 消息，与 DSH finalAssistantOutput 语义一致，中间轮次叙述不混入最终输出）。
 3. `agent_end`：置 `state.done = true`。
 4. 其余事件（agent_start/turn_*/message_start/update/tool_execution_*/session）不消费。
-5. 提取：`textParts.join('')`，trim 后为空 → EMPTY_OUTPUT_TEXT。
+5. 提取：`textParts.join('\n')`（对齐 DSH 的多块连接），trim 后为空 → EMPTY_OUTPUT_TEXT。
 
 ## 5. executor：spawn 编排
 
@@ -69,7 +68,7 @@ export function extractExecutorText(parts: string[]): string   // 空 → EMPTY_
 2. 派发：
    - `spawn(process.env.PI_BIN ?? 'pi', buildChildPiArgs(...), { cwd, stdio: ['ignore','pipe','pipe'] })`（PI_BIN 环境变量便于测试/自定位 pi 路径）；
    - stdout 经 readline 逐行喂 parsePiEventLine；stderr 收集尾部（错误报告用，上限 4KB）；
-   - 子进程 exit 后：`state.done` 为 true → 成功（提取文本）；否则 → 抛错（`workloom executor: child pi exited with code N` + stderr 尾部摘要）。
+   - 完成判定挂 child `close`（stdio 全部关闭，此时 readline 已把全部行喂完）；`state.done` 为 true → 成功（提取文本）；否则 → 抛错（`workloom executor: child pi exited with code N` 或 `signal S`（退出码为 null 时）+ stderr 尾部摘要）。
 3. 取消：ctx.signal aborted → `child.kill('SIGTERM')` 并立即以 AbortError 结束工具（不等待 exit）；signal 在 spawn 前已 aborted → 不发请求直接抛（同现状）。
 4. 返回：`{ content: [{type:'text', text}], details: { kind: 'foreground', runId: child.pid, status: 'completed' } }`。
 5. 禁止再派发：child 用 `--no-extensions`，无 workloom_execute 工具（天然禁止，无需深度控制）。
@@ -82,7 +81,7 @@ export function extractExecutorText(parts: string[]): string   // 空 → EMPTY_
 ## 7. 测试清单（node:test）
 
 1. pi-args：effort 五档 → --thinking 同名；model 可选稀疏；固定参数序列完整；kind 无定义抛错（约 4 例）。
-2. pi-events：样例 JSONL（含 text/thinking/toolCall 块的 message_end + agent_end）→ 文本提取；多轮 message_end 拼接；空输出 → EMPTY_OUTPUT_TEXT；坏行跳过；无 agent_end 不 done（约 5 例）。
+2. pi-events：样例 JSONL（含 text/thinking/toolCall 块的 message_end + agent_end）→ 文本提取；多轮 message_end 只取最后一个非空 assistant 消息（含「末轮无 text 保留前一轮」边界）；空输出 → EMPTY_OUTPUT_TEXT；坏行跳过；无 agent_end 不 done；防御形状（content 非数组/块混入非对象）跳过（约 7 例）。
 3. agent-definitions：三 kind 完整、文案非空含 workloom 身份与禁止再派发（保留现有用例改类型）。
 4. executor 静态：EXECUTOR_TOOL 描述不变（1 例，可选）。
 
