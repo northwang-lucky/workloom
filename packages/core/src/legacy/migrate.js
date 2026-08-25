@@ -107,15 +107,19 @@ function migrateLegacyTrellisInternal(root, params) {
   for (const dirName of LEGACY_DIRS) {
     const sourceDir = join(legacyRoot, LEGACY_TRELLIS_DIR, dirName)
     if (!existsSync(sourceDir)) continue
-    copyDirRecursive(
+    const targetDir = insideWorkloom(projectRoot, dirName)
+    const existedBefore = existsSync(targetDir)
+    const copied = copyDirRecursive(
       sourceDir,
-      insideWorkloom(projectRoot, dirName),
+      targetDir,
       legacyRoot,
       projectRoot,
       skipped,
       unsupported,
     )
-    migrated.push(join(WORKLOOM_DIR, dirName))
+    // migrated 记录「本次实际新写入的区域」：全部冲突跳过的区域不算迁移（幂等语义）；
+    // 但首次创建的空目录区域（copied=0 且目标此前不存在）仍算迁移。
+    if (copied > 0 || !existedBefore) migrated.push(join(WORKLOOM_DIR, dirName))
   }
   /** @type {string[]} */
   const droppedConfigFields = []
@@ -145,9 +149,11 @@ function migrateLegacyTrellisInternal(root, params) {
  * @param {string} projectRoot 项目根（目标防逃逸基准、skipped 相对路径基准）
  * @param {string[]} skipped 冲突条目收集（相对 projectRoot 的目标路径）
  * @param {string[]} unsupported 符号链接等不支持条目收集（相对 projectRoot 的目标路径）
+ * @returns {number} 本次实际新复制的条目数（文件与子目录均计数，幂等判定用）
  */
 function copyDirRecursive(sourceDir, targetDir, sourceRoot, projectRoot, skipped, unsupported) {
   mkdirSync(targetDir, { recursive: true })
+  let copied = 0
   for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
     const sourcePath = join(sourceDir, entry.name)
     const targetPath = join(targetDir, entry.name)
@@ -159,14 +165,23 @@ function copyDirRecursive(sourceDir, targetDir, sourceRoot, projectRoot, skipped
       continue
     }
     if (entry.isDirectory()) {
-      copyDirRecursive(sourcePath, targetPath, sourceRoot, projectRoot, skipped, unsupported)
+      copied += copyDirRecursive(
+        sourcePath,
+        targetPath,
+        sourceRoot,
+        projectRoot,
+        skipped,
+        unsupported,
+      )
     } else if (entry.isFile()) {
       copyFileSync(sourcePath, targetPath)
+      copied += 1
     } else {
       // 符号链接等既非文件也非目录的条目：显式记入 unsupported，不做无痕丢弃。
       unsupported.push(relative(projectRoot, targetPath))
     }
   }
+  return copied
 }
 
 /**

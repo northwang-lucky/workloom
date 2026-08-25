@@ -247,7 +247,11 @@ async function archiveTaskTool(
     ...(typeof typed.autoCommit === 'boolean' ? { autoCommit: typed.autoCommit } : {}),
   })
   if (err || task === null) throw err ?? new Error(`${ERR_PREFIX}: archive returned no result`)
-  return { taskRelPath: task.taskRelPath, task }
+  return {
+    taskRelPath: task.taskRelPath,
+    task,
+    note: 'Task archived. When the session ends, run /workloom-finish to record the session journal.',
+  }
 }
 
 /** list 工具。 */

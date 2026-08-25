@@ -65,7 +65,7 @@ Completion criteria: `git status` shows no dirty files belonging to this task.
 #### 3.1 Archive and record
 
 Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit.
-Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session.
+Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires the `/workloom-finish` command (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
 
 [workflow-state:no_task]
 No active task right now. When the user expresses a need: first judge whether it is a simple answer or work worth a task; for work worth a task, follow Phase 1.0 to create it, then proceed by the planning guidance.
@@ -80,5 +80,5 @@ The task is in progress. Follow Phase 2: implement → check → commit. Subagen
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
-The task is archived. When the user asks for more, judge whether a new task is warranted (follow 1.0); do not modify tasks under the archive directory.
+The task is archived. When the user asks for more, judge whether a new task is warranted (follow 1.0); do not modify tasks under the archive directory. If this session is wrapping up and no journal entry has been recorded yet, run the `/workloom-finish` command to record it.
 [/workflow-state:completed]
