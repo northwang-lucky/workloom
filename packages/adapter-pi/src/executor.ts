@@ -30,37 +30,24 @@ import {
   assertEffort,
   assertKind,
   buildExecutorPrompt,
+  ERR_PREFIX,
   findWorkloomRoot,
-  resolveActiveTask,
+  PARAM_DESCRIPTIONS,
+  resolveTaskRelPath,
+  TOOL_DESCRIPTIONS,
+  TOOL_NAMES,
 } from '@workloom/core'
 
-import {
-  contextKeyOf,
-  EXECUTOR_ERR_PREFIX,
-  EXECUTOR_TOOL,
-  NODE_ID_PREFIX,
-  OWNER_RUN_ID_FALLBACK,
-} from './constants.ts'
+import { contextKeyOf, NODE_ID_PREFIX, OWNER_RUN_ID_FALLBACK } from './constants.ts'
 import { buildDelegationRequest, delegationFailureMessage, responseToText } from './delegation.ts'
 
 /** 工具参数 TypeBox schema（与 DSH 的参数语义一致）。 */
 const EXECUTOR_PARAMS = Type.Object({
-  kind: Type.String({ description: 'Executor role: research, implement, or check' }),
-  taskPath: Type.Optional(
-    Type.String({
-      description:
-        'Task directory relative to .workloom; defaults to the active task of this session',
-    }),
-  ),
-  model: Type.Optional(
-    Type.String({
-      description: 'Model id for the executor subagent; defaults to the parent session model',
-    }),
-  ),
-  effort: Type.Optional(
-    Type.String({ description: 'Reasoning effort: low/medium/high/xhigh/max' }),
-  ),
-  prompt: Type.String({ description: 'Task instructions for the executor subagent' }),
+  kind: Type.String({ description: PARAM_DESCRIPTIONS.kind }),
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPathExecutor })),
+  model: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.model })),
+  effort: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.effort })),
+  prompt: Type.String({ description: PARAM_DESCRIPTIONS.prompt }),
 })
 
 /**
@@ -69,10 +56,9 @@ const EXECUTOR_PARAMS = Type.Object({
  */
 export function registerExecutorTool(pi: ExtensionAPI): void {
   pi.registerTool({
-    name: EXECUTOR_TOOL,
+    name: TOOL_NAMES.executor,
     label: 'Workloom Execute',
-    description:
-      'Dispatch a workloom executor subagent (research/implement/check) with the task context inlined',
+    description: TOOL_DESCRIPTIONS.executor,
     parameters: EXECUTOR_PARAMS,
     // 工具级 signal 与 ctx.signal 同源（工具执行期间 agent 处于 streaming），
     // 按 spec 统一走 ctx.signal 的 abort 通道。
@@ -97,13 +83,13 @@ async function executeTool(
   const cwd = ctx.cwd
   if (cwd === '') {
     throw new Error(
-      `${EXECUTOR_ERR_PREFIX}: cannot determine the working directory of this session`,
+      `${ERR_PREFIX.executor}: cannot determine the working directory of this session`,
     )
   }
   const found = findWorkloomRoot(cwd)
   if (found === null) {
     throw new Error(
-      `${EXECUTOR_ERR_PREFIX}: no .workloom directory found (searched up from ${cwd})`,
+      `${ERR_PREFIX.executor}: no .workloom directory found (searched up from ${cwd})`,
     )
   }
   const root = found.root
@@ -111,7 +97,12 @@ async function executeTool(
   assertEffort(params.effort)
   assertKind(params.kind)
   const sessionId = ctx.sessionManager.getSessionId()
-  const taskRelPath = await resolveTaskRelPath(root, sessionId, params.taskPath)
+  const taskRelPath = resolveTaskRelPath(
+    root,
+    contextKeyOf(sessionId),
+    params.taskPath,
+    ERR_PREFIX.executor,
+  )
   const [promptErr, built] = buildExecutorPrompt({
     root,
     taskRelPath,
@@ -119,7 +110,7 @@ async function executeTool(
     userPrompt: params.prompt,
   })
   if (promptErr || built === null) {
-    throw promptErr ?? new Error(`${EXECUTOR_ERR_PREFIX}: prompt assembly returned no result`)
+    throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
   const request = buildDelegationRequest({
     requestId: randomUUID(),
@@ -143,27 +134,6 @@ async function executeTool(
 }
 
 /**
- * 解析任务相对路径：优先 taskPath 参数，缺省取当前会话活跃任务。
- * @param root 项目根
- * @param sessionId 会话 id
- * @param taskPath 显式任务路径（可选）
- * @returns 任务目录相对 .workloom 的路径
- */
-async function resolveTaskRelPath(
-  root: string,
-  sessionId: string,
-  taskPath: string | undefined,
-): Promise<string> {
-  if (taskPath !== undefined && taskPath !== '') return taskPath
-  const [ptrErr, active] = resolveActiveTask(root, contextKeyOf(sessionId))
-  if (ptrErr) throw ptrErr
-  if (active === null) {
-    throw new Error(`${EXECUTOR_ERR_PREFIX}: no active task and no taskPath given`)
-  }
-  return active
-}
-
-/**
  * 派发请求并等待终态响应：先订阅 RESPONSE（按三元组匹配，命中即退订并
  * resolve），再 emit REQUEST；signal 已 aborted 时不发请求直接抛 AbortError。
  * @param pi Extension API
@@ -177,7 +147,7 @@ async function dispatchAndWait(
   signal: AbortSignal | undefined,
 ): Promise<SubagentDelegationResponse> {
   if (signal?.aborted === true) {
-    throw new Error(`${EXECUTOR_ERR_PREFIX}: executor dispatch aborted before start`)
+    throw new Error(`${ERR_PREFIX.executor}: executor dispatch aborted before start`)
   }
   // 先建订阅再 emit：EventBus 同步派发，避免「响应先于订阅」的竞态丢响应。
   const responsePromise = awaitDelegationResponse(pi, request, signal)
@@ -204,7 +174,7 @@ function awaitDelegationResponse(
       pi.events.emit(SUBAGENT_DELEGATION_CANCEL_EVENT, cancelPayload(request))
       unsubscribe()
       signal?.removeEventListener('abort', onAbort)
-      reject(new Error(`${EXECUTOR_ERR_PREFIX}: executor dispatch aborted`))
+      reject(new Error(`${ERR_PREFIX.executor}: executor dispatch aborted`))
     }
     const unsubscribe = pi.events.on(SUBAGENT_DELEGATION_RESPONSE_EVENT, (payload) => {
       const response = payload as SubagentDelegationResponse

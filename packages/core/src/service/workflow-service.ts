@@ -18,7 +18,7 @@ import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from '../legacy/b
 import { resolveActiveTask } from '../legacy/active-task.js'
 import { readTask } from '../legacy/task-store.js'
 
-import type { WorkflowContract } from '../legacy/workflow-contract.d.ts'
+import type { WorkflowContract } from '../workflow-contract-types.js'
 import type { TaskRecordWithPath } from '../legacy/task-store.d.ts'
 
 /** 错误消息前缀（运行时文案英文）。 */

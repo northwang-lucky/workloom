@@ -1,40 +1,32 @@
 /**
- * constants.ts 静态边界单测：命令/工具名常量与注册调用使用的名字一致。
+ * constants.ts 静态边界单测：Pi 特有常量与 contextKey 组装。
+ * 契约面常量（命令/工具名、错误前缀）已下沉 core surface，不再在此断言。
  */
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
-  COMMAND_CONTINUE,
-  COMMAND_FINISH,
-  COMMAND_INIT,
-  EXECUTOR_TOOL,
+  CONTEXT_KEY_FALLBACK,
+  CONTEXT_KEY_PREFIX,
+  contextKeyOf,
   NODE_ID_PREFIX,
-  STEPS_TOOL,
-  TASK_ARCHIVE_TOOL,
-  TASK_CREATE_TOOL,
-  TASK_FINISH_TOOL,
-  TASK_LIST_TOOL,
-  TASK_START_TOOL,
+  OWNER_RUN_ID_FALLBACK,
+  SESSION_CONTEXT_CUSTOM_TYPE,
 } from '../src/constants.ts'
 
-test('static boundary: registered command names match constants', () => {
-  assert.equal(COMMAND_INIT, 'workloom-init')
-  assert.equal(COMMAND_CONTINUE, 'workloom-continue')
-  assert.equal(COMMAND_FINISH, 'workloom-finish')
-})
-
-test('static boundary: registered tool names match constants', () => {
-  assert.equal(TASK_CREATE_TOOL, 'workloom_task_create')
-  assert.equal(TASK_START_TOOL, 'workloom_task_start')
-  assert.equal(TASK_FINISH_TOOL, 'workloom_task_finish')
-  assert.equal(TASK_ARCHIVE_TOOL, 'workloom_task_archive')
-  assert.equal(TASK_LIST_TOOL, 'workloom_task_list')
-  assert.equal(EXECUTOR_TOOL, 'workloom_execute')
-  assert.equal(STEPS_TOOL, 'workloom_step')
-})
-
-test('static boundary: executor delegation nodeId prefix', () => {
+test('static boundary: retained pi-specific constants', () => {
+  assert.equal(CONTEXT_KEY_PREFIX, 'pi')
+  assert.equal(CONTEXT_KEY_FALLBACK, 'unknown')
+  assert.equal(OWNER_RUN_ID_FALLBACK, 'unknown')
   assert.equal(NODE_ID_PREFIX, 'workloom-execute-')
+  assert.equal(SESSION_CONTEXT_CUSTOM_TYPE, 'workloom-session-context')
+})
+
+test('contextKeyOf: prefixes session id with pi_', () => {
+  assert.equal(contextKeyOf('sess-1'), 'pi_sess-1')
+})
+
+test('contextKeyOf: empty session id falls back to pi_unknown', () => {
+  assert.equal(contextKeyOf(''), 'pi_unknown')
 })

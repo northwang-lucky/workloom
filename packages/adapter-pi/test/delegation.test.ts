@@ -7,7 +7,9 @@ import assert from 'node:assert/strict'
 
 import type { SubagentDelegationResponse } from 'pi-subagents/delegation'
 
-import { EMPTY_OUTPUT_TEXT, NODE_ID_PREFIX } from '../src/constants.ts'
+import { EMPTY_OUTPUT_TEXT } from '@workloom/core'
+
+import { NODE_ID_PREFIX } from '../src/constants.ts'
 import {
   buildDelegationRequest,
   delegationFailureMessage,

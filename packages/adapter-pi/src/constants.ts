@@ -1,6 +1,9 @@
 /**
  * adapter-pi 共享常量与 contextKey 组装（index/commands/tasks/executor/inject 共用，
  * 消除同义字符串重复）。
+ *
+ * 说明：命令名/工具名/错误前缀/EMPTY_OUTPUT_TEXT 等契约面常量已下沉
+ * core 的 surface，本文件只保留 Pi runtime 特有常量。
  */
 
 /** 会话指针 contextKey 前缀（对齐 core 的会话指针约定）。 */
@@ -23,34 +26,11 @@ export function contextKeyOf(sessionId: string): string {
   return `${CONTEXT_KEY_PREFIX}_${id}`
 }
 
-/** 命令名（连字符，与 DSH 保持一致，Pi 无名称字符校验）。 */
-export const COMMAND_INIT = 'workloom-init'
-export const COMMAND_CONTINUE = 'workloom-continue'
-export const COMMAND_FINISH = 'workloom-finish'
-
-/** 任务管理工具名（模型可见）。 */
-export const TASK_CREATE_TOOL = 'workloom_task_create'
-export const TASK_START_TOOL = 'workloom_task_start'
-export const TASK_FINISH_TOOL = 'workloom_task_finish'
-export const TASK_ARCHIVE_TOOL = 'workloom_task_archive'
-export const TASK_LIST_TOOL = 'workloom_task_list'
-
-/** executor 与步骤详情工具名（模型可见）。 */
-export const EXECUTOR_TOOL = 'workloom_execute'
-export const STEPS_TOOL = 'workloom_step'
-
 /** executor 派发的 nodeId 前缀（后接 randomUUID 前 8 位）。 */
 export const NODE_ID_PREFIX = 'workloom-execute-'
 
-/** 错误消息前缀（运行时文案英文）。 */
-export const COMMAND_ERR_PREFIX = 'workloom command'
-export const TASK_ERR_PREFIX = 'workloom task tool'
-export const EXECUTOR_ERR_PREFIX = 'workloom executor'
-export const STEPS_ERR_PREFIX = 'workloom step tool'
+/** executor agent 注册错误消息前缀（运行时文案英文，Pi 特有模块用）。 */
 export const AGENT_ERR_PREFIX = 'workloom agent'
 
 /** session-context 注入消息的 customType（CustomMessage 参与 LLM 上下文）。 */
 export const SESSION_CONTEXT_CUSTOM_TYPE = 'workloom-session-context'
-
-/** executor 子代理无文本输出时的返回提示（运行时文案英文）。 */
-export const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.'

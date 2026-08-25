@@ -16,7 +16,7 @@ import type {
   SubagentDelegationThinking,
 } from 'pi-subagents/delegation'
 
-import { EMPTY_OUTPUT_TEXT, EXECUTOR_ERR_PREFIX } from './constants.ts'
+import { EMPTY_OUTPUT_TEXT, ERR_PREFIX } from '@workloom/core'
 
 /** effort 档位与 Pi thinking 档位的同名映射（档位定义对齐 core 的 EFFORT_LEVELS）。 */
 const EFFORT_TO_THINKING: Readonly<Record<string, SubagentDelegationThinking>> = {
@@ -103,10 +103,10 @@ export function responseToText(response: SubagentDelegationResponse): string | n
  */
 export function delegationFailureMessage(response: SubagentDelegationResponse): string {
   if (response.status === 'completed') {
-    return `${EXECUTOR_ERR_PREFIX}: completed without a text result`
+    return `${ERR_PREFIX.executor}: completed without a text result`
   }
   const detail = response.error
-  return `${EXECUTOR_ERR_PREFIX}: subagent delegation ended with status ${response.status}${
+  return `${ERR_PREFIX.executor}: subagent delegation ended with status ${response.status}${
     detail !== undefined ? `: ${detail}` : ''
   }`
 }

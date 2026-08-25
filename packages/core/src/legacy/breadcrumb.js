@@ -24,15 +24,15 @@ const FIELD_STATUS = 'status'
 
 /**
  * 把 overlay 文档合并进内置契约（同键覆盖，返回新对象，不改原 contract）。
- * @param {import('./workflow-contract.d.ts').WorkflowContract} contract 内置契约
+ * @param {import('../workflow-contract-types.js').WorkflowContract} contract 内置契约
  * @param {string} overlayText overlay 文档全文（front-matter 可选）
- * @returns {[Error | null, import('./workflow-contract.d.ts').WorkflowContract | null]}
+ * @returns {[Error | null, import('../workflow-contract-types.js').WorkflowContract | null]}
  */
 export function mergeOverlay(contract, overlayText) {
   if (typeof overlayText !== 'string') {
     return [new WorkflowContractError('<overlay>', 'overlay text must be a string'), null]
   }
-  /** @type {import('./workflow-contract.d.ts').WorkflowContract} */
+  /** @type {import('../workflow-contract-types.js').WorkflowContract} */
   let overlay
   try {
     overlay = parseDocument(overlayText, { requireFrontMatter: false })
@@ -86,7 +86,7 @@ export function mergeOverlay(contract, overlayText) {
 
 /**
  * 按状态组装 breadcrumb 正文。
- * @param {import('./workflow-contract.d.ts').WorkflowContract} contract 契约
+ * @param {import('../workflow-contract-types.js').WorkflowContract} contract 契约
  * @param {string} status 任务当前状态（须先映射进契约 states）
  * @returns {[Error | null, string | null]}
  */

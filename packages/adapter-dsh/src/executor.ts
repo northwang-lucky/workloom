@@ -21,29 +21,25 @@ import { finalAssistantOutput } from '@deepseek-ai/dsh-subagent'
 import {
   assertEffort,
   buildExecutorPrompt,
+  EMPTY_OUTPUT_TEXT,
+  ERR_PREFIX,
   findWorkloomRoot,
-  resolveActiveTask,
+  PARAM_DESCRIPTIONS,
+  resolveTaskRelPath,
+  TOOL_DESCRIPTIONS,
+  TOOL_NAMES,
 } from '@workloom/core'
 
 import { CONTEXT_KEY_PREFIX } from './constants.js'
 
-/** 工具名常量（模型可见）。 */
-export const EXECUTOR_TOOL = 'workloom_execute'
-
 /** spawn provider 名（DSH in-process 子代理提供方，continuable 能力齐备）。 */
 const SPAWN_PROVIDER = 'spawn'
 
-/** 错误消息前缀（运行时文案英文）。 */
-const ERR_PREFIX = 'workloom executor'
-
-/** 子代理无文本输出时的返回提示（运行时文案英文）。 */
-const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.'
-
 /** 释放子代理失败告警前缀（运行时文案英文）。 */
-const DRAIN_WARN_PREFIX = `${ERR_PREFIX}: WARNING: failed to release continuable child:`
+const DRAIN_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to release continuable child:`
 
 /** effort 写入失败告警前缀（effort 是可选增强，失败不阻塞执行）。 */
-const EFFORT_WARN_PREFIX = `${ERR_PREFIX}: WARNING: effort header not written:`
+const EFFORT_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: effort header not written:`
 
 /** 纯文本块最小形状（render 与返回值共用）。 */
 interface TextBlockLike {
@@ -149,32 +145,30 @@ interface ExecutorValue {
 export function registerExecutor(ctx: Context & ExecutorServices): void {
   const { tools } = ctx
   tools.register({
-    name: EXECUTOR_TOOL,
-    description:
-      'Dispatch a workloom executor subagent (research/implement/check) with the task context inlined',
+    name: TOOL_NAMES.executor,
+    description: TOOL_DESCRIPTIONS.executor,
     parameters: {
       type: 'object',
       properties: {
         kind: {
           type: 'string',
-          description: 'Executor role: research, implement, or check',
+          description: PARAM_DESCRIPTIONS.kind,
         },
         taskPath: {
           type: 'string',
-          description:
-            'Task directory relative to .workloom; defaults to the active task of this session',
+          description: PARAM_DESCRIPTIONS.taskPathExecutor,
         },
         model: {
           type: 'string',
-          description: 'Model id for the executor subagent; defaults to the parent session model',
+          description: PARAM_DESCRIPTIONS.model,
         },
         effort: {
           type: 'string',
-          description: 'Reasoning effort: low/medium/high/xhigh/max',
+          description: PARAM_DESCRIPTIONS.effort,
         },
         prompt: {
           type: 'string',
-          description: 'Task instructions for the executor subagent',
+          description: PARAM_DESCRIPTIONS.prompt,
         },
       },
       required: ['kind', 'prompt'],
@@ -204,19 +198,24 @@ async function executeTool(
   const params = args as ExecutorArgs
   const parent = exec.agent
   if (parent === undefined) {
-    throw new Error(`${ERR_PREFIX}: tool call has no owning agent`)
+    throw new Error(`${ERR_PREFIX.executor}: tool call has no owning agent`)
   }
   const cwd = parent.session.header.cwd
   if (cwd === undefined || cwd === '') {
-    throw new Error(`${ERR_PREFIX}: cannot determine the working directory of this session`)
+    throw new Error(
+      `${ERR_PREFIX.executor}: cannot determine the working directory of this session`,
+    )
   }
   const found = findWorkloomRoot(cwd)
   if (found === null) {
-    throw new Error(`${ERR_PREFIX}: no .workloom directory found (searched up from ${cwd})`)
+    throw new Error(
+      `${ERR_PREFIX.executor}: no .workloom directory found (searched up from ${cwd})`,
+    )
   }
   const root = found.root
   if (params.effort !== undefined) assertEffort(params.effort)
-  const taskRelPath = resolveTaskRelPath(root, parent, params)
+  const contextKey = `${CONTEXT_KEY_PREFIX}_${parent.id}`
+  const taskRelPath = resolveTaskRelPath(root, contextKey, params.taskPath, ERR_PREFIX.executor)
   const [promptErr, built] = buildExecutorPrompt({
     root,
     taskRelPath,
@@ -224,7 +223,7 @@ async function executeTool(
     userPrompt: params.prompt,
   })
   if (promptErr || built === null) {
-    throw promptErr ?? new Error(`${ERR_PREFIX}: prompt assembly returned no result`)
+    throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
   const agentOptions = params.model === undefined ? undefined : { model: params.model }
   const subagents = ctx.subagents
@@ -241,7 +240,7 @@ async function executeTool(
   const child = ctx.agents.get(childId)
   if (child === undefined) {
     throw new Error(
-      `${ERR_PREFIX}: effort channel failed: child agent ${childId} is not resolvable`,
+      `${ERR_PREFIX.executor}: effort channel failed: child agent ${childId} is not resolvable`,
     )
   }
   // 输出边界：只取子代理自身产出的事件（排除继承的父历史种子前缀）。
@@ -269,24 +268,6 @@ async function executeTool(
     runId: childId,
     output: [{ type: 'text', text: text === '' ? EMPTY_OUTPUT_TEXT : text }],
   }
-}
-
-/**
- * 解析任务相对路径：优先 taskPath 参数，缺省取当前会话活跃任务。
- * @param root 项目根
- * @param parent 发起 agent
- * @param params 工具参数
- * @returns 任务目录相对 .workloom 的路径
- */
-function resolveTaskRelPath(root: string, parent: MinimalAgent, params: ExecutorArgs): string {
-  if (params.taskPath !== undefined) return params.taskPath
-  const contextKey = `${CONTEXT_KEY_PREFIX}_${parent.id}`
-  const [ptrErr, active] = resolveActiveTask(root, contextKey)
-  if (ptrErr) throw ptrErr
-  if (active === null) {
-    throw new Error(`${ERR_PREFIX}: no active task and no taskPath given`)
-  }
-  return active
 }
 
 /**
