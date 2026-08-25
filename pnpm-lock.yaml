@@ -60,10 +60,10 @@ importers:
         specifier: ^3.18.1
         version: 3.18.1
       '@workloom/assets':
-        specifier: link:../assets
+        specifier: file:../assets
         version: link:../assets
       '@workloom/core':
-        specifier: link:../core
+        specifier: file:../core
         version: link:../core
     devDependencies:
       '@types/node':
