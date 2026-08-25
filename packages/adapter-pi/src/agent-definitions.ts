@@ -1,29 +1,25 @@
 /**
  * adapter-pi 的 executor agent 定义数据（EXECUTOR_AGENT_DEFINITIONS）。
  *
- * 与 agents.ts 拆分的原因：本文件只含纯数据与类型导入（import type 在
- * Node type-stripping 下被擦除，不加载 node_modules 内的 pi-subagents
- * 源码），供 node:test 直接单测；运行时注册逻辑留在 agents.ts。
- *
- * 公共字段：systemPromptMode:'replace'、inheritProjectContext:false、
- * maxSubagentDepth:1（executor 深度 1，禁止再派发子代理，语义与
- * DSH maxDepth=1 一致）；thinking 不设（派发时 request.thinking 覆盖）；
- * 不设 tools/subagentOnlyExtensions（继承默认工具集）。
+ * 设计意图（ADR-0006 修订）：
+ * - 本文件只含纯数据与本地类型（ExecutorAgentDefinition），供 node:test
+ *   直接单测；角色说明经 --append-system-prompt 注入 child pi（pi-args）；
+ * - pi-subagents 目录协议字段（systemPromptMode/inheritProjectContext/
+ *   maxSubagentDepth）与 thinking 概念随文件式注册一并废弃：「不继承项目
+ *   上下文」由 --no-session --no-extensions + fresh prompt 保证，「禁止
+ *   再派发」由 child 无 workloom_execute 工具（--no-extensions）保证；
+ * - 三个 kind 的 description/systemPrompt 文案与废弃前逐字一致（自写英文）。
  */
 
-import type { RuntimeAgentDefinition } from 'pi-subagents/agents'
+/** 本地 executor agent 定义（仅保留角色说明与注册描述）。 */
+export interface ExecutorAgentDefinition {
+  description: string
+  systemPrompt: string
+}
 
-/** 公共 agent 字段（严格依赖语义：不继承项目上下文、禁止再派发）。 */
-const COMMON_AGENT_FIELDS = {
-  systemPromptMode: 'replace',
-  inheritProjectContext: false,
-  maxSubagentDepth: 1,
-} as const
-
-/** 三个 executor agent 的运行时定义（键与 EXECUTOR_KINDS 值一一对应）。 */
-export const EXECUTOR_AGENT_DEFINITIONS: Readonly<Record<string, RuntimeAgentDefinition>> = {
+/** 三个 executor agent 的定义（键与 EXECUTOR_KINDS 值一一对应）。 */
+export const EXECUTOR_AGENT_DEFINITIONS: Readonly<Record<string, ExecutorAgentDefinition>> = {
   research: {
-    ...COMMON_AGENT_FIELDS,
     description: 'Research executor: investigate the task and produce a grounded report',
     systemPrompt: `You are the workloom research executor. Investigate the task and produce a grounded report that the implementer can act on.
 
@@ -34,7 +30,6 @@ Work methodically: read the relevant files before judging, verify claims against
 You are done when your report is complete, self-contained, and accurate. Do not dispatch subagents: nested delegation is disabled for you.`,
   },
   implement: {
-    ...COMMON_AGENT_FIELDS,
     description: 'Implement executor: turn the task context into working code changes',
     systemPrompt: `You are the workloom implement executor. Turn the task context into working code changes.
 
@@ -45,7 +40,6 @@ Follow the plan step by step, keep changes minimal and consistent with the desig
 You are done when the changes are complete and verified. Do not dispatch subagents: nested delegation is disabled for you.`,
   },
   check: {
-    ...COMMON_AGENT_FIELDS,
     description: 'Check executor: review completed work against the task contract',
     systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and report issues with locations and fixes.
 
