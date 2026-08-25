@@ -22,7 +22,7 @@ export const COMMAND_DESCRIPTIONS = {
   finish: 'Check dirty files and hand the wrap-up instructions to the model',
 } as const
 
-/** 七个工具名（五个任务工具 + executor + 步骤详情，模型可见）。 */
+/** 八个工具名（五个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
 export const TOOL_NAMES = {
   taskCreate: 'workloom_task_create',
   taskStart: 'workloom_task_start',
@@ -31,9 +31,10 @@ export const TOOL_NAMES = {
   taskList: 'workloom_task_list',
   executor: 'workloom_execute',
   step: 'workloom_step',
+  journal: 'workloom_journal',
 } as const
 
-/** 七个工具的 register 描述文案（两 adapter 现状逐字相同）。 */
+/** 八个工具的 register 描述文案（两 adapter 现状逐字相同）。 */
 export const TOOL_DESCRIPTIONS = {
   taskCreate: 'Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)',
   taskStart: 'Move the active task (or the given taskPath) from planning to in_progress',
@@ -43,10 +44,11 @@ export const TOOL_DESCRIPTIONS = {
   executor:
     'Dispatch a workloom executor subagent (research/implement/check) with the task context inlined',
   step: 'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
+  journal: 'Record this session in the workloom journal (title + work commit hash + summary)',
 } as const
 
 /**
- * 七个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
+ * 八个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
  * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
@@ -58,6 +60,7 @@ export const TOOL_SNIPPETS = {
   taskList: 'workloom_task_list(status?) — list task summaries',
   executor: 'workloom_execute(kind, prompt, taskPath?, model?, effort?) — dispatch an executor',
   step: 'workloom_step(stepId) — show one workflow step body',
+  journal: 'workloom_journal(title, commit?, summary?) — record the session journal',
 } as const
 
 /** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有两处变体）。 */
@@ -78,6 +81,9 @@ export const PARAM_DESCRIPTIONS = {
   effort: 'Reasoning effort: low/medium/high/xhigh/max',
   prompt: 'Task instructions for the executor subagent',
   stepId: 'Workflow step id, e.g. 1.1 or 2.1',
+  journalTitle: 'Journal entry title',
+  journalCommit: 'Work commit hash for this session',
+  journalSummary: 'One-line session summary',
 } as const
 
 /** 错误消息前缀（命令/任务工具/executor/步骤工具）。 */

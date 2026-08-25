@@ -32,6 +32,8 @@ import { registerSkills, registerStepsTool } from './skills.js'
 import type { SkillsServices, StepsToolServices } from './skills.js'
 import { registerTaskTools } from './tasks.js'
 import type { TaskToolsServices } from './tasks.js'
+import { registerJournalTool } from './journal-tool.js'
+import type { JournalToolServices } from './journal-tool.js'
 
 /** 注入 section 名（systemPrompt 注册键，同名重复注册会抛错）。 */
 const SECTION_NAME = 'workloom-breadcrumb'
@@ -121,6 +123,7 @@ export function apply(ctx: Context): void {
   registerSkills(ctx as Context & SkillsServices)
   registerStepsTool(ctx as Context & StepsToolServices)
   registerTaskTools(ctx as Context & TaskToolsServices)
+  registerJournalTool(ctx as Context & JournalToolServices)
 }
 
 /**

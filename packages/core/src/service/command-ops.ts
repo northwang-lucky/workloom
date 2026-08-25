@@ -21,11 +21,13 @@ import { migrateLegacyTrellis } from '../legacy/migrate.js'
 import { resolveActiveTask } from '../legacy/active-task.js'
 import { readTask } from '../legacy/task-store.js'
 import { countDirtyLines, gitStatus } from '../legacy/git.js'
+import { addSession } from '../legacy/journal.js'
 import { routeNextStep } from './route-service.js'
 import { COMMAND_NAMES, DEVELOPER_FILE, ERR_PREFIX, PURGE_FLAG } from '../surface.js'
 
 import type { MigrateLegacyTrellisResult } from '../legacy/migrate.d.ts'
 import type { TaskRecordWithPath } from '../legacy/task-store.d.ts'
+import type { AddSessionResult } from '../legacy/journal.d.ts'
 
 /**
  * 解析 init 命令的自由输入：精确 --purge 或以 --purge 空格开头 → purge 模式；
@@ -260,6 +262,63 @@ async function finishInternal(cwd: string, contextKey: string, body: string): Pr
     '',
     body,
   ].join('\n')
+}
+
+/** executeJournalEntry 入参（title 必填；commit/summary 可选）。 */
+export interface ExecuteJournalEntryParams {
+  title: string
+  commit?: string
+  summary?: string
+}
+
+/**
+ * journal 工具编排：读 .developer 身份后调 addSession 记录会话日志。
+ * @param cwd 会话工作目录
+ * @param params 工具参数（空串 commit/summary 不传，口径同任务工具）
+ * @returns [err, result]：err 为任一失败（空 cwd/无身份/记录失败）
+ */
+export async function executeJournalEntry(
+  cwd: string,
+  params: ExecuteJournalEntryParams,
+): Promise<[Error | null, AddSessionResult | null]> {
+  try {
+    return [null, await executeJournalInternal(cwd, params)]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
+
+/**
+ * journal 编排实现（内部）：任一失败抛错，由外层转元组。
+ * @param cwd 会话工作目录
+ * @param params 工具参数
+ * @returns 会话记录结果
+ */
+async function executeJournalInternal(
+  cwd: string,
+  params: ExecuteJournalEntryParams,
+): Promise<AddSessionResult> {
+  requireNonEmptyCwd(cwd)
+  const developer = readExistingDeveloper(cwd)
+  // init 不带 developer 会落空 .developer 文件（trim 后为 ''），与无文件同视为无身份。
+  if (developer === undefined || developer === '') {
+    throw new Error(
+      `${ERR_PREFIX.command}: no developer identity found; run the workloom init command first`,
+    )
+  }
+  const [err, result] = await addSession(cwd, {
+    developer,
+    title: params.title,
+    ...(typeof params.commit === 'string' && params.commit !== '' ? { commit: params.commit } : {}),
+    ...(typeof params.summary === 'string' && params.summary !== ''
+      ? { summary: params.summary }
+      : {}),
+  })
+  if (err !== null) throw err
+  if (result === null) {
+    throw new Error(`${ERR_PREFIX.command}: journal record returned no result`)
+  }
+  return result
 }
 
 /** cwd 为空串直接抛错（消息含前缀，与下沉前 adapter 文案逐字一致）。 */

@@ -9,6 +9,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { registerCommands } from './commands.ts'
 import { registerExecutorTool } from './executor.ts'
 import { registerInjections } from './inject.ts'
+import { registerJournalTool } from './journal-tool.ts'
 import { registerStepsTool } from './skills-tool.ts'
 import { registerTaskTools } from './tasks.ts'
 
@@ -22,5 +23,6 @@ export default function workloomExtension(pi: ExtensionAPI): void {
   registerTaskTools(pi)
   registerExecutorTool(pi)
   registerStepsTool(pi)
+  registerJournalTool(pi)
   registerInjections(pi)
 }
