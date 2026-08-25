@@ -48,7 +48,7 @@
 
 ## 实现期 PoC 清单（静态分析待实证）
 
-1. P1：DSH 子代理创建后写入 `request/header`（含 reasoningEffort），selection 折叠链是否在下一次请求即生效；`RequestHeaderReason` 合法取值。**代码通道已实现（continuable + request/header），待安装后真实验证**。
+1. P1：DSH 子代理创建后写入 `request/header`（含 reasoningEffort），selection 折叠链是否在下一次请求即生效；`RequestHeaderReason` 合法取值。**✅ 已实证（2026-08-25 真机验证）**：continuable 窗口写入 header（reason 'change'）→ selection 折叠 → 子代理首请求实际携带 `reasoningEffort: 'low'`（llm/stream 观察命中），回合正常完成；header 写入后回读折叠头正确。
 2. P2：`agent/request` 替换 config 与 installModelSelection 后处理的顺序交互（fallback 通道）。
 3. P3：Pi 侧 pi-subagents 事件派发在 adapter Extension 中的最小可跑闭环（registerAgent → request 事件 → response 事件）。
 4. P4：DSH 命令 handler 内 `agent.followup` 的完整链路（命令执行后模型回合开启、日志生命周期）。
