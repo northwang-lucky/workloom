@@ -45,6 +45,21 @@ export const TOOL_DESCRIPTIONS = {
   step: 'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
 } as const
 
+/**
+ * 七个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
+ * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
+ * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
+ */
+export const TOOL_SNIPPETS = {
+  taskCreate: 'workloom_task_create(title, slug?, priority?, description?) — create a task',
+  taskStart: 'workloom_task_start(taskPath?) — move the task to in_progress',
+  taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
+  taskArchive: 'workloom_task_archive(taskPath?, autoCommit?) — archive the completed task',
+  taskList: 'workloom_task_list(status?) — list task summaries',
+  executor: 'workloom_execute(kind, prompt, taskPath?, model?, effort?) — dispatch an executor',
+  step: 'workloom_step(stepId) — show one workflow step body',
+} as const
+
 /** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有两处变体）。 */
 export const PARAM_DESCRIPTIONS = {
   /** 任务工具（start/finish/archive）的 taskPath 参数。 */

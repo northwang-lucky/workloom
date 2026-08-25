@@ -30,6 +30,7 @@ import {
   resolveTaskRelPath,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
+  TOOL_SNIPPETS,
 } from '@workloom/core'
 
 import { contextKeyOf } from './constants.ts'
@@ -60,6 +61,7 @@ export function registerExecutorTool(pi: ExtensionAPI): void {
     name: TOOL_NAMES.executor,
     label: 'Workloom Execute',
     description: TOOL_DESCRIPTIONS.executor,
+    promptSnippet: TOOL_SNIPPETS.executor,
     parameters: EXECUTOR_PARAMS,
     // 工具级 signal 与 ctx.signal 同源（工具执行期间 agent 处于 streaming），
     // 按 spec 统一走 ctx.signal 的 abort 通道。

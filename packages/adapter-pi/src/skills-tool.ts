@@ -20,6 +20,7 @@ import {
   PARAM_DESCRIPTIONS,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
+  TOOL_SNIPPETS,
 } from '@workloom/core'
 import { loadWorkflowContractText } from '@workloom/assets'
 
@@ -43,6 +44,7 @@ export function registerStepsTool(pi: ExtensionAPI): void {
     name: TOOL_NAMES.step,
     label: 'Workloom Step',
     description: TOOL_DESCRIPTIONS.step,
+    promptSnippet: TOOL_SNIPPETS.step,
     parameters: STEPS_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       return executeStep(params)

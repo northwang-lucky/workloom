@@ -23,6 +23,7 @@ import {
   requireWorkloomCwd,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
+  TOOL_SNIPPETS,
 } from '@workloom/core'
 
 import { contextKeyOf } from './constants.ts'
@@ -66,6 +67,7 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     name: TOOL_NAMES.taskCreate,
     label: 'Workloom Task Create',
     description: TOOL_DESCRIPTIONS.taskCreate,
+    promptSnippet: TOOL_SNIPPETS.taskCreate,
     parameters: TASK_CREATE_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeCreate(ctx, params)
@@ -75,6 +77,7 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     name: TOOL_NAMES.taskStart,
     label: 'Workloom Task Start',
     description: TOOL_DESCRIPTIONS.taskStart,
+    promptSnippet: TOOL_SNIPPETS.taskStart,
     parameters: TASK_PATH_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeStart(ctx, params.taskPath)
@@ -84,6 +87,7 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     name: TOOL_NAMES.taskFinish,
     label: 'Workloom Task Finish',
     description: TOOL_DESCRIPTIONS.taskFinish,
+    promptSnippet: TOOL_SNIPPETS.taskFinish,
     parameters: TASK_PATH_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeFinish(ctx, params.taskPath)
@@ -93,6 +97,7 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     name: TOOL_NAMES.taskArchive,
     label: 'Workloom Task Archive',
     description: TOOL_DESCRIPTIONS.taskArchive,
+    promptSnippet: TOOL_SNIPPETS.taskArchive,
     parameters: TASK_ARCHIVE_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeArchive(ctx, params.taskPath, params.autoCommit)
@@ -102,6 +107,7 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     name: TOOL_NAMES.taskList,
     label: 'Workloom Task List',
     description: TOOL_DESCRIPTIONS.taskList,
+    promptSnippet: TOOL_SNIPPETS.taskList,
     parameters: TASK_LIST_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeList(ctx, params.status)

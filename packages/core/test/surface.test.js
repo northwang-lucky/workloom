@@ -12,6 +12,7 @@ import {
   PARAM_DESCRIPTIONS,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
+  TOOL_SNIPPETS,
 } from '../dist/index.js'
 
 test('命令/工具名非空且互不重复', () => {
@@ -33,5 +34,13 @@ test('描述与错误前缀文案非空', () => {
   assert.ok(descriptions.length > 0)
   for (const text of descriptions) {
     assert.ok(text !== '', 'description must not be empty')
+  }
+})
+
+test('TOOL_SNIPPETS 与 TOOL_NAMES 键对齐且文案非空（Pi promptSnippet 契约）', () => {
+  const keys = Object.keys(TOOL_NAMES).sort()
+  assert.deepEqual(Object.keys(TOOL_SNIPPETS).sort(), keys)
+  for (const key of keys) {
+    assert.ok(TOOL_SNIPPETS[key] !== '', `snippet for ${key} must not be empty`)
   }
 })
