@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { detectLegacyTrellis, findWorkloomRoot, WORKLOOM_DIR } from './locate.js'
+import { assertDeveloper } from './identity.js'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom init'
@@ -86,6 +87,8 @@ export function initWorkloom(root, params = {}) {
  */
 function initWorkloomInternal(root, params) {
   const developer = params.developer ?? ''
+  // 身份名同时是 workspace 目录名：字符集收敛（字母数字 + ._-，首字符字母或数字）。
+  if (developer !== '') assertDeveloper(developer)
   const existing = findWorkloomRoot(root)
   if (existing !== null && params.force !== true) {
     throw new Error(

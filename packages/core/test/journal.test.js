@@ -157,21 +157,35 @@ test('开启自动提交时 commit message 取 config 配置', async () => {
   }
 })
 
-test('developer 非法值报错（越界/分隔符/空），中文名可用', async () => {
+test('developer 非法值报错（越界/分隔符/中文/空），白名单内可用', async () => {
   const root = makeRoot({ config: 'session_auto_commit: false\n' })
   try {
-    for (const developer of ['../evil', 'a/b', 'a\\b', '..', '.', '', '   ']) {
+    for (const developer of [
+      '../evil',
+      'a/b',
+      'a\\b',
+      '..',
+      '.',
+      '',
+      '   ',
+      '小王',
+      '.hidden',
+      '-lead',
+    ]) {
       const [err, result] = await addSession(root, { developer, title: 'X' })
       assert.ok(err, `developer=${JSON.stringify(developer)} 应报错`)
       assert.equal(result, null)
     }
     // 非法 developer 不得创建目录或索引
     assert.equal(existsSync(join(root, '.workloom', 'workspace', 'a')), false)
-    // 中文名可用
-    const [cnErr, cnResult] = await addSession(root, { developer: '小王', title: '中文会话' })
+    // 白名单内（字母数字 + ._-，首字符字母或数字）可用
+    const [cnErr, cnResult] = await addSession(root, { developer: 'xiao.bei-01', title: 'ok' })
     assert.equal(cnErr, null)
-    assert.equal(cnResult.journalPath, 'workspace/小王/journal-1.md')
-    assert.equal(existsSync(join(root, '.workloom', 'workspace', '小王', 'journal-1.md')), true)
+    assert.equal(cnResult.journalPath, 'workspace/xiao.bei-01/journal-1.md')
+    assert.equal(
+      existsSync(join(root, '.workloom', 'workspace', 'xiao.bei-01', 'journal-1.md')),
+      true,
+    )
     // title 为空同样报错
     const [titleErr] = await addSession(root, { developer: 'alice', title: '' })
     assert.ok(titleErr)

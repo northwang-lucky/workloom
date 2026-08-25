@@ -113,3 +113,20 @@ test('检测旧 .trellis 目录并在结果中报告', () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('init developer 白名单校验（非法名报错）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-init-dev-'))
+  try {
+    const [badErr] = initWorkloom(root, { developer: '小王' })
+    assert.ok(badErr)
+    assert.match(badErr.message, /invalid developer name/)
+    const [dotErr] = initWorkloom(root, { developer: '.hidden' })
+    assert.ok(dotErr)
+    const [okErr, okResult] = initWorkloom(root, { developer: 'xiao.bei-01' })
+    assert.equal(okErr, null)
+    assert.equal(readFileSync(join(root, '.workloom', '.developer'), 'utf8'), 'xiao.bei-01')
+    assert.equal(okResult.developer, 'xiao.bei-01')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

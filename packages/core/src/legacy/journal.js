@@ -25,6 +25,7 @@ import { join } from 'node:path'
 import { findWorkloomRoot, insideWorkloom } from './locate.js'
 import { loadConfig } from './config.js'
 import { gitAddCommit } from './git.js'
+import { assertDeveloper } from './identity.js'
 
 /** 错误消息前缀。 */
 const ERR_PREFIX = 'workloom journal'
@@ -67,21 +68,17 @@ function requireProjectRoot(root) {
 }
 
 /**
- * 校验 developer：非空、不含路径分隔符与 '..'（防目录越界；中文与空格允许）。
+ * 校验 developer：复用 identity.assertDeveloper（字母数字 + ._- 白名单，首字符字母或数字）。
  * @param {string} developer 开发者标识
  * @returns {string | null} 非法时返回原因文案，合法返回 null
  */
 function validateDeveloper(developer) {
-  if (typeof developer !== 'string' || developer.trim() === '') {
-    return 'developer must not be empty'
+  try {
+    assertDeveloper(developer)
+    return null
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
   }
-  if (developer.includes('/') || developer.includes('\\')) {
-    return `developer must not contain path separators: ${JSON.stringify(developer)}`
-  }
-  if (developer === '.' || developer === '..' || developer.includes('..')) {
-    return `developer must not contain '..': ${JSON.stringify(developer)}`
-  }
-  return null
 }
 
 /** @param {string} text @returns {number} 按换行拆分行数（不做尾部空行修正） */
