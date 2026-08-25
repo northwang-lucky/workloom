@@ -28,7 +28,7 @@ import {
   resolveTaskRelPath,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
-} from '@workloom/core'
+} from '@workloom-ai/core'
 
 import { CONTEXT_KEY_PREFIX } from './constants.js'
 

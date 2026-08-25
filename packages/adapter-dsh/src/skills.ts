@@ -24,8 +24,8 @@ import {
   PARAM_DESCRIPTIONS,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
-} from '@workloom/core'
-import { ASSETS_ROOT, loadWorkflowContractText, readAssetText } from '@workloom/assets'
+} from '@workloom-ai/core'
+import { ASSETS_ROOT, loadWorkflowContractText, readAssetText } from '@workloom-ai/assets'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom skill'

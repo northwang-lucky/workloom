@@ -22,8 +22,8 @@ import {
   assembleSessionContext,
   findWorkloomRoot,
   parseContract,
-} from '@workloom/core'
-import { loadWorkflowContractText } from '@workloom/assets'
+} from '@workloom-ai/core'
+import { loadWorkflowContractText } from '@workloom-ai/assets'
 
 import { registerCommands } from './commands.js'
 import { registerExecutor } from './executor.js'

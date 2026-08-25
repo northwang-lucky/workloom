@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { EXECUTOR_KINDS } from '@workloom/core'
+import { EXECUTOR_KINDS } from '@workloom-ai/core'
 
 import {
   EXECUTOR_AGENT_DEFINITIONS,

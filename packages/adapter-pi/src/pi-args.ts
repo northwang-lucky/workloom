@@ -11,7 +11,7 @@
  * - cwd 不进 args（spawn options 的 cwd 字段承载）。
  */
 
-import { ERR_PREFIX } from '@workloom/core'
+import { ERR_PREFIX } from '@workloom-ai/core'
 
 import { EXECUTOR_AGENT_DEFINITIONS } from './agent-definitions.ts'
 

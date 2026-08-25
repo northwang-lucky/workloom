@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { ERR_PREFIX } from '@workloom/core'
+import { ERR_PREFIX } from '@workloom-ai/core'
 
 import { EXECUTOR_AGENT_DEFINITIONS } from '../src/agent-definitions.ts'
 import { buildChildPiArgs } from '../src/pi-args.ts'

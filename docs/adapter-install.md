@@ -1,6 +1,6 @@
 # adapter-dsh 安装与 PoC 验证指南
 
-> 面向 DeepSeek Harness 的 workloom adapter 插件（`@workloom/adapter-dsh`）的本地安装步骤与 PoC 实证清单。验证对象是「插件装上后，四条通道是否按规格生效」：注入（breadcrumb/会话上下文）、命令、executor、skills。
+> 面向 DeepSeek Harness 的 workloom adapter 插件（`@workloom-ai/adapter-dsh`）的本地安装步骤与 PoC 实证清单。验证对象是「插件装上后，四条通道是否按规格生效」：注入（breadcrumb/会话上下文）、命令、executor、skills。
 
 ## 1. 构建与安装
 

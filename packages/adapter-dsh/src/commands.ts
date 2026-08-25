@@ -25,8 +25,8 @@ import {
   COMMAND_NAMES,
   ERR_PREFIX,
   executeInitCommand,
-} from '@workloom/core'
-import { readAssetText } from '@workloom/assets'
+} from '@workloom-ai/core'
+import { readAssetText } from '@workloom-ai/assets'
 
 import { CONTEXT_KEY_PREFIX, SOURCE_PLUGIN } from './constants.js'
 

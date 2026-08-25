@@ -21,8 +21,8 @@ import {
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
   TOOL_SNIPPETS,
-} from '@workloom/core'
-import { loadWorkflowContractText } from '@workloom/assets'
+} from '@workloom-ai/core'
+import { loadWorkflowContractText } from '@workloom-ai/assets'
 
 /** 工具参数 TypeBox schema。 */
 const STEPS_PARAMS = Type.Object({

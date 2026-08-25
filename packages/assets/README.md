@@ -1,4 +1,4 @@
-# @workloom/assets
+# @workloom-ai/assets
 
 workloom 资源层：与 runtime 无关的内容资源。规划中的目录结构（点 6 落地）：
 

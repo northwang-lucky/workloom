@@ -1,6 +1,6 @@
 {
-  "name": "@workloom/adapter-pi",
-  "version": "0.0.0",
+  "name": "@workloom-ai/adapter-pi",
+  "version": "0.1.0",
   "description": "workloom 的 Pi adapter：Pi Package（Extension 事件注入/命令/executor，自研 spawn child pi 派发）",
   "license": "MIT",
   "type": "module",
@@ -27,8 +27,8 @@
     "workloom"
   ],
   "dependencies": {
-    "@workloom/assets": "file:../assets",
-    "@workloom/core": "file:../core"
+    "@workloom-ai/assets": "file:../assets",
+    "@workloom-ai/core": "file:../core"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "^0.84.2",

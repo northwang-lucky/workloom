@@ -59,10 +59,10 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: ^3.18.1
         version: 3.18.1
-      '@workloom/assets':
+      '@workloom-ai/assets':
         specifier: file:../assets
         version: link:../assets
-      '@workloom/core':
+      '@workloom-ai/core':
         specifier: file:../core
         version: link:../core
     devDependencies:
@@ -75,10 +75,10 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: ^0.84.2
         version: 0.84.2(supports-color@7.2.0)(ws@8.21.3)(zod@4.4.3)
-      '@workloom/assets':
+      '@workloom-ai/assets':
         specifier: file:../assets
         version: link:../assets
-      '@workloom/core':
+      '@workloom-ai/core':
         specifier: file:../core
         version: link:../core
       typebox:

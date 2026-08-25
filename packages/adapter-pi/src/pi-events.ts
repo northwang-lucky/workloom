@@ -12,7 +12,7 @@
  *   中间轮次的叙述不混入最终输出），thinking/toolCall 块忽略。
  */
 
-import { EMPTY_OUTPUT_TEXT } from '@workloom/core'
+import { EMPTY_OUTPUT_TEXT } from '@workloom-ai/core'
 
 /** 事件解析累计状态（每次派发一个实例，逐行喂入）。 */
 export interface PiEventState {

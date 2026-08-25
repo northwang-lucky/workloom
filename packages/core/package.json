@@ -1,6 +1,6 @@
 {
-  "name": "@workloom/core",
-  "version": "0.0.0",
+  "name": "@workloom-ai/core",
+  "version": "0.1.0",
   "description": "workloom 核心逻辑层：任务生命周期、工作流契约、breadcrumb 组装、journal（与 runtime 无关）",
   "license": "MIT",
   "type": "module",

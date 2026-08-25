@@ -16,7 +16,7 @@ import {
   PARAM_DESCRIPTIONS,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
-} from '@workloom/core'
+} from '@workloom-ai/core'
 
 /** 工具执行上下文最小形状（仅消费 agent 会话头）。 */
 interface JournalToolExec {

@@ -1,11 +1,11 @@
 # adapter-dsh 工具注册缺陷复盘
 
-> 2026-08-25 首次部署 `@workloom/adapter-dsh` 到 dsh web profile 后连续暴露的三类问题，
+> 2026-08-25 首次部署 `@workloom-ai/adapter-dsh` 到 dsh web profile 后连续暴露的三类问题，
 > 涉及工具 schema 契约、TypeScript 类型兼容、以及本地部署产物同步。
 
 ## 背景
 
-`@workloom/adapter-dsh` 是 workloom 适配 DeepSeek Harness 的 Cordis 插件，
+`@workloom-ai/adapter-dsh` 是 workloom 适配 DeepSeek Harness 的 Cordis 插件，
 通过 `ctx.tools.register()` 向宿主注册两个工具（`workloom_execute`、`workloom_step`），
 由宿主把工具定义原样转发给 DeepSeek API 完成 function calling。
 
@@ -109,7 +109,7 @@ register 回调处用 `exec as ToolExec` 转回，保持 `executeTool()` 内部�
 
 profile 通过 `file:` 协议引用工作区包，但 pnpm 安装后生成的是**硬拷贝**
 （非 symlink）。工作区 `pnpm run build` 产出的新 dist 文件不会自动同步到
-profile 的 `node_modules/@workloom/*/dist/`。
+profile 的 `node_modules/@workloom-ai/*/dist/`。
 
 ### 修复
 

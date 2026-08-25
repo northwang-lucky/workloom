@@ -31,7 +31,7 @@ import {
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
   TOOL_SNIPPETS,
-} from '@workloom/core'
+} from '@workloom-ai/core'
 
 import { contextKeyOf } from './constants.ts'
 import { buildChildPiArgs } from './pi-args.ts'

@@ -1,6 +1,6 @@
 {
-  "name": "@workloom/adapter-dsh",
-  "version": "0.0.0",
+  "name": "@workloom-ai/adapter-dsh",
+  "version": "0.1.0",
   "description": "workloom 的 DeepSeek Harness adapter：profile bundle（命令/注入/skills/executor）",
   "license": "MIT",
   "type": "module",
@@ -27,8 +27,8 @@
     }
   },
   "dependencies": {
-    "@workloom/assets": "file:../assets",
-    "@workloom/core": "file:../core"
+    "@workloom-ai/assets": "file:../assets",
+    "@workloom-ai/core": "file:../core"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
