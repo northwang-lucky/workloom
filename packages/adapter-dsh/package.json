@@ -27,8 +27,8 @@
     }
   },
   "dependencies": {
-    "@workloom/assets": "workspace:*",
-    "@workloom/core": "workspace:*"
+    "@workloom/assets": "link:../assets",
+    "@workloom/core": "link:../core"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
