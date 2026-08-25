@@ -121,7 +121,7 @@ interface MinimalToolDefinition {
   description: string
   parameters: Record<string, unknown>
   output: {
-    schema: { type: "object" }
+    schema: { type: 'object' }
     render(args: unknown, value: unknown): TextBlockLike[]
   }
   isConcurrencySafe(): boolean
@@ -181,7 +181,7 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
       additionalProperties: false,
     },
     output: {
-      schema: { type: "object" },
+      schema: { type: 'object' },
       render: (_args, value) => [renderOutput(value)],
     },
     isConcurrencySafe: () => true,
