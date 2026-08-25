@@ -4,7 +4,7 @@ workloom：把 Trellis 式 AI 编码工作流抽象为 runtime 无关的 core/as
 
 ## 实现循环（每个实现点走一遍）
 
-1. 规格先行：主 agent 拆出实现点后，先写行为规格（输入/输出/数据布局/边界条件）再动手。
+1. 规格先行：主 agent 拆出实现点后，先写行为规格（输入/输出/数据布局/边界条件）再动手。涉及宿主 API 边界（工具 schema、命令定义、服务注册面）时，规格必须对照官方样例/真实类型逐字段验证后再下笔，禁止凭印象写形状。
 2. flash 写代码：派 deepseek-v4-flash 子代理实现。派发 prompt 必含：目标文件、行为规格、代码风格要求（让它读全局 `~/.dsh/AGENTS.md` 与本文件）、clean-room 红线、工程约束（写文件单次 ≤80 行、模块超 600 行拆分、配 node:test 单测）；禁止子代理执行 `git restore`/`checkout`/`reset` 等回滚操作（提交与回滚由主 agent 负责）。
 3. pro review：flash 完成后派 deepseek-v4-pro 子代理审查，输出问题清单，逐条给位置与修复建议，覆盖四项：规格符合性、正确性、风格合规、clean-room 红线。
 4. 主 agent 闭环：按清单修复 → 全量验证（`pnpm lint`、`pnpm -r typecheck`、受影响包 `pnpm test`）全绿 → commit（中文 message，每轮一个）→ 向用户汇报，等确认后再进下一个点。
