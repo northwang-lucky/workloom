@@ -19,7 +19,8 @@ export default defineConfig([
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.js'],
+    // 含 .mjs：包内 node 脚本（如 adapter-pi 的 sync-skills.mjs）同样需要 node globals。
+    files: ['**/*.{js,mjs}'],
     languageOptions: {
       globals: globals.node,
     },
