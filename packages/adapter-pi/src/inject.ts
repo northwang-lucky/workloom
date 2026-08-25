@@ -38,12 +38,6 @@ const BREADCRUMB_WARN_PREFIX = 'workloom: breadcrumb injection skipped:'
 /** session_start 中触发一次性注入的 reason（消息尚未持久化的场景）。 */
 const INJECT_REASONS: ReadonlySet<string> = new Set(['startup', 'new'])
 
-/** 契约步骤的最小结构形状（core 的 WorkflowStep 在 dist 声明里被 JSDoc 重新生成而丢失，按消费面声明）。 */
-interface WorkflowStepLike {
-  id: string
-  title: string
-}
-
 /**
  * 注册注入：session_start 注入会话上下文快照，before_agent_start 追加 breadcrumb。
  * @param pi Extension API
@@ -85,12 +79,11 @@ function injectSessionContext(
     )
     return
   }
-  // 契约 steps 投影为 id+title（assembleSessionContext 的入参形状）。
-  const steps = contract.steps as readonly WorkflowStepLike[]
+  // 契约 steps（core WorkflowStep[]）结构上含 id/title，可直接投影给 assembleSessionContext。
   const [err, text] = assembleSessionContext({
     root,
     contextKey,
-    workflowSteps: steps.map((step) => ({ id: step.id, title: step.title })),
+    workflowSteps: contract.steps,
   })
   if (err || text === null) {
     console.warn(

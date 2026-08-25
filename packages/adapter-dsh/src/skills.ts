@@ -18,7 +18,13 @@ import { dirname, join } from 'node:path'
 
 import type { Context } from '@deepseek-ai/cordis'
 
-import { parseContract } from '@workloom/core'
+import {
+  ERR_PREFIX as SURFACE_ERR_PREFIX,
+  lookupWorkflowStep,
+  PARAM_DESCRIPTIONS,
+  TOOL_DESCRIPTIONS,
+  TOOL_NAMES,
+} from '@workloom/core'
 import { ASSETS_ROOT, loadWorkflowContractText, readAssetText } from '@workloom/assets'
 
 /** 错误消息前缀（运行时文案英文）。 */
@@ -43,12 +49,6 @@ const SKILL_ASSETS = [
 
 /** skill 注册跳过告警前缀（运行时文案英文）。 */
 const SKILL_WARN_PREFIX = `${ERR_PREFIX}: registration skipped:`
-
-/** 步骤详情工具名常量（模型可见）。 */
-export const STEPS_TOOL = 'workloom_step'
-
-/** 步骤详情工具错误消息前缀（运行时文案英文）。 */
-const TOOL_ERR_PREFIX = 'workloom step tool'
 
 /** 纯文本块最小形状（render 与返回值共用）。 */
 interface TextBlockLike {
@@ -112,13 +112,6 @@ export interface SkillsServices {
 /** workloom_step 工具依赖的服务注入面（仅消费 tools）。 */
 export interface StepsToolServices {
   tools: ToolsService
-}
-
-/** 契约步骤的最小结构形状（core 的 WorkflowStep 在 dist 声明里被 JSDoc 重新生成而丢失，这里按消费面声明）。 */
-interface WorkflowStepLike {
-  id: string
-  title: string
-  body: string
 }
 
 /** 把任意异常归一为 Error（内部）。 */
@@ -230,15 +223,14 @@ export function registerSkills(ctx: Context & SkillsServices): void {
 export function registerStepsTool(ctx: Context & StepsToolServices): void {
   const { tools } = ctx
   tools.register({
-    name: STEPS_TOOL,
-    description:
-      'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
+    name: TOOL_NAMES.step,
+    description: TOOL_DESCRIPTIONS.step,
     parameters: {
       type: 'object',
       properties: {
         stepId: {
           type: 'string',
-          description: 'Workflow step id, e.g. 1.1 or 2.1',
+          description: PARAM_DESCRIPTIONS.stepId,
         },
       },
       required: ['stepId'],
@@ -255,28 +247,23 @@ export function registerStepsTool(ctx: Context & StepsToolServices): void {
 
 /**
  * 从契约中查找步骤并组装详情文本；缺失/解析失败/未找到都 fail loud
- * （抛错由 DSH 工具管线转失败结果）。
+ * （抛错由 DSH 工具管线转失败结果）。契约资产缺失检查留在 adapter，
+ * 查找与解析编排下沉 core 的 lookupWorkflowStep。
  * @param args 工具参数
  * @returns canonical 结果 {kind, output}
  */
 function executeStepTool(args: unknown): StepToolValue {
   const params = args as { stepId?: string }
   if (params.stepId === undefined) {
-    throw new Error(`${TOOL_ERR_PREFIX}: stepId parameter is required`)
+    throw new Error(`${SURFACE_ERR_PREFIX.stepTool}: stepId parameter is required`)
   }
   const contractText = loadWorkflowContractText()
   if (contractText === null) {
-    throw new Error(`${TOOL_ERR_PREFIX}: workflow contract asset is missing`)
+    throw new Error(`${SURFACE_ERR_PREFIX.stepTool}: workflow contract asset is missing`)
   }
-  const [err, contract] = parseContract(contractText)
-  if (err !== null || contract === null) {
-    throw err ?? new Error(`${TOOL_ERR_PREFIX}: contract parse returned no contract`)
-  }
-  // contract.steps 按消费面最小结构注解（见 WorkflowStepLike 说明）。
-  const steps = contract.steps as readonly WorkflowStepLike[]
-  const step = steps.find((candidate) => candidate.id === params.stepId)
-  if (step === undefined) {
-    throw new Error(`${TOOL_ERR_PREFIX}: no step found with id ${params.stepId}`)
+  const [err, step] = lookupWorkflowStep(params.stepId, contractText)
+  if (err !== null || step === null) {
+    throw err ?? new Error(`${SURFACE_ERR_PREFIX.stepTool}: step lookup returned no step`)
   }
   return {
     kind: 'foreground',

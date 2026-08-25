@@ -191,7 +191,7 @@ function parseTagBlocks(bodyText) {
  * - #### X.X 标题 开启新步骤，正文到下一个四级标题行或 tag 块前结束；
  * - 步骤 id 重复 → 报错（id 是 overlay 合并的键，不允许歧义）。
  * @param {string[]} masked 挖除 tag 块后的行数组
- * @returns {import('./workflow-contract.d.ts').WorkflowStep[]}
+ * @returns {import('../workflow-contract-types.js').WorkflowStep[]}
  */
 function extractSteps(masked) {
   /** @type {{ id: string, title: string, bodyLines: string[] }[]} */
@@ -246,7 +246,7 @@ export function buildWarnings(states, breadcrumbs) {
  * 内部导出：breadcrumb.mergeOverlay 用它解析 overlay（front-matter 可选）。
  * @param {string} markdownText 文档全文
  * @param {{ requireFrontMatter: boolean }} opts 解析选项
- * @returns {import('./workflow-contract.d.ts').WorkflowContract}
+ * @returns {import('../workflow-contract-types.js').WorkflowContract}
  */
 export function parseDocument(markdownText, { requireFrontMatter }) {
   const front = splitFrontMatter(markdownText)
@@ -289,7 +289,7 @@ export function parseDocument(markdownText, { requireFrontMatter }) {
 /**
  * 解析工作流契约文档（front-matter 必需）；坏文档返回 err。
  * @param {string} markdownText 契约文档全文
- * @returns {[Error | null, import('./workflow-contract.d.ts').WorkflowContract | null]}
+ * @returns {[Error | null, import('../workflow-contract-types.js').WorkflowContract | null]}
  */
 export function parseContract(markdownText) {
   try {

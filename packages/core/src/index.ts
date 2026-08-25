@@ -71,6 +71,42 @@ export { assembleSessionContext } from './service/session-context.js'
 
 export { routeNextStep } from './service/route-service.js'
 
+export {
+  parseInitArgs,
+  readExistingDeveloper,
+  migrationSummaryLines,
+  executeInitCommand,
+  buildContinueGuidance,
+  buildFinishGuidance,
+} from './service/command-ops.js'
+
+export {
+  requireWorkloomCwd,
+  resolveTaskRelPath,
+  executeCreateTask,
+  executeStartTask,
+  executeFinishTask,
+  executeArchiveTask,
+  executeListTasks,
+} from './service/task-ops.js'
+
+export { lookupWorkflowStep } from './service/step-lookup.js'
+
+export {
+  COMMAND_NAMES,
+  COMMAND_DESCRIPTIONS,
+  TOOL_NAMES,
+  TOOL_DESCRIPTIONS,
+  PARAM_DESCRIPTIONS,
+  ERR_PREFIX,
+  EMPTY_OUTPUT_TEXT,
+  PURGE_FLAG,
+  DEVELOPER_FILE,
+  ASSET_COMMAND_CONTINUE,
+  ASSET_COMMAND_FINISH,
+  TASK_ARCHIVE_NOTE,
+} from './surface.js'
+
 export type { WorkloomConfig } from './legacy/config.d.ts'
 
 export type {
@@ -83,7 +119,7 @@ export type { InitWorkloomParams, InitWorkloomResult } from './legacy/init.d.ts'
 
 export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './legacy/migrate.d.ts'
 
-export type { WorkflowContract, WorkflowStep } from './legacy/workflow-contract.d.ts'
+export type { WorkflowContract, WorkflowStep } from './workflow-contract-types.js'
 
 export type {
   TaskStatusKey,
@@ -109,6 +145,8 @@ export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
 export type { SessionContextParams } from './service/session-context.js'
 
 export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
+
+export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './service/task-ops.js'
 
 export type {
   JournalEntryParams,

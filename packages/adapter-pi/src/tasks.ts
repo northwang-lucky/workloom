@@ -1,66 +1,54 @@
 /**
- * adapter-pi 的任务管理工具注册（registerTool）。
+ * adapter-pi 的任务管理工具注册（薄投影层，registerTool）。
  *
  * 设计意图：
- * - 把 core 的任务生命周期暴露为模型可调工具，参数 schema 用 TypeBox
- *   （Pi 的 registerTool 约定），字段与 DSH 的 JSON Schema 完全一致；
- * - execute 统一从 ExtensionContext 取 cwd 与会话 id 组装 contextKey，
- *   返回 {content: 文本, details: 结构化值}；失败直接 throw（Pi 工具管线
- *   按失败处理）。
+ * - 五个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
+ *   core task-ops，本文件只做宿主投影：从 ExtensionContext 取 cwd 与会话 id
+ *   组装 contextKey，返回 {content: 文本, details: 结构化值}；
+ * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与下沉前逐字一致；
+ * - 失败直接 throw（Pi 工具管线按失败处理）。
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type, type Static } from 'typebox'
 
 import {
-  archiveTask,
-  createTask,
-  finishTask,
-  listTasks,
-  resolveActiveTask,
-  startTask,
+  ERR_PREFIX,
+  executeArchiveTask,
+  executeCreateTask,
+  executeFinishTask,
+  executeListTasks,
+  executeStartTask,
+  PARAM_DESCRIPTIONS,
+  requireWorkloomCwd,
+  TOOL_DESCRIPTIONS,
+  TOOL_NAMES,
 } from '@workloom/core'
 
-import {
-  COMMAND_FINISH,
-  contextKeyOf,
-  TASK_ARCHIVE_TOOL,
-  TASK_CREATE_TOOL,
-  TASK_FINISH_TOOL,
-  TASK_ERR_PREFIX,
-  TASK_LIST_TOOL,
-  TASK_START_TOOL,
-} from './constants.ts'
-
-/** 任务路径参数说明（三个工具共用，消除同义字符串）。 */
-const TASK_PATH_DESCRIPTION = 'Task directory relative to .workloom; defaults to the active task'
+import { contextKeyOf } from './constants.ts'
 
 /** create 工具参数 schema。 */
 const TASK_CREATE_PARAMS = Type.Object({
-  title: Type.String({ description: 'Task title' }),
-  slug: Type.Optional(
-    Type.String({ description: 'Optional kebab-case slug; derived from title when omitted' }),
-  ),
-  priority: Type.Optional(Type.String({ description: 'Priority: P0/P1/P2/P3; defaults to P2' })),
-  description: Type.Optional(Type.String({ description: 'Optional task description' })),
+  title: Type.String({ description: PARAM_DESCRIPTIONS.title }),
+  slug: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.slug })),
+  priority: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.priority })),
+  description: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.description })),
 })
 
 /** start/finish 工具参数 schema（仅可选 taskPath）。 */
 const TASK_PATH_PARAMS = Type.Object({
-  taskPath: Type.Optional(Type.String({ description: TASK_PATH_DESCRIPTION })),
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
 })
 
 /** archive 工具参数 schema（taskPath + autoCommit）。 */
 const TASK_ARCHIVE_PARAMS = Type.Object({
-  taskPath: Type.Optional(Type.String({ description: TASK_PATH_DESCRIPTION })),
-  autoCommit: Type.Optional(
-    Type.Boolean({ description: 'Override the config session_auto_commit for this archive' }),
-  ),
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
+  autoCommit: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.autoCommit })),
 })
 
 /** list 工具参数 schema（可选 status 过滤）。 */
 const TASK_LIST_PARAMS = Type.Object({
-  status: Type.Optional(Type.String({ description: 'Filter: planning/in_progress/completed' })),
+  status: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.status })),
 })
 
 /** 工具执行上下文的最小形状（读 cwd 与会话 id）。 */
@@ -75,75 +63,50 @@ interface ToolContextLike {
  */
 export function registerTaskTools(pi: ExtensionAPI): void {
   pi.registerTool({
-    name: TASK_CREATE_TOOL,
+    name: TOOL_NAMES.taskCreate,
     label: 'Workloom Task Create',
-    description:
-      'Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)',
+    description: TOOL_DESCRIPTIONS.taskCreate,
     parameters: TASK_CREATE_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeCreate(ctx, params)
     },
   })
   pi.registerTool({
-    name: TASK_START_TOOL,
+    name: TOOL_NAMES.taskStart,
     label: 'Workloom Task Start',
-    description: 'Move the active task (or the given taskPath) from planning to in_progress',
+    description: TOOL_DESCRIPTIONS.taskStart,
     parameters: TASK_PATH_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeStart(ctx, params.taskPath)
     },
   })
   pi.registerTool({
-    name: TASK_FINISH_TOOL,
+    name: TOOL_NAMES.taskFinish,
     label: 'Workloom Task Finish',
-    description: 'Clear the active-task pointer for this session (status unchanged)',
+    description: TOOL_DESCRIPTIONS.taskFinish,
     parameters: TASK_PATH_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeFinish(ctx, params.taskPath)
     },
   })
   pi.registerTool({
-    name: TASK_ARCHIVE_TOOL,
+    name: TOOL_NAMES.taskArchive,
     label: 'Workloom Task Archive',
-    description: 'Archive the task (completed + moved to archive/, optional git auto-commit)',
+    description: TOOL_DESCRIPTIONS.taskArchive,
     parameters: TASK_ARCHIVE_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeArchive(ctx, params.taskPath, params.autoCommit)
     },
   })
   pi.registerTool({
-    name: TASK_LIST_TOOL,
+    name: TOOL_NAMES.taskList,
     label: 'Workloom Task List',
-    description: 'List task summaries (optionally filtered by status)',
+    description: TOOL_DESCRIPTIONS.taskList,
     parameters: TASK_LIST_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeList(ctx, params.status)
     },
   })
-}
-
-/** 从工具上下文解析会话 cwd（缺省抛错）。 */
-function requireCwd(ctx: ToolContextLike): string {
-  if (ctx.cwd === '') {
-    throw new Error(`${TASK_ERR_PREFIX}: cannot determine the working directory of this session`)
-  }
-  return ctx.cwd
-}
-
-/** 解析任务路径：显式 taskPath 优先，缺省取活跃任务（无则抛错）。 */
-function resolveTaskRelPath(
-  cwd: string,
-  ctx: ToolContextLike,
-  taskPath: string | undefined,
-): string {
-  if (taskPath !== undefined && taskPath !== '') return taskPath
-  const contextKey = contextKeyOf(ctx.sessionManager.getSessionId())
-  const [ptrErr, active] = resolveActiveTask(cwd, contextKey)
-  if (ptrErr) throw ptrErr
-  if (active === null) {
-    throw new Error(`${TASK_ERR_PREFIX}: no active task and no taskPath given`)
-  }
-  return active
 }
 
 /** 组装工具成功结果（文本 + 结构化 details）。 */
@@ -154,21 +117,24 @@ function resultOf(value: unknown): {
   return { content: [{ type: 'text', text: JSON.stringify(value) }], details: value }
 }
 
-/** create 工具：创建任务并设为当前会话活跃任务。 */
+/** create 工具：创建任务并设为当前会话活跃任务（编排下沉 core）。 */
 async function executeCreate(
   ctx: ToolContextLike,
   params: Static<typeof TASK_CREATE_PARAMS>,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
-  const cwd = requireCwd(ctx)
-  const [err, result] = await createTask(cwd, {
-    title: params.title,
-    ...(params.slug !== undefined ? { slug: params.slug } : {}),
-    ...(params.priority !== undefined ? { priority: params.priority } : {}),
-    ...(params.description !== undefined ? { description: params.description } : {}),
-    contextKey: contextKeyOf(ctx.sessionManager.getSessionId()),
-  })
-  if (err || result === null)
-    throw err ?? new Error(`${TASK_ERR_PREFIX}: create returned no result`)
+  const cwd = requireWorkloomCwd(ctx.cwd)
+  const [err, result] = await executeCreateTask(
+    cwd,
+    contextKeyOf(ctx.sessionManager.getSessionId()),
+    {
+      title: params.title,
+      slug: params.slug,
+      priority: params.priority,
+      description: params.description,
+    },
+  )
+  if (err !== null || result === null)
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)
   return resultOf({ taskRelPath: result.taskRelPath, task: result.task })
 }
 
@@ -177,14 +143,15 @@ async function executeStart(
   ctx: ToolContextLike,
   taskPath: string | undefined,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
-  const cwd = requireCwd(ctx)
-  const taskRelPath = resolveTaskRelPath(cwd, ctx, taskPath)
-  const [err, task] = await startTask(cwd, {
-    taskRelPath,
-    contextKey: contextKeyOf(ctx.sessionManager.getSessionId()),
-  })
-  if (err || task === null) throw err ?? new Error(`${TASK_ERR_PREFIX}: start returned no result`)
-  return resultOf({ taskRelPath, task })
+  const cwd = requireWorkloomCwd(ctx.cwd)
+  const [err, task] = await executeStartTask(
+    cwd,
+    contextKeyOf(ctx.sessionManager.getSessionId()),
+    taskPath,
+  )
+  if (err !== null || task === null)
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: start returned no result`)
+  return resultOf({ taskRelPath: task.taskRelPath, task })
 }
 
 /** finish 工具：清除会话活跃任务指针（状态不变）。 */
@@ -192,14 +159,15 @@ async function executeFinish(
   ctx: ToolContextLike,
   taskPath: string | undefined,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
-  const cwd = requireCwd(ctx)
-  const taskRelPath = resolveTaskRelPath(cwd, ctx, taskPath)
-  const [err] = await finishTask(cwd, {
-    taskRelPath,
-    contextKey: contextKeyOf(ctx.sessionManager.getSessionId()),
-  })
-  if (err) throw err
-  return resultOf({ taskRelPath, finished: true })
+  const cwd = requireWorkloomCwd(ctx.cwd)
+  const [err, result] = await executeFinishTask(
+    cwd,
+    contextKeyOf(ctx.sessionManager.getSessionId()),
+    taskPath,
+  )
+  if (err !== null || result === null)
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: finish returned no result`)
+  return resultOf(result)
 }
 
 /** archive 工具：归档任务（completed + 移入 archive/，可选 git 自动提交）。 */
@@ -208,18 +176,16 @@ async function executeArchive(
   taskPath: string | undefined,
   autoCommit: boolean | undefined,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
-  const cwd = requireCwd(ctx)
-  const taskRelPath = resolveTaskRelPath(cwd, ctx, taskPath)
-  const [err, task] = await archiveTask(cwd, {
-    taskRelPath,
-    ...(autoCommit !== undefined ? { autoCommit } : {}),
-  })
-  if (err || task === null) throw err ?? new Error(`${TASK_ERR_PREFIX}: archive returned no result`)
-  return resultOf({
-    taskRelPath: task.taskRelPath,
-    task,
-    note: `Task archived. When the session ends, run /${COMMAND_FINISH} to record the session journal.`,
-  })
+  const cwd = requireWorkloomCwd(ctx.cwd)
+  const [err, result] = await executeArchiveTask(
+    cwd,
+    contextKeyOf(ctx.sessionManager.getSessionId()),
+    taskPath,
+    autoCommit,
+  )
+  if (err !== null || result === null)
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`)
+  return resultOf(result)
 }
 
 /** list 工具：列出任务摘要（可选 status 过滤）。 */
@@ -227,10 +193,9 @@ async function executeList(
   ctx: ToolContextLike,
   status: string | undefined,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
-  const cwd = requireCwd(ctx)
-  const [err, list] = listTasks(cwd, {
-    ...(status !== undefined && status !== '' ? { status } : {}),
-  })
-  if (err || list === null) throw err ?? new Error(`${TASK_ERR_PREFIX}: list returned no result`)
-  return resultOf({ tasks: list })
+  const cwd = requireWorkloomCwd(ctx.cwd)
+  const [err, result] = await executeListTasks(cwd, status)
+  if (err !== null || result === null)
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: list returned no result`)
+  return resultOf(result)
 }
