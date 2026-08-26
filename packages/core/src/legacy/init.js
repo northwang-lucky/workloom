@@ -7,6 +7,8 @@
  * - config.yaml 模板与 config.js 的 DEFAULT_CONFIG 逐项对齐（全注释模板，
  *   取消注释即覆盖默认值）；
  * - 顺带检测旧 .trellis 目录并报告（迁移由后续实现点消费，本模块只报告）。
+ * - 生成自包含的 .workloom/.gitignore：运行时状态忽略策略随骨架分发，
+ *   接入方仓库无需在根 .gitignore 手工维护 workloom 内部布局规则。
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -25,6 +27,7 @@ const SUB_DIRS = Object.freeze(['tasks', 'spec', 'workspace', '.runtime/sessions
 const FILE_NAMES = Object.freeze({
   config: 'config.yaml',
   developer: '.developer',
+  gitignore: '.gitignore',
 })
 
 /** spec/README.md 模板：布局说明 + 最小示例（全英文，写入用户项目）。 */
@@ -98,6 +101,16 @@ const CONFIG_TEMPLATE = [
   '',
 ].join('\n')
 
+/** .gitignore 模板：忽略策略随 .workloom 自包含（全英文，写入用户项目）。 */
+const GITIGNORE_TEMPLATE = [
+  '# Runtime state (session pointers etc.), per-machine.',
+  '.runtime/',
+  '',
+  '# Local developer identity (like AGENTS.local.md).',
+  '.developer',
+  '',
+].join('\n')
+
 /**
  * 初始化 .workloom 骨架。
  * @param {string} root 目标项目根（或根下任意目录）
@@ -157,6 +170,11 @@ function initWorkloomInternal(root, params) {
   if (!existsSync(developerFile)) {
     writeFileSync(developerFile, developer)
     created.push(join(WORKLOOM_DIR, FILE_NAMES.developer))
+  }
+  const gitignoreFile = join(workloomDir, FILE_NAMES.gitignore)
+  if (!existsSync(gitignoreFile)) {
+    writeFileSync(gitignoreFile, GITIGNORE_TEMPLATE)
+    created.push(join(WORKLOOM_DIR, FILE_NAMES.gitignore))
   }
   const legacy = detectLegacyTrellis(root)
   return {
