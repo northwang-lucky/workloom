@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "config.js 与 resolveSubagentDefaults 是 legacy 纯 JS 模块,遵循行为移植约定"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "合并逻辑放 core,适配器只消费结果,保持分层"}
+{"file": ".workloom/spec/repo/architecture/dependency.md", "reason": "core 不 import assets;配置字段与文案变更的归属边界"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则、ESLint/tsc 验证命令"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "effort 术语定义(effort instead of thinking level)"}
