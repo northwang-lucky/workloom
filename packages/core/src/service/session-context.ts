@@ -16,6 +16,8 @@ import { insideWorkloom } from '../legacy/locate.js'
 import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from '../legacy/git.js'
 import { resolveActiveTask } from '../legacy/active-task.js'
 import { readTask } from '../legacy/task-store.js'
+import { loadConfig } from '../legacy/config.js'
+import { collectSpecIndexes } from '../legacy/spec-index.js'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom session context'
@@ -46,6 +48,15 @@ const DIRTY_SUFFIX = ' dirty file(s).'
 
 /** 工作流概览步骤间的分隔符。 */
 const STEP_SEPARATOR = ' | '
+
+/** guidelines 段标签行（固定文案，行为规格 §4.1）。 */
+const GUIDELINES_LABEL = 'Guidelines (spec index — read files as needed):'
+
+/** guidelines 条目缩进。 */
+const GUIDELINES_INDENT = '  '
+
+/** guidelines 截断提示（行为规格 §4.2）。 */
+const TRUNCATED_NOTICE = 'more index files; raise context_injection or trim spec/'
 
 /** assembleSessionContext 入参。 */
 export interface SessionContextParams {
@@ -89,7 +100,32 @@ function assembleInternal(params: SessionContextParams): string {
       .join(STEP_SEPARATOR)
     lines.push(`${LINE_LABELS.workflow}${overview}`)
   }
+  lines.push(...guidelinesLines(params.root))
   return `${BLOCK_OPEN}\n${lines.join('\n')}\n${BLOCK_CLOSE}`
+}
+
+/**
+ * 组装 guidelines 段：收集 spec 索引并逐行缩进；无 spec 返回空（段不输出）。
+ * config 解析失败时整段降级为空（与 developer/git 降级同策，不拖垮整份快照）；
+ * spec 目录读取失败仍抛错上行（fail loud，行为规格 §3.6）。
+ * @param root 项目根
+ * @returns 段行列表（可能为空）
+ */
+function guidelinesLines(root: string): string[] {
+  let config
+  try {
+    config = loadConfig(root)
+  } catch {
+    return []
+  }
+  const [specErr, spec] = collectSpecIndexes(root, config)
+  if (specErr) throw specErr
+  if (spec === null || spec.indexes.length === 0) return []
+  const lines = [GUIDELINES_LABEL, ...spec.indexes.map((rel) => `${GUIDELINES_INDENT}${rel}`)]
+  if (spec.truncated > 0) {
+    lines.push(`${GUIDELINES_INDENT}(… ${spec.truncated} ${TRUNCATED_NOTICE})`)
+  }
+  return lines
 }
 
 /**
