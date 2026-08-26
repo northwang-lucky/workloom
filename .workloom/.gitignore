@@ -1,0 +1,5 @@
+# Runtime state (session pointers etc.), per-machine.
+.runtime/
+
+# Local developer identity (like AGENTS.local.md).
+.developer
