@@ -1,1 +1,4 @@
-{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/dev-loop/index.md", "reason": "implementation loop this task follows"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "coding principles and verification commands"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "legacy module conventions for comment rewrites"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "layering and dependency rules"}
