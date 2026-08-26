@@ -11,7 +11,9 @@
  * - 工具依赖的 tools/subagents/agents 服务按注册面做局部结构化声明
  *   （参考 plugin.ts 的 SystemPromptService 做法），运行时由宿主注入；
  * - 子代理释放失败只 WARNING 不阻塞结果返回；其余故障 fail loud（抛错由
- *   DSH 工具管线转失败结果）。
+ *   DSH 工具管线转失败结果）；
+ * - model/effort 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置
+ *   （按 executor kind 取值，字段独立合并），供用户配置默认派发参数。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -24,7 +26,9 @@ import {
   EMPTY_OUTPUT_TEXT,
   ERR_PREFIX,
   findWorkloomRoot,
+  loadConfig,
   PARAM_DESCRIPTIONS,
+  resolveSubagentDefaults,
   resolveTaskRelPath,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
@@ -213,7 +217,13 @@ async function executeTool(
     )
   }
   const root = found.root
-  if (params.effort !== undefined) assertEffort(params.effort)
+  // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）。
+  const config = loadConfig(root)
+  const effective = resolveSubagentDefaults(config, params.kind, {
+    model: params.model,
+    effort: params.effort,
+  })
+  if (effective.effort !== undefined) assertEffort(effective.effort)
   const contextKey = `${CONTEXT_KEY_PREFIX}_${parent.id}`
   const taskRelPath = resolveTaskRelPath(root, contextKey, params.taskPath, ERR_PREFIX.executor)
   const [promptErr, built] = buildExecutorPrompt({
@@ -225,7 +235,7 @@ async function executeTool(
   if (promptErr || built === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
-  const agentOptions = params.model === undefined ? undefined : { model: params.model }
+  const agentOptions = effective.model === undefined ? undefined : { model: effective.model }
   const subagents = ctx.subagents
   const { childId } = await subagents.startContinuable({
     provider: SPAWN_PROVIDER,
@@ -245,8 +255,8 @@ async function executeTool(
   }
   // 输出边界：只取子代理自身产出的事件（排除继承的父历史种子前缀）。
   const boundary = child.session.events.length
-  if (params.effort !== undefined) {
-    const headerErr = writeEffortHeader(child, parent, params)
+  if (effective.effort !== undefined) {
+    const headerErr = writeEffortHeader(child, parent, effective.effort)
     if (headerErr !== null) {
       console.warn(`${EFFORT_WARN_PREFIX} ${headerErr}`)
     }
@@ -287,13 +297,13 @@ function renderOutput(value: unknown): TextBlockLike {
  * 只改 reasoningEffort；从子代理现有折叠头或父 agent 的 options 补齐必填字段。
  * @param child 子代理
  * @param parent 发起 agent
- * @param params 工具参数（model/effort）
+ * @param effort 合并后的 effort 档位（未指定时调用方不进入此函数）
  * @returns 失败原因文案（effort 失效），成功返回 null
  */
 function writeEffortHeader(
   child: MinimalAgent,
   parent: MinimalAgent,
-  params: ExecutorArgs,
+  effort: string | undefined,
 ): string | null {
   const existing = child.session.requestHeader()?.config
   const provider = existing?.provider ?? parent.options.provider
@@ -307,7 +317,7 @@ function writeEffortHeader(
         ...existing,
         provider,
         model,
-        reasoningEffort: params.effort,
+        reasoningEffort: effort,
       },
     },
     reason: 'change',
