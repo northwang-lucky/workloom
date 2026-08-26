@@ -3,3 +3,9 @@ dist/
 *.tsbuildinfo
 .DS_Store
 *.log
+
+# workloom runtime state（会话指针等，不入库）
+.workloom/.runtime/
+
+# 个人本地规则（每台机器各自维护）
+AGENTS.local.md

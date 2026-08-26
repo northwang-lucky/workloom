@@ -1,0 +1,15 @@
+# workloom configuration — all values have sensible defaults; override only what you need.
+#
+# packages maps a package name to its repo-relative path; spec scope injection
+# collects only indexes declared here.
+packages:
+  core:
+    path: packages/core
+  assets:
+    path: packages/assets
+  adapter-dsh:
+    path: packages/adapter-dsh
+  adapter-pi:
+    path: packages/adapter-pi
+  repo:
+    path: .

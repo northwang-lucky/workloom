@@ -1,0 +1,31 @@
+{
+  "id": "9010c5dd-ff3a-46df-bf9d-66e70618d081",
+  "name": "workloom-spec",
+  "title": "迁移至 workloom 工作流并沉淀 spec、精简旧文档",
+  "description": "本仓库 dogfooding：规则沉淀为 .workloom/spec/，AGENTS.md 重写为项目介绍与开发指南，AGENTS.local.md 承载个人红线，删除 docs/ 与 .agents/skills/，代码注释去 Trellis 溯源表述（迁移功能保留）。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-26T10:57:13.919Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
