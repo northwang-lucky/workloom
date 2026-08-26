@@ -64,6 +64,12 @@ const FILE_NAMES = Object.freeze({
 })
 
 /**
+ * hooks 事件名（task.json.hooks 的键；旧格式任务缺省时统一补齐为空数组）。
+ * @type {readonly (keyof import('./task-store.d.ts').TaskHooks)[]}
+ */
+const HOOK_KEYS = Object.freeze(['after_create', 'after_start', 'after_finish', 'after_archive'])
+
+/**
  * 任务状态枚举（task.json.status 取值）。
  * @type {Readonly<Record<import('./task-store.d.ts').TaskStatusKey, import('./task-store.d.ts').TaskStatusValue>>}
  */
@@ -154,6 +160,30 @@ function pad2(value) {
 }
 
 /**
+ * 归一化 task.json 记录：旧格式任务缺 hooks 字段时补齐空数组，
+ * 保证 create/start/finish/archive 各 hook 调用点对旧数据安全。
+ * @param {import('./task-store.d.ts').TaskRecord} parsed task.json 解析结果
+ * @returns {import('./task-store.d.ts').TaskRecord} 归一化后的记录
+ */
+function normalizeTaskRecord(parsed) {
+  const rawHooks = /** @type {Partial<import('./task-store.d.ts').TaskHooks> | undefined} */ (
+    parsed.hooks
+  )
+  /** @type {import('./task-store.d.ts').TaskHooks} */
+  const hooks = {
+    after_create: [],
+    after_start: [],
+    after_finish: [],
+    after_archive: [],
+  }
+  for (const key of HOOK_KEYS) {
+    const value = rawHooks?.[key]
+    hooks[key] = Array.isArray(value) ? value : []
+  }
+  return { ...parsed, hooks }
+}
+
+/**
  * 读取任务记录：task.json 缺失或损坏返回 err；成功时对象附带 taskRelPath。
  * 导出供 workflow-service 编排使用（读取只读任务状态）。
  * @param {string} root 项目根
@@ -184,7 +214,7 @@ export function readTask(root, taskRelPath) {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       return [new Error(`${ERR_PREFIX}: task.json is not an object: ${taskRelPath}`), null]
     }
-    return [null, { ...parsed, taskRelPath }]
+    return [null, { ...normalizeTaskRecord(parsed), taskRelPath }]
   } catch (error) {
     return [toError(error), null]
   }

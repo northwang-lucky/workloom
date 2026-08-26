@@ -16,6 +16,7 @@ import {
   finishTask,
   archiveTask,
   listTasks,
+  readTask,
   runTaskHooks,
 } from '../src/legacy/task-store.js'
 import { resolveActiveTask, setActiveTask } from '../src/legacy/active-task.js'
@@ -420,6 +421,76 @@ test('listTasks 摘要与状态过滤，归档后不再出现', async () => {
     await archiveTask(root, { taskRelPath: t1.taskRelPath, autoCommit: false })
     const [, after] = listTasks(root)
     assert.equal(after.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('旧格式 task.json（缺 hooks 字段）读取归一化，归档不再抛错', async () => {
+  const root = makeRoot()
+  try {
+    // 模拟 hooks 机制引入前的旧任务：无 hooks 字段
+    const legacyRel = join('tasks', '08-26-legacy-no-hooks')
+    mkdirSync(join(root, '.workloom', legacyRel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', legacyRel, 'task.json'),
+      JSON.stringify({
+        id: 'legacy-1',
+        name: 'legacy-no-hooks',
+        status: TaskStatus.IN_PROGRESS,
+        createdAt: '2026-08-26',
+      }),
+    )
+    // 读取即归一化：hooks 补齐空数组
+    const [readErr, task] = readTask(root, legacyRel)
+    assert.equal(readErr, null)
+    assert.deepEqual(task.hooks, {
+      after_create: [],
+      after_start: [],
+      after_finish: [],
+      after_archive: [],
+    })
+    // 归档旧任务不再触发 undefined.after_archive
+    const [archiveErr, archived] = await archiveTask(root, {
+      taskRelPath: legacyRel,
+      autoCommit: false,
+    })
+    assert.equal(archiveErr, null)
+    assert.equal(archived.status, TaskStatus.COMPLETED)
+    // 落盘的归档 task.json 也带完整 hooks
+    assert.deepEqual(readTaskJson(root, archived.taskRelPath).hooks, {
+      after_create: [],
+      after_start: [],
+      after_finish: [],
+      after_archive: [],
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('hooks 仅含部分事件时补齐其余空数组', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-partial-hooks')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({
+        id: 'partial-1',
+        name: 'partial-hooks',
+        status: TaskStatus.IN_PROGRESS,
+        hooks: { after_archive: ['echo done'] },
+      }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.deepEqual(task.hooks, {
+      after_create: [],
+      after_start: [],
+      after_finish: [],
+      after_archive: ['echo done'],
+    })
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
