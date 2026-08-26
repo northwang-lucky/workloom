@@ -69,8 +69,12 @@ _Avoid_: TDD 偏好（不含对齐义务）
 _Avoid_: issue, ticket
 
 **spec**:
-按 package/layer 组织的编码规范。
+按 package/layer 组织的编码规范（`.workloom/spec/<package>/<layer>/index.md` 两级布局）。
 _Avoid_: rules（与工具规则混淆）
+
+**spec index**:
+会话启动注入的 spec 索引路径清单（session-context 快照的 guidelines 段，按 config packages 过滤）。
+_Avoid_: guidelines 全文、spec 摘要
 
 **journal**:
 按开发者组织的会话日志，构成跨会话项目记忆（workspace）。
