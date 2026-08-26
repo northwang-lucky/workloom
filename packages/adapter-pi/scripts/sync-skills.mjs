@@ -1,7 +1,8 @@
 /**
- * 清空并重建本包 skills/ 目录：从 ../assets 递归拷贝 4 个 skill 目录
- * （自有 brainstorm + 三个 vendored mattpocock skills），连同目录内所有
- * 文件（SKILL.md / references / agents / 子文档）与 mattpocock 的 LICENSE。
+ * 清空并重建本包 skills/ 目录：从 ../assets 递归拷贝 5 个 skill 目录
+ * （自有 brainstorm + update-spec + 三个 vendored mattpocock skills），
+ * 连同目录内所有文件（SKILL.md / references / agents / 子文档）与
+ * mattpocock 的 LICENSE。
  *
  * skills/ 是构建产物（发布/安装前由 pnpm build 生成），git 忽略。
  */
@@ -16,6 +17,7 @@ const SKILLS_DIR = join(PACKAGE_ROOT, 'skills')
 /** 相对本包根的资源源目录（整目录递归拷贝）。 */
 const SKILL_SOURCES = [
   '../assets/skills/workloom-brainstorm',
+  '../assets/skills/workloom-update-spec',
   '../assets/third-party/mattpocock-skills/tdd',
   '../assets/third-party/mattpocock-skills/grilling',
   '../assets/third-party/mattpocock-skills/writing-for-agents',
