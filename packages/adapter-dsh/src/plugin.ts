@@ -92,7 +92,7 @@ export const inject = [
 
 /**
  * 插件入口：注册 session-context 与 breadcrumb 两个注入、三个 workloom slash
- * 命令、executor 工具、4 个 runtime skills 与步骤详情工具。
+ * 命令、executor 工具、5 个 runtime skills 与步骤详情工具。
  * @param ctx 插件作用域上下文
  */
 export function apply(ctx: Context): void {

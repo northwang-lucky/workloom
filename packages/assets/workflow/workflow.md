@@ -35,7 +35,7 @@ Completion criteria: findings are persisted and either referenced by 1.3's conte
 
 #### 1.3 Configure context
 
-Fill implement.jsonl and check.jsonl with real entries (`{"file": "<path>", "reason": "<why>"}`): spec and research only, never code paths.
+Fill implement.jsonl and check.jsonl with real entries (`{"file": "<path>", "reason": "<why>"}`): spec and research only, never code paths. Referenced spec files must live under `.workloom/spec/` in its two-level layout (`<package>/<layer>/`).
 Completion criteria: each jsonl has at least one real entry (the seeded `_example` line does not count).
 
 #### 1.4 Review and start
@@ -52,7 +52,7 @@ Completion criteria: changes are done, lint and typecheck pass, and the fixed-fo
 
 #### 2.2 Check
 
-Dispatch the check executor to review changes against spec and task artifacts, fix what it finds, and run lint and typecheck; the final check of a task must cover the full scope.
+Dispatch the check executor: review changes against the spec files referenced in check.jsonl and the task artifacts (prd/design/implement), checking structure, naming, types, and potential bugs item by item; fix what it finds yourself — do not just report. Then run lint and typecheck. The final check of a task must cover the full scope.
 Completion criteria: no unresolved findings against spec, lint and typecheck all green.
 
 #### 2.3 Commit
