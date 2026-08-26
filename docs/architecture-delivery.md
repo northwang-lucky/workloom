@@ -47,6 +47,7 @@
 8. Pi `context` 事件：每次 LLM 请求前、不持久化、不重走压缩。
 9. pi-subagents：37 字段 agent 定义、`registerAgent` 运行时注册、`prompt-template:subagent:*` 事件派发、thinking 档位原生。**⚠️ 2026-08-26 P3 实证修正**：`registerAgent` 跨扩展失效（Pi 0.84.2 每扩展独立 ExtensionAPI 对象 + WeakMap 按对象身份匹配，探针扩展实证两扩展 pi 身份不同）；workloom 最终据此改为自研 spawn child pi（ADR-0006），不再依赖 pi-subagents。
 10. **spec 知识库注入（双端真机，2026-08-26）**：Pi 侧（qwen3.7-plus）——session_start 注入 guidelines 段，模型复述两条索引（字典序）并读文件报出首行标题；声明 `packages: cli` 后重开会话只注入 cli（scope 过滤生效）。DSH 侧（GUI 会话 cwd=/tmp/workloom-demo）——system prompt snapshot 含 guidelines 段（plugin `@deepseek-ai/dsh-system-prompt` 落盘核实），模型调 read 工具读 `.workloom/spec/cli/backend/index.md` 并报出 `# cli backend standards`；5 个 runtime skills（含 workloom-update-spec）注册无告警。
+11. **spec 模板落盘（Pi 真机，2026-08-26）**：`/workloom-init` 命令成功后 `.workloom/spec/.templates/` 幂等落盘 spec-index.md/spec-detail.md（内容与 assets 模板一致），收集器不误收（`.templates` 不进 guidelines）；DSH 侧同链路（core 函数 + assets 读取复用），待 profile 重启后以 `/workloom:init` force 同法验证。
 
 ## 实现期 PoC 清单（静态分析待实证）
 
