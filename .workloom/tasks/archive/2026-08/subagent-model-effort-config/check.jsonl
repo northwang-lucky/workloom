@@ -1,0 +1,4 @@
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "检查 config.js 解析是否符合 legacy 模块约定(字段命名/默认值)"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "检查合并逻辑是否收敛在 core,适配器是否保持薄"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "检查代码风格与 lint/typecheck 结果"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "检查各改动是否按 package 拆分 commit 且 message 合规"}

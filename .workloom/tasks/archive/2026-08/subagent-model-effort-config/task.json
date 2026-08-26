@@ -1,0 +1,31 @@
+{
+  "id": "b21c484a-6318-4051-b5fd-759ff90a39db",
+  "name": "subagent-model-effort-config",
+  "title": "config.yaml 支持 subagents 配置字段",
+  "description": "在 .workloom/config.yaml 新增 subagents 字段:按 executor kind(research/implement/check)配置默认 model/effort;工具调用参数优先于配置,配置作兜底默认;未知 key 容错忽略。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-26T12:38:10.342Z",
+  "completedAt": "2026-08-26T12:52:19.120Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
