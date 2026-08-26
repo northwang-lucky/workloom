@@ -12,4 +12,4 @@ packages/
 └── adapter-pi/      # Pi Package（@workloom-ai/adapter-pi，executor 自研 spawn child pi）
 ```
 
-状态：Phase 1（DSH）与 Phase 2（Pi）已实现并双端真机验证；Phase 3 收尾中（发布前准备、文档收口）。
+状态：Phase 1（DSH）与 Phase 2（Pi）已实现并双端真机验证；Phase 3 收尾完成（发布前准备、文档收口）；Phase 4（spec 知识库：guidelines 索引注入 + scope 过滤 + update-spec skill）已实现并双端真机验证。
