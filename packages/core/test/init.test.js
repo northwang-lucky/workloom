@@ -1,5 +1,5 @@
 /**
- * init 模块单测：骨架生成、config 模板可解析、幂等、developer 写入、legacy 检测。
+ * init 模块单测：骨架生成、config 模板可解析、幂等、developer 写入、.gitignore 生成、legacy 检测。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -20,6 +20,7 @@ const SKELETON = [
   '.workloom/spec/README.md',
   '.workloom/config.yaml',
   '.workloom/.developer',
+  '.workloom/.gitignore',
 ]
 
 function makeRoot() {
@@ -39,6 +40,19 @@ test('未命中时生成完整骨架', () => {
     assert.equal(result.root, root)
     assert.equal(result.developer, '')
     assert.equal(result.legacyTrellisRoot, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('.gitignore 模板含 .runtime/ 与 .developer 忽略条目', () => {
+  const root = makeRoot()
+  try {
+    const [err] = initWorkloom(root)
+    assert.equal(err, null)
+    const content = readFileSync(join(root, '.workloom', '.gitignore'), 'utf8')
+    assert.ok(content.includes('.runtime/'), 'missing .runtime/ entry')
+    assert.ok(content.includes('.developer'), 'missing .developer entry')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -126,6 +140,39 @@ test('spec/README.md 生成且 force 不覆盖已有内容', () => {
     const [forceErr] = initWorkloom(root, { force: true })
     assert.equal(forceErr, null)
     assert.equal(readFileSync(readme, 'utf8'), '# team custom\n')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('force 幂等不覆盖用户自定义的 .gitignore', () => {
+  const root = makeRoot()
+  try {
+    const [err] = initWorkloom(root)
+    assert.equal(err, null)
+    const gitignore = join(root, '.workloom', '.gitignore')
+    writeFileSync(gitignore, '# team custom\n*.local\n')
+    const [forceErr, forceResult] = initWorkloom(root, { force: true })
+    assert.equal(forceErr, null)
+    assert.ok(forceResult)
+    assert.equal(readFileSync(gitignore, 'utf8'), '# team custom\n*.local\n')
+    assert.ok(!forceResult.created.includes('.workloom/.gitignore'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('已有 .workloom 但缺 .gitignore 时 force 补建', () => {
+  const root = makeRoot()
+  try {
+    const [err] = initWorkloom(root)
+    assert.equal(err, null)
+    rmSync(join(root, '.workloom', '.gitignore'))
+    const [forceErr, forceResult] = initWorkloom(root, { force: true })
+    assert.equal(forceErr, null)
+    assert.ok(forceResult)
+    assert.ok(existsSync(join(root, '.workloom', '.gitignore')))
+    assert.ok(forceResult.created.includes('.workloom/.gitignore'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
