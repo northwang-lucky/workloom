@@ -69,11 +69,12 @@ packages/
 
 ```txt
 .workloom/
-├── config.yaml               # 注入预算、git 自动提交、hooks 等配置
+├── config.yaml               # 注入预算、git 自动提交、hooks、packages 声明等配置
 ├── workflow.override.md      # 可选：指引文案覆盖（团队差异）
 ├── tasks/                    # {MM-DD-slug}/：task.json、prd/design/implement、
 │                             # research/、implement.jsonl、check.jsonl（兼容原布局）
-├── spec/                     # 按 package/layer 的编码规范
+├── spec/                     # 编码规范：spec/<package>/<layer>/index.md 两级布局，
+│                             # 会话启动注入索引清单（guidelines 段，按 packages 过滤）
 ├── workspace/                # 会话日志 journal + index
 └── .runtime/sessions/        # 会话级活跃任务指针（gitignored）
 ```
