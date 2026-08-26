@@ -1,6 +1,6 @@
 # workloom 项目指南
 
-workloom：把 AI 编码工作流抽象为 runtime 无关的核心逻辑层（core）与资源层（assets），经 adapter 插件分发到 DeepSeek Harness 与 Pi。本项目自身也用 workloom 工作流开发（dogfooding），项目内持有 `.workloom/` 资产目录。
+workloom：把 AI 编码工作流抽象为 runtime 无关的核心逻辑层（core）与资源层（assets），经 adapter 插件分发到 DeepSeek Harness 与 Pi。
 
 ## 仓库结构
 
@@ -36,10 +36,6 @@ cd packages/core && node --test test/*.test.js
 cd packages/adapter-dsh && node --test test/*.test.js
 cd packages/adapter-pi && bun test test/*.test.ts
 ```
-
-## 部署
-
-`pnpm -r build` 后必须跑 `~/dsh/bin/dsh-sync-workloom` 的 rsync 段（core/adapter-dsh 的 dist 与 assets 全包）；dshweb 重启由用户执行。详见 `spec/repo/deployment`。
 
 ## 个人本地规则
 
