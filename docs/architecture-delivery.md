@@ -33,6 +33,7 @@
 1. **Phase 1（DSH 先行）** ✅：core 的 Python 移植模块（task 生命周期、契约解析、breadcrumb 组装、journal）→ adapter-dsh（命令、注入、skills、executor 工具）→ `/workloom:init` 与 `.trellis` 迁移 → 自激活。
 2. **Phase 2（Pi）** ✅：adapter-pi Extension（session_start / before_agent_start 注入、registerCommand、registerTool、executor 派发——最终形态为自研 spawn child pi，ADR-0006）。
 3. **Phase 3（收尾）** ✅：W2/W12 打磨、effort 全链路（双端实证）、workflow profile 预留接口评审（见 architecture-workflows.md）、发布前准备（包名 @workloom-ai / 版本 0.1.0 / assets files 已修）、文档收口均完成；示例仓库不做（用户项目里 `/workloom-init` 即演示）；npm 发布动作由用户侧执行。
+4. **Phase 4（spec 知识库）** ✅：`.workloom/spec/` 从兼容预留位升级为完整能力——两级布局 + 会话 guidelines 索引注入 + packages scope 过滤 + workloom-update-spec skill + check 引导文案（行为规格 docs/spec-knowledge-base-spec.md，决策 ADR-0007）。
 
 ## 验证清单（已实证）
 
@@ -45,6 +46,7 @@
 7. Pi `before_agent_start`：每轮用户提交触发一次（agent-session.js:885）。
 8. Pi `context` 事件：每次 LLM 请求前、不持久化、不重走压缩。
 9. pi-subagents：37 字段 agent 定义、`registerAgent` 运行时注册、`prompt-template:subagent:*` 事件派发、thinking 档位原生。**⚠️ 2026-08-26 P3 实证修正**：`registerAgent` 跨扩展失效（Pi 0.84.2 每扩展独立 ExtensionAPI 对象 + WeakMap 按对象身份匹配，探针扩展实证两扩展 pi 身份不同）；workloom 最终据此改为自研 spawn child pi（ADR-0006），不再依赖 pi-subagents。
+10. **spec 知识库注入（双端真机，2026-08-26）**：Pi 侧（qwen3.7-plus）——session_start 注入 guidelines 段，模型复述两条索引（字典序）并读文件报出首行标题；声明 `packages: cli` 后重开会话只注入 cli（scope 过滤生效）。DSH 侧（GUI 会话 cwd=/tmp/workloom-demo）——system prompt snapshot 含 guidelines 段（plugin `@deepseek-ai/dsh-system-prompt` 落盘核实），模型调 read 工具读 `.workloom/spec/cli/backend/index.md` 并报出 `# cli backend standards`；5 个 runtime skills（含 workloom-update-spec）注册无告警。
 
 ## 实现期 PoC 清单（静态分析待实证）
 
