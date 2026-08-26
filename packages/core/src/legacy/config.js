@@ -2,11 +2,10 @@
  * .workloom/config.yaml 解析（行为移植模块，纯 JS + JSDoc）。
  *
  * 设计意图：
- * - 字段与默认值对齐原 Trellis 的 config.yaml 规格（数据格式兼容），
- *   文案与实现全新撰写（clean-room）；
+ * - 字段与默认值为既有数据布局约定（数据格式兼容），文案自撰；
  * - 解析失败显式抛错（fail loud），不静默回退，符合“无灰区”哲学；
- * - 未知字段容错忽略（如 channel/codex 等原平台特定字段），向前兼容；
- * - 逃生舱关键词默认改为 no-workloom（原为 no-trellis）。
+ * - 未知字段容错忽略（如 channel/codex 等历史平台特定字段），向前兼容；
+ * - 逃生舱关键词为 no-workloom。
  */
 
 import { readFileSync } from 'node:fs'

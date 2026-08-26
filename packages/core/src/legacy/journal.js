@@ -2,7 +2,7 @@
  * 会话日志（行为移植模块，纯 JS + JSDoc）。
  *
  * 设计意图：
- * - 数据布局对齐原 Trellis：.workloom/workspace/<developer>/journal-N.md 滚动日志
+ * - 数据布局约定：.workloom/workspace/<developer>/journal-N.md 滚动日志
  *   + <developer>/index.md 个人索引 + workspace/index.md 全局索引；
  * - 写 journal 成功后才更新索引，journal 失败不产生索引变更（先主数据后记账）；
  * - 索引 sessions 按“读现值 +1”累计，文件缺失或损坏按 0 起算并整体重写（自愈）；

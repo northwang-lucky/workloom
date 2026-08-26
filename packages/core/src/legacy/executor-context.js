@@ -1,7 +1,7 @@
 /**
  * executor 上下文注入组装（行为移植模块，纯 JS + JSDoc）。
  *
- * 设计意图（W9 行为移植，规格来源 docs/trellis-core-workflows.md W9 与派发规格）：
+ * 设计意图（W9 行为移植，规格见任务派发规格）：
  * - 子代理派发前把 prd/design/implement 与 jsonl 清单引用的 spec/research
  *   内联进首条 prompt，让子代理带完整信息自主工作（注入有预算）；
  * - 预算来自 config.contextInjection：max_file_bytes 限单文件、max_artifact_bytes

@@ -2,7 +2,7 @@
  * 任务 CRUD 与状态迁移（行为移植模块，纯 JS + JSDoc）。
  *
  * 设计意图：
- * - 数据布局对齐原 Trellis：.workloom/tasks/{MM-DD-slug}/task.json（snake_case 字段）；
+ * - 数据布局约定：.workloom/tasks/{MM-DD-slug}/task.json（snake_case 字段）；
  * - 所有公开函数返回 [err, value] 命名元组，内部错误统一转换为 Error；
  * - hooks 与 git 失败只收集 WARNING（console.warn），不阻塞主操作；
  * - 路径一律经 locate.insideWorkloom 防越界。
