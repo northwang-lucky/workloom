@@ -27,6 +27,39 @@ const FILE_NAMES = Object.freeze({
   developer: '.developer',
 })
 
+/** spec/README.md 模板：布局说明 + 最小示例（全英文，写入用户项目）。 */
+const SPEC_README_TEMPLATE = [
+  '# workloom spec',
+  '',
+  'Team coding standards live here, organized as `<package>/<layer>/index.md`.',
+  '',
+  '## Layout',
+  '',
+  '- `spec/<package>/<layer>/index.md` is the injection unit: its path enters the',
+  '  session-context guidelines list at session start; the agent reads files on demand.',
+  '- Detail files (`*.md`) sit next to their `index.md`; the index links to them.',
+  '',
+  '## Scope',
+  '',
+  '- `packages` in `.workloom/config.yaml` declares which packages get injected.',
+  '  When it is empty, every `<package>/<layer>/index.md` is collected.',
+  '',
+  '## Minimal example',
+  '',
+  '```md',
+  '# cli backend standards',
+  '',
+  '- errors: return named tuples, error first — see error-handling.md',
+  '```',
+  '',
+  '## Maintenance',
+  '',
+  'Update standards with the `workloom-update-spec` skill: add the entry to the',
+  'index first, then write the detail file; every detail file must be referenced',
+  'by its index.',
+  '',
+].join('\n')
+
 /** config.yaml 模板：全注释行（默认值形态），写入用户项目，注释全英文。 */
 const CONFIG_TEMPLATE = [
   '# workloom configuration — all values have sensible defaults; override only what you need.',
@@ -108,6 +141,12 @@ function initWorkloomInternal(root, params) {
       mkdirSync(dir, { recursive: true })
       created.push(join(WORKLOOM_DIR, rel))
     }
+  }
+  // spec 骨架模板：spec 目录已由 SUB_DIRS 保证，README 幂等写入。
+  const specReadme = join(workloomDir, 'spec', 'README.md')
+  if (!existsSync(specReadme)) {
+    writeFileSync(specReadme, SPEC_README_TEMPLATE)
+    created.push(join(WORKLOOM_DIR, 'spec', 'README.md'))
   }
   const configFile = join(workloomDir, FILE_NAMES.config)
   if (!existsSync(configFile)) {

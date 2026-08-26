@@ -17,6 +17,7 @@ const SKELETON = [
   '.workloom/spec',
   '.workloom/workspace',
   '.workloom/.runtime/sessions',
+  '.workloom/spec/README.md',
   '.workloom/config.yaml',
   '.workloom/.developer',
 ]
@@ -109,6 +110,22 @@ test('检测旧 .trellis 目录并在结果中报告', () => {
     const [err, result] = initWorkloom(root)
     assert.equal(err, null)
     assert.equal(result.legacyTrellisRoot, root)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('spec/README.md 生成且 force 不覆盖已有内容', () => {
+  const root = makeRoot()
+  try {
+    const [err] = initWorkloom(root)
+    assert.equal(err, null)
+    const readme = join(root, '.workloom', 'spec', 'README.md')
+    assert.ok(readFileSync(readme, 'utf8').includes('# workloom spec'))
+    writeFileSync(readme, '# team custom\n')
+    const [forceErr] = initWorkloom(root, { force: true })
+    assert.equal(forceErr, null)
+    assert.equal(readFileSync(readme, 'utf8'), '# team custom\n')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

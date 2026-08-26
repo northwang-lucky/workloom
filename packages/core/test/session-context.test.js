@@ -186,3 +186,70 @@ test('整体包在块标记内', () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('spec 存在时快照渲染 guidelines 段', () => {
+  const root = makeProject()
+  try {
+    const indexDir = join(root, '.workloom', 'spec', 'cli', 'backend')
+    mkdirSync(indexDir, { recursive: true })
+    writeFileSync(join(indexDir, 'index.md'), '# cli backend\n')
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_10',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.match(
+      text,
+      /\nGuidelines \(spec index — read files as needed\):\n {2}\.workloom\/spec\/cli\/backend\/index\.md\n<\/workloom-session-context>/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('无 spec 目录时不输出 guidelines 段', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_11',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.doesNotMatch(text, /Guidelines/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('spec 索引超预算时渲染截断提示行', () => {
+  const root = makeProject()
+  try {
+    // 每条路径 535 字节：保留 15 条，truncated = 20 - 15 = 5。
+    const layer = 'layer-' + 'y'.repeat(249)
+    for (let i = 0; i < 20; i += 1) {
+      const dir = join(
+        root,
+        '.workloom',
+        'spec',
+        `pkg-${String(i).padStart(2, '0')}-` + 'x'.repeat(248),
+        layer,
+      )
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'index.md'), `# pkg ${i}\n`)
+    }
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_12',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.match(
+      text,
+      /\n {2}\(… 5 more index files; raise context_injection or trim spec\/\)\n<\/workloom-session-context>/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
