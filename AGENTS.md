@@ -18,7 +18,6 @@ packages/
 
 | 索引 | 内容 |
 | --- | --- |
-| `repo/dev-loop` | 实现循环：规格先行 → flash 写 → pro review → 闭环修复验证 |
 | `repo/code-style` | 编码原则、验证命令（verify） |
 | `repo/legacy-module` | legacy 纯 JS + JSDoc 模块约定 |
 | `repo/deployment` | 构建产物部署同步纪律 |
