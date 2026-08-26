@@ -15,7 +15,12 @@ export {
   insideWorkloom,
 } from './legacy/locate.js'
 
-export { DEFAULT_CONFIG, WorkloomConfigError, loadConfig } from './legacy/config.js'
+export {
+  DEFAULT_CONFIG,
+  resolveSubagentDefaults,
+  WorkloomConfigError,
+  loadConfig,
+} from './legacy/config.js'
 
 export {
   EFFORT_LEVELS,
