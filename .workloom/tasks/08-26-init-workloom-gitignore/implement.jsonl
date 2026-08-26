@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "init.js 是 legacy 纯 JS + JSDoc 模块，改动须遵循其约定"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": ".gitignore 模板属写入用户项目的运行时文案，须全英文"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core 分层与依赖规则"}
