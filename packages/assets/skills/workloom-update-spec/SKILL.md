@@ -22,6 +22,7 @@ Standards live in `.workloom/spec/<package>/<layer>/index.md` (the injection uni
 
 ### 2. Update the index
 
+Read `.workloom/spec/.templates/spec-index.md` first and follow its structure.
 `index.md` is the injection unit — sessions see only its path. Every standard must be reachable from it:
 
 - short standards live as one line in the index;
@@ -29,6 +30,7 @@ Standards live in `.workloom/spec/<package>/<layer>/index.md` (the injection uni
 
 ### 3. Write the detail file (when needed)
 
+Read `.workloom/spec/.templates/spec-detail.md` first and follow its structure.
 One topic per `.md` file:
 
 - first line is the title;

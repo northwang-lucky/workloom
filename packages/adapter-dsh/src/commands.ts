@@ -24,11 +24,16 @@ import {
   COMMAND_DESCRIPTIONS,
   COMMAND_NAMES,
   ERR_PREFIX,
+  ensureSpecTemplates,
   executeInitCommand,
 } from '@workloom-ai/core'
 import { readAssetText } from '@workloom-ai/assets'
 
 import { CONTEXT_KEY_PREFIX, SOURCE_PLUGIN } from './constants.js'
+
+/** spec 模板资产相对 assets 包根（init 成功后补落进项目）。 */
+const ASSET_TEMPLATE_INDEX = 'templates/spec-index.md'
+const ASSET_TEMPLATE_DETAIL = 'templates/spec-detail.md'
 
 /**
  * 注册三个 workloom 命令（ctx.commands 由 inject 声明为硬依赖；
@@ -74,7 +79,7 @@ function cwdOf(invocation: CommandInvocation): CommandResult | string {
   return cwd
 }
 
-/** init 命令：初始化 .workloom 骨架并可选迁移（编排下沉 core）。 */
+/** init 命令：初始化 .workloom 骨架并可选迁移（编排下沉 core），成功后补落 spec 模板。 */
 function handleInit(invocation: CommandInvocation): CommandResult {
   const cwd = cwdOf(invocation)
   if (typeof cwd !== 'string') return cwd
@@ -82,7 +87,31 @@ function handleInit(invocation: CommandInvocation): CommandResult {
   if (err !== null || text === null) {
     return errorResult(err?.message ?? `${ERR_PREFIX.command}: init returned no result`)
   }
+  ensureTemplates(cwd)
   return { kind: 'success', text }
+}
+
+/**
+ * 补落 spec 模板到项目 .workloom/spec/.templates/（幂等，core 写盘）。
+ * 模板是 init 的附属物：资产缺失、写盘失败或任何非预期异常都只告警，
+ * 不阻塞 init 成功路径。
+ * @param cwd init 命令的工作目录（项目根或根下目录均可）
+ */
+function ensureTemplates(cwd: string): void {
+  try {
+    const indexTemplate = readAssetText(ASSET_TEMPLATE_INDEX)
+    const detailTemplate = readAssetText(ASSET_TEMPLATE_DETAIL)
+    if (indexTemplate === null || detailTemplate === null) {
+      console.warn(`${ERR_PREFIX.command}: spec template asset missing; skipped`)
+      return
+    }
+    const [err] = ensureSpecTemplates({ root: cwd, indexTemplate, detailTemplate })
+    if (err !== null) {
+      console.warn(`${ERR_PREFIX.command}: spec templates: ${err.message}`)
+    }
+  } catch (error) {
+    console.warn(`${ERR_PREFIX.command}: spec templates: ${String(error)}`)
+  }
 }
 
 /**
