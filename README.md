@@ -1,8 +1,8 @@
 # workloom
 
-把 Trellis 式 AI 编码工作流抽象为与 runtime 无关的核心逻辑层（core）与资源层（assets），通过面向各 runtime 的官方格式插件（adapter）分发；用户项目内只保留一个资产目录 `.workloom/`。MIT。
+把 AI 编码工作流抽象为与 runtime 无关的核心逻辑层（core）与资源层（assets），通过面向各 runtime 的官方格式插件（adapter）分发；用户项目内只保留一个资产目录 `.workloom/`。MIT。
 
-设计决策与术语见 `CONTEXT.md` 与 `docs/adr/`，架构见 `docs/architecture*.md`，安装与验证见 `docs/adapter-install.md`。
+团队规范见 `.workloom/spec/`（随会话注入，按需读取），项目指南见 `AGENTS.md`。
 
 ```txt
 packages/
@@ -12,4 +12,4 @@ packages/
 └── adapter-pi/      # Pi Package（@workloom-ai/adapter-pi，executor 自研 spawn child pi）
 ```
 
-状态：Phase 1（DSH）与 Phase 2（Pi）已实现并双端真机验证；Phase 3 收尾完成（发布前准备、文档收口）；Phase 4（spec 知识库：guidelines 索引注入 + scope 过滤 + update-spec skill）已实现并双端真机验证。
+状态：双端（DSH/Pi）命令、注入、skills、executor、effort、journal、spec 知识库均已实现并真机验证；本仓库自身已迁移至 workloom 工作流（dogfooding）。

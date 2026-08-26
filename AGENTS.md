@@ -1,33 +1,47 @@
-# workloom 项目约定
+# workloom 项目指南
 
-workloom：把 Trellis 式 AI 编码工作流抽象为 runtime 无关的 core/assets，经 adapter 插件分发到 DeepSeek Harness 与 Pi。项目内只保留 `.workloom/` 资产目录（本仓库是 workloom 自身，不受该布局约束）。
+workloom：把 AI 编码工作流抽象为 runtime 无关的核心逻辑层（core）与资源层（assets），经 adapter 插件分发到 DeepSeek Harness 与 Pi。本项目自身也用 workloom 工作流开发（dogfooding），项目内持有 `.workloom/` 资产目录。
 
-## 实现循环（每个实现点走一遍）
+## 仓库结构
 
-1. 规格先行：主 agent 拆出实现点后，先写行为规格（输入/输出/数据布局/边界条件）再动手。涉及宿主 API 边界（工具 schema、命令定义、服务注册面）时，规格必须对照官方样例/真实类型逐字段验证后再下笔，禁止凭印象写形状。
-2. flash 写代码：派 deepseek-v4-flash 子代理实现。派发 prompt 必含：目标文件、行为规格、代码风格要求（让它读全局 `~/.dsh/AGENTS.md` 与本文件）、clean-room 红线、工程约束（写文件单次 ≤80 行、模块超 600 行拆分、配 node:test 单测）；禁止子代理执行 `git restore`/`checkout`/`reset` 等回滚操作（提交与回滚由主 agent 负责）。
-3. pro review：flash 完成后派 deepseek-v4-pro 子代理审查，输出问题清单，逐条给位置与修复建议，覆盖四项：规格符合性、正确性、风格合规、clean-room 红线。
-4. 主 agent 闭环：按清单修复 → 全量验证（`pnpm lint`、`pnpm -r typecheck`、受影响包 `pnpm test`）全绿 → commit（中文 message，每轮一个）→ 向用户汇报，等确认后再进下一个点。
-5. 例外：规格敏感或体量小于一个模块的改动由主 agent 直接写；review 发现结构性问题时把清单发回 flash 子代理修复。
+```txt
+packages/
+├── core/            # runtime 无关逻辑：legacy 纯 JS 移植模块 + service TS 抽象
+├── assets/          # workflow 契约、skills/agents/commands 中间表示
+├── adapter-dsh/     # DSH profile bundle（@workloom-ai/adapter-dsh）
+└── adapter-pi/      # Pi Package（@workloom-ai/adapter-pi，executor 自研 spawn child pi）
+```
 
-## clean-room 红线
+## 团队规范（.workloom/spec/）
 
-- 禁止读取原 Trellis 仓库（`/data00/home/wangyubo.1219/workbench/code-src/github/Trellis`）的任何源码文件。
-- 行为规格的唯一来源：本仓库 `docs/trellis-core-workflows.md` 与主 agent 派发时给出的规格。
-- 违反一次 = 相关文件重写。
+开发规范沉淀在 `.workloom/spec/`，随会话注入 guidelines 清单、按需读取。开始工作前先读相关索引；任务实现时把相关 spec 写进任务的 `implement.jsonl` / `check.jsonl` 以强制内联：
 
-## 代码约定（补充全局 AGENTS.md）
+| 索引 | 内容 |
+| --- | --- |
+| `repo/dev-loop` | 实现循环：规格先行 → flash 写 → pro review → 闭环修复验证 |
+| `repo/code-style` | 编码原则、验证命令（verify） |
+| `repo/legacy-module` | legacy 纯 JS + JSDoc 模块约定 |
+| `repo/deployment` | 构建产物部署同步纪律 |
+| `repo/language` | 中英文分工约定 |
+| `repo/commits` | 提交规范 |
+| `repo/terminology` | 术语表 |
+| `repo/architecture` | 分层与依赖规则 |
 
-- `packages/core/src/legacy/`：原 Python 脚本的行为移植模块，纯 JS + JSDoc，免构建直跑；新增抽象用 TS。
-- 移植模块的字段名与默认值对齐原 Trellis 数据布局（数据格式兼容），文案与实现全新撰写。
-- 验证命令：`pnpm lint`、`pnpm -r typecheck`、`pnpm -r build`、`cd packages/core && pnpm test`。
-- **部署同步（必做）**：`pnpm -r build` 产出新 dist 后，必须把产物同步到 dsh web profile——执行 `~/dsh/bin/dsh-sync-workloom` 的 rsync 段（core/adapter-dsh 的 dist 与 assets 全包；可用 `--dry-run` 先核对差异）。profile 的 file: 依赖是硬拷贝，不同步会在用户重启 dsh 时因缺新文件而挂（教训见 `docs/adapter-dsh-postmortem.md` 问题四）。脚本后半段的 dshweb 重启会中断当前会话：重启由用户执行，或经用户确认后在轮次末尾执行。
+## 常用验证命令
 
-## 语言约定
+```bash
+pnpm lint
+pnpm -r typecheck
+pnpm -r build
+cd packages/core && node --test test/*.test.js
+cd packages/adapter-dsh && node --test test/*.test.js
+cd packages/adapter-pi && bun test test/*.test.ts
+```
 
-- 一律英文：工作流分发文档（`packages/assets/` 的 workflow/commands/skills/agents 与 vendored 改写处）、core 写入用户项目的运行时文案（breadcrumb、prd 骨架、jsonl seed、journal 条目、Error/WARNING 消息）。未来新增的资产（agents 定义、自有 skills、init 模板、override 模板）写的时候就直接用英文。
-- 保留中文：项目自身开发文档（`docs/`、ADR、`CONTEXT.md`、本文件、commit message）与源码内部注释（JSDoc、行注释）。
+## 部署
 
-## 提交
+`pnpm -r build` 后必须跑 `~/dsh/bin/dsh-sync-workloom` 的 rsync 段（core/adapter-dsh 的 dist 与 assets 全包）；dshweb 重启由用户执行。详见 `spec/repo/deployment`。
 
-- 每轮改动一个 commit；中文 message，格式 `<type>(<scope>): <描述>`；禁止 `git push`。
+## 个人本地规则
+
+个人化/本地规则写在 `AGENTS.local.md`（已 gitignore，每台机器各自维护，不入库）。
