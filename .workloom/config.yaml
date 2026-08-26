@@ -13,3 +13,17 @@ packages:
     path: packages/adapter-pi
   repo:
     path: .
+
+# subagents maps an executor kind (research/implement/check) to default model/effort
+# for workloom_execute-dispatched subagents. A tool call's explicit model/effort wins
+# over these defaults; each field is merged independently, so a missing field falls
+# back to the value here. Kinds are not whitelisted, and any entry must be an object
+# whose model/effort are strings. Uncomment to enable.
+#
+# subagents:
+#   research:
+#     model: deepseek-v4-flash
+#     effort: high
+#   implement:
+#     model: deepseek-v4-pro
+#     effort: high

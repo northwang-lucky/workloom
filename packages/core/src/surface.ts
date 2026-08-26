@@ -77,8 +77,9 @@ export const PARAM_DESCRIPTIONS = {
   autoCommit: 'Override the config session_auto_commit for this archive',
   status: 'Filter: planning/in_progress/completed',
   kind: 'Executor role: research, implement, or check',
-  model: 'Model id for the executor subagent; defaults to the parent session model',
-  effort: 'Reasoning effort: low/medium/high/xhigh/max',
+  model:
+    'Model id for the executor subagent; defaults to subagents.<kind>.model, then the parent session model',
+  effort: 'Reasoning effort: low/medium/high/xhigh/max; defaults to subagents.<kind>.effort',
   prompt: 'Task instructions for the executor subagent',
   stepId: 'Workflow step id, e.g. 1.1 or 2.1',
   journalTitle: 'Journal entry title',

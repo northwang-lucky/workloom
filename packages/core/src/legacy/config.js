@@ -34,6 +34,7 @@ export const DEFAULT_CONFIG = {
   },
   packages: {},
   defaultPackage: null,
+  subagents: {},
 }
 
 /** 布尔值合法写法（大小写不敏感），行为对齐原规格。 */
@@ -154,6 +155,9 @@ function mergeWithDefaults(doc) {
   if (doc.default_package !== undefined) {
     config.defaultPackage = requireString('default_package', doc.default_package)
   }
+  if (doc.subagents !== undefined) {
+    config.subagents = parseSubagents(doc.subagents)
+  }
   return config
 }
 
@@ -176,6 +180,48 @@ function parsePackages(value) {
     result[name] = parsed
   }
   return result
+}
+
+/**
+ * 校验 subagents 映射：每个值是含可选 model/effort 字符串的对象，key 不限集合
+ * （不对 executor kind 白名单校验，可容纳未来新增 kind / 拼写错误）。
+ * @param {unknown} value 用户文档中的 subagents 字段
+ * @returns {Record<string, {model?: string, effort?: string}>}
+ */
+function parseSubagents(value) {
+  const map = requireMap('subagents', value)
+  /** @type {Record<string, {model?: string, effort?: string}>} */
+  const result = {}
+  for (const [name, entry] of Object.entries(map)) {
+    const spec = requireMap(`subagents.${name}`, entry)
+    /** @type {{model?: string, effort?: string}} */
+    const parsed = {}
+    if (spec.model !== undefined) {
+      parsed.model = requireString(`subagents.${name}.model`, spec.model)
+    }
+    if (spec.effort !== undefined) {
+      parsed.effort = requireString(`subagents.${name}.effort`, spec.effort)
+    }
+    result[name] = parsed
+  }
+  return result
+}
+
+/**
+ * 合并 executor 子代理默认 model/effort：工具调用参数优先，未出现的字段回退到
+ * subagents 配置（按 kind 对应条目）；entry 缺失时字段为 undefined。model 与
+ * effort 独立合并。纯同步、无副作用（不修改入参）。
+ * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
+ * @param {string} kind executor 类型（research/implement/check）
+ * @param {{model?: string, effort?: string}} overrides 工具调用参数（仅覆盖出现的字段）
+ * @returns {{model?: string, effort?: string}} 合并后的 effective 值
+ */
+export function resolveSubagentDefaults(config, kind, overrides) {
+  const entry = config.subagents[kind]
+  return {
+    model: overrides.model ?? entry?.model,
+    effort: overrides.effort ?? entry?.effort,
+  }
 }
 
 /** @param {string} field @param {unknown} value @returns {string} */

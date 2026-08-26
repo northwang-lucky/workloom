@@ -19,6 +19,7 @@ export interface WorkloomConfig {
   }
   packages: Record<string, { path: string; type?: string; git?: boolean }>
   defaultPackage: string | null
+  subagents: Record<string, { model?: string; effort?: string }>
 }
 
 /** 内置默认配置。 */
@@ -32,3 +33,10 @@ export class WorkloomConfigError extends Error {
 
 /** 从项目根加载 .workloom/config.yaml；缺失时返回全默认。 */
 export function loadConfig(root: string): WorkloomConfig
+
+/** 合并 executor 子代理默认 model/effort：参数优先，未出现回退 subagents 配置。 */
+export function resolveSubagentDefaults(
+  config: WorkloomConfig,
+  kind: string,
+  overrides: { model?: string; effort?: string },
+): { model?: string; effort?: string }
