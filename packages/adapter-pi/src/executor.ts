@@ -11,7 +11,9 @@
  * - ctx.signal aborted 时 kill('SIGTERM') 并以 AbortError 立即结束工具，
  *   不等待子进程退出；spawn 前已 aborted 直接抛（不发请求）；
  * - 不设 timeout（与 DSH 对齐）；child 用 --no-extensions，无 workloom_execute
- *   工具，天然禁止再派发。
+ *   工具，天然禁止再派发；
+ * - model/effort 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置
+ *   （按 executor kind 取值，字段独立合并），经 --model / --thinking 透传。
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -26,7 +28,9 @@ import {
   buildExecutorPrompt,
   ERR_PREFIX,
   findWorkloomRoot,
+  loadConfig,
   PARAM_DESCRIPTIONS,
+  resolveSubagentDefaults,
   resolveTaskRelPath,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
@@ -107,8 +111,14 @@ async function executeTool(
     )
   }
   const root = found.root
+  // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）。
+  const config = loadConfig(root)
+  const effective = resolveSubagentDefaults(config, params.kind, {
+    model: params.model,
+    effort: params.effort,
+  })
   // effort/kind 非法值 fail loud（core 校验），与 DSH 语义一致。
-  assertEffort(params.effort)
+  assertEffort(effective.effort)
   assertKind(params.kind)
   const taskRelPath = resolveTaskRelPath(
     root,
@@ -126,7 +136,13 @@ async function executeTool(
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
   const result = await dispatchChildPi(
-    { cwd, prompt: built.text, kind: params.kind, model: params.model, effort: params.effort },
+    {
+      cwd,
+      prompt: built.text,
+      kind: params.kind,
+      model: effective.model,
+      effort: effective.effort,
+    },
     ctx.signal,
   )
   return {
