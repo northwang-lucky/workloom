@@ -1,0 +1,31 @@
+{
+  "id": "44906f2c-6bf0-4efa-84c6-5a245de7b69d",
+  "name": "adapter-opencode",
+  "title": "添加对 opencode 的 adapter",
+  "description": "为 workloom 新增 opencode（sst/opencode）adapter：以 opencode plugin 形态承接 core 逻辑与 assets 内容，对标 adapter-pi 的 init 命令、workflow context 注入、executor 子代理派发与 journal 能力。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-26T11:13:11.520Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
