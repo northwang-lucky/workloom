@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则：防御性补全、守卫优先、禁止 magic string、eslint/tsc 零错误"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "legacy 纯 JS + JSDoc 模块约定，字段与既有数据布局兼容"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "构建产物同步纪律：rsync 到 profile，重启归属用户"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交规范"}

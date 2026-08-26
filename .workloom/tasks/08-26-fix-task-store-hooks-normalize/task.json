@@ -1,0 +1,31 @@
+{
+  "id": "715f0acc-a83c-4b98-9f8b-639e6570e00e",
+  "name": "fix-task-store-hooks-normalize",
+  "title": "修复 task-store 对旧格式 task.json 缺 hooks 字段的崩溃",
+  "description": "旧格式 task.json（无 hooks 字段）在 archive/start/finish/create 调用 runTaskHooks 时抛 Cannot read properties of undefined (reading 'after_archive')。修复：readTask/requireTask 加载处统一归一化 hooks 缺省空数组，并补测试。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-26T14:17:04.419Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
