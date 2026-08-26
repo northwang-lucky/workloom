@@ -1,1 +1,4 @@
-{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "commit discipline this task must follow"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "deployment sync discipline"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "language split for spec and docs"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "term consistency in rewritten docs"}
