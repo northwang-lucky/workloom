@@ -93,6 +93,8 @@ export {
 
 export { lookupWorkflowStep } from './service/step-lookup.js'
 
+export { ensureSpecTemplates } from './service/spec-templates.js'
+
 export {
   COMMAND_NAMES,
   COMMAND_DESCRIPTIONS,
@@ -147,6 +149,7 @@ export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
 export type { SessionContextParams } from './service/session-context.js'
 
 export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
+export type { SpecTemplatesParams, SpecTemplatesResult } from './service/spec-templates.js'
 
 export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './service/task-ops.js'
 

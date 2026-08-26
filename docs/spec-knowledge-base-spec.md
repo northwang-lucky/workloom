@@ -122,3 +122,22 @@ core 单测（node:test）：
 1. 轮 1：core spec-index.js + session-context 接入 + init README 模板 + 单测 → 汇报。
 2. 轮 2：workflow.md 文案 + workloom-update-spec skill → 汇报。
 3. 轮 3：build + 部署同步 + 双端真机验证 + ADR-0007 + 文档收尾 → 汇报。
+
+## 10. spec 模板资产（B 形态，2026-08-26 追加）
+
+决策：assets 放独立模板资产，init 落进项目，init/迁移/skill 三方复用（用户选定 B）。
+
+1. 模板资产：`packages/assets/templates/spec-index.md`（index 骨架）与
+   `spec-detail.md`（细则骨架），占位符 `<...>`，全英文。
+2. 落盘位置：`.workloom/spec/.templates/` 下同名两文件；init 命令成功后由
+   adapter 调用 `ensureSpecTemplates` 幂等写入（已有不覆盖）。
+3. 收集器隔离：`.templates` 首字符非字母数字，DIR_NAME_RE 天然排除，
+   不进 guidelines 索引（spec-index.js 零改动）。
+4. 依赖方向：模板文本在 assets（内容资源）；写盘编排在 core
+   （service/spec-templates.ts，locate + 幂等写）；adapter 的 init handler
+   读 assets 模板文本装配进 core 函数。迁移路径同享——init 编排含可选迁移，
+   handler 统一在成功后补落模板。
+5. skill 消费：workloom-update-spec 步骤 2/3 改为「先读
+   `.workloom/spec/.templates/spec-index.md`（或 spec-detail.md）按模板写」。
+6. 升级语义：模板是生成脚手架而非持续同步文件，项目内拷贝用户可改，
+   不做 Trellis 式 hash 块级升级。

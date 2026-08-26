@@ -16,6 +16,7 @@
     "skills",
     "agents",
     "commands",
+    "templates",
     "third-party",
     "index.js",
     "index.d.ts"
