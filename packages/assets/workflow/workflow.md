@@ -1,5 +1,5 @@
 ---
-version: 6
+version: 8
 states:
   - no_task
   - planning
@@ -20,7 +20,7 @@ states:
 
 #### 1.0 Create task
 
-When the user expresses work worth doing, create a task (`workloom_task_create`); the task enters `planning`.
+When the user expresses work worth doing, recommend whether it warrants a task; create the task (`workloom_task_create`) only after the user confirms. The task enters `planning`.
 Completion criteria: the task directory exists and `task.json` `status` is `planning`.
 
 #### 1.1 Align requirements
@@ -59,7 +59,7 @@ Once prd.md is finalized, a task involving implementation work asks the user whe
 Options:
 - A. author both.
 - B. author neither.
-On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while any prd.md section is still the skeleton placeholder or while implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
+On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while prd.md has no H1 title, any prd.md section is still the skeleton placeholder, or implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
 Completion criteria: for a task involving implementation work, the design/implement question has been answered; `task.json` `status` is `in_progress`; and the user has confirmed the review.
 
 ## Phase 2 Execute
@@ -87,7 +87,7 @@ Run `workloom_finish`: check dirty files → archive the task (`workloom_task_ar
 Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires the `/workloom-finish` command (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
 
 [workflow-state:no_task]
-No active task right now. When the user expresses a need: first judge whether it is a simple answer or work worth a task; for work worth a task, follow Phase 1.0 to create it, then proceed by the planning guidance.
+No active task right now. When the user expresses a need, answer direct questions outright without a task; for work touching files or documents, recommend whether it warrants a task and create it only after the user confirms (follow 1.0), then proceed by the planning guidance.
 [/workflow-state:no_task]
 
 [workflow-state:planning]
@@ -99,7 +99,7 @@ The task is in progress. Follow Phase 2: implement → check → commit. Subagen
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
-The task is archived. When the user asks for more, judge whether a new task is warranted (follow 1.0); do not modify tasks under the archive directory. If this session is wrapping up and no journal entry has been recorded yet, run the `/workloom-finish` command to record it.
+The task is archived. When the user asks for more, recommend whether a new task is warranted and create it only after the user confirms (follow 1.0); do not modify tasks under the archive directory. If this session is wrapping up and no journal entry has been recorded yet, run the `/workloom-finish` command to record it.
 [/workflow-state:completed]
 
 [workflow-norms]

@@ -28,12 +28,12 @@ function makeRoot() {
   return root
 }
 
-/** 满足 start 门禁：填 prd 四小节 + 两个 jsonl 各一条有效记录。 */
+/** 满足 start 门禁：填 prd（含 H1）四小节 + 两个 jsonl 各一条有效记录。 */
 function satisfyStartGate(root, taskRelPath) {
   const taskDir = join(root, '.workloom', taskRelPath)
   writeFileSync(
     join(taskDir, 'prd.md'),
-    '## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
   )
   writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')

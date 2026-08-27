@@ -5,7 +5,8 @@
  * - 为 start/check/archive 三个工具提供硬阻断校验，杜绝跳过对齐/配置/check
  *   的抄近道路径；校验失败抛错，force 豁免统一追加 overrides 留痕；
  * - prd 骨架常量（PRD_SECTIONS）从 task-store 上移至此，placeholder 判定
- *   与骨架生成共享同一份小节定义；
+ *   与骨架生成共享同一份小节定义；prd 一级标题（H1）为骨架首行，
+ *   start 门禁一并强制校验；
  * - jsonl 有效记录判定复用 executor-context 的解析逻辑（_example 行豁免、
  *   结构性坏行抛错语义一致）；
  * - 本模块只做求值与记录组装，任务读写仍在 task-store。
@@ -65,8 +66,28 @@ export const PRD_SECTIONS = Object.freeze([
   { heading: 'Notes', placeholder: '(placeholder: add notes and constraints)' },
 ])
 
-/** prd 小节标题行前缀。 */
+/** prd 小节标题行前缀（`## ` 切分只消费二级标题，H1 行不影响小节解析）。 */
 const SECTION_HEADING_PREFIX = '## '
+
+/** prd 一级标题缺失项的缺失文案（start 门禁缺失项列表用）。 */
+const PRD_TITLE_MISSING = 'prd.md missing H1 title'
+
+/** prd 一级标题行判定：`# ` 开头且 `# ` 之后有非空标题文本。 */
+const PRD_TITLE_LINE_RE = /^#\s+\S+/
+
+/**
+ * 判定 prd.md 是否缺一级标题（H1）：跳过开头空行后，首个非空行必须
+ * 是以 `# ` 开头且带非空标题文本的标题行。
+ * @param {string} prdContent prd.md 全文
+ * @returns {string | null} 缺失时返回缺失文案，通过返回 null
+ */
+export function findMissingPrdTitle(prdContent) {
+  for (const line of prdContent.split('\n')) {
+    if (line.trim() === '') continue
+    return PRD_TITLE_LINE_RE.test(line) ? null : PRD_TITLE_MISSING
+  }
+  return PRD_TITLE_MISSING
+}
 
 /**
  * 找出仍为 placeholder 的 prd 小节标题列表（逐小节判定）。
@@ -99,7 +120,7 @@ export function countEffectiveJsonlRecords(content, jsonlName) {
 
 /**
  * 求值 start 门禁：返回缺失项描述列表（空数组表示通过）。
- * prd.md 缺失/小节未填、implement.jsonl 与 check.jsonl 无有效记录各占一项；
+ * prd.md 缺失/一级标题缺失/小节未填、implement.jsonl 与 check.jsonl 无有效记录各占一项；
  * jsonl 结构性坏行抛错（fail loud，不放行）。
  * @param {string} root 项目根（必须已是 findWorkloomRoot 的结果）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
@@ -112,6 +133,10 @@ export function evaluateStartGate(root, taskRelPath) {
   if (prd === null) {
     missing.push(`${GATE_FILES.prd} is missing`)
   } else {
+    const titleMissing = findMissingPrdTitle(prd)
+    if (titleMissing !== null) {
+      missing.push(titleMissing)
+    }
     const unfilled = findUnfilledPrdSections(prd)
     if (unfilled.length > 0) {
       missing.push(`${GATE_FILES.prd} sections still placeholder: ${unfilled.join(', ')}`)
