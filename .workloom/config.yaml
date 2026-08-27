@@ -17,16 +17,28 @@ packages:
 # subagents maps an executor kind (research/implement/check) to default model/effort
 # for workloom_execute-dispatched subagents. A tool call's explicit model/effort wins
 # over these defaults; each field is merged independently, so a missing field falls
-# back to the value here. Kinds are not whitelisted, and any entry must be an object
-# whose model/effort are strings. Uncomment to enable.
-
+# back to the value here. Kinds are not whitelisted, and any entry must be an object.
+# model values may carry a `provider/` prefix (e.g. deepseek-official/deepseek-v4-flash)
+# so the subagent is spawned on that provider; a bare id falls back to the parent
+# session's provider. A model may also be a per-runtime map — one value per runtime
+# key (dsh/pi) — instead of a string; a missing key for the current runtime fails
+# loudly instead of silently using the wrong model. Per-machine overrides go into
+# config.local.yaml (gitignored), deep-merged over config.yaml: maps merge key by
+# key, other values are replaced. See config.example.yaml for the map form.
 subagents:
   research:
-    model: deepseek-v4-flash-vision-exp
+    model: deepseek-official/deepseek-v4-flash-vision-exp
     effort: high
   implement:
-    model: deepseek-v4-flash-vision-exp
+    model: deepseek-official/deepseek-v4-flash-vision-exp
     effort: max
   check:
     model: kimi-coding/k3
     effort: high
+
+# executor.gate (default true) blocks the main session's direct write/edit of files
+# outside .workloom/ while a task is in_progress, forcing implementation changes
+# through workloom_execute-dispatched subagents. Subagents and .workloom/ paths are
+# exempt; set `gate: false` to lift the gate.
+executor:
+  gate: true

@@ -1,0 +1,24 @@
+# EXAMPLE ONLY — this file is documentation, not a config: loadConfig reads only
+# .workloom/config.yaml plus the optional gitignored config.local.yaml, never this
+# file. Copy the shape you need into config.local.yaml for per-machine overrides
+# (deep-merged over config.yaml: maps merge key by key, other values are replaced),
+# or edit config.yaml directly for repo-wide changes.
+#
+# subagents.<kind>.model accepts either a single string (the same value on every
+# runtime) or a per-runtime map with one value per runtime key (dsh/pi, and any
+# future runtime — keys are not whitelisted). With a map, the entry for the
+# current runtime must exist: a missing key fails loudly with its field path
+# instead of silently spawning the wrong model. effort stays a plain string on
+# all runtimes.
+subagents:
+  research:
+    model: deepseek-official/deepseek-v4-flash
+    effort: high
+  implement:
+    model:
+      dsh: deepseek-official/deepseek-v4-flash
+      pi: deepseek/deepseek-v4-flash
+    effort: max
+  check:
+    model: kimi-coding/k3
+    effort: high

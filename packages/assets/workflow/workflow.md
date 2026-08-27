@@ -1,5 +1,5 @@
 ---
-version: 1
+version: 2
 states:
   - no_task
   - planning
@@ -30,7 +30,7 @@ Completion criteria (hard gate): the aligned requirements have no grey areas —
 
 #### 1.2 Research (optional)
 
-When code or technical investigation is needed, dispatch the research executor; write one file per topic under the task's `research/`, and report back only file paths plus a one-line summary each.
+When code or technical investigation is needed, dispatch the research executor with `workloom_execute`; it writes one file per topic under the task's `research/`, and reports back only file paths plus a one-line summary each.
 Completion criteria: findings are persisted and either referenced by 1.3's context lists or explicitly not referenced.
 
 #### 1.3 Configure context
@@ -47,12 +47,12 @@ Completion criteria: for a task involving implementation work, the design/implem
 
 #### 2.1 Implement
 
-Dispatch the implement executor (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop.
+Dispatch the implement executor with `workloom_execute` (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop. Hard constraint: the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent. On DSH, `executor.gate` denies the main session's direct write/edit of files outside `.workloom/` while the task is in progress, and file writes inside bash commands are not interceptable, so this contract is the backstop — route changes through `workloom_execute` instead of working around the gate.
 Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned.
 
 #### 2.2 Check
 
-Dispatch the check executor: review changes against the spec files referenced in check.jsonl and the task artifacts (prd/design/implement), checking structure, naming, types, and potential bugs item by item; fix what it finds yourself — do not just report. Then run lint and typecheck. The final check of a task must cover the full scope. When the check passes, the main session calls `workloom_task_check` with a summary; the tool writes `check.passedAt` + `check.summary` into task.json (it requires at least one real check.jsonl entry; `force: true` bypasses and is recorded).
+Dispatch the check executor with `workloom_execute`: it reviews changes against the spec files referenced in check.jsonl and the task artifacts (prd/design/implement), checking structure, naming, types, and potential bugs item by item, and fixes what it finds itself — do not just report. It then runs lint and typecheck. The final check of a task must cover the full scope. When the check passes, the main session calls `workloom_task_check` with a summary; the tool writes `check.passedAt` + `check.summary` into task.json (it requires at least one real check.jsonl entry; `force: true` bypasses and is recorded).
 Completion criteria: no unresolved findings against spec, lint and typecheck all green, and `workloom_task_check` has recorded the pass.
 
 #### 2.3 Commit
@@ -76,7 +76,7 @@ The task is in planning. Follow Phase 1: align requirements (brainstorm + grilli
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
-The task is in progress. Follow Phase 2: implement → check → commit. Subagent artifacts are persisted; the main session controls commits; do not declare completion before 2.2 has passed, and once 2.2 passes record it with `workloom_task_check` — archiving refuses without it.
+The task is in progress. Follow Phase 2: implement → check → commit. Subagent artifacts are persisted; the main session controls commits; do not declare completion before 2.2 has passed, and once 2.2 passes record it with `workloom_task_check` — archiving refuses without it. On DSH, `executor.gate` denies the main session's direct write/edit of files outside `.workloom/` while the task is in progress — dispatch `workloom_execute` instead of working around the gate (lift it with `executor.gate: false` in config.yaml only when necessary).
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
