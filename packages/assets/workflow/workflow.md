@@ -1,5 +1,5 @@
 ---
-version: 3
+version: 4
 states:
   - no_task
   - planning
@@ -66,7 +66,7 @@ Completion criteria: for a task involving implementation work, the design/implem
 
 #### 2.1 Implement
 
-Dispatch the implement executor with `workloom_execute` (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop. Hard constraint: the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent. On DSH, `executor.gate` denies the main session's direct write/edit of files outside `.workloom/` while the task is in progress, and file writes inside bash commands are not interceptable, so this contract is the backstop — route changes through `workloom_execute` instead of working around the gate.
+Dispatch the implement executor with `workloom_execute` (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). Pass a semantic `title` with the dispatch so repeated dispatches of the same task remain distinguishable in subagent sessions. The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop. Hard constraint: the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent. On DSH, `executor.gate` denies the main session's direct write/edit of files outside `.workloom/` while the task is in progress, and file writes inside bash commands are not interceptable, so this contract is the backstop — route changes through `workloom_execute` instead of working around the gate.
 Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned.
 
 #### 2.2 Check
