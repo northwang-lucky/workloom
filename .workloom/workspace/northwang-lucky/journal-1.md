@@ -64,3 +64,9 @@
 - Commit: 414a3a6
 - Summary: 契约新增 [workflow-norms] always-on 规范块并注入每轮重组装的会话上下文快照（两 runtime 共享 core 链路），契约升级后下一轮自动生效
 
+## 任务创建决策权移交用户：Agent 仅推荐，prd 强制 H1
+
+- Time: 2026-08-27T13:48:58.691Z
+- Commit: 0991524
+- Summary: 契约 v8：任务创建改为「Agent 推荐 → 用户确认 → 才建任务」（1.0/no_task/completed 三处，保留纯问答豁免）；prd.md 骨架强制 H1 标题，start 门禁新增校验；contract 测试 v8 断言与 H1 门禁用例全绿。
+
