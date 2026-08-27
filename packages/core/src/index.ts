@@ -115,6 +115,9 @@ export {
   DEVELOPER_FILE,
   ASSET_COMMAND_CONTINUE,
   ASSET_COMMAND_FINISH,
+  COMMAND_FAILURE_ACK,
+  buildErrorRelayText,
+  buildSuccessRelayText,
   TASK_ARCHIVE_NOTE,
 } from './surface.js'
 
