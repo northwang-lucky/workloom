@@ -46,3 +46,9 @@
 - Commit: 5260552
 - Summary: config.yaml 注释迁入 example 并重组、提问行为四条规范（用户语言/选项不进题/禁交互工具/分批编号）、子会话标题语义化、派发参数冲突提示与 force 覆盖审计
 
+## 子会话标题语义来源改为模型生成
+
+- Time: 2026-08-27T09:12:05.420Z
+- Commit: abc3aca
+- Summary: workloom_execute 新增 title 参数支持模型语义化子会话命名，前缀精简为 [Implement]，契约建议派发时给出语义 title（version 4）
+

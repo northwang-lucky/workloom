@@ -1,0 +1,3 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "检查代码风格与 lint/typecheck 结果"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "检查各改动是否按 package 拆分 commit 且 message 合规"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "检查参数文案/契约英文、源码注释中文"}

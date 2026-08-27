@@ -1,0 +1,36 @@
+{
+  "id": "7fda7957-6195-4f76-a9dd-74aa93fa8ce6",
+  "name": "subagent-semantic-title",
+  "title": "子会话标题语义来源改为模型生成",
+  "description": "子会话标题用 task title 时同任务多次派发标题雷同（截图实证）。需求：标题的语义部分改为模型生成——候选方案：workloom_execute 新增可选 label/title 参数由派发主会话给语义标题（缺省回退 task title），或子代理自命名（DSH title 机制，不可控）。需要调研 DSH 子会话 title 生成机制后定案。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T08:50:30.444Z",
+  "completedAt": "2026-08-27T09:12:05.417Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-27T09:11:56.058Z",
+    "summary": "四条验收标准逐项通过，无发现需修复问题；全量验证全绿（lint/typecheck/build、core 251、adapter-dsh 45、adapter-pi 34）；dist 与 assets 已同步进 profile。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
