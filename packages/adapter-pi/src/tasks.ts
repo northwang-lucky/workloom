@@ -2,10 +2,10 @@
  * adapter-pi 的任务管理工具注册（薄投影层，registerTool）。
  *
  * 设计意图：
- * - 五个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
+ * - 六个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
  *   core task-ops，本文件只做宿主投影：从 ExtensionContext 取 cwd 与会话 id
  *   组装 contextKey，返回 {content: 文本, details: 结构化值}；
- * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与下沉前逐字一致；
+ * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致；
  * - 失败直接 throw（Pi 工具管线按失败处理）。
  */
 
@@ -15,6 +15,7 @@ import { Type, type Static } from 'typebox'
 import {
   ERR_PREFIX,
   executeArchiveTask,
+  executeCheckTask,
   executeCreateTask,
   executeFinishTask,
   executeListTasks,
@@ -36,15 +37,32 @@ const TASK_CREATE_PARAMS = Type.Object({
   description: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.description })),
 })
 
-/** start/finish 工具参数 schema（仅可选 taskPath）。 */
+/** finish 工具参数 schema（仅可选 taskPath）。 */
 const TASK_PATH_PARAMS = Type.Object({
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
 })
 
-/** archive 工具参数 schema（taskPath + autoCommit）。 */
+/** start 工具参数 schema（taskPath + force/reason 门禁豁免）。 */
+const TASK_START_PARAMS = Type.Object({
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
+  force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.force })),
+  reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reason })),
+})
+
+/** check 工具参数 schema（summary 必填 + taskPath/force/reason）。 */
+const TASK_CHECK_PARAMS = Type.Object({
+  summary: Type.String({ description: PARAM_DESCRIPTIONS.summary }),
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
+  force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.force })),
+  reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reason })),
+})
+
+/** archive 工具参数 schema（taskPath + autoCommit + force/reason 门禁豁免）。 */
 const TASK_ARCHIVE_PARAMS = Type.Object({
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
   autoCommit: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.autoCommit })),
+  force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.force })),
+  reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reason })),
 })
 
 /** list 工具参数 schema（可选 status 过滤）。 */
@@ -59,7 +77,7 @@ interface ToolContextLike {
 }
 
 /**
- * 注册五个任务管理工具（create/start/finish/archive/list）。
+ * 注册六个任务管理工具（create/start/check/finish/archive/list）。
  * @param pi Extension API
  */
 export function registerTaskTools(pi: ExtensionAPI): void {
@@ -78,9 +96,19 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     label: 'Workloom Task Start',
     description: TOOL_DESCRIPTIONS.taskStart,
     promptSnippet: TOOL_SNIPPETS.taskStart,
-    parameters: TASK_PATH_PARAMS,
+    parameters: TASK_START_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      return executeStart(ctx, params.taskPath)
+      return executeStart(ctx, params)
+    },
+  })
+  pi.registerTool({
+    name: TOOL_NAMES.taskCheck,
+    label: 'Workloom Task Check',
+    description: TOOL_DESCRIPTIONS.taskCheck,
+    promptSnippet: TOOL_SNIPPETS.taskCheck,
+    parameters: TASK_CHECK_PARAMS,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      return executeCheck(ctx, params)
     },
   })
   pi.registerTool({
@@ -100,7 +128,7 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     promptSnippet: TOOL_SNIPPETS.taskArchive,
     parameters: TASK_ARCHIVE_PARAMS,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      return executeArchive(ctx, params.taskPath, params.autoCommit)
+      return executeArchive(ctx, params)
     },
   })
   pi.registerTool({
@@ -147,16 +175,33 @@ async function executeCreate(
 /** start 工具：把任务从 planning 移到 in_progress。 */
 async function executeStart(
   ctx: ToolContextLike,
-  taskPath: string | undefined,
+  params: Static<typeof TASK_START_PARAMS>,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
   const cwd = requireWorkloomCwd(ctx.cwd)
-  const [err, task] = await executeStartTask(
-    cwd,
-    contextKeyOf(ctx.sessionManager.getSessionId()),
-    taskPath,
-  )
+  const [err, task] = await executeStartTask(cwd, contextKeyOf(ctx.sessionManager.getSessionId()), {
+    taskPath: params.taskPath,
+    force: params.force,
+    reason: params.reason,
+  })
   if (err !== null || task === null)
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: start returned no result`)
+  return resultOf({ taskRelPath: task.taskRelPath, task })
+}
+
+/** check 工具：记录 2.2 check 通过凭据（写 task.json check 字段）。 */
+async function executeCheck(
+  ctx: ToolContextLike,
+  params: Static<typeof TASK_CHECK_PARAMS>,
+): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
+  const cwd = requireWorkloomCwd(ctx.cwd)
+  const [err, task] = await executeCheckTask(cwd, contextKeyOf(ctx.sessionManager.getSessionId()), {
+    summary: params.summary,
+    taskPath: params.taskPath,
+    force: params.force,
+    reason: params.reason,
+  })
+  if (err !== null || task === null)
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: check returned no result`)
   return resultOf({ taskRelPath: task.taskRelPath, task })
 }
 
@@ -179,15 +224,18 @@ async function executeFinish(
 /** archive 工具：归档任务（completed + 移入 archive/，可选 git 自动提交）。 */
 async function executeArchive(
   ctx: ToolContextLike,
-  taskPath: string | undefined,
-  autoCommit: boolean | undefined,
+  params: Static<typeof TASK_ARCHIVE_PARAMS>,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
   const cwd = requireWorkloomCwd(ctx.cwd)
   const [err, result] = await executeArchiveTask(
     cwd,
     contextKeyOf(ctx.sessionManager.getSessionId()),
-    taskPath,
-    autoCommit,
+    {
+      taskPath: params.taskPath,
+      autoCommit: params.autoCommit,
+      force: params.force,
+      reason: params.reason,
+    },
   )
   if (err !== null || result === null)
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`)
