@@ -33,8 +33,8 @@ subagents:
     model: deepseek-official/deepseek-v4-flash-vision-exp
     effort: max
   check:
-    model: kimi-coding/k3
-    effort: high
+    model: qwen-token-plan-cn/qwen3.8-max
+    effort: medium
 
 # executor.gate (default true) blocks the main session's direct write/edit of files
 # outside .workloom/ while a task is in_progress, forcing implementation changes
