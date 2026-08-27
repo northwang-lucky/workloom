@@ -1,7 +1,7 @@
 /**
  * executor.ts 纯函数单测：receipt 追加（含 forced 标注）、冲突门判定
  * （resolveConflictGate）、force 覆盖记录（recordForcedOverride）、
- * 工具参数 schema（force/reason）。
+ * 工具参数 schema（force/reason/title）。
  *
  * 说明：executeTool/dispatchChildPi 涉及 spawn 子进程与文件系统，属集成面，
  * 不在本单测覆盖；冲突门与记录步骤已抽为可测函数。
@@ -12,6 +12,8 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
+import { Value } from 'typebox/value'
 
 import { buildExecutorReceipt, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import type { WorkloomConfig } from '@workloom-ai/core'
@@ -119,6 +121,19 @@ test('EXECUTOR_PARAMS: schema 含 force/reason 参数', () => {
   assert.equal(readDescription(properties.force), PARAM_DESCRIPTIONS.forceExecutor)
   assert.equal(properties.reason.type, 'string')
   assert.equal(readDescription(properties.reason), PARAM_DESCRIPTIONS.reasonExecutor)
+})
+
+test('EXECUTOR_PARAMS: schema 含 title 参数（描述引用 titleExecutor）', () => {
+  const properties = EXECUTOR_PARAMS.properties
+  assert.equal(properties.title.type, 'string')
+  assert.equal(readDescription(properties.title), PARAM_DESCRIPTIONS.titleExecutor)
+})
+
+test('EXECUTOR_PARAMS: 带 title 参数校验通过（接受不报错）', () => {
+  const base = { kind: 'implement', prompt: 'implement the task' }
+  assert.ok(Value.Check(EXECUTOR_PARAMS, base))
+  assert.ok(Value.Check(EXECUTOR_PARAMS, { ...base, title: 'fix login bug' }))
+  // title 不进入 child pi 派发投影（dispatchChildPi 入参不含该字段，typecheck 保证）。
 })
 
 test('resolveConflictGate: 冲突且未 force → 返回中断提示且不放行', () => {
