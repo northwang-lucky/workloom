@@ -1,24 +1,103 @@
-# EXAMPLE ONLY — this file is documentation, not a config: loadConfig reads only
-# .workloom/config.yaml plus the optional gitignored config.local.yaml, never this
-# file. Copy the shape you need into config.local.yaml for per-machine overrides
-# (deep-merged over config.yaml: maps merge key by key, other values are replaced),
-# or edit config.yaml directly for repo-wide changes.
+# workloom configuration reference — EXAMPLE ONLY, documentation, not a config.
 #
-# subagents.<kind>.model accepts either a single string (the same value on every
-# runtime) or a per-runtime map with one value per runtime key (dsh/pi, and any
-# future runtime — keys are not whitelisted). With a map, the entry for the
-# current runtime must exist: a missing key fails loudly with its field path
-# instead of silently spawning the wrong model. effort stays a plain string on
-# all runtimes.
+# loadConfig reads only `.workloom/config.yaml` plus the optional gitignored
+# `.workloom/config.local.yaml`; this file is never consumed. Keep the
+# authoritative field explanations here and the effective values in
+# config.yaml.
+#
+# config.local.yaml deep-merges over config.yaml: maps merge recursively key by
+# key, arrays and scalars replace the whole value. Use it for per-machine
+# overrides only.
+#
+# The effective values shown below mirror this repository's config.yaml.
+
+# Commit message used by the journal recorder (default shown; uncomment to
+# override).
+# session_commit_message: "chore: record journal"
+
+# Maximum journal lines kept per session.
+# max_journal_lines: 2000
+
+# Auto-commit the journal after each session.
+# session_auto_commit: true
+
+# Context-injection caps: how much spec/research context is inlined per turn.
+# context_injection:
+#   max_file_bytes: 32768
+#   max_artifact_bytes: 65536
+#   max_total_bytes: 131072
+
+# prompt_injection.skip_keyword is the escape hatch: a user message containing
+# this keyword skips breadcrumb injection for that turn.
+# prompt_injection:
+#   skip_keyword: "no-workloom"
+
+# hooks run shell commands with TASK_JSON_PATH pointing at task.json.
+# hooks:
+#   after_create:
+#     - echo task created
+#   after_start:
+#     - echo task started
+#   after_finish:
+#     - echo task finished
+#   after_archive:
+#     - echo task archived
+
+# packages maps a package name to its repo-relative path; the spec-index scope
+# collects only packages declared here (every package when the map is empty).
+# `type` and `git` are optional annotations:
+#   packages:
+#     assets:
+#       path: packages/assets
+#       type: plugin
+#       git: true
+packages:
+  core:
+    path: packages/core
+  assets:
+    path: packages/assets
+  adapter-dsh:
+    path: packages/adapter-dsh
+  adapter-pi:
+    path: packages/adapter-pi
+  repo:
+    path: .
+
+# default_package names the default package declared in packages; omit for none.
+# default_package: core
+
+# subagents.<kind> sets default model/effort for workloom_execute-dispatched
+# subagents (research/implement/check; keys are not whitelisted). A tool call's
+# explicit model/effort wins; each field merges independently, so a missing
+# field falls back to the value here.
+#
+# `model` accepts either a single string (the same value on every runtime) or a
+# per-runtime map with one entry per runtime key (dsh/pi, plus any future
+# runtime — keys are not whitelisted). With a map, the entry for the current
+# runtime must exist: a missing key fails loudly with its field path (e.g.
+# "subagents.implement.model.dsh") instead of silently spawning the wrong model.
+# A `provider/` prefix (e.g. "deepseek-official/deepseek-v4-flash") routes the
+# subagent to that provider — cross-provider dispatch must carry the prefix;
+# a bare id falls back to the session's own provider. Map form:
+#   subagents:
+#     research:
+#       model:
+#         dsh: deepseek-official/deepseek-v4-flash
+#         pi: deepseek/deepseek-v4-flash
+#       effort: high
 subagents:
   research:
-    model: deepseek-official/deepseek-v4-flash
+    model: deepseek-official/deepseek-v4-flash-vision-exp
     effort: high
   implement:
-    model:
-      dsh: deepseek-official/deepseek-v4-flash
-      pi: deepseek/deepseek-v4-flash
+    model: deepseek-official/deepseek-v4-flash-vision-exp
     effort: max
   check:
-    model: kimi-coding/k3
-    effort: high
+    model: qwen-token-plan-cn/qwen3.8-max
+    effort: medium
+
+# executor.gate (default true) blocks the main session's direct writes outside
+# .workloom/ while a task is in_progress, forcing implementation changes through
+# dispatched executor subagents.
+executor:
+  gate: true
