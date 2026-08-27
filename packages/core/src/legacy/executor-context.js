@@ -186,12 +186,7 @@ function materializeJsonlEntries(root, taskDir, jsonlName, ci, stats, initialByt
   if (raw === null) return []
   const blocks = []
   let totalBytes = initialBytes
-  const lines = raw.split('\n')
-  for (const [index, rawLine] of lines.entries()) {
-    const line = rawLine.trim()
-    if (line === '') continue
-    const entry = parseJsonlLine(line, jsonlName, index + 1)
-    if (entry === null) continue // 无 file 字段的行（含 seed _example）自动跳过
+  for (const entry of parseJsonlEntries(raw, jsonlName)) {
     if (entry.type === DIRECTORY_TYPE) {
       stats.filesIndexed += 1
       continue
@@ -219,12 +214,32 @@ function materializeJsonlEntries(root, taskDir, jsonlName, ci, stats, initialByt
 }
 
 /**
+ * 解析 jsonl 全文为有效条目列表（导出供 task-gates 复用同一判定逻辑）。
+ * 空行跳过；seed _example 行跳过；坏行/无 file 非 seed 行抛错（fail loud）。
+ * @param {string} content jsonl 全文
+ * @param {string} jsonlName jsonl 文件名（错误消息用）
+ * @returns {import('./executor-context.d.ts').JsonlEntry[]}
+ */
+export function parseJsonlEntries(content, jsonlName) {
+  const entries = []
+  const lines = content.split('\n')
+  for (const [index, rawLine] of lines.entries()) {
+    const line = rawLine.trim()
+    if (line === '') continue
+    const entry = parseJsonlLine(line, jsonlName, index + 1)
+    if (entry === null) continue // 无 file 字段的行（含 seed _example）自动跳过
+    entries.push(entry)
+  }
+  return entries
+}
+
+/**
  * 解析单行 jsonl（内部）：坏行/非对象/无 file 条目抛错（仅 seed _example 行豁免）；
  * file 存在但非字符串/空串视为结构性故障抛错。
  * @param {string} line 单行内容
  * @param {string} jsonlName jsonl 文件名（错误消息用）
  * @param {number} lineNo 行号（错误消息用）
- * @returns {{file: string, reason: string | undefined, type: string | undefined} | null}
+ * @returns {import('./executor-context.d.ts').JsonlEntry | null}
  */
 function parseJsonlLine(line, jsonlName, lineNo) {
   let parsed

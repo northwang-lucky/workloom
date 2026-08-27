@@ -82,7 +82,8 @@ test('in_progress → 2.1（指引含 2.2/2.3 递进提示）', async () => {
   const root = makeProject()
   try {
     const taskRelPath = await makeTask(root, 'running')
-    const [startErr] = await startTask(root, { taskRelPath })
+    // 路由语义与门禁无关：force 豁免 start 门禁
+    const [startErr] = await startTask(root, { taskRelPath, force: true })
     assert.equal(startErr, null)
     const [err, route] = routeNextStep(root, { taskRelPath })
     assert.equal(err, null)

@@ -12,6 +12,16 @@ export function assertEffort(effort: string | undefined): void
 /** 校验 executor kind；undefined 通过；非法值抛 Error。 */
 export function assertKind(kind: string | undefined): void
 
+/** jsonl 单条有效记录（有 file 字段的行）。 */
+export interface JsonlEntry {
+  file: string
+  reason: string | undefined
+  type: string | undefined
+}
+
+/** 解析 jsonl 全文为有效条目列表；坏行/无 file 非 seed 行抛错。 */
+export function parseJsonlEntries(content: string, jsonlName: string): JsonlEntry[]
+
 /** buildExecutorPrompt 入参。 */
 export interface BuildExecutorPromptParams {
   /** 项目根（必须已是 findWorkloomRoot 的结果，不再向上查找）。 */
