@@ -4,10 +4,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import { registerExecutor } from '../dist/executor.js'
 
 /** 构造最小可工作的 workloom 项目根（含 config.yaml）。 */
@@ -288,8 +289,8 @@ test('receipt 行：param 来源标注正确', async () => {
   const root = makeProject(`
 subagents:
   implement:
-    model: deepseek-official/deepseek-v4-flash
-    effort: high
+    model: param-provider/param-model
+    effort: max
 `)
   try {
     const { execute } = setupExecutor()
@@ -344,6 +345,201 @@ test('receipt 行：无配置时显示 default 来源', async () => {
     assert.ok(text.includes('<parent session>'))
     assert.ok(text.includes('(default)'))
     assert.ok(text.includes('<unset>'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('label 组装：三种 kind 均为 [Workloom <KindLabel>] <task title>', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const cases = [
+      ['research', 'Research'],
+      ['implement', 'Implement'],
+      ['check', 'Check'],
+    ]
+    for (const [kind, kindLabel] of cases) {
+      await execute(
+        { kind, prompt: 'test', taskPath: 'tasks/test-task' },
+        { agent: parent, signal: new AbortController().signal },
+      )
+      assert.equal(startCalls[startCalls.length - 1].label, `[Workloom ${kindLabel}] Test`)
+    }
+    assert.equal(startCalls.length, 3)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('label 回退：title 空白时回退 workloom <kind>', async () => {
+  const root = makeProject('')
+  try {
+    writeFileSync(
+      join(root, '.workloom/tasks/test-task/task.json'),
+      JSON.stringify({ status: 'planning', title: '   ', slug: 'test-task', priority: 'P2' }),
+    )
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls[0].label, 'workloom implement')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('label 回退：readTask 失败时回退 workloom <kind>', async () => {
+  const root = makeProject('')
+  try {
+    // task.json 损坏：readTask 报错，但 buildExecutorPrompt 只读 md/jsonl，不受影响。
+    writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), '{ not json')
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'research', prompt: 'test', taskPath: 'tasks/test-task' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls[0].label, 'workloom research')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('参数面：force/reason schema 描述引用 PARAM_DESCRIPTIONS', () => {
+  const { registered } = setupExecutor()
+  const props = registered[0].parameters.properties
+  assert.equal(props.force.type, 'boolean')
+  assert.equal(props.force.description, PARAM_DESCRIPTIONS.forceExecutor)
+  assert.equal(props.reason.type, 'string')
+  assert.equal(props.reason.description, PARAM_DESCRIPTIONS.reasonExecutor)
+})
+
+test('冲突无 force：返回 buildConflictNotice 文本且不派发', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
+    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        model: 'deepseek-official/deepseek-v4-pro',
+        effort: 'low',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = result.output[0].text
+    assert.equal(startCalls.length, 0)
+    assert.ok(text.includes('workloom executor: explicit parameters conflict with subagents.implement config:'))
+    assert.ok(text.includes('model: config "deepseek-official/deepseek-v4-flash", passed "deepseek-official/deepseek-v4-pro"'))
+    assert.ok(text.includes('effort: config "high", passed "low"'))
+    assert.ok(text.includes('force: true with a non-empty reason'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('冲突 + force 缺 reason：抛错', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        {
+          kind: 'implement',
+          prompt: 'test',
+          taskPath: 'tasks/test-task',
+          model: 'deepseek-official/deepseek-v4-pro',
+          force: true,
+        },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /force: true requires a non-empty reason/,
+    )
+    assert.equal(startCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('冲突 + force + reason：放行派发、overrides 写入、receipt 带 (forced)', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
+    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        model: 'deepseek-official/deepseek-v4-pro',
+        effort: 'low',
+        force: true,
+        reason: 'user asked to use the pro model',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.overrides.length, 1)
+    assert.equal(task.overrides[0].gate, 'executor_model_effort')
+    assert.equal(task.overrides[0].tool, 'workloom_execute')
+    assert.equal(task.overrides[0].reason, 'user asked to use the pro model')
+    const text = result.output[0].text
+    assert.ok(text.endsWith('(forced)'))
+    assert.ok(text.includes('deepseek-official/deepseek-v4-pro'))
+    assert.ok(text.includes('(param)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('无冲突（归一化等价）：正常派发且无 (forced) 标注', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
+    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        model: 'deepseek-official/deepseek-v4-flash',
+        effort: 'high',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const text = result.output[0].text
+    assert.ok(!text.includes('(forced)'))
+    assert.ok(text.includes('(param)'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
