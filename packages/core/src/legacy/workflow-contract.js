@@ -28,6 +28,12 @@ const TAG_OPEN_RE = /\[\s*workflow-state\s*:\s*([^\]]*?)\s*\]/
 /** 闭 tag：[/workflow-state:STATUS]。 */
 const TAG_CLOSE_RE = /\[\s*\/\s*workflow-state\s*:\s*([^\]]*?)\s*\]/
 
+/** 开 tag：[workflow-norms]（无状态参数，always-on 规范块，全契约至多一块）。 */
+const NORMS_OPEN_RE = /\[\s*workflow-norms\s*\]/
+
+/** 闭 tag：[/workflow-norms]。 */
+const NORMS_CLOSE_RE = /\[\s*\/\s*workflow-norms\s*\]/
+
 /** 步骤头：#### X.X 标题（两级编号，如 1.0、2.3）。 */
 const STEP_HEADING_RE = /^####\s+(\d+\.\d+)\s+(.+)$/
 
@@ -108,13 +114,13 @@ function parseFrontMatter(yamlText) {
 }
 
 /**
- * 扫描正文中的 [workflow-state:STATUS] 块：
- * - 开闭 tag 的 status 必须一致，块不允许嵌套；
- * - 同一 status 出现多个块 → 报错（不允许歧义）；
- * - 未闭合 / 多余的闭合 tag → 报错；
- * 同时把块行挖除为占位行，供步骤解析在 tag 块前截断正文。
+ * 扫描正文中的 [workflow-state:STATUS] 块与 [workflow-norms] 块：
+ * - 开闭 tag 的状态必须一致，两类块均不允许嵌套、重复；
+ * - state 块未闭合 / 多余的闭合 tag → 报错；norms 块同机制（fail loud）；
+ * - norms 块整体恰为至多一块，内容为契约级 always-on 规范原文；
+ * 同时把两类块行挖除为占位行，供步骤解析在 tag 块前截断正文。
  * @param {string} bodyText front-matter 之后的正文
- * @returns {{ breadcrumbs: Map<string, string>, masked: string[] }}
+ * @returns {{ breadcrumbs: Map<string, string>, masked: string[], norms: string | null }}
  */
 function parseTagBlocks(bodyText) {
   const lines = bodyText.split(/\r?\n/)
@@ -122,11 +128,57 @@ function parseTagBlocks(bodyText) {
   const masked = [...lines]
   /** @type {{ status: string, startLine: number }[]} */
   const stack = []
+  /** @type {{ startLine: number } | null} */
+  let normsBlock = null
+  let norms = null
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? ''
     const open = TAG_OPEN_RE.exec(line)
     const close = TAG_CLOSE_RE.exec(line)
+    const normsOpen = NORMS_OPEN_RE.exec(line)
+    const normsClose = NORMS_CLOSE_RE.exec(line)
+    if (normsOpen !== null) {
+      if (norms !== null) {
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: norms has multiple tag blocks (ambiguity not allowed)`,
+        )
+      }
+      if (stack.length > 0) {
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: tag blocks must not be nested`,
+        )
+      }
+      normsBlock = { startLine: index }
+      continue
+    }
+    if (normsClose !== null) {
+      if (normsBlock === null) {
+        throw new WorkflowContractError(FIELD_TAG, `line ${index + 1}: stray closing tag`)
+      }
+      if (stack.length > 0) {
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: tag blocks must not be nested`,
+        )
+      }
+      const startLine = normsBlock.startLine
+      for (let j = startLine; j <= index; j += 1) masked[j] = TAG_BLOCK_MARKER
+      norms = lines
+        .slice(startLine + 1, index)
+        .join('\n')
+        .trim()
+      normsBlock = null
+      continue
+    }
     if (open !== null) {
+      if (normsBlock !== null) {
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: tag blocks must not be nested`,
+        )
+      }
       const status = (open[1] ?? '').trim()
       if (status === '') {
         throw new WorkflowContractError(
@@ -183,7 +235,10 @@ function parseTagBlocks(bodyText) {
     const top = /** @type {{ status: string, startLine: number }} */ (stack[stack.length - 1])
     throw new WorkflowContractError(FIELD_TAG, `tag block for status ${top.status} is not closed`)
   }
-  return { breadcrumbs, masked }
+  if (normsBlock !== null) {
+    throw new WorkflowContractError(FIELD_TAG, 'norms block is not closed')
+  }
+  return { breadcrumbs, masked, norms }
 }
 
 /**
@@ -257,17 +312,18 @@ export function parseDocument(markdownText, { requireFrontMatter }) {
         'document is missing --- delimited front-matter',
       )
     }
-    const { breadcrumbs, masked } = parseTagBlocks(markdownText)
+    const { breadcrumbs, masked, norms } = parseTagBlocks(markdownText)
     return {
       version: NO_VERSION_PLACEHOLDER,
       states: [],
       breadcrumbs,
       steps: extractSteps(masked),
       warnings: [],
+      norms,
     }
   }
   const { version, states } = parseFrontMatter(front.yamlText)
-  const { breadcrumbs, masked } = parseTagBlocks(front.bodyText)
+  const { breadcrumbs, masked, norms } = parseTagBlocks(front.bodyText)
   // 状态机封闭的对称约束：块的状态必须在 states 中声明（与 overlay 侧一致）。
   for (const status of breadcrumbs.keys()) {
     if (!states.includes(status)) {
@@ -283,6 +339,7 @@ export function parseDocument(markdownText, { requireFrontMatter }) {
     breadcrumbs,
     steps: extractSteps(masked),
     warnings: buildWarnings(states, breadcrumbs),
+    norms,
   }
 }
 
