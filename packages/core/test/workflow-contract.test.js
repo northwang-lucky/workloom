@@ -44,6 +44,40 @@ states:
 `
 }
 
+/** 构造含 norms 块（置于步骤之间，验证不混入）的合法文档。 */
+function makeDocWithNorms() {
+  return `---
+version: 1
+states:
+  - planning
+  - in_progress
+  - completed
+---
+
+# 工作流
+
+#### 1.0 创建任务
+第一行正文
+第二行正文
+
+[workflow-norms]
+规范第一行
+规范第二行
+[/workflow-norms]
+
+[workflow-state:planning]
+规划阶段指引
+[/workflow-state:planning]
+
+#### 2.3 实现任务
+实现阶段正文
+
+[workflow-state:in_progress]
+执行阶段指引
+[/workflow-state:in_progress]
+`
+}
+
 test('正常解析：version/states/块/步骤 齐全', () => {
   const [err, contract] = parseContract(makeFullDoc())
   assert.equal(err, null)
@@ -225,4 +259,78 @@ states:
   const [err2] = parseContract(strayClose)
   assert.ok(err2)
   assert.match(err2.message, /stray closing tag/)
+})
+
+test('norms 块解析：多行内容保留、首尾空白清理', () => {
+  const [err, contract] = parseContract(makeDocWithNorms())
+  assert.equal(err, null)
+  assert.equal(contract.norms, '规范第一行\n规范第二行')
+})
+
+test('无 norms 块的旧契约：norms 为 null 且既有字段不受影响', () => {
+  const [err, contract] = parseContract(makeFullDoc())
+  assert.equal(err, null)
+  assert.equal(contract.norms, null)
+  assert.deepEqual(contract.warnings, [])
+  assert.equal(contract.steps.length, 3)
+  assert.equal(contract.breadcrumbs.get('planning'), '规划阶段指引：先评审再动手')
+})
+
+test('norms 块内容不混入步骤正文与 state 块', () => {
+  const [err, contract] = parseContract(makeDocWithNorms())
+  assert.equal(err, null)
+  assert.equal(contract.steps[0].body, '第一行正文\n第二行正文')
+  assert.equal(contract.steps[1].body, '实现阶段正文')
+  assert.equal(contract.breadcrumbs.get('planning'), '规划阶段指引')
+})
+
+test('norms 块未闭合报错', () => {
+  const doc = `---
+version: 1
+states: []
+---
+
+[workflow-norms]
+没有闭合的规范
+`
+  const [err, contract] = parseContract(doc)
+  assert.ok(err instanceof WorkflowContractError)
+  assert.equal(contract, null)
+})
+
+test('重复 norms 块报错（不允许歧义）', () => {
+  const doc = `---
+version: 1
+states: []
+---
+
+[workflow-norms]
+第一块
+[/workflow-norms]
+
+[workflow-norms]
+第二块
+[/workflow-norms]
+`
+  const [err, contract] = parseContract(doc)
+  assert.ok(err instanceof WorkflowContractError)
+  assert.equal(contract, null)
+})
+
+test('norms 块与 state 块不允许嵌套', () => {
+  const doc = `---
+version: 1
+states:
+  - planning
+---
+
+[workflow-norms]
+规范
+[workflow-state:planning]
+[/workflow-state:planning]
+[/workflow-norms]
+`
+  const [err, contract] = parseContract(doc)
+  assert.ok(err instanceof WorkflowContractError)
+  assert.equal(contract, null)
 })

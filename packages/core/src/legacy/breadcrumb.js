@@ -79,6 +79,8 @@ export function mergeOverlay(contract, overlayText) {
       states: [...contract.states],
       breadcrumbs,
       steps,
+      // norms 是契约级 always-on 规范，overlay 只覆盖状态/步骤正文，不覆盖 norms。
+      norms: contract.norms,
       warnings: buildWarnings(contract.states, breadcrumbs),
     },
   ]

@@ -23,4 +23,6 @@ export interface WorkflowContract {
   breadcrumbs: Map<string, string>
   steps: WorkflowStep[]
   warnings: string[]
+  /** always-on 规范块（[workflow-norms]）原文；旧契约无该块时为 null。 */
+  norms: string | null
 }
