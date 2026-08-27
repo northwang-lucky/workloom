@@ -88,7 +88,7 @@ export const PARAM_DESCRIPTIONS = {
   reason: 'Optional reason for a force override (recorded for audit)',
   kind: 'Executor role: research, implement, or check',
   model:
-    'Model id for the executor subagent; defaults to subagents.<kind>.model, then the parent session model',
+    'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to subagents.<kind>.model, then the parent session model',
   effort: 'Reasoning effort: low/medium/high/xhigh/max; defaults to subagents.<kind>.effort',
   prompt: 'Task instructions for the executor subagent',
   stepId: 'Workflow step id, e.g. 1.1 or 2.1',
@@ -161,3 +161,21 @@ export function buildSuccessRelayText(command: string, resultText: string): stri
 
 /** archive 工具收尾提示（命令名用模板拼 COMMAND_NAMES.finish，避免硬编码）。 */
 export const TASK_ARCHIVE_NOTE = `Task archived. When the session ends, run /${COMMAND_NAMES.finish} to record the session journal.`
+
+/**
+ * 拼装 executor 回执行：生效 model/effort 及各自来源（运行时文案英文）。
+ * 字段缺失时显示 `<parent session>` / `<unset>` 与 `(default)` 来源，
+ * 使配置未生效一眼可辨。
+ */
+export function buildExecutorReceipt(params: {
+  model?: string
+  modelSource?: 'param' | 'config'
+  effort?: string
+  effortSource?: 'param' | 'config'
+}): string {
+  const modelLabel = params.model ?? '<parent session>'
+  const modelSrc = params.modelSource ? ` (${params.modelSource})` : ' (default)'
+  const effortLabel = params.effort ?? '<unset>'
+  const effortSrc = params.effortSource ? ` (${params.effortSource})` : ' (default)'
+  return `[workloom executor] model: ${modelLabel}${modelSrc}, effort: ${effortLabel}${effortSrc}`
+}

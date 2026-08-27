@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 
 import {
   buildErrorRelayText,
+  buildExecutorReceipt,
   buildSuccessRelayText,
   COMMAND_DESCRIPTIONS,
   COMMAND_NAMES,
@@ -59,4 +60,42 @@ test('buildSuccessRelayText 含命令名与结果原文，并要求按用户语�
   assert.ok(text.includes(COMMAND_NAMES.init), 'relay text must name the command')
   assert.ok(text.includes('Workloom initialized at /tmp/x.'), 'relay text must keep the result text')
   assert.match(text, /user's language/, 'relay text must instruct answering in the user language')
+})
+
+test('buildExecutorReceipt 含 model/effort 及来源（param/config/default）', () => {
+  const all = buildExecutorReceipt({
+    model: 'deepseek-official/deepseek-v4-flash',
+    modelSource: 'config',
+    effort: 'max',
+    effortSource: 'param',
+  })
+  assert.ok(all.includes('deepseek-official/deepseek-v4-flash'), 'must show model')
+  assert.ok(all.includes('(config)'), 'must show model source')
+  assert.ok(all.includes('max'), 'must show effort')
+  assert.ok(all.includes('(param)'), 'must show effort source')
+  assert.match(all, /^\[workloom executor\]/, 'must start with prefix')
+})
+
+test('buildExecutorReceipt 缺 model 时显示 parent session + default', () => {
+  const text = buildExecutorReceipt({ effort: 'high', effortSource: 'config' })
+  assert.ok(text.includes('<parent session>'), 'missing model must show placeholder')
+  assert.ok(text.includes('(default)'), 'missing model source must show default')
+  assert.ok(text.includes('high'), 'must show effort')
+  assert.ok(text.includes('(config)'), 'must show effort source')
+})
+
+test('buildExecutorReceipt 缺 effort 时显示 unset + default', () => {
+  const text = buildExecutorReceipt({ model: 'kimi-coding/k3', modelSource: 'param' })
+  assert.ok(text.includes('kimi-coding/k3'), 'must show model')
+  assert.ok(text.includes('(param)'), 'must show model source')
+  assert.ok(text.includes('<unset>'), 'missing effort must show placeholder')
+  assert.ok(text.includes('(default)'), 'missing effort source must show default')
+})
+
+test('buildExecutorReceipt 全缺时两字段均显示 default', () => {
+  const text = buildExecutorReceipt({})
+  assert.ok(text.includes('<parent session>'), 'missing model must show placeholder')
+  assert.ok(text.includes('<unset>'), 'missing effort must show placeholder')
+  const defaultCount = text.split('(default)').length - 1
+  assert.equal(defaultCount, 2, 'both missing sources must show default')
 })

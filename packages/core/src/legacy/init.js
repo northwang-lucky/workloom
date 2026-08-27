@@ -109,6 +109,9 @@ const GITIGNORE_TEMPLATE = [
   '# Local developer identity (like AGENTS.local.md).',
   '.developer',
   '',
+  '# Local config overrides (per-machine).',
+  'config.local.yaml',
+  '',
 ].join('\n')
 
 /**
