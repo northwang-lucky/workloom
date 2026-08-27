@@ -1,0 +1,36 @@
+{
+  "id": "83867ea6-cf7c-4995-ae7b-8f0714ea83c3",
+  "name": "agent",
+  "title": "任务创建决策权移交用户，Agent 仅给推荐",
+  "description": "将「是否需要创建 workloom 任务」的决定权从 Agent 移交用户：Agent 对用户提出的需求仅给出是否值得建任务的推荐，经用户确认后才调用 workloom_task_create。修改 packages/assets/workflow/workflow.md 三处措辞（1.0 Create task、no_task 状态指引、completed 状态指引），新增契约测试断言防止回归，契约版本号 6 → 7。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T13:32:38.588Z",
+  "completedAt": "2026-08-27T13:48:49.855Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-27T13:47:42.285Z",
+    "summary": "2.2 最终检查通过：9 个申报文件逐项 diff 核对无误（findMissingPrdTitle 边界、start 门禁三类缺项、骨架 H1、契约 v8 三处措辞与 1.4 H1 门禁措辞、测试逐字断言与契约文案一致）；pnpm lint、pnpm -r typecheck、pnpm -r build、core 268/268、adapter-dsh 47/47 全绿；git status 无未申报改动，adapter 测试样本 version: 6 未动；08-26-adapter-opencode/prd.md 首行已补 H1。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
