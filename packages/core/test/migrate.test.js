@@ -164,7 +164,7 @@ test('config 全默认时不覆盖 init 模板', () => {
     )
     const [err] = migrateLegacyTrellis(root)
     assert.equal(err, null)
-    assert.ok(readFileSync(join(root, '.workloom/config.yaml'), 'utf8').startsWith('#'))
+    assert.equal(readFileSync(join(root, '.workloom/config.yaml'), 'utf8').trim(), '')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
