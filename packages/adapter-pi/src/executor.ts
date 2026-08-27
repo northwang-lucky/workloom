@@ -15,7 +15,10 @@
  * - model/effort 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置
  *   （按 executor kind 取值，字段独立合并；model 支持 map 形式按 runtime 取值），
  *   经 --model / --thinking 透传；返回文本尾部追加 receipt 行（生效 model/effort
- *   及来源，可观测性）。
+ *   及来源，可观测性）；
+ * - 显式 model/effort 与 subagents 配置冲突时中断派发并返回提示文本（不派发）；
+ *   force: true + reason 放行，覆盖记录写 task.json overrides、receipt 来源标注
+ *   追加 (forced)（审计留痕，与 adapter-dsh 同口径）。
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -26,31 +29,38 @@ import { Type, type Static } from 'typebox'
 
 import {
   assertEffort,
+  assertForceReason,
   assertKind,
+  buildConflictNotice,
   buildExecutorPrompt,
   buildExecutorReceipt,
+  detectExecutorConflicts,
   ERR_PREFIX,
   findWorkloomRoot,
   loadConfig,
   PARAM_DESCRIPTIONS,
+  recordExecutorOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
   TOOL_SNIPPETS,
 } from '@workloom-ai/core'
+import type { WorkloomConfig } from '@workloom-ai/core'
 
 import { contextKeyOf } from './constants.ts'
 import { buildChildPiArgs } from './pi-args.ts'
 import { extractExecutorText, parsePiEventLine, type PiEventState } from './pi-events.ts'
 
 /** 工具参数 TypeBox schema（与 DSH 的参数语义一致）。 */
-const EXECUTOR_PARAMS = Type.Object({
+export const EXECUTOR_PARAMS = Type.Object({
   kind: Type.String({ description: PARAM_DESCRIPTIONS.kind }),
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPathExecutor })),
   model: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.model })),
   effort: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.effort })),
   prompt: Type.String({ description: PARAM_DESCRIPTIONS.prompt }),
+  force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.forceExecutor })),
+  reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reasonExecutor })),
 })
 
 /** stderr 尾部摘要上限（错误报告用，超限截断）。 */
@@ -59,11 +69,21 @@ const STDERR_TAIL_LIMIT = 4096
 /** 取消时向 child pi 发送的终止信号。 */
 const KILL_SIGNAL = 'SIGTERM'
 
+/** 当前 runtime 名（subagents.model map 形式的取值 key，与 core 的 runtime 参数对齐）。 */
+const PI_RUNTIME = 'pi'
+
+/** force 覆盖记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
+const RECORD_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record forced override:`
+
+/** 来源标注追加 forced 标记的匹配模式（param/config/default 三种来源）。 */
+const FORCED_SOURCE_PATTERN = / \((param|config|default)\)/g
+
 /**
  * 在子代理输出文本尾部追加 executor receipt 行（可观测性）。
  * 空输出时只返回 receipt 行本身。
  * @param text 子代理原始输出文本
  * @param effective resolveSubagentDefaults 的返回值（含 sources）
+ * @param forced force 放行时 true：来源标注追加 (forced) 标记（审计留痕）
  * @returns 带 receipt 的完整文本
  */
 export function appendExecutorReceipt(
@@ -73,14 +93,75 @@ export function appendExecutorReceipt(
     effort?: string
     sources: { model?: 'param' | 'config'; effort?: 'param' | 'config' }
   },
+  forced = false,
 ): string {
-  const receipt = buildExecutorReceipt({
+  let receipt = buildExecutorReceipt({
     model: effective.model,
     modelSource: effective.sources.model,
     effort: effective.effort,
     effortSource: effective.sources.effort,
   })
+  if (forced) {
+    // 来源标注追加 (forced)：覆盖事实与来源并存，审计一眼可辨。
+    receipt = receipt.replace(FORCED_SOURCE_PATTERN, ' ($1, forced)')
+  }
   return text === '' ? receipt : `${text}\n\n${receipt}`
+}
+
+/** 冲突门判定结果：notice 非空表示中断派发；forced 表示 force 放行。 */
+export interface ConflictGateResult {
+  /** 中断提示文本（含配置值/传入值与 force+reason 用法）。 */
+  notice?: string
+  /** 是否 force 放行（调用方须记录覆盖并标注 receipt）。 */
+  forced: boolean
+}
+
+/**
+ * 冲突门（纯函数）：显式 model/effort 与 subagents 配置冲突时判定放行路径。
+ * 无冲突 → { forced: false }（现状路径）；冲突且未 force → { notice }（不派发）；
+ * 冲突且 force → 校验 reason（缺失抛错 fail loud）并放行。覆盖记录是副作用，
+ * 由调用方在拿到 taskRelPath 后执行。
+ */
+export function resolveConflictGate(
+  config: WorkloomConfig,
+  params: {
+    kind: string
+    model?: string
+    effort?: string
+    force?: boolean
+    reason?: string
+  },
+): ConflictGateResult {
+  const conflicts = detectExecutorConflicts(
+    config,
+    params.kind,
+    { model: params.model, effort: params.effort },
+    PI_RUNTIME,
+  )
+  if (conflicts.length === 0) return { forced: false }
+  if (params.force === true) {
+    assertForceReason(params.force, params.reason)
+    return { forced: true }
+  }
+  return { notice: buildConflictNotice(params.kind, conflicts), forced: false }
+}
+
+/**
+ * 记录 force 放行的覆盖（副作用）：写入 task.json overrides；失败只 WARNING
+ * 不阻塞派发（留痕是审计增强，不该拖垮执行链路）。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param reason 覆盖原因（force 放行时必填，此处仅透传）
+ */
+export function recordForcedOverride(
+  root: string,
+  taskRelPath: string,
+  reason: string | undefined,
+): void {
+  const [recordErr] = recordExecutorOverride(root, taskRelPath, reason)
+  if (recordErr !== null) {
+    console.warn(`${RECORD_WARN_PREFIX} ${recordErr}`)
+  }
 }
 
 /**
@@ -139,21 +220,39 @@ async function executeTool(
   }
   const root = found.root
   // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）。
-  // runtime='pi' 使 model 的 map 形式按 pi 取值（core 负责解析与缺 key 报错）。
+  // runtime=PI_RUNTIME 使 model 的 map 形式按 pi 取值（core 负责解析与缺 key 报错）。
   const config = loadConfig(root)
-  const effective = resolveSubagentDefaults(config, params.kind, {
-    model: params.model,
-    effort: params.effort,
-  }, 'pi')
+  const effective = resolveSubagentDefaults(
+    config,
+    params.kind,
+    {
+      model: params.model,
+      effort: params.effort,
+    },
+    PI_RUNTIME,
+  )
   // effort/kind 非法值 fail loud（core 校验），与 DSH 语义一致。
   assertEffort(effective.effort)
   assertKind(params.kind)
+  // 冲突门：显式参数与配置不一致且未 force 时中断派发（返回提示文本，模型可附
+  // force+reason 重试）；force 放行在拿到 taskRelPath 后记录覆盖。
+  const gate = resolveConflictGate(config, params)
+  if (gate.notice !== undefined) {
+    return {
+      content: [{ type: 'text', text: gate.notice }],
+      details: { kind: 'conflict', status: 'blocked' },
+    }
+  }
   const taskRelPath = resolveTaskRelPath(
     root,
     contextKeyOf(ctx.sessionManager.getSessionId()),
     params.taskPath,
     ERR_PREFIX.executor,
   )
+  // force 放行留痕：记录失败只 WARNING 不阻塞派发（审计增强）。
+  if (gate.forced) {
+    recordForcedOverride(root, taskRelPath, params.reason)
+  }
   const [promptErr, built] = buildExecutorPrompt({
     root,
     taskRelPath,
@@ -173,8 +272,8 @@ async function executeTool(
     },
     ctx.signal,
   )
-  // 尾部追加 receipt 行：生效 model/effort 及来源，使配置未生效一眼可辨。
-  const textWithReceipt = appendExecutorReceipt(result.text, effective)
+  // 尾部追加 receipt 行：生效 model/effort 及来源（force 放行时标注 (forced)）。
+  const textWithReceipt = appendExecutorReceipt(result.text, effective, gate.forced)
   return {
     content: [{ type: 'text', text: textWithReceipt }],
     details: { kind: 'foreground', runId: result.runId, status: 'completed' },
