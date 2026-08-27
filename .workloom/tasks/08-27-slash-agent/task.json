@@ -1,0 +1,31 @@
+{
+  "id": "806fc960-a10e-42f0-bc82-5f684768fbda",
+  "name": "slash-agent",
+  "title": "slash 命令失败时由 Agent 转述错误",
+  "description": "现状：adapter-dsh 的 init/continue/finish 三个 slash 命令失败时只返回 CommandResult error（原始英文错误文本直接弹在 GUI），不触发模型回合，用户看到的是生硬报错。改进：命令失败时也通过 followup 把错误上下文注入模型，由 Agent 用自然语言转述错误原因与建议操作。需明确：错误转述的注入文案模板、是否仍保留 error 结果、Pi adapter 是否同样处理、对\"命令本身成功但业务校验失败\"（如脏文件拦截）的语义界定。",
+  "status": "planning",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T03:08:07.134Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

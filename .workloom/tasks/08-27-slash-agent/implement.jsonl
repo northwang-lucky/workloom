@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/adapter 分层：转述拼装放 core surface 层，adapter 仅投影"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify 命令约束实现方式"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "中英文分工：注入指引文本英文、注释中文"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "relay/followup 等命名与既有术语一致"}
