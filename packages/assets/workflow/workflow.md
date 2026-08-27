@@ -1,5 +1,5 @@
 ---
-version: 2
+version: 3
 states:
   - no_task
   - planning
@@ -25,7 +25,22 @@ Completion criteria: the task directory exists and `task.json` `status` is `plan
 
 #### 1.1 Align requirements
 
-First load the brainstorm skill and explore requirements question by question: what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. Tasks involving implementation work must ask the fixed question: does implementation require test-first delivery (A. yes: seams join the alignment scope; B. no: conventional implementation; C. critical paths only). For A/C, the confirmed seams go into prd.md acceptance criteria.
+First load the brainstorm skill and explore the requirements — what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. Tasks involving implementation work must ask the fixed test-first question (below).
+
+Every question across the workflow — fixed questions and exploratory questions alike — follows these rules:
+
+1. Ask in the user's language; you judge which language that is from how the user writes.
+2. Keep the options out of the question text: the question states only what is being asked, and the options follow as a separate numbered list.
+3. Never use an interactive question tool (ask_user_question and equivalents); pose questions as plain text output on any runtime.
+4. Never ask one question at a time: once per stage, list every open question identified so far as one numbered batch, and let the user answer them freely, in any order and any subset.
+
+**The fixed test-first question:** does implementation require test-first delivery?
+Options:
+- A. yes: seams join the alignment scope.
+- B. no: conventional implementation.
+- C. critical paths only.
+
+For A/C, the confirmed seams go into prd.md acceptance criteria.
 Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, and the frontier holds no open assumptions.
 
 #### 1.2 Research (optional)
@@ -40,7 +55,11 @@ Completion criteria: each jsonl has at least one real entry (the seeded `_exampl
 
 #### 1.4 Review and start
 
-Once prd.md is finalized, a task involving implementation work asks the user whether to author design.md/implement.md — two options: author both, or neither. On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while any prd.md section is still the skeleton placeholder or while implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
+Once prd.md is finalized, a task involving implementation work asks the user whether to author design.md/implement.md.
+Options:
+- A. author both.
+- B. author neither.
+On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while any prd.md section is still the skeleton placeholder or while implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
 Completion criteria: for a task involving implementation work, the design/implement question has been answered; `task.json` `status` is `in_progress`; and the user has confirmed the review.
 
 ## Phase 2 Execute
