@@ -1,0 +1,36 @@
+{
+  "id": "73930e79-6cc2-4b83-8c1b-b4b3c7b1f45f",
+  "name": "enforce-executor-dispatch",
+  "title": "强化 executor 派发约束与模型配置可观测性",
+  "description": "session-2bd857ee 暴露两个问题：1) Phase 2 开始后主会话未主动派发 implement executor，直接自己写代码（契约约束力不足，用户追问后才派发）；2) 子代理未按 config.yaml subagents 配置使用模型（根因：dshweb 进程加载旧 bundle，重启即可，但缺乏可观测性导致难诊断）。修复方向：a) 强化 step 2.1 契约文案；b) workloom_execute 结果暴露生效的 model/effort 及来源；c) 调研并尽量实现「主会话禁止直接写实现代码」的硬门禁（取决于 DSH 插件工具拦截能力）。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T03:41:21.656Z",
+  "completedAt": "2026-08-27T06:09:15.213Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "check": {
+    "passedAt": "2026-08-27T06:09:04.522Z",
+    "summary": "对照 prd 验收标准与 check.jsonl 五份 spec 逐项核对通过；发现并修复 1 处缺陷（adapter-dsh 空输出丢失 receipt 行）；全量验证全绿：pnpm lint、pnpm -r typecheck、pnpm -r build、core 228 pass、adapter-dsh 33 pass、adapter-pi 22 pass。"
+  },
+  "overrides": []
+}
