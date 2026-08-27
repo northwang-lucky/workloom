@@ -1,0 +1,36 @@
+{
+  "id": "367df560-0d20-4621-8a0e-bc97ef4ecc2e",
+  "name": "config-comments-qa-behavior-subagent-title",
+  "title": "配置注释迁移、提问行为规范与子代理标题语义化",
+  "description": "五项新需求：0) 仓库 .workloom/config.yaml 注释全部迁入 config.example.yaml 并重组，config.yaml 只留配置；1) workloom 固定问题用用户习惯语言提问；2) 提问选项内容不进题目；3) 任何 runtime 不用交互式提问工具，改文字输出且分批次提问；4) 派子代理时子会话标题用 `[Workloom Research] 语义化标题` 形式而非裸 kind 名。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T06:35:24.304Z",
+  "completedAt": "2026-08-27T07:40:49.637Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-27T07:40:47.655Z",
+    "summary": "六条验收标准逐项核对全部通过，无发现需修复问题。全量验证全绿：pnpm lint、pnpm -r typecheck、pnpm -r build、core 251 pass、adapter-dsh 41 pass、adapter-pi 32 pass。check 子代理按 deployment spec 同步了 core/adapter-dsh dist 与 assets 到 profile。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
