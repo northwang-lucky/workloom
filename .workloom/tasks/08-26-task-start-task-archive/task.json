@@ -1,0 +1,36 @@
+{
+  "id": "c335f302-0205-44fc-8b91-b6e5e5679df3",
+  "name": "task-start-task-archive",
+  "title": "为 task_start / task_archive 增加流程硬卡点",
+  "description": "分析 DSH 会话 session-f98c8040 发现：流程指引仅靠系统提示软约束，模型跳过了 1.1 对齐需求（prd.md 仍是 placeholder）、1.3 配置上下文（implement/check.jsonl 只有种子行）、2.2 check 环节就直接 start → implement → archive。需要在工具层加硬性校验：1) workloom_task_start 前校验 prd.md 非 placeholder 且 implement.jsonl/check.jsonl 已配置；2) workloom_task_archive 前要求 check 阶段留痕（check.jsonl 有实际记录）。需同时明确拒绝/警告策略、对存量任务和小任务的豁免边界。",
+  "status": "in_progress",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-26T15:43:39.536Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "check": {
+    "passedAt": "2026-08-27T01:42:38.740Z",
+    "summary": "2.2 全量 check 通过：验收标准 5 条与设计决策 6 条全部落实，spec 核对无违规，契约与工具行为一致；修复 2 处（浮动注释、补 design.md），记录 2 处遗留（task-store.js 行数存量超限待单独立项、文件名枚举跨模块维持现状）；lint/typecheck/core 209/adapter-dsh 7/adapter-pi 15 全绿。"
+  },
+  "overrides": []
+}
