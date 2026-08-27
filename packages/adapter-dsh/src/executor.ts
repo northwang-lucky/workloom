@@ -16,6 +16,11 @@
  *   （按 executor kind 取值，字段独立合并），供用户配置默认派发参数；
  * - model 字符串支持 "provider/model" 前缀形式：拆分后 provider 一并传给子代理
  *   agentOptions，跨 provider 派发才不会报 UNKNOWN_MODEL；裸 id 按父 provider 解析；
+ * - 子会话标题语义化：label 为 `[Workloom <KindLabel>] <task title>`（title 完整
+ *   不截断，截断交给 UI），便于会话列表一眼分辨派发角色与任务；
+ * - 冲突中断：显式 model/effort 与 subagents 配置不一致时，无 force 直接返回
+ *   buildConflictNotice 提示文本不派发；force: true 须带非空 reason 留痕（写入
+ *   task.json overrides），放行后 receipt 追加 (forced) 标注便于审计；
  * - 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源，使配置未生效一眼可辨。
  */
 import type { Context } from '@deepseek-ai/cordis'
@@ -24,13 +29,18 @@ import { finalAssistantOutput } from '@deepseek-ai/dsh-subagent'
 
 import {
   assertEffort,
+  assertForceReason,
+  buildConflictNotice,
   buildExecutorPrompt,
   buildExecutorReceipt,
+  detectExecutorConflicts,
   EMPTY_OUTPUT_TEXT,
   ERR_PREFIX,
   findWorkloomRoot,
   loadConfig,
   PARAM_DESCRIPTIONS,
+  readTask,
+  recordExecutorOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
   splitProviderModel,
@@ -42,6 +52,22 @@ import { CONTEXT_KEY_PREFIX } from './constants.js'
 
 /** spawn provider 名（DSH in-process 子代理提供方，continuable 能力齐备）。 */
 const SPAWN_PROVIDER = 'spawn'
+
+/** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
+const KIND_LABELS = {
+  research: 'Research',
+  implement: 'Implement',
+  check: 'Check',
+} as const
+
+/** KIND_LABELS 的键类型（assertKind 已保证 kind 合法，此处仅防御缺键）。 */
+type KindLabelKey = keyof typeof KIND_LABELS
+
+/** 冲突中断返回值的 runId（未派发子代理，无 run id 可用）。 */
+const NO_CHILD_RUN_ID = ''
+
+/** 覆盖审计记录失败告警前缀（记录失败不阻塞派发）。 */
+const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor override:`
 
 /** 释放子代理失败告警前缀（运行时文案英文）。 */
 const DRAIN_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to release continuable child:`
@@ -61,6 +87,8 @@ interface ExecutorArgs {
   taskPath?: string
   model?: string
   effort?: string
+  force?: boolean
+  reason?: string
   prompt: string
 }
 
@@ -174,6 +202,14 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
           type: 'string',
           description: PARAM_DESCRIPTIONS.effort,
         },
+        force: {
+          type: 'boolean',
+          description: PARAM_DESCRIPTIONS.forceExecutor,
+        },
+        reason: {
+          type: 'string',
+          description: PARAM_DESCRIPTIONS.reasonExecutor,
+        },
         prompt: {
           type: 'string',
           description: PARAM_DESCRIPTIONS.prompt,
@@ -228,8 +264,30 @@ async function executeTool(
     effort: params.effort,
   }, 'dsh')
   if (effective.effort !== undefined) assertEffort(effective.effort)
+  // 冲突检测：显式 model/effort 与 subagents 配置不一致时，无 force 返回提示
+  // （不派发）；force 放行须带非空 reason 留痕，覆盖审计写入 task.json。
+  const conflicts = detectExecutorConflicts(config, params.kind, {
+    model: params.model,
+    effort: params.effort,
+  }, 'dsh')
+  if (conflicts.length > 0 && params.force !== true) {
+    return {
+      kind: 'foreground',
+      runId: NO_CHILD_RUN_ID,
+      output: [{ type: 'text', text: buildConflictNotice(params.kind, conflicts) }],
+    }
+  }
+  const forced = conflicts.length > 0
+  if (forced) assertForceReason(params.force, params.reason)
   const contextKey = `${CONTEXT_KEY_PREFIX}_${parent.id}`
   const taskRelPath = resolveTaskRelPath(root, contextKey, params.taskPath, ERR_PREFIX.executor)
+  // force 放行后记录覆盖审计（任务路径已解析；记录失败仅告警不阻塞派发）。
+  if (forced) {
+    const [overrideErr] = recordExecutorOverride(root, taskRelPath, params.reason)
+    if (overrideErr !== null) {
+      console.warn(`${OVERRIDE_WARN_PREFIX} ${overrideErr}`)
+    }
+  }
   const [promptErr, built] = buildExecutorPrompt({
     root,
     taskRelPath,
@@ -247,7 +305,7 @@ async function executeTool(
   const subagents = ctx.subagents
   const { childId } = await subagents.startContinuable({
     provider: SPAWN_PROVIDER,
-    label: `workloom ${params.kind}`,
+    label: buildChildLabel(root, taskRelPath, params.kind),
     // maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理深度为 1，
     // 设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
     // 即「executor 子代理禁止再派发 workloom_execute」。
@@ -281,13 +339,15 @@ async function executeTool(
     // 释放失败不阻塞结果返回：子代理已 idle，仅告警记录。
     console.warn(`${DRAIN_WARN_PREFIX} ${String(error)}`)
   }
-  // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源。
-  const receipt = buildExecutorReceipt({
+  // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源；
+  // force 放行时追加 (forced) 标记，使覆盖派发在输出中一眼可辨。
+  const receiptBase = buildExecutorReceipt({
     model: effective.model,
     modelSource: effective.sources.model,
     effort: effective.effort,
     effortSource: effective.sources.effort,
   })
+  const receipt = forced ? `${receiptBase} (forced)` : receiptBase
   // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
   const baseText = text === '' ? EMPTY_OUTPUT_TEXT : text
   const outputText = `${baseText}\n\n${receipt}`
@@ -296,6 +356,25 @@ async function executeTool(
     runId: childId,
     output: [{ type: 'text', text: outputText }],
   }
+}
+
+/**
+ * 组装子会话标题：`[Workloom <KindLabel>] <task title>`（title 完整不截断，截断交 UI）。
+ * readTask 失败或 title 缺失/空白时回退旧形式 `workloom <kind>`（防御：
+ * 标题仅供展示，不因任务元数据异常阻塞派发）。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param kind executor 类型（research/implement/check）
+ * @returns 子会话标题
+ */
+function buildChildLabel(root: string, taskRelPath: string, kind: string): string {
+  const [taskErr, task] = readTask(root, taskRelPath)
+  const kindLabel = KIND_LABELS[kind as KindLabelKey]
+  const title = task?.title
+  if (taskErr !== null || kindLabel === undefined || title === undefined || title.trim() === '') {
+    return `workloom ${kind}`
+  }
+  return `[Workloom ${kindLabel}] ${title}`
 }
 
 /**
