@@ -4,8 +4,10 @@
  * 设计意图：
  * - 幂等生成骨架：目录与文件缺失才创建，已有内容一律不覆盖（含 force 模式）；
  * - 数据布局对齐 core 约定：.workloom/{tasks,spec,workspace,.runtime/sessions}；
- * - config.yaml 模板与 config.js 的 DEFAULT_CONFIG 逐项对齐（全注释模板，
- *   取消注释即覆盖默认值）；
+ * - config.yaml 为最小无注释占位（loadConfig 对空文件按全默认处理）；
+ * - config.example.yaml 为唯一权威说明源：全注释带值示例，逐字段对齐
+ *   config.js 的 DEFAULT_CONFIG，并说明 config.local.yaml 深合并语义
+ *   与 subagents model map 缺 runtime key fail loud；
  * - 顺带检测旧 .trellis 目录并报告（迁移由后续实现点消费，本模块只报告）。
  * - 生成自包含的 .workloom/.gitignore：运行时状态忽略策略随骨架分发，
  *   接入方仓库无需在根 .gitignore 手工维护 workloom 内部布局规则。
@@ -26,6 +28,7 @@ const SUB_DIRS = Object.freeze(['tasks', 'spec', 'workspace', '.runtime/sessions
 /** 骨架文件名常量。 */
 const FILE_NAMES = Object.freeze({
   config: 'config.yaml',
+  configExample: 'config.example.yaml',
   developer: '.developer',
   gitignore: '.gitignore',
 })
@@ -63,41 +66,83 @@ const SPEC_README_TEMPLATE = [
   '',
 ].join('\n')
 
-/** config.yaml 模板：全注释行（默认值形态），写入用户项目，注释全英文。 */
-const CONFIG_TEMPLATE = [
-  '# workloom configuration — all values have sensible defaults; override only what you need.',
-  '#',
+/** config.yaml 模板：最小无注释占位（loadConfig 对空文件按全默认处理）。 */
+const CONFIG_TEMPLATE = ''
+
+/** config.example.yaml 模板：全注释带值示例（默认值形态），与 DEFAULT_CONFIG 逐字段对齐。 */
+const CONFIG_EXAMPLE_TEMPLATE = [
+  '# workloom configuration reference (EXAMPLE ONLY, not read by loadConfig).',
+  '',
+  '# loadConfig reads only .workloom/config.yaml plus the optional (gitignored)',
+  '# config.local.yaml. Copy the fields you need into config.yaml and uncomment',
+  '# them; use config.local.yaml for per-machine overrides only.',
+  '',
+  '# config.local.yaml deep-merges over config.yaml: maps merge recursively key',
+  '# by key, arrays and scalars replace whole values.',
+  '',
+  '# Every field below shows its default value; override only what you need.',
+  '',
+  '# Commit message used when the journal recorder commits.',
   '# session_commit_message: "chore: record journal"',
+  '',
+  '# Maximum journal lines kept per session.',
   '# max_journal_lines: 2000',
+  '',
+  '# Auto-commit the journal after each session.',
   '# session_auto_commit: true',
-  '#',
+  '',
   '# context_injection caps how much spec/research context is inlined per turn.',
   '# context_injection:',
   '#   max_file_bytes: 32768',
   '#   max_artifact_bytes: 65536',
   '#   max_total_bytes: 131072',
-  '#',
+  '',
   '# prompt_injection.skip_keyword is the escape hatch: a user message containing',
   '# this keyword skips breadcrumb injection for that turn.',
   '# prompt_injection:',
   '#   skip_keyword: "no-workloom"',
-  '#',
+  '',
   '# hooks run shell commands with TASK_JSON_PATH pointing at the task.json file.',
   '# hooks:',
   '#   after_create:',
-  '#     - "echo task created"',
+  '#     - echo task created',
   '#   after_start:',
-  '#     - "echo task started"',
+  '#     - echo task started',
   '#   after_finish:',
-  '#     - "echo task finished"',
+  '#     - echo task finished',
   '#   after_archive:',
-  '#     - "echo task archived"',
-  '#',
+  '#     - echo task archived',
+  '',
   '# packages maps a package name to its repo-relative path (optional type/git).',
   '# packages:',
   '#   cli:',
   '#     path: packages/cli',
-  '# default_package: web   # a package name declared in packages; omit for none',
+  '',
+  '# default_package names the default package declared in packages; omit for none.',
+  '# default_package: web',
+  '',
+  '# subagents.<kind> sets per-kind executor defaults (research/implement/check).',
+  '# model accepts either a single string (the same value on every runtime) or a',
+  '# per-runtime map with one entry per runtime key (dsh/pi, plus any future',
+  '# runtime — keys are not whitelisted). With a map, the current runtime key must',
+  '# exist; a missing key fails loudly with its field path instead of spawning',
+  '# the wrong model. effort stays a plain string on every runtime.',
+  '# subagents:',
+  '#   research:',
+  '#     model: deepseek-official/deepseek-v4-flash',
+  '#     effort: high',
+  '#   implement:',
+  '#     model:',
+  '#       dsh: deepseek-official/deepseek-v4-flash',
+  '#       pi: deepseek/deepseek-v4-flash',
+  '#     effort: max',
+  '#   check:',
+  '#     model: kimi-coding/k3',
+  '#     effort: high',
+  '',
+  '# executor.gate blocks direct file writes in the main session tooling.',
+  '# executor:',
+  '#   gate: true',
   '',
 ].join('\n')
 
@@ -168,6 +213,11 @@ function initWorkloomInternal(root, params) {
   if (!existsSync(configFile)) {
     writeFileSync(configFile, CONFIG_TEMPLATE)
     created.push(join(WORKLOOM_DIR, FILE_NAMES.config))
+  }
+  const configExampleFile = join(workloomDir, FILE_NAMES.configExample)
+  if (!existsSync(configExampleFile)) {
+    writeFileSync(configExampleFile, CONFIG_EXAMPLE_TEMPLATE)
+    created.push(join(WORKLOOM_DIR, FILE_NAMES.configExample))
   }
   const developerFile = join(workloomDir, FILE_NAMES.developer)
   if (!existsSync(developerFile)) {
