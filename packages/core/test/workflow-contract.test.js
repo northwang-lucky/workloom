@@ -334,3 +334,21 @@ states:
   assert.ok(err instanceof WorkflowContractError)
   assert.equal(contract, null)
 })
+
+test('norms 块自嵌套报错（未闭合的重复开 tag 不得静默吞掉首块内容）', () => {
+  const doc = `---
+version: 1
+states: []
+---
+
+[workflow-norms]
+第一块内容
+[workflow-norms]
+第二块内容
+[/workflow-norms]
+`
+  const [err, contract] = parseContract(doc)
+  assert.ok(err instanceof WorkflowContractError)
+  assert.match(err.message, /must not be nested/)
+  assert.equal(contract, null)
+})

@@ -138,6 +138,12 @@ function parseTagBlocks(bodyText) {
     const normsOpen = NORMS_OPEN_RE.exec(line)
     const normsClose = NORMS_CLOSE_RE.exec(line)
     if (normsOpen !== null) {
+      if (normsBlock !== null) {
+        throw new WorkflowContractError(
+          FIELD_TAG,
+          `line ${index + 1}: tag blocks must not be nested`,
+        )
+      }
       if (norms !== null) {
         throw new WorkflowContractError(
           FIELD_TAG,

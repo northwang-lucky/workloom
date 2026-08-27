@@ -166,6 +166,36 @@ test('mergeOverlay 只覆盖步骤正文、保留内置标题', () => {
   )
 })
 
+test('mergeOverlay 保留契约级 norms（overlay 不得覆盖）', () => {
+  const [parseErr, contract] = parseContract(`---
+version: 2
+states:
+  - planning
+---
+
+[workflow-state:planning]
+内置规划指引
+[/workflow-state:planning]
+
+[workflow-norms]
+契约级规范原文
+[/workflow-norms]
+`)
+  assert.equal(parseErr, null)
+  // overlay 无 norms 块：norms 原样透传
+  const [err1, merged1] = mergeOverlay(contract, '')
+  assert.equal(err1, null)
+  assert.equal(merged1.norms, '契约级规范原文')
+  // overlay 自带 norms 块：仍以内置契约为准，不被覆盖
+  const overlay = `[workflow-norms]
+overlay 规范
+[/workflow-norms]
+`
+  const [err2, merged2] = mergeOverlay(contract, overlay)
+  assert.equal(err2, null)
+  assert.equal(merged2.norms, '契约级规范原文')
+})
+
 test('mergeOverlay 不改原契约的 states 数组', () => {
   const contract = makeContract()
   const before = [...contract.states]
