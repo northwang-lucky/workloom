@@ -1,0 +1,31 @@
+{
+  "id": "f48f08b0-ba49-450b-8738-d4fa10cae629",
+  "name": "ask-user-design-implement",
+  "title": "design/implement 编写改为主动询问用户",
+  "description": "workflow 契约中 design.md/implement.md 的编写时机不明确（仅 1.4 括号附带提及 \"for complex tasks\"），导致 agent 写完 prd.md 后直接停在 review 门禁，不主动产出 design/implement。改进：去掉\"复杂任务\"模糊判定，改为契约规定在 prd.md 定稿后、交付 review 前主动询问用户是否编写 design.md/implement.md。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T01:18:02.259Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
