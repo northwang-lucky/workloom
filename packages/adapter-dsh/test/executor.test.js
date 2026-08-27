@@ -117,7 +117,12 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'provider prefix test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(startCalls.length, 1)
@@ -139,7 +144,12 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     await execute(
-      { kind: 'research', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'research',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'bare model test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(startCalls.length, 1)
@@ -157,7 +167,12 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     await execute(
-      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'check',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'no config test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(startCalls.length, 1)
@@ -182,7 +197,12 @@ subagents:
     // 子代理已有 header（provider/model 已固定）
     const parent = makeAgent(root)
     await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'existing header test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(appends.length, 1)
@@ -211,7 +231,12 @@ subagents:
       options: { provider: 'parent-p', model: 'parent-m' },
     })
     await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'parent fallback test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(appends.length, 1)
@@ -242,7 +267,12 @@ subagents:
       options: { provider: 'parent-p', model: 'parent-m' },
     })
     await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'cross provider test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(appends.length, 1)
@@ -267,7 +297,12 @@ subagents:
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'receipt config test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
@@ -296,7 +331,7 @@ subagents:
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      { kind: 'implement', prompt: 'test', model: 'param-provider/param-model', effort: 'max', taskPath: 'tasks/test-task' },
+      { kind: 'implement', prompt: 'test', model: 'param-provider/param-model', effort: 'max', taskPath: 'tasks/test-task', title: 'receipt param test' },
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
@@ -319,7 +354,12 @@ subagents:
     const { execute } = setupExecutor({ childWhenIdle: () => Promise.resolve() })
     const parent = makeAgent(root)
     const result = await execute(
-      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'check',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'empty output test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
@@ -338,7 +378,12 @@ test('receipt 行：无配置时显示 default 来源', async () => {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task' },
+      {
+        kind: 'check',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'default source test',
+      },
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
@@ -476,10 +521,13 @@ test('label 组装：title 传入时不依赖 readTask（task.json 损坏仍可�
   }
 })
 
-test('参数面：title schema 描述引用 PARAM_DESCRIPTIONS.titleExecutor', () => {
+test('参数面：title schema 必填（required + minLength 1）且描述引用 titleExecutor', () => {
   const { registered } = setupExecutor()
-  const props = registered[0].parameters.properties
+  const params = registered[0].parameters
+  const props = params.properties
+  assert.ok(params.required.includes('title'), 'title must be in required')
   assert.equal(props.title.type, 'string')
+  assert.equal(props.title.minLength, 1)
   assert.equal(props.title.description, PARAM_DESCRIPTIONS.titleExecutor)
 })
 
@@ -507,6 +555,7 @@ subagents:
         kind: 'implement',
         prompt: 'test',
         taskPath: 'tasks/test-task',
+        title: 'conflict no force test',
         model: 'deepseek-official/deepseek-v4-pro',
         effort: 'low',
       },
@@ -538,6 +587,7 @@ subagents:
           kind: 'implement',
           prompt: 'test',
           taskPath: 'tasks/test-task',
+          title: 'conflict force test',
           model: 'deepseek-official/deepseek-v4-pro',
           force: true,
         },
@@ -566,6 +616,7 @@ subagents:
         kind: 'implement',
         prompt: 'test',
         taskPath: 'tasks/test-task',
+        title: 'conflict forced test',
         model: 'deepseek-official/deepseek-v4-pro',
         effort: 'low',
         force: true,
@@ -605,6 +656,7 @@ subagents:
         kind: 'implement',
         prompt: 'test',
         taskPath: 'tasks/test-task',
+        title: 'no conflict test',
         model: 'deepseek-official/deepseek-v4-flash',
         effort: 'high',
       },

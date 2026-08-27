@@ -17,9 +17,9 @@
  * - model 字符串支持 "provider/model" 前缀形式：拆分后 provider 一并传给子代理
  *   agentOptions，跨 provider 派发才不会报 UNKNOWN_MODEL；裸 id 按父 provider 解析；
  * - 子会话标题语义化：label 为 `[<KindLabel>] <title>`（title 是 main 会话传入的
- *   语义部分，executor 只组装前缀；缺省回退 task title，仍缺失/空白回退
- *   workloom-<kind>），title 完整不截断（截断交给 UI），便于会话列表一眼分辨
- *   派发角色与任务；
+ *   语义部分且 schema 必填非空，executor 只组装前缀；回退仅作纯函数防御，
+ *   仍缺失/空白回退 task title，再退 workloom-<kind>），title 完整不截断（截断
+ *   交给 UI），便于会话列表一眼分辨派发角色与任务；
  * - 冲突中断：显式 model/effort 与 subagents 配置不一致时，无 force 直接返回
  *   buildConflictNotice 提示文本不派发；force: true 须带非空 reason 留痕（写入
  *   task.json overrides），放行后 receipt 追加 (forced) 标注便于审计；
@@ -83,7 +83,7 @@ interface TextBlockLike {
   text: string
 }
 
-/** 工具参数最小形状（execute 入参）。 */
+/** 工具参数最小形状（execute 入参；title 由 schema 保证必填非空）。 */
 interface ExecutorArgs {
   kind: string
   taskPath?: string
@@ -91,7 +91,7 @@ interface ExecutorArgs {
   effort?: string
   force?: boolean
   reason?: string
-  title?: string
+  title: string
   prompt: string
 }
 
@@ -215,6 +215,7 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
         },
         title: {
           type: 'string',
+          minLength: 1,
           description: PARAM_DESCRIPTIONS.titleExecutor,
         },
         prompt: {
@@ -222,7 +223,7 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
           description: PARAM_DESCRIPTIONS.prompt,
         },
       },
-      required: ['kind', 'prompt'],
+      required: ['kind', 'prompt', 'title'],
       additionalProperties: false,
     },
     output: {
@@ -372,7 +373,7 @@ async function executeTool(
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param kind executor 类型（research/implement/check）
- * @param title 模型传入的语义标题（可选；空白等价缺省）
+ * @param title 模型传入的语义标题（schema 必填非空；可选类型仅作纯函数防御回退）
  * @returns 子会话标题
  */
 function buildChildLabel(root: string, taskRelPath: string, kind: string, title?: string): string {
