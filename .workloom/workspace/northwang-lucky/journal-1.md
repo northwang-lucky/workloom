@@ -22,3 +22,9 @@
 - Commit: 30253b0
 - Summary: 复盘 DSH 会话 session-f98c8040 跳过 workloom 流程的根因（软约束无硬卡点），落地 task_start/task_archive 流程硬卡点：新增 task-gates 模块与 workloom_task_check 凭据工具、force/overrides 豁免留痕、两 adapter 注册、workflow 契约同步（core a8fe374 / adapter 8b55eff / 契约 b74c9a8 / 交付物 30253b0）；全程走通 1.1 对齐（brainstorm+grilling）→1.3 配置→1.4 评审→2.1 TDD 实现→2.2 check→2.3 提交→3.1 归档。另发现 after_archive 空指针为旧部署版本问题，仓库已修复。
 
+## design/implement 编写改为主动询问用户
+
+- Time: 2026-08-27T03:23:56.075Z
+- Commit: 88d6e20
+- Summary: workflow 契约 1.4 改为 prd 定稿后主动询问用户是否编写 design/implement（两选项捆绑），去掉 "for complex tasks" 模糊判定；completion criteria 与 planning 面包屑同步；构建产物已 rsync 到 DSH web profile（未重启 dshweb）。
+
