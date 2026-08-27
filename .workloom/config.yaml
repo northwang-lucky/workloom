@@ -25,16 +25,13 @@ packages:
 # loudly instead of silently using the wrong model. Per-machine overrides go into
 # config.local.yaml (gitignored), deep-merged over config.yaml: maps merge key by
 # key, other values are replaced. See config.example.yaml for the map form.
-subagents:
-  research:
-    model: deepseek-official/deepseek-v4-flash-vision-exp
-    effort: high
-  implement:
-    model: deepseek-official/deepseek-v4-flash-vision-exp
-    effort: max
-  check:
-    model: qwen-token-plan-cn/qwen3.8-max
-    effort: medium
+# subagents:
+#   research:
+#     model: deepseek-v4-flash
+#     effort: high
+#   implement:
+#     model: deepseek-v4-pro
+#     effort: high
 
 # executor.gate (default true) blocks the main session's direct write/edit of files
 # outside .workloom/ while a task is in_progress, forcing implementation changes
