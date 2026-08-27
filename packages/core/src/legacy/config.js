@@ -7,7 +7,9 @@
  * - 未知字段容错忽略（如 channel/codex 等历史平台特定字段），向前兼容；
  * - config.local.yaml 为本地覆盖层：存在时深合并覆盖 config.yaml
  *   （map 按 key 递归合并，数组/标量整体替换）；
- * - 逃生舱关键词为 no-workloom。
+ * - 逃生舱关键词为 no-workloom；
+ * - executor 派发参数与 subagents 配置的冲突检测与 force 校验
+ *   （detectExecutorConflicts/assertForceReason），提示文案 buildConflictNotice。
  */
 
 import { readFileSync } from 'node:fs'
@@ -358,6 +360,94 @@ export function splitProviderModel(model) {
     throw new Error(`splitProviderModel: malformed "provider/model" identifier: ${model}`)
   }
   return { provider, model: rest }
+}
+
+/** 错误消息前缀（executor 派发参数与配置冲突，运行时文案英文）。 */
+const ERR_PREFIX = 'workloom executor'
+
+/**
+ * 检测显式 executor 参数与 subagents 配置的冲突（纯函数，不修改入参）。
+ *
+ * 设计意图：
+ * - 配置限定了某 kind 的 model/effort 时，工具显式传参与配置不一致等于静默
+ *   绕过用户配置，需中断提示（force 放行须留痕审计）；
+ * - 归一化比较：model 拆 provider/model 后各自相等才算一致；裸 id 与带前缀
+ *   id 因 provider 一侧缺失视为冲突（跨 provider 派发语义不同）；
+ * - model 的 map 形式按 runtime 解析取值（缺 key 走 resolveSubagentDefaults
+ *   的 fail loud）；model/effort 独立判定，配置未限定的字段不触发。
+ * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
+ * @param {string} kind executor 类型（research/implement/check）
+ * @param {{model?: string, effort?: string}} overrides 工具显式参数
+ * @param {string | undefined} runtime 当前 runtime 名（model 为 map 形式时必填）
+ * @returns {import('./config.d.ts').ExecutorConflict[]} 冲突清单（空数组表示无冲突）
+ */
+export function detectExecutorConflicts(config, kind, overrides, runtime) {
+  const entry = config.subagents[kind]
+  if (entry === undefined) return []
+  /** @type {import('./config.d.ts').ExecutorConflict[]} */
+  const conflicts = []
+  if (overrides.model !== undefined) {
+    // map 形式按 runtime 解析（缺 key 抛错，fail loud 语义同 resolveSubagentDefaults）。
+    const configured = resolveSubagentDefaults(config, kind, {}, runtime).model
+    if (configured !== undefined && !sameProviderModel(configured, overrides.model)) {
+      conflicts.push({ field: 'model', configured, passed: overrides.model })
+    }
+  }
+  if (
+    overrides.effort !== undefined &&
+    entry.effort !== undefined &&
+    entry.effort !== overrides.effort
+  ) {
+    conflicts.push({ field: 'effort', configured: entry.effort, passed: overrides.effort })
+  }
+  return conflicts
+}
+
+/**
+ * 归一化比较两个 model（内部）：各自拆 provider/model 后两段分别相等才算一致；
+ * 裸 id（provider undefined）只匹配裸 id（undefined provider 仅匹配 undefined）。
+ * @param {string} configured 配置侧 model
+ * @param {string} passed 工具显式传入 model
+ * @returns {boolean}
+ */
+function sameProviderModel(configured, passed) {
+  const left = splitProviderModel(configured)
+  const right = splitProviderModel(passed)
+  return left.provider === right.provider && left.model === right.model
+}
+
+/**
+ * 组装冲突中断提示（英文运行时文案）：adapter 检测到冲突且未 force 时返回该
+ * 文本、不派发；含该 kind 的配置值、传入值与 force+reason 用法。
+ * @param {string} kind executor 类型（research/implement/check）
+ * @param {import('./config.d.ts').ExecutorConflict[]} conflicts 冲突清单（非空）
+ * @returns {string} 提示文本
+ */
+export function buildConflictNotice(kind, conflicts) {
+  return [
+    `${ERR_PREFIX}: explicit parameters conflict with subagents.${kind} config:`,
+    ...conflicts.map(
+      (conflict) =>
+        `- ${conflict.field}: config "${conflict.configured}", passed "${conflict.passed}"`,
+    ),
+    'Pass force: true with a non-empty reason to override the config; the override is recorded in task.json overrides.',
+  ].join('\n')
+}
+
+/**
+ * 校验 force 覆盖参数：force 非 true 一律放行（非布尔按 false 处理，工具 schema
+ * 已约束，此处仅防御）；force 为 true 时 reason 必须是非空字符串（覆盖须留痕，
+ * 审计不可缺失），否则抛错。
+ * @param {unknown} force 是否强制覆盖
+ * @param {unknown} reason 覆盖原因
+ */
+export function assertForceReason(force, reason) {
+  if (force !== true) return
+  if (typeof reason !== 'string' || reason.trim() === '') {
+    throw new Error(
+      `${ERR_PREFIX}: force: true requires a non-empty reason (the override is recorded in task.json overrides)`,
+    )
+  }
 }
 
 /** @param {string} field @param {unknown} value @returns {string} */

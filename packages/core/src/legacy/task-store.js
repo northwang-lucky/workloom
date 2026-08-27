@@ -551,6 +551,37 @@ function checkTaskInternal(root, params) {
 }
 
 /**
+ * 记录 executor 参数覆盖（adapter 在 force 放行后调用）：向 task.json overrides
+ * 追加 EXECUTOR_MODEL_EFFORT 条目（gate/tool/at/reason?，空串不记）。
+ * 记录失败只返回 err（调用方 WARNING 不阻塞派发），不涉及状态迁移与 hooks。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {string | undefined} reason 覆盖原因（审计用）
+ * @returns {[Error | null]}
+ */
+export function recordExecutorOverride(root, taskRelPath, reason) {
+  try {
+    recordExecutorOverrideInternal(root, taskRelPath, reason)
+    return [null]
+  } catch (error) {
+    return [toError(error)]
+  }
+}
+
+/**
+ * 记录 executor 参数覆盖（内部实现，失败抛错由外层转元组）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {string | undefined} reason 覆盖原因
+ */
+function recordExecutorOverrideInternal(root, taskRelPath, reason) {
+  const projectRoot = requireProjectRoot(root)
+  const task = requireTask(projectRoot, taskRelPath)
+  task.overrides.push(makeOverride(GATES.EXECUTOR_MODEL_EFFORT, reason))
+  writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task))
+}
+
+/**
  * 结束任务会话：清指针（若该 contextKey 指向本任务）并执行 after_finish hooks；不改状态。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').FinishTaskParams} params

@@ -3,10 +3,10 @@
 import type { GateOverride } from './task-store.d.ts'
 
 /** 卡点枚举键。 */
-export type GateKey = 'START' | 'CHECK' | 'ARCHIVE'
+export type GateKey = 'START' | 'CHECK' | 'ARCHIVE' | 'EXECUTOR_MODEL_EFFORT'
 
 /** 卡点取值（task.json overrides[].gate）。 */
-export type GateValue = 'start' | 'check' | 'archive'
+export type GateValue = 'start' | 'check' | 'archive' | 'executor_model_effort'
 
 /** 卡点枚举常量对象。 */
 export const GATES: Readonly<Record<GateKey, GateValue>>

@@ -161,6 +161,13 @@ export function checkTask(
   params: CheckTaskParams,
 ): [Error | null, TaskRecordWithPath | null]
 
+/** 记录 executor 参数覆盖（force 放行后调用）：向 overrides 追加 EXECUTOR_MODEL_EFFORT 条目。 */
+export function recordExecutorOverride(
+  root: string,
+  taskRelPath: string,
+  reason?: string,
+): [Error | null]
+
 /** 结束任务会话（清指针，不改状态）。 */
 export function finishTask(root: string, params: FinishTaskParams): Promise<[Error | null]>
 

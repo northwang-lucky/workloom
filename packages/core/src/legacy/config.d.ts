@@ -79,3 +79,30 @@ export function resolveSubagentDefaults(
  * （语义 = 按父会话 provider 解析）。
  */
 export function splitProviderModel(model: string): { provider?: string; model: string }
+
+/** executor 参数与 subagents 配置的冲突条目（detectExecutorConflicts 返回元素）。 */
+export interface ExecutorConflict {
+  /** 冲突字段（model/effort，独立判定）。 */
+  field: 'model' | 'effort'
+  /** 配置侧生效值（map 形式已按 runtime 解析）。 */
+  configured: string
+  /** 工具显式传入值。 */
+  passed: string
+}
+
+/**
+ * 检测显式 executor 参数与 subagents 配置的冲突：仅 kind 有条目且该字段显式
+ * 传入时比较；model 归一化（provider/model 各自相等）比较；无冲突返回空数组。
+ */
+export function detectExecutorConflicts(
+  config: WorkloomConfig,
+  kind: string,
+  overrides: { model?: string; effort?: string },
+  runtime?: string,
+): ExecutorConflict[]
+
+/** 组装冲突中断提示（英文运行时文案，含配置值/传入值与 force+reason 引导）。 */
+export function buildConflictNotice(kind: string, conflicts: ExecutorConflict[]): string
+
+/** 校验 force 覆盖参数：force 为 true 时 reason 必须是非空字符串，否则抛错。 */
+export function assertForceReason(force: unknown, reason: unknown): void
