@@ -350,7 +350,7 @@ test('receipt 行：无配置时显示 default 来源', async () => {
   }
 })
 
-test('label 组装：三种 kind 均为 [Workloom <KindLabel>] <task title>', async () => {
+test('label 组装：三种 kind 均为 [<KindLabel>] <task title>（title 缺省回退）', async () => {
   const root = makeProject('')
   try {
     const { execute, startCalls } = setupExecutor()
@@ -365,7 +365,7 @@ test('label 组装：三种 kind 均为 [Workloom <KindLabel>] <task title>', as
         { kind, prompt: 'test', taskPath: 'tasks/test-task' },
         { agent: parent, signal: new AbortController().signal },
       )
-      assert.equal(startCalls[startCalls.length - 1].label, `[Workloom ${kindLabel}] Test`)
+      assert.equal(startCalls[startCalls.length - 1].label, `[${kindLabel}] Test`)
     }
     assert.equal(startCalls.length, 3)
   } finally {
@@ -373,7 +373,7 @@ test('label 组装：三种 kind 均为 [Workloom <KindLabel>] <task title>', as
   }
 })
 
-test('label 回退：title 空白时回退 workloom <kind>', async () => {
+test('label 回退：task title 空白时回退 workloom-<kind>（连字符）', async () => {
   const root = makeProject('')
   try {
     writeFileSync(
@@ -386,13 +386,13 @@ test('label 回退：title 空白时回退 workloom <kind>', async () => {
       { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(startCalls[0].label, 'workloom implement')
+    assert.equal(startCalls[0].label, 'workloom-implement')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('label 回退：readTask 失败时回退 workloom <kind>', async () => {
+test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', async () => {
   const root = makeProject('')
   try {
     // task.json 损坏：readTask 报错，但 buildExecutorPrompt 只读 md/jsonl，不受影响。
@@ -403,10 +403,84 @@ test('label 回退：readTask 失败时回退 workloom <kind>', async () => {
       { kind: 'research', prompt: 'test', taskPath: 'tasks/test-task' },
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(startCalls[0].label, 'workloom research')
+    assert.equal(startCalls[0].label, 'workloom-research')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('label 组装：title 传入时三种 kind 均为 [<KindLabel>] <title>', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const cases = [
+      ['research', 'Research'],
+      ['implement', 'Implement'],
+      ['check', 'Check'],
+    ]
+    for (const [kind, kindLabel] of cases) {
+      await execute(
+        {
+          kind,
+          prompt: 'test',
+          taskPath: 'tasks/test-task',
+          title: 'fix executor label prefix',
+        },
+        { agent: parent, signal: new AbortController().signal },
+      )
+      assert.equal(
+        startCalls[startCalls.length - 1].label,
+        `[${kindLabel}] fix executor label prefix`,
+      )
+    }
+    assert.equal(startCalls.length, 3)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('label 回退：title 为空白字符串时走缺省 task title 路径', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: '   ' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls[0].label, '[Implement] Test')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('label 组装：title 传入时不依赖 readTask（task.json 损坏仍可用）', async () => {
+  const root = makeProject('')
+  try {
+    writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), '{ not json')
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'semantic title wins',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls[0].label, '[Implement] semantic title wins')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('参数面：title schema 描述引用 PARAM_DESCRIPTIONS.titleExecutor', () => {
+  const { registered } = setupExecutor()
+  const props = registered[0].parameters.properties
+  assert.equal(props.title.type, 'string')
+  assert.equal(props.title.description, PARAM_DESCRIPTIONS.titleExecutor)
 })
 
 test('参数面：force/reason schema 描述引用 PARAM_DESCRIPTIONS', () => {
