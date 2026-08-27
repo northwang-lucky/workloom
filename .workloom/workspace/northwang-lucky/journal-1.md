@@ -58,3 +58,9 @@
 - Commit: 534c706
 - Summary: workloom_execute 的 title 参数改为必填（两 adapter required + minLength 1），杜绝派发方不传导致子会话标题雷同
 
+## always-on 行为规范注入会话上下文快照
+
+- Time: 2026-08-27T12:42:13.293Z
+- Commit: 414a3a6
+- Summary: 契约新增 [workflow-norms] always-on 规范块并注入每轮重组装的会话上下文快照（两 runtime 共享 core 链路），契约升级后下一轮自动生效
+

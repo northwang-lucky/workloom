@@ -1,0 +1,36 @@
+{
+  "id": "cdcef4f3-2037-490d-9dbe-d57bea050fd1",
+  "name": "always-on-norms-injection",
+  "title": "always-on 行为规范注入会话上下文快照",
+  "description": "契约升级后进行中的会话感知不到新规则（session-140627ca 实证：v3 提问规范上线后仍按旧契约用 ask_user_question）。方案 B：把极少数 always-on 行为规范从 step 正文挪进 session-context 取代式快照（每轮重新组装），契约升级后下一轮自动生效；步骤正文仍走 workloom_step 按需拉取。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T12:07:44.876Z",
+  "completedAt": "2026-08-27T12:42:13.291Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-27T12:42:00.163Z",
+    "summary": "五条验收标准逐项通过；check 期间发现并修复 1 个真实缺陷（norms 块自嵌套静默吞内容，加嵌套守卫 fail loud），另补 3 组绿锁测试；全量验证全绿（lint/typecheck/build、core 264、adapter-dsh 47、adapter-pi 37）；dist 与 assets 已同步进 profile。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
