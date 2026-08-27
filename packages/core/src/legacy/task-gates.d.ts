@@ -23,6 +23,9 @@ export interface PrdSection {
 /** prd.md 骨架小节常量（顺序即文档顺序）。 */
 export const PRD_SECTIONS: readonly PrdSection[]
 
+/** 判定 prd.md 是否缺一级标题（H1）：缺失返回缺失文案，通过返回 null。 */
+export function findMissingPrdTitle(prdContent: string): string | null
+
 /** 找出仍为 placeholder 的 prd 小节标题列表（缺失小节视为未填）。 */
 export function findUnfilledPrdSections(prdContent: string): string[]
 

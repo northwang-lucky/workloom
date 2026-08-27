@@ -317,12 +317,14 @@ function buildTaskRecord(input) {
 }
 
 /**
- * 生成 prd.md 骨架内容。
+ * 生成 prd.md 骨架内容：以 `# <任务 title>` 一级标题开头，后接既有小节顺序。
  * 骨架常量 PRD_SECTIONS 在 task-gates.js（placeholder 判定与骨架生成共享）。
+ * @param {string} title 任务标题（prd 首行 H1）
  * @returns {string}
  */
-function buildPrdContent() {
+function buildPrdContent(title) {
   return (
+    `# ${title}\n\n` +
     PRD_SECTIONS.map((section) => `## ${section.heading}\n\n${section.placeholder}`).join('\n\n') +
     '\n'
   )
@@ -422,7 +424,7 @@ async function createTaskInternal(root, params) {
   const task = buildTaskRecord({ params, slug, creator, config, now: now.toISOString() })
   mkdirSync(taskDir, { recursive: true })
   writeTaskJson(taskDir, task)
-  writeFileSync(join(taskDir, FILE_NAMES.prd), buildPrdContent())
+  writeFileSync(join(taskDir, FILE_NAMES.prd), buildPrdContent(task.title))
   writeFileSync(join(taskDir, FILE_NAMES.implementLog), `${LOG_SEEDS.implement}\n`)
   writeFileSync(join(taskDir, FILE_NAMES.checkLog), `${LOG_SEEDS.check}\n`)
   if (params.contextKey !== undefined) {

@@ -85,8 +85,9 @@ test('createTask 创建完整布局与默认字段', async () => {
       after_finish: [],
       after_archive: [],
     })
-    // prd.md 骨架
+    // prd.md 骨架：首行 H1 为任务标题，后接四小节
     const prd = readFileSync(join(root, '.workloom', result.taskRelPath, 'prd.md'), 'utf8')
+    assert.match(prd, /^# Hello World!\n\n/)
     for (const heading of ['## Goal', '## Requirements', '## Acceptance Criteria', '## Notes']) {
       assert.ok(prd.includes(heading))
     }
@@ -549,11 +550,11 @@ test('hooks 仅含部分事件时补齐其余空数组', async () => {
   }
 })
 
-/** 填满 prd 四小节（脱离 placeholder）。 */
+/** 填满 prd 四小节（脱离 placeholder，首行带 H1）。 */
 function writeFilledPrd(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'prd.md'),
-    '## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
   )
 }
 
@@ -629,6 +630,31 @@ test('start 门禁：force 放行并记录 overrides（含 reason）', async () 
     assert.equal(overrides[0].tool, 'workloom_task_start')
     assert.equal(overrides[0].reason, 'hotfix, no spec to reference')
     assert.ok(!Number.isNaN(Date.parse(overrides[0].at)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：prd 无一级标题（H1）被拒绝，补上后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated H1' })
+    // 填满小节但首行不是 H1：门禁必须拒绝
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'prd.md'),
+      '## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+    )
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err1)
+    assert.match(err1.message, /prd\.md missing H1 title/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // 首行补上 H1 后放行
+    writeFilledPrd(root, created.taskRelPath)
+    const [err2, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err2, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

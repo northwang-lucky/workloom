@@ -1,3 +1,5 @@
+# 添加对 opencode 的 adapter
+
 ## Goal
 
 为 workloom 新增 `@workloom-ai/adapter-opencode`：以 opencode（anomalyco/opencode，npm `opencode-ai`）插件形态承接 core 逻辑与 assets 内容，对标 adapter-pi 的 init、命令、任务工具、executor、会话注入、journal 能力。

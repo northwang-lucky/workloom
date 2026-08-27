@@ -6,6 +6,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  findMissingPrdTitle,
   findUnfilledPrdSections,
   countEffectiveJsonlRecords,
 } from '../src/legacy/task-gates.js'
@@ -35,6 +36,24 @@ test('骨架 prd 四小节全部判定为未填', () => {
     'Acceptance Criteria',
     'Notes',
   ])
+})
+
+test('findMissingPrdTitle：首行无 H1 判缺失', () => {
+  // 空文件与以二级标题开头均判缺失
+  assert.equal(findMissingPrdTitle(''), 'prd.md missing H1 title')
+  const missing = SKELETON_PRD
+  assert.equal(findMissingPrdTitle(missing), 'prd.md missing H1 title')
+  // 裸 `#`（无标题文本）与首行为其他正文也判缺失
+  assert.equal(findMissingPrdTitle('#\n'), 'prd.md missing H1 title')
+  assert.equal(findMissingPrdTitle('text first\n'), 'prd.md missing H1 title')
+})
+
+test('findMissingPrdTitle：首行为 H1（允许前导空行）判通过', () => {
+  const withTitle = `# Ship the gate
+
+${SKELETON_PRD}`
+  assert.equal(findMissingPrdTitle(withTitle), null)
+  assert.equal(findMissingPrdTitle(`\n\n${withTitle}`), null)
 })
 
 test('四小节全部填写后无未填项', () => {

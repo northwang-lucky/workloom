@@ -21,11 +21,11 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
-test('契约 v6 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
+test('契约 v8 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 6)
-  assert.ok(contract.norms !== null, 'v6 契约必须含 norms 块')
+  assert.equal(contract.version, 8)
+  assert.ok(contract.norms !== null, 'v8 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
   assert.match(contract.norms, /Dispatch \(always-on\):/)
@@ -47,6 +47,44 @@ test('契约 v6 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(contract.norms.includes(dispatchRule), 'norms 缺派发硬约束')
   assert.ok(implementBody.includes(dispatchRule), '2.1 正文缺派发硬约束')
+})
+
+test('契约 v8 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  // 1.0 步骤正文：推荐建任务，用户确认后才创建
+  const createBody = contract.steps.find((step) => step.id === '1.0').body
+  assert.ok(
+    createBody.includes('recommend whether it warrants a task'),
+    '1.0 正文缺「推荐建任务」措辞',
+  )
+  assert.ok(
+    createBody.includes('only after the user confirms'),
+    '1.0 正文缺「用户确认后才创建」措辞',
+  )
+  // no_task 状态指引：纯问答豁免 + 用户确认后才创建
+  const noTaskBreadcrumb = contract.breadcrumbs.get('no_task')
+  assert.ok(
+    noTaskBreadcrumb.includes('answer direct questions outright'),
+    'no_task 缺纯问答豁免措辞',
+  )
+  assert.ok(
+    noTaskBreadcrumb.includes('only after the user confirms'),
+    'no_task 缺「用户确认后才创建」措辞',
+  )
+  // completed 状态指引：新任务同样需要推荐 + 用户确认
+  const completedBreadcrumb = contract.breadcrumbs.get('completed')
+  assert.ok(
+    completedBreadcrumb.includes('recommend whether a new task is warranted'),
+    'completed 缺「推荐新任务」措辞',
+  )
+  assert.ok(
+    completedBreadcrumb.includes('only after the user confirms'),
+    'completed 缺「用户确认后才创建」措辞',
+  )
+  // 1.4 正文：start 门禁要求 prd.md 以一级标题开头
+  const reviewBody = contract.steps.find((step) => step.id === '1.4').body
+  assert.ok(reviewBody.includes('prd.md has no H1 title'), '1.4 正文缺 H1 门禁措辞')
 })
 
 test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {
