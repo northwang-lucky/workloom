@@ -3,10 +3,10 @@
  * 暴露为模型可调工具；参数一律标准 JSON Schema（宿主原样转发 API）。
  *
  * 设计意图：
- * - 五个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
+ * - 六个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
  *   core task-ops，本文件只做宿主投影：从执行上下文提取 cwd/agentId 组装
  *   contextKey，把工具返回投影为 plain object；
- * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与下沉前逐字一致。
+ * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -14,6 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import {
   ERR_PREFIX,
   executeArchiveTask,
+  executeCheckTask,
   executeCreateTask,
   executeFinishTask,
   executeListTasks,
@@ -53,7 +54,7 @@ interface TextBlockLike {
 }
 
 /**
- * 注册五个任务管理工具（create/start/finish/archive/list）。
+ * 注册六个任务管理工具（create/start/check/finish/archive/list）。
  * @param ctx 插件作用域上下文
  */
 export function registerTaskTools(ctx: Context & TaskToolsServices): void {
@@ -85,6 +86,8 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
       type: 'object',
       properties: {
         taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+        force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
+        reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
       },
       required: [],
       additionalProperties: false,
@@ -92,6 +95,25 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
     output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
     isConcurrencySafe: () => true,
     execute: (args, exec) => startTaskTool(args, exec),
+  })
+
+  tools.register({
+    name: TOOL_NAMES.taskCheck,
+    description: TOOL_DESCRIPTIONS.taskCheck,
+    parameters: {
+      type: 'object',
+      properties: {
+        summary: { type: 'string', description: PARAM_DESCRIPTIONS.summary },
+        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+        force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
+        reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
+      },
+      required: ['summary'],
+      additionalProperties: false,
+    },
+    output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+    isConcurrencySafe: () => true,
+    execute: (args, exec) => checkTaskTool(args, exec),
   })
 
   tools.register({
@@ -118,6 +140,8 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
       properties: {
         taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
         autoCommit: { type: 'boolean', description: PARAM_DESCRIPTIONS.autoCommit },
+        force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
+        reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
       },
       required: [],
       additionalProperties: false,
@@ -160,6 +184,18 @@ function taskPathOf(args: Record<string, unknown>): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
+/** 提取可选布尔参数（非布尔按未指定处理）。 */
+function boolOf(args: Record<string, unknown>, key: string): boolean | undefined {
+  const value = args[key]
+  return typeof value === 'boolean' ? value : undefined
+}
+
+/** 提取可选字符串参数（非字符串按未指定处理）。 */
+function stringOf(args: Record<string, unknown>, key: string): string | undefined {
+  const value = args[key]
+  return typeof value === 'string' ? value : undefined
+}
+
 /** create 工具：创建任务并设为当前会话活跃任务（编排下沉 core）。 */
 async function createTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   const typed = args as Record<string, unknown>
@@ -180,9 +216,29 @@ async function createTaskTool(args: unknown, exec: unknown): Promise<unknown> {
 async function startTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
-  const [err, task] = await executeStartTask(cwd, contextKeyOf(exec), taskPathOf(typed))
+  const [err, task] = await executeStartTask(cwd, contextKeyOf(exec), {
+    taskPath: taskPathOf(typed),
+    force: boolOf(typed, 'force'),
+    reason: stringOf(typed, 'reason'),
+  })
   if (err !== null || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: start returned no result`)
+  }
+  return { taskRelPath: task.taskRelPath, task }
+}
+
+/** check 工具：记录 2.2 check 通过凭据（写 task.json check 字段）。 */
+async function checkTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+  const typed = args as Record<string, unknown>
+  const cwd = cwdOf(exec)
+  const [err, task] = await executeCheckTask(cwd, contextKeyOf(exec), {
+    summary: String(typed.summary ?? ''),
+    taskPath: taskPathOf(typed),
+    force: boolOf(typed, 'force'),
+    reason: stringOf(typed, 'reason'),
+  })
+  if (err !== null || task === null) {
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: check returned no result`)
   }
   return { taskRelPath: task.taskRelPath, task }
 }
@@ -202,12 +258,12 @@ async function finishTaskTool(args: unknown, exec: unknown): Promise<unknown> {
 async function archiveTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
-  const [err, result] = await executeArchiveTask(
-    cwd,
-    contextKeyOf(exec),
-    taskPathOf(typed),
-    typeof typed.autoCommit === 'boolean' ? typed.autoCommit : undefined,
-  )
+  const [err, result] = await executeArchiveTask(cwd, contextKeyOf(exec), {
+    taskPath: taskPathOf(typed),
+    autoCommit: boolOf(typed, 'autoCommit'),
+    force: boolOf(typed, 'force'),
+    reason: stringOf(typed, 'reason'),
+  })
   if (err !== null || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`)
   }
