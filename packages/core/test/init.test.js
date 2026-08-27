@@ -45,7 +45,7 @@ test('未命中时生成完整骨架', () => {
   }
 })
 
-test('.gitignore 模板含 .runtime/ 与 .developer 忽略条目', () => {
+test('.gitignore 模板含 .runtime/、.developer 与 config.local.yaml 忽略条目', () => {
   const root = makeRoot()
   try {
     const [err] = initWorkloom(root)
@@ -53,6 +53,7 @@ test('.gitignore 模板含 .runtime/ 与 .developer 忽略条目', () => {
     const content = readFileSync(join(root, '.workloom', '.gitignore'), 'utf8')
     assert.ok(content.includes('.runtime/'), 'missing .runtime/ entry')
     assert.ok(content.includes('.developer'), 'missing .developer entry')
+    assert.ok(content.includes('config.local.yaml'), 'missing config.local.yaml entry')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

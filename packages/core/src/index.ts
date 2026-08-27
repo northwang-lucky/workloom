@@ -119,6 +119,7 @@ export {
   COMMAND_FAILURE_ACK,
   buildErrorRelayText,
   buildSuccessRelayText,
+  buildExecutorReceipt,
   TASK_ARCHIVE_NOTE,
 } from './surface.js'
 
