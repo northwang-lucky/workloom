@@ -65,7 +65,8 @@ export const TOOL_SNIPPETS = {
   taskArchive:
     'workloom_task_archive(taskPath?, autoCommit?, force?, reason?) — archive the completed task',
   taskList: 'workloom_task_list(status?) — list task summaries',
-  executor: 'workloom_execute(kind, prompt, taskPath?, model?, effort?) — dispatch an executor',
+  executor:
+    'workloom_execute(kind, prompt, taskPath?, model?, effort?, force?, reason?) — dispatch an executor',
   step: 'workloom_step(stepId) — show one workflow step body',
   journal: 'workloom_journal(title, commit?, summary?) — record the session journal',
 } as const
@@ -86,6 +87,11 @@ export const PARAM_DESCRIPTIONS = {
   summary: 'Summary of the passed check (what was verified)',
   force: 'Bypass the workflow gate; the override is recorded in task.json for audit',
   reason: 'Optional reason for a force override (recorded for audit)',
+  /** executor 工具的 force 参数（语义：覆盖与配置冲突的 model/effort，reason 必填）。 */
+  forceExecutor:
+    'Override a conflicting executor model/effort config; requires a non-empty reason (recorded in task.json overrides)',
+  /** executor 工具的 reason 参数（force 为 true 时必填）。 */
+  reasonExecutor: 'Required non-empty reason when force is true (recorded for audit)',
   kind: 'Executor role: research, implement, or check',
   model:
     'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to subagents.<kind>.model, then the parent session model',

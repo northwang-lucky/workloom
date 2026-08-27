@@ -19,6 +19,9 @@ export {
   DEFAULT_CONFIG,
   resolveSubagentDefaults,
   splitProviderModel,
+  detectExecutorConflicts,
+  buildConflictNotice,
+  assertForceReason,
   WorkloomConfigError,
   loadConfig,
 } from './legacy/config.js'
@@ -51,6 +54,7 @@ export {
   listTasks,
   readTask,
   runTaskHooks,
+  recordExecutorOverride,
 } from './legacy/task-store.js'
 
 export {
@@ -128,6 +132,7 @@ export type {
   SubagentConfigEntry,
   SubagentDefaultSource,
   ResolveSubagentDefaultsResult,
+  ExecutorConflict,
 } from './legacy/config.d.ts'
 
 export type {

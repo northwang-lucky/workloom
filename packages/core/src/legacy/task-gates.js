@@ -33,6 +33,8 @@ export const GATES = Object.freeze({
   START: 'start',
   CHECK: 'check',
   ARCHIVE: 'archive',
+  // executor 参数与 subagents 配置冲突的 force 覆盖（override 审计门）。
+  EXECUTOR_MODEL_EFFORT: 'executor_model_effort',
 })
 
 /**
@@ -44,6 +46,8 @@ export const GATE_TOOLS = Object.freeze({
   start: 'workloom_task_start',
   check: 'workloom_task_check',
   archive: 'workloom_task_archive',
+  // 与 surface.TOOL_NAMES.executor 一致（legacy 纯 JS 不可 import TS，按既有风格逐字重复）。
+  executor_model_effort: 'workloom_execute',
 })
 
 /**
