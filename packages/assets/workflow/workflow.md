@@ -1,5 +1,5 @@
 ---
-version: 5
+version: 6
 states:
   - no_task
   - planning
@@ -101,3 +101,16 @@ The task is in progress. Follow Phase 2: implement → check → commit. Subagen
 [workflow-state:completed]
 The task is archived. When the user asks for more, judge whether a new task is warranted (follow 1.0); do not modify tasks under the archive directory. If this session is wrapping up and no journal entry has been recorded yet, run the `/workloom-finish` command to record it.
 [/workflow-state:completed]
+
+[workflow-norms]
+Questioning (always-on):
+
+1. Ask in the user's language; you judge which language that is from how the user writes.
+2. Keep the options out of the question text: the question states only what is being asked, and the options follow as a separate numbered list.
+3. Never use an interactive question tool (ask_user_question and equivalents); pose questions as plain text output on any runtime.
+4. Never ask one question at a time: once per stage, list every open question identified so far as one numbered batch, and let the user answer them freely, in any order and any subset.
+
+Dispatch (always-on):
+
+- Hard constraint: the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
+[/workflow-norms]
