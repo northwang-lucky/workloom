@@ -118,5 +118,46 @@ export const DEVELOPER_FILE = '.developer'
 export const ASSET_COMMAND_CONTINUE = 'commands/workloom-continue.md'
 export const ASSET_COMMAND_FINISH = 'commands/workloom-finish.md'
 
+/**
+ * 命令失败的宿主回执文案（两 adapter 共享）：细节已由 followup/sendUserMessage
+ * 注入模型回合转述，宿主只提示「已转交模型」，不再弹红错。
+ */
+export const COMMAND_FAILURE_ACK =
+  'The command failed; the details were handed to the model to explain.'
+
+/**
+ * 拼装命令失败的错误转述文本（注入模型回合，运行时文案英文）。
+ * 保留原始错误消息，指令要求模型按用户语言说明原因并给出建议操作。
+ * @param command 命令名（如 COMMAND_NAMES.init）
+ * @param errorText 原始错误消息
+ * @returns 注入模型的转述文本
+ */
+export function buildErrorRelayText(command: string, errorText: string): string {
+  return [
+    `The \`${command}\` command failed with the following error:`,
+    '',
+    errorText,
+    '',
+    "Explain to the user in the user's language: what went wrong and the suggested next action.",
+  ].join('\n')
+}
+
+/**
+ * 拼装命令成功的结果转述文本（注入模型回合，运行时文案英文）。
+ * 保留命令结果原文，指令要求模型按用户语言转述结果并建议下一步。
+ * @param command 命令名（如 COMMAND_NAMES.init）
+ * @param resultText 命令结果原文
+ * @returns 注入模型的转述文本
+ */
+export function buildSuccessRelayText(command: string, resultText: string): string {
+  return [
+    `The \`${command}\` command succeeded with the following result:`,
+    '',
+    resultText,
+    '',
+    "Report to the user in the user's language: what was done and the suggested next steps.",
+  ].join('\n')
+}
+
 /** archive 工具收尾提示（命令名用模板拼 COMMAND_NAMES.finish，避免硬编码）。 */
 export const TASK_ARCHIVE_NOTE = `Task archived. When the session ends, run /${COMMAND_NAMES.finish} to record the session journal.`
