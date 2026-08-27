@@ -307,6 +307,30 @@ subagents:
   }
 })
 
+test('receipt 行：空输出时仍追加（EMPTY_OUTPUT_TEXT 之后）', async () => {
+  const root = makeProject(`
+subagents:
+  check:
+    model: deepseek-official/deepseek-v4-flash
+`)
+  try {
+    // childWhenIdle 不追加任何事件 → 子代理无文本输出
+    const { execute } = setupExecutor({ childWhenIdle: () => Promise.resolve() })
+    const parent = makeAgent(root)
+    const result = await execute(
+      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = result.output[0].text
+    assert.ok(text.includes('produced no text output'))
+    assert.ok(text.includes('[workloom executor]'))
+    assert.ok(text.includes('deepseek-official/deepseek-v4-flash'))
+    assert.ok(text.includes('(config)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('receipt 行：无配置时显示 default 来源', async () => {
   const root = makeProject('')
   try {
