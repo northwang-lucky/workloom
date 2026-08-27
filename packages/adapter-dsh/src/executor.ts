@@ -288,7 +288,9 @@ async function executeTool(
     effort: effective.effort,
     effortSource: effective.sources.effort,
   })
-  const outputText = text === '' ? EMPTY_OUTPUT_TEXT : `${text}\n\n${receipt}`
+  // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
+  const baseText = text === '' ? EMPTY_OUTPUT_TEXT : text
+  const outputText = `${baseText}\n\n${receipt}`
   return {
     kind: 'foreground',
     runId: childId,
