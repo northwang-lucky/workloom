@@ -40,7 +40,7 @@ Completion criteria: each jsonl has at least one real entry (the seeded `_exampl
 
 #### 1.4 Review and start
 
-Hand prd.md (plus design.md/implement.md for complex tasks) to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`.
+Hand prd.md (plus design.md/implement.md for complex tasks) to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while any prd.md section is still the skeleton placeholder or while implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
 Completion criteria: `task.json` `status` is `in_progress` and the user has confirmed the review.
 
 ## Phase 2 Execute
@@ -52,8 +52,8 @@ Completion criteria: changes are done, lint and typecheck pass, and the fixed-fo
 
 #### 2.2 Check
 
-Dispatch the check executor: review changes against the spec files referenced in check.jsonl and the task artifacts (prd/design/implement), checking structure, naming, types, and potential bugs item by item; fix what it finds yourself — do not just report. Then run lint and typecheck. The final check of a task must cover the full scope.
-Completion criteria: no unresolved findings against spec, lint and typecheck all green.
+Dispatch the check executor: review changes against the spec files referenced in check.jsonl and the task artifacts (prd/design/implement), checking structure, naming, types, and potential bugs item by item; fix what it finds yourself — do not just report. Then run lint and typecheck. The final check of a task must cover the full scope. When the check passes, the main session calls `workloom_task_check` with a summary; the tool writes `check.passedAt` + `check.summary` into task.json (it requires at least one real check.jsonl entry; `force: true` bypasses and is recorded).
+Completion criteria: no unresolved findings against spec, lint and typecheck all green, and `workloom_task_check` has recorded the pass.
 
 #### 2.3 Commit
 
@@ -64,7 +64,7 @@ Completion criteria: `git status` shows no dirty files belonging to this task.
 
 #### 3.1 Archive and record
 
-Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit.
+Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with `reason` for a recorded bypass.
 Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires the `/workloom-finish` command (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
 
 [workflow-state:no_task]
@@ -76,7 +76,7 @@ The task is in planning. Follow Phase 1: align requirements (brainstorm + grilli
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
-The task is in progress. Follow Phase 2: implement → check → commit. Subagent artifacts are persisted; the main session controls commits; do not declare completion before 2.2 has passed.
+The task is in progress. Follow Phase 2: implement → check → commit. Subagent artifacts are persisted; the main session controls commits; do not declare completion before 2.2 has passed, and once 2.2 passes record it with `workloom_task_check` — archiving refuses without it.
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
