@@ -52,3 +52,9 @@
 - Commit: abc3aca
 - Summary: workloom_execute 新增 title 参数支持模型语义化子会话命名，前缀精简为 [Implement]，契约建议派发时给出语义 title（version 4）
 
+## workloom_execute 的 title 参数改为必填
+
+- Time: 2026-08-27T09:35:50.581Z
+- Commit: 534c706
+- Summary: workloom_execute 的 title 参数改为必填（两 adapter required + minLength 1），杜绝派发方不传导致子会话标题雷同
+

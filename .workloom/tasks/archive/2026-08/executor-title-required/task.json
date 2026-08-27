@@ -1,0 +1,36 @@
+{
+  "id": "7230f421-6813-47e6-b8ef-e6dd4b8f2cfa",
+  "name": "executor-title-required",
+  "title": "workloom_execute 的 title 参数改为必填",
+  "description": "title 参数从可选改为必填（两 adapter schema + TOOL_SNIPPETS + titleExecutor 文案 + 契约 version 5），空字符串用 minLength 1 拦截（fail loud）；buildChildLabel 的防御回退保留。session-140627ca 实证：可选时模型不传，标题仍雷同。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-27T09:22:14.052Z",
+  "completedAt": "2026-08-27T09:35:50.579Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-27T09:35:32.725Z",
+    "summary": "九项验收逐项通过，无发现需修复问题；全量验证全绿（lint/typecheck/build、core 251、adapter-dsh 45、adapter-pi 34）；dist 与 assets 已同步进 profile。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
