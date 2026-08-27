@@ -72,19 +72,8 @@ function injectSessionContext(
     console.warn(`${CONTEXT_WARN_PREFIX} workflow contract asset is missing`)
     return
   }
-  const [parseErr, contract] = parseContract(contractText)
-  if (parseErr || contract === null) {
-    console.warn(
-      `${CONTEXT_WARN_PREFIX} ${parseErr?.message ?? 'contract parse returned no contract'}`,
-    )
-    return
-  }
-  // 契约 steps（core WorkflowStep[]）结构上含 id/title，可直接投影给 assembleSessionContext。
-  const [err, text] = assembleSessionContext({
-    root,
-    contextKey,
-    workflowSteps: contract.steps,
-  })
+  // 契约文本从 assets 加载；解析/组装失败只告警跳过，不阻塞会话。
+  const [err, text] = assembleSessionContextText(root, contextKey, contractText)
   if (err || text === null) {
     console.warn(
       `${CONTEXT_WARN_PREFIX} ${err?.message ?? 'session context assembly returned no text'}`,
@@ -92,6 +81,36 @@ function injectSessionContext(
     return
   }
   pi.sendMessage({ customType: SESSION_CONTEXT_CUSTOM_TYPE, content: text, display: true })
+}
+
+/**
+ * 从契约文本组装注入快照文本。
+ * 契约文本作为入参注入（导出供测试喂自定义契约，不依赖真实资产内容）：
+ * norms 随快照每轮重组装，契约升级后下一轮即生效；解析/组装失败返回 err。
+ * @param root 项目根
+ * @param contextKey 会话 contextKey
+ * @param contractText 契约全文
+ * @returns [err, text]：成功时 text 为整块快照
+ */
+export function assembleSessionContextText(
+  root: string,
+  contextKey: string,
+  contractText: string,
+): [Error | null, string | null] {
+  const [parseErr, contract] = parseContract(contractText)
+  if (parseErr || contract === null) {
+    return [
+      parseErr ?? new Error('workloom session context: contract parse returned no contract'),
+      null,
+    ]
+  }
+  // 契约 steps（core WorkflowStep[]）结构上含 id/title，可直接投影给 assembleSessionContext。
+  return assembleSessionContext({
+    root,
+    contextKey,
+    workflowSteps: contract.steps,
+    norms: contract.norms,
+  })
 }
 
 /**
