@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/language/index.md", "reason": "契约/example 注释英文、源码注释中文；提问语言交给模型按用户习惯判断"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "init.js CONFIG_TEMPLATE 与 example 模板改动遵循 legacy 纯 JS + JSDoc 约定"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "冲突判定与 force 记录收敛 core，adapter 只消费；标题语义化在 adapter-dsh"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则、ESLint/tsc 验证命令"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "executor kind/runtime/provider/model 术语口径"}

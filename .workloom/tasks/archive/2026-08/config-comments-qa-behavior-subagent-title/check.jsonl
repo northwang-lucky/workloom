@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "检查 init 模板改动是否符合 legacy 模块约定（模板内容/默认值对齐）"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "检查冲突判定/force 记录是否收敛 core，adapter 是否保持薄"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "检查代码风格与 lint/typecheck 结果"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "检查各改动是否按 package 拆分 commit 且 message 合规"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "检查契约/example 文案英文、源码注释中文"}
