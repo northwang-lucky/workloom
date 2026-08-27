@@ -34,3 +34,9 @@
 - Commit: 076ff99
 - Summary: slash 命令（init/continue/finish）失败不再弹红错，统一改由 Agent 转述：core 新增 buildErrorRelayText/buildSuccessRelayText 拼装函数与 COMMAND_FAILURE_ACK 常量；DSH followup 注入 + success 回执、Pi sendUserMessage 注入 + notify info；init 成功也注入模型回合（core cd84aae / adapter 076ff99 / 交付物 38f3d23）；产物已同步 web profile（重启归用户）。
 
+## executor 派发约束与模型配置可观测性
+
+- Time: 2026-08-27T06:09:32.765Z
+- Commit: db3a3ae
+- Summary: 强化 executor 派发约束与模型配置可观测性：契约 v2 强制派发、跨 provider 修复、model 按 runtime 拆分、config.local.yaml、写文件硬门禁与 receipt 摘要
+
