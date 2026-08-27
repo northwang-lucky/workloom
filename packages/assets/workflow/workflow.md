@@ -40,8 +40,8 @@ Completion criteria: each jsonl has at least one real entry (the seeded `_exampl
 
 #### 1.4 Review and start
 
-Hand prd.md (plus design.md/implement.md for complex tasks) to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while any prd.md section is still the skeleton placeholder or while implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
-Completion criteria: `task.json` `status` is `in_progress` and the user has confirmed the review.
+Once prd.md is finalized, a task involving implementation work asks the user whether to author design.md/implement.md — two options: author both, or neither. On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while any prd.md section is still the skeleton placeholder or while implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
+Completion criteria: for a task involving implementation work, the design/implement question has been answered; `task.json` `status` is `in_progress`; and the user has confirmed the review.
 
 ## Phase 2 Execute
 
@@ -72,7 +72,7 @@ No active task right now. When the user expresses a need: first judge whether it
 [/workflow-state:no_task]
 
 [workflow-state:planning]
-The task is in planning. Follow Phase 1: align requirements (brainstorm + grilling, no-grey-areas gate) → optional research → configure context → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
+The task is in planning. Follow Phase 1: align requirements (brainstorm + grilling, no-grey-areas gate) → optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
