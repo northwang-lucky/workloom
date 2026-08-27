@@ -28,3 +28,9 @@
 - Commit: 88d6e20
 - Summary: workflow 契约 1.4 改为 prd 定稿后主动询问用户是否编写 design/implement（两选项捆绑），去掉 "for complex tasks" 模糊判定；completion criteria 与 planning 面包屑同步；构建产物已 rsync 到 DSH web profile（未重启 dshweb）。
 
+## slash 命令失败由 Agent 转述
+
+- Time: 2026-08-27T03:43:34.303Z
+- Commit: 076ff99
+- Summary: slash 命令（init/continue/finish）失败不再弹红错，统一改由 Agent 转述：core 新增 buildErrorRelayText/buildSuccessRelayText 拼装函数与 COMMAND_FAILURE_ACK 常量；DSH followup 注入 + success 回执、Pi sendUserMessage 注入 + notify info；init 成功也注入模型回合（core cd84aae / adapter 076ff99 / 交付物 38f3d23）；产物已同步 web profile（重启归用户）。
+
