@@ -16,8 +16,10 @@
  *   （按 executor kind 取值，字段独立合并），供用户配置默认派发参数；
  * - model 字符串支持 "provider/model" 前缀形式：拆分后 provider 一并传给子代理
  *   agentOptions，跨 provider 派发才不会报 UNKNOWN_MODEL；裸 id 按父 provider 解析；
- * - 子会话标题语义化：label 为 `[Workloom <KindLabel>] <task title>`（title 完整
- *   不截断，截断交给 UI），便于会话列表一眼分辨派发角色与任务；
+ * - 子会话标题语义化：label 为 `[<KindLabel>] <title>`（title 是 main 会话传入的
+ *   语义部分，executor 只组装前缀；缺省回退 task title，仍缺失/空白回退
+ *   workloom-<kind>），title 完整不截断（截断交给 UI），便于会话列表一眼分辨
+ *   派发角色与任务；
  * - 冲突中断：显式 model/effort 与 subagents 配置不一致时，无 force 直接返回
  *   buildConflictNotice 提示文本不派发；force: true 须带非空 reason 留痕（写入
  *   task.json overrides），放行后 receipt 追加 (forced) 标注便于审计；
@@ -89,6 +91,7 @@ interface ExecutorArgs {
   effort?: string
   force?: boolean
   reason?: string
+  title?: string
   prompt: string
 }
 
@@ -210,6 +213,10 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
           type: 'string',
           description: PARAM_DESCRIPTIONS.reasonExecutor,
         },
+        title: {
+          type: 'string',
+          description: PARAM_DESCRIPTIONS.titleExecutor,
+        },
         prompt: {
           type: 'string',
           description: PARAM_DESCRIPTIONS.prompt,
@@ -305,7 +312,7 @@ async function executeTool(
   const subagents = ctx.subagents
   const { childId } = await subagents.startContinuable({
     provider: SPAWN_PROVIDER,
-    label: buildChildLabel(root, taskRelPath, params.kind),
+    label: buildChildLabel(root, taskRelPath, params.kind, params.title),
     // maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理深度为 1，
     // 设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
     // 即「executor 子代理禁止再派发 workloom_execute」。
@@ -359,22 +366,30 @@ async function executeTool(
 }
 
 /**
- * 组装子会话标题：`[Workloom <KindLabel>] <task title>`（title 完整不截断，截断交 UI）。
- * readTask 失败或 title 缺失/空白时回退旧形式 `workloom <kind>`（防御：
- * 标题仅供展示，不因任务元数据异常阻塞派发）。
+ * 组装子会话标题：`[<KindLabel>] <title>`（title 为语义部分、不含前缀；缺省回退
+ * task title，仍缺失/空白时整体回退 `workloom-<kind>`；标题仅供展示，不因任务
+ * 元数据异常阻塞派发）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param kind executor 类型（research/implement/check）
+ * @param title 模型传入的语义标题（可选；空白等价缺省）
  * @returns 子会话标题
  */
-function buildChildLabel(root: string, taskRelPath: string, kind: string): string {
-  const [taskErr, task] = readTask(root, taskRelPath)
+function buildChildLabel(root: string, taskRelPath: string, kind: string, title?: string): string {
   const kindLabel = KIND_LABELS[kind as KindLabelKey]
-  const title = task?.title
-  if (taskErr !== null || kindLabel === undefined || title === undefined || title.trim() === '') {
-    return `workloom ${kind}`
+  const semantic = title?.trim()
+  if (kindLabel === undefined) {
+    return `workloom-${kind}`
   }
-  return `[Workloom ${kindLabel}] ${title}`
+  if (semantic !== undefined && semantic !== '') {
+    return `[${kindLabel}] ${semantic}`
+  }
+  const [taskErr, task] = readTask(root, taskRelPath)
+  const taskTitle = task?.title
+  if (taskErr !== null || taskTitle === undefined || taskTitle.trim() === '') {
+    return `workloom-${kind}`
+  }
+  return `[${kindLabel}] ${taskTitle}`
 }
 
 /**
