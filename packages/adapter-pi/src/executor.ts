@@ -58,8 +58,9 @@ export const EXECUTOR_PARAMS = Type.Object({
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPathExecutor })),
   model: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.model })),
   effort: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.effort })),
-  // 语义标题仅 DSH 子会话生效：child pi 是 --no-session 进程、无标题概念，接收但不消费。
-  title: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.titleExecutor })),
+  // 语义标题必填（schema 拦截缺失/空白），仅 DSH 子会话生效：child pi 是 --no-session
+  // 进程、无标题概念，接收但不消费。
+  title: Type.String({ minLength: 1, description: PARAM_DESCRIPTIONS.titleExecutor }),
   prompt: Type.String({ description: PARAM_DESCRIPTIONS.prompt }),
   force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.forceExecutor })),
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reasonExecutor })),

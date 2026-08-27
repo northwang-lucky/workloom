@@ -123,15 +123,22 @@ test('EXECUTOR_PARAMS: schema 含 force/reason 参数', () => {
   assert.equal(readDescription(properties.reason), PARAM_DESCRIPTIONS.reasonExecutor)
 })
 
-test('EXECUTOR_PARAMS: schema 含 title 参数（描述引用 titleExecutor）', () => {
+test('EXECUTOR_PARAMS: schema 含 title 参数（必填 + minLength 1，描述引用 titleExecutor）', () => {
   const properties = EXECUTOR_PARAMS.properties
   assert.equal(properties.title.type, 'string')
+  assert.equal((properties.title as { minLength?: number }).minLength, 1)
   assert.equal(readDescription(properties.title), PARAM_DESCRIPTIONS.titleExecutor)
+  assert.ok(EXECUTOR_PARAMS.required.includes('title'))
 })
 
-test('EXECUTOR_PARAMS: 带 title 参数校验通过（接受不报错）', () => {
+test('EXECUTOR_PARAMS: title 必填（缺失/空白被拒，正常值通过）', () => {
   const base = { kind: 'implement', prompt: 'implement the task' }
-  assert.ok(Value.Check(EXECUTOR_PARAMS, base))
+  assert.equal(Value.Check(EXECUTOR_PARAMS, base), false, 'missing title must be rejected')
+  assert.equal(
+    Value.Check(EXECUTOR_PARAMS, { ...base, title: '' }),
+    false,
+    'empty title must be rejected by minLength',
+  )
   assert.ok(Value.Check(EXECUTOR_PARAMS, { ...base, title: 'fix login bug' }))
   // title 不进入 child pi 派发投影（dispatchChildPi 入参不含该字段，typecheck 保证）。
 })
