@@ -13,7 +13,9 @@
  * - 不设 timeout（与 DSH 对齐）；child 用 --no-extensions，无 workloom_execute
  *   工具，天然禁止再派发；
  * - model/effort 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置
- *   （按 executor kind 取值，字段独立合并），经 --model / --thinking 透传。
+ *   （按 executor kind 取值，字段独立合并；model 支持 map 形式按 runtime 取值），
+ *   经 --model / --thinking 透传；返回文本尾部追加 receipt 行（生效 model/effort
+ *   及来源，可观测性）。
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -26,6 +28,7 @@ import {
   assertEffort,
   assertKind,
   buildExecutorPrompt,
+  buildExecutorReceipt,
   ERR_PREFIX,
   findWorkloomRoot,
   loadConfig,
@@ -55,6 +58,30 @@ const STDERR_TAIL_LIMIT = 4096
 
 /** 取消时向 child pi 发送的终止信号。 */
 const KILL_SIGNAL = 'SIGTERM'
+
+/**
+ * 在子代理输出文本尾部追加 executor receipt 行（可观测性）。
+ * 空输出时只返回 receipt 行本身。
+ * @param text 子代理原始输出文本
+ * @param effective resolveSubagentDefaults 的返回值（含 sources）
+ * @returns 带 receipt 的完整文本
+ */
+export function appendExecutorReceipt(
+  text: string,
+  effective: {
+    model?: string
+    effort?: string
+    sources: { model?: 'param' | 'config'; effort?: 'param' | 'config' }
+  },
+): string {
+  const receipt = buildExecutorReceipt({
+    model: effective.model,
+    modelSource: effective.sources.model,
+    effort: effective.effort,
+    effortSource: effective.sources.effort,
+  })
+  return text === '' ? receipt : `${text}\n\n${receipt}`
+}
 
 /**
  * 注册 workloom_execute 工具。
@@ -112,11 +139,12 @@ async function executeTool(
   }
   const root = found.root
   // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）。
+  // runtime='pi' 使 model 的 map 形式按 pi 取值（core 负责解析与缺 key 报错）。
   const config = loadConfig(root)
   const effective = resolveSubagentDefaults(config, params.kind, {
     model: params.model,
     effort: params.effort,
-  })
+  }, 'pi')
   // effort/kind 非法值 fail loud（core 校验），与 DSH 语义一致。
   assertEffort(effective.effort)
   assertKind(params.kind)
@@ -145,8 +173,10 @@ async function executeTool(
     },
     ctx.signal,
   )
+  // 尾部追加 receipt 行：生效 model/effort 及来源，使配置未生效一眼可辨。
+  const textWithReceipt = appendExecutorReceipt(result.text, effective)
   return {
-    content: [{ type: 'text', text: result.text }],
+    content: [{ type: 'text', text: textWithReceipt }],
     details: { kind: 'foreground', runId: result.runId, status: 'completed' },
   }
 }
