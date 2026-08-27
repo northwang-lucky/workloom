@@ -1,0 +1,7 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "核对 legacy 模块约定与 task.json 数据布局兼容性"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "核对分层：无 adapter 反向依赖 core 之外层级的违规"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "核对编码原则、Magic String 枚举化、文件长度等"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "核对提交规范（2.3 分批提交）"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "核对工具/字段命名与术语表一致"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "核对构建产物部署同步纪律"}

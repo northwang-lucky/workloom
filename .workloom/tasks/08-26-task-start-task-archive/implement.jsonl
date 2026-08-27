@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "卡点校验逻辑落 core legacy 纯 JS + JSDoc 模块，task.json 新增字段须保持既有数据布局兼容"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core 与 adapter 的分层依赖规则：校验逻辑在 core，adapter 仅透传注册"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify 命令约束实现方式"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "中英文分工：代码注释与文档语言约定"}
