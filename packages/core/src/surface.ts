@@ -66,7 +66,7 @@ export const TOOL_SNIPPETS = {
     'workloom_task_archive(taskPath?, autoCommit?, force?, reason?) — archive the completed task',
   taskList: 'workloom_task_list(status?) — list task summaries',
   executor:
-    'workloom_execute(kind, prompt, taskPath?, model?, effort?, force?, reason?) — dispatch an executor',
+    'workloom_execute(kind, prompt, taskPath?, model?, effort?, title?, force?, reason?) — dispatch an executor',
   step: 'workloom_step(stepId) — show one workflow step body',
   journal: 'workloom_journal(title, commit?, summary?) — record the session journal',
 } as const
@@ -92,6 +92,9 @@ export const PARAM_DESCRIPTIONS = {
     'Override a conflicting executor model/effort config; requires a non-empty reason (recorded in task.json overrides)',
   /** executor 工具的 reason 参数（force 为 true 时必填）。 */
   reasonExecutor: 'Required non-empty reason when force is true (recorded for audit)',
+  /** executor 工具的 title 参数（子会话语义标题，前缀由 executor 组装，仅 DSH 生效）。 */
+  titleExecutor:
+    'Semantic part of the child session title; the executor assembles it as [<KindLabel>] <title> and falls back to the task title when omitted; only effective on the DSH adapter',
   kind: 'Executor role: research, implement, or check',
   model:
     'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to subagents.<kind>.model, then the parent session model',
