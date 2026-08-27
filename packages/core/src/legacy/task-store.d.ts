@@ -1,4 +1,6 @@
 /** workloom 任务数据：task-store 模块的公共类型（供 JSDoc 引用，快照字段）。 */
+import type { GateValue } from './task-gates.d.ts'
+
 export type TaskStatusKey = 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED'
 
 /** 任务状态取值（task.json.status）。 */
@@ -22,6 +24,20 @@ export interface TaskHooks {
   after_start: string[]
   after_finish: string[]
   after_archive: string[]
+}
+
+/** 2.2 check 通过凭据（workloom_task_check 写入 task.json.check）。 */
+export interface TaskCheckRecord {
+  passedAt: string
+  summary: string
+}
+
+/** force 豁免留痕（task.json.overrides 元素）。 */
+export interface GateOverride {
+  gate: GateValue
+  tool: string
+  at: string
+  reason?: string
 }
 
 /** task.json 单条记录（快照字段，与数据布局一致）。 */
@@ -49,6 +65,8 @@ export interface TaskRecord {
   relatedFiles: string[]
   notes: string
   meta: Record<string, unknown>
+  check: TaskCheckRecord | null
+  overrides: GateOverride[]
   hooks: TaskHooks
 }
 
@@ -84,6 +102,21 @@ export interface CreateTaskResult {
 export interface StartTaskParams {
   taskRelPath: string
   contextKey?: string
+  /** 豁免 start 门禁（留痕 overrides）。 */
+  force?: boolean
+  /** force 豁免原因（审计用）。 */
+  reason?: string
+}
+
+/** checkTask 参数。 */
+export interface CheckTaskParams {
+  taskRelPath: string
+  /** check 通过摘要（必填，非空）。 */
+  summary: string
+  /** 豁免 check 门禁（留痕 overrides）。 */
+  force?: boolean
+  /** force 豁免原因（审计用）。 */
+  reason?: string
 }
 
 /** finishTask 参数。 */
@@ -96,6 +129,10 @@ export interface FinishTaskParams {
 export interface ArchiveTaskParams {
   taskRelPath: string
   autoCommit?: boolean
+  /** 豁免 archive 门禁（留痕 overrides）。 */
+  force?: boolean
+  /** force 豁免原因（审计用）。 */
+  reason?: string
 }
 
 /** listTasks 参数。 */
@@ -117,6 +154,12 @@ export function startTask(
   root: string,
   params: StartTaskParams,
 ): Promise<[Error | null, TaskRecordWithPath | null]>
+
+/** 记录 2.2 check 通过凭据（写 task.json check 字段）。 */
+export function checkTask(
+  root: string,
+  params: CheckTaskParams,
+): [Error | null, TaskRecordWithPath | null]
 
 /** 结束任务会话（清指针，不改状态）。 */
 export function finishTask(root: string, params: FinishTaskParams): Promise<[Error | null]>

@@ -1,5 +1,5 @@
 /**
- * task-ops：五个任务管理工具（create/start/finish/archive/list）的 runtime 无关
+ * task-ops：六个任务管理工具（create/start/check/finish/archive/list）的 runtime 无关
  * 编排（新增抽象，TypeScript）。
  *
  * 设计意图：
@@ -13,7 +13,14 @@
  */
 
 import { resolveActiveTask } from '../legacy/active-task.js'
-import { archiveTask, createTask, finishTask, listTasks, startTask } from '../legacy/task-store.js'
+import {
+  archiveTask,
+  checkTask,
+  createTask,
+  finishTask,
+  listTasks,
+  startTask,
+} from '../legacy/task-store.js'
 import { ERR_PREFIX, TASK_ARCHIVE_NOTE } from '../surface.js'
 
 import type {
@@ -125,20 +132,28 @@ async function executeCreateInternal(
   return result
 }
 
+/** start 工具编排入参（force 豁免 start 门禁并留痕）。 */
+export interface ExecuteStartTaskParams {
+  taskPath?: string
+  force?: boolean
+  reason?: string
+}
+
 /**
  * start 工具编排：把任务从 planning 移到 in_progress（返回记录含 taskRelPath）。
+ * 默认硬阻断：prd 小节未填或 jsonl 无有效记录时拒绝；force 豁免并留痕。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识（adapter 组装）
- * @param taskPath 显式任务路径（可选，缺省取活跃任务）
+ * @param params 工具参数（taskPath 缺省取活跃任务）
  * @returns [err, task]：err 为任一失败（消息含前缀）
  */
 export async function executeStartTask(
   cwd: string,
   contextKey: string,
-  taskPath: string | undefined,
+  params: ExecuteStartTaskParams,
 ): Promise<[Error | null, TaskRecordWithPath | null]> {
   try {
-    return [null, await executeStartInternal(cwd, contextKey, taskPath)]
+    return [null, await executeStartInternal(cwd, contextKey, params)]
   } catch (error) {
     return [toError(error), null]
   }
@@ -148,21 +163,90 @@ export async function executeStartTask(
  * start 编排实现（内部）：任一失败抛错，由外层转元组。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识
- * @param taskPath 显式任务路径（可选）
+ * @param params 工具参数
  * @returns 启动后的任务记录
  */
 async function executeStartInternal(
   cwd: string,
   contextKey: string,
-  taskPath: string | undefined,
+  params: ExecuteStartTaskParams,
 ): Promise<TaskRecordWithPath> {
   requireWorkloomCwd(cwd)
-  const taskRelPath = resolveTaskRelPath(cwd, contextKey, taskPath, ERR_PREFIX.taskTool)
-  const [err, task] = await startTask(cwd, { taskRelPath, contextKey })
+  const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
+  const [err, task] = await startTask(cwd, {
+    taskRelPath,
+    contextKey,
+    ...forceOverride(params),
+  })
   if (err || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: start returned no result`)
   }
   return task
+}
+
+/** check 工具编排入参（summary 必填；force 豁免 check 门禁并留痕）。 */
+export interface ExecuteCheckTaskParams {
+  taskPath?: string
+  summary: string
+  force?: boolean
+  reason?: string
+}
+
+/**
+ * check 工具编排：记录 2.2 check 通过凭据（写 task.json check 字段）。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话标识（adapter 组装）
+ * @param params 工具参数（taskPath 缺省取活跃任务）
+ * @returns [err, task]：err 为任一失败（消息含前缀）
+ */
+export async function executeCheckTask(
+  cwd: string,
+  contextKey: string,
+  params: ExecuteCheckTaskParams,
+): Promise<[Error | null, TaskRecordWithPath | null]> {
+  try {
+    return [null, executeCheckInternal(cwd, contextKey, params)]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
+
+/**
+ * check 编排实现（内部）：任一失败抛错，由外层转元组。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话标识
+ * @param params 工具参数
+ * @returns 写入 check 凭据后的任务记录
+ */
+function executeCheckInternal(
+  cwd: string,
+  contextKey: string,
+  params: ExecuteCheckTaskParams,
+): TaskRecordWithPath {
+  requireWorkloomCwd(cwd)
+  const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
+  const [err, task] = checkTask(cwd, {
+    taskRelPath,
+    summary: params.summary,
+    ...forceOverride(params),
+  })
+  if (err || task === null) {
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: check returned no result`)
+  }
+  return task
+}
+
+/** 提取 force/reason 豁免入参（内部：空串 reason 不传）。 */
+function forceOverride(params: { force?: boolean; reason?: string }): {
+  force?: boolean
+  reason?: string
+} {
+  return {
+    ...(params.force !== undefined ? { force: params.force } : {}),
+    ...(typeof params.reason === 'string' && params.reason !== ''
+      ? { reason: params.reason }
+      : {}),
+  }
 }
 
 /** finish 工具成功结果（finished 恒 true，供 adapter 投影）。 */
@@ -216,22 +300,29 @@ export interface ExecuteArchiveTaskResult {
   note: string
 }
 
+/** archive 工具编排入参（force 豁免 archive 门禁并留痕）。 */
+export interface ExecuteArchiveTaskParams {
+  taskPath?: string
+  autoCommit?: boolean
+  force?: boolean
+  reason?: string
+}
+
 /**
  * archive 工具编排：归档任务（completed + 移入 archive/，可选 git 自动提交）。
+ * 默认硬阻断：task.json 无 check 凭据时拒绝；force 豁免并留痕。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识（adapter 组装，taskPath 缺省时取活跃任务）
- * @param taskPath 显式任务路径（可选）
- * @param autoCommit 覆盖 config session_auto_commit（可选）
+ * @param params 工具参数
  * @returns [err, result]：err 为任一失败（消息含前缀）
  */
 export async function executeArchiveTask(
   cwd: string,
   contextKey: string,
-  taskPath: string | undefined,
-  autoCommit: boolean | undefined,
+  params: ExecuteArchiveTaskParams,
 ): Promise<[Error | null, ExecuteArchiveTaskResult | null]> {
   try {
-    return [null, await executeArchiveInternal(cwd, contextKey, taskPath, autoCommit)]
+    return [null, await executeArchiveInternal(cwd, contextKey, params)]
   } catch (error) {
     return [toError(error), null]
   }
@@ -241,21 +332,20 @@ export async function executeArchiveTask(
  * archive 编排实现（内部）：任一失败抛错，由外层转元组。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识
- * @param taskPath 显式任务路径（可选）
- * @param autoCommit 覆盖 config session_auto_commit（可选）
+ * @param params 工具参数
  * @returns 归档结果
  */
 async function executeArchiveInternal(
   cwd: string,
   contextKey: string,
-  taskPath: string | undefined,
-  autoCommit: boolean | undefined,
+  params: ExecuteArchiveTaskParams,
 ): Promise<ExecuteArchiveTaskResult> {
   requireWorkloomCwd(cwd)
-  const taskRelPath = resolveTaskRelPath(cwd, contextKey, taskPath, ERR_PREFIX.taskTool)
+  const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
   const [err, task] = await archiveTask(cwd, {
     taskRelPath,
-    ...(autoCommit !== undefined ? { autoCommit } : {}),
+    ...(params.autoCommit !== undefined ? { autoCommit: params.autoCommit } : {}),
+    ...forceOverride(params),
   })
   if (err || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`)

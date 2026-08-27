@@ -29,6 +29,13 @@ import {
   setActiveTask,
 } from './active-task.js'
 import { gitAddCommit } from './git.js'
+import {
+  GATES,
+  PRD_SECTIONS,
+  evaluateCheckLogGate,
+  evaluateStartGate,
+  makeOverride,
+} from './task-gates.js'
 
 /** 错误消息前缀。 */
 const ERR_PREFIX = 'workloom task'
@@ -161,7 +168,8 @@ function pad2(value) {
 
 /**
  * 归一化 task.json 记录：旧格式任务缺 hooks 字段时补齐空数组，
- * 保证 create/start/finish/archive 各 hook 调用点对旧数据安全。
+ * 保证 create/start/finish/archive 各 hook 调用点对旧数据安全；
+ * 缺 check/overrides 字段时补 null/空数组，保证门禁读取对旧数据安全。
  * @param {import('./task-store.d.ts').TaskRecord} parsed task.json 解析结果
  * @returns {import('./task-store.d.ts').TaskRecord} 归一化后的记录
  */
@@ -180,7 +188,12 @@ function normalizeTaskRecord(parsed) {
     const value = rawHooks?.[key]
     hooks[key] = Array.isArray(value) ? value : []
   }
-  return { ...parsed, hooks }
+  return {
+    ...parsed,
+    hooks,
+    check: parsed.check ?? null,
+    overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
+  }
 }
 
 /**
@@ -291,6 +304,8 @@ function buildTaskRecord(input) {
     relatedFiles: [],
     notes: '',
     meta: {},
+    check: null,
+    overrides: [],
     hooks: {
       after_create: input.config.hooks.afterCreate,
       after_start: input.config.hooks.afterStart,
@@ -301,19 +316,9 @@ function buildTaskRecord(input) {
   return task
 }
 
-/** prd.md 骨架：各小节标题与占位说明（顺序即文档顺序）。 */
-const PRD_SECTIONS = Object.freeze([
-  { heading: 'Goal', placeholder: '(placeholder: describe the goal this task aims to achieve)' },
-  { heading: 'Requirements', placeholder: '(placeholder: list the functional requirements)' },
-  {
-    heading: 'Acceptance Criteria',
-    placeholder: '(placeholder: list the verifiable acceptance criteria)',
-  },
-  { heading: 'Notes', placeholder: '(placeholder: add notes and constraints)' },
-])
-
 /**
  * 生成 prd.md 骨架内容。
+ * 骨架常量 PRD_SECTIONS 在 task-gates.js（placeholder 判定与骨架生成共享）。
  * @returns {string}
  */
 function buildPrdContent() {
@@ -471,6 +476,18 @@ async function startTaskInternal(root, params) {
       `${ERR_PREFIX}: only tasks in planning state can be started (current: ${task.status})`,
     )
   }
+  if (params.force === true) {
+    // force 豁免：留痕后放行（hotfix 等无 spec 可引用的场景）。
+    task.overrides.push(makeOverride(GATES.START, params.reason))
+  } else {
+    const missing = evaluateStartGate(projectRoot, params.taskRelPath)
+    if (missing.length > 0) {
+      throw new Error(
+        `${ERR_PREFIX}: start gate failed: ${missing.join('; ')} ` +
+          '(pass force: true to bypass; the bypass is recorded in task.json overrides)',
+      )
+    }
+  }
   task.status = TaskStatus.IN_PROGRESS
   writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task))
   if (params.contextKey !== undefined) {
@@ -480,6 +497,56 @@ async function startTaskInternal(root, params) {
   const taskJsonPath = join(insideWorkloom(projectRoot, params.taskRelPath), FILE_NAMES.taskJson)
   const warnings = await runTaskHooks(projectRoot, taskJsonPath, task.hooks.after_start)
   logWarnings(warnings)
+  return task
+}
+
+/**
+ * 记录 2.2 check 通过凭据：向 task.json 写 check 字段（passedAt 自动生成 + summary）。
+ * @param {string} root 项目根
+ * @param {import('./task-store.d.ts').CheckTaskParams} params
+ * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
+ */
+export function checkTask(root, params) {
+  try {
+    return [null, checkTaskInternal(root, params)]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
+
+/**
+ * 记录 check 凭据（内部实现）。
+ * 要求任务 in_progress、summary 非空；force!==true 时要求 check.jsonl 有有效记录；
+ * 重复调用覆盖 check 字段并刷新 passedAt。
+ * @param {string} root 项目根
+ * @param {import('./task-store.d.ts').CheckTaskParams} params
+ * @returns {import('./task-store.d.ts').TaskRecordWithPath}
+ */
+function checkTaskInternal(root, params) {
+  const projectRoot = requireProjectRoot(root)
+  const task = requireTask(projectRoot, params.taskRelPath)
+  if (task.status !== TaskStatus.IN_PROGRESS) {
+    throw new Error(
+      `${ERR_PREFIX}: only tasks in in_progress can record a check (current: ${task.status})`,
+    )
+  }
+  if (typeof params.summary !== 'string' || params.summary.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: checkTask requires a non-empty summary`)
+  }
+  if (params.force === true) {
+    // force 豁免：留痕后放行（「必须真跑过 check executor」跨会话无法可靠校验）。
+    task.overrides.push(makeOverride(GATES.CHECK, params.reason))
+  } else {
+    const missing = evaluateCheckLogGate(projectRoot, params.taskRelPath)
+    if (missing.length > 0) {
+      throw new Error(
+        `${ERR_PREFIX}: check gate failed: ${missing.join('; ')} ` +
+          '(pass force: true to bypass; the bypass is recorded in task.json overrides)',
+      )
+    }
+  }
+  task.check = { passedAt: new Date().toISOString(), summary: params.summary }
+  writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task))
   return task
 }
 
@@ -542,6 +609,17 @@ export async function archiveTask(root, params) {
 async function archiveTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, params.taskRelPath)
+  // 门禁先于任何写盘：无 check 凭据一律拒绝（不区分新旧任务）；
+  // force 豁免的 overrides 记录随归档写入移动后的 task.json。
+  if (params.force === true) {
+    task.overrides.push(makeOverride(GATES.ARCHIVE, params.reason))
+  } else if (task.check === null) {
+    throw new Error(
+      `${ERR_PREFIX}: archive gate failed: no recorded check in task.json ` +
+        '(run workloom_task_check after 2.2 passes, or pass force: true to bypass; ' +
+        'the bypass is recorded in task.json overrides)',
+    )
+  }
   // 先查冲突再动手：避免改完状态后因冲突失败留下半完成态。
   const now = new Date()
   const archiveRel = join(DIR_NAMES.tasks, DIR_NAMES.archive, formatYearMonth(now), task.name)

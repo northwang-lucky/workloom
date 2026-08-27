@@ -22,10 +22,11 @@ export const COMMAND_DESCRIPTIONS = {
   finish: 'Check dirty files and hand the wrap-up instructions to the model',
 } as const
 
-/** 八个工具名（五个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
+/** 九个工具名（六个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
 export const TOOL_NAMES = {
   taskCreate: 'workloom_task_create',
   taskStart: 'workloom_task_start',
+  taskCheck: 'workloom_task_check',
   taskFinish: 'workloom_task_finish',
   taskArchive: 'workloom_task_archive',
   taskList: 'workloom_task_list',
@@ -34,12 +35,16 @@ export const TOOL_NAMES = {
   journal: 'workloom_journal',
 } as const
 
-/** 八个工具的 register 描述文案（两 adapter 现状逐字相同）。 */
+/** 九个工具的 register 描述文案（两 adapter 逐字相同）。 */
 export const TOOL_DESCRIPTIONS = {
   taskCreate: 'Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)',
-  taskStart: 'Move the active task (or the given taskPath) from planning to in_progress',
+  taskStart:
+    'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md and effective jsonl records; force bypasses and is recorded)',
+  taskCheck:
+    'Record that the 2.2 check passed (writes check.passedAt + summary into task.json; required before archiving)',
   taskFinish: 'Clear the active-task pointer for this session (status unchanged)',
-  taskArchive: 'Archive the task (completed + moved to archive/, optional git auto-commit)',
+  taskArchive:
+    'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
   taskList: 'List task summaries (optionally filtered by status)',
   executor:
     'Dispatch a workloom executor subagent (research/implement/check) with the task context inlined',
@@ -48,15 +53,17 @@ export const TOOL_DESCRIPTIONS = {
 } as const
 
 /**
- * 八个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
+ * 九个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
  * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
 export const TOOL_SNIPPETS = {
   taskCreate: 'workloom_task_create(title, slug?, priority?, description?) — create a task',
-  taskStart: 'workloom_task_start(taskPath?) — move the task to in_progress',
+  taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
+  taskCheck: 'workloom_task_check(summary, taskPath?, force?, reason?) — record a passed check',
   taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
-  taskArchive: 'workloom_task_archive(taskPath?, autoCommit?) — archive the completed task',
+  taskArchive:
+    'workloom_task_archive(taskPath?, autoCommit?, force?, reason?) — archive the completed task',
   taskList: 'workloom_task_list(status?) — list task summaries',
   executor: 'workloom_execute(kind, prompt, taskPath?, model?, effort?) — dispatch an executor',
   step: 'workloom_step(stepId) — show one workflow step body',
@@ -76,6 +83,9 @@ export const PARAM_DESCRIPTIONS = {
   description: 'Optional task description',
   autoCommit: 'Override the config session_auto_commit for this archive',
   status: 'Filter: planning/in_progress/completed',
+  summary: 'Summary of the passed check (what was verified)',
+  force: 'Bypass the workflow gate; the override is recorded in task.json for audit',
+  reason: 'Optional reason for a force override (recorded for audit)',
   kind: 'Executor role: research, implement, or check',
   model:
     'Model id for the executor subagent; defaults to subagents.<kind>.model, then the parent session model',
