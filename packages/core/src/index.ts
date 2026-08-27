@@ -18,6 +18,7 @@ export {
 export {
   DEFAULT_CONFIG,
   resolveSubagentDefaults,
+  splitProviderModel,
   WorkloomConfigError,
   loadConfig,
 } from './legacy/config.js'
@@ -121,7 +122,12 @@ export {
   TASK_ARCHIVE_NOTE,
 } from './surface.js'
 
-export type { WorkloomConfig } from './legacy/config.d.ts'
+export type {
+  WorkloomConfig,
+  SubagentConfigEntry,
+  SubagentDefaultSource,
+  ResolveSubagentDefaultsResult,
+} from './legacy/config.d.ts'
 
 export type {
   BuildExecutorPromptParams,
