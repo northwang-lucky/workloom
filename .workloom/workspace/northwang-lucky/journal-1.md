@@ -40,3 +40,9 @@
 - Commit: db3a3ae
 - Summary: 强化 executor 派发约束与模型配置可观测性：契约 v2 强制派发、跨 provider 修复、model 按 runtime 拆分、config.local.yaml、写文件硬门禁与 receipt 摘要
 
+## 配置注释迁移、提问行为规范与子代理标题语义化
+
+- Time: 2026-08-27T07:41:01.345Z
+- Commit: 5260552
+- Summary: config.yaml 注释迁入 example 并重组、提问行为四条规范（用户语言/选项不进题/禁交互工具/分批编号）、子会话标题语义化、派发参数冲突提示与 force 覆盖审计
+
