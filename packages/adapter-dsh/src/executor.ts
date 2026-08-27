@@ -13,9 +13,11 @@
  * - 子代理释放失败只 WARNING 不阻塞结果返回；其余故障 fail loud（抛错由
  *   DSH 工具管线转失败结果）；
  * - model/effort 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置
- *   （按 executor kind 取值，字段独立合并），供用户配置默认派发参数。
+ *   （按 executor kind 取值，字段独立合并），供用户配置默认派发参数；
+ * - model 字符串支持 "provider/model" 前缀形式：拆分后 provider 一并传给子代理
+ *   agentOptions，跨 provider 派发才不会报 UNKNOWN_MODEL；裸 id 按父 provider 解析；
+ * - 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源，使配置未生效一眼可辨。
  */
-
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { finalAssistantOutput } from '@deepseek-ai/dsh-subagent'
@@ -23,6 +25,7 @@ import { finalAssistantOutput } from '@deepseek-ai/dsh-subagent'
 import {
   assertEffort,
   buildExecutorPrompt,
+  buildExecutorReceipt,
   EMPTY_OUTPUT_TEXT,
   ERR_PREFIX,
   findWorkloomRoot,
@@ -30,6 +33,7 @@ import {
   PARAM_DESCRIPTIONS,
   resolveSubagentDefaults,
   resolveTaskRelPath,
+  splitProviderModel,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
 } from '@workloom-ai/core'
@@ -102,7 +106,7 @@ interface SubagentsService {
     request: {
       prompt: TextBlockLike[]
       parent: MinimalAgent
-      agentOptions?: { model?: string }
+      agentOptions?: { provider?: string; model?: string }
       maxDepth?: number
     }
     signal: AbortSignal
@@ -222,7 +226,7 @@ async function executeTool(
   const effective = resolveSubagentDefaults(config, params.kind, {
     model: params.model,
     effort: params.effort,
-  })
+  }, 'dsh')
   if (effective.effort !== undefined) assertEffort(effective.effort)
   const contextKey = `${CONTEXT_KEY_PREFIX}_${parent.id}`
   const taskRelPath = resolveTaskRelPath(root, contextKey, params.taskPath, ERR_PREFIX.executor)
@@ -235,7 +239,11 @@ async function executeTool(
   if (promptErr || built === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
-  const agentOptions = effective.model === undefined ? undefined : { model: effective.model }
+  // model 字符串支持 "provider/model" 前缀：拆分后 provider 一并传入 agentOptions，
+  // 跨 provider 派发才不会报 UNKNOWN_MODEL；裸 id 无 provider，按父 provider 解析。
+  const agentOptions = effective.model === undefined
+    ? undefined
+    : splitProviderModel(effective.model)
   const subagents = ctx.subagents
   const { childId } = await subagents.startContinuable({
     provider: SPAWN_PROVIDER,
@@ -256,7 +264,7 @@ async function executeTool(
   // 输出边界：只取子代理自身产出的事件（排除继承的父历史种子前缀）。
   const boundary = child.session.events.length
   if (effective.effort !== undefined) {
-    const headerErr = writeEffortHeader(child, parent, effective.effort)
+    const headerErr = writeEffortHeader(child, parent, effective.effort, agentOptions)
     if (headerErr !== null) {
       console.warn(`${EFFORT_WARN_PREFIX} ${headerErr}`)
     }
@@ -273,10 +281,18 @@ async function executeTool(
     // 释放失败不阻塞结果返回：子代理已 idle，仅告警记录。
     console.warn(`${DRAIN_WARN_PREFIX} ${String(error)}`)
   }
+  // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源。
+  const receipt = buildExecutorReceipt({
+    model: effective.model,
+    modelSource: effective.sources.model,
+    effort: effective.effort,
+    effortSource: effective.sources.effort,
+  })
+  const outputText = text === '' ? EMPTY_OUTPUT_TEXT : `${text}\n\n${receipt}`
   return {
     kind: 'foreground',
     runId: childId,
-    output: [{ type: 'text', text: text === '' ? EMPTY_OUTPUT_TEXT : text }],
+    output: [{ type: 'text', text: outputText }],
   }
 }
 
@@ -294,20 +310,23 @@ function renderOutput(value: unknown): TextBlockLike {
 /**
  * 写入 effort header（PoC P1 通道）。
  * request/header 是整体替换折叠：必须保留完整 LlmCallConfig（provider/model 必填），
- * 只改 reasoningEffort；从子代理现有折叠头或父 agent 的 options 补齐必填字段。
+ * 只改 reasoningEffort；兜底链为「子代理既有 header → 本次派发生效值 → 父 options」，
+ * 跨 provider 派发时不再错写父 provider/model。
  * @param child 子代理
  * @param parent 发起 agent
  * @param effort 合并后的 effort 档位（未指定时调用方不进入此函数）
+ * @param effectiveOptions 本次派发生效的 provider/model（可能为 undefined）
  * @returns 失败原因文案（effort 失效），成功返回 null
  */
 function writeEffortHeader(
   child: MinimalAgent,
   parent: MinimalAgent,
   effort: string | undefined,
+  effectiveOptions: { provider?: string; model?: string } | undefined,
 ): string | null {
   const existing = child.session.requestHeader()?.config
-  const provider = existing?.provider ?? parent.options.provider
-  const model = existing?.model ?? parent.options.model
+  const provider = existing?.provider ?? effectiveOptions?.provider ?? parent.options.provider
+  const model = existing?.model ?? effectiveOptions?.model ?? parent.options.model
   if (provider === undefined || model === undefined) {
     return 'cannot resolve provider/model for the child agent'
   }
