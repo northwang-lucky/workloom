@@ -1,1 +1,4 @@
 {"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "workflow.md 属于 agent-facing shipped 资产，新增/改写文案必须用英文"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "assets 包改动后须按部署同步纪律 build + rsync 到 DSH web profile，禁止跳过同步"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "改动后须运行仓库规定验证命令（lint/typecheck/相关单测）"}
