@@ -253,3 +253,80 @@ test('spec 索引超预算时渲染截断提示行', () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('norms 非空时快照在 guidelines 之后追加原文小节', () => {
+  const root = makeProject()
+  try {
+    const indexDir = join(root, '.workloom', 'spec', 'cli', 'backend')
+    mkdirSync(indexDir, { recursive: true })
+    writeFileSync(join(indexDir, 'index.md'), '# cli backend\n')
+    const norms = 'Always answer in the user language.\nNever include options in questions.'
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_13',
+      workflowSteps: [{ id: '1.1', title: 'Align requirements' }],
+      norms,
+    })
+    assert.equal(err, null)
+    const normsStart = text.indexOf('\nAlways-on norms:\n')
+    assert.ok(normsStart > 0, 'should contain Always-on norms section')
+    assert.ok(text.indexOf('\nWorkflow:') < normsStart, 'norms after workflow line')
+    assert.ok(text.indexOf('\nGuidelines (spec index') < normsStart, 'norms after guidelines')
+    assert.ok(
+      text
+        .slice(normsStart)
+        .startsWith(`\nAlways-on norms:\n${norms}\n</workloom-session-context>`),
+      'norms text preserved verbatim before block close',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('norms 非空且无 guidelines 时小节在 Workflow 行之后', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_14',
+      workflowSteps: [{ id: '2.1', title: 'Implement' }],
+      norms: 'Only dispatch implementations.',
+    })
+    assert.equal(err, null)
+    const normsStart = text.indexOf('\nAlways-on norms:\nOnly dispatch implementations.\n')
+    assert.ok(normsStart > 0)
+    assert.ok(text.indexOf('\nWorkflow:') < normsStart)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('norms 为 null 时不追加小节且输出逐字不变', () => {
+  const root = makeProject()
+  try {
+    const baseParams = { root, contextKey: 'dsh_sess_15', workflowSteps: [] }
+    const [, baseText] = assembleSessionContext(baseParams)
+    const [err, text] = assembleSessionContext({ ...baseParams, norms: null })
+    assert.equal(err, null)
+    assert.equal(text, baseText)
+    assert.doesNotMatch(text, /Always-on norms:/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('norms 为空白字符串时不追加小节', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_16',
+      workflowSteps: [],
+      norms: '   ',
+    })
+    assert.equal(err, null)
+    assert.doesNotMatch(text, /Always-on norms:/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

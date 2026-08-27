@@ -4,6 +4,8 @@
  * 设计意图：
  * - DSH 的 systemPrompt.context 是「取代式快照」：每次提示词组装渲染一份上下文快照，
  *   新快照取代旧快照，适合承载每轮更新的会话状态，不会随轮次膨胀；
+ * - always-on 行为规范（norms）随快照每轮重新组装：契约升级后下一轮即生效，
+ *   不依赖模型自觉或新开会话；
  * - 内容全部英文，整块包裹在 <workloom-session-context> 标记内，便于模型识别边界；
  * - 数据读取采取「可降级」策略：developer/git 读取失败降级为占位值，任务解析失败显式
  *   返回 err（结构性故障不静默）；全部同步 I/O，供同步 text provider 直接调用；
@@ -52,6 +54,9 @@ const STEP_SEPARATOR = ' | '
 /** guidelines 段标签行（固定文案，行为规格 §4.1）。 */
 const GUIDELINES_LABEL = 'Guidelines (spec index — read files as needed):'
 
+/** norms 段标签行（固定文案）。 */
+const NORMS_LABEL = 'Always-on norms:'
+
 /** guidelines 条目缩进。 */
 const GUIDELINES_INDENT = '  '
 
@@ -66,6 +71,8 @@ export interface SessionContextParams {
   contextKey: string
   /** 工作流步骤概览（契约 steps 的投影：id + title）。 */
   workflowSteps: readonly { id: string; title: string }[]
+  /** always-on 行为规范原文（契约 norms 块，可多行）；缺失或空白时快照不输出该小节。 */
+  norms?: string | null
 }
 
 /**
@@ -84,7 +91,8 @@ export function assembleSessionContext(
 }
 
 /**
- * 组装实现（内部）：按 Developer/任务/git/工作流 顺序拼行，整体包进块标记。
+ * 组装实现（内部）：按 Developer/任务/git/工作流/guidelines 顺序拼行，
+ * 结尾按需追加 norms 小节（always-on 规范原文），整体包进块标记。
  * @param params 入参
  * @returns 快照文本
  */
@@ -101,7 +109,16 @@ function assembleInternal(params: SessionContextParams): string {
     lines.push(`${LINE_LABELS.workflow}${overview}`)
   }
   lines.push(...guidelinesLines(params.root))
+  const norms = params.norms
+  if (hasNorms(norms)) {
+    lines.push(NORMS_LABEL, norms)
+  }
   return `${BLOCK_OPEN}\n${lines.join('\n')}\n${BLOCK_CLOSE}`
+}
+
+/** norms 是否非空（null/undefined/空白视为无 norms，快照结构不变）。 */
+function hasNorms(norms: string | null | undefined): norms is string {
+  return norms !== null && norms !== undefined && norms.trim() !== ''
 }
 
 /**
