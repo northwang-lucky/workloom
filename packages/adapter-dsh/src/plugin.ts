@@ -72,8 +72,8 @@ interface SystemPromptService {
   }): () => void
 }
 
-/** 自激活判定的结果：当前发起 agent 与所在项目根。 */
-interface InjectionTarget {
+/** 自激活判定的结果：当前发起 agent 与所在项目根（导出供组装函数公共签名引用）。 */
+export interface InjectionTarget {
   agent: Agent
   root: string
 }
@@ -177,6 +177,21 @@ function renderBreadcrumb(target: InjectionTarget): string {
 function renderSessionContext(target: InjectionTarget): string {
   const contractText = loadWorkflowContractText()
   if (contractText === null) return ''
+  return assembleSessionContextText(target, contractText)
+}
+
+/**
+ * 从契约文本组装 session-context 快照文本。
+ * 契约文本作为入参注入（导出供测试喂自定义契约，不依赖真实资产内容）：
+ * norms 随快照每轮重组装，契约升级后下一轮即生效；解析/组装失败只告警，不阻塞会话。
+ * @param target 注入目标（agent + 项目根）
+ * @param contractText 契约全文
+ * @returns 注入文本（可能为空串）
+ */
+export function assembleSessionContextText(
+  target: InjectionTarget,
+  contractText: string,
+): string {
   const [parseErr, contract] = parseContract(contractText)
   if (parseErr || contract === null) {
     console.warn(
@@ -188,6 +203,7 @@ function renderSessionContext(target: InjectionTarget): string {
     root: target.root,
     contextKey: `${CONTEXT_KEY_PREFIX}_${target.agent.id}`,
     workflowSteps: contract.steps,
+    norms: contract.norms,
   })
   if (err) {
     console.warn(`${CONTEXT_WARN_PREFIX} ${err.message}`)
