@@ -76,3 +76,9 @@
 - Commit: f0affe9
 - Summary: workloom executor 子代理切换为一次性(one-shot)派发:DSH 侧经 ctx.subagents.start 派发,用户无法再对其发送消息;DSH 侧 effort 通道完全移除,core 共享逻辑与 Pi 保持不动;构建产物已同步 DSH profile(重启归用户)。
 
+## Kimi Code 适配调研与 podman spike 验证
+
+- Time: 2026-08-28T11:01:31.305Z
+- Commit: d3f32aa
+- Summary: 调研并 spike 验证 workloom 支持 Kimi Code 的可行性：调研报告 + podman 容器真机验证 V1–V8 + 回填开放问题，结论为需自研 wrapper（adapter-kimi = plugin + MCP server + hooks），待创建实施任务。
+
