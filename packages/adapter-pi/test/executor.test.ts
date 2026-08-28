@@ -48,14 +48,15 @@ test('appendExecutorReceipt: 空文本只返回 receipt 行', () => {
   assert.ok(!result.includes('\n\n'))
 })
 
-test('appendExecutorReceipt: 未配置字段显示 default 来源', () => {
+test('appendExecutorReceipt: 未配置字段显示 default 来源（effort 段省略）', () => {
   const effective = {
     sources: {},
   }
   const result = appendExecutorReceipt('output', effective)
   assert.ok(result.includes('<parent session>'))
   assert.ok(result.includes('(default)'))
-  assert.ok(result.includes('<unset>'))
+  assert.ok(!result.includes('effort:'), 'effort 未配置时整段省略（core 条件渲染语义）')
+  assert.ok(!result.includes('<unset>'))
 })
 
 test('buildExecutorReceipt: 与 core 的导出行为一致（sanity check）', () => {
