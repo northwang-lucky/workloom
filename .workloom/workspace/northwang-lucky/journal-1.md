@@ -70,3 +70,9 @@
 - Commit: 0991524
 - Summary: 契约 v8：任务创建改为「Agent 推荐 → 用户确认 → 才建任务」（1.0/no_task/completed 三处，保留纯问答豁免）；prd.md 骨架强制 H1 标题，start 门禁新增校验；contract 测试 v8 断言与 H1 门禁用例全绿。
 
+## executor 子代理切换 one-shot(禁止用户 follow-up)
+
+- Time: 2026-08-28T04:10:45.783Z
+- Commit: f0affe9
+- Summary: workloom executor 子代理切换为一次性(one-shot)派发:DSH 侧经 ctx.subagents.start 派发,用户无法再对其发送消息;DSH 侧 effort 通道完全移除,core 共享逻辑与 Pi 保持不动;构建产物已同步 DSH profile(重启归用户)。
+
