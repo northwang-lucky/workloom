@@ -71,6 +71,9 @@ packages:
 # explicit model/effort wins; each field merges independently, so a missing
 # field falls back to the value here.
 #
+# `effort` (low/medium/high/xhigh/max) only takes effect on the Pi adapter
+# (mapped to --thinking); the DSH adapter ignores this field.
+#
 # `model` accepts either a single string (the same value on every runtime) or a
 # per-runtime map with one entry per runtime key (dsh/pi, plus any future
 # runtime — keys are not whitelisted). With a map, the entry for the current
