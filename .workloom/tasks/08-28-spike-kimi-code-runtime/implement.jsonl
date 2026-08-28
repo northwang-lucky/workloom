@@ -1,0 +1,8 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file":"docs/research/kimi-code-plugin-support.md","reason":"调研基线：开放问题清单（第 9 节）与 adapter-kimi 初步方案，本 spike 的验证对象"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"spike 探针脚本与容器配置需遵守的编码与验证命令规范"}
+{"file":".workloom/spec/repo/architecture/index.md","reason":"adapter 分层规则，探针与验证资产设计需对齐后续 adapter-kimi 形态"}
+{"file":".workloom/spec/repo/commits/index.md","reason":"spike 报告与资产的提交规范"}
+{"file":".workloom/spec/repo/language/index.md","reason":"报告与脚本注释的中英文分工约定"}
+{"file":"docs/research/kimi-code-spike-report.md","reason":"spike 验证产出"}
+{"file":"docs/research/kimi-code-plugin-support.md","reason":"回填第 9 节开放问题的真机验证结论"}

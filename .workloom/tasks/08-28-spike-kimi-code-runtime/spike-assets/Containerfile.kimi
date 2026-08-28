@@ -1,0 +1,19 @@
+# Kimi Code spike 验证容器
+# 用途：在干净容器内真机验证 adapter-kimi 的 8 项开放问题（V1–V8）。
+# 方案要点：
+#   - 基镜像复用 node:26-trixie-slim（含 node，供 MCP server/hook 探针脚本运行）。
+#   - kimi 二进制为宿主机已验证的原生 x86-64 glibc 二进制（v0.39.0），运行期经 compose 只读挂载到
+#     /usr/local/bin/kimi，避免容器内重复下载与 glibc 兼容性问题。
+#   - 容器内自建干净 $KIMI_CODE_HOME（默认 ~/.kimi-code），登录状态由 setup-kimi-home.sh 从只读
+#     挂载的 /host-kimi-code 拷贝，杜绝污染宿主机 ~/.kimi-code。
+# 构建：podman build -t localhost/workloom-kimi-spike:latest -f Containerfile.kimi .
+FROM docker.io/library/node:26-trixie-slim
+
+# kimi 二进制（glibc 动态链接）运行库 + jq（JSON 解析）/ curl（网络探针）
+# 内网构建走字节镜像源（deb.debian.org 经公网拉取极慢），对齐仓库既有 Containerfile 模式
+RUN sed -i 's#http://deb.debian.org#http://mirrors.byted.org#g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl jq libstdc++6 libgcc-s1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /work /home/tester \
+    && chown 1001:1001 /work /home/tester

@@ -1,0 +1,21 @@
+{
+  "name": "workloom-spike",
+  "version": "0.1.0",
+  "description": "workloom adapter-kimi spike probe plugin",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "sessionStart": {
+    "skill": "contract"
+  },
+  "mcpServers": {
+    "workloom": {
+      "command": "node",
+      "args": [
+        "./mcp-server/mcp-echo-server.mjs"
+      ],
+      "env": {
+        "KIMI_CODE_PROBE": "set-via-manifest"
+      }
+    }
+  }
+}

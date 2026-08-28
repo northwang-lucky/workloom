@@ -1,0 +1,4 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file":".workloom/tasks/08-28-spike-kimi-code-runtime/prd.md","reason":"验收标准逐条核对（AC1–AC4 与验证矩阵 V1–V8）"}
+{"file":"docs/research/kimi-code-plugin-support.md","reason":"核对第 9 节开放问题是否逐项回填已验结论，且与 spike 报告一致"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"核对验证资产脚本的 lint/验证命令通过情况"}
