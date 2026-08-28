@@ -237,21 +237,13 @@ core 是纯 ESM Node 包（`packages/core/package.json`，engines `node>=22`）�
 ## 9. 开放问题清单
 
 1. `kimi -p` print 模式的输出格式：是否有 `--mode json` / JSONL 类机器可读输出？退出码语义？（本次调研的 customization 目录未覆盖，需查 reference/cli 文档或真机验证）——直接决定 executor 解析器成本。
-   - **已验**：`kimi -p --output-format stream-json` 输出**换行分隔 JSONL**（逐消息，非逐 token）。判别字段为 `role`（`meta`/`assistant`/`tool`）；`role:"meta"` 带 `type`（`system.version` 首行、`session.resume_hint` 末行）；文本用 `{"role":"assistant","content":...}`，工具调用用 `tool_calls[{type,id,function:{name,arguments}}]`，工具结果用 `{"role":"tool","tool_call_id":...}`。无独立 reasoning/thinking 事件。退出码：成功 0，失败 1（错误消息在 stderr）。详见 spike 报告 §1。
 2. `PreToolUse` payload 中 `tool_input` 的字段结构，以及写工具的确切名称（Write/Edit？hooks.md 仅示例 Bash）——gate 的 matcher 依赖此。
-   - **已验**：`tool_input` 为工具的 schema 透传——`Write`={path,content}、`Edit`={path,old_string,new_string}、`Read`={path}、`Bash`={command}；`tool_name` 即工具名（Write/Edit/Read/Bash）。payload 事件名字段为 `hook_event_name`（非 `event`）。`matcher` 为正则，省略时实测各工具均被捕获。`exit 2` 阻断生效（stderr 作阻断原因回传模型）；崩溃/超时 fail-open 放行。详见 spike 报告 §3。
 3. `UserPromptSubmit` hook stdout 附加文本的长度上限；subagent 的回合是否也触发该事件（影响 executor 会话内是否有 breadcrumb）。
-   - **已验**：stdout 附加文本会进入上下文（kimi 加 `UserPromptSubmit hook\n\n` 前缀注入，模型可见可遵循）。**subagent 回合不触发**（`Agent` 委派 explore 子代理仅父会话触发 1 次），executor 子会话无法靠该 hook 注入 breadcrumb。**长度上限未单独验证**、无截断迹象、文档未明示；建议实现侧保守裁剪。详见 spike 报告 §2。
 4. plugin commands 的 frontmatter 对未知字段（title/argument-hint）是否容错（agents.md 对 Agent 文件明示忽略未知字段，plugins.html 未对命令明示）。
-   - **已验**：**容错**。含 `title`/`argument-hint` 的命令插件加载无 diagnostics，同插件 mcpServers/skill 均生效，命令未被拒载。注：非交互无法调 `/plugins info` 看 diagnostics，证据为"加载无报错 + 插件其余功能正常"。详见 spike 报告 §6。
 5. plugin 更新/多版本共存策略：`plugins/managed/<id>/` 是否单版本覆盖安装。
-   - **已验**：**覆盖安装、单版本共存**。同 id 重装（版本 0.1.0→0.2.0 + 标记文件）仍只保留 `plugins/managed/<id>/` 单目录，version 更新，无 `versions/` 并存；`plugins/installed.json` 对同 id 保持单条记录。详见 spike 报告 §7。
 6. plugin manifest 声明的 stdio MCP server 的默认 cwd（core 需 cwd 定位 `.workloom`；hooks 已明示为项目目录，mcp.md 未说明 plugin server 的 cwd 默认值）。
-   - **已验**：**默认 cwd = 插件根目录**（`<KIMI_CODE_HOME>/plugins/managed/<id>`），**不是**会话项目目录。（`PWD` env 显示 `/work` 为旧值，`process.cwd()` 才是权威。）→ adapter 必须在 `mcpServers.<server>.cwd` 显式指定 workloom 项目目录。另：MCP server 的 node 入口**必须在插件根内**（否则 `Plugin node entry must be inside KIMI_PLUGIN_ROOT`）；manifest `env` 字段透传；工具命名为 `mcp__plugin-<plugin-id>_<server>__<tool>`。详见 spike 报告 §4。
 7. `sessionStart.skill` 的加载形态：契约全文是否作为 skill 内容整体进入 main agent 上下文，还是仅登记为可调用。
-   - **已验**：**整体进入 main agent 上下文并作为指令生效**（非仅登记）。skill 正文含"回答前须输出 CONTRACT_OBEYED"，模型输出该行证明被加载进上下文。详见 spike 报告 §5。
 8. Kimi 是否有项目级 plugin 启用/禁用或项目级安装范围的路线图（当前全局生效）。
-   - **已验**：官方文档明确当前无：`kimi-code/zh/customization/plugins.html` —— "Plugin 目前按用户安装，对所有项目生效，暂不支持项目级安装范围。" **roadmap** 为 open issue `MoonshotAI/kimi-code#1749`（2026-07-15）`feat(plugin): support project-level plugin directories`（拟经 `.kimi-code/local.toml` `[workspace] plugin_dir=[./plugins]`）。详见 spike 报告 §8。
 
 ## 附：来源清单
 

@@ -1,0 +1,39 @@
+# Kimi Code spike 验证容器（podman-compose）
+# 用法：
+#   podman-compose --in-pod false -f compose.yml up -d
+#   podman exec kimi-spike bash /work/.workloom/tasks/08-28-spike-kimi-code-runtime/spike-assets/setup-kimi-home.sh
+#   复跑全部验证：podman exec kimi-spike bash /work/.workloom/tasks/08-28-spike-kimi-code-runtime/spike-assets/verify-all.sh
+#   podman-compose --in-pod false -f compose.yml down
+# 说明：
+#   - 宿主机 UID/GID 需为 1001:1001（本机 wangyubo.1219 即如此），与 userns_mode: keep-id + user 匹配。
+#   - /host-kimi-code 只读挂载宿主机 ~/.kimi-code，仅作登录状态源；/usr/local/bin/kimi 只读挂载宿主机已验证的
+#     原生 kimi 二进制（v0.39.0），容器内不下载、不重装。
+#   - 工作仓库挂载到 /work，spike 资产与探针脚本均可直接执行。
+services:
+  kimi-spike:
+    build:
+      context: .
+      dockerfile: Containerfile.kimi
+    image: localhost/workloom-kimi-spike:latest
+    container_name: kimi-spike
+    userns_mode: keep-id
+    user: "1001:1001"
+    restart: "no"
+    command: ["sleep", "infinity"]
+    working_dir: /work
+    environment:
+      - HOME=/home/tester
+      - KIMI_CODE_HOME=/home/tester/.kimi-code
+      - XDG_DATA_HOME=/home/tester/.local/share
+      # 外网走宿主 mihomo 代理（kimi API / npm）
+      - HTTP_PROXY=http://host.containers.internal:7890
+      - HTTPS_PROXY=http://host.containers.internal:7890
+      - http_proxy=http://host.containers.internal:7890
+      - https_proxy=http://host.containers.internal:7890
+      - NO_PROXY=localhost,127.0.0.1,host.containers.internal
+      - no_proxy=localhost,127.0.0.1,host.containers.internal
+    volumes:
+      # 登录状态源（只读）+ kimi 二进制（只读）+ 工作仓库（读写）
+      - /home/wangyubo.1219/.kimi-code:/host-kimi-code:ro,Z
+      - /home/wangyubo.1219/.kimi-code/bin/kimi:/usr/local/bin/kimi:ro,Z
+      - /data00/home/wangyubo.1219/workbench/code-src/github/workloom:/work:Z

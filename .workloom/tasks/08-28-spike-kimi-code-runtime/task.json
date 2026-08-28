@@ -1,0 +1,33 @@
+{
+  "id": "8944c896-d109-4e2c-9f22-d2997cf7a3ab",
+  "name": "spike-kimi-code-runtime",
+  "title": "spike：在 podman 容器内验证 Kimi Code runtime 适配的关键不确定项",
+  "description": "依据 docs/research/kimi-code-plugin-support.md 的开放问题清单，在 podman 容器（挂宿主机 kimi 登录状态）内真机验证：kimi -p stream-json 输出协议、PreToolUse/UserPromptSubmit hooks payload、plugin manifest mcpServers 的 stdio 加载与 cwd、sessionStart.skill 注入形态、kimi-for-coding 模型行为。产出 spike 报告并回填调研报告，为 adapter-kimi 完整实施扫清不确定项。",
+  "status": "in_progress",
+  "priority": "P0",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-28T10:22:34.778Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
