@@ -175,6 +175,9 @@ export const TASK_ARCHIVE_NOTE = `Task archived. When the session ends, run /${C
  * 拼装 executor 回执行：生效 model/effort 及各自来源（运行时文案英文）。
  * 字段缺失时显示 `<parent session>` / `<unset>` 与 `(default)` 来源，
  * 使配置未生效一眼可辨。
+ * effort 段条件渲染：effort/effortSource 均未传时整段省略（DSH 侧已移除
+ * effort 通道，调用只传 model 维度）；任一存在则按原格式渲染（缺失字段仍
+ * 显示 `<unset>`/`(default)`，兼容浅传参），Pi 传参行为不变。
  */
 export function buildExecutorReceipt(params: {
   model?: string
@@ -184,7 +187,11 @@ export function buildExecutorReceipt(params: {
 }): string {
   const modelLabel = params.model ?? '<parent session>'
   const modelSrc = params.modelSource ? ` (${params.modelSource})` : ' (default)'
-  const effortLabel = params.effort ?? '<unset>'
-  const effortSrc = params.effortSource ? ` (${params.effortSource})` : ' (default)'
-  return `[workloom executor] model: ${modelLabel}${modelSrc}, effort: ${effortLabel}${effortSrc}`
+  let receipt = `[workloom executor] model: ${modelLabel}${modelSrc}`
+  if (params.effort !== undefined || params.effortSource !== undefined) {
+    const effortLabel = params.effort ?? '<unset>'
+    const effortSrc = params.effortSource ? ` (${params.effortSource})` : ' (default)'
+    receipt += `, effort: ${effortLabel}${effortSrc}`
+  }
+  return receipt
 }
