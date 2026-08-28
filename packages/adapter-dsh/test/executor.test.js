@@ -1,5 +1,6 @@
 /**
- * executor 模块单测：agentOptions provider 拆分、writeEffortHeader 兜底链、receipt 行。
+ * executor 模块单测：agentOptions provider 拆分、one-shot 派发契约、stopReason
+ * 异常终止、dispose 释放与 receipt 行。
  * 测试依赖 dist（test 脚本先 build 再跑 node --test）。
  */
 import { test } from 'node:test'
@@ -32,29 +33,21 @@ function makeProject(configYaml) {
   return root
 }
 
-/** 构造模拟 agent（parent）。 */
-function makeAgent(root, overrides = {}) {
+/** 构造模拟 agent（parent，仅 id 与 cwd 被 executor 读取）。 */
+function makeAgent(root) {
   return {
     id: 'parent-1',
-    options: { provider: 'parent-provider', model: 'parent-model', ...overrides.options },
     session: {
       header: { cwd: root },
-      events: [],
-      requestHeader() {
-        return overrides.requestHeader
-      },
-      append: overrides.append ?? (() => {}),
     },
-    whenIdle: overrides.whenIdle ?? (() => Promise.resolve()),
-    ...overrides.rest,
   }
 }
 
-/** 构造模拟 ctx（捕获注册的工具与派发参数）。 */
+/** 构造模拟 ctx（捕获注册的工具、one-shot 派发参数与 dispose 调用）。 */
 function makeCtx(overrides = {}) {
   const registered = []
   const startCalls = []
-  const agents = new Map()
+  const disposeCalls = []
 
   const tools = {
     register(def) {
@@ -64,47 +57,36 @@ function makeCtx(overrides = {}) {
   }
 
   const subagents = {
-    async startContinuable(spec) {
-      startCalls.push(spec)
-      const childId = `child-${startCalls.length}`
-      // 子代理事件数组：whenIdle 前只有初始事件（boundary 以此为基准）
-      const events = overrides.childEvents ? [...overrides.childEvents] : []
-      agents.set(childId, {
-        id: childId,
-        options: {},
-        session: {
-          header: { cwd: spec.request.parent.session.header.cwd },
-          events,
-          requestHeader() {
-            return undefined
-          },
-          append: overrides.childAppend ?? (() => {}),
+    async start(name, request) {
+      startCalls.push({ name, request })
+      // 默认 completed + 文本输出；subagentResult 覆盖最终结果（可用函数按调用次数）。
+      const result = overrides.subagentResult
+        ? (typeof overrides.subagentResult === 'function'
+          ? overrides.subagentResult(startCalls.length)
+          : overrides.subagentResult)
+        : { output: [{ type: 'text', text: 'Mock executor output.' }], stopReason: 'completed' }
+      return {
+        id: `child-${startCalls.length}`,
+        result: Promise.resolve(result),
+        async dispose() {
+          disposeCalls.push(`child-${startCalls.length}`)
+          if (overrides.dispose !== undefined) await overrides.dispose()
         },
-        // whenIdle 模拟子代理运行完成：追加 assistant 文本输出事件
-        whenIdle: overrides.childWhenIdle ?? (() => {
-          events.push({
-            type: 'assistant/message',
-            data: { message: { content: [{ type: 'text', text: 'Mock executor output.' }] } },
-          })
-          return Promise.resolve()
-        }),
-      })
-      return { childId }
+      }
     },
-    async drainContinuableChildren() {},
   }
 
-  const ctx = { tools, subagents, agents: { get: (id) => agents.get(id) } }
-  return { ctx, registered, startCalls }
+  const ctx = { tools, subagents }
+  return { ctx, registered, startCalls, disposeCalls }
 }
 
-/** 注册 executor 并返回 { execute, registered, startCalls }。 */
+/** 注册 executor 并返回 { execute, registered, startCalls, disposeCalls }。 */
 function setupExecutor(overrides = {}) {
-  const { ctx, registered, startCalls } = makeCtx(overrides)
+  const { ctx, registered, startCalls, disposeCalls } = makeCtx(overrides)
   registerExecutor(ctx)
   const def = registered[0]
   assert.ok(def, 'executor tool must be registered')
-  return { execute: def.execute.bind(def), registered, startCalls }
+  return { execute: def.execute.bind(def), registered, startCalls, disposeCalls }
 }
 
 test('agentOptions 携带 provider+model（带前缀时）', async () => {
@@ -182,116 +164,138 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
   }
 })
 
-test('writeEffortHeader 兜底链：既有 header 优先', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: cross-provider/model-a
-    effort: high
-`)
-  try {
-    const appends = []
-    const { execute } = setupExecutor({
-      childAppend: (type, data) => appends.push({ type, data }),
-    })
-    // 子代理已有 header（provider/model 已固定）
-    const parent = makeAgent(root)
-    await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'existing header test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(appends.length, 1)
-    const cfg = appends[0].data.header.config
-    // 子代理无现有 header，应使用派发生效值（拆分后的 provider/model）
-    assert.equal(cfg.provider, 'cross-provider')
-    assert.equal(cfg.model, 'model-a')
-    assert.equal(cfg.reasoningEffort, 'high')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('writeEffortHeader 兜底链：其次派发生效值，最后父 options', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    effort: medium
-`)
-  try {
-    const appends = []
-    const { execute } = setupExecutor({
-      childAppend: (type, data) => appends.push({ type, data }),
-    })
-    const parent = makeAgent(root, {
-      options: { provider: 'parent-p', model: 'parent-m' },
-    })
-    await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'parent fallback test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(appends.length, 1)
-    const cfg = appends[0].data.header.config
-    // 无派发生效 model，应回退到父 options
-    assert.equal(cfg.provider, 'parent-p')
-    assert.equal(cfg.model, 'parent-m')
-    assert.equal(cfg.reasoningEffort, 'medium')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('writeEffortHeader 跨 provider：不写父 provider/model', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: other-provider/other-model
-    effort: max
-`)
-  try {
-    const appends = []
-    const { execute } = setupExecutor({
-      childAppend: (type, data) => appends.push({ type, data }),
-    })
-    // 父是另一个 provider
-    const parent = makeAgent(root, {
-      options: { provider: 'parent-p', model: 'parent-m' },
-    })
-    await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'cross provider test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(appends.length, 1)
-    const cfg = appends[0].data.header.config
-    // 应使用派发配置的 provider/model，而非父的
-    assert.equal(cfg.provider, 'other-provider')
-    assert.equal(cfg.model, 'other-model')
-    assert.equal(cfg.reasoningEffort, 'max')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('receipt 行出现在返回文本尾部（来源标注正确）', async () => {
+test('one-shot 派发：spawn provider、label、maxDepth 1、agentOptions、signal 与 parent', async () => {
   const root = makeProject(`
 subagents:
   implement:
     model: deepseek-official/deepseek-v4-flash
-    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const signal = new AbortController().signal
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test prompt',
+        taskPath: 'tasks/test-task',
+        title: 'one-shot dispatch test',
+      },
+      { agent: parent, signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const call = startCalls[0]
+    assert.equal(call.name, 'spawn')
+    assert.equal(call.request.label, '[Implement] one-shot dispatch test')
+    assert.equal(call.request.maxDepth, 1)
+    assert.equal(call.request.signal, signal)
+    assert.equal(call.request.parent, parent)
+    assert.equal(call.request.prompt.length, 1)
+    assert.equal(call.request.prompt[0].type, 'text')
+    assert.ok(call.request.prompt[0].text.includes('Active task:'), 'prompt must inline the task')
+    assert.deepEqual(call.request.agentOptions, {
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-flash',
+    })
+    // runId 沿用 run.id（桩按调用次数生成 child-N）
+    assert.equal(result.runId, 'child-1')
+    assert.ok(result.output[0].text.includes('Mock executor output.'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('stopReason 非 completed：抛错且文本用 diagnostic（不附输出）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor({
+      subagentResult: {
+        output: [{ type: 'text', text: 'partial output' }],
+        stopReason: 'refusal',
+        diagnostic: 'the model declined the task',
+      },
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'refusal test' },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /the model declined the task/,
+    )
+    assert.equal(startCalls.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('stopReason 非 completed 且缺 diagnostic：用 stopReason 兜底文案', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor({
+      subagentResult: { output: [], stopReason: 'aborted' },
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'aborted test' },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /the executor subagent ended with aborted/,
+    )
+    assert.equal(startCalls.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('dispose 失败仅 WARNING：结果仍正常返回', async (t) => {
+  const root = makeProject('')
+  try {
+    const warn = t.mock.method(console, 'warn', () => {})
+    const { execute, disposeCalls } = setupExecutor({
+      dispose: () => {
+        throw new Error('dispose boom')
+      },
+    })
+    const parent = makeAgent(root)
+    const result = await execute(
+      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'dispose warn test' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(disposeCalls.length, 1)
+    assert.equal(warn.mock.callCount(), 1)
+    assert.match(String(warn.mock.calls[0].arguments[0]), /failed to dispose executor run/)
+    assert.ok(result.output[0].text.includes('Mock executor output.'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('run.dispose 在结果被读取后调用（含异常终止路径）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, disposeCalls } = setupExecutor({
+      subagentResult: { output: [], stopReason: 'max-tokens' },
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'dispose error test' },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+    )
+    assert.equal(disposeCalls.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('receipt 行出现在返回文本尾部（来源标注正确，无 effort 段）', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
 `)
   try {
     const { execute } = setupExecutor()
@@ -309,7 +313,7 @@ subagents:
     assert.ok(text.includes('[workloom executor]'))
     assert.ok(text.includes('deepseek-official/deepseek-v4-flash'))
     assert.ok(text.includes('(config)'))
-    assert.ok(text.includes('high'))
+    assert.ok(!text.includes('effort:'), 'DSH receipt must not render the effort segment')
     // receipt 应在子代理输出之后（空行分隔）
     const lines = text.split('\n')
     const receiptIdx = lines.findIndex((l) => l.includes('[workloom executor]'))
@@ -325,19 +329,18 @@ test('receipt 行：param 来源标注正确', async () => {
 subagents:
   implement:
     model: param-provider/param-model
-    effort: max
 `)
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      { kind: 'implement', prompt: 'test', model: 'param-provider/param-model', effort: 'max', taskPath: 'tasks/test-task', title: 'receipt param test' },
+      { kind: 'implement', prompt: 'test', model: 'param-provider/param-model', taskPath: 'tasks/test-task', title: 'receipt param test' },
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
     assert.ok(text.includes('param-provider/param-model'))
     assert.ok(text.includes('(param)'))
-    assert.ok(text.includes('max'))
+    assert.ok(!text.includes('effort:'), 'DSH receipt must not render the effort segment')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -350,8 +353,8 @@ subagents:
     model: deepseek-official/deepseek-v4-flash
 `)
   try {
-    // childWhenIdle 不追加任何事件 → 子代理无文本输出
-    const { execute } = setupExecutor({ childWhenIdle: () => Promise.resolve() })
+    // subagentResult 空输出 → 子代理无文本产出，receipt 仍保留
+    const { execute } = setupExecutor({ subagentResult: { output: [], stopReason: 'completed' } })
     const parent = makeAgent(root)
     const result = await execute(
       {
@@ -372,7 +375,7 @@ subagents:
   }
 })
 
-test('receipt 行：无配置时显示 default 来源', async () => {
+test('receipt 行：无配置时显示 default 来源（无 effort 段）', async () => {
   const root = makeProject('')
   try {
     const { execute } = setupExecutor()
@@ -389,7 +392,7 @@ test('receipt 行：无配置时显示 default 来源', async () => {
     const text = result.output[0].text
     assert.ok(text.includes('<parent session>'))
     assert.ok(text.includes('(default)'))
-    assert.ok(text.includes('<unset>'))
+    assert.ok(!text.includes('effort:'), 'no effort config must omit the effort segment')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -410,7 +413,7 @@ test('label 组装：三种 kind 均为 [<KindLabel>] <task title>（title 缺�
         { kind, prompt: 'test', taskPath: 'tasks/test-task' },
         { agent: parent, signal: new AbortController().signal },
       )
-      assert.equal(startCalls[startCalls.length - 1].label, `[${kindLabel}] Test`)
+      assert.equal(startCalls[startCalls.length - 1].request.label, `[${kindLabel}] Test`)
     }
     assert.equal(startCalls.length, 3)
   } finally {
@@ -431,7 +434,7 @@ test('label 回退：task title 空白时回退 workloom-<kind>（连字符）',
       { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(startCalls[0].label, 'workloom-implement')
+    assert.equal(startCalls[0].request.label, 'workloom-implement')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -448,7 +451,7 @@ test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', a
       { kind: 'research', prompt: 'test', taskPath: 'tasks/test-task' },
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(startCalls[0].label, 'workloom-research')
+    assert.equal(startCalls[0].request.label, 'workloom-research')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -475,7 +478,7 @@ test('label 组装：title 传入时三种 kind 均为 [<KindLabel>] <title>', a
         { agent: parent, signal: new AbortController().signal },
       )
       assert.equal(
-        startCalls[startCalls.length - 1].label,
+        startCalls[startCalls.length - 1].request.label,
         `[${kindLabel}] fix executor label prefix`,
       )
     }
@@ -494,7 +497,7 @@ test('label 回退：title 为空白字符串时走缺省 task title 路径', as
       { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: '   ' },
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(startCalls[0].label, '[Implement] Test')
+    assert.equal(startCalls[0].request.label, '[Implement] Test')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -515,7 +518,7 @@ test('label 组装：title 传入时不依赖 readTask（task.json 损坏仍可�
       },
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(startCalls[0].label, '[Implement] semantic title wins')
+    assert.equal(startCalls[0].request.label, '[Implement] semantic title wins')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -540,7 +543,13 @@ test('参数面：force/reason schema 描述引用 PARAM_DESCRIPTIONS', () => {
   assert.equal(props.reason.description, PARAM_DESCRIPTIONS.reasonExecutor)
 })
 
-test('冲突无 force：返回 buildConflictNotice 文本且不派发', async () => {
+test('参数面：schema 无 effort 参数（DSH 已移除 effort 通道）', () => {
+  const { registered } = setupExecutor()
+  const props = registered[0].parameters.properties
+  assert.equal(props.effort, undefined)
+})
+
+test('冲突无 force：model 冲突返回提示且不派发（effort 不触发）', async () => {
   const root = makeProject(`
 subagents:
   implement:
@@ -557,7 +566,6 @@ subagents:
         taskPath: 'tasks/test-task',
         title: 'conflict no force test',
         model: 'deepseek-official/deepseek-v4-pro',
-        effort: 'low',
       },
       { agent: parent, signal: new AbortController().signal },
     )
@@ -565,7 +573,7 @@ subagents:
     assert.equal(startCalls.length, 0)
     assert.ok(text.includes('workloom executor: explicit parameters conflict with subagents.implement config:'))
     assert.ok(text.includes('model: config "deepseek-official/deepseek-v4-flash", passed "deepseek-official/deepseek-v4-pro"'))
-    assert.ok(text.includes('effort: config "high", passed "low"'))
+    assert.ok(!text.includes('effort: config'), 'DSH conflict gate must not include effort')
     assert.ok(text.includes('force: true with a non-empty reason'))
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -609,6 +617,7 @@ subagents:
     effort: high
 `)
   try {
+    // 配置含 effort 但工具只传 model：effort 不参与冲突与派发，force 仅因 model 冲突。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
@@ -618,7 +627,6 @@ subagents:
         taskPath: 'tasks/test-task',
         title: 'conflict forced test',
         model: 'deepseek-official/deepseek-v4-pro',
-        effort: 'low',
         force: true,
         reason: 'user asked to use the pro model',
       },
@@ -649,6 +657,7 @@ subagents:
     effort: high
 `)
   try {
+    // 工具只传等价 model（不传 effort）：effort 不再参与冲突门，正常派发。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
@@ -658,7 +667,6 @@ subagents:
         taskPath: 'tasks/test-task',
         title: 'no conflict test',
         model: 'deepseek-official/deepseek-v4-flash',
-        effort: 'high',
       },
       { agent: parent, signal: new AbortController().signal },
     )
