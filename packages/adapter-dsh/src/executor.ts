@@ -306,9 +306,11 @@ async function executeTool(
     const result = await run.result
     if (result.stopReason !== 'completed') {
       // 异常终止：不附输出文本（避免把中止/失败当成功消费），错误文本用
-      // diagnostic，缺失时用 stopReason 的兜底文案。
+      // diagnostic，缺失时用 stopReason 的兜底文案（前缀与其余工具错误一致）。
       throw new Error(
-        result.diagnostic ?? `the executor subagent ended with ${result.stopReason}`,
+        `${ERR_PREFIX.executor}: ${
+          result.diagnostic ?? `the executor subagent ended with ${result.stopReason}`
+        }`,
       )
     }
     const text = result.output
