@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-08-28T11:01:12.702Z",
+    "summary": "check subagent 核验通过：提交范围仅 docs/research/ 与任务目录（未触碰 packages/ 与 .workloom/spec/）；调研报告第 9 节 8 项开放问题逐项回填已验结论且与 spike 报告交叉一致；证据链（out/ 证据文件 vs 报告摘录）逐条印证；AC1–AC4 全部 PASS；探针脚本过 eslint、commit 规范、未 push。三项非阻断轻微瑕疵记录在案：verify-all.sh shebang 不在首行（README 用 bash 调用不受影响）、hook-dump.sh 注释 sleep 秒数与代码不一致、mcp-echo-server.mjs 协议版本号硬编码旧值（kimi 容忍，不影响结论）。"
+  },
   "overrides": [],
   "hooks": {
     "after_create": [],
