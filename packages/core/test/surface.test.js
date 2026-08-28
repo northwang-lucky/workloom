@@ -84,18 +84,25 @@ test('buildExecutorReceipt 缺 model 时显示 parent session + default', () => 
   assert.ok(text.includes('(config)'), 'must show effort source')
 })
 
-test('buildExecutorReceipt 缺 effort 时显示 unset + default', () => {
+test('buildExecutorReceipt 缺 effort 时整段省略', () => {
   const text = buildExecutorReceipt({ model: 'kimi-coding/k3', modelSource: 'param' })
   assert.ok(text.includes('kimi-coding/k3'), 'must show model')
   assert.ok(text.includes('(param)'), 'must show model source')
-  assert.ok(text.includes('<unset>'), 'missing effort must show placeholder')
-  assert.ok(text.includes('(default)'), 'missing effort source must show default')
+  assert.ok(!text.includes('effort:'), 'missing effort must omit the whole segment')
+  assert.ok(!text.includes('<unset>'), 'missing effort must not render the placeholder')
 })
 
-test('buildExecutorReceipt 全缺时两字段均显示 default', () => {
+test('buildExecutorReceipt 全缺时 model 显示 default、effort 段省略', () => {
   const text = buildExecutorReceipt({})
   assert.ok(text.includes('<parent session>'), 'missing model must show placeholder')
-  assert.ok(text.includes('<unset>'), 'missing effort must show placeholder')
+  assert.ok(!text.includes('effort:'), 'missing effort must omit the whole segment')
   const defaultCount = text.split('(default)').length - 1
-  assert.equal(defaultCount, 2, 'both missing sources must show default')
+  assert.equal(defaultCount, 1, 'only the model source must show default')
+})
+
+test('buildExecutorReceipt 任一 effort 字段存在时按原格式渲染（浅传参）', () => {
+  const noSource = buildExecutorReceipt({ effort: 'high' })
+  assert.ok(noSource.includes('effort: high (default)'), 'effort without source shows default')
+  const noValue = buildExecutorReceipt({ effortSource: 'config' })
+  assert.ok(noValue.includes('effort: <unset> (config)'), 'effort source without value shows unset')
 })
