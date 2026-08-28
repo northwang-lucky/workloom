@@ -1,0 +1,7 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "适配器与测试改动遵循编码原则、ESLint/tsc 验证命令"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "改动后须运行仓库规定验证命令（lint/typecheck/build/单测）"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "executor 派发属 adapter-dsh 薄投影，冲突判定与 force 记录继续保持 core 通用、DSH 只消费"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "运行时/契约文案英文、源码注释中文的约定"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "executor kind/runtime/provider/model/effort 术语口径"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "config.js/surface.ts 若因文案或 gate 调整改动，遵循 legacy 纯 JS + JSDoc 约定"}

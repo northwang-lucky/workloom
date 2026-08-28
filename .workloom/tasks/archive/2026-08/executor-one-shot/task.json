@@ -1,0 +1,36 @@
+{
+  "id": "6d3e239b-c977-49c9-9746-4ea71e3d3a02",
+  "name": "executor-one-shot",
+  "title": "workloom executor 子代理切换为一次性(one-shot)模式",
+  "description": "把 adapter-dsh 的 workloom_execute 子代理从 continuable(startContinuable)切换为 one-shot(subagents.start),使用户无法通过 GUI 向子代理发送消息;DSH 客户端对 one-shot 子代理渲染只读 composer,服务端 subagent.prompt 也拒绝 follow-up。放弃 effort 通道。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-28T03:38:13.027Z",
+  "completedAt": "2026-08-28T04:10:37.674Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-28T04:10:18.958Z",
+    "summary": "2.2 check 通过:独立检查子代理对照 prd 五条验收标准逐条核验 4 个实现 commit(bf6b573/1920d32/054cf47/173f81a),全部通过;随后按主会话决策完成两项收尾修复(9e8e9d8 异常终止错误文本补 ERR_PREFIX 前缀、6eb13ed init 模板注明 effort 仅 Pi 生效并同步仓库 config.example.yaml 语义),修复后全量验证仍全绿(pnpm lint 0 告警、pnpm -r typecheck/build 通过、core 269 pass、adapter-dsh 50 pass、adapter-pi 37 pass)。无阻断问题;5 条 AC(one-shot 派发双保险、行为对齐、effort 干净退出、验证全绿、测试更新)均满足。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
