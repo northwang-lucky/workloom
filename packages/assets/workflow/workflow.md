@@ -15,17 +15,19 @@ states:
 2. Align before implementing: do not write implementation code until the requirements pass the "no grey areas" bar (every requirement is decidable, unambiguous, with no open assumptions).
 3. Persist artifacts: requirements, designs, research, and session records go into `.workloom/tasks/` and `.workloom/workspace/`. Conversations get compacted; files don't.
 4. Commit authority stays in the main session: subagents implement and check; git commits happen only in the main session's Phase 2.3 and Phase 3.
+5. Model recommends, user confirms subtasks: the model only recommends splitting a task and never creates subtask tasks before the user confirms the candidate list and the split itself. A container task stays in planning; its subtasks run their own full lifecycle; the container does the final acceptance and archives last. This does not conflict with "one active task" — at any moment at most one task (the container or one of its subtasks) is the active task.
 
 ## Phase 1 Plan
 
 #### 1.0 Create task
 
 When the user expresses work worth doing, recommend whether it warrants a task; create the task (`workloom_task_create`) only after the user confirms. The task enters `planning`.
+When recommending, roughly count the independently deliverable pieces: if there are 3 or more pieces that can be delivered and accepted independently, pre-announce in the recommendation that the task should be split into N subtasks, and never create them before the user confirms the split.
 Completion criteria: the task directory exists and `task.json` `status` is `planning`.
 
 #### 1.1 Align requirements
 
-First load the brainstorm skill and explore the requirements — what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. Tasks involving implementation work must ask the fixed test-first question (below).
+First load the brainstorm skill and explore the requirements — what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, the sequence is brainstorm → grilling → prd finalized: load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare "frontier empty" just because the user answered the current batch — claim convergence only when no open question remains. Tasks involving implementation work must ask the fixed test-first question (below).
 
 Every question across the workflow — fixed questions and exploratory questions alike — follows these rules:
 
@@ -68,6 +70,7 @@ Options:
 - A. author both.
 - B. author neither.
 On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while prd.md has no H1 title, any prd.md section is still the skeleton placeholder, or implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
+Before starting, run a scale self-check: judge precisely by the actual number of phases in prd.md/design.md/implement.md. When the work is large, recommend a candidate subtask list — for each candidate, its title, its scope, and the reason it is a separate deliverable. The user confirms the list; then create the subtasks one by one with `workloom_task_create`, each with `parent` set to the main task. Every subtask runs the full lifecycle (start → check → archive); the main task starts, checks, and archives only after every declared subtask is archived.
 Completion criteria: for a task involving implementation work, the design/implement question has been answered; `task.json` `status` is `in_progress`; and the user has confirmed the review.
 
 ## Phase 2 Execute
@@ -93,7 +96,7 @@ Completion criteria: `git status` shows no dirty files belonging to this task.
 
 #### 3.1 Archive and record
 
-Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with `reason` for a recorded bypass.
+Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with `reason` for a recorded bypass. Before archiving the main task, confirm that every declared subtask is archived; if any is missing, state the reason and leave a trace (for example a note in the task record) so the gap is auditable.
 Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires the `/workloom-finish` command (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
 
 [workflow-state:no_task]
@@ -123,4 +126,12 @@ Questioning (always-on):
 Dispatch (always-on):
 
 - Hard constraint: the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
+
+Task decomposition (always-on):
+
+- When a task contains 3+ independently deliverable pieces, recommend splitting it; never create subtask tasks before the user confirms the candidate list and the split itself. A container task stays in planning; subtasks run their own full lifecycle; the container does the final acceptance and archives last.
+
+Grilling (always-on):
+
+- After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare "frontier empty" just because the user answered the current batch — claim convergence only when no open question remains.
 [/workflow-norms]
