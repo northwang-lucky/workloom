@@ -22,15 +22,18 @@ import {
   ASSET_COMMAND_CONTINUE,
   ASSET_COMMAND_FINISH,
   buildContinueGuidance,
+  buildDoctorRelayText,
   buildErrorRelayText,
   buildFinishGuidance,
   buildSuccessRelayText,
   COMMAND_DESCRIPTIONS,
   COMMAND_FAILURE_ACK,
   COMMAND_NAMES,
+  DOCTOR_FIX_FLAG,
   ERR_PREFIX,
   ensureSpecTemplates,
   executeInitCommand,
+  runDoctor,
 } from '@workloom-ai/core'
 import { readAssetText } from '@workloom-ai/assets'
 
@@ -61,6 +64,12 @@ export function registerCommands(ctx: Context): void {
     name: COMMAND_NAMES.finish,
     description: COMMAND_DESCRIPTIONS.finish,
     handler: handleFinish,
+  })
+  ctx.commands.register({
+    name: COMMAND_NAMES.doctor,
+    description: COMMAND_DESCRIPTIONS.doctor,
+    input: { hint: '--fix' },
+    handler: handleDoctor,
   })
 }
 
@@ -212,6 +221,46 @@ async function handleFinish(invocation: CommandInvocation): Promise<CommandResul
     kind: 'success',
     text: 'Workloom finish: working tree is clean; handed the wrap-up instructions to the model.',
   }
+}
+
+/**
+ * doctor 命令：解析 --fix，跑健康检查引擎，followup 注入 JSON 报告 + 引导语触发模型回合。
+ * @param invocation 命令调用
+ * @returns 成功提示或失败转述回执
+ */
+function handleDoctor(invocation: CommandInvocation): CommandResult {
+  const cwd = cwdOf(invocation)
+  if (cwd === null) {
+    return relayFailure(
+      invocation,
+      COMMAND_NAMES.doctor,
+      `${ERR_PREFIX.command}: cannot determine the working directory of this session`,
+    )
+  }
+  const fix = hasFixFlag(invocation.rawInput)
+  const [err, report] = runDoctor(cwd, { fix })
+  if (err !== null || report === null) {
+    return relayFailure(
+      invocation,
+      COMMAND_NAMES.doctor,
+      err?.message ?? `${ERR_PREFIX.command}: doctor returned no report`,
+    )
+  }
+  followup(invocation, buildDoctorRelayText(report))
+  return {
+    kind: 'success',
+    text: `Workloom doctor: ${report.summary.total} issue(s) found; handed the health report to the model.`,
+  }
+}
+
+/**
+ * 判定自由输入是否启用 --fix（精确 `--fix` 或以 `--fix ` 开头，参考 init --purge 的先例）。
+ * @param rawInput 命令自由输入
+ * @returns 是否启用修复
+ */
+function hasFixFlag(rawInput: string): boolean {
+  const raw = rawInput.trim()
+  return raw === DOCTOR_FIX_FLAG || raw.startsWith(`${DOCTOR_FIX_FLAG} `)
 }
 
 /**

@@ -115,6 +115,36 @@ export function resolveActiveTask(root, contextKey) {
 }
 
 /**
+ * 列出全部会话指针（只读，不清理；供 doctor 健康检查用，避免 resolve 的清理副作用）。
+ * 损坏的指针文件跳过，不阻塞列取。
+ * @param {string} root 项目根
+ * @returns {[Error | null, import('./active-task.d.ts').SessionPointerWithContext[] | null]}
+ */
+export function listPointers(root) {
+  try {
+    const sessionsDir = insideWorkloom(root, join(RUNTIME_DIR, SESSIONS_DIR))
+    if (!existsSync(sessionsDir)) return [null, []]
+    /** @type {import('./active-task.d.ts').SessionPointerWithContext[]} */
+    const pointers = []
+    for (const entry of readdirSync(sessionsDir)) {
+      if (!entry.endsWith(POINTER_EXT)) continue
+      const file = join(sessionsDir, entry)
+      const [readErr, pointer] = readPointer(file)
+      if (readErr || !pointer) continue
+      pointers.push({
+        contextKey: entry.slice(0, -POINTER_EXT.length),
+        current_task: pointer[FIELD_CURRENT_TASK],
+        last_seen_at: pointer[FIELD_LAST_SEEN_AT],
+        absPath: file,
+      })
+    }
+    return [null, pointers]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
+
+/**
  * 删除所有指向指定任务的指针文件（归档时清理会话，幂等）。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径

@@ -8,18 +8,21 @@
  * - 全部 `as const`：类型即字面量，注册面与 adapter 消费处共享同一文本。
  */
 
-/** 三个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。 */
+/** 四个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。 */
 export const COMMAND_NAMES = {
   init: 'workloom-init',
   continue: 'workloom-continue',
   finish: 'workloom-finish',
+  doctor: 'workloom-doctor',
 } as const
 
-/** 三个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
+/** 四个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
 export const COMMAND_DESCRIPTIONS = {
   init: 'Initialize the .workloom skeleton, migrate a legacy .trellis project, and purge it with --purge',
   continue: 'Locate where the active task left off and route to the next workflow step',
   finish: 'Check dirty files and hand the wrap-up instructions to the model',
+  doctor:
+    'Run a structured workflow health check and auto-fix mechanical issues with --fix (results are handed to the model as JSON)',
 } as const
 
 /** 九个工具名（六个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
@@ -124,12 +127,16 @@ export const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.
 /** purge 模式标志：rawInput 以该前缀开头时，迁移后直接删除旧 .trellis 目录。 */
 export const PURGE_FLAG = '--purge'
 
+/** doctor 修复模式标志：rawInput 含该词时启用 --fix（参考 init --purge 的先例）。 */
+export const DOCTOR_FIX_FLAG = '--fix'
+
 /** 资产目录内的 developer 身份文件名（与 core 的 init 约定一致）。 */
 export const DEVELOPER_FILE = '.developer'
 
 /** 命令指引资源路径（相对 assets 包根）。 */
 export const ASSET_COMMAND_CONTINUE = 'commands/workloom-continue.md'
 export const ASSET_COMMAND_FINISH = 'commands/workloom-finish.md'
+export const ASSET_COMMAND_DOCTOR = 'commands/workloom-doctor.md'
 
 /**
  * 命令失败的宿主回执文案（两 adapter 共享）：细节已由 followup/sendUserMessage

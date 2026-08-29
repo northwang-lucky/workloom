@@ -5,7 +5,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -42,6 +42,55 @@ function makeCtx(cwd: string) {
 /** 创建临时项目根（无 .workloom）。 */
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-pi-cmd-'))
+}
+
+/** 初始化最小 .workloom（tasks 目录 + 合法 config.yaml）。 */
+function makeWorkloomRoot() {
+  const root = makeRoot()
+  mkdirSync(join(root, '.workloom', 'tasks'), { recursive: true })
+  writeFileSync(join(root, '.workloom', 'config.yaml'), 'session_auto_commit: false\n')
+  return root
+}
+
+/** 写一条 completed + check 任务记录（供 doctor 检测「未归档」）。 */
+function writeCompletedTask(root: string, name: string) {
+  const dir = join(root, '.workloom', 'tasks', name)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    join(dir, 'task.json'),
+    `${JSON.stringify(
+      {
+        id: 'id-' + name,
+        name,
+        title: 'Title ' + name,
+        status: 'completed',
+        priority: 'P2',
+        creator: 'tester',
+        assignee: '',
+        package: null,
+        branch: '',
+        base_branch: '',
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        parent: null,
+        children: [],
+        subtasks: [],
+        scope: '',
+        commit: '',
+        pr_url: '',
+        worktree_path: '',
+        relatedFiles: [],
+        notes: '',
+        meta: {},
+        check: { passedAt: new Date().toISOString(), summary: 'ok' },
+        overrides: [],
+        dispatches: [],
+        hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
+      },
+      null,
+      2,
+    )}\n`,
+  )
 }
 
 test('continue 失败：不再 notify error，sendUserMessage 注入错误转述触发回合', async () => {
@@ -101,6 +150,73 @@ test('init 成功：sendUserMessage 注入成功转述（含 init 结果原文�
     assert.ok(
       notices.some((n) => n.level === 'info' && n.text.includes('Workloom initialized')),
       'success notify keeps the init result text',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('doctor 成功：sendUserMessage 注入 JSON 报告 + 引导语，notify info 回执', async () => {
+  const { pi, handlers, sent } = makePi()
+  registerCommands(pi)
+  const root = makeWorkloomRoot()
+  try {
+    writeCompletedTask(root, 'done-task')
+    const { ctx, notices } = makeCtx(root)
+    const handler = handlers.get(COMMAND_NAMES.doctor)
+    assert.ok(handler)
+    await handler('', ctx)
+    assert.equal(sent.length, 1)
+    const text = sent[0]
+    assert.ok(text !== undefined)
+    assert.ok(text.includes('"summary"'), 'relay text must carry the JSON report summary')
+    assert.ok(text.includes('"checks"'), 'relay text must carry the JSON report checks')
+    assert.ok(text.includes("user's language"), 'relay text must instruct the model language')
+    assert.ok(
+      notices.some((n) => n.level === 'info' && n.text.includes('issue(s) found')),
+      'success notify keeps the issue count',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('doctor --fix：把可修 completed 任务归档并注入 fixed[]', async () => {
+  const { pi, handlers, sent } = makePi()
+  registerCommands(pi)
+  const root = makeWorkloomRoot()
+  try {
+    writeCompletedTask(root, 'done-task')
+    const { ctx } = makeCtx(root)
+    const handler = handlers.get(COMMAND_NAMES.doctor)
+    assert.ok(handler)
+    await handler('--fix', ctx)
+    assert.equal(sent.length, 1)
+    const text = sent[0]
+    assert.ok(text !== undefined)
+    assert.ok(text.includes('"fixed"'), 'relay text must include fixed[] after --fix')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('doctor 无 .workloom：作为 config issue 报告，sendUserMessage 注入，notify info 回执', async () => {
+  const { pi, handlers, sent } = makePi()
+  registerCommands(pi)
+  const root = makeRoot()
+  try {
+    const { ctx, notices } = makeCtx(root)
+    const handler = handlers.get(COMMAND_NAMES.doctor)
+    assert.ok(handler)
+    await handler('', ctx)
+    assert.equal(sent.length, 1)
+    const text = sent[0]
+    assert.ok(text !== undefined)
+    assert.ok(text.includes('no .workloom directory'), 'relay text surfaces the config issue')
+    assert.ok(text.includes('"config"'), 'relay text carries the config check JSON')
+    assert.ok(
+      notices.some((n) => n.level === 'info' && n.text.includes('issue(s) found')),
+      'success notify keeps the issue count',
     )
   } finally {
     rmSync(root, { recursive: true, force: true })

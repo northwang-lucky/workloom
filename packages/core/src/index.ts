@@ -106,6 +106,8 @@ export {
 
 export { lookupWorkflowStep } from './service/step-lookup.js'
 
+export { runDoctor, buildDoctorRelayText } from './service/doctor.js'
+
 export { ensureSpecTemplates } from './service/spec-templates.js'
 
 export {
@@ -118,9 +120,11 @@ export {
   ERR_PREFIX,
   EMPTY_OUTPUT_TEXT,
   PURGE_FLAG,
+  DOCTOR_FIX_FLAG,
   DEVELOPER_FILE,
   ASSET_COMMAND_CONTINUE,
   ASSET_COMMAND_FINISH,
+  ASSET_COMMAND_DOCTOR,
   COMMAND_FAILURE_ACK,
   buildErrorRelayText,
   buildSuccessRelayText,
@@ -175,6 +179,16 @@ export type { SessionContextParams } from './service/session-context.js'
 
 export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
 export type { SpecTemplatesParams, SpecTemplatesResult } from './service/spec-templates.js'
+
+export type {
+  DoctorIssue,
+  DoctorReport,
+  DoctorCheck,
+  DoctorSummary,
+  DoctorIssueCode,
+  DoctorSeverity,
+  RunDoctorOpts,
+} from './service/doctor.js'
 
 export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './service/task-ops.js'
 
