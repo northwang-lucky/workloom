@@ -1,0 +1,48 @@
+{
+  "id": "0023475b-3aa0-43ae-9d6f-9c4c18c58763",
+  "name": "write-gate-workdir-only",
+  "title": "放宽写门禁为仅拦截工作目录内的文件",
+  "description": "任务 in_progress 期间，主会话/非豁免子代理的 write/edit 门禁只拦截落在工作目录（.workloom 所在仓库根，findWorkloomRoot 解析结果）及其子目录内的目标；工作目录之外的路径（绝对路径 root 外、或相对路径解析后越出 root）一律放行。判定基于路径归一化，不解析符号链接，与现状一致。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T11:54:44.908Z",
+  "completedAt": "2026-08-29T12:02:25.783Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-29T12:02:18.896Z",
+    "summary": "check 子代理独立复核 PASS：decideTarget 判定链（非string放行→root外放行→.workloom内放行→deny）与 PRD 一致；isInsideWorkloom 已泛化为 isInside 无死代码；DENY_REASON/EXEMPTIONS/判定链结构均未动；新增 root 外绝对路径与 ../ 越界相对路径放行用例；pnpm lint、pnpm -r typecheck、pnpm -r build、adapter-dsh node --test（63 pass/0 fail）全绿；改动仅限约定两个文件。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-29T12:00:16.398Z",
+      "title": "gate 仅拦截工作目录内文件"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-29T12:01:48.144Z",
+      "title": "复核 gate 工作目录外放行"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则（guard clauses/注释中文/无 else after return 等）", "type": "spec"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "提交前验证命令：lint/typecheck/build/测试全绿", "type": "spec"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交规范：中文 message，单 commit，不主动 push", "type": "spec"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "中英文分工：运行时文案与对外文本英文，源码注释中文", "type": "spec"}
