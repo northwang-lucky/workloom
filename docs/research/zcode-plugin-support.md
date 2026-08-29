@@ -235,17 +235,22 @@ graph LR
 3. `PreToolUse` payload 的 `tool_name` 对 Write/Edit 的取值与 `permissionDecision: deny` 阻断行为：协议与 Claude Code 同构但 ZCode 实现待验证（kimi spike 已验证 exit 2 生效，ZCode 文档写的是 permissionDecision 返回值，两者语义对应关系待确认）。
 4. `UserPromptSubmit` hook 是否在子智能体回合触发（影响 executor 子会话内是否有 breadcrumb）；stdout 附加文本的长度上限实际行为。
 5. ZCode 是否确无 headless CLI（`zcode --print`/`-p` 类模式）——若存在，executor 可回退到 spawn child 方案（与 adapter-pi 拓扑一致）。
+   - **已部分澄清**：官方无公开的 headless CLI 文档（桌面应用为主），但社区项目 `zcode-app-cli`（npm: zcode-app-cli，GitHub: kingsword09/zcode-cli）驱动 ZCode Desktop 随附的**官方 agent runtime**（zcode.cjs），支持 `zcode --prompt "..." --print --json` headless 执行、`zcode plugins list --json` 等结构化子命令。→ spawn 兜底路线可行（直接驱动官方 runtime，同 runtime 派发，语义近 adapter-pi），但仍是非官方包装、随桌面版本提取 runtime、上游接口无稳定性承诺，维持兜底定位。
 6. 插件安装范围是否有项目级路线图（当前用户级全局）；远程开发（SSH/WSL）下插件同步（同步 Plugin）对 hook 脚本与 MCP server 的部署影响。
+   - **部分澄清**：zcode-app-cli 暴露 `zcode plugins install <name>@<market> --scope user|workspace`——官方 runtime 层面存在 workspace 安装作用域，但桌面 UI 文档未提；桌面侧仍按用户级对待，workspace scope 是否走 UI 暴露待观察。
 7. ZCode 模型适配：GLM 系模型对 workloom 英文提示词/工具描述的遵从度是否与 DSH/Pi 已验证的模型同级（影响命令可靠性评级）。
 8. 分发路径：因 Claude Code 市场兼容（§2.7），marketplace.json 放 workloom 仓库根（`.claude-plugin/marketplace.json`，GitHub 源）成为强候选——一条仓库地址同时服务 Claude Code 与 ZCode；待定项收窄为「npm 源插件内 node MCP server 的依赖安装方式」（bundled dist 需自包含 `@workloom-ai/core`）。
 9. 共享渲染器的包归属（§6.5）：adapter-zcode 与 adapter-kimi 的 render 层合并后落在哪个包（新 `adapter-claude-code` 还是 core 旁工具模块）；Kimi manifest 路径已获强信号（vercel 实证用独立 `.kimi-plugin/plugin.json`），正式验证并入 Kimi 侧 spike。
 10. Claude Code 官方市场（claude-plugins-official）的插件收录标准与提交流程：workloom 插件若被收录，ZCode 用户零配置即可搜到（§6.5 分发通道升级项），决定是否值得走官方收录路线。
+    - **已澄清**：官方市场收录走 `anthropics/claude-plugins-community` 目录——插件经 claude.ai 提交、通过自动安全扫描与审核后进入社区目录，catalog 夜间同步进官方市场。通道存在、有时延（nightly + review pipeline），适合插件成熟后申请，不作为首发依赖。
 
 ## 附：来源清单
 
 - ZCode 官方文档（cn）：`https://zcode.z.ai/cn/docs/plugin`、`/skill`、`/commands`、`/subagents`、`/hooks`、`/mcp-services`（提取快照 `/tmp/zcode-plugin-doc.json`、`/tmp/zcode-skill.json`、`/tmp/zcode-commands.json`、`/tmp/zcode-subagents.json`、`/tmp/zcode-hooks.json`、`/tmp/zcode-mcp-services.json`）
 - 官方插件市场仓库：`https://github.com/zai-org/zai-coding-plugins`（marketplace.json、plugin.json、agents/commands 实例文件，经 raw.githubusercontent.com 抓取核对）
 - 多端分发实证：`https://github.com/vercel/vercel-plugin`（.claude-plugin/.kimi-plugin/.cursor-plugin/.plugin 四份薄 manifest + 共享组件目录，经 GitHub API 与 raw.githubusercontent.com 抓取核对；用户在 ZCode 插件市场实测可见）
+- 官方 runtime headless 实证：`https://github.com/kingsword09/zcode-cli`（npm: zcode-app-cli，驱动 ZCode Desktop 随附官方 runtime 的 `--prompt/--print/--json` 模式与 `plugins ... --scope user|workspace` 子命令，经 README/CONFIGURATION.md 抓取核对）
+- 官方市场收录机制：`https://github.com/anthropics/claude-plugins-community`（claude.ai 提交 + 安全扫描 + 审核 + nightly 同步官方市场）
 - 既有调研：`docs/research/kimi-code-plugin-support.md`、`docs/research/kimi-code-spike-report.md`（同构协议的真机结论）
 - 版本基线：ZCode 3.9.2（文档页下载链接），GLM-5.3
 
