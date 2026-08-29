@@ -1,0 +1,41 @@
+{
+  "id": "83a595dc-bc5d-4475-880d-33b07bc0a1fa",
+  "name": "subtask-mechanism",
+  "title": "workloom 子任务机制：契约/工具/提示三面落地",
+  "description": "让 workloom 具备\"大任务可拆子任务\"的完整机制：A 契约侧在 workflow.md 增加任务拆分约定（模型推荐、用户确认后才拆）；B 工具侧将 parent 参数贯通 core service + adapter-dsh + adapter-pi + surface 描述，并实现父任务 children 反向联动；C 提示侧在契约 norms 注入\"规模自检→推荐拆分→用户确认\"的 always-on 行为规范。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T09:10:00.069Z",
+  "completedAt": "2026-08-29T10:31:21.829Z",
+  "parent": null,
+  "children": [
+    "tasks/08-29-stm-p0-contract",
+    "tasks/08-29-stm-p1-core",
+    "tasks/08-29-stm-p2-adapters",
+    "tasks/08-29-stm-p3-e2e"
+  ],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-29T10:30:47.597Z",
+    "summary": "总验收（容器任务终检）PASS。① 子任务归档完备：stm-p0-contract/stm-p1-core/stm-p2-adapters/stm-p3-e2e 均 completed 且各含 check 记录；主任务 children 恰 4 项无重复，四子任务 parent 均指向 tasks/08-29-subtask-mechanism。② S1-S6 现场抽查+复跑全绿：S1 task-store.js 含 normalizeParentRelPath/validateParent/linkChildToParent 与 TaskSummary.parent（d.ts 第94行）、service 透传含空串忽略（task-ops.ts 第129行）；S2 surface taskCreate 签名含 parent? 且 PARAM_DESCRIPTIONS.parent 就位（surface.ts 第62/87行）；S3 dsh schema 含 parent 且 stringOf 透传（tasks.ts 第73/209行）；S4 pi TASK_CREATE_PARAMS 含 parent 且 executeCreate 转发（tasks.ts 第38/169行）；S5 workflow-contract 18/contract-asset 6/step-lookup 4 全绿；S6 subtask-contract 6/6 通过（守护拆分契约+user confirmation+grilling frontier 护栏关键短语）。③ 需求 1-8 逐条有落地证据（用户确认门 norms+1.0/1.4、双检查点、容器角色、子任务完整生命周期、parent 路径语义、children 联动与展示、test-first 红→绿、grilling 护栏+1.1 brainstorm→grilling→prd 顺序）。④ 全量验证复跑全绿：lint、typecheck、build、core 299、dsh 53、pi 42。⑤ 遗留：工具面真实 dogfood（DSH 安装版工具带 parent 直调）未做，功能已由 core API 端到端 + 双 adapter 集成测试覆盖，需 sync+重启后补验。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
