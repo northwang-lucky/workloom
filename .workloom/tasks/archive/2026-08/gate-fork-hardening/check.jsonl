@@ -1,0 +1,3 @@
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "检查全量验证全绿与测试先行证据"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "检查豁免注册表未泄漏进 core、判定链无 adapter 外依赖"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "检查运行时文案英文、注释中文"}
