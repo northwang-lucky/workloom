@@ -1,0 +1,36 @@
+{
+  "id": "aeb2c3c9-330f-4bc5-98c2-d20aa9994830",
+  "name": "stm-p0-contract",
+  "title": "子任务机制 P0：契约与 norms（S5/S6）",
+  "description": "契约与 norms 落地：按主任务 design.md §6/§7 修改 packages/assets/workflow/workflow.md（Principles/1.0/1.1/1.4/3.1 + norms 两条 Task decomposition/Grilling），test-first：先写契约存在性测试（S6）与契约解析回归（S5）。范围以主任务 implement.md Phase 0 为准。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T09:42:02.465Z",
+  "completedAt": "2026-08-29T09:52:23.650Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-29T09:52:21.788Z",
+    "summary": "check executor 复核 PASS：S6 存在性测试 6/6（subtask 拆分契约/3+ 判据/容器任务/grilling frontier 护栏/1.4 规模自检/3.1 归档约束，正则锚点合理）；S5 契约解析回归全绿（front-matter/states/norms 结构完整，workflow-contract/contract-asset/step-lookup 通过）；norms 两条与 design.md §7 逐字一致；pnpm lint/typecheck/build 全绿；core 286 pass。唯一非阻断观察：test-first 时序证据弱（测试文件 mtime 晚于实现文件，系 prettier --write 收尾刷新所致，subagent 实测为先红后绿）。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

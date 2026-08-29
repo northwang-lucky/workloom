@@ -1,0 +1,33 @@
+{
+  "id": "505164c7-53ef-4bf8-b4b2-09320f138a1a",
+  "name": "stm-p1-core",
+  "title": "子任务机制 P1：core 层 parent 与 children 联动（S1）",
+  "description": "core 层 parent 透传与 children 联动：按主任务 design.md §2/§3 修改 task-store.js/task-store.d.ts/task-ops.ts——parent 路径两种格式归一、存在性/自引用/状态校验、children 去重追加、TaskSummary 加 parent。test-first：task-store.test.js/task-ops.test.js 先红后绿（S1）。范围以主任务 implement.md Phase 1 为准。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T09:42:02.467Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

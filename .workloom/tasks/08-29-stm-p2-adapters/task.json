@@ -1,0 +1,33 @@
+{
+  "id": "2890c713-e783-4a85-863b-010e2ed43d8d",
+  "name": "stm-p2-adapters",
+  "title": "子任务机制 P2：surface 与双 adapter 贯通（S2/S3/S4）",
+  "description": "surface 与双 adapter 参数贯通：按主任务 design.md §4/§5 修改 packages/core/src/surface.ts（TOOL_SNIPPETS.taskCreate 签名含 parent、PARAM_DESCRIPTIONS.parent）、adapter-dsh/src/tasks.ts（schema + createTaskTool 透传）、adapter-pi/src/tasks.ts（TASK_CREATE_PARAMS + executeCreate 透传）。test-first：surface/dsh/pi 测试先红后绿（S2/S3/S4）。范围以主任务 implement.md Phase 2 为准。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T09:42:07.566Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
