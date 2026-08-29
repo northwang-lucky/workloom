@@ -57,6 +57,23 @@
 - 可用模板变量 `${user_config.键}`（引用 userConfig，含 sensitive 项）与上节路径变量。
 - 设置 → MCP 分「Plugin MCP 服务器」分组展示，随插件启停自动加载。
 
+### 2.7 Claude Code 市场兼容性（对分发方案的关键事实）
+
+- ZCode 预置了 **Claude Code 插件市场**（设置 → 插件 → 个人分段，无需手动添加即可浏览安装）。
+- 官方市场仓库 `zai-org/zai-coding-plugins` 自身就是 Claude Code 格式：marketplace.json 位于 `.claude-plugin/`，`$schema` 指向 `https://anthropic.com/claude-code/marketplace.schema.json`，使用 `owner` 字段——ZCode 官方以 Claude Code 格式自举。
+- manifest 查找优先级 `.zcode-plugin/plugin.json` → `.claude-plugin/plugin.json`；hook 协议（事件集、stdin/stdout JSON、exit code 0/2）、模板变量（`${CLAUDE_PLUGIN_ROOT}` 等）、SKILL.md、commands、`.mcp.json` 均与 Claude Code 插件格式同构。
+- **已知差异（非「完全兼容」）**：
+  1. `channels`/`lspServers`/`outputStyles`/`settings` 四个 manifest 字段「仅登记、不执行」（Claude Code 插件带这些能力时在 ZCode 中不生效）；
+  2. 子智能体思考强度字段名为 `thoughtLevel`，不是 Claude Code 的 `reasoningEffort`（不认识的字段被静默忽略，不报错）；
+  3. 插件内 skills 必须单层目录（Claude Code 侧目录约定的差异需按 ZCode 约束渲染）；
+  4. 项目级 hooks 被 ZCode 安全策略整体忽略（Claude Code 支持项目级 hooks）；
+  5. 版本比对口径 market `version` vs plugin `version`。
+- 结论：**一份 Claude Code 格式插件（`.claude-plugin/plugin.json` + marketplace.json）可同时分发到 Claude Code 与 ZCode**，代价是渲染层按 ZCode 的差异约束写（单层 skills、thoughtLevel、不带 channels/lspServers 等字段），见 §6.5。
+- **实证案例 `vercel/vercel-plugin`**（用户实测可在 ZCode 插件市场搜到）：
+  1. 仓库同时携带多端薄 manifest：`.claude-plugin/plugin.json`（Claude Code）、`.kimi-plugin/plugin.json`（Kimi Code）、`.cursor-plugin/plugin.json`（Cursor）、`.plugin/plugin.json`（通用），而 `skills/`、`commands/`、`agents/`、`hooks/`、`.mcp.json` 组件全部共享——「共享组件 + 每端薄 manifest」是多端分发的行业标准形态；
+  2. `.claude-plugin/marketplace.json` 即市场清单（`source: "./"` 自指），Claude Code 官方市场收录后 ZCode 经预置市场源即可搜到——workloom 走同一通道可实现 ZCode 用户零配置安装；
+  3. 各端 manifest 格式细节不同（Claude Code 的 commands 用文件路径数组、skills 自动发现；Kimi 用目录字符串声明 + 自有 `interface` 字段 + 自有 mcpServers 写法）——**Kimi 有独立 `.kimi-plugin/` 目录，不读 `.claude-plugin/plugin.json`**（§6.5 待验证项获强信号）。
+
 ## 3. workloom 现状（与 kimi 调研 §3 同源）
 
 - 分层规则：core 纯 ESM Node 包（engines `node>=22`）、runtime 无关；assets 中间表示（正文 Markdown + YAML front-matter）；adapter 只做宿主投影。详见 `.workloom/spec/repo/architecture/index.md`。
@@ -108,7 +125,7 @@ packages/adapter-zcode/
 ├── package.json              # @workloom-ai/adapter-zcode，deps: core + assets
 ├── src/
 │   ├── render/
-│   │   ├── plugin-json.ts    # 生成 .zcode-plugin/plugin.json（name: workloom）
+│   │   ├── plugin-json.ts    # 生成 .claude-plugin/plugin.json（Claude Code/ZCode 双兼容路径，name: workloom）
 │   │   ├── skills.ts         # assets/skills + third-party → plugin skills/（单层目录 + 校验补齐）
 │   │   ├── commands.ts       # assets/commands → ZCode 命令 .md（frontmatter 收敛 + 正文改写为 MCP 调用指引）
 │   │   ├── agents.ts         # executor agent 定义 → plugin agents/（research/implement/check）
@@ -117,7 +134,7 @@ packages/adapter-zcode/
 │   ├── hooks/                # breadcrumb.mjs（UserPromptSubmit）、session-start.mjs（SessionStart）、gate.mjs（PreToolUse）
 │   └── workloom-execute/     # executor 派发指引 skill（教主 Agent 组装 prompt 并调用 Agent 工具）
 ├── scripts/sync-plugin.mjs   # 构建：渲染全部资产到 plugin/（对齐 adapter-pi sync-skills.mjs 模式）
-├── plugin/                   # 构建产物（git 忽略）：.zcode-plugin/plugin.json + skills/ + agents/ + commands/ + hooks/ + mcp-server 入口
+├── plugin/                   # 构建产物（git 忽略）：.claude-plugin/plugin.json + marketplace.json + skills/ + agents/ + commands/ + hooks/ + mcp-server 入口
 └── test/
 ```
 
@@ -126,7 +143,7 @@ packages/adapter-zcode/
 ```mermaid
 graph LR
     subgraph ZP["ZCode 插件目录（adapter-zcode 渲染产物）"]
-        MF[".zcode-plugin/plugin.json"]
+        MF[".claude-plugin/plugin.json<br>（Claude Code / ZCode 双兼容）"]
         SK["skills/<br>（契约 + 5 个 SKILL.md + execute 指引）"]
         AG["agents/<br>（research/implement/check）"]
         CMD["commands/<br>（init/continue/finish 提示词）"]
@@ -163,6 +180,16 @@ graph LR
 - **工具权限收紧与 adapter-pi 语义对齐**（subagents 文档交叉核对）：executor 子智能体的 `tools` 白名单写内置工具集（`Read`/`Grep`/`Glob`/`Bash`/`Edit`/`Write`/`TodoWrite`，research 可只留只读集），**不声明 `mcpServers`**——自定义 tools 列表天然不含 MCP 工具，等价于 Pi 侧 `--no-extensions` 的「child 无 workloom 工具」语义；官方实例（`tools: Bash, Read, Skill, Glob, Grep`）证实该写法受支持。是否给 implement 子智能体开放 workloom MCP 任务工具（写 task.json 进度）作为可选增强，留到 spike 后决策。
 - workloom_execute 的「任务上下文内联」职责改由 `skills/workloom-execute/SKILL.md` 承载：教主 Agent 读 `.workloom/tasks/<task>/` 的 prd/design/implement/jsonl，按 core 的 `buildExecutorPrompt` 口径组装派发 prompt，再调用 Agent 工具派发对应 executor 子智能体。
 - 兜底选项（若子智能体能力不满足，见开放问题 1）：MCP server 内 spawn 子进程方案——`workloom_execute` 工具在 MCP server 内组装 prompt 后经 `execSync` 驱动外部 CLI（如 `kimi -p` 或用户自配的 agent CLI），保持 adapter-pi 拓扑；这是降级路线，先按原生子智能体主线评估。
+
+### 6.5 跨 runtime 共享：一份 Claude Code 格式插件分发多端
+
+- 事实基础（§2.7）：ZCode 预置 Claude Code 插件市场、以 Claude Code 格式自举官方市场；Kimi Code 插件同样是 Claude Code 插件格式的近亲（kimi 调研 §2 已验证 skills/agents/commands/hooks/mcpServers 全盘同构）。
+- 战略结论：**adapter-zcode 的产物做成 Claude Code 兼容格式（`.claude-plugin/plugin.json` + marketplace.json），一份构建产物即可同时服务 Claude Code、ZCode 与 Kimi Code 三端**——与 workloom「core/assets runtime 无关、adapter 分发」的架构哲学同构，甚至可以把分发问题从「adapter 逐个适配」升级为「一个共享插件基座 + 各端真机验证」。
+- 渲染层约束（按最严格端收敛）：skills 单层目录（ZCode 约束）、agents frontmatter 用双方都认的字段（`thoughtLevel` 与 `reasoningEffort` 的分歧以不写思考强度、跟随主会话为最安全）、manifest 不写 `channels`/`lspServers`/`outputStyles`/`settings`、hook 脚本与 MCP server 是纯 node 进程天然跨端。
+- 产物形态参考 vercel-plugin 实证（§2.7）：**共享组件目录（skills/commands/agents/hooks/.mcp.json 一份）+ 每端薄 manifest**；`.claude-plugin/plugin.json` 一份同时服务 Claude Code 与 ZCode（ZCode 兼容该路径），若要覆盖 Kimi 再附加 `.kimi-plugin/plugin.json`（Kimi 用独立目录，目录字符串声明组件 + `interface` 字段）。
+- 分发通道升级：若 workloom 插件进入 Claude Code 官方市场（收录标准待查，开放问题 10），ZCode 用户经预置市场源**零配置**搜索安装，连「添加插件市场」都省掉；自建市场（workloom 仓库根 `.claude-plugin/marketplace.json`）仍是兜底通道。
+- 与 adapter-kimi 的关系：若多端共享产物成立，adapter-kimi 与 adapter-zcode 的 render 层（skills/commands/agents/contract）应合并为一个共享渲染器（候选落点：新的 `packages/adapter-claude-code/` 或 core 旁工具模块），两端只保留 runtime 差异部分（kimi 的 spawn child CLI executor vs zcode 的原生子智能体 executor）；命名与归属待方案评审，见开放问题 9。
+- 待验证项：Claude Code 官方市场插件装进 ZCode 后的组件级生效矩阵（skills/commands/agents/hooks/mcpServers 各组件官方无兼容矩阵文档，vercel-plugin 级别的大插件在 ZCode 内实际生效哪些组件需真机抽查）。
 
 ## 7. 任务流转表达度评估
 
@@ -210,12 +237,15 @@ graph LR
 5. ZCode 是否确无 headless CLI（`zcode --print`/`-p` 类模式）——若存在，executor 可回退到 spawn child 方案（与 adapter-pi 拓扑一致）。
 6. 插件安装范围是否有项目级路线图（当前用户级全局）；远程开发（SSH/WSL）下插件同步（同步 Plugin）对 hook 脚本与 MCP server 的部署影响。
 7. ZCode 模型适配：GLM 系模型对 workloom 英文提示词/工具描述的遵从度是否与 DSH/Pi 已验证的模型同级（影响命令可靠性评级）。
-8. 分发路径选择：marketplace.json 放在 workloom 仓库根（GitHub 源安装）还是作为 adapter-zcode 包内产物（npm 源 / 本地目录）；npm 源插件内 node MCP server 的依赖安装方式（bundled dist 需自包含 `@workloom-ai/core`）。
+8. 分发路径：因 Claude Code 市场兼容（§2.7），marketplace.json 放 workloom 仓库根（`.claude-plugin/marketplace.json`，GitHub 源）成为强候选——一条仓库地址同时服务 Claude Code 与 ZCode；待定项收窄为「npm 源插件内 node MCP server 的依赖安装方式」（bundled dist 需自包含 `@workloom-ai/core`）。
+9. 共享渲染器的包归属（§6.5）：adapter-zcode 与 adapter-kimi 的 render 层合并后落在哪个包（新 `adapter-claude-code` 还是 core 旁工具模块）；Kimi manifest 路径已获强信号（vercel 实证用独立 `.kimi-plugin/plugin.json`），正式验证并入 Kimi 侧 spike。
+10. Claude Code 官方市场（claude-plugins-official）的插件收录标准与提交流程：workloom 插件若被收录，ZCode 用户零配置即可搜到（§6.5 分发通道升级项），决定是否值得走官方收录路线。
 
 ## 附：来源清单
 
 - ZCode 官方文档（cn）：`https://zcode.z.ai/cn/docs/plugin`、`/skill`、`/commands`、`/subagents`、`/hooks`、`/mcp-services`（提取快照 `/tmp/zcode-plugin-doc.json`、`/tmp/zcode-skill.json`、`/tmp/zcode-commands.json`、`/tmp/zcode-subagents.json`、`/tmp/zcode-hooks.json`、`/tmp/zcode-mcp-services.json`）
 - 官方插件市场仓库：`https://github.com/zai-org/zai-coding-plugins`（marketplace.json、plugin.json、agents/commands 实例文件，经 raw.githubusercontent.com 抓取核对）
+- 多端分发实证：`https://github.com/vercel/vercel-plugin`（.claude-plugin/.kimi-plugin/.cursor-plugin/.plugin 四份薄 manifest + 共享组件目录，经 GitHub API 与 raw.githubusercontent.com 抓取核对；用户在 ZCode 插件市场实测可见）
 - 既有调研：`docs/research/kimi-code-plugin-support.md`、`docs/research/kimi-code-spike-report.md`（同构协议的真机结论）
 - 版本基线：ZCode 3.9.2（文档页下载链接），GLM-5.3
 
