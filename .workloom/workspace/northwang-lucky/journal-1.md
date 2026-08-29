@@ -88,3 +88,9 @@
 - Commit: 4f15b4c
 - Summary: 契约 v9：1.1 新增固定问题（Does this task involve frontend UI presentation?），yes 强制进 Phase 1.1b UI 设计对齐（新 skill workloom-ui-design，七轴讨论，产物 prd.md UI Design 小节 + 复杂任务 design.md 章节），grilling 顺延 1.1c；双 adapter 登记，术语表与 vendored 注记同步，测试全绿。
 
+## 新增前端实现 executor（frontend agent）与派发审计门禁
+
+- Time: 2026-08-29T09:11:08.050Z
+- Commit: fd32f1a
+- Summary: 新增第 4 个 executor kind frontend（前端实现 Agent）：四要素角色定义、契约 v10 强制前端任务经 frontend 派发、task.json dispatches 派发审计（四 kind 一视同仁、仅成功记录）、check 门禁核验（有 UI Design 小节无 frontend 派发则拒绝，force 豁免留痕）；核心 280/dsh 51/pi 40 全绿。
+
