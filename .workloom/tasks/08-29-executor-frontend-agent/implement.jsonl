@@ -1,0 +1,10 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "task-store.js / task-gates.js 为 legacy 行为移植模块：dispatches 字段与门禁求值须遵循既有数据布局（兼容既有 task.json），新抽象走 src/service"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层：派发记录与门禁求值在 core（legacy/service 分工），双 adapter 只调用 core 导出，不写业务逻辑"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "新增/修改的 JS/TS 文件与测试需满足编码原则（枚举、命名元组、卫语句）"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "契约 2.1 措辞、Pi agent 角色 systemPrompt、运行时校验文案均为面向 agent/用户项目文本，用英文"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "术语表新增 frontend executor 词条，且需同步 grilling/brainstorm 编号语境一致性"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交拆分与中文 type(scope) message 规范"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "任务不含发布动作，完成后提醒 sync + dshweb 重启；build 产物不提交"}
+{"file": ".workloom/tasks/08-29-executor-frontend-agent/research/dispatch-audit.md", "reason": "派发记录与 check 门禁的落地参考：recordExecutorOverride 先例（task-store.js:564）、checkTaskInternal 门禁合并点（task-store.js:527-544）、GATES 不动"}
+{"file": ".workloom/tasks/08-29-executor-frontend-agent/research/executor-kinds.md", "reason": "双 adapter kind 注册点与派发成功点行号、core kind 管道位置、测试断言清单"}
