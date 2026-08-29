@@ -1,0 +1,7 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "核对契约与 skill 文案均为英文且与既有措辞风格一致，无中英混杂"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "核对 adapter 分层：dsh 注册清单与 pi 同步清单都登记新 skill，无业务逻辑泄漏到 adapter"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "核对 eslint/tsc/test 验证命令与通过标准，检查改动文件无 magic value、注释符合要求"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "核对术语表 grilling/brainstorm 编号与契约正文一致，无残留 1.1b 指代 grilling"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "核对构建产物完整性：pnpm -r build 后 dist/skills 同步清单覆盖新 skill"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "核对提交拆分与 message 格式"}

@@ -1,0 +1,36 @@
+{
+  "id": "092610da-b7ce-4454-9681-344aab1a7aa1",
+  "name": "ui",
+  "title": "核心工作流新增前端 UI 设计对齐流程",
+  "description": "在 assets 工作流契约 Phase 1.1 中新增固定问题（是否涉及前端 UI 展示）与条件触发的 UI 设计对齐子阶段，新增 workloom-ui-design skill；涉及前端展示的任务在 prd.md 记录 UI 需求清单，复杂任务在 design.md 出 UI 设计章节。同步两个 adapter 的 skill 注册清单与契约兼容测试，version bump 8→9。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T07:03:04.659Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-29T07:32:05.558Z",
+    "summary": "check executor 全量核验 8 项全部通过：契约 v9 与 UI 固定问题措辞统一（Does this task 大写，与 test-first 风格一致）、1.1b/1.1c 编号无残留 1.1b 指代 grilling、workloom-ui-design skill 结构合规（front-matter 三键/七轴/交付/收口/判据）、双 adapter 注册与数量注释一致、测试断言与测试名无 v8 残留、terminology 词条同步、代码规范通过。修复 3 处文档不一致（design.md 措辞与步骤数、sync-skills.mjs 头注释枚举）。验证：core 270 pass、contract-asset 5 pass、adapter-dsh 50 pass、adapter-pi 37 pass，pnpm lint / typecheck / build 全绿。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
