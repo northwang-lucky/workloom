@@ -70,6 +70,7 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
         slug: { type: 'string', description: PARAM_DESCRIPTIONS.slug },
         priority: { type: 'string', description: PARAM_DESCRIPTIONS.priority },
         description: { type: 'string', description: PARAM_DESCRIPTIONS.description },
+        parent: { type: 'string', description: PARAM_DESCRIPTIONS.parent },
       },
       required: ['title'],
       additionalProperties: false,
@@ -205,6 +206,7 @@ async function createTaskTool(args: unknown, exec: unknown): Promise<unknown> {
     slug: typeof typed.slug === 'string' ? typed.slug : undefined,
     priority: typeof typed.priority === 'string' ? typed.priority : undefined,
     description: typeof typed.description === 'string' ? typed.description : undefined,
+    parent: stringOf(typed, 'parent'),
   })
   if (err !== null || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)

@@ -35,6 +35,7 @@ const TASK_CREATE_PARAMS = Type.Object({
   slug: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.slug })),
   priority: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.priority })),
   description: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.description })),
+  parent: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.parent })),
 })
 
 /** finish 工具参数 schema（仅可选 taskPath）。 */
@@ -165,6 +166,7 @@ async function executeCreate(
       slug: params.slug,
       priority: params.priority,
       description: params.description,
+      parent: params.parent,
     },
   )
   if (err !== null || result === null)
