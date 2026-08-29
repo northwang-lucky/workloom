@@ -94,3 +94,9 @@
 - Commit: fd32f1a
 - Summary: 新增第 4 个 executor kind frontend（前端实现 Agent）：四要素角色定义、契约 v10 强制前端任务经 frontend 派发、task.json dispatches 派发审计（四 kind 一视同仁、仅成功记录）、check 门禁核验（有 UI Design 小节无 frontend 派发则拒绝，force 豁免留痕）；核心 280/dsh 51/pi 40 全绿。
 
+## 子任务机制落地与首次拆分实战
+
+- Time: 2026-08-29T10:31:29.087Z
+- Commit: 2732f88
+- Summary: workloom 子任务机制三面落地（契约/工具/提示）并首次拆分子任务实战：主任务容器 + P0-P3 四子任务完整生命周期。
+
