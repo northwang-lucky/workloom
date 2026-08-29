@@ -121,7 +121,7 @@ const CONFIG_EXAMPLE_TEMPLATE = [
   '# default_package names the default package declared in packages; omit for none.',
   '# default_package: web',
   '',
-  '# subagents.<kind> sets per-kind executor defaults (research/implement/check).',
+  '# subagents.<kind> sets per-kind executor defaults (research/implement/check/frontend).',
   '# model accepts either a single string (the same value on every runtime) or a',
   '# per-runtime map with one entry per runtime key (dsh/pi, plus any future',
   '# runtime — keys are not whitelisted). With a map, the current runtime key must',

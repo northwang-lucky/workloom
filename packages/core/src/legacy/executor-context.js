@@ -25,6 +25,7 @@ export const EXECUTOR_KINDS = Object.freeze({
   research: 'research',
   implement: 'implement',
   check: 'check',
+  frontend: 'frontend',
 })
 
 /** 错误消息前缀（运行时文案英文）。 */
@@ -41,6 +42,8 @@ const RESEARCH_ARTIFACT = 'prd.md'
 const JSONL_FILES = Object.freeze({
   [EXECUTOR_KINDS.implement]: 'implement.jsonl',
   [EXECUTOR_KINDS.check]: 'check.jsonl',
+  // frontend 上下文同 implement：全量 artifacts + implement.jsonl。
+  [EXECUTOR_KINDS.frontend]: 'implement.jsonl',
 })
 
 /** 文件块分隔模板：--- <path> ---（path 相对项目根）。 */

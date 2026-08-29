@@ -55,6 +55,7 @@ export {
   readTask,
   runTaskHooks,
   recordExecutorOverride,
+  recordExecutorDispatch,
 } from './legacy/task-store.js'
 
 export {
@@ -162,6 +163,8 @@ export type {
   FinishTaskParams,
   ArchiveTaskParams,
   ListTasksParams,
+  DispatchRecord,
+  DispatchRecordInput,
 } from './legacy/task-store.d.ts'
 
 export type { SessionPointer } from './legacy/active-task.d.ts'

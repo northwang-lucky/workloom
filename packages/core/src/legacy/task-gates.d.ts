@@ -1,6 +1,6 @@
 /** 流程卡点（task-gates）模块的公共类型（供 JSDoc 引用）。 */
 
-import type { GateOverride } from './task-store.d.ts'
+import type { DispatchRecord, GateOverride } from './task-store.d.ts'
 
 /** 卡点枚举键。 */
 export type GateKey = 'START' | 'CHECK' | 'ARCHIVE' | 'EXECUTOR_MODEL_EFFORT'
@@ -37,6 +37,12 @@ export function evaluateStartGate(root: string, taskRelPath: string): string[]
 
 /** 求值 check 门禁（check.jsonl 有效记录）：返回缺失项描述列表（空数组表示通过）。 */
 export function evaluateCheckLogGate(root: string, taskRelPath: string): string[]
+
+/** 求值前端派发门禁（纯函数）：prd 含「UI Design」且无 frontend 派发时返回缺失项。 */
+export function evaluateFrontendDispatchGate(
+  prdContent: string | null,
+  dispatches: DispatchRecord[],
+): string[]
 
 /** 组装一条 force 豁免记录（gate/tool/at/reason?）。 */
 export function makeOverride(gate: GateValue, reason?: string): GateOverride
