@@ -1,0 +1,3 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "验收验证命令：lint/typecheck/build/测试全绿", "type": "spec"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交规范：中文 message，单 commit", "type": "spec"}
