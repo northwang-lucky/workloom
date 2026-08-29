@@ -12,7 +12,7 @@
   "base_branch": "",
   "createdAt": "2026-08-29T09:42:07.566Z",
   "completedAt": "2026-08-29T10:14:44.547Z",
-  "parent": null,
+  "parent": "tasks/08-29-subtask-mechanism",
   "children": [],
   "subtasks": [],
   "scope": "",

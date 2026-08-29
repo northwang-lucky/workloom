@@ -13,7 +13,12 @@
   "createdAt": "2026-08-29T09:10:00.069Z",
   "completedAt": null,
   "parent": null,
-  "children": [],
+  "children": [
+    "tasks/08-29-stm-p0-contract",
+    "tasks/08-29-stm-p1-core",
+    "tasks/08-29-stm-p2-adapters",
+    "tasks/08-29-stm-p3-e2e"
+  ],
   "subtasks": [],
   "scope": "",
   "commit": "",
