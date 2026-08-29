@@ -1,0 +1,8 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "核对 dispatches 字段与既有 task.json 布局兼容（normalizeTaskRecord 默认值、类型扩展），门禁求值仅改 legacy 纯函数"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "核对双 adapter 仅调用 core 导出、派发记录/门禁逻辑无泄漏到 adapter"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "核对验证命令顺序：先 build 再 core 测试（node --test 跑 dist），lint/typecheck/build 全绿"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "核对契约 2.1 与 Pi systemPrompt 英文措辞完整（角色边界四要素），无中英混杂"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "核对 frontend 词条语义与契约 2.1 口径一致，无过期 kind 枚举描述残留"}
+{"file": ".workloom/tasks/08-29-executor-frontend-agent/research/dispatch-audit.md", "reason": "核对派发记录写失败策略（WARNING 不阻塞）与 check 门禁 force 豁免留痕路径与调研结论一致"}
+{"file": ".workloom/tasks/08-29-executor-frontend-agent/research/executor-kinds.md", "reason": "核对 kind 清单测试更新完备（含 dsh 两处 cases、agents.test、pi-args.test、executor-context.test、contract-asset version 断言）"}

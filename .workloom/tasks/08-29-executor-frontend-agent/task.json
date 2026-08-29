@@ -1,0 +1,36 @@
+{
+  "id": "abd23224-9e1b-4359-8486-1f94bb7e696c",
+  "name": "executor-frontend-agent",
+  "title": "新增前端实现 executor（frontend agent）",
+  "description": "新增第 4 个 executor kind frontend（前端实现 Agent）：core EXECUTOR_KINDS + surface 描述 + 上下文注入复用 implement 全量产物与 implement.jsonl；adapter-dsh KIND_LABELS 加 Frontend；adapter-pi agent-definitions 加 frontend 角色定义（专注前端 UI 实现：prd UI Design 小节与 design.md UI 章节、七轴落地、前端验证、接口缺失用 mock 并标注）；契约 2.1 写明涉及前端展示任务的前端文件实现必须经 frontend executor 派发（逻辑仍走 implement），version bump 9→10；术语表补 frontend 词条；相关测试同步。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T08:04:22.065Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-29T09:10:36.934Z",
+    "summary": "check executor 全量核验 8 项通过：core 四 kind 管道与派发记录（仅成功写 {kind,at,title}、无 status、四 kind 一致、WARNING 不阻塞、normalize 默认 []）；check 门禁（纯求值、缺失项文案精确一致、force 走 makeOverride、prd 缺失/无 UI 小节零影响）；双 adapter（dsh KIND_LABELS+成功点记录、pi 四要素 systemPrompt 完整含禁止再派发）；契约 v10（2.1/2.2 措辞一致、测试断言、grep 仅存 docs/research 历史快照豁免）；测试完备（四 kind 清单、门禁三态+force、dispatch 写入）。3 个偏离点均合理（门禁入参喂数据符合 task-gates 无 IO 分层、Pi 包装镜像既有先例、门禁不导出与 evaluateStartGate 一致）。修复 1 处过期注释。验证：core 280、dsh 51、pi 40 全绿，lint/typecheck/build 通过。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
