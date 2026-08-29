@@ -19,7 +19,7 @@ See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking g
 
 ## Seams: where tests go
 
-> workloom: in workloom, seam confirmation joins Phase 1.1b grilling alignment (design-tree frontier rounds); confirmed seams are recorded in prd.md acceptance criteria, and the no-grey-areas gate applies to seams too. Upstream body unchanged.
+> workloom: in workloom, seam confirmation joins Phase 1.1c grilling alignment (design-tree frontier rounds); confirmed seams are recorded in prd.md acceptance criteria, and the no-grey-areas gate applies to seams too. Upstream body unchanged.
 
 A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 
@@ -27,8 +27,8 @@ A **seam** is the public boundary you test at: the interface where you observe b
 
 Ask: "What's the public interface, and which seams should we test?"
 
-When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), bring the seam's ownership into Phase 1.1b grilling as a frontier node of the design tree.
-<!-- workloom: upstream said call the Skill tool with "codebase-design" for the vocabulary; workloom keeps no external skill dependencies, so the shared vocabulary comes from Phase 1.1b grilling instead -->
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), bring the seam's ownership into Phase 1.1c grilling as a frontier node of the design tree.
+<!-- workloom: upstream said call the Skill tool with "codebase-design" for the vocabulary; workloom keeps no external skill dependencies, so the shared vocabulary comes from Phase 1.1c grilling instead -->
 
 ## Anti-patterns
 
