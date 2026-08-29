@@ -1,5 +1,5 @@
 ---
-version: 8
+version: 9
 states:
   - no_task
   - planning
@@ -41,6 +41,14 @@ Options:
 - C. critical paths only.
 
 For A/C, the confirmed seams go into prd.md acceptance criteria.
+
+**The fixed UI-design question:** Does this task involve frontend UI presentation?
+Options:
+- A. yes: UI design alignment joins the alignment scope (Phase 1.1b).
+- B. no.
+
+For A, after brainstorming, run Phase 1.1b UI design alignment with the `workloom-ui-design` skill: explore the UI axes (pages/components and information architecture, layout and navigation, visual style and design source, interactions and states, responsiveness, accessibility, observable acceptance points), record decidable UI requirements in a `## UI Design` section of prd.md, and require a UI design chapter in design.md when the task is complex. UI decisions then join grilling (Phase 1.1c) for the design-tree pressure test; all UI requirements face the same no-grey-areas gate.
+
 Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, and the frontier holds no open assumptions.
 
 #### 1.2 Research (optional)
