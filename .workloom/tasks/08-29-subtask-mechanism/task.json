@@ -1,0 +1,33 @@
+{
+  "id": "83a595dc-bc5d-4475-880d-33b07bc0a1fa",
+  "name": "subtask-mechanism",
+  "title": "workloom 子任务机制：契约/工具/提示三面落地",
+  "description": "让 workloom 具备\"大任务可拆子任务\"的完整机制：A 契约侧在 workflow.md 增加任务拆分约定（模型推荐、用户确认后才拆）；B 工具侧将 parent 参数贯通 core service + adapter-dsh + adapter-pi + surface 描述，并实现父任务 children 反向联动；C 提示侧在契约 norms 注入\"规模自检→推荐拆分→用户确认\"的 always-on 行为规范。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T09:10:00.069Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
