@@ -2,7 +2,7 @@
  * adapter-dsh 的 executor 工具：把 workloom 任务上下文组装成子代理首条 prompt 并前台派发。
  *
  * 设计意图：
- * - 暴露一个模型可见工具 workloom_execute：按 kind（research/implement/check）用
+ * - 暴露一个模型可见工具 workloom_execute：按 kind（research/implement/check/frontend）用
  *   core 的 buildExecutorPrompt 组装上下文，经 ctx.subagents.start（spawn，
  *   in-process）前台派发一次性（one-shot）子代理，await run.result 取最终输出返回；
  * - one-shot 子代理是封闭的一次性记录：DSH 客户端对 mode=one-shot 渲染只读
@@ -44,6 +44,7 @@ import {
   loadConfig,
   PARAM_DESCRIPTIONS,
   readTask,
+  recordExecutorDispatch,
   recordExecutorOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
@@ -62,6 +63,7 @@ const KIND_LABELS = {
   research: 'Research',
   implement: 'Implement',
   check: 'Check',
+  frontend: 'Frontend',
 } as const
 
 /** KIND_LABELS 的键类型（assertKind 已保证 kind 合法，此处仅防御缺键）。 */
@@ -72,6 +74,9 @@ const NO_CHILD_RUN_ID = ''
 
 /** 覆盖审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor override:`
+
+/** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
+const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
 /** 释放子代理运行失败告警前缀（运行时文案英文；释放失败不阻塞结果返回）。 */
 const DISPOSE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to dispose executor run:`
@@ -313,6 +318,14 @@ async function executeTool(
         }`,
       )
     }
+    // 派发成功（completed）：记录派发审计（+1 条 dispatches）。记录失败仅告警不阻塞结果。
+    const [dispatchErr] = recordExecutorDispatch(root, taskRelPath, {
+      kind: params.kind,
+      title: params.title,
+    })
+    if (dispatchErr !== null) {
+      console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`)
+    }
     const text = result.output
       .filter((block) => block.type === 'text')
       .map((block) => block.text)
@@ -348,7 +361,7 @@ async function executeTool(
  * 元数据异常阻塞派发）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型（research/implement/check）
+ * @param kind executor 类型（research/implement/check/frontend）
  * @param title 模型传入的语义标题（schema 必填非空；可选类型仅作纯函数防御回退）
  * @returns 子会话标题
  */
