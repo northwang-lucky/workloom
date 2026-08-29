@@ -5,7 +5,7 @@ workloom 资源层：与 runtime 无关的内容资源。规划中的目录结�
 ```txt
 workflow/      # 工作流契约（阶段/tag/迁移）+ 内置指引文案（MD + front-matter）
 skills/        # workloom 自有 skills 的中间表示
-agents/        # Executor 定义（research/implement/check）的中间表示
+agents/        # Executor 定义（research/implement/check/frontend）的中间表示
 commands/      # 命令资源的中间表示（init/continue/finish 等）
 third-party/   # 三方 skill vendoring（mattpocock/skills，MIT；改写约定见 docs/vendoring-plan.md）
 ```
