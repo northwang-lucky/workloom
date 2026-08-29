@@ -13,7 +13,7 @@ Shared vocabulary for this repository. Use these terms; avoid the listed alterna
 - workflow guidance: the natural-language guidance text per state; shipped defaults, overridable locally via overlay
 - workflow overlay: the optional project-level guidance override (`.workloom/workflow.override.md`) — changes only "how a step is done", never the state machine
 - workflow profile: an optional contract + guidance bundle, reserved for later; only the contract loader and overlay merger keep replaceable seams today
-- grilling: the Phase 1.1b design-tree questioning skill — frontier rounds with a recommended answer each, until no open assumptions remain
+- grilling: the Phase 1.1c design-tree questioning skill — frontier rounds with a recommended answer each, until no open assumptions remain
 - brainstorm: the Phase 1.1a requirement exploration skill — all open questions listed once per stage as one numbered batch, conclusions written into prd.md as you go
 - requirement alignment: the Phase 1 completion state — every requirement decidable, unambiguous, no open assumptions; the hard gate before document writing
 - task: one task directory (task.json, prd/design/implement, research/, jsonl lists) — avoid "issue", "ticket"
