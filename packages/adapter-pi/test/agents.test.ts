@@ -1,5 +1,5 @@
 /**
- * agent 定义数据单测：三个 kind 与 EXECUTOR_KINDS 一致、文案完整
+ * agent 定义数据单测：四个 kind 与 EXECUTOR_KINDS 一致、文案完整
  * （角色说明自写，含 workloom 身份与「禁止再派发」约束）。
  * 注意：定义数据从 agent-definitions.ts 导入（纯数据模块，本地类型
  * ExecutorAgentDefinition，无 pi-subagents 运行时依赖）。

@@ -205,6 +205,27 @@ subagents:
   }
 })
 
+test('派发成功：task.json dispatches 记录 { kind, at, title }', async () => {
+  const root = makeProject('')
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'frontend', prompt: 'test', taskPath: 'tasks/test-task', title: 'ui impl' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.dispatches.length, 1)
+    assert.equal(task.dispatches[0].kind, 'frontend')
+    assert.equal(task.dispatches[0].title, 'ui impl')
+    assert.ok(!Number.isNaN(Date.parse(task.dispatches[0].at)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('stopReason 非 completed：抛错且文本用 diagnostic（不附输出）', async () => {
   const root = makeProject('')
   try {
@@ -398,7 +419,7 @@ test('receipt 行：无配置时显示 default 来源（无 effort 段）', asyn
   }
 })
 
-test('label 组装：三种 kind 均为 [<KindLabel>] <task title>（title 缺省回退）', async () => {
+test('label 组装：四种 kind 均为 [<KindLabel>] <task title>（title 缺省回退）', async () => {
   const root = makeProject('')
   try {
     const { execute, startCalls } = setupExecutor()
@@ -407,6 +428,7 @@ test('label 组装：三种 kind 均为 [<KindLabel>] <task title>（title 缺�
       ['research', 'Research'],
       ['implement', 'Implement'],
       ['check', 'Check'],
+      ['frontend', 'Frontend'],
     ]
     for (const [kind, kindLabel] of cases) {
       await execute(
@@ -415,7 +437,7 @@ test('label 组装：三种 kind 均为 [<KindLabel>] <task title>（title 缺�
       )
       assert.equal(startCalls[startCalls.length - 1].request.label, `[${kindLabel}] Test`)
     }
-    assert.equal(startCalls.length, 3)
+    assert.equal(startCalls.length, 4)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -457,7 +479,7 @@ test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', a
   }
 })
 
-test('label 组装：title 传入时三种 kind 均为 [<KindLabel>] <title>', async () => {
+test('label 组装：title 传入时四种 kind 均为 [<KindLabel>] <title>', async () => {
   const root = makeProject('')
   try {
     const { execute, startCalls } = setupExecutor()
@@ -466,6 +488,7 @@ test('label 组装：title 传入时三种 kind 均为 [<KindLabel>] <title>', a
       ['research', 'Research'],
       ['implement', 'Implement'],
       ['check', 'Check'],
+      ['frontend', 'Frontend'],
     ]
     for (const [kind, kindLabel] of cases) {
       await execute(
@@ -482,7 +505,7 @@ test('label 组装：title 传入时三种 kind 均为 [<KindLabel>] <title>', a
         `[${kindLabel}] fix executor label prefix`,
       )
     }
-    assert.equal(startCalls.length, 3)
+    assert.equal(startCalls.length, 4)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -640,6 +663,9 @@ subagents:
     assert.equal(task.overrides[0].gate, 'executor_model_effort')
     assert.equal(task.overrides[0].tool, 'workloom_execute')
     assert.equal(task.overrides[0].reason, 'user asked to use the pro model')
+    // 派发审计同样落盘：force 放行后仍记录一次成功派发。
+    assert.equal(task.dispatches.length, 1)
+    assert.equal(task.dispatches[0].kind, 'implement')
     const text = result.output[0].text
     assert.ok(text.endsWith('(forced)'))
     assert.ok(text.includes('deepseek-official/deepseek-v4-pro'))

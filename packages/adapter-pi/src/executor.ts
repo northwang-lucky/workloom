@@ -4,7 +4,7 @@
  * pi-subagents，见 ADR-0006）。
  *
  * 设计意图：
- * - 按 kind（research/implement/check）用 core 的 buildExecutorPrompt 组装
+ * - 按 kind（research/implement/check/frontend）用 core 的 buildExecutorPrompt 组装
  *   上下文，spawn child pi（--mode json，参数组装见 pi-args）派发；
  * - stdout 逐行 JSONL 解析（pi-events 纯函数），收集 assistant 的 text 块，
  *   agent_end 判定完成；stderr 只留尾部（上限 4KB）供错误报告；
@@ -39,6 +39,7 @@ import {
   findWorkloomRoot,
   loadConfig,
   PARAM_DESCRIPTIONS,
+  recordExecutorDispatch,
   recordExecutorOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
@@ -46,7 +47,7 @@ import {
   TOOL_NAMES,
   TOOL_SNIPPETS,
 } from '@workloom-ai/core'
-import type { WorkloomConfig } from '@workloom-ai/core'
+import type { DispatchRecordInput, WorkloomConfig } from '@workloom-ai/core'
 
 import { contextKeyOf } from './constants.ts'
 import { buildChildPiArgs } from './pi-args.ts'
@@ -77,6 +78,9 @@ const PI_RUNTIME = 'pi'
 
 /** force 覆盖记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
 const RECORD_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record forced override:`
+
+/** 派发审计记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
+const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
 /** 来源标注追加 forced 标记的匹配模式（param/config/default 三种来源）。 */
 const FORCED_SOURCE_PATTERN = / \((param|config|default)\)/g
@@ -164,6 +168,24 @@ export function recordForcedOverride(
   const [recordErr] = recordExecutorOverride(root, taskRelPath, reason)
   if (recordErr !== null) {
     console.warn(`${RECORD_WARN_PREFIX} ${recordErr}`)
+  }
+}
+
+/**
+ * 记录一次 executor 派发成功（副作用）：写入 task.json dispatches；失败只 WARNING
+ * 不阻塞派发（与 recordForcedOverride 同口径，审计增强不该拖垮执行链路）。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param entry 派发条目（kind/title，at 由 core 生成）
+ */
+export function recordExecutorDispatchEntry(
+  root: string,
+  taskRelPath: string,
+  entry: DispatchRecordInput,
+): void {
+  const [recordErr] = recordExecutorDispatch(root, taskRelPath, entry)
+  if (recordErr !== null) {
+    console.warn(`${DISPATCH_WARN_PREFIX} ${recordErr}`)
   }
 }
 
@@ -275,6 +297,9 @@ async function executeTool(
     },
     ctx.signal,
   )
+  // 派发成功（dispatchChildPi 正常返回）：记录派发审计（+1 条 dispatches）。
+  // 记录失败仅告警不阻塞结果（审计增强，不留痕不拖垮执行链路）。
+  recordExecutorDispatchEntry(root, taskRelPath, { kind: params.kind, title: params.title })
   // 尾部追加 receipt 行：生效 model/effort 及来源（force 放行时标注 (forced)）。
   const textWithReceipt = appendExecutorReceipt(result.text, effective, gate.forced)
   return {

@@ -26,6 +26,11 @@ test('buildChildPiArgs: fixed sequence with prompt and role system prompt', () =
   assert.equal(args.length, 8)
 })
 
+test('buildChildPiArgs: frontend 角色注入 frontend 系统提示词', () => {
+  const args = buildChildPiArgs({ prompt: 'do ui', kind: 'frontend' })
+  assert.equal(args[7], EXECUTOR_AGENT_DEFINITIONS.frontend?.systemPrompt)
+})
+
 test('buildChildPiArgs: effort levels map to --thinking by name', () => {
   for (const level of EFFORT_LEVELS) {
     const args = buildChildPiArgs({ prompt: 'p', kind: 'implement', effort: level })

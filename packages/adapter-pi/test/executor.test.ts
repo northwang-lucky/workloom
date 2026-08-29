@@ -18,7 +18,13 @@ import { Value } from 'typebox/value'
 import { buildExecutorReceipt, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import type { WorkloomConfig } from '@workloom-ai/core'
 
-import { appendExecutorReceipt, EXECUTOR_PARAMS, recordForcedOverride, resolveConflictGate } from '../src/executor.ts'
+import {
+  appendExecutorReceipt,
+  EXECUTOR_PARAMS,
+  recordExecutorDispatchEntry,
+  recordForcedOverride,
+  resolveConflictGate,
+} from '../src/executor.ts'
 
 test('appendExecutorReceipt: 非空文本尾部追加 receipt 行', () => {
   const text = '子代理输出内容'
@@ -255,6 +261,43 @@ test('recordForcedOverride: task.json 缺失时只 WARNING 不抛错', () => {
     const warning = warnings[0]
     assert.ok(warning !== undefined)
     assert.match(warning, /failed to record forced override/)
+  } finally {
+    console.warn = originalWarn
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatchEntry: 写入 task.json dispatches 且 kind/title 透传', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordExecutorDispatchEntry(root, taskRelPath, { kind: 'frontend', title: 'ui impl' })
+    const record = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).dispatches[0]
+    assert.equal(record.kind, 'frontend')
+    assert.equal(record.title, 'ui impl')
+    assert.ok(!Number.isNaN(Date.parse(record.at)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatchEntry: task.json 缺失时只 WARNING 不抛错', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  rmSync(join(root, '.workloom', taskRelPath, 'task.json'))
+  const warnings: string[] = []
+  const originalWarn = console.warn
+  console.warn = (message: unknown) => {
+    warnings.push(String(message))
+  }
+  try {
+    assert.doesNotThrow(() =>
+      recordExecutorDispatchEntry(root, taskRelPath, { kind: 'frontend', title: 'ui' }),
+    )
+    assert.equal(warnings.length, 1)
+    const warning = warnings[0]
+    assert.ok(warning !== undefined)
+    assert.match(warning, /failed to record executor dispatch/)
   } finally {
     console.warn = originalWarn
     rmSync(root, { recursive: true, force: true })

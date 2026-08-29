@@ -19,7 +19,7 @@ import { EXECUTOR_AGENT_DEFINITIONS } from './agent-definitions.ts'
 export interface BuildChildPiArgsParams {
   /** 任务全文（buildExecutorPrompt 的产物）。 */
   prompt: string
-  /** executor 类型（research/implement/check，取角色说明用）。 */
+  /** executor 类型（research/implement/check/frontend，取角色说明用）。 */
   kind: string
   /** 显式模型 id（可选）。 */
   model?: string
