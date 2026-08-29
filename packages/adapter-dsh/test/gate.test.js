@@ -8,7 +8,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { decideWriteGate, registerGate } from '../dist/gate.js'
+import {
+  decideWriteGate,
+  registerGate,
+  registerWriteGateExemption,
+  unregisterWriteGateExemption,
+} from '../dist/gate.js'
 
 /**
  * 构造 workloom 项目根：config.yaml + 会话指针 + 任务目录（task.json）。
@@ -84,13 +89,74 @@ test('非写工具放行', () => {
   }
 })
 
-test('子代理（depth >= 1）放行', () => {
+test('子代理（depth >= 1）非豁免 + in_progress + 业务路径被 deny（堵住 fork 绕行）', () => {
   const root = makeProject()
   try {
     const decision = decideWriteGate({
       name: 'write',
       agent: makeAgent(root, { subagentDepth: 1 }),
       filePath: 'src/main.ts',
+    })
+    assert.equal(decision.kind, 'deny')
+    const reason = /** @type {{ kind: 'deny', reason: string } } */ (decision).reason
+    assert.ok(reason.includes('in_progress'), 'reason must mention task state')
+    assert.ok(reason.includes('workloom_execute'), 'reason must guide to workloom_execute')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('子代理（depth >= 1）非豁免 + 无 in_progress 任务 → 放行', () => {
+  const root = makeProject({ taskStatus: 'planning' })
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root, { subagentDepth: 1 }),
+      filePath: 'src/main.ts',
+    })
+    assert.deepEqual(decision, { kind: 'allow' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('子代理（depth >= 1）豁免（executor 派发）→ 放行（即使 in_progress）', () => {
+  const root = makeProject()
+  registerWriteGateExemption('agent-1')
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root, { subagentDepth: 1 }),
+      filePath: 'src/main.ts',
+    })
+    assert.deepEqual(decision, { kind: 'allow' })
+  } finally {
+    unregisterWriteGateExemption('agent-1')
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('子代理（depth >= 1）非豁免 + executor.gate: false → 放行', () => {
+  const root = makeProject({ configYaml: 'executor:\n  gate: false\n' })
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root, { subagentDepth: 1 }),
+      filePath: 'src/main.ts',
+    })
+    assert.deepEqual(decision, { kind: 'allow' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('子代理（depth >= 1）非豁免 + .workloom/ 内目标 → 放行', () => {
+  const root = makeProject()
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root, { subagentDepth: 1 }),
+      filePath: '.workloom/config.local.yaml',
     })
     assert.deepEqual(decision, { kind: 'allow' })
   } finally {

@@ -13,6 +13,9 @@
  *   无创建后句柄，输出经 run.result 读取，runId 即 child session id）；
  * - 子代理释放失败（run.dispose）只 WARNING 不阻塞结果返回；其余故障 fail loud
  *   （抛错由 DSH 工具管线转失败结果）；
+ * - 写门禁豁免：start resolve 后立即 registerWriteGateExemption(run.id)，finally 中先
+ *   注销再 dispose（成功失败均注销）——executor 派发的子代理在判定链中放行，而
+ *   subagent_fork/continuable 复用的子代理不被豁免，从而堵住「fork 绕过主会话门禁」；
  * - model 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置（按 executor
  *   kind 取值，字段独立合并），供用户配置默认派发参数；
  * - effort 通道已在 DSH 侧移除：工具 schema、冲突门与 receipt 均无 effort 维度
@@ -54,6 +57,10 @@ import {
 } from '@workloom-ai/core'
 
 import { CONTEXT_KEY_PREFIX } from './constants.js'
+import {
+  registerWriteGateExemption,
+  unregisterWriteGateExemption,
+} from './gate.js'
 
 /** spawn provider 名（DSH in-process 子代理提供方，one-shot start-time capability 齐备）。 */
 const SPAWN_PROVIDER = 'spawn'
@@ -305,6 +312,9 @@ async function executeTool(
     agentOptions,
     maxDepth: 1,
   })
+  // start resolve 即登记写门禁豁免：run.id 必等于子代理 session id（SubagentRun.id 契约），
+  // 使 executor 派发的子代理在判定链中放行；start resolve 前子代理不开始 turn，无竞态。
+  registerWriteGateExemption(run.id)
   try {
     // run.result 对子代理级失败（模型/传输错误等）resolve 而非 reject，
     // 由 stopReason 表达原因；基础设施故障才 reject（fail loud 透传）。
@@ -346,6 +356,8 @@ async function executeTool(
       output: [{ type: 'text', text: outputText }],
     }
   } finally {
+    // 先注销写门禁豁免（成功失败均注销），再释放子代理运行。
+    unregisterWriteGateExemption(run.id)
     try {
       await run.dispose()
     } catch (error) {
