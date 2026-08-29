@@ -3,7 +3,7 @@
   "name": "stm-p2-adapters",
   "title": "子任务机制 P2：surface 与双 adapter 贯通（S2/S3/S4）",
   "description": "surface 与双 adapter 参数贯通：按主任务 design.md §4/§5 修改 packages/core/src/surface.ts（TOOL_SNIPPETS.taskCreate 签名含 parent、PARAM_DESCRIPTIONS.parent）、adapter-dsh/src/tasks.ts（schema + createTaskTool 透传）、adapter-pi/src/tasks.ts（TASK_CREATE_PARAMS + executeCreate 透传）。test-first：surface/dsh/pi 测试先红后绿（S2/S3/S4）。范围以主任务 implement.md Phase 2 为准。",
-  "status": "planning",
+  "status": "completed",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-08-29T09:42:07.566Z",
-  "completedAt": null,
+  "completedAt": "2026-08-29T10:14:44.547Z",
   "parent": null,
   "children": [],
   "subtasks": [],
@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-08-29T10:14:42.896Z",
+    "summary": "check executor 复核 PASS：S2 surface 签名含 parent?、PARAM_DESCRIPTIONS.parent 英文语义正确、TOOL_DESCRIPTIONS 未动、as const 保持；S3 dsh schema 含 parent（可选、描述引 surface）且 stringOf 透传、无重复校验；S4 pi TASK_CREATE_PARAMS 含 parent 且 executeCreate 转发、promptSnippet 自动生效；DSH/Pi 一致性（surface 单一来源）与 P1 core 衔接闭合；三个测试为真实集成验证（schema + 真实执行读盘断言 parent 落盘与 children 联动）。复跑全绿：lint/typecheck/build、core 299、dsh 53、pi 42。非阻断观察：① 红阶段证据需从 executor 报告保留（红 6 失败→绿），git 无法独立重建；② pi inject 测试 stderr 预期噪音；③ dsh/pi 测试取 registered[0] 依赖注册顺序（有兜底断言）。"
+  },
   "overrides": [],
   "hooks": {
     "after_create": [],
