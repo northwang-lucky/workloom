@@ -82,3 +82,9 @@
 - Commit: d3f32aa
 - Summary: 调研并 spike 验证 workloom 支持 Kimi Code 的可行性：调研报告 + podman 容器真机验证 V1–V8 + 回填开放问题，结论为需自研 wrapper（adapter-kimi = plugin + MCP server + hooks），待创建实施任务。
 
+## 契约新增前端 UI 设计对齐流程（1.1b + workloom-ui-design）
+
+- Time: 2026-08-29T07:32:53.899Z
+- Commit: 4f15b4c
+- Summary: 契约 v9：1.1 新增固定问题（Does this task involve frontend UI presentation?），yes 强制进 Phase 1.1b UI 设计对齐（新 skill workloom-ui-design，七轴讨论，产物 prd.md UI Design 小节 + 复杂任务 design.md 章节），grilling 顺延 1.1c；双 adapter 登记，术语表与 vendored 注记同步，测试全绿。
+
