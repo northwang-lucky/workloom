@@ -36,9 +36,11 @@
 - 内置 `general-purpose`（全工具权限）与 `Explore`（只读调研）。
 - 插件 `agents/*.md` 注册子智能体：frontmatter 必填 `name`/`description`，正文即 system prompt；支持 `model`（`inherit` 或具体模型）、`thoughtLevel`、`color`、`tools`/`disallowedTools`、`maxTurns`、`injectAgentsMd`（默认注入 AGENTS.md）、`mcpServers`（声明依赖的 MCP 服务名，未连接则调用失败）。
 - 工具边界：`tools: *` 继承主会话全部工具（含 MCP）；自定义列表只含内置工具，MCP 工具需写全名 `mcp__<服务名>__<工具名>`（通配无效）。
+- **技能工具在子智能体内的可用性**（skill 文档排查清单）：子智能体声明了自定义 `tools` 白名单时，技能工具不在列表内则无法调用任何技能；官方实例 agents frontmatter 写 `tools: Bash, Read, Skill, Glob, Grep`，证实技能工具名为 `Skill`、插件子智能体支持 tools 白名单。
 - **子智能体内不能再派发子智能体**——与 workloom「禁止嵌套派发」约束天然一致。
 - 主 Agent 通过 Agent 工具派发，独立上下文，完成汇总回主对话；支持前台并行与后台执行。
-- 限制：Beta 仅用户级管理界面（`~/.zcode/agents/`）；定义修改需新建会话生效。
+- 边界（subagents 文档）：子智能体只能看到主会话**启动时**已连接的 MCP 服务（会话中途新连接不可见）；`mcpServers` 字段声明依赖（精确匹配服务名，未连接则调用直接失败）。
+- 限制：Beta 仅用户级管理界面（`~/.zcode/agents/`）；插件子智能体在设置页「插件子智能体」分组只读展示；定义修改需新建会话生效。
 
 ### 2.5 Hooks（hooks 文档）
 
@@ -158,6 +160,7 @@ graph LR
 
 - ZCode 是 Electron 桌面应用，无公开的 headless agent CLI（官方文档无 `--print`/`-p` 模式，`~/.zcode/cli/` 仅承载配置与日志；`zai-cli`/`z-cli` 等社区项目是 Z.AI API 的 MCP 包装，不是 ZCode agent）。adapter-pi 的 spawn child pi、adapter-kimi 的 spawn `kimi -p` 均不可移植。
 - 替代方案：executor 三角色渲染为插件子智能体（§6.3.3），主 Agent 通过 ZCode 内置 Agent 工具派发，上下文隔离与「禁止嵌套派发」由 ZCode 原生机制保证（子智能体内不能再派发子智能体，恰好与 workloom 约束一致）。
+- **工具权限收紧与 adapter-pi 语义对齐**（subagents 文档交叉核对）：executor 子智能体的 `tools` 白名单写内置工具集（`Read`/`Grep`/`Glob`/`Bash`/`Edit`/`Write`/`TodoWrite`，research 可只留只读集），**不声明 `mcpServers`**——自定义 tools 列表天然不含 MCP 工具，等价于 Pi 侧 `--no-extensions` 的「child 无 workloom 工具」语义；官方实例（`tools: Bash, Read, Skill, Glob, Grep`）证实该写法受支持。是否给 implement 子智能体开放 workloom MCP 任务工具（写 task.json 进度）作为可选增强，留到 spike 后决策。
 - workloom_execute 的「任务上下文内联」职责改由 `skills/workloom-execute/SKILL.md` 承载：教主 Agent 读 `.workloom/tasks/<task>/` 的 prd/design/implement/jsonl，按 core 的 `buildExecutorPrompt` 口径组装派发 prompt，再调用 Agent 工具派发对应 executor 子智能体。
 - 兜底选项（若子智能体能力不满足，见开放问题 1）：MCP server 内 spawn 子进程方案——`workloom_execute` 工具在 MCP server 内组装 prompt 后经 `execSync` 驱动外部 CLI（如 `kimi -p` 或用户自配的 agent CLI），保持 adapter-pi 拓扑；这是降级路线，先按原生子智能体主线评估。
 
@@ -200,7 +203,7 @@ graph LR
 
 ## 10. 开放问题清单
 
-1. 插件 `agents/*.md` 子智能体的实际工具权限与 MCP 可见性：`tools` 自定义列表下能否保留 `mcp__plugin:workloom:workloom__*` 工具（文档说需写全名逐个声明）；`mcpServers` frontmatter 字段对插件注册的子智能体是否同样生效；子智能体回合内 hook 是否触发。→ executor 主线成立的前提，需真机 spike。
+1. 插件 `agents/*.md` 子智能体的实际工具权限与 MCP 可见性：文档侧已澄清——`tools` 白名单写法受官方实例证实（`tools: Bash, Read, Skill, Glob, Grep`），自定义列表下 MCP 工具需写全名 `mcp__<服务名>__<工具名>` 逐个声明（通配无效），`mcpServers` 字段声明依赖（未连接则调用失败）；**剩余待真机验证**：`mcpServers` frontmatter 对插件注册的子智能体是否与用户级同等生效、子智能体回合内 hook 是否触发、同名时用户级与插件子智能体的优先级。→ executor 主线成立的前提，需真机 spike。
 2. 插件 MCP server 的默认 cwd 与工具全名形态：kimi spike 结论是默认 cwd = 插件根目录（需在 `.mcp.json` 显式写项目目录或用 env 传），ZCode 待验证；模型侧工具全名（`mcp__plugin:workloom:workloom__task_create`？）需真机确认，供命令正文引用。
 3. `PreToolUse` payload 的 `tool_name` 对 Write/Edit 的取值与 `permissionDecision: deny` 阻断行为：协议与 Claude Code 同构但 ZCode 实现待验证（kimi spike 已验证 exit 2 生效，ZCode 文档写的是 permissionDecision 返回值，两者语义对应关系待确认）。
 4. `UserPromptSubmit` hook 是否在子智能体回合触发（影响 executor 子会话内是否有 breadcrumb）；stdout 附加文本的长度上限实际行为。
