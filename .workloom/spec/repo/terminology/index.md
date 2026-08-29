@@ -6,7 +6,8 @@ Shared vocabulary for this repository. Use these terms; avoid the listed alterna
 - adapter: the runtime-specific wrapper following that runtime's official plugin format — avoid "plugin"
 - core: runtime-independent logic — task lifecycle, workflow state machine, context assembly, asset rendering — avoid "engine", "kernel"
 - assets: runtime-independent content (skills, agents, commands) as Markdown + YAML front-matter — avoid "resources"
-- executor: the abstraction that runs research/implement/check, inline or as a subagent — avoid "worker", "runner"
+- executor: the abstraction that runs research/implement/check/frontend, inline or as a subagent — avoid "worker", "runner"
+- frontend executor: the executor kind (`frontend`) dedicated to the task's frontend UI file implementation — it follows the PRD `## UI Design` section and the design UI chapter, only touches frontend files, and uses an annotated mock/placeholder for a missing backend interface instead of implementing the backend — avoid "ui agent"
 - effort: the executor's reasoning tier — `low` / `medium` / `high` / `xhigh` / `max` in core, mapped by adapters — avoid "thinking level", "budget"
 - workflow-state breadcrumb: the per-turn task + phase guidance block injected into the main session; the only per-turn phase-control channel — avoid "status banner", "phase hint"
 - workflow contract: the workflow state-machine contract (tag blocks, step ids, state enum, transitions) shipped with the package; projects cannot customize it
