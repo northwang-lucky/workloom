@@ -100,3 +100,9 @@
 - Commit: 2732f88
 - Summary: workloom 子任务机制三面落地（契约/工具/提示）并首次拆分子任务实战：主任务容器 + P0-P3 四子任务完整生命周期。
 
+## gate 堵漏与 doctor 命令落地
+
+- Time: 2026-08-29T11:46:49.866Z
+- Commit: fdcb6ea
+- Summary: executor gate 堵住 fork 绕行 + workloom-doctor 健康检查命令（8 类检查/3 类机械修复/--fix/结构化输出），双任务完整生命周期并已同步部署。
+
