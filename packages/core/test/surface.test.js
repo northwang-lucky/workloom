@@ -6,11 +6,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  ASSET_COMMAND_DOCTOR,
   buildErrorRelayText,
   buildExecutorReceipt,
   buildSuccessRelayText,
   COMMAND_DESCRIPTIONS,
   COMMAND_NAMES,
+  DOCTOR_FIX_FLAG,
   ERR_PREFIX,
   PARAM_DESCRIPTIONS,
   TOOL_DESCRIPTIONS,
@@ -118,4 +120,11 @@ test('TOOL_SNIPPETS.taskCreate 签名含 parent?（模型可见的父任务相�
 test('PARAM_DESCRIPTIONS.parent 存在且非空（DSH/Pi 共用契约面文案）', () => {
   const parent = PARAM_DESCRIPTIONS.parent
   assert.ok(typeof parent === 'string' && parent !== '', 'parent description must be non-empty')
+})
+
+test('doctor 命令键对齐：COMMAND_NAMES.doctor / COMMAND_DESCRIPTIONS.doctor / 资产 / --fix', () => {
+  assert.equal(COMMAND_NAMES.doctor, 'workloom-doctor')
+  assert.ok(COMMAND_DESCRIPTIONS.doctor !== '', 'doctor description must be non-empty')
+  assert.ok(ASSET_COMMAND_DOCTOR !== '', 'doctor asset path must be non-empty')
+  assert.equal(DOCTOR_FIX_FLAG, '--fix', 'doctor fix flag must be --fix')
 })

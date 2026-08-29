@@ -6,6 +6,15 @@ export interface SessionPointer {
   last_seen_at: string
 }
 
+/** 列出全部会话指针（只读，不清理；带 contextKey 与绝对路径，供 doctor 消费）。 */
+export interface SessionPointerWithContext extends SessionPointer {
+  contextKey: string
+  absPath: string
+}
+
+/** 列出全部会话指针（只读，不清理；损坏指针跳过）。 */
+export function listPointers(root: string): [Error | null, SessionPointerWithContext[] | null]
+
 /** 写入会话指针；目录不存在时自动创建。 */
 export function setActiveTask(root: string, contextKey: string, taskRelPath: string): [Error | null]
 

@@ -19,15 +19,18 @@ import {
   ASSET_COMMAND_CONTINUE,
   ASSET_COMMAND_FINISH,
   buildContinueGuidance,
+  buildDoctorRelayText,
   buildErrorRelayText,
   buildFinishGuidance,
   buildSuccessRelayText,
   COMMAND_DESCRIPTIONS,
   COMMAND_FAILURE_ACK,
   COMMAND_NAMES,
+  DOCTOR_FIX_FLAG,
   ERR_PREFIX,
   ensureSpecTemplates,
   executeInitCommand,
+  runDoctor,
 } from '@workloom-ai/core'
 import { readAssetText } from '@workloom-ai/assets'
 
@@ -53,6 +56,10 @@ export function registerCommands(pi: ExtensionAPI): void {
   pi.registerCommand(COMMAND_NAMES.finish, {
     description: COMMAND_DESCRIPTIONS.finish,
     handler: (args, ctx) => handleFinish(pi, args, ctx),
+  })
+  pi.registerCommand(COMMAND_NAMES.doctor, {
+    description: COMMAND_DESCRIPTIONS.doctor,
+    handler: (args, ctx) => handleDoctor(pi, args, ctx),
   })
 }
 
@@ -207,10 +214,48 @@ async function handleFinish(
 }
 
 /**
+ * doctor 命令：解析 --fix，跑健康检查引擎，sendUserMessage 注入 JSON 报告 + 引导语。
+ * @param pi Extension API
+ * @param args 命令自由输入（--fix 解析同 init --purge 先例）
+ * @param ctx 命令上下文
+ */
+async function handleDoctor(
+  pi: ExtensionAPI,
+  args: string,
+  ctx: ExtensionCommandContext,
+): Promise<void> {
+  const [err, report] = runDoctor(ctx.cwd, { fix: hasFixFlag(args) })
+  if (err !== null || report === null) {
+    relayFailure({
+      pi,
+      ctx,
+      command: COMMAND_NAMES.doctor,
+      errorText: err?.message ?? `${ERR_PREFIX.command}: doctor returned no report`,
+    })
+    return
+  }
+  followup(pi, buildDoctorRelayText(report))
+  ctx.ui.notify(
+    `Workloom doctor: ${report.summary.total} issue(s) found; handed the health report to the model.`,
+    'info',
+  )
+}
+
+/**
  * 通过 sendUserMessage 注入指引文本并触发模型回合（followUp 队列）。
  * @param pi Extension API
  * @param text 注入文本
  */
 function followup(pi: ExtensionAPI, text: string): void {
   pi.sendUserMessage(text, { deliverAs: 'followUp' })
+}
+
+/**
+ * 判定自由输入是否启用 --fix（精确 `--fix` 或以 `--fix ` 开头，参考 init --purge 的先例）。
+ * @param rawInput 命令自由输入
+ * @returns 是否启用修复
+ */
+function hasFixFlag(rawInput: string): boolean {
+  const raw = rawInput.trim()
+  return raw === DOCTOR_FIX_FLAG || raw.startsWith(`${DOCTOR_FIX_FLAG} `)
 }
