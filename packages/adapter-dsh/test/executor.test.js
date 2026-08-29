@@ -11,6 +11,7 @@ import { join } from 'node:path'
 
 import { PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import { registerExecutor } from '../dist/executor.js'
+import { decideWriteGate } from '../dist/gate.js'
 
 /** 构造最小可工作的 workloom 项目根（含 config.yaml）。 */
 function makeProject(configYaml) {
@@ -39,6 +40,17 @@ function makeAgent(root) {
     id: 'parent-1',
     session: {
       header: { cwd: root },
+    },
+  }
+}
+
+/** 构造模拟子代理 agent（depth >= 1，供门禁判定观察：id 对应派发 run.id）。 */
+function makeChildAgent(root, id) {
+  return {
+    id,
+    options: { subagentDepth: 1 },
+    session: {
+      header: { cwd: root, delegationDepth: 1 },
     },
   }
 }
@@ -700,6 +712,76 @@ subagents:
     const text = result.output[0].text
     assert.ok(!text.includes('(forced)'))
     assert.ok(text.includes('(param)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('派发期间登记写门禁豁免、结算后注销（门禁对子代理生效）', async () => {
+  const root = makeProject('executor:\n  gate: true\n')
+  // 任务标记为 in_progress，使非豁免子代理在业务路径上会被门禁 deny。
+  writeFileSync(
+    join(root, '.workloom/tasks/test-task/task.json'),
+    JSON.stringify({ status: 'in_progress', title: 'Test', slug: 'test-task', priority: 'P2' }),
+  )
+  try {
+    // 手动结算的 run.result：观测「派发期间（已注册）」与「结算后（已注销）」两个时点。
+    let resolveResult
+    const registered = []
+    const disposeCalls = []
+    const ctx = {
+      tools: {
+        register(def) {
+          registered.push(def)
+          return () => {}
+        },
+      },
+      subagents: {
+        async start() {
+          return {
+            id: 'child-gate-1',
+            result: new Promise((resolve) => {
+              resolveResult = resolve
+            }),
+            async dispose() {
+              disposeCalls.push('child-gate-1')
+            },
+          }
+        },
+      },
+    }
+    registerExecutor(ctx)
+    const def = registered[0]
+    assert.ok(def, 'executor tool must be registered')
+    const parent = makeAgent(root)
+    // 不 await：execute 在 start resolve 后登记豁免，并在 run.result 结算前挂起。
+    const pending = def.execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'gate exemption test',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    // 存活 microtask 已完成登记（register 在 start resolve 后同步执行），派发期间应豁免放行。
+    await new Promise((r) => setImmediate(r))
+    const child = makeChildAgent(root, 'child-gate-1')
+    assert.deepEqual(
+      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }),
+      { kind: 'allow' },
+      'during dispatch the executor child must be exempt',
+    )
+    // 结算后 finally 先注销再 dispose：非豁免的 fork 子代理被门禁 deny。
+    resolveResult({ output: [{ type: 'text', text: 'done' }], stopReason: 'completed' })
+    const result = await pending
+    assert.equal(disposeCalls.length, 1)
+    assert.equal(result.runId, 'child-gate-1')
+    assert.equal(
+      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }).kind,
+      'deny',
+      'after settlement the child must no longer be exempt',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
