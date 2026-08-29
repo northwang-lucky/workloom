@@ -1,6 +1,6 @@
 /**
- * 清空并重建本包 skills/ 目录：从 ../assets 递归拷贝 5 个 skill 目录
- * （自有 brainstorm + update-spec + 三个 vendored mattpocock skills），
+ * 清空并重建本包 skills/ 目录：从 ../assets 递归拷贝 6 个 skill 目录
+ * （自有 brainstorm/ui-design/update-spec + 三个 vendored mattpocock skills），
  * 连同目录内所有文件（SKILL.md / references / agents / 子文档）与
  * mattpocock 的 LICENSE。
  *
@@ -17,6 +17,7 @@ const SKILLS_DIR = join(PACKAGE_ROOT, 'skills')
 /** 相对本包根的资源源目录（整目录递归拷贝）。 */
 const SKILL_SOURCES = [
   '../assets/skills/workloom-brainstorm',
+  '../assets/skills/workloom-ui-design',
   '../assets/skills/workloom-update-spec',
   '../assets/third-party/mattpocock-skills/tdd',
   '../assets/third-party/mattpocock-skills/grilling',
