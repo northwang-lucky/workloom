@@ -3,7 +3,15 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -127,14 +135,13 @@ test('slug 生成规则与目录冲突返回 err', async () => {
   }
 })
 
-test('createTask 自定义参数（priority/description/parent）与非法优先级', async () => {
+test('createTask 自定义参数（priority/description）与非法优先级', async () => {
   const root = makeRoot() // 无 .developer，creator 应为空串
   try {
     const [err, result] = await createTask(root, {
       title: 'Custom',
       priority: 'P0',
       description: 'desc',
-      parent: 'tasks/01-01-x',
     })
     assert.equal(err, null)
     assert.ok(result)
@@ -142,7 +149,7 @@ test('createTask 自定义参数（priority/description/parent）与非法优先
     assert.equal(task.creator, '')
     assert.equal(task.priority, 'P0')
     assert.equal(task.description, 'desc')
-    assert.equal(task.parent, 'tasks/01-01-x')
+    assert.equal(task.parent, null)
     const [err2] = await createTask(root, { title: 'Bad Priority', priority: 'P9' })
     assert.ok(err2)
   } finally {
@@ -450,6 +457,7 @@ test('listTasks 摘要与状态过滤，归档后不再出现', async () => {
     assert.deepEqual(Object.keys(list[0]).sort(), [
       'createdAt',
       'name',
+      'parent',
       'priority',
       'status',
       'title',
@@ -943,6 +951,175 @@ test('checkTask 前端派发门禁：force 放行并留痕 overrides', async () 
     assert.equal(saved.overrides[0].gate, 'check')
     assert.equal(saved.overrides[0].tool, 'workloom_task_check')
     assert.equal(saved.overrides[0].reason, 'ui not applicable')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 计算今天生成的 child taskRelPath（用于断言未产生写入/预测去重路径）。 */
+function childRelFor(slug) {
+  const now = new Date()
+  const mmdd = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  return join('tasks', `${mmdd}-${slug}`)
+}
+
+test('createTask 校验：parent 两种形式归一（tasks/ 前缀补全）且存储一致', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent Norm' })
+    const bareId = parent.taskRelPath.slice('tasks/'.length)
+    // 原样（tasks/ 前缀）
+    const [err1, c1] = await createTask(root, { title: 'Child Norm A', parent: parent.taskRelPath })
+    assert.equal(err1, null)
+    assert.equal(c1.task.parent, parent.taskRelPath)
+    // 补 tasks/ 前缀（bare id）
+    const [err2, c2] = await createTask(root, { title: 'Child Norm B', parent: bareId })
+    assert.equal(err2, null)
+    assert.equal(c2.task.parent, parent.taskRelPath)
+    // 父 children 稳定追加两个子任务路径
+    const saved = readTaskJson(root, parent.taskRelPath)
+    assert.deepEqual(saved.children, [c1.taskRelPath, c2.taskRelPath])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 不存在拒绝且不产生写入', async () => {
+  const root = makeRoot()
+  try {
+    const [err, result] = await createTask(root, { title: 'Ghost Child', parent: 'tasks/99-99-ghost' })
+    assert.ok(err)
+    assert.equal(result, null)
+    assert.match(err.message, /parent task not found/)
+    // 子任务目录未被创建（不产生写入）
+    assert.equal(existsSync(join(root, '.workloom', childRelFor('ghost-child'))), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 自引用拒绝', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Self' })
+    // 用相同 slug 使新任务路径与 parent 相同 → 触发自引用（校验先于目录冲突检查）
+    const [err] = await createTask(root, { title: 'Self', parent: parent.taskRelPath })
+    assert.ok(err)
+    assert.match(err.message, /cannot be its own parent/)
+    // 仍只有原父任务一个
+    const [, list] = listTasks(root)
+    assert.equal(list.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 状态 planning/in_progress 放行，completed 拒绝', async () => {
+  const root = makeRoot()
+  try {
+    // planning 放行
+    const [, p1] = await createTask(root, { title: 'Parent Planning' })
+    const [err1, c1] = await createTask(root, { title: 'Child Planning', parent: p1.taskRelPath })
+    assert.equal(err1, null)
+    assert.ok(c1)
+    // in_progress 放行（force 越过 start 门禁）
+    const [, p2] = await createTask(root, { title: 'Parent InProgress' })
+    await startTask(root, { taskRelPath: p2.taskRelPath, force: true, reason: 'test' })
+    const [err2, c2] = await createTask(root, { title: 'Child InProgress', parent: p2.taskRelPath })
+    assert.equal(err2, null)
+    assert.ok(c2)
+    // completed 拒绝（归档后 status=completed）
+    const [, p3] = await createTask(root, { title: 'Parent Archived' })
+    const [archErr, archived] = await archiveTask(root, {
+      taskRelPath: p3.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test',
+    })
+    assert.equal(archErr, null)
+    const [err3] = await createTask(root, { title: 'Child Archived', parent: archived.taskRelPath })
+    assert.ok(err3)
+    assert.match(err3.message, /planning or in_progress/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 路径逃逸拒绝', async () => {
+  const root = makeRoot()
+  try {
+    // 归一补 tasks/ 后仍解析出 .workloom 之外，insideWorkloom 抛错
+    const [err] = await createTask(root, { title: 'Escape Child', parent: '../../outside' })
+    assert.ok(err)
+    assert.match(err.message, /escapes .workloom directory/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：children 追加子任务路径', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent Link' })
+    const [err, child] = await createTask(root, { title: 'Child Link', parent: parent.taskRelPath })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, parent.taskRelPath)
+    assert.ok(saved.children.includes(child.taskRelPath))
+    assert.equal(saved.children.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：children 去重追加（同路径不重复记录）', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent Dedup' })
+    const childRel = childRelFor('dup-child')
+    // 预置父任务 children 已包含该子任务路径（模拟历史记录），创建同路径子任务时应去重
+    const parentRecord = readTaskJson(root, parent.taskRelPath)
+    parentRecord.children = [childRel]
+    writeFileSync(join(root, '.workloom', parent.taskRelPath, 'task.json'), JSON.stringify(parentRecord))
+    const [err, result] = await createTask(root, { title: 'Dup Child', parent: parent.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(result.taskRelPath, childRel)
+    const saved = readTaskJson(root, parent.taskRelPath)
+    assert.deepEqual(saved.children, [childRel])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：父 children 写回失败抛错（子任务已创建、父 children 未更新）', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent RO' })
+    const parentTaskJson = join(root, '.workloom', parent.taskRelPath, 'task.json')
+    chmodSync(parentTaskJson, 0o444) // 父 task.json 只读 → 联动写回失败
+    const [err, result] = await createTask(root, { title: 'Child RO', parent: parent.taskRelPath })
+    assert.ok(err)
+    assert.equal(result, null)
+    assert.match(err.message, /child task created but parent children not updated/)
+    // 子任务已创建（目录与 task.json 存在）
+    assert.equal(existsSync(join(root, '.workloom', childRelFor('child-ro'))), true)
+    // 父 children 未更新（仍为空；恢复权限便于读取断言）
+    chmodSync(parentTaskJson, 0o644)
+    assert.deepEqual(readTaskJson(root, parent.taskRelPath).children, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('listTasks 摘要包含 parent 字段', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Summary Parent' })
+    await createTask(root, { title: 'Summary Child', parent: parent.taskRelPath })
+    const [, list] = listTasks(root)
+    const childSummary = list.find((t) => t.title === 'Summary Child')
+    assert.equal(childSummary.parent, parent.taskRelPath)
+    const parentSummary = list.find((t) => t.title === 'Summary Parent')
+    assert.equal(parentSummary.parent, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

@@ -196,6 +196,9 @@ function normalizeTaskRecord(parsed) {
     check: parsed.check ?? null,
     overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
     dispatches: Array.isArray(parsed.dispatches) ? parsed.dispatches : [],
+    // parent/children 兜底：旧任务缺字段时补 null/空数组，保证父子校验与联动对旧数据安全。
+    parent: parsed.parent ?? null,
+    children: Array.isArray(parsed.children) ? parsed.children : [],
   }
 }
 
@@ -388,6 +391,79 @@ function logWarnings(warnings) {
   }
 }
 /**
+ * 归一化 parent 参数为 parentRelPath（内部）。
+ * 接受 `tasks/08-29-xxx`（原样）或 `08-29-xxx`（补 `tasks/` 前缀）两种形式；
+ * null/undefined/空串视同未传，返回 null。
+ * @param {string | null | undefined} parent 原始 parent 参数
+ * @returns {string | null} 归一后的 parentRelPath，或 null（未传）
+ */
+function normalizeParentRelPath(parent) {
+  if (parent === undefined || parent === null || parent === '') return null
+  if (parent.startsWith('tasks/')) return parent
+  return join(DIR_NAMES.tasks, parent)
+}
+
+/**
+ * 校验 parent 任务（顺序固定，任一失败抛错，均不产生写入）。
+ * ① 存在性：task.json 可读且非空；
+ * ② 自引用：parentRelPath ≠ childRelPath；
+ * ③ 状态：parent.status ∈ {planning, in_progress}，completed 拒绝；
+ * ④ 逃逸防护：readTask 经 insideWorkloom 解析路径，越界自动抛错。
+ * @param {string} root 项目根
+ * @param {string} parentRelPath 归一后的 parentRelPath
+ * @param {string} childRelPath 新任务的 taskRelPath
+ * @returns {import('./task-store.d.ts').TaskRecordWithPath} 校验通过的 parent 记录
+ */
+function validateParent(root, parentRelPath, childRelPath) {
+  const [parentErr, parent] = readTask(root, parentRelPath)
+  if (parentErr) {
+    // 不可读/损坏/越界均在此拦截（readTask 经 insideWorkloom 防越界）。
+    throw new Error(
+      `${ERR_PREFIX}: parent task not found: ${parentRelPath}: ${parentErr.message}`,
+    )
+  }
+  if (!parent) {
+    throw new Error(`${ERR_PREFIX}: parent task not found: ${parentRelPath}`)
+  }
+  if (parentRelPath === childRelPath) {
+    throw new Error(`${ERR_PREFIX}: task cannot be its own parent: ${parentRelPath}`)
+  }
+  if (parent.status !== TaskStatus.PLANNING && parent.status !== TaskStatus.IN_PROGRESS) {
+    throw new Error(
+      `${ERR_PREFIX}: parent task must be planning or in_progress (current: ${parent.status})`,
+    )
+  }
+  return parent
+}
+
+/**
+ * children 反向联动（内部）：子任务创建成功后，把 childRelPath 追加到父任务 children（去重）并写回。
+ * 父任务不可读或写回失败时抛错（消息指明「子任务已创建、父 children 未更新」，不做回滚）。
+ * @param {string} root 项目根
+ * @param {string} parentRelPath 父任务 taskRelPath
+ * @param {string} childRelPath 子任务 taskRelPath
+ */
+function linkChildToParent(root, parentRelPath, childRelPath) {
+  const [parentErr, parent] = readTask(root, parentRelPath)
+  if (parentErr || !parent) {
+    throw new Error(
+      `${ERR_PREFIX}: child task created but parent children not updated: parent task unreadable: ${parentRelPath}`,
+    )
+  }
+  if (!parent.children.includes(childRelPath)) {
+    parent.children.push(childRelPath)
+  }
+  try {
+    writeTaskJson(insideWorkloom(root, parentRelPath), stripTaskPath(parent))
+  } catch (error) {
+    throw new Error(
+      `${ERR_PREFIX}: child task created but parent children not updated: ${toError(error).message}`,
+      { cause: error },
+    )
+  }
+}
+
+/**
  * 创建任务：建目录、写 task.json/prd.md/两个 jsonl，可选激活会话并执行 after_create hooks。
  * @param {string} root 项目根（或根下任意目录）
  * @param {import('./task-store.d.ts').CreateTaskParams} params
@@ -419,13 +495,28 @@ async function createTaskInternal(root, params) {
   const now = new Date()
   const taskRelPath = join(DIR_NAMES.tasks, `${formatMonthDay(now)}-${slug}`)
   const taskDir = insideWorkloom(projectRoot, taskRelPath)
+  assertPriority(params.priority)
+  // parent 归一与校验：任一失败在写入前抛错（不产生任何目录/文件写入）。
+  // 自引用（parent 与新任务路径一致）由校验 ② 拦截，故校验先于 existsSync 目录冲突检查。
+  const parentRelPath = normalizeParentRelPath(params.parent)
+  if (parentRelPath !== null) {
+    validateParent(projectRoot, parentRelPath, taskRelPath)
+  }
+  // 目录冲突检查：置于 parent 校验之后，避免自引用被误报为「目录已存在」。
   if (existsSync(taskDir)) {
     throw new Error(`${ERR_PREFIX}: task directory already exists: ${taskRelPath}`)
   }
-  assertPriority(params.priority)
   const creator = readDeveloper(projectRoot)
   const config = loadConfig(projectRoot)
-  const task = buildTaskRecord({ params, slug, creator, config, now: now.toISOString() })
+  // 子任务落盘 parent 用归一后的 parentRelPath（tasks/ 规范形），保证两种输入格式存储一致。
+  const recordParams = { ...params, parent: parentRelPath }
+  const task = buildTaskRecord({
+    params: recordParams,
+    slug,
+    creator,
+    config,
+    now: now.toISOString(),
+  })
   mkdirSync(taskDir, { recursive: true })
   writeTaskJson(taskDir, task)
   writeFileSync(join(taskDir, FILE_NAMES.prd), buildPrdContent(task.title))
@@ -434,6 +525,10 @@ async function createTaskInternal(root, params) {
   if (params.contextKey !== undefined) {
     const [ptrErr] = setActiveTask(projectRoot, params.contextKey, taskRelPath)
     if (ptrErr) throw ptrErr
+  }
+  // children 联动：子任务创建成功后才执行；写回失败抛错（子任务已创建、父 children 未更新）。
+  if (parentRelPath !== null) {
+    linkChildToParent(projectRoot, parentRelPath, taskRelPath)
   }
   const warnings = await runTaskHooks(
     projectRoot,
@@ -800,6 +895,7 @@ function listTasksInternal(root, params) {
       status: task.status,
       priority: task.priority,
       createdAt: task.createdAt,
+      parent: task.parent ?? null,
     })
   }
   return summaries

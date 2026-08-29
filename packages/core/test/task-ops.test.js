@@ -190,3 +190,36 @@ test('executeListTasks 按 status 过滤', async () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('executeCreateTask 透传 parent 并写回父 children', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await executeCreateTask(root, 'dsh_parent', { title: 'Parent Ops' })
+    const [err, child] = await executeCreateTask(root, 'dsh_child', {
+      title: 'Child Ops',
+      parent: parent.taskRelPath,
+    })
+    assert.equal(err, null)
+    assert.equal(child.task.parent, parent.taskRelPath)
+    const parentJson = JSON.parse(
+      readFileSync(join(root, '.workloom', parent.taskRelPath, 'task.json'), 'utf8'),
+    )
+    assert.ok(parentJson.children.includes(child.taskRelPath))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeCreateTask 空串 parent 视同未传', async () => {
+  const root = makeRoot()
+  try {
+    const [err, child] = await executeCreateTask(root, 'dsh_empty', {
+      title: 'Empty Parent',
+      parent: '',
+    })
+    assert.equal(err, null)
+    assert.equal(child.task.parent, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
