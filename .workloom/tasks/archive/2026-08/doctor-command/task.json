@@ -3,7 +3,7 @@
   "name": "doctor-command",
   "title": "workloom-doctor 工作流健康检查命令",
   "description": "新增 /workloom-doctor 命令：对项目工作流健康度做检查（任务生命周期状态机、父子一致性、归档完整性、dispatches 审计、活跃指针、文档完整性、spec 引用、配置），--fix flag 自动修复机械性问题（双向补全/指针清理/状态迁移），语义性问题只报告。core 检查引擎 + 双 adapter 注册 + 命令资产 + 契约文档。",
-  "status": "planning",
+  "status": "completed",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-08-29T10:45:53.178Z",
-  "completedAt": null,
+  "completedAt": "2026-08-29T11:46:32.196Z",
   "parent": null,
   "children": [],
   "subtasks": [],
@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-08-29T11:46:22.468Z",
+    "summary": "check executor 首轮 PASS + 修整轮验证全绿：8 类检查完整（CHECK_META 8 entry、issue schema 8 字段、checks.length===8 断言）；修复器 3 类幂等、无 check 拒绝收 manual、只写 .workloom 内文件、不破坏 task.json 布局；命令面齐备（surface 常量键对齐、命令资产 front-matter 符合约定、双 adapter --fix 解析与 followup 注入、失败转述、无 .workloom 按报告项成功）；e2e 数字吻合（本仓库 total=62 只读、模拟项目 fixed=3/manual=14）；修整轮已落地：doctor.ts 846 行拆为 5 文件（doctor 69/doctor-types 106/doctor-checks 560/doctor-fixes 132/doctor-tasks 80，均 ≤600）、死三元清理（manual: issues）、summary.manual 语义 JSDoc 澄清、collectChecks 3→2 次；回归全绿：core 313、dsh 61、pi 45、lint/typecheck/build 通过。"
+  },
   "overrides": [],
   "hooks": {
     "after_create": [],
