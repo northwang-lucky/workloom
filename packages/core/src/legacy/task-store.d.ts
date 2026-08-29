@@ -40,6 +40,16 @@ export interface GateOverride {
   reason?: string
 }
 
+/** executor 派发审计条目（task.json.dispatches 元素）。 */
+export interface DispatchRecord {
+  kind: string
+  at: string
+  title: string
+}
+
+/** recordExecutorDispatch 入参（at 由函数生成）。 */
+export type DispatchRecordInput = Pick<DispatchRecord, 'kind' | 'title'>
+
 /** task.json 单条记录（快照字段，与数据布局一致）。 */
 export interface TaskRecord {
   id: string
@@ -67,6 +77,7 @@ export interface TaskRecord {
   meta: Record<string, unknown>
   check: TaskCheckRecord | null
   overrides: GateOverride[]
+  dispatches: DispatchRecord[]
   hooks: TaskHooks
 }
 
@@ -166,6 +177,13 @@ export function recordExecutorOverride(
   root: string,
   taskRelPath: string,
   reason?: string,
+): [Error | null]
+
+/** 记录一次 executor 派发成功：向 dispatches 追加 { kind, at, title }（at 自动生成）。 */
+export function recordExecutorDispatch(
+  root: string,
+  taskRelPath: string,
+  entry: DispatchRecordInput,
 ): [Error | null]
 
 /** 结束任务会话（清指针，不改状态）。 */

@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { insideWorkloom } from './locate.js'
-import { parseJsonlEntries } from './executor-context.js'
+import { EXECUTOR_KINDS, parseJsonlEntries } from './executor-context.js'
 
 /** 门禁消费的任务目录内文件名（与 task-store 数据布局一致）。 */
 const GATE_FILES = Object.freeze({
@@ -74,6 +74,12 @@ const PRD_TITLE_MISSING = 'prd.md missing H1 title'
 
 /** prd 一级标题行判定：`# ` 开头且 `# ` 之后有非空标题文本。 */
 const PRD_TITLE_LINE_RE = /^#\s+\S+/
+
+/** prd.md 中标识「涉及前端展示」的小节标题（与 1.1b 对齐记录一致）。 */
+const UI_DESIGN_SECTION = 'UI Design'
+
+/** 前端派发门禁缺失项文案（涉及前端展示但无 frontend 派发，机制强制）。 */
+const FRONTEND_DISPATCH_MISSING = 'no frontend dispatch recorded for a task with UI requirements'
 
 /**
  * 判定 prd.md 是否缺一级标题（H1）：跳过开头空行后，首个非空行必须
@@ -159,6 +165,25 @@ export function evaluateCheckLogGate(root, taskRelPath) {
   const taskDir = insideWorkloom(root, taskRelPath)
   const item = evaluateJsonlGate(taskDir, GATE_FILES.checkLog)
   return item === null ? [] : [item]
+}
+
+/**
+ * 求值前端派发门禁（纯函数，无 IO，只求值不读写）：prd.md 含「UI Design」小节
+ * 但 dispatches 无 `kind === 'frontend'` 条目时返回缺失项（机制强制：涉及前端
+ * 展示的任务，其前端文件实现必须经 frontend executor 派发；逻辑/后端仍走
+ * implement）；否则返回空数组。prd 内容与派发记录由调用方（checkTaskInternal）
+ * 喂入，维持「任务读写仍在 task-store」的分层。
+ * @param {string | null} prdContent prd.md 全文（缺失传 null）
+ * @param {import('./task-store.d.ts').DispatchRecord[]} dispatches 派发记录数组
+ * @returns {string[]} 缺失项描述列表（空数组表示通过）
+ */
+export function evaluateFrontendDispatchGate(prdContent, dispatches) {
+  if (prdContent === null || !splitSectionBodies(prdContent).has(UI_DESIGN_SECTION)) {
+    return []
+  }
+  const hasFrontend =
+    Array.isArray(dispatches) && dispatches.some((entry) => entry.kind === EXECUTOR_KINDS.frontend)
+  return hasFrontend ? [] : [FRONTEND_DISPATCH_MISSING]
 }
 
 /**

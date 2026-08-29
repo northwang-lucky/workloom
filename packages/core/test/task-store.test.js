@@ -18,6 +18,7 @@ import {
   archiveTask,
   listTasks,
   readTask,
+  recordExecutorDispatch,
   runTaskHooks,
 } from '../src/legacy/task-store.js'
 import { resolveActiveTask, setActiveTask } from '../src/legacy/active-task.js'
@@ -809,6 +810,139 @@ test('archive 门禁：force 放行，overrides 写入归档后的 task.json', a
     assert.equal(archived.overrides[0].gate, 'archive')
     assert.equal(archived.overrides[0].tool, 'workloom_task_archive')
     assert.equal(archived.overrides[0].reason, 'legacy task, check not applicable')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 写含「UI Design」小节的填满 prd（H1 + 四小节填满 + UI Design 额外节）。 */
+function writeUiPrd(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'prd.md'),
+    '# UI Task\n\n## Goal\n\nDo the UI.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n## UI Design\n\n- pages and IA\n',
+  )
+}
+
+test('readTask 归一化：缺 dispatches 字段的旧 task.json 补默认空数组', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-dispatches')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({ id: 'x', name: 'no-dispatches', status: TaskStatus.PLANNING }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.deepEqual(task.dispatches, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 追加派发记录（kind/at/title），保留已有条目', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Record' })
+    const [err1] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'research',
+      title: 'r1',
+    })
+    assert.equal(err1, null)
+    const [err2] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: 'ui impl',
+    })
+    assert.equal(err2, null)
+    const task = readTaskJson(root, created.taskRelPath)
+    assert.equal(task.dispatches.length, 2)
+    assert.equal(task.dispatches[0].kind, 'research')
+    assert.equal(task.dispatches[0].title, 'r1')
+    assert.equal(task.dispatches[1].kind, 'frontend')
+    assert.equal(task.dispatches[1].title, 'ui impl')
+    for (const entry of task.dispatches) {
+      assert.ok(!Number.isNaN(Date.parse(entry.at)))
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 校验 kind/title，非法值返回 err（fail loud）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Bad' })
+    const [err1] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'bogus',
+      title: 'x',
+    })
+    assert.ok(err1)
+    assert.match(err1.message, /invalid dispatch kind/)
+    const [err2] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: '   ',
+    })
+    assert.ok(err2)
+    assert.match(err2.message, /non-empty string/)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend 派发被拒绝，补派发后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'UI Gate' })
+    writeUiPrd(root, created.taskRelPath)
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    const [err1] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'no ui dispatch',
+    })
+    assert.ok(err1)
+    assert.match(err1.message, /no frontend dispatch recorded for a task with UI requirements/)
+    assert.equal(readTaskJson(root, created.taskRelPath).check, null)
+    // 补 frontend 派发后放行
+    const [recErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: 'ui impl',
+    })
+    assert.equal(recErr, null)
+    const [err2, task2] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'with ui dispatch',
+    })
+    assert.equal(err2, null)
+    assert.equal(task2.check.summary, 'with ui dispatch')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask 前端派发门禁：force 放行并留痕 overrides', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'UI Gate Force' })
+    writeUiPrd(root, created.taskRelPath)
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'force ui',
+      force: true,
+      reason: 'ui not applicable',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'force ui')
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.overrides.length, 1)
+    assert.equal(saved.overrides[0].gate, 'check')
+    assert.equal(saved.overrides[0].tool, 'workloom_task_check')
+    assert.equal(saved.overrides[0].reason, 'ui not applicable')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

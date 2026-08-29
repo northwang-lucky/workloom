@@ -47,7 +47,7 @@ export const TOOL_DESCRIPTIONS = {
     'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
   taskList: 'List task summaries (optionally filtered by status)',
   executor:
-    'Dispatch a workloom executor subagent (research/implement/check) with the task context inlined',
+    'Dispatch a workloom executor subagent (research/implement/check/frontend) with the task context inlined',
   step: 'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
   journal: 'Record this session in the workloom journal (title + work commit hash + summary)',
 } as const
@@ -95,7 +95,7 @@ export const PARAM_DESCRIPTIONS = {
   /** executor 工具的 title 参数（schema 必填非空；子会话语义标题，前缀由 executor 组装，仅 DSH 生效）。 */
   titleExecutor:
     'Required semantic part of the child session title; the executor assembles it as [<KindLabel>] <title>; only effective on the DSH adapter',
-  kind: 'Executor role: research, implement, or check',
+  kind: 'Executor role: research, implement, check, or frontend',
   model:
     'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to subagents.<kind>.model, then the parent session model',
   effort: 'Reasoning effort: low/medium/high/xhigh/max; defaults to subagents.<kind>.effort',

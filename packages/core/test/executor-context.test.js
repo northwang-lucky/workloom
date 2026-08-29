@@ -56,6 +56,7 @@ test('常量导出：effort 档位与 executor kind 枚举', () => {
     research: 'research',
     implement: 'implement',
     check: 'check',
+    frontend: 'frontend',
   })
 })
 

@@ -9,6 +9,7 @@ import {
   findMissingPrdTitle,
   findUnfilledPrdSections,
   countEffectiveJsonlRecords,
+  evaluateFrontendDispatchGate,
 } from '../src/legacy/task-gates.js'
 
 /** 骨架 prd 原文（字面量独立于此模块常量，防同义反复）。 */
@@ -129,4 +130,32 @@ test('jsonl 有效记录判定：坏 JSON 行抛错', () => {
     () => countEffectiveJsonlRecords('{oops}\n', 'check.jsonl'),
     /failed to parse check\.jsonl line 1/,
   )
+})
+
+test('前端派发门禁：prd 含 UI Design 小节且无 frontend 派发 → 返回缺失项', () => {
+  const prd = `# Task\n\n## UI Design\n\n- pages and IA\n`
+  const missing = evaluateFrontendDispatchGate(prd, [
+    { kind: 'implement', at: '2026-08-29T00:00:00Z', title: 'impl' },
+  ])
+  assert.deepEqual(missing, ['no frontend dispatch recorded for a task with UI requirements'])
+})
+
+test('前端派发门禁：prd 含 UI Design 且已有 frontend 派发 → 通过', () => {
+  const prd = `# Task\n\n## UI Design\n\n- pages and IA\n`
+  const missing = evaluateFrontendDispatchGate(prd, [
+    { kind: 'implement', at: '2026-08-29T00:00:00Z', title: 'impl' },
+    { kind: 'frontend', at: '2026-08-29T01:00:00Z', title: 'ui' },
+  ])
+  assert.deepEqual(missing, [])
+})
+
+test('前端派发门禁：prd 无 UI Design 小节 → 通过（不涉及前端展示零影响）', () => {
+  const prd = `# Task\n\n## Requirements\n\n- no ui\n`
+  const missing = evaluateFrontendDispatchGate(prd, [])
+  assert.deepEqual(missing, [])
+})
+
+test('前端派发门禁：prd 缺失（null）且无派发 → 通过（缺失不判前端展示）', () => {
+  const missing = evaluateFrontendDispatchGate(null, [])
+  assert.deepEqual(missing, [])
 })

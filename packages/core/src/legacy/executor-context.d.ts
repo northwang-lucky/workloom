@@ -3,8 +3,10 @@
 /** effort 合法档位（low/medium/high/xhigh/max）。 */
 export const EFFORT_LEVELS: readonly string[]
 
-/** executor 类型枚举（research/implement/check）。 */
-export const EXECUTOR_KINDS: Readonly<Record<'research' | 'implement' | 'check', string>>
+/** executor 类型枚举（research/implement/check/frontend）。 */
+export const EXECUTOR_KINDS: Readonly<
+  Record<'research' | 'implement' | 'check' | 'frontend', string>
+>
 
 /** 校验 effort 档位；undefined 通过；非法值抛 Error。 */
 export function assertEffort(effort: string | undefined): void
@@ -28,7 +30,7 @@ export interface BuildExecutorPromptParams {
   root: string
   /** 任务目录相对 .workloom 的路径（如 tasks/08-24-demo）。 */
   taskRelPath: string
-  /** executor 类型（research/implement/check）。 */
+  /** executor 类型（research/implement/check/frontend）。 */
   kind: string
   /** 用户任务正文（拼在 prompt 末尾的 ## Task prompt 节）。 */
   userPrompt: string

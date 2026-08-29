@@ -22,6 +22,7 @@ import { execFile } from 'node:child_process'
 
 import { findWorkloomRoot, insideWorkloom } from './locate.js'
 import { loadConfig } from './config.js'
+import { EXECUTOR_KINDS } from './executor-context.js'
 import {
   clearActiveTask,
   clearPointersToTask,
@@ -33,6 +34,7 @@ import {
   GATES,
   PRD_SECTIONS,
   evaluateCheckLogGate,
+  evaluateFrontendDispatchGate,
   evaluateStartGate,
   makeOverride,
 } from './task-gates.js'
@@ -169,7 +171,7 @@ function pad2(value) {
 /**
  * 归一化 task.json 记录：旧格式任务缺 hooks 字段时补齐空数组，
  * 保证 create/start/finish/archive 各 hook 调用点对旧数据安全；
- * 缺 check/overrides 字段时补 null/空数组，保证门禁读取对旧数据安全。
+ * 缺 check/overrides/dispatches 字段时补 null/空数组，保证门禁读取对旧数据安全。
  * @param {import('./task-store.d.ts').TaskRecord} parsed task.json 解析结果
  * @returns {import('./task-store.d.ts').TaskRecord} 归一化后的记录
  */
@@ -193,6 +195,7 @@ function normalizeTaskRecord(parsed) {
     hooks,
     check: parsed.check ?? null,
     overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
+    dispatches: Array.isArray(parsed.dispatches) ? parsed.dispatches : [],
   }
 }
 
@@ -306,6 +309,7 @@ function buildTaskRecord(input) {
     meta: {},
     check: null,
     overrides: [],
+    dispatches: [],
     hooks: {
       after_create: input.config.hooks.afterCreate,
       after_start: input.config.hooks.afterStart,
@@ -540,6 +544,13 @@ function checkTaskInternal(root, params) {
     task.overrides.push(makeOverride(GATES.CHECK, params.reason))
   } else {
     const missing = evaluateCheckLogGate(projectRoot, params.taskRelPath)
+    // 前端派发门禁（机制强制）：prd 含「UI Design」小节的任务必须经 frontend 派发。
+    // prd 内容在 task-store 侧读取（任务读写分层），纯求值在 task-gates。
+    const prd = readTaskContent(
+      insideWorkloom(projectRoot, params.taskRelPath),
+      FILE_NAMES.prd,
+    )
+    missing.push(...evaluateFrontendDispatchGate(prd, task.dispatches))
     if (missing.length > 0) {
       throw new Error(
         `${ERR_PREFIX}: check gate failed: ${missing.join('; ')} ` +
@@ -581,6 +592,60 @@ function recordExecutorOverrideInternal(root, taskRelPath, reason) {
   const task = requireTask(projectRoot, taskRelPath)
   task.overrides.push(makeOverride(GATES.EXECUTOR_MODEL_EFFORT, reason))
   writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task))
+}
+
+/**
+ * 记录一次 executor 派发成功（adapter 在派发成功后调用）：向 task.json dispatches
+ * 追加 { kind, at, title } 条目（at 自动生成）。只审计「成功」派发——失败派发无产出，
+ * 不满足分工证明，不记录。记录失败只返回 err（调用方 WARNING 不阻塞派发），与
+ * recordExecutorOverride 同一「元组 + WARNING」口径。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').DispatchRecordInput} entry 派发条目（kind/title，at 由函数生成）
+ * @returns {[Error | null]}
+ */
+export function recordExecutorDispatch(root, taskRelPath, entry) {
+  try {
+    recordExecutorDispatchInternal(root, taskRelPath, entry)
+    return [null]
+  } catch (error) {
+    return [toError(error)]
+  }
+}
+
+/**
+ * 记录 executor 派发成功（内部实现，失败抛错由外层转元组）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').DispatchRecordInput} entry 派发条目
+ */
+function recordExecutorDispatchInternal(root, taskRelPath, entry) {
+  const projectRoot = requireProjectRoot(root)
+  const task = requireTask(projectRoot, taskRelPath)
+  task.dispatches.push(buildDispatchRecord(entry))
+  writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task))
+}
+
+/**
+ * 组装派发审计记录（内部）：补 at（ISO 时间），并校验 kind/title（防御，fail loud）。
+ * @param {import('./task-store.d.ts').DispatchRecordInput} entry 输入
+ * @returns {import('./task-store.d.ts').DispatchRecord}
+ */
+function buildDispatchRecord(entry) {
+  if (typeof entry !== 'object' || entry === null) {
+    throw new Error(`${ERR_PREFIX}: dispatch entry must be an object`)
+  }
+  if (typeof entry.title !== 'string' || entry.title.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: dispatch entry title must be a non-empty string`)
+  }
+  if (!Object.values(EXECUTOR_KINDS).includes(entry.kind)) {
+    throw new Error(
+      `${ERR_PREFIX}: invalid dispatch kind: ${String(entry.kind)} (must be one of ${Object.values(
+        EXECUTOR_KINDS,
+      ).join('/')})`,
+    )
+  }
+  return { kind: entry.kind, at: new Date().toISOString(), title: entry.title }
 }
 
 /**
@@ -743,6 +808,21 @@ function listTasksInternal(root, params) {
 /** @param {unknown} value @returns {Error} */
 function toError(value) {
   return value instanceof Error ? value : new Error(String(value))
+}
+
+/**
+ * 读取任务目录内文件内容（缺失返回 null，其他错误透传；内部）。
+ * @param {string} taskDir 任务目录绝对路径
+ * @param {string} name 文件名
+ * @returns {string | null}
+ */
+function readTaskContent(taskDir, name) {
+  try {
+    return readFileSync(join(taskDir, name), 'utf8')
+  } catch (error) {
+    if (isEnoent(error)) return null
+    throw error
+  }
 }
 
 /** @param {unknown} error @returns {boolean} 是否文件不存在 */
