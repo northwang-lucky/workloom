@@ -106,3 +106,9 @@
 - Commit: fdcb6ea
 - Summary: executor gate 堵住 fork 绕行 + workloom-doctor 健康检查命令（8 类检查/3 类机械修复/--fix/结构化输出），双任务完整生命周期并已同步部署。
 
+## 写门禁仅拦截工作目录内的文件
+
+- Time: 2026-08-29T12:02:30.091Z
+- Commit: 89e0831
+- Summary: 放宽 adapter-dsh 写门禁：仅拦截工作目录内的文件，工作目录之外放行；实现 + 测试 + 复核全绿并归档。
+
