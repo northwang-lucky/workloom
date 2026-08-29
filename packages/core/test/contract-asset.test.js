@@ -21,11 +21,11 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
-test('契约 v8 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
+test('契约 v9 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 8)
-  assert.ok(contract.norms !== null, 'v8 契约必须含 norms 块')
+  assert.equal(contract.version, 9)
+  assert.ok(contract.norms !== null, 'v9 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
   assert.match(contract.norms, /Dispatch \(always-on\):/)
@@ -49,7 +49,19 @@ test('契约 v8 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致
   assert.ok(implementBody.includes(dispatchRule), '2.1 正文缺派发硬约束')
 })
 
-test('契约 v8 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
+test('契约 v9 含 UI 固定问题与 1.1b/1.1c 定位', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const uiBody = contract.steps.find((step) => step.id === '1.1').body
+  assert.ok(
+    uiBody.includes('Does this task involve frontend UI presentation?'),
+    '1.1 正文缺 UI 固定问题措辞',
+  )
+  assert.ok(uiBody.includes('Phase 1.1b'), '1.1 正文缺 Phase 1.1b 定位')
+  assert.ok(uiBody.includes('Phase 1.1c'), '1.1 正文缺 Phase 1.1c 定位')
+})
+
+test('契约 v9 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   // 1.0 步骤正文：推荐建任务，用户确认后才创建
