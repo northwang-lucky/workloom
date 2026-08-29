@@ -58,7 +58,8 @@ export const TOOL_DESCRIPTIONS = {
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
 export const TOOL_SNIPPETS = {
-  taskCreate: 'workloom_task_create(title, slug?, priority?, description?) — create a task',
+  taskCreate:
+    'workloom_task_create(title, slug?, priority?, description?, parent?) — create a task',
   taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
   taskCheck: 'workloom_task_check(summary, taskPath?, force?, reason?) — record a passed check',
   taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
@@ -82,6 +83,9 @@ export const PARAM_DESCRIPTIONS = {
   slug: 'Optional kebab-case slug; derived from title when omitted',
   priority: 'Priority: P0/P1/P2/P3; defaults to P2',
   description: 'Optional task description',
+  /** create 工具的 parent 参数（父任务相对路径；模型记录子任务时挂载）。 */
+  parent:
+    'Optional parent task relative path (tasks/<id> or <id>); the task is recorded as its child',
   autoCommit: 'Override the config session_auto_commit for this archive',
   status: 'Filter: planning/in_progress/completed',
   summary: 'Summary of the passed check (what was verified)',

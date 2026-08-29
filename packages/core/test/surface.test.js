@@ -106,3 +106,16 @@ test('buildExecutorReceipt 任一 effort 字段存在时按原格式渲染（浅
   const noValue = buildExecutorReceipt({ effortSource: 'config' })
   assert.ok(noValue.includes('effort: <unset> (config)'), 'effort source without value shows unset')
 })
+
+test('TOOL_SNIPPETS.taskCreate 签名含 parent?（模型可见的父任务相对路径参数）', () => {
+  assert.match(
+    TOOL_SNIPPETS.taskCreate,
+    /parent\?/,
+    'taskCreate snippet must advertise the optional parent? argument',
+  )
+})
+
+test('PARAM_DESCRIPTIONS.parent 存在且非空（DSH/Pi 共用契约面文案）', () => {
+  const parent = PARAM_DESCRIPTIONS.parent
+  assert.ok(typeof parent === 'string' && parent !== '', 'parent description must be non-empty')
+})
