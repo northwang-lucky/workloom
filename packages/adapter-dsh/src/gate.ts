@@ -10,7 +10,8 @@
  *   subagent_fork/continuable 复用的子代理不被豁免，与主会话走同种约束，
  *   从而堵住「fork 子代理绕过主会话门禁」的通道（进程内 Set，按 child session id 索引）；
  * - 判定链任一环节不满足即放行：非写工具、无项目根、executor.gate 关闭、
- *   无活动任务或任务非 in_progress、目标路径在 .workloom/ 内（任务自身录放行）；
+ *   无活动任务或任务非 in_progress、目标路径不在工作目录（项目根）内、
+ *   目标路径在 .workloom/ 内（任务自身录放行）；
  * - 判定基础设施故障（config/task 读取抛错等）只 console.warn 并放行：
  *   门禁是约束不是锁死，绝不能因拦截器自身故障阻塞会话；
  * - 已知边界：bash 工具内的写文件命令（cat >、sed -i 等）无法拦截，仍靠契约约束。
@@ -92,7 +93,7 @@ export interface WriteGateInput {
  * 3. agent cwd 能向上解析出 workloom 项目根；
  * 4. 配置 executor.gate === true（用户可显式关闭）；
  * 5. 存在 in_progress 任务（主会话跟随会话指针，子代理以项目内活动任务为准）；
- * 6. 目标路径不在 <root>/.workloom/ 下（任务自身录放行）。
+ * 6. 目标路径不在工作目录（<root>）内；在 <root>/.workloom/ 内（任务自身录放行）。
  * 全部命中返回 deny；判定抛错由 registerGate 的订阅回调兜底（warn + 放行）。
  * @param input 判定输入
  * @returns 预执行决策（allow 或 deny）
@@ -150,7 +151,8 @@ function decideSubagentGate(input: WriteGateInput, agent: Agent): PreToolDecisio
 }
 
 /**
- * 目标路径校验（主会话与非豁免子代理共用）：非 string 放行、.workloom/ 内放行。
+ * 目标路径校验（主会话与非豁免子代理共用）：非 string 放行 → 工作目录（root）外放行 →
+ * .workloom/ 内放行 → deny。
  * @param input 判定输入
  * @param cwd 调用方 agent cwd（相对路径解析基准）
  * @param root 项目根（findWorkloomRoot 的结果）
@@ -159,7 +161,9 @@ function decideSubagentGate(input: WriteGateInput, agent: Agent): PreToolDecisio
 function decideTarget(input: WriteGateInput, cwd: string, root: string): PreToolDecision {
   if (typeof input.filePath !== 'string' || input.filePath === '') return ALLOW
   const target = isAbsolute(input.filePath) ? input.filePath : resolve(cwd, input.filePath)
-  if (isInsideWorkloom(root, target)) return ALLOW
+  // 工作目录（<root>）之外的路径一律放行；仅拦截 root 内、且不在 .workloom/ 下的目标。
+  if (!isInside(root, target)) return ALLOW
+  if (isInside(join(root, WORKLOOM_DIR), target)) return ALLOW
   return { kind: 'deny', reason: DENY_REASON }
 }
 
@@ -188,13 +192,12 @@ export function registerGate(ctx: Context): void {
 }
 
 /**
- * 判断归一化后的目标绝对路径是否落在 <root>/.workloom 内（含目录本身）。
- * @param root 项目根（findWorkloomRoot 的结果）
+ * 判断归一化后的目标绝对路径是否落在基准目录 base 内（含 base 本身）。
+ * @param base 基准绝对路径（项目根或项目根下的目录，resolve 归一化）
  * @param target 目标绝对路径（resolve 归一化）
- * @returns 是否在 .workloom 内
+ * @returns 是否在 base 内
  */
-function isInsideWorkloom(root: string, target: string): boolean {
-  const base = join(root, WORKLOOM_DIR)
+function isInside(base: string, target: string): boolean {
   const rel = relative(base, target)
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
 }

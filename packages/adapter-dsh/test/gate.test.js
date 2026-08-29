@@ -240,6 +240,34 @@ test('.workloom/ 路径豁免（相对与绝对）', () => {
   }
 })
 
+test('工作目录（root）外绝对路径 → 放行', () => {
+  const root = makeProject()
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root),
+      filePath: join(tmpdir(), 'workloom-gate-outside', 'note.md'),
+    })
+    assert.deepEqual(decision, { kind: 'allow' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('工作目录（root）外相对路径（../ 越出 root）→ 放行', () => {
+  const root = makeProject()
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root), // cwd 默认为 root
+      filePath: '../outside.ts',
+    })
+    assert.deepEqual(decision, { kind: 'allow' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('命中 deny：主会话 + in_progress + 业务路径（文案含引导）', () => {
   const root = makeProject()
   try {
