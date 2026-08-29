@@ -1,0 +1,36 @@
+{
+  "id": "71aa0fcb-4442-43b6-8ee5-d52b833a316a",
+  "name": "gate-fork-hardening",
+  "title": "executor gate 堵住 fork 子代理绕行",
+  "description": "堵住 subagent_fork 绕行 executor 的通道：gate 判定链对 depth≥1 子代理不再一律放行——workloom_execute 派发时注册豁免（run.id 进出进程内注册表），非豁免子代理写 .workloom/ 外文件时 deny。文件：adapter-dsh/src/gate.ts + executor.ts + 测试。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T10:45:53.175Z",
+  "completedAt": "2026-08-29T10:59:31.766Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-29T10:59:29.687Z",
+    "summary": "check executor 复核 PASS：判定链正确——depth=0 主会话路径与旧版字节等价（仅抽取纯函数）、depth>=1 非豁免四条件（项目根/gate 开关/存在 in_progress/.workloom 外→deny）与 prd 一致、豁免短路在 in_progress 判定前；豁免时序正确（start resolve 后立即注册、finally 先注销再 dispose、run.result reject 与 stopReason 非 completed 均在 try 内被 finally 覆盖、幂等）；边界 OK（SubagentRun.id === child session id 契约成立、core 零改动、DENY_REASON 未变）；测试质量高（6 条 gate 验收全落地、executor 用双时点断言派发中豁免/结算后 deny、既有\"子代理一律放行\"用例合理改造并说明）；复跑全绿（dsh 58、core 299、lint/typecheck/build）。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

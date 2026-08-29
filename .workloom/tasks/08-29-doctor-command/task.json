@@ -1,0 +1,33 @@
+{
+  "id": "fa4d28cb-b6d1-4b1a-942b-d6e3a7b8a7ee",
+  "name": "doctor-command",
+  "title": "workloom-doctor 工作流健康检查命令",
+  "description": "新增 /workloom-doctor 命令：对项目工作流健康度做检查（任务生命周期状态机、父子一致性、归档完整性、dispatches 审计、活跃指针、文档完整性、spec 引用、配置），--fix flag 自动修复机械性问题（双向补全/指针清理/状态迁移），语义性问题只报告。core 检查引擎 + 双 adapter 注册 + 命令资产 + 契约文档。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T10:45:53.178Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
