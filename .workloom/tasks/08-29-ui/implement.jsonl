@@ -1,0 +1,7 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "workflow.md 与新增 skill 均为面向 agent 的资产内容，必须用英文；vendored 注记行与契约正文措辞保持一致"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "adapter 分层与注册清单规则：dsh skills.ts 的 SKILL_ASSETS 与 pi sync-skills.mjs 的 SKILL_SOURCES 均需登记新 skill"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "改动的 TS/JS 文件（skills.ts、sync-skills.mjs、contract-asset.test.js）与新增 skill 需满足编码原则与 verify 验证要求"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "术语表 grilling 词条标注 Phase 1.1b，本次重排为 1.1c，必须同步更新避免 spec 与契约冲突"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "任务范围不含发布动作，但产物需走 build；完成后按部署纪律提醒 sync 与 dshweb 重启"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交规范：中文 message、type(scope) 格式、每轮一个 commit"}
