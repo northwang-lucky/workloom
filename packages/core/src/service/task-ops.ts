@@ -69,12 +69,14 @@ export function resolveTaskRelPath(
   return active
 }
 
-/** executeCreateTask 入参（title 必填；slug/priority/description 可选）。 */
+/** executeCreateTask 入参（title 必填；slug/priority/description/parent 可选）。 */
 export interface ExecuteCreateTaskParams {
   title: string
   slug?: string
   priority?: string
   description?: string
+  /** 父任务相对路径（tasks/<id> 或 <id>）；空串视同未传。 */
+  parent?: string
 }
 
 /** create 工具成功结果（task 为无 taskRelPath 的原始记录）。 */
@@ -124,6 +126,7 @@ async function executeCreateInternal(
     ...(typeof params.description === 'string' && params.description !== ''
       ? { description: params.description }
       : {}),
+    ...(typeof params.parent === 'string' && params.parent !== '' ? { parent: params.parent } : {}),
     contextKey,
   })
   if (err || result === null) {

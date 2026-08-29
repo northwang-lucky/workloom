@@ -91,6 +91,7 @@ export interface TaskSummary {
   status: TaskStatusValue
   priority: TaskPriorityValue
   createdAt: string
+  parent: string | null
 }
 
 /** createTask 参数。 */
