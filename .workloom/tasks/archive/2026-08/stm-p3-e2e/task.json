@@ -3,7 +3,7 @@
   "name": "stm-p3-e2e",
   "title": "子任务机制 P3：端到端验证与数据回填",
   "description": "端到端验证与数据回填：P0-P2 交付后，以本主任务（tasks/08-29-subtask-mechanism）为 parent 用新工具真实创建测试子任务验证 children 联动与 list 摘要；全量验证 lint/typecheck/build/三测试目录；回填本主任务与四个正式子任务（P0-P3）的 parent/children task.json 关联。范围以主任务 implement.md Phase 3 为准。",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-08-29T09:42:07.567Z",
-  "completedAt": null,
+  "completedAt": "2026-08-29T10:27:18.905Z",
   "parent": "tasks/08-29-subtask-mechanism",
   "children": [],
   "subtasks": [],
@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-08-29T10:27:17.155Z",
+    "summary": "check executor 复核 PASS：验证脚本真实调用构建产物（非 mock），11 用例/39 断言覆盖 prd 全部验收（两种形式归一、children 联动与去重、listTasks.parent、拒绝分支：不存在/自引用/状态/逃逸、service 透传），重跑可复现且无临时残留；回填正确（主任务 children 恰 4 项无重复、四子任务 parent 一致、JSON 格式合法、diff 仅动 parent/children）；范围规范（未改产品源码/测试）；六条全量验证复跑全绿（core 299/dsh 53/pi 42）。非阻断：① 工具面真实 dogfood 未做（安装版工具无 parent，已如实标注），归主任务总验收并在 sync+重启后补验；② 脚本依赖先 build 的隐性前提；③ research 引用为主任务产物内联引用。"
+  },
   "overrides": [],
   "hooks": {
     "after_create": [],
