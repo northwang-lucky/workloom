@@ -1,0 +1,36 @@
+{
+  "id": "505164c7-53ef-4bf8-b4b2-09320f138a1a",
+  "name": "stm-p1-core",
+  "title": "子任务机制 P1：core 层 parent 与 children 联动（S1）",
+  "description": "core 层 parent 透传与 children 联动：按主任务 design.md §2/§3 修改 task-store.js/task-store.d.ts/task-ops.ts——parent 路径两种格式归一、存在性/自引用/状态校验、children 去重追加、TaskSummary 加 parent。test-first：task-store.test.js/task-ops.test.js 先红后绿（S1）。范围以主任务 implement.md Phase 1 为准。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-29T09:42:02.467Z",
+  "completedAt": "2026-08-29T10:06:46.190Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-29T10:06:44.257Z",
+    "summary": "check executor 复核 PASS：S1 五项功能全部正确落地——两种路径形式归一（存储统一 tasks/ 规范形）；校验四分支（存在性/自引用/状态/逃逸）且先于目录冲突检查；children 去重追加与写回失败抛错（消息含指定文案）；TaskSummary.parent；service 透传含空串忽略。边界安全 OK：自引用不误报、旧 task.json 兜底安全、逃逸被拒。规范符合（legacy JS+JSDoc、中文注释、未重命名字段、无越界）。复跑全绿：core 297 pass、adapter-dsh 51 pass、lint/typecheck/build Through。非阻断观察：① implement.jsonl 未落盘红阶段失败清单（结果已由 executor 报告载明：红阶段 9 失败→绿 43/43）；② assertPriority 前移导致\"非法优先级+目录已存在\"并存时报错措辞变化（极小概率）；③ 写回失败测试在 root 下无效；④ 父写回失败时 after_create hooks 跳过（符合\"不做回滚\"意图）；⑤ 逃逸与未找到文案混用；⑥ normalize 兜底无独立显式断言。"
+  },
+  "overrides": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
