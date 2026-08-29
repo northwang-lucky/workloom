@@ -1,0 +1,4 @@
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "task-store.js 属 legacy 纯 JS + JSDoc，parent/children 联动须保持数据布局兼容"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "校验/联动在 core legacy，透传经 core service，host 不重复校验"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "改动后验证命令：lint/typecheck/build（core 测试先 build 后 node --test）"}
+{"file": "research/current-state.md", "reason": "core 层断点现状（CreateTaskParams.parent 已存在、buildTaskRecord 已写、缺联动与校验）"}
