@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/assets/adapter 分层与依赖规则"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交信息与提交粒度规范"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "注释与运行时文案的中英文分工"}
