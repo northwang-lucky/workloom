@@ -1,0 +1,48 @@
+{
+  "id": "5a668ba7-7139-41a6-bf57-05b58263cdfe",
+  "name": "dsh-adapter-effort-reasoningeffort-execu",
+  "title": "DSH adapter 支持 effort 通道：映射 reasoningEffort 派发给 executor 子代理",
+  "description": "现状：adapter-dsh 派发 workloom_execute 时只消费 config.local.yaml subagents.<kind>.model，effort 字段被 core 解析层读到但显式丢弃（effort 目前仅 Pi adapter 经 --thinking 生效）。目标：让 DSH 侧也消费 effort（工具参数/subagents 配置），映射为 DSH 子代理的 reasoning effort 并随派发生效，含冲突门与 receipt 的对应扩展。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-30T06:49:12.633Z",
+  "completedAt": "2026-08-30T07:27:21.383Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-30T07:21:59.144Z",
+    "summary": "独立 check 全过：5 组验证命令全绿（lint/typecheck/build；adapter-dsh 69/69、core 313/313）；真跑红确认红绿真实性（反打实现后 7 失败恰为 6 接缝）；A–F 接缝断言逐条核对；红线清白（adapter-pi 空 diff、无映射表、无 off、assertEffort 在派发路径）；core 仅注释同步；无 @ts-ignore/eslint-disable；未碰部署产物。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-30T07:14:56.012Z",
+      "title": "DSH effort 通道：schema/冲突门/receipt/agentOptions 贯通"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-30T07:21:39.652Z",
+      "title": "DSH effort 通道独立验收"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
