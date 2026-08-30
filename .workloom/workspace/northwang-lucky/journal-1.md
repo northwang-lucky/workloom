@@ -118,3 +118,9 @@
 - Commit: 1bc33da
 - Summary: 从一次真实会话分析定位 effort 被 DSH 侧丢弃的问题；对齐需求（同名直通/schema 恢复/冲突门+receipt/不引入 off）后 test-first 交付 6 接缝，独立 check 通过，产物已同步至 web profile，待用户重启 dshweb 体验。
 
+## 分析 dsh 会话 skill 报错并修复契约名对齐
+
+- Time: 2026-08-30T08:27:08.344Z
+- Commit: a3ad825
+- Summary: 定位 session-3a0aaafc 的 skill "brainstorm" 未知报错根因为契约短名与注册名不一致；统一为 workloom-brainstorm（version 10→11）并同步部署 DSH profile（跳过 dshweb 重启）。
+
