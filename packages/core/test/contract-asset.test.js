@@ -25,7 +25,7 @@ test('契约 v11 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一�
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   assert.equal(contract.version, 11)
-  assert.ok(contract.norms !== null, 'v10 契约必须含 norms 块')
+  assert.ok(contract.norms !== null, 'v11 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
   assert.match(contract.norms, /Dispatch \(always-on\):/)
