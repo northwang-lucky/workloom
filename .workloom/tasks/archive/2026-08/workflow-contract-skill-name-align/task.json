@@ -1,0 +1,48 @@
+{
+  "id": "0e6dec8f-f24d-45c9-97a7-43a437189cd6",
+  "name": "workflow-contract-skill-name-align",
+  "title": "workflow 契约 skill 名与注册名对齐（brainstorm → workloom-brainstorm）",
+  "description": "修复 packages/assets/workflow/workflow.md 第 30 行 \"First load the brainstorm skill\" 与实际注册名 workloom-brainstorm 不一致，导致 DSH 会话 1.1 阶段调用 skill 时报 \"unknown or no longer available\" 的良性降级问题；统一全部相关引用并同步部署 DSH profile 资产。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-30T08:14:09.320Z",
+  "completedAt": "2026-08-30T08:27:01.618Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-30T08:26:35.824Z",
+    "summary": "check executor 逐项核对：prd.md 5 处修改点全部精确落地（workflow.md L30/L107/version 11 + SKILL.md L22/L25），git diff 恰好 5 处无多余改动；全仓库无残留 skill 短名指令（load the brainstorm skill / brainstorm (this skill)）；保留的 brainstorm 均为描述性阶段词语；front-matter 解析兼容（version 11 正整数、states 未变）；范围合规（未触碰源码注释/研究文档/spec）；pnpm lint 与 pnpm -r typecheck 均通过（exit 0）。无发现问题需修复。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-30T08:24:51.363Z",
+      "title": "对齐契约 skill 名与注册名"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-30T08:26:25.169Z",
+      "title": "检查契约 skill 名对齐变更"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

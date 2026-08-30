@@ -1,0 +1,4 @@
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "构建产物同步纪律：pnpm -r build 后 rsync core/adapter-dsh dist 与完整 assets 包；先 dry-run；跳过脚本自动重启 dshweb"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "语言分工：packages/assets 下为 agent-facing 文本，本次修改必须保持英文惯性表达"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "分层规则：契约内容归属 packages/assets，确认本次只改 assets 内容而不动 core/adapter 逻辑"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交纪律：fix(assets) 单 commit、中文 message、不主动 push"}
