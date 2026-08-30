@@ -186,9 +186,9 @@ export const TASK_ARCHIVE_NOTE = `Task archived. When the session ends, run /${C
  * 拼装 executor 回执行：生效 model/effort 及各自来源（运行时文案英文）。
  * 字段缺失时显示 `<parent session>` / `<unset>` 与 `(default)` 来源，
  * 使配置未生效一眼可辨。
- * effort 段条件渲染：effort/effortSource 均未传时整段省略（DSH 侧已移除
- * effort 通道，调用只传 model 维度）；任一存在则按原格式渲染（缺失字段仍
- * 显示 `<unset>`/`(default)`，兼容浅传参），Pi 传参行为不变。
+ * effort 段条件渲染：effort/effortSource 均未传时整段省略（调用方未传该维度
+ * 时保持 receipt 精简）；任一存在则按原格式渲染（缺失字段仍显示
+ * `<unset>`/`(default)`，兼容浅传参），Pi/DSH 传参行为不变。
  */
 export function buildExecutorReceipt(params: {
   model?: string
