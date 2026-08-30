@@ -1,5 +1,5 @@
 ---
-version: 10
+version: 11
 states:
   - no_task
   - planning
@@ -27,7 +27,7 @@ Completion criteria: the task directory exists and `task.json` `status` is `plan
 
 #### 1.1 Align requirements
 
-First load the brainstorm skill and explore the requirements — what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, the sequence is brainstorm → grilling → prd finalized: load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare "frontier empty" just because the user answered the current batch — claim convergence only when no open question remains. Tasks involving implementation work must ask the fixed test-first question (below).
+First load the `workloom-brainstorm` skill and explore the requirements — what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, the sequence is brainstorm → grilling → prd finalized: load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare "frontier empty" just because the user answered the current batch — claim convergence only when no open question remains. Tasks involving implementation work must ask the fixed test-first question (below).
 
 Every question across the workflow — fixed questions and exploratory questions alike — follows these rules:
 
@@ -104,7 +104,7 @@ No active task right now. When the user expresses a need, answer direct question
 [/workflow-state:no_task]
 
 [workflow-state:planning]
-The task is in planning. Follow Phase 1: align requirements (brainstorm + grilling, no-grey-areas gate) → optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
+The task is in planning. Follow Phase 1: align requirements (workloom-brainstorm + grilling, no-grey-areas gate) → optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
