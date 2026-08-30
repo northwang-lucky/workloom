@@ -1,0 +1,58 @@
+{
+  "id": "1a7100d3-5599-434c-b5d6-307fffa5a35e",
+  "name": "effort-agent-created-reasoningeffort",
+  "title": "插件化打通 effort 通道：agent/created 安装模型选择器注入 reasoningEffort",
+  "description": "上轮已验证：DSH 子代理路径没装模型选择器，workloom 透传的 agentOptions.reasoningEffort 到不了请求配置（子会话 header 无 reasoningEffort）。方案：adapter-dsh 插件监听全局 agent/created，对携带 reasoningEffort 的 in-process 子代理安装 installModelSelection（公开 API），由 DSH 瀑布把 effort 注入 agent/request；无 effort 的代理零影响。纯插件实现，不改 DSH 源码。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-30T08:39:46.726Z",
+  "completedAt": "2026-08-30T08:56:03.849Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-30T08:55:06.201Z",
+    "summary": "独立 check 全过：5 命令全绿（lint/typecheck/build；adapter-dsh 74/74、core 313/313）；红绿真实性经真跑红确认（反打实现后 B/C/D 转红、A/C2 保绿——f6ed9c5 含 41 行占位 stub 属过程性偏差，非功能缺陷）；接缝 A–D 五用例逐条核对；红线清白（adapter-pi/core 空 diff、DSH 源码零改动、无 @ts-ignore/eslint-disable、注释中文/运行时文本英文）；副作用面合规（try/catch 防御、无 effort 直接 return、agent-scoped 自动清理）；现场干净。观察项：contract-asset.test.js 第 28 行断言失败消息残留 v10 字样，交由主会话修补。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-30T08:48:40.844Z",
+      "title": "agent/created 注入 effort：插件挂载与四接缝红测"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-30T08:51:27.787Z",
+      "title": "契约版本断言同步 v11"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-30T08:54:58.633Z",
+      "title": "effort 注入插件独立验收"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-30T08:55:43.519Z",
+      "title": "契约断言消息残留 v10 修补"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
