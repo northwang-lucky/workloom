@@ -18,8 +18,9 @@
  *   subagent_fork/continuable 复用的子代理不被豁免，从而堵住「fork 绕过主会话门禁」；
  * - model 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置（按 executor
  *   kind 取值，字段独立合并），供用户配置默认派发参数；
- * - effort 通道已在 DSH 侧移除：工具 schema、冲突门与 receipt 均无 effort 维度
- *   （core 的共享解析仍返回 effort 字段，此处不读取；Pi 适配器经 --thinking 保留）；
+ * - effort 同名直通：工具显式 effort 或 subagents 配置的 effort 原样传入子代理
+ *   agentOptions.reasoningEffort（DSH branded），不做 workloom 侧映射；非法档位
+ *   由 assertEffort 在派发前 fail loud，provider 自有合法值空间在子会话请求时校验；
  * - model 字符串支持 "provider/model" 前缀形式：拆分后 provider 一并传给子代理
  *   agentOptions，跨 provider 派发才不会报 UNKNOWN_MODEL；裸 id 按父 provider 解析；
  * - 子会话标题语义化：label 为 `[<KindLabel>] <title>`（title 是 main 会话传入的
@@ -34,8 +35,10 @@
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源，使配置未生效一眼可辨。
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
 import {
+  assertEffort,
   assertForceReason,
   buildConflictNotice,
   buildExecutorPrompt,
@@ -99,6 +102,7 @@ interface ExecutorArgs {
   kind: string
   taskPath?: string
   model?: string
+  effort?: string
   force?: boolean
   reason?: string
   title: string
@@ -145,7 +149,7 @@ interface SubagentsService {
       prompt: readonly TextBlockLike[]
       parent: MinimalAgent
       signal: AbortSignal
-      agentOptions?: { provider?: string; model?: string }
+      agentOptions?: { provider?: string; model?: string; reasoningEffort?: ReasoningEffortId }
       maxDepth?: number
     },
   ): Promise<SubagentRunLike>
@@ -200,6 +204,10 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
         model: {
           type: 'string',
           description: PARAM_DESCRIPTIONS.model,
+        },
+        effort: {
+          type: 'string',
+          description: PARAM_DESCRIPTIONS.effort,
         },
         force: {
           type: 'boolean',
@@ -261,13 +269,26 @@ async function executeTool(
     )
   }
   const root = found.root
-  // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）。
-  // DSH 侧只消费 model 维度：effort 是 Pi 专属通道，此处不读取也不校验。
+  // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）；
+  // effort 同名直通：显式参数或配置的档位原样进入 effective.effort，派发前由
+  // assertEffort 校验合法档位（非法值 fail loud，不静默丢弃）。
   const config = loadConfig(root)
-  const effective = resolveSubagentDefaults(config, params.kind, { model: params.model }, 'dsh')
-  // 冲突检测：显式 model 与 subagents 配置不一致时，无 force 返回提示（不派发）；
+  const effective = resolveSubagentDefaults(
+    config,
+    params.kind,
+    { model: params.model, effort: params.effort },
+    'dsh',
+  )
+  // effort 非法档位 fail loud（core 校验，与 adapter-pi 语义一致）；冲突检测：
+  // 显式 model/effort 与 subagents 配置不一致时，无 force 返回提示（不派发）；
   // force 放行须带非空 reason 留痕，覆盖审计写入 task.json。
-  const conflicts = detectExecutorConflicts(config, params.kind, { model: params.model }, 'dsh')
+  assertEffort(effective.effort)
+  const conflicts = detectExecutorConflicts(
+    config,
+    params.kind,
+    { model: params.model, effort: params.effort },
+    'dsh',
+  )
   if (conflicts.length > 0 && params.force !== true) {
     return {
       kind: 'foreground',
@@ -295,11 +316,20 @@ async function executeTool(
   if (promptErr || built === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
-  // model 字符串支持 "provider/model" 前缀：拆分后 provider 一并传入 agentOptions，
-  // 跨 provider 派发才不会报 UNKNOWN_MODEL；裸 id 无 provider，按父 provider 解析。
-  const agentOptions = effective.model === undefined
-    ? undefined
-    : splitProviderModel(effective.model)
+  // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
+  // 一并传入，跨 provider 派发才不报 UNKNOWN_MODEL；裸 id 无 provider 按父 provider
+  // 解析）；effort 原样 brand 进 reasoningEffort（同名直通），model 缺省时也能
+  // 单独携带 effort；两者均未生效时保持 undefined（不覆盖父会话的模型选择）。
+  const splitModel = effective.model === undefined ? undefined : splitProviderModel(effective.model)
+  const agentOptions =
+    splitModel === undefined && effective.effort === undefined
+      ? undefined
+      : {
+          ...(splitModel ?? {}),
+          ...(effective.effort !== undefined
+            ? { reasoningEffort: ReasoningEffortId(effective.effort) }
+            : {}),
+        }
   // one-shot 派发（descriptor mode=one-shot）：客户端渲染只读 composer、服务端
   // 拒绝 follow-up；maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理
   // 深度为 1，设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
@@ -340,11 +370,13 @@ async function executeTool(
       .filter((block) => block.type === 'text')
       .map((block) => block.text)
       .join('\n')
-    // 返回文本尾部追加 receipt 行，标注生效 model 及来源（DSH 无 effort 维度）；
+    // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源（可观测性）；
     // force 放行时追加 (forced) 标记，使覆盖派发在输出中一眼可辨。
     const receiptBase = buildExecutorReceipt({
       model: effective.model,
       modelSource: effective.sources.model,
+      effort: effective.effort,
+      effortSource: effective.sources.effort,
     })
     const receipt = forced ? `${receiptBase} (forced)` : receiptBase
     // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
