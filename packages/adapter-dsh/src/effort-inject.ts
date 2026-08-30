@@ -15,6 +15,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
 import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
@@ -32,8 +33,24 @@ export function registerEffortInjection(ctx: Context): void {
   ctx.on('agent/created', (payload: { agent: Agent }) => {
     try {
       const options = payload.agent.options as WorkloomAgentOptions
-      if (options.reasoningEffort === undefined) return
-      // 红阶段占位：绿阶段在此调用 installModelSelection 完成注入。
+      const effort = options.reasoningEffort
+      if (effort === undefined) return
+      // provider/model 取子代理自身 options（缺失回退空串，瀑布兜底）；effort 在
+      // 创建时定死、同名直通。selection.current 每次读取重取，assembled 初始
+      // undefined，由 installModelSelection 的 assemble 瀑布负责快照。
+      installModelSelection(payload.agent.ctx, {
+        get current() {
+          return {
+            provider: options.provider ?? '',
+            model: options.model ?? '',
+            reasoningEffort: effort,
+          }
+        },
+        set current(_next) {
+          // 只读注入：workloom 不响应运行期选择切换，setter 留空零副作用。
+        },
+        assembled: undefined,
+      })
     } catch (error) {
       console.warn(`${WARN_PREFIX} ${String(error)}`)
     }

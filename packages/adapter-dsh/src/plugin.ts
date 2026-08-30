@@ -28,6 +28,7 @@ import { loadWorkflowContractText } from '@workloom-ai/assets'
 import { registerCommands } from './commands.js'
 import { registerExecutor } from './executor.js'
 import type { ExecutorServices } from './executor.js'
+import { registerEffortInjection } from './effort-inject.js'
 import { registerGate } from './gate.js'
 import { registerSkills, registerStepsTool } from './skills.js'
 import type { SkillsServices, StepsToolServices } from './skills.js'
@@ -121,6 +122,9 @@ export function apply(ctx: Context): void {
   registerCommands(ctx)
   // 服务注入面为局部结构化声明，运行时由宿主满足；断言仅打通类型边界。
   registerExecutor(ctx as Context & ExecutorServices)
+  // effort 通道：全局 agent/created 监听，对携带 reasoningEffort 的 in-process 子代理
+  // 安装模型选择器，由 DSH 瀑布把 effort 注入请求配置；无该字段的 agent 零影响。
+  registerEffortInjection(ctx)
   registerSkills(ctx as Context & SkillsServices)
   registerStepsTool(ctx as Context & StepsToolServices)
   registerTaskTools(ctx as Context & TaskToolsServices)
