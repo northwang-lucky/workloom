@@ -19,10 +19,10 @@ Ask every question in the user's language, keep options out of the question text
 
 ## Division of labor with grilling
 
-- **brainstorm (this skill)** clarifies _what is wanted_: it explores the user's intent into aligned requirements, each one decidable.
+- **workloom-brainstorm (this skill)** clarifies _what is wanted_: it explores the user's intent into aligned requirements, each one decidable.
 - **grilling** pressure-tests _whether the decision as made is right and what is still undecided_: it works the design tree in rounds and gives a recommended answer per question.
 
-Tasks with design decisions run both: brainstorm first to settle the requirement set, then grilling to stress-test the decisions. Every requirement in `prd.md` must survive both passes. Tasks with frontend presentation requirements continue into Phase 1.1b UI design alignment (workloom-ui-design skill) before grilling.
+Tasks with design decisions run both: workloom-brainstorm first to settle the requirement set, then grilling to stress-test the decisions. Every requirement in `prd.md` must survive both passes. Tasks with frontend presentation requirements continue into Phase 1.1b UI design alignment (workloom-ui-design skill) before grilling.
 
 ## Completion criteria (hard gate)
 
