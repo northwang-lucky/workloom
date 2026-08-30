@@ -112,3 +112,9 @@
 - Commit: 89e0831
 - Summary: 放宽 adapter-dsh 写门禁：仅拦截工作目录内的文件，工作目录之外放行；实现 + 测试 + 复核全绿并归档。
 
+## DSH adapter 支持 effort 通道：映射 reasoningEffort 派发给 executor 子代理
+
+- Time: 2026-08-30T07:27:32.660Z
+- Commit: 1bc33da
+- Summary: 从一次真实会话分析定位 effort 被 DSH 侧丢弃的问题；对齐需求（同名直通/schema 恢复/冲突门+receipt/不引入 off）后 test-first 交付 6 接缝，独立 check 通过，产物已同步至 web profile，待用户重启 dshweb 体验。
+
