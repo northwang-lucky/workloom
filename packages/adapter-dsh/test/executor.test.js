@@ -578,13 +578,194 @@ test('参数面：force/reason schema 描述引用 PARAM_DESCRIPTIONS', () => {
   assert.equal(props.reason.description, PARAM_DESCRIPTIONS.reasonExecutor)
 })
 
-test('参数面：schema 无 effort 参数（DSH 已移除 effort 通道）', () => {
+test('参数面：schema 恢复可选 effort 参数（描述引用 PARAM_DESCRIPTIONS.effort）', () => {
   const { registered } = setupExecutor()
-  const props = registered[0].parameters.properties
-  assert.equal(props.effort, undefined)
+  const params = registered[0].parameters
+  const props = params.properties
+  assert.equal(props.effort.type, 'string')
+  assert.equal(props.effort.description, PARAM_DESCRIPTIONS.effort)
+  assert.ok(!params.required.includes('effort'), 'effort must be optional')
 })
 
-test('冲突无 force：model 冲突返回提示且不派发（effort 不触发）', async () => {
+test('effort 配置生效：subagents.<kind>.effort 进入 reasoningEffort，receipt 标 (config)', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
+    effort: max
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'effort config test' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const opts = startCalls[0].request.agentOptions
+    assert.equal(opts.provider, 'deepseek-official')
+    assert.equal(opts.model, 'deepseek-v4-flash')
+    assert.equal(opts.reasoningEffort, 'max')
+    const text = result.output[0].text
+    assert.ok(text.includes('effort: max (config)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('effort 单独生效：无 model 配置时 agentOptions 仅含 reasoningEffort', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    effort: max
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'effort only test' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const opts = startCalls[0].request.agentOptions
+    assert.equal(opts.provider, undefined)
+    assert.equal(opts.model, undefined)
+    assert.equal(opts.reasoningEffort, 'max')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('effort 参数优先：显式 effort 生效并标 (param)（与配置一致时无冲突）', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
+    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'effort param test',
+        effort: 'high',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const opts = startCalls[0].request.agentOptions
+    assert.equal(opts.provider, 'deepseek-official')
+    assert.equal(opts.model, 'deepseek-v4-flash')
+    assert.equal(opts.reasoningEffort, 'high')
+    const text = result.output[0].text
+    assert.ok(text.includes('effort: high (param)'))
+    assert.ok(!text.includes('effort: high (config)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('effort 冲突无 force：返回提示（含 effort 维度）且不派发', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'effort conflict test',
+        effort: 'max',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = result.output[0].text
+    assert.equal(startCalls.length, 0)
+    assert.ok(
+      text.includes('workloom executor: explicit parameters conflict with subagents.implement config:'),
+    )
+    assert.ok(text.includes('effort: config "high", passed "max"'))
+    assert.ok(text.includes('force: true with a non-empty reason'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('effort 冲突 + force + reason：放行派发、overrides 记录 executor_model_effort', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'effort forced test',
+        effort: 'max',
+        force: true,
+        reason: 'user wants max effort for this dispatch',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.overrides.length, 1)
+    assert.equal(task.overrides[0].gate, 'executor_model_effort')
+    assert.equal(task.overrides[0].tool, 'workloom_execute')
+    assert.equal(task.overrides[0].reason, 'user wants max effort for this dispatch')
+    const text = result.output[0].text
+    assert.ok(text.endsWith('(forced)'))
+    assert.ok(text.includes('effort: max (param'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('非法 effort 档位：派发时 fail loud（assertEffort 文案）', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    effort: high
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        {
+          kind: 'implement',
+          prompt: 'test',
+          taskPath: 'tasks/test-task',
+          title: 'invalid effort test',
+          effort: 'ultra',
+        },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /invalid effort: ultra/,
+    )
+    assert.equal(startCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('冲突无 force：model 冲突返回提示且不派发（未传 effort 参数，无 effort 冲突）', async () => {
   const root = makeProject(`
 subagents:
   implement:
@@ -608,7 +789,10 @@ subagents:
     assert.equal(startCalls.length, 0)
     assert.ok(text.includes('workloom executor: explicit parameters conflict with subagents.implement config:'))
     assert.ok(text.includes('model: config "deepseek-official/deepseek-v4-flash", passed "deepseek-official/deepseek-v4-pro"'))
-    assert.ok(!text.includes('effort: config'), 'DSH conflict gate must not include effort')
+    assert.ok(
+      !text.includes('effort: config'),
+      'no effort param passed: the notice carries only the model conflict',
+    )
     assert.ok(text.includes('force: true with a non-empty reason'))
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -652,7 +836,7 @@ subagents:
     effort: high
 `)
   try {
-    // 配置含 effort 但工具只传 model：effort 不参与冲突与派发，force 仅因 model 冲突。
+    // 配置含 effort 但工具只传 model（未传 effort 参数）：effort 不参与冲突，force 仅因 model 冲突。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
@@ -695,7 +879,7 @@ subagents:
     effort: high
 `)
   try {
-    // 工具只传等价 model（不传 effort）：effort 不再参与冲突门，正常派发。
+    // 工具只传等价 model（不传 effort）：无 model/effort 冲突，正常派发（无 (forced) 标注）。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
