@@ -124,3 +124,9 @@
 - Commit: a3ad825
 - Summary: 定位 session-3a0aaafc 的 skill "brainstorm" 未知报错根因为契约短名与注册名不一致；统一为 workloom-brainstorm（version 10→11）并同步部署 DSH profile（跳过 dshweb 重启）。
 
+## 插件化打通 effort 通道：agent/created 安装模型选择器注入 reasoningEffort
+
+- Time: 2026-08-30T08:56:07.948Z
+- Commit: aeb6713
+- Summary: 研读 deepseek-harness 源码确认 DSH 子代理路径未装模型选择器导致 effort 丢失；以纯插件方案（agent/created + installModelSelection，零 DSH 改动）打通 effort 通道，test-first 4 接缝交付，check 全过，顺带修复契约版本断言欠账；产物已同步至 web profile，待重启后真实派发验证。
+
