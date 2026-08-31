@@ -136,3 +136,9 @@
 - Commit: f46ffc9
 - Summary: 定位 session-9c47bd07 未主动触发 grilling 的根因（模型把普通提问当对齐、未加载 grilling skill、planning 面包屑晚于决策窗口），落地契约 v12 + grilling 凭据工具 + start 门禁矩阵 + 提示强化；test-first 全绿，self-hosting 首个真实自检通过。
 
+## subagents 配置支持按主 Agent 模型分档（subagent_profiles）
+
+- Time: 2026-08-31T08:53:54.946Z
+- Commit: eb0ba00
+- Summary: subagent_profiles：subagents 配置升级为带 whenMain 条件的 profile 列表（与旧 subagents 并存、按主 Agent 模型分档），core 解析/合并/冲突检测 + 两 adapter 主模型读取 + receipt 来源细分；test-first L1/L2/L3 seams，7 个 commit 全绿归档。
+
