@@ -111,6 +111,43 @@ test('buildExecutorReceipt 任一 effort 字段存在时按原格式渲染（浅
   assert.ok(noValue.includes('effort: <unset> (config)'), 'effort source without value shows unset')
 })
 
+test('buildExecutorReceipt 配置来源细分：whenMain/fallback/legacy 渲染', () => {
+  const whenMain = buildExecutorReceipt({
+    model: 'kimi-coding/k3',
+    modelSource: 'config',
+    modelConfigSource: 'whenMain',
+    modelWhenMainValue: 'kimi-coding/k3',
+  })
+  assert.ok(
+    whenMain.includes('model: kimi-coding/k3 (config: whenMain=kimi-coding/k3)'),
+    'whenMain source must render with the matched value',
+  )
+  const fallback = buildExecutorReceipt({
+    model: 'qwen-token-plan-cn/qwen3.8-flash',
+    modelSource: 'config',
+    modelConfigSource: 'fallback',
+  })
+  assert.ok(fallback.includes('(config: fallback)'), 'fallback source must render')
+  const legacy = buildExecutorReceipt({
+    model: 'deepseek-official/deepseek-v4-flash',
+    modelSource: 'config',
+    modelConfigSource: 'legacy',
+  })
+  assert.ok(legacy.includes('(config: legacy)'), 'legacy source must render')
+})
+
+test('buildExecutorReceipt 未传配置细分时保持 (config) 兼容', () => {
+  const text = buildExecutorReceipt({ model: 'kimi-coding/k3', modelSource: 'config' })
+  assert.ok(text.includes('model: kimi-coding/k3 (config)'), 'no subdivision must keep (config)')
+})
+
+test('buildExecutorReceipt param/default 来源不变（回归）', () => {
+  const param = buildExecutorReceipt({ model: 'kimi-coding/k3', modelSource: 'param' })
+  assert.ok(param.includes('(param)'), 'param source must stay (param)')
+  const def = buildExecutorReceipt({ model: 'kimi-coding/k3' })
+  assert.ok(def.includes('(default)'), 'missing source must stay (default)')
+})
+
 test('TOOL_SNIPPETS.taskCreate 签名含 parent?（模型可见的父任务相对路径参数）', () => {
   assert.match(
     TOOL_SNIPPETS.taskCreate,
