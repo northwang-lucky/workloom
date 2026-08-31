@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify 命令核对（实现改动是否符合）"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "core 模块约定核对（task-store.js / executor-context.js 改动）"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "术语核对（stage/executor/check 措辞）"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层与依赖规则核对（gate 与 core 边界）"}
+{"file": ".workloom/tasks/08-31-task-phase-main-session-fix/research/current-state.md", "reason": "现状调查与已定决策（复核依据）"}

@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify 命令（枚举/注释/拆分/LSP/测试规范）"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "core 纯 JS + JSDoc 移植模块约定（task-store.js / executor-context.js 改动遵循）"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "术语核对（executor/stage/dispatch 措辞与术语表一致）"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层与依赖规则（core 与 adapter-dsh 的边界）"}
+{"file": ".workloom/tasks/08-31-task-phase-main-session-fix/research/current-state.md", "reason": "现状调查：gate 判定链、派发记录点、注入组装、Pi 角色文案、测试布局与已定决策"}
