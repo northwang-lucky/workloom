@@ -55,6 +55,24 @@ test('create 工具 schema 含 parent（type string，描述引用 PARAM_DESCRIP
   assert.ok(!def.parameters.required.includes('parent'), 'parent must be optional')
 })
 
+test('check 工具 schema 含 phase（枚举 grilling/check、缺省 check、描述引用 PARAM_DESCRIPTIONS.phase）与 required', () => {
+  const { ctx, registered } = makeCtx()
+  registerTaskTools(ctx)
+  const def = registered.find((entry) => entry.name === 'workloom_task_check')
+  assert.ok(def, 'check tool must be registered')
+  const props = def.parameters.properties
+  assert.equal(props.phase.type, 'string')
+  assert.deepEqual(props.phase.enum, ['check', 'grilling'])
+  assert.equal(props.phase.default, 'check')
+  // 描述引用 core surface 常量（phase 短描述 + phaseGrilling 完整语义）
+  assert.ok(props.phase.description.includes(PARAM_DESCRIPTIONS.phase))
+  assert.ok(props.phase.description.includes(PARAM_DESCRIPTIONS.phaseGrilling))
+  assert.equal(props.required.type, 'boolean')
+  assert.equal(props.required.description, PARAM_DESCRIPTIONS.grillingRequired)
+  // summary 不再必填（phase=grilling 判定调用无 summary）
+  assert.ok(!def.parameters.required.includes('summary'), 'summary must be optional')
+})
+
 test('createTaskTool 透传 parent：子任务落盘 parent 字段且父 children 联动', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-tasks-'))
   mkdirSync(join(root, '.workloom'))

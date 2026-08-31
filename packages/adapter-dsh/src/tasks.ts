@@ -104,12 +104,21 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
     parameters: {
       type: 'object',
       properties: {
+        // phase 缺省 check：grilling 判定/收敛调用不需要 summary，故 summary 不再必填。
+        phase: {
+          type: 'string',
+          enum: ['check', 'grilling'],
+          default: 'check',
+          // 描述拼接 phaseGrilling：模型在 schema 中可见 grilling 判定/收敛两次调用的完整语义。
+          description: `${PARAM_DESCRIPTIONS.phase}. ${PARAM_DESCRIPTIONS.phaseGrilling}`,
+        },
         summary: { type: 'string', description: PARAM_DESCRIPTIONS.summary },
+        required: { type: 'boolean', description: PARAM_DESCRIPTIONS.grillingRequired },
         taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
         force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
         reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
       },
-      required: ['summary'],
+      required: [],
       additionalProperties: false,
     },
     output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
@@ -211,7 +220,12 @@ async function createTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   if (err !== null || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)
   }
-  return { taskRelPath: result.taskRelPath, task: result.task }
+  // nextStepNote 透传（core 附 Phase 1.1 行动指引，render 自动带出）。
+  return {
+    taskRelPath: result.taskRelPath,
+    task: result.task,
+    nextStepNote: result.nextStepNote,
+  }
 }
 
 /** start 工具：把任务从 planning 移到 in_progress。 */
@@ -229,12 +243,14 @@ async function startTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   return { taskRelPath: task.taskRelPath, task }
 }
 
-/** check 工具：记录 2.2 check 通过凭据（写 task.json check 字段）。 */
+/** check 工具：记录任务凭据（phase=check 写 2.2 check；phase=grilling 写判定/收敛）。 */
 async function checkTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, task] = await executeCheckTask(cwd, contextKeyOf(exec), {
-    summary: String(typed.summary ?? ''),
+    phase: typed.phase === 'grilling' ? 'grilling' : undefined,
+    required: boolOf(typed, 'required'),
+    summary: typeof typed.summary === 'string' ? typed.summary : undefined,
     taskPath: taskPathOf(typed),
     force: boolOf(typed, 'force'),
     reason: stringOf(typed, 'reason'),

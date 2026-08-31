@@ -223,3 +223,75 @@ test('executeCreateTask 空串 parent 视同未传', async () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('executeCreateTask 返回 nextStepNote（Phase 1.1 行动指引）', async () => {
+  const root = makeRoot()
+  try {
+    const [err, result] = await executeCreateTask(root, 'dsh_note', { title: 'Note Task' })
+    assert.equal(err, null)
+    assert.ok(
+      typeof result.nextStepNote === 'string' && result.nextStepNote !== '',
+      'nextStepNote must be a non-empty string',
+    )
+    assert.match(result.nextStepNote, /fixed grilling question/)
+    assert.match(result.nextStepNote, /finalizing prd\.md/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeStartTask 返回记录附 grillingPending（未判定 true + 提示；required=false false）', async () => {
+  const root = makeRoot()
+  try {
+    // 未判定（无 UI 小节）：放行 + grillingPending=true + 提示文案
+    const [, created] = await executeCreateTask(root, 'dsh_gp', { title: 'Pending Start' })
+    satisfyStartGate(root, created.taskRelPath)
+    const [, started] = await executeStartTask(root, 'dsh_gp', {})
+    assert.equal(started.grillingPending, true)
+    assert.ok(
+      typeof started.grillingNote === 'string' && started.grillingNote !== '',
+      'grillingPending=true 时必须附 grillingNote 提示',
+    )
+    // required=false：放行 + grillingPending=false，无提示
+    const [, created2] = await executeCreateTask(root, 'dsh_gp2', { title: 'No Grill Start' })
+    satisfyStartGate(root, created2.taskRelPath)
+    const [jErr] = await executeCheckTask(root, 'dsh_gp2', {
+      phase: 'grilling',
+      required: false,
+    })
+    assert.equal(jErr, null)
+    const [, started2] = await executeStartTask(root, 'dsh_gp2', {})
+    assert.equal(started2.grillingPending, false)
+    assert.equal(started2.grillingNote, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeCheckTask 透传 phase=grilling（判定 → 收敛两次调用）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await executeCreateTask(root, 'dsh_gc', { title: 'Grill Ops' })
+    const [err1, judged] = await executeCheckTask(root, 'dsh_gc', {
+      phase: 'grilling',
+      required: true,
+    })
+    assert.equal(err1, null)
+    assert.equal(judged.grilling.required, true)
+    assert.equal(judged.grilling.passedAt, null)
+    const [err2, converged] = await executeCheckTask(root, 'dsh_gc', {
+      phase: 'grilling',
+      summary: 'frontier empty',
+    })
+    assert.equal(err2, null)
+    assert.equal(converged.grilling.summary, 'frontier empty')
+    assert.ok(!Number.isNaN(Date.parse(converged.grilling.passedAt)))
+    // planning 状态记录不触发任何 check 门禁（无需 jsonl/force）
+    const saved = JSON.parse(
+      readFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), 'utf8'),
+    )
+    assert.equal(saved.overrides.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

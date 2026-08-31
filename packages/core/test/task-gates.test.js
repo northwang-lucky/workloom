@@ -10,6 +10,7 @@ import {
   findUnfilledPrdSections,
   countEffectiveJsonlRecords,
   evaluateFrontendDispatchGate,
+  evaluateGrillingGate,
 } from '../src/legacy/task-gates.js'
 
 /** 骨架 prd 原文（字面量独立于此模块常量，防同义反复）。 */
@@ -158,4 +159,46 @@ test('前端派发门禁：prd 无 UI Design 小节 → 通过（不涉及前端
 test('前端派发门禁：prd 缺失（null）且无派发 → 通过（缺失不判前端展示）', () => {
   const missing = evaluateFrontendDispatchGate(null, [])
   assert.deepEqual(missing, [])
+})
+
+test('grilling 门禁：未判定（null）且 prd 无 UI Design 小节 → 放行（存量任务零阻塞）', () => {
+  const prd = `# Task\n\n## Requirements\n\n- no ui\n`
+  assert.deepEqual(evaluateGrillingGate(prd, null), [])
+})
+
+test('grilling 门禁：未判定（null）且 prd 含 UI Design 小节 → 拦截（指引记录 required=true）', () => {
+  const prd = `# Task\n\n## UI Design\n\n- pages and IA\n`
+  const missing = evaluateGrillingGate(prd, null)
+  assert.deepEqual(missing, [
+    'no grilling judgment recorded for a task with UI requirements (record the fixed grilling question answer (required=true) via workloom_task_check with phase=grilling)',
+  ])
+})
+
+test('grilling 门禁：required=false 且无收敛 → 放行（答 no 不再骚扰）', () => {
+  const prd = `# Task\n\n## UI Design\n\n- pages and IA\n`
+  const grilling = { required: false, passedAt: null, summary: null }
+  assert.deepEqual(evaluateGrillingGate(prd, grilling), [])
+})
+
+test('grilling 门禁：required=true 且无 passedAt → 拦截（文案含下一步动作）', () => {
+  const prd = `# Task\n\n## Requirements\n\n- no ui\n`
+  const grilling = { required: true, passedAt: null, summary: null }
+  const missing = evaluateGrillingGate(prd, grilling)
+  assert.deepEqual(missing, [
+    'grilling required but no record (run the fixed grilling question, then record via workloom_task_check with phase=grilling)',
+  ])
+})
+
+test('grilling 门禁：required=true 且有 passedAt → 放行（收敛完成）', () => {
+  const prd = `# Task\n\n## Requirements\n\n- no ui\n`
+  const grilling = { required: true, passedAt: '2026-08-30T00:00:00Z', summary: 'converged' }
+  assert.deepEqual(evaluateGrillingGate(prd, grilling), [])
+})
+
+test('grilling 门禁：prd 缺失（null）时仅按 grilling 状态求值（required=true 无凭据仍拦截）', () => {
+  const grilling = { required: true, passedAt: null, summary: null }
+  assert.deepEqual(evaluateGrillingGate(null, grilling), [
+    'grilling required but no record (run the fixed grilling question, then record via workloom_task_check with phase=grilling)',
+  ])
+  assert.deepEqual(evaluateGrillingGate(null, null), [])
 })

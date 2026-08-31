@@ -21,11 +21,11 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
-test('契约 v11 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
+test('契约 v12 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 11)
-  assert.ok(contract.norms !== null, 'v11 契约必须含 norms 块')
+  assert.equal(contract.version, 12)
+  assert.ok(contract.norms !== null, 'v12 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
   assert.match(contract.norms, /Dispatch \(always-on\):/)
@@ -49,7 +49,7 @@ test('契约 v11 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一�
   assert.ok(implementBody.includes(dispatchRule), '2.1 正文缺派发硬约束')
 })
 
-test('契约 v11 含 UI 固定问题与 1.1b/1.1c 定位', () => {
+test('契约 v12 含 UI 固定问题与 1.1b/1.1c 定位', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const uiBody = contract.steps.find((step) => step.id === '1.1').body
@@ -61,7 +61,7 @@ test('契约 v11 含 UI 固定问题与 1.1b/1.1c 定位', () => {
   assert.ok(uiBody.includes('Phase 1.1c'), '1.1 正文缺 Phase 1.1c 定位')
 })
 
-test('契约 v11 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2）', () => {
+test('契约 v12 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
@@ -76,7 +76,7 @@ test('契约 v11 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2�
   )
 })
 
-test('契约 v11 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
+test('契约 v12 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   // 1.0 步骤正文：推荐建任务，用户确认后才创建
@@ -112,6 +112,65 @@ test('契约 v11 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁�
   // 1.4 正文：start 门禁要求 prd.md 以一级标题开头
   const reviewBody = contract.steps.find((step) => step.id === '1.4').body
   assert.ok(reviewBody.includes('prd.md has no H1 title'), '1.4 正文缺 H1 门禁措辞')
+})
+
+test('契约 v12 含 grilling 固定问题（时序/选项/后果/UI yes 不问）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  assert.ok(
+    alignBody.includes('does this task involve design-tree grilling?'),
+    '1.1 正文缺 grilling 固定问题措辞',
+  )
+  assert.ok(
+    alignBody.includes('A. yes: grilling joins the alignment scope (Phase 1.1c)'),
+    '缺 A 选项与 1.1c 定位',
+  )
+  assert.ok(alignBody.includes('- B. no.'), '缺 B 选项')
+  assert.ok(alignBody.includes('phase=grilling, required=true'), '缺 For A 判定记录指引')
+  assert.ok(alignBody.includes('passedAt + summary'), '缺收敛记录指引')
+  assert.ok(alignBody.includes('acceptance criteria'), '缺收敛结论入验收标准指引')
+  assert.ok(alignBody.includes('go straight into Phase 1.1c'), '缺「UI yes 不再问 grilling」的明文')
+  // 三个固定问题按流程时序编排：test-first → UI → grilling
+  const questionHeadings = [
+    'The fixed test-first question',
+    'The fixed UI-design question',
+    'The fixed grilling question',
+  ]
+  let cursor = -1
+  for (const heading of questionHeadings) {
+    const at = alignBody.indexOf(heading)
+    assert.ok(at > cursor, `1.1 固定问题时序错乱：${heading}`)
+    cursor = at
+  }
+})
+
+test('契约 v12 planning 面包屑为行动指令式（brainstorm → grilling → 收敛前不 finalize prd）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const crumb = contract.breadcrumbs.get('planning')
+  assert.ok(
+    crumb.includes('load the workloom-brainstorm skill'),
+    'planning 缺 load brainstorm 行动指令',
+  )
+  assert.ok(crumb.includes('fixed grilling question'), 'planning 缺固定 grilling 问题指令')
+  assert.ok(
+    crumb.includes('do not finalize prd.md before grilling converges'),
+    'planning 缺收敛前不 finalize prd 指令',
+  )
+})
+
+test('契约 v12 norms Grilling 条目含补强句（planning 在 brainstorm 后 grilling，收敛前不 finalize prd）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.ok(
+    contract.norms.includes('In the planning phase, run grilling after brainstorm'),
+    'norms 缺「planning 阶段在 brainstorm 之后运行 grilling」补强',
+  )
+  assert.ok(
+    contract.norms.includes('do not finalize prd.md before grilling converges'),
+    'norms 缺「收敛前不得 finalize prd.md」补强',
+  )
 })
 
 test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {

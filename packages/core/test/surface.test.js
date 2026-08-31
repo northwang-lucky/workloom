@@ -14,7 +14,9 @@ import {
   COMMAND_NAMES,
   DOCTOR_FIX_FLAG,
   ERR_PREFIX,
+  GRILLING_PENDING_NOTE,
   PARAM_DESCRIPTIONS,
+  TASK_CREATE_NOTE,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
   TOOL_SNIPPETS,
@@ -127,4 +129,35 @@ test('doctor 命令键对齐：COMMAND_NAMES.doctor / COMMAND_DESCRIPTIONS.docto
   assert.ok(COMMAND_DESCRIPTIONS.doctor !== '', 'doctor description must be non-empty')
   assert.ok(ASSET_COMMAND_DOCTOR !== '', 'doctor asset path must be non-empty')
   assert.equal(DOCTOR_FIX_FLAG, '--fix', 'doctor fix flag must be --fix')
+})
+
+test('taskCheck 描述与 snippet 提及 phase 参数（check/grilling 双阶段凭据）', () => {
+  assert.match(TOOL_DESCRIPTIONS.taskCheck, /phase/, 'taskCheck description must mention phase')
+  assert.match(TOOL_SNIPPETS.taskCheck, /phase/, 'taskCheck snippet must mention phase')
+})
+
+test('PARAM_DESCRIPTIONS 新增 phase/phaseGrilling/grillingRequired 且非空（枚举值/缺省/含义）', () => {
+  for (const key of ['phase', 'phaseGrilling', 'grillingRequired']) {
+    const text = PARAM_DESCRIPTIONS[key]
+    assert.ok(typeof text === 'string' && text !== '', `${key} description must be non-empty`)
+  }
+  assert.ok(
+    PARAM_DESCRIPTIONS.phase.includes('check') && PARAM_DESCRIPTIONS.phase.includes('grilling'),
+    'phase 描述必须含 check/grilling 两枚举值',
+  )
+  assert.ok(
+    PARAM_DESCRIPTIONS.grillingRequired.includes('required=true'),
+    'grillingRequired 描述必须说明 required=true 的语义',
+  )
+})
+
+test('TASK_CREATE_NOTE 含 Phase 1.1 行动指引（brainstorm → 固定问题 → finalize prd）', () => {
+  assert.match(TASK_CREATE_NOTE, /load workloom-brainstorm/)
+  assert.match(TASK_CREATE_NOTE, /fixed grilling question/)
+  assert.match(TASK_CREATE_NOTE, /finalizing prd\.md/)
+})
+
+test('GRILLING_PENDING_NOTE 含补录指引（phase=grilling）', () => {
+  assert.match(GRILLING_PENDING_NOTE, /phase=grilling/)
+  assert.match(GRILLING_PENDING_NOTE, /workloom_task_check/)
 })
