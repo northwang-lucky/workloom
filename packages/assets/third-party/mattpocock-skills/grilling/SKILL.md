@@ -5,7 +5,7 @@ license: MIT
 source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
 ---
 
-> workloom: in workloom this skill is driven by Phase 1.1c; the generic method body is unchanged.
+> workloom: in workloom this skill is driven by Phase 1.1c — in the planning phase, run grilling after brainstorm, and do not finalize prd.md before grilling converges; the generic method body is unchanged.
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
