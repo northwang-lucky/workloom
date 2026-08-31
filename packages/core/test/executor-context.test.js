@@ -298,8 +298,96 @@ test('userPrompt 已含 leaf executor 关键词时不重复追加叶子契约段
     assert.equal(err, null)
     const count = result.text.split('## Executor contract').length - 1
     assert.equal(count, 0, 'leaf contract must not be appended when the keyword is already present')
-    // userPrompt 原文保留（含关键词的正文仍在 prompt 尾部）
-    assert.ok(result.text.endsWith('## Task prompt\nFollow the leaf executor rule and implement the task.'))
+    // userPrompt 原文保留（含关键词的正文仍在 prompt 中，其后注入 kind 纪律段）
+    const promptAt = result.text.indexOf('## Task prompt')
+    const directiveAt = result.text.indexOf('## Implement executor directives')
+    assert.ok(promptAt !== -1 && directiveAt > promptAt, 'kind directive must follow the task prompt')
+    assert.ok(
+      result.text.includes('## Task prompt\nFollow the leaf executor rule and implement the task.'),
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** kind 纪律段标题（与实现一致，测试自给自足）。 */
+function directiveHeading(kind) {
+  return `## ${kind.charAt(0).toUpperCase()}${kind.slice(1)} executor directives`
+}
+
+test('四种 kind 均注入对应纪律段（独立标题 + 正文硬指令，位于叶子契约段之前）', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const bodyKeywords = {
+      research: 'Ground every conclusion in the real source',
+      implement: 'Make the smallest change that satisfies the requirement',
+      check: 'Fix what you find',
+      frontend: 'Touch frontend files only',
+    }
+    for (const kind of Object.keys(bodyKeywords)) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const text = result.text
+      const headingAt = text.indexOf(directiveHeading(kind))
+      const taskPromptAt = text.indexOf('## Task prompt')
+      const leafAt = text.indexOf('## Executor contract')
+      assert.ok(headingAt !== -1, `${kind} prompt must include its kind directive heading`)
+      assert.ok(
+        taskPromptAt !== -1 && taskPromptAt < headingAt && headingAt < leafAt,
+        `${kind} directive must sit between the task prompt and the leaf contract`,
+      )
+      assert.ok(text.includes(bodyKeywords[kind]), `${kind} directive body must be injected`)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check 纪律段要求发现即修、验证后以结构化 Open issues 段报告仅存问题', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'check'))
+    assert.equal(err, null)
+    const start = result.text.indexOf(directiveHeading('check'))
+    const end = result.text.indexOf('## Executor contract')
+    const section = result.text.slice(start, end)
+    // 发现即修，不做纯报告者
+    assert.match(section, /Fix what you find/)
+    assert.match(section, /not a reporter/)
+    // 修复后运行项目验证
+    assert.match(section, /lint \/ typecheck \/ tests/)
+    // 报告末段结构化「仅存问题」段：段名 + 行格式 + 无仅存问题时写 - none
+    assert.match(section, /## Open issues/)
+    assert.match(section, /<file>:<line> \[<severity>\] <issue> — fix: <suggestion>/)
+    assert.match(section, /"- none"/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('userPrompt 已含该 kind 纪律段标题时不再重复追加纪律段', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    // 对照：不含标题关键词时纪律段正常注入（保证本测试在实现前真实失败）
+    const [plainErr, plain] = buildExecutorPrompt(baseParams(root, 'check'))
+    assert.equal(plainErr, null)
+    assert.ok(plain.text.includes('Fix what you find'))
+    // 去重：userPrompt 已含标题短语时不重复注入纪律段正文
+    const [err, result] = buildExecutorPrompt({
+      root,
+      taskRelPath: TASK_REL_PATH,
+      kind: 'check',
+      userPrompt: 'Check executor directives are already given; run the review.',
+    })
+    assert.equal(err, null)
+    // 纪律段正文未注入：输出中仅 userPrompt 原样保留标题短语（无纪律段正文关键词）
+    assert.equal(result.text.split(directiveHeading('check')).length, 1)
+    assert.ok(!result.text.includes('## Open issues'))
+    // 叶子契约段仍追加（userPrompt 未含 leaf executor 关键词）
+    assert.ok(result.text.endsWith(LEAF_CONTRACT_SUFFIX))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
