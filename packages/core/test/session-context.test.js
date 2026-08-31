@@ -330,3 +330,52 @@ test('norms 为空白字符串时不追加小节', () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('delegationDepth>0 时 norms 段整体替换为 executor 版（零派发语义、概览保留）', () => {
+  const root = makeProject()
+  try {
+    const contractNorms =
+      'Dispatch (always-on):\n- Implementation changes come from workloom_execute subagents.'
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_17',
+      workflowSteps: [{ id: '2.1', title: 'Implement' }],
+      norms: contractNorms,
+      delegationDepth: 1,
+    })
+    assert.equal(err, null)
+    const normsStart = text.indexOf('\nAlways-on norms:\n')
+    assert.ok(normsStart > 0, 'executor norms section must render for depth > 0')
+    assert.ok(text.indexOf('\nWorkflow: 2.1 Implement\n') < normsStart, 'overview kept before norms')
+    const normsSection = text.slice(normsStart)
+    assert.ok(
+      !normsSection.includes('dispatch'),
+      'executor norms must carry zero dispatch semantics',
+    )
+    assert.ok(
+      !normsSection.includes('Implementation changes come from workloom_execute'),
+      'contract norms must be replaced entirely',
+    )
+    assert.ok(normsSection.includes('leaf executor'), 'executor norms name the leaf executor role')
+    assert.ok(normsSection.endsWith('\n</workloom-session-context>'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('delegationDepth>0 且契约无 norms 时仍输出 executor norms 段', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_18',
+      workflowSteps: [],
+      delegationDepth: 2,
+    })
+    assert.equal(err, null)
+    assert.match(text, /\nAlways-on norms:\n/)
+    assert.ok(!text.includes('dispatch'), 'executor norms must carry zero dispatch semantics')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

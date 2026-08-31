@@ -88,8 +88,9 @@ test('implement 组装：artifact 与 jsonl 引用文件全部内联，任务正
     assert.ok(text.includes('--- packages/b.md ---'))
     // seed _example 行被跳过，不产生内容块
     assert.ok(!text.includes('seed line'))
-    // 任务正文在 prompt 末尾
-    assert.ok(text.endsWith('## Task prompt\nDo the thing'))
+    // 任务正文在 prompt 末尾（其后仅叶子执行器契约段）
+    assert.ok(text.includes('## Task prompt\nDo the thing'))
+    assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
     assert.deepEqual(result.stats, { filesInlined: 5, filesIndexed: 0, truncated: 0 })
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -140,7 +141,8 @@ test('research 只内联 prd，无 jsonl 引用行', () => {
     assert.ok(!text.includes('design.md'))
     assert.ok(!text.includes('implement.jsonl'))
     assert.deepEqual(result.stats, { filesInlined: 1, filesIndexed: 0, truncated: 0 })
-    assert.ok(text.endsWith('## Task prompt\nDo the thing'))
+    assert.ok(text.includes('## Task prompt\nDo the thing'))
+    assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -256,6 +258,48 @@ test('max_total_bytes 极小时 jsonl 文件全部降级为索引行', () => {
     assert.ok(!result.text.includes('--- a.txt ---'))
     assert.equal(result.stats.filesIndexed, 2)
     assert.equal(result.stats.filesInlined, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 叶子执行器契约段（与实现的固定尾部一致，测试自给自足）。 */
+const LEAF_CONTRACT_SUFFIX =
+  '## Executor contract\n' +
+  'You are a leaf executor subagent: implement directly; never dispatch subagents or call workloom orchestration tools.'
+
+test('prompt 末尾追加叶子执行器契约段（所有 kind 一致生效）', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      assert.ok(
+        result.text.endsWith(LEAF_CONTRACT_SUFFIX),
+        `${kind} prompt must end with the leaf executor contract`,
+      )
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('userPrompt 已含 leaf executor 关键词时不重复追加叶子契约段', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const [err, result] = buildExecutorPrompt({
+      root,
+      taskRelPath: TASK_REL_PATH,
+      kind: 'implement',
+      userPrompt: 'Follow the leaf executor rule and implement the task.',
+    })
+    assert.equal(err, null)
+    const count = result.text.split('## Executor contract').length - 1
+    assert.equal(count, 0, 'leaf contract must not be appended when the keyword is already present')
+    // userPrompt 原文保留（含关键词的正文仍在 prompt 尾部）
+    assert.ok(result.text.endsWith('## Task prompt\nFollow the leaf executor rule and implement the task.'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
