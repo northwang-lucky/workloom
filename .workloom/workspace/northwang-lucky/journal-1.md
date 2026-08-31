@@ -142,3 +142,9 @@
 - Commit: eb0ba00
 - Summary: subagent_profiles：subagents 配置升级为带 whenMain 条件的 profile 列表（与旧 subagents 并存、按主 Agent 模型分档），core 解析/合并/冲突检测 + 两 adapter 主模型读取 + receipt 来源细分；test-first L1/L2/L3 seams，7 个 commit 全绿归档。
 
+## 任务 stage 字段：check 阶段主会话修复窗口
+
+- Time: 2026-08-31T15:55:43.817Z
+- Commit: 0612973
+- Summary: 引入 task.stage（implement|check）与 check 阶段主会话修复窗口：gate 在 stage=check 放行主会话直写、check executor 修复纪律上提 core 单一来源（发现即修 + ## Open issues 结构化）、doctor 第 9 类 stage-consistency 审计、契约 v13、Pi 角色对齐。check 首战即自修 2 处，重启后端到端验证 stage 写入生效。
+
