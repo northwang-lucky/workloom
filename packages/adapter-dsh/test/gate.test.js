@@ -22,16 +22,17 @@ import {
 function makeProject({
   configYaml = '',
   taskStatus = 'in_progress',
+  taskStage,
   withPointer = true,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-gate-'))
   const workloomDir = join(root, '.workloom')
   mkdirSync(join(workloomDir, 'tasks', 't1'), { recursive: true })
   writeFileSync(join(workloomDir, 'config.yaml'), configYaml)
-  writeFileSync(
-    join(workloomDir, 'tasks', 't1', 'task.json'),
-    JSON.stringify({ status: taskStatus, title: 'Test', priority: 'P2' }),
-  )
+  const taskJson = { status: taskStatus, title: 'Test', priority: 'P2' }
+  // taskStage 显式传入时写入 task.json.stage；缺省（undefined）模拟无 stage 字段的旧任务。
+  if (taskStage !== undefined) taskJson.stage = taskStage
+  writeFileSync(join(workloomDir, 'tasks', 't1', 'task.json'), JSON.stringify(taskJson))
   if (withPointer) {
     const sessionsDir = join(workloomDir, '.runtime', 'sessions')
     mkdirSync(sessionsDir, { recursive: true })
@@ -284,6 +285,68 @@ test('命中 deny：主会话 + in_progress + 业务路径（文案含引导）'
       reason.includes('executor.gate: false'),
       'reason must mention the config escape hatch',
     )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('主会话 + in_progress + stage=check + 业务文件 write/edit → 放行（修复窗口）', () => {
+  const root = makeProject({ taskStage: 'check' })
+  try {
+    const write = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root),
+      filePath: 'src/main.ts',
+    })
+    assert.deepEqual(write, { kind: 'allow' })
+    const edit = decideWriteGate({
+      name: 'edit',
+      agent: makeAgent(root),
+      filePath: join(root, 'docs', 'guide.md'),
+    })
+    assert.deepEqual(edit, { kind: 'allow' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('主会话 + in_progress + stage=implement + 业务文件 → deny', () => {
+  const root = makeProject({ taskStage: 'implement' })
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root),
+      filePath: 'src/main.ts',
+    })
+    assert.equal(decision.kind, 'deny')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('主会话 + in_progress + 无 stage 旧任务（归一化 implement）→ deny', () => {
+  const root = makeProject() // task.json 不含 stage 字段（旧任务）
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root),
+      filePath: 'src/main.ts',
+    })
+    assert.equal(decision.kind, 'deny')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('非豁免子代理（fork 绕行）+ in_progress + stage=check 仍 deny（stage 不改变子代理判链）', () => {
+  const root = makeProject({ taskStage: 'check' })
+  try {
+    const decision = decideWriteGate({
+      name: 'write',
+      agent: makeAgent(root, { subagentDepth: 1 }),
+      filePath: 'src/main.ts',
+    })
+    assert.equal(decision.kind, 'deny')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
