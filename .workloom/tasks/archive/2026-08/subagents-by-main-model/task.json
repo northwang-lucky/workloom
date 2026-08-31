@@ -1,0 +1,58 @@
+{
+  "id": "1aaffd6f-1afa-4965-a696-1e20444eadb7",
+  "name": "subagents-by-main-model",
+  "title": "subagents 配置支持按主 Agent 模型分档（whenMain profile）",
+  "description": "把 subagents 配置从 per-kind map 升级为 profile 列表：每个 profile 可带 whenMain（当前主 Agent 模型，支持 string 或 per-runtime map）匹配条件，未匹配时按顺序落到无 whenMain 的兜底 profile。核心改动：core 的配置 schema 与解析（resolveSubagentDefaults/detectExecutorConflicts 主模型维度）、adapter-dsh 与 adapter-pi 读取主会话当前模型传入解析、冲突提示与 receipt 可观测性。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-31T08:02:43.062Z",
+  "completedAt": "2026-08-31T08:53:32.065Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-31T08:49:01.159Z",
+    "summary": "2.2 check 独立验收 pass：L1 解析（subagent_profiles 数组、whenMain 完整形式校验、歧义检查含 runtime 与值、旧 subagents 回归）、L2 合并（纯顺序首个命中、map 缺 key 跳过、mainModel undefined 全跳过、kind 级联、configSources 字段级细分、参数优先、不修改入参）、L3 冲突（合并链解析配置侧值、两段归一化、notice 来源标注、force+reason 回归）、receipt 细分渲染（whenMain/fallback/legacy，未传保持 (config) 兼容）、L4 适配器读取点（DSH requestHeader/Pi ctx.model，薄读取无第三方类型依赖）。验证命令全绿：lint clean、typecheck/build 三包 Done、core 366/366、adapter-dsh 75/75、adapter-pi 46/46。提交规范 OK（4 commit 按计划、无空提交、未 push）。文档一致（config.example.yaml 双字段示例、init.js CONFIG_EXAMPLE_TEMPLATE 必要同步）。5 个观察项非阻塞：receipt 细分无直接单测、readMainModel 空串边角、spec 张力（5 参/761 行）、profile 缺 subagents 键静默空对象、部署同步待执行。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-08-31T08:23:43.466Z",
+    "summary": "固定 grilling 问题判定 yes（涉及设计树）。三轮收敛：配置形态（subagent_profiles 数组 + whenMain string/per-runtime map + 兜底条目 + 旧 subagents 并存）、匹配语义（纯顺序首个命中、kind 级联、字段独立合并、显式参数优先）、校验（whenMain 强制完整 provider/model、per-runtime 缺 key 跳过、歧义任意 runtime 重叠 fail loud）、运行时行为（主模型取不到一律不匹配走兜底链、receipt/冲突提示来源细分 whenMain/fallback/legacy）、test-first seams（L1 loadConfig 解析层 + L2 resolveSubagentDefaults 合并层 + L3 detectExecutorConflicts 冲突层，落点 core/test/config.test.js 与 executor-conflicts.test.js；L4 适配器主模型读取由 check 验证）、迁移（非破坏性，config.example.yaml 双字段示例，config.local.yaml 本地处理）。prd.md 已最终化并经用户确认通过（\"prd pass\"）。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-31T08:43:02.160Z",
+      "title": "subagent_profiles 按主模型分档"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-31T08:48:48.105Z",
+      "title": "subagent_profiles 实现验收检查"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-31T08:52:59.330Z",
+      "title": "补修空串 guard 与 receipt 断言"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
