@@ -130,6 +130,8 @@ export {
   buildSuccessRelayText,
   buildExecutorReceipt,
   TASK_ARCHIVE_NOTE,
+  TASK_CREATE_NOTE,
+  GRILLING_PENDING_NOTE,
 } from './surface.js'
 
 export type {
@@ -160,6 +162,9 @@ export type {
   TaskHooks,
   TaskRecord,
   TaskRecordWithPath,
+  StartedTaskRecord,
+  TaskCheckRecord,
+  TaskGrillingRecord,
   TaskSummary,
   CreateTaskParams,
   CreateTaskResult,

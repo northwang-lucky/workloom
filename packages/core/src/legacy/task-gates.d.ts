@@ -1,6 +1,6 @@
 /** 流程卡点（task-gates）模块的公共类型（供 JSDoc 引用）。 */
 
-import type { DispatchRecord, GateOverride } from './task-store.d.ts'
+import type { DispatchRecord, GateOverride, TaskRecord } from './task-store.d.ts'
 
 /** 卡点枚举键。 */
 export type GateKey = 'START' | 'CHECK' | 'ARCHIVE' | 'EXECUTOR_MODEL_EFFORT'
@@ -32,8 +32,14 @@ export function findUnfilledPrdSections(prdContent: string): string[]
 /** 统计 jsonl 内容中的有效记录数（有 file 字段的行；坏行抛错）。 */
 export function countEffectiveJsonlRecords(content: string, jsonlName: string): number
 
-/** 求值 start 门禁：返回缺失项描述列表（空数组表示通过；坏行抛错）。 */
-export function evaluateStartGate(root: string, taskRelPath: string): string[]
+/** 求值 start 门禁（含 grilling 门禁分支）：返回缺失项描述列表（空数组表示通过；坏行抛错）。 */
+export function evaluateStartGate(root: string, taskRelPath: string, task: TaskRecord): string[]
+
+/** 求值 grilling 门禁（纯函数）：按 grilling 状态 × prd UI Design 小节的门禁矩阵返回缺失项。 */
+export function evaluateGrillingGate(
+  prdContent: string | null,
+  grilling: import('./task-store.d.ts').TaskGrillingRecord | null,
+): string[]
 
 /** 求值 check 门禁（check.jsonl 有效记录）：返回缺失项描述列表（空数组表示通过）。 */
 export function evaluateCheckLogGate(root: string, taskRelPath: string): string[]
