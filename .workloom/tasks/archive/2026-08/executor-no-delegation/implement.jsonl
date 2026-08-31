@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "实施必须遵守编码原则；验证命令（lint/typecheck/build/test）与验证纪律", "type": "directory"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "运行时注入文本全英文、任务文档中文，命名与常量注释约束", "type": "directory"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "buildExecutorPrompt 位于 core/src/legacy/executor-context.js，legacy 纯 JS + JSDoc 约定", "type": "directory"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层规则：core 组装逻辑与 adapter 注入面职责边界（toolFilter/深度读取在 adapter）", "type": "directory"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "术语一致（executor/深度/toolFilter）", "type": "directory"}
