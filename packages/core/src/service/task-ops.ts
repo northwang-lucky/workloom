@@ -21,9 +21,15 @@ import {
   listTasks,
   startTask,
 } from '../legacy/task-store.js'
-import { ERR_PREFIX, TASK_ARCHIVE_NOTE } from '../surface.js'
+import {
+  ERR_PREFIX,
+  GRILLING_PENDING_NOTE,
+  TASK_ARCHIVE_NOTE,
+  TASK_CREATE_NOTE,
+} from '../surface.js'
 
 import type {
+  StartedTaskRecord,
   TaskPriorityValue,
   TaskRecord,
   TaskRecordWithPath,
@@ -79,10 +85,11 @@ export interface ExecuteCreateTaskParams {
   parent?: string
 }
 
-/** create 工具成功结果（task 为无 taskRelPath 的原始记录）。 */
+/** create 工具成功结果（task 为无 taskRelPath 的原始记录；nextStepNote 为下一步行动指引）。 */
 export interface ExecuteCreateTaskResult {
   taskRelPath: string
   task: TaskRecord
+  nextStepNote: string
 }
 
 /**
@@ -132,7 +139,8 @@ async function executeCreateInternal(
   if (err || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)
   }
-  return result
+  // 附 Phase 1.1 行动指引：引导模型立即加载 brainstorm 并问固定问题，消除时序迟滞。
+  return { ...result, nextStepNote: TASK_CREATE_NOTE }
 }
 
 /** start 工具编排入参（force 豁免 start 门禁并留痕）。 */
@@ -143,8 +151,9 @@ export interface ExecuteStartTaskParams {
 }
 
 /**
- * start 工具编排：把任务从 planning 移到 in_progress（返回记录含 taskRelPath）。
- * 默认硬阻断：prd 小节未填或 jsonl 无有效记录时拒绝；force 豁免并留痕。
+ * start 工具编排：把任务从 planning 移到 in_progress（返回记录附 grillingPending
+ * 提示，见 StartedTaskRecord）。
+ * 默认硬阻断：prd 小节未填、jsonl 无有效记录、grilling 门禁未过时拒绝；force 豁免并留痕。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识（adapter 组装）
  * @param params 工具参数（taskPath 缺省取活跃任务）
@@ -154,7 +163,7 @@ export async function executeStartTask(
   cwd: string,
   contextKey: string,
   params: ExecuteStartTaskParams,
-): Promise<[Error | null, TaskRecordWithPath | null]> {
+): Promise<[Error | null, StartedTaskRecord | null]> {
   try {
     return [null, await executeStartInternal(cwd, contextKey, params)]
   } catch (error) {
@@ -167,13 +176,13 @@ export async function executeStartTask(
  * @param cwd 会话工作目录
  * @param contextKey 会话标识
  * @param params 工具参数
- * @returns 启动后的任务记录
+ * @returns 启动后的任务记录（附 grillingPending / grillingNote）
  */
 async function executeStartInternal(
   cwd: string,
   contextKey: string,
   params: ExecuteStartTaskParams,
-): Promise<TaskRecordWithPath> {
+): Promise<StartedTaskRecord> {
   requireWorkloomCwd(cwd)
   const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
   const [err, task] = await startTask(cwd, {
@@ -184,19 +193,29 @@ async function executeStartInternal(
   if (err || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: start returned no result`)
   }
+  if (task.grillingPending) {
+    // 未判定软提醒：附提示文案（不落盘），供模型建议补录判定。
+    task.grillingNote = GRILLING_PENDING_NOTE
+  }
   return task
 }
 
-/** check 工具编排入参（summary 必填；force 豁免 check 门禁并留痕）。 */
+/** check 工具编排入参（phase 缺省 check；summary 在 phase=grilling 判定调用时可缺省）。 */
 export interface ExecuteCheckTaskParams {
   taskPath?: string
-  summary: string
+  /** 凭据阶段：check（缺省）或 grilling（判定/收敛）。 */
+  phase?: 'check' | 'grilling'
+  /** grilling 判定（yes=true / no=false；phase=grilling 时可用）。 */
+  required?: boolean
+  /** check 通过摘要 / grilling 收敛摘要。 */
+  summary?: string
   force?: boolean
   reason?: string
 }
 
 /**
- * check 工具编排：记录 2.2 check 通过凭据（写 task.json check 字段）。
+ * check 工具编排：记录任务凭据——phase=check 写 2.2 check 通过凭据；
+ * phase=grilling 写固定 grilling 问题判定/收敛凭据（planning 阶段可用）。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识（adapter 组装）
  * @param params 工具参数（taskPath 缺省取活跃任务）
@@ -219,7 +238,7 @@ export async function executeCheckTask(
  * @param cwd 会话工作目录
  * @param contextKey 会话标识
  * @param params 工具参数
- * @returns 写入 check 凭据后的任务记录
+ * @returns 写入凭据后的任务记录
  */
 function executeCheckInternal(
   cwd: string,
@@ -230,7 +249,9 @@ function executeCheckInternal(
   const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
   const [err, task] = checkTask(cwd, {
     taskRelPath,
-    summary: params.summary,
+    ...(params.phase !== undefined ? { phase: params.phase } : {}),
+    ...(params.required !== undefined ? { required: params.required } : {}),
+    ...(params.summary !== undefined ? { summary: params.summary } : {}),
     ...forceOverride(params),
   })
   if (err || task === null) {
@@ -246,9 +267,7 @@ function forceOverride(params: { force?: boolean; reason?: string }): {
 } {
   return {
     ...(params.force !== undefined ? { force: params.force } : {}),
-    ...(typeof params.reason === 'string' && params.reason !== ''
-      ? { reason: params.reason }
-      : {}),
+    ...(typeof params.reason === 'string' && params.reason !== '' ? { reason: params.reason } : {}),
   }
 }
 

@@ -194,6 +194,8 @@ function normalizeTaskRecord(parsed) {
     ...parsed,
     hooks,
     check: parsed.check ?? null,
+    // grilling 凭据（判定/收敛）缺失补 null：与 check 同策，保证门禁对旧数据安全。
+    grilling: parsed.grilling ?? null,
     overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
     dispatches: Array.isArray(parsed.dispatches) ? parsed.dispatches : [],
     // parent/children 兜底：旧任务缺字段时补 null/空数组，保证父子校验与联动对旧数据安全。
@@ -311,6 +313,8 @@ function buildTaskRecord(input) {
     notes: '',
     meta: {},
     check: null,
+    // grilling 凭据（required/passedAt/summary）：planning 阶段经 checkTask phase=grilling 记录。
+    grilling: null,
     overrides: [],
     dispatches: [],
     hooks: {
@@ -567,7 +571,7 @@ export async function startTask(root, params) {
  * 启动任务（内部实现）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').StartTaskParams} params
- * @returns {Promise<import('./task-store.d.ts').TaskRecordWithPath>}
+ * @returns {Promise<import('./task-store.d.ts').StartedTaskRecord>}
  */
 async function startTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
@@ -581,7 +585,8 @@ async function startTaskInternal(root, params) {
     // force 豁免：留痕后放行（hotfix 等无 spec 可引用的场景）。
     task.overrides.push(makeOverride(GATES.START, params.reason))
   } else {
-    const missing = evaluateStartGate(projectRoot, params.taskRelPath)
+    // 门禁消费归一化后的任务记录（grilling 凭据缺失时读 null，存量任务零阻塞）。
+    const missing = evaluateStartGate(projectRoot, params.taskRelPath, task)
     if (missing.length > 0) {
       throw new Error(
         `${ERR_PREFIX}: start gate failed: ${missing.join('; ')} ` +
@@ -598,11 +603,15 @@ async function startTaskInternal(root, params) {
   const taskJsonPath = join(insideWorkloom(projectRoot, params.taskRelPath), FILE_NAMES.taskJson)
   const warnings = await runTaskHooks(projectRoot, taskJsonPath, task.hooks.after_start)
   logWarnings(warnings)
-  return task
+  // 收敛判定提示（不落盘）：grilling 未判定时返回记录附 true，供模型建议补录。
+  const started = /** @type {import('./task-store.d.ts').StartedTaskRecord} */ (task)
+  started.grillingPending = task.grilling === null
+  return started
 }
 
 /**
- * 记录 2.2 check 通过凭据：向 task.json 写 check 字段（passedAt 自动生成 + summary）。
+ * 记录任务凭据：phase=check（缺省）写 2.2 check 通过凭据（task.json check 字段）；
+ * phase=grilling 写 grilling 判定/收敛凭据（task.json grilling 字段，planning 阶段可用）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').CheckTaskParams} params
  * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
@@ -616,9 +625,12 @@ export function checkTask(root, params) {
 }
 
 /**
- * 记录 check 凭据（内部实现）。
- * 要求任务 in_progress、summary 非空；force!==true 时要求 check.jsonl 有有效记录；
- * 重复调用覆盖 check 字段并刷新 passedAt。
+ * 记录任务凭据（内部实现）：按 phase 分支写 task.json 的 check 或 grilling 字段。
+ * - phase=check（缺省）：维持现状——要求 in_progress、summary 非空、
+ *   force!==true 时要求 check.jsonl 有有效记录与 frontend 派发门禁；
+ * - phase=grilling：允许 planning/in_progress 记录，跳过 check.jsonl 与
+ *   frontend 门禁（grilling 凭据与 2.2 check 凭据互不干涉，force 不入口）；
+ *   参数校验见 recordGrillingCredential。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').CheckTaskParams} params
  * @returns {import('./task-store.d.ts').TaskRecordWithPath}
@@ -626,12 +638,21 @@ export function checkTask(root, params) {
 function checkTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, params.taskRelPath)
+  const phase = params.phase ?? 'check'
+  if (phase === 'grilling') {
+    return recordGrillingCredential(projectRoot, task, params)
+  }
+  if (phase !== 'check') {
+    throw new Error(`${ERR_PREFIX}: invalid check phase: ${phase} (must be check or grilling)`)
+  }
   if (task.status !== TaskStatus.IN_PROGRESS) {
     throw new Error(
       `${ERR_PREFIX}: only tasks in in_progress can record a check (current: ${task.status})`,
     )
   }
-  if (typeof params.summary !== 'string' || params.summary.trim() === '') {
+  // 局部收窄：属性访问在门禁调用间不保持窄化，summary 先取到局部变量。
+  const summary = params.summary
+  if (typeof summary !== 'string' || summary.trim() === '') {
     throw new Error(`${ERR_PREFIX}: checkTask requires a non-empty summary`)
   }
   if (params.force === true) {
@@ -653,8 +674,77 @@ function checkTaskInternal(root, params) {
       )
     }
   }
-  task.check = { passedAt: new Date().toISOString(), summary: params.summary }
+  task.check = { passedAt: new Date().toISOString(), summary }
   writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task))
+  return task
+}
+
+/**
+ * 记录 grilling 凭据（内部）：向 task.json 写 grilling 字段，两次调用分离——
+ * ① 判定（用户回答固定问题后，phase=grilling + required=yes/no，落 required）；
+ * ② 收敛（grilling 收敛后，phase=grilling + summary，落 passedAt + summary）。
+ * 参数校验：required 与 summary 至少提供一个；只有 required → 落判定（required
+ * 必须显式布尔）；只有 summary → 收敛调用（要求任务已有 grilling.required，
+ * 否则报「先记录判定」）；都有 → 判定 + 收敛一起落。
+ * @param {string} root 项目根
+ * @param {import('./task-store.d.ts').TaskRecordWithPath} task 归一化后的任务记录
+ * @param {import('./task-store.d.ts').CheckTaskParams} params
+ * @returns {import('./task-store.d.ts').TaskRecordWithPath}
+ */
+function recordGrillingCredential(root, task, params) {
+  if (task.status === TaskStatus.COMPLETED) {
+    throw new Error(
+      `${ERR_PREFIX}: only planning/in_progress tasks can record grilling (current: ${task.status})`,
+    )
+  }
+  // 局部收窄：属性访问不保持窄化，required/summary 先取到局部变量再校验。
+  const requiredValue = params.required
+  const summaryText = typeof params.summary === 'string' ? params.summary.trim() : ''
+  const hasRequired = requiredValue !== undefined
+  const hasSummary = summaryText !== ''
+  if (!hasRequired && !hasSummary) {
+    throw new Error(
+      `${ERR_PREFIX}: phase=grilling requires required (judgment) and/or summary (convergence)`,
+    )
+  }
+  if (hasRequired && typeof requiredValue !== 'boolean') {
+    throw new Error(
+      `${ERR_PREFIX}: phase=grilling required must be an explicit boolean (true/false)`,
+    )
+  }
+  /** @type {import('./task-store.d.ts').TaskGrillingRecord} */
+  let grilling
+  if (hasRequired && hasSummary) {
+    // 判定 + 收敛一起落：一次调用完成两段记录。
+    grilling = {
+      required: /** @type {boolean} */ (requiredValue),
+      passedAt: new Date().toISOString(),
+      summary: summaryText,
+    }
+  } else if (hasRequired) {
+    // 仅判定：覆盖旧判定并清空收敛凭据（改判后必须重新收敛）。
+    grilling = {
+      required: /** @type {boolean} */ (requiredValue),
+      passedAt: null,
+      summary: null,
+    }
+  } else {
+    // 仅收敛：要求任务已有判定（区分「答过 no」与「根本没问」）。
+    const previous = task.grilling
+    if (previous === null || typeof previous.required !== 'boolean') {
+      throw new Error(
+        `${ERR_PREFIX}: record the grilling judgment first ` +
+          '(workloom_task_check with phase=grilling and required=yes/no)',
+      )
+    }
+    grilling = {
+      ...previous,
+      passedAt: new Date().toISOString(),
+      summary: summaryText,
+    }
+  }
+  task.grilling = grilling
+  writeTaskJson(insideWorkloom(root, params.taskRelPath), stripTaskPath(task))
   return task
 }
 

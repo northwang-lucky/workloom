@@ -32,6 +32,20 @@ export interface TaskCheckRecord {
   summary: string
 }
 
+/**
+ * grilling 凭据（workloom_task_check phase=grilling 写入 task.json.grilling）。
+ * 判定调用落 required（用户回答固定问题后）；收敛调用落 passedAt + summary。
+ * 无 grilling 字段 = 未判定（存量任务，start 放行 + grillingPending 软提醒）。
+ */
+export interface TaskGrillingRecord {
+  /** 固定 grilling 问题判定：yes=true / no=false（显式布尔）。 */
+  required: boolean
+  /** grilling 收敛时间（未收敛为 null）。 */
+  passedAt: string | null
+  /** grilling 收敛摘要（未收敛为 null）。 */
+  summary: string | null
+}
+
 /** force 豁免留痕（task.json.overrides 元素）。 */
 export interface GateOverride {
   gate: GateValue
@@ -76,6 +90,7 @@ export interface TaskRecord {
   notes: string
   meta: Record<string, unknown>
   check: TaskCheckRecord | null
+  grilling: TaskGrillingRecord | null
   overrides: GateOverride[]
   dispatches: DispatchRecord[]
   hooks: TaskHooks
@@ -83,6 +98,15 @@ export interface TaskRecord {
 
 /** 附带 taskRelPath 的任务记录（readTask 返回）。 */
 export type TaskRecordWithPath = TaskRecord & { taskRelPath: string }
+
+/**
+ * startTask 返回的任务记录：附 grillingPending（grilling 未判定提示，不落盘）。
+ * grillingPending=true 时 task-ops 层附加 grillingNote 软提醒文案。
+ */
+export type StartedTaskRecord = TaskRecordWithPath & {
+  grillingPending: boolean
+  grillingNote?: string
+}
 
 /** 任务摘要（listTasks 返回）。 */
 export interface TaskSummary {
@@ -123,9 +147,16 @@ export interface StartTaskParams {
 /** checkTask 参数。 */
 export interface CheckTaskParams {
   taskRelPath: string
-  /** check 通过摘要（必填，非空）。 */
-  summary: string
-  /** 豁免 check 门禁（留痕 overrides）。 */
+  /**
+   * 凭据阶段：check（缺省）记录 2.2 check 凭据；grilling 记录固定 grilling
+   * 问题判定/收敛凭据（允许 planning/in_progress，跳过 check.jsonl 门禁）。
+   */
+  phase?: 'check' | 'grilling'
+  /** grilling 判定（yes=true / no=false；phase=grilling 且无 summary 时必填显式布尔）。 */
+  required?: boolean
+  /** check 通过摘要 / grilling 收敛摘要（phase=check 必填非空；grilling 收敛调用必填）。 */
+  summary?: string
+  /** 豁免 check 门禁（留痕 overrides；仅 phase=check 生效）。 */
   force?: boolean
   /** force 豁免原因（审计用）。 */
   reason?: string
@@ -161,13 +192,13 @@ export function createTask(
   params: CreateTaskParams,
 ): Promise<[Error | null, CreateTaskResult | null]>
 
-/** 启动任务：planning → in_progress。 */
+/** 启动任务：planning → in_progress（返回记录附 grillingPending 提示）。 */
 export function startTask(
   root: string,
   params: StartTaskParams,
-): Promise<[Error | null, TaskRecordWithPath | null]>
+): Promise<[Error | null, StartedTaskRecord | null]>
 
-/** 记录 2.2 check 通过凭据（写 task.json check 字段）。 */
+/** 记录任务凭据：phase=check 写 2.2 check 字段；phase=grilling 写 grilling 判定/收敛字段。 */
 export function checkTask(
   root: string,
   params: CheckTaskParams,

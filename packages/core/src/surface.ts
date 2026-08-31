@@ -44,7 +44,7 @@ export const TOOL_DESCRIPTIONS = {
   taskStart:
     'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md and effective jsonl records; force bypasses and is recorded)',
   taskCheck:
-    'Record that the 2.2 check passed (writes check.passedAt + summary into task.json; required before archiving)',
+    'Record a task credential by phase: check (default) writes check.passedAt + summary into task.json (required before archiving); grilling writes the fixed grilling question judgment/convergence into task.json grilling',
   taskFinish: 'Clear the active-task pointer for this session (status unchanged)',
   taskArchive:
     'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
@@ -64,7 +64,8 @@ export const TOOL_SNIPPETS = {
   taskCreate:
     'workloom_task_create(title, slug?, priority?, description?, parent?) — create a task',
   taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
-  taskCheck: 'workloom_task_check(summary, taskPath?, force?, reason?) — record a passed check',
+  taskCheck:
+    'workloom_task_check(phase?, summary?, required?, taskPath?, force?, reason?) — record a check pass or grilling judgment',
   taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
   taskArchive:
     'workloom_task_archive(taskPath?, autoCommit?, force?, reason?) — archive the completed task',
@@ -92,6 +93,18 @@ export const PARAM_DESCRIPTIONS = {
   autoCommit: 'Override the config session_auto_commit for this archive',
   status: 'Filter: planning/in_progress/completed',
   summary: 'Summary of the passed check (what was verified)',
+  /**
+   * check 工具的 phase 参数：凭据阶段枚举（check 缺省 / grilling）。
+   * 描述要含两个枚举值与缺省，模型据此决定用哪个阶段记录。
+   */
+  phase:
+    'Credential phase: check (default) records the 2.2 check pass; grilling records the fixed grilling question judgment/convergence',
+  /** check 工具的 phase=grilling 语义说明（判定/收敛两次调用、planning 可用、跳过 check.jsonl 门禁）。 */
+  phaseGrilling:
+    'phase=grilling records the grilling credential: a judgment (required yes/no) after the fixed question, then a convergence record (summary) after grilling converges; allowed in planning/in_progress and skips the check.jsonl gate',
+  /** check 工具的 required 参数（grilling 判定，yes=true / no=false）。 */
+  grillingRequired:
+    'Grilling judgment for the fixed grilling question: yes=true / no=false (required=true means grilling joins the alignment scope)',
   force: 'Bypass the workflow gate; the override is recorded in task.json for audit',
   reason: 'Optional reason for a force override (recorded for audit)',
   /** executor 工具的 force 参数（语义：覆盖与配置冲突的 model/effort，reason 必填）。 */
@@ -181,6 +194,20 @@ export function buildSuccessRelayText(command: string, resultText: string): stri
 
 /** archive 工具收尾提示（命令名用模板拼 COMMAND_NAMES.finish，避免硬编码）。 */
 export const TASK_ARCHIVE_NOTE = `Task archived. When the session ends, run /${COMMAND_NAMES.finish} to record the session journal.`
+
+/**
+ * create 工具返回的下一步行动指引（Phase 1.1 对齐入口）：引导模型在创建任务后
+ * 立即加载 brainstorm 并问固定问题，消除「创建后直接写 prd」的时序迟滞。
+ */
+export const TASK_CREATE_NOTE =
+  'Task created. Next: Phase 1.1 align requirements — load workloom-brainstorm, then ask the fixed grilling question before finalizing prd.md.'
+
+/**
+ * start 返回的 grilling 未判定软提醒（grillingPending=true 时附在返回记录上，
+ * 供模型建议补录判定；区分「答过 no」与「根本没问」）。
+ */
+export const GRILLING_PENDING_NOTE =
+  'No grilling judgment recorded yet; consider recording the fixed grilling question answer via workloom_task_check with phase=grilling.'
 
 /**
  * 拼装 executor 回执行：生效 model/effort 及各自来源（运行时文案英文）。
