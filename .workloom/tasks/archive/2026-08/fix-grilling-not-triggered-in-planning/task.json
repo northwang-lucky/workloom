@@ -1,0 +1,53 @@
+{
+  "id": "2e729158-dc07-4d8a-bd7a-c774bae3a626",
+  "name": "fix-grilling-not-triggered-in-planning",
+  "title": "修复 planning 阶段 grilling 未主动触发的问题",
+  "description": "基于 session-9c47bd07 的诊断：planning 任务创建后模型未主动加载 grilling skill，直接写 PRD 并宣布对齐；契约的 planning 面包屑晚于模型决策窗口注入。需让 grilling 在 planning 阶段可靠地主动触发。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-30T11:02:33.201Z",
+  "completedAt": "2026-08-31T04:42:23.344Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-31T04:29:19.969Z",
+    "summary": "check executor 逐项复核：phase=check 语义（in_progress + summary 非空 + check.jsonl/frontend 门禁）保持不变；门禁矩阵 5 格全覆盖（存量任务 null 归一化放行 + grillingPending）；凭据校验（required/summary 组合、判定前置、planning 可记、跳 check.jsonl 门禁）；契约 v12（version/三固定问题时序/UI yes 联动明文/面包屑行动指令/norms 补强）；UI yes 硬门禁读 UI Design 小节；两 adapter 注册面 schema 含 phase；兼容性与 code-style 核对通过。check 阶段修复 3 类问题（dead 常量消费、TS2532 窄化、prettier 偏差）后全量验证绿：lint/typecheck/build 干净，core 340/340、dsh 75/75、pi 46/46。剩余两项非本次引入（task-store.js 既有超 600 行、self-hosting 凭据属流程步骤）。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-31T04:20:42.174Z",
+      "title": "实现 grilling 凭据工具与 start 门禁"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-31T04:29:15.784Z",
+      "title": "复核 grilling 门禁与凭据实现"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-08-31T04:42:18.292Z",
+    "summary": "grilling 收敛：四轮设计树全部确认（交付层时序/约束/门禁 → 判据自动化 → 范围 core+assets + adapter 注册面同步 → 触发固定问题+用户判断 → 凭据 grilling 字段+phase 复用 → 门禁矩阵含存量兼容与 UI yes 联动 → 提示强化面包屑/norms/create note/skill → 验收 test-first seams + adapter 断言）；prd 已含 ## Grilling 小节，用户逐轮「全按推荐」确认，frontier 空。本任务为新机制首个真实自检用例。"
+  }
+}

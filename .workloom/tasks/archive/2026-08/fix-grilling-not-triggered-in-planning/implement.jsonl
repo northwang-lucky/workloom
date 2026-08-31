@@ -1,0 +1,4 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "新增字段/常量/注释/Guard 等编码原则；实现阶段强制内联"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "task-store 扩展 grilling 字段需保持既有数据布局兼容；behavior-port 模块约定"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "构建产物需同步 DSH web profile；本任务改动 core/adapter-dsh dist 与 assets"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "每轮一个 commit、中文 `<type>(<scope>): <描述>` 格式"}
