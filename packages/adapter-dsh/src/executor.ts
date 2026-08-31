@@ -17,7 +17,9 @@
  *   注销再 dispose（成功失败均注销）——executor 派发的子代理在判定链中放行，而
  *   subagent_fork/continuable 复用的子代理不被豁免，从而堵住「fork 绕过主会话门禁」；
  * - model 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置（按 executor
- *   kind 取值，字段独立合并），供用户配置默认派发参数；
+ *   kind 取值，字段独立合并）；配置支持 subagent_profiles 按主会话当前模型
+ *   （requestHeader 快照的 provider/model）分档匹配，命中的条目优先于旧
+ *   subagents，供用户配置默认派发参数；
  * - effort 同名直通：工具显式 effort 或 subagents 配置的 effort 原样传入子代理
  *   agentOptions.reasoningEffort（DSH branded），不做 workloom 侧映射；非法档位
  *   由 assertEffort 在派发前 fail loud，provider 自有合法值空间在子会话请求时校验；
@@ -116,11 +118,16 @@ interface ToolExec {
   signal: AbortSignal
 }
 
-/** 发起 agent 的最小形状（one-shot 无子代理句柄，仅读 id 与 cwd）。 */
+/** 发起 agent 的最小形状（one-shot 无子代理句柄，仅读 id、cwd 与最近请求头）。 */
 interface MinimalAgent {
   id: string
   session: {
     header: { cwd?: string }
+    /**
+     * 会话日志最新 request/header 快照（主模型来源；DSH 会话契约的最小形状，
+     * 不引入 @deepseek-ai/dsh-session 类型依赖）。
+     */
+    requestHeader?(): { config?: { provider?: string; model?: string } } | undefined
   }
 }
 
@@ -269,25 +276,29 @@ async function executeTool(
     )
   }
   const root = found.root
-  // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）；
+  // 合并子代理默认值：工具参数优先，未出现回退到 subagent_profiles 命中条目
+  // （按主会话当前模型匹配），再回退到 subagents 配置（字段独立合并）；
   // effort 同名直通：显式参数或配置的档位原样进入 effective.effort，派发前由
   // assertEffort 校验合法档位（非法值 fail loud，不静默丢弃）。
   const config = loadConfig(root)
+  const mainModel = readMainModel(parent)
   const effective = resolveSubagentDefaults(
     config,
     params.kind,
     { model: params.model, effort: params.effort },
     'dsh',
+    mainModel,
   )
   // effort 非法档位 fail loud（core 校验，与 adapter-pi 语义一致）；冲突检测：
-  // 显式 model/effort 与 subagents 配置不一致时，无 force 返回提示（不派发）；
-  // force 放行须带非空 reason 留痕，覆盖审计写入 task.json。
+  // 显式 model/effort 与配置（按主模型合并后的生效值）不一致时，无 force 返回
+  // 提示（不派发）；force 放行须带非空 reason 留痕，覆盖审计写入 task.json。
   assertEffort(effective.effort)
   const conflicts = detectExecutorConflicts(
     config,
     params.kind,
     { model: params.model, effort: params.effort },
     'dsh',
+    mainModel,
   )
   if (conflicts.length > 0 && params.force !== true) {
     return {
@@ -371,12 +382,17 @@ async function executeTool(
       .map((block) => block.text)
       .join('\n')
     // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源（可观测性）；
+    // 配置来源细分（whenMain=<值>/fallback/legacy）随 configSources 渲染；
     // force 放行时追加 (forced) 标记，使覆盖派发在输出中一眼可辨。
     const receiptBase = buildExecutorReceipt({
       model: effective.model,
       modelSource: effective.sources.model,
+      modelConfigSource: effective.configSources.model,
+      modelWhenMainValue: effective.whenMainValue,
       effort: effective.effort,
       effortSource: effective.sources.effort,
+      effortConfigSource: effective.configSources.effort,
+      effortWhenMainValue: effective.whenMainValue,
     })
     const receipt = forced ? `${receiptBase} (forced)` : receiptBase
     // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
@@ -397,6 +413,22 @@ async function executeTool(
       console.warn(`${DISPOSE_WARN_PREFIX} ${String(error)}`)
     }
   }
+}
+
+/**
+ * 读取主会话当前模型（"provider/model" 字符串）：取自会话日志最新
+ * request/header 快照（反映运行中切模型）；provider/model 任一缺失时返回
+ * undefined（视为取不到：subagent_profiles 的全部 whenMain 条目跳过，走
+ * 兜底/旧 subagents，不 fail loud）。
+ * @param parent 发起 agent（session.requestHeader 可选，旧宿主缺失时 undefined）
+ * @returns 主模型标识或 undefined
+ */
+function readMainModel(parent: MinimalAgent): string | undefined {
+  const header = parent.session.requestHeader?.()
+  const provider = header?.config?.provider
+  const model = header?.config?.model
+  if (provider === undefined || model === undefined) return undefined
+  return `${provider}/${model}`
 }
 
 /**

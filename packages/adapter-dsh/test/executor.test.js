@@ -345,7 +345,7 @@ subagents:
     const text = result.output[0].text
     assert.ok(text.includes('[workloom executor]'))
     assert.ok(text.includes('deepseek-official/deepseek-v4-flash'))
-    assert.ok(text.includes('(config)'))
+    assert.ok(text.includes('(config: legacy)'))
     assert.ok(!text.includes('effort:'), 'DSH receipt must not render the effort segment')
     // receipt 应在子代理输出之后（空行分隔）
     const lines = text.split('\n')
@@ -402,7 +402,7 @@ subagents:
     assert.ok(text.includes('produced no text output'))
     assert.ok(text.includes('[workloom executor]'))
     assert.ok(text.includes('deepseek-official/deepseek-v4-flash'))
-    assert.ok(text.includes('(config)'))
+    assert.ok(text.includes('(config: legacy)'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -607,7 +607,7 @@ subagents:
     assert.equal(opts.model, 'deepseek-v4-flash')
     assert.equal(opts.reasoningEffort, 'max')
     const text = result.output[0].text
-    assert.ok(text.includes('effort: max (config)'))
+    assert.ok(text.includes('effort: max (config: legacy)'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -693,7 +693,7 @@ subagents:
     assert.ok(
       text.includes('workloom executor: explicit parameters conflict with subagents.implement config:'),
     )
-    assert.ok(text.includes('effort: config "high", passed "max"'))
+    assert.ok(text.includes('effort: config "high" (config: legacy), passed "max"'))
     assert.ok(text.includes('force: true with a non-empty reason'))
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -788,7 +788,11 @@ subagents:
     const text = result.output[0].text
     assert.equal(startCalls.length, 0)
     assert.ok(text.includes('workloom executor: explicit parameters conflict with subagents.implement config:'))
-    assert.ok(text.includes('model: config "deepseek-official/deepseek-v4-flash", passed "deepseek-official/deepseek-v4-pro"'))
+    assert.ok(
+      text.includes(
+        'model: config "deepseek-official/deepseek-v4-flash" (config: legacy), passed "deepseek-official/deepseek-v4-pro"',
+      ),
+    )
     assert.ok(
       !text.includes('effort: config'),
       'no effort param passed: the notice carries only the model conflict',
