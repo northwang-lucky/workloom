@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "按编码原则核对实现；验证命令全绿为检查前提", "type": "directory"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "核对运行时新增文本英文、文档中文", "type": "directory"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "核对 legacy 纯 JS + JSDoc 改动（executor-context.js）", "type": "directory"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "核对核心组装与 adapter 边界是否符合分层", "type": "directory"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "审核提交信息规范（2.3 提交阶段使用）", "type": "directory"}

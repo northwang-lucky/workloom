@@ -1,0 +1,58 @@
+{
+  "id": "22d2c5d6-3265-4ec9-a462-05ce1781cdc4",
+  "name": "executor-no-delegation",
+  "title": "Executor 子代理禁止再委派:按深度裁剪上下文与工具面",
+  "description": "修复 workloom 工作流中 executor 子代理（delegationDepth>0）仍可获取\"继续派发子代理\"上下文并绕过限制继续委派的问题：按 delegationDepth 裁剪注入上下文（session-context norms / breadcrumb / workloom_step 契约文本），并在 spawn 时用 toolFilter 硬屏蔽编排与委派类工具（方案 C）。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-31T09:48:14.237Z",
+  "completedAt": "2026-08-31T10:40:34.913Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-31T10:40:04.854Z",
+    "summary": "check 两轮收敛:首轮发现 M1(agent-plane 委派工具不在 deny 求交视图)按用户决策 A+B 处置(PRD 收窄 AC3 + 部署层 maxDepth 兜底 + 上游 C 记录),m1(畸形 provider fail loud)已修复;二轮复核无阻断。验证:pnpm lint / -r typecheck / -r build 全绿;core 375/375、adapter-dsh 84/84、adapter-pi 46/46;红态复验(git stash 只回退 src)失败用例全部为新增 seam 用例,存量深度=0 用例零回归。AC1(四 seam 红绿)、AC2(全绿+英文文本+无新依赖)、AC3(收窄版:上下文裁剪+workloom 9 工具与全局层委派工具不可见)通过;agent-plane 部分归 Notes B 部署侧复核。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-08-31T09:52:53.846Z",
+    "summary": "grilling 收敛(轮次 1,设计树前沿为空):Q1 深度>0 完全不注入 breadcrumb;Q2 executor 版 norms 由 core 静态常量新写(5~8 条实施纪律,不依赖契约过滤);Q3 session-context 的 workflow 步骤概览对 executor 保留;Q4 buildExecutorPrompt 追加\"叶子执行器:直接实施,禁止派发子代理/调用编排工具\"规则行;Q5 spawn 前检查 provider.toolFilter capability,不支持时 fail loud(不做静默降级);Q6 不改 assets/workflow.md 契约,norms 由 core 常量承载。继承 brainstorm 已决:屏蔽清单=workloom 9 工具+DSH 原生委派工具(运行时 schemas() 求交,避免硬编码未知名字);范围=adapter-dsh+core,adapter-pi 另立任务;workloom_step 深度>0 返回固定\"叶子执行器\"提示文本;norms 整段替换;test-first=A(4 seams:assembleSessionContext 深度分支/assembleBreadcrumbSync 深度分支/executeStepTool 深度分支/executor spawn toolFilter 参数)。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-31T10:05:15.233Z",
+      "title": "按深度裁剪executor上下文并屏蔽委派工具"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-31T10:31:20.807Z",
+      "title": "审查深度裁剪与工具屏蔽实现"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-31T10:39:58.032Z",
+      "title": "复核M1处置与prd一致性"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
