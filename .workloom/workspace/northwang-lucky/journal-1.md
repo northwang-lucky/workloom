@@ -130,3 +130,9 @@
 - Commit: aeb6713
 - Summary: 研读 deepseek-harness 源码确认 DSH 子代理路径未装模型选择器导致 effort 丢失；以纯插件方案（agent/created + installModelSelection，零 DSH 改动）打通 effort 通道，test-first 4 接缝交付，check 全过，顺带修复契约版本断言欠账；产物已同步至 web profile，待重启后真实派发验证。
 
+## 修复 planning 阶段 grilling 未主动触发的问题
+
+- Time: 2026-08-31T04:42:35.151Z
+- Commit: f46ffc9
+- Summary: 定位 session-9c47bd07 未主动触发 grilling 的根因（模型把普通提问当对齐、未加载 grilling skill、planning 面包屑晚于决策窗口），落地契约 v12 + grilling 凭据工具 + start 门禁矩阵 + 提示强化；test-first 全绿，self-hosting 首个真实自检通过。
+
