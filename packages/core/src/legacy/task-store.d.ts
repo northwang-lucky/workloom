@@ -12,11 +12,20 @@ export type TaskPriorityKey = 'P0' | 'P1' | 'P2' | 'P3'
 /** 优先级取值（task.json.priority）。 */
 export type TaskPriorityValue = 'P0' | 'P1' | 'P2' | 'P3'
 
+/** 任务阶段枚举键。 */
+export type TaskStageKey = 'IMPLEMENT' | 'CHECK'
+
+/** 任务阶段取值（task.json.stage；implement/check 二相，旧任务归一化默认 implement）。 */
+export type TaskStageValue = 'implement' | 'check'
+
 /** 状态枚举常量对象（键为枚举名）。 */
 export const TaskStatus: Readonly<Record<TaskStatusKey, TaskStatusValue>>
 
 /** 优先级枚举常量对象。 */
 export const TaskPriority: Readonly<Record<TaskPriorityKey, TaskPriorityValue>>
+
+/** 任务阶段枚举常量对象。 */
+export const TaskStage: Readonly<Record<TaskStageKey, TaskStageValue>>
 
 /** 任务 hooks（task.json.hooks，snake_case 字段）。 */
 export interface TaskHooks {
@@ -92,6 +101,8 @@ export interface TaskRecord {
   check: TaskCheckRecord | null
   grilling: TaskGrillingRecord | null
   overrides: GateOverride[]
+  /** 任务执行期阶段（implement | check）：派发时与 dispatches 同点写入，旧任务归一化默认 implement。 */
+  stage: TaskStageValue
   dispatches: DispatchRecord[]
   hooks: TaskHooks
 }
@@ -217,6 +228,12 @@ export function recordExecutorDispatch(
   taskRelPath: string,
   entry: DispatchRecordInput,
 ): [Error | null]
+
+/**
+ * 计算派发后的任务阶段（纯函数）：research 保持 current；implement/frontend → implement；check → check。
+ * kind 非法（含 undefined）抛错（fail loud）。
+ */
+export function computeTaskStage(current: TaskStageValue, kind: string): TaskStageValue
 
 /** 结束任务会话（清指针，不改状态）。 */
 export function finishTask(root: string, params: FinishTaskParams): Promise<[Error | null]>

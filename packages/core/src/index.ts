@@ -45,6 +45,7 @@ export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './legacy/br
 export {
   TaskStatus,
   TaskPriority,
+  TaskStage,
   slugify,
   createTask,
   startTask,
@@ -161,6 +162,8 @@ export type {
   TaskStatusValue,
   TaskPriorityKey,
   TaskPriorityValue,
+  TaskStageKey,
+  TaskStageValue,
   TaskHooks,
   TaskRecord,
   TaskRecordWithPath,

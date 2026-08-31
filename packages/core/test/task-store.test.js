@@ -18,6 +18,7 @@ import { join } from 'node:path'
 
 import {
   TaskStatus,
+  TaskStage,
   slugify,
   createTask,
   startTask,
@@ -28,7 +29,9 @@ import {
   readTask,
   recordExecutorDispatch,
   runTaskHooks,
+  computeTaskStage,
 } from '../src/legacy/task-store.js'
+import { EXECUTOR_KINDS } from '../src/legacy/executor-context.js'
 import { resolveActiveTask, setActiveTask } from '../src/legacy/active-task.js'
 
 /** 创建临时项目根（含 .workloom，可选 config 与 .developer）。 */
@@ -896,6 +899,77 @@ test('recordExecutorDispatch 校验 kind/title，非法值返回 err（fail loud
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('readTask 归一化：缺 stage 字段的旧 task.json 补默认 implement', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-stage')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({ id: 'x', name: 'no-stage', status: TaskStatus.PLANNING }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.stage, TaskStage.IMPLEMENT)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 同点更新 stage（implement/frontend→implement，check→check，research 保持）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Stage' })
+    // 新任务默认 implement 阶段（显式字段落盘）
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.IMPLEMENT)
+    // implement 派发 → implement
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: EXECUTOR_KINDS.implement,
+      title: 'i1',
+    })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.IMPLEMENT)
+    // check 派发 → check
+    recordExecutorDispatch(root, created.taskRelPath, { kind: EXECUTOR_KINDS.check, title: 'c1' })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.CHECK)
+    // frontend 派发 → implement（check 阶段派 frontend 视为回到实现期）
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: EXECUTOR_KINDS.frontend,
+      title: 'f1',
+    })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.IMPLEMENT)
+    // research 保持当前值（先置 check 再派 research，仍为 check）
+    recordExecutorDispatch(root, created.taskRelPath, { kind: EXECUTOR_KINDS.check, title: 'c2' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: EXECUTOR_KINDS.research,
+      title: 'r2',
+    })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.CHECK)
+    // dispatches 与 stage 同点落盘：两者一致（5 条派发记录）
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 5)
+    assert.equal(saved.stage, TaskStage.CHECK)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('computeTaskStage 纯函数：四 kind 映射、research 保持 current、非法 kind 抛错', () => {
+  // implement/frontend → implement（无论 current）
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.implement), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.implement), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.frontend), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.frontend), TaskStage.IMPLEMENT)
+  // check → check（无论 current）
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.check), TaskStage.CHECK)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.check), TaskStage.CHECK)
+  // research 保持 current
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.research), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.research), TaskStage.CHECK)
+  // 非法 kind（含 undefined）抛错（fail loud）
+  assert.throws(() => computeTaskStage(TaskStage.IMPLEMENT, 'bogus'), /invalid kind/)
+  assert.throws(() => computeTaskStage(TaskStage.IMPLEMENT, undefined), /invalid kind/)
 })
 
 test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend 派发被拒绝，补派发后放行', async () => {
