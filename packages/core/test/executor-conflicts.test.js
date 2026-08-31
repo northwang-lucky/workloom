@@ -54,6 +54,7 @@ test('detectExecutorConflicts：裸 id 与带前缀同模型 → 冲突', () => 
         field: 'model',
         configured: 'deepseek-v4-flash',
         passed: 'deepseek-official/deepseek-v4-flash',
+        configuredSource: 'legacy',
       },
     ],
   )
@@ -77,6 +78,7 @@ test('detectExecutorConflicts：配置带前缀、传入裸 id 也视为冲突�
         field: 'model',
         configured: 'deepseek-official/deepseek-v4-flash',
         passed: 'deepseek-v4-flash',
+        configuredSource: 'legacy',
       },
     ],
   )
@@ -91,6 +93,7 @@ test('detectExecutorConflicts：model 前缀不同同 model 名视为冲突', ()
         field: 'model',
         configured: 'deepseek-official/deepseek-v4-flash',
         passed: 'deepseek/deepseek-v4-flash',
+        configuredSource: 'legacy',
       },
     ],
   )
@@ -100,7 +103,14 @@ test('detectExecutorConflicts：model map 按 runtime 解析后比较', () => {
   const config = makeConfig({ implement: { model: { dsh: 'dsh/model-x', pi: 'pi/model-x' } } })
   assert.deepEqual(
     detectExecutorConflicts(config, 'implement', { model: 'pi/model-x' }, 'dsh'),
-    [{ field: 'model', configured: 'dsh/model-x', passed: 'pi/model-x' }],
+    [
+      {
+        field: 'model',
+        configured: 'dsh/model-x',
+        passed: 'pi/model-x',
+        configuredSource: 'legacy',
+      },
+    ],
   )
   assert.deepEqual(detectExecutorConflicts(config, 'implement', { model: 'pi/model-x' }, 'pi'), [])
 })
@@ -120,7 +130,7 @@ test('detectExecutorConflicts：effort 不等 → 冲突；相等 → 无冲突'
   const config = makeConfig({ implement: { effort: 'high' } })
   assert.deepEqual(
     detectExecutorConflicts(config, 'implement', { effort: 'max' }, 'dsh'),
-    [{ field: 'effort', configured: 'high', passed: 'max' }],
+    [{ field: 'effort', configured: 'high', passed: 'max', configuredSource: 'legacy' }],
   )
   assert.deepEqual(detectExecutorConflicts(config, 'implement', { effort: 'high' }, 'dsh'), [])
 })
@@ -129,11 +139,18 @@ test('detectExecutorConflicts：model/effort 独立判定（互不干扰）', ()
   const config = makeConfig({ implement: { model: 'm-cfg', effort: 'high' } })
   assert.deepEqual(
     detectExecutorConflicts(config, 'implement', { model: 'm-passed', effort: 'high' }, 'dsh'),
-    [{ field: 'model', configured: 'm-cfg', passed: 'm-passed' }],
+    [
+      {
+        field: 'model',
+        configured: 'm-cfg',
+        passed: 'm-passed',
+        configuredSource: 'legacy',
+      },
+    ],
   )
   assert.deepEqual(
     detectExecutorConflicts(config, 'implement', { model: 'm-cfg', effort: 'max' }, 'dsh'),
-    [{ field: 'effort', configured: 'high', passed: 'max' }],
+    [{ field: 'effort', configured: 'high', passed: 'max', configuredSource: 'legacy' }],
   )
 })
 
@@ -170,6 +187,97 @@ test('buildConflictNotice：含 kind/配置值/传入值与 force+reason 引导'
   assert.match(notice, /force: true/)
   assert.match(notice, /reason/i)
   assert.match(notice, /overrides/)
+})
+
+test('buildConflictNotice：冲突条目配置值追加来源标注（whenMain 带匹配值）', () => {
+  const notice = buildConflictNotice('implement', [
+    {
+      field: 'model',
+      configured: 'profile-m',
+      passed: 'legacy-m',
+      configuredSource: 'whenMain',
+      whenMainValue: 'kimi-coding/k3',
+    },
+    { field: 'effort', configured: 'high', passed: 'max', configuredSource: 'legacy' },
+  ])
+  assert.ok(notice.includes('(config: whenMain=kimi-coding/k3)'))
+  assert.ok(notice.includes('(config: legacy)'))
+  // 无来源标注的旧调用方不追加细分（向后兼容）
+  const plain = buildConflictNotice('implement', [{ field: 'model', configured: 'm', passed: 'n' }])
+  assert.ok(!plain.includes('(config:'))
+})
+
+// ---------- L3：detectExecutorConflicts 按合并链解析配置侧值 ----------
+
+test('detectExecutorConflicts：mainModel 命中 profile 时与 profile 配置值比较', () => {
+  const config = {
+    subagents: { implement: { model: 'legacy-m' } },
+    subagentProfiles: [
+      { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'profile-m' } } },
+    ],
+  }
+  // 传入与 profile 配置一致 → 无冲突
+  assert.deepEqual(
+    detectExecutorConflicts(config, 'implement', { model: 'profile-m' }, 'dsh', 'kimi-coding/k3'),
+    [],
+  )
+  // 传入 legacy 值 → 与 profile 值冲突（来源 whenMain，带匹配值）
+  assert.deepEqual(
+    detectExecutorConflicts(config, 'implement', { model: 'legacy-m' }, 'dsh', 'kimi-coding/k3'),
+    [
+      {
+        field: 'model',
+        configured: 'profile-m',
+        passed: 'legacy-m',
+        configuredSource: 'whenMain',
+        whenMainValue: 'kimi-coding/k3',
+      },
+    ],
+  )
+})
+
+test('detectExecutorConflicts：配置侧值来自 legacy（未命中或 mainModel 缺失）', () => {
+  const config = {
+    subagents: { implement: { model: 'legacy-m' } },
+    subagentProfiles: [{ whenMain: 'a/b', subagents: { implement: { model: 'profile-m' } } }],
+  }
+  // mainModel 未命中 → 配置值 legacy
+  assert.deepEqual(
+    detectExecutorConflicts(config, 'implement', { model: 'other-m' }, 'dsh', 'x/y'),
+    [{ field: 'model', configured: 'legacy-m', passed: 'other-m', configuredSource: 'legacy' }],
+  )
+  // mainModel 缺失 → whenMain 全部跳过 → legacy
+  assert.deepEqual(
+    detectExecutorConflicts(config, 'implement', { model: 'other-m' }, 'dsh'),
+    [{ field: 'model', configured: 'legacy-m', passed: 'other-m', configuredSource: 'legacy' }],
+  )
+})
+
+test('detectExecutorConflicts：effort 按合并链比较（profile 命中时 effort 配置值生效）', () => {
+  const config = {
+    subagents: { implement: { effort: 'high' } },
+    subagentProfiles: [
+      { whenMain: 'kimi-coding/k3', subagents: { implement: { effort: 'max' } } },
+    ],
+  }
+  // 命中 profile：配置值 max；传入 high → 冲突（来源 whenMain）
+  assert.deepEqual(
+    detectExecutorConflicts(config, 'implement', { effort: 'high' }, 'dsh', 'kimi-coding/k3'),
+    [
+      {
+        field: 'effort',
+        configured: 'max',
+        passed: 'high',
+        configuredSource: 'whenMain',
+        whenMainValue: 'kimi-coding/k3',
+      },
+    ],
+  )
+  // 未命中：配置值 high；传入 max → 冲突（来源 legacy）
+  assert.deepEqual(
+    detectExecutorConflicts(config, 'implement', { effort: 'max' }, 'dsh', 'x/y'),
+    [{ field: 'effort', configured: 'high', passed: 'max', configuredSource: 'legacy' }],
+  )
 })
 
 test('assertForceReason：force true 且 reason 为非空字符串 → 通过', () => {

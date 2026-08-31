@@ -20,10 +20,22 @@ export interface WorkloomConfig {
   packages: Record<string, { path: string; type?: string; git?: boolean }>
   defaultPackage: string | null
   subagents: Record<string, SubagentConfigEntry>
+  /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
+  subagentProfiles: SubagentProfile[]
   executor: {
     /** 主会话直接写文件硬门禁（adapter-dsh tools/pre-execute），默认开启。 */
     gate: boolean
   }
+}
+
+/**
+ * subagent_profiles 条目：whenMain 为命中条件（string 对所有 runtime 同值，
+ * 或按 runtime 取值的 map），缺省 = 兜底条目（无条件命中，最多一条）；
+ * subagents 沿用 SubagentConfigEntry 的 per-kind 形态。
+ */
+export interface SubagentProfile {
+  whenMain?: string | Record<string, string>
+  subagents: Record<string, SubagentConfigEntry>
 }
 
 /**
@@ -38,6 +50,9 @@ export interface SubagentConfigEntry {
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
 export type SubagentDefaultSource = 'param' | 'config'
 
+/** 配置侧字段来源细分：命中 subagent_profiles 的 whenMain 条目 / 兜底条目 / 旧 subagents。 */
+export type SubagentConfigSource = 'whenMain' | 'fallback' | 'legacy'
+
 /** resolveSubagentDefaults 的返回形状：合并后的 effective 值与各字段来源。 */
 export interface ResolveSubagentDefaultsResult {
   model?: string
@@ -46,6 +61,13 @@ export interface ResolveSubagentDefaultsResult {
     model?: SubagentDefaultSource
     effort?: SubagentDefaultSource
   }
+  /** 配置侧字段来源细分（字段级；来自显式参数或未生效时为 undefined）。 */
+  configSources: {
+    model?: SubagentConfigSource
+    effort?: SubagentConfigSource
+  }
+  /** configSources 为 whenMain 时的匹配值（receipt 展示用，如 kimi-coding/k3）。 */
+  whenMainValue?: string
 }
 
 /** 内置默认配置。 */
@@ -64,14 +86,16 @@ export class WorkloomConfigError extends Error {
 export function loadConfig(root: string): WorkloomConfig
 
 /**
- * 合并 executor 子代理默认 model/effort：参数优先，未出现回退 subagents 配置；
- * model 的 map 形式按 runtime 取值，缺当前 runtime 的 key 抛 WorkloomConfigError。
+ * 合并 executor 子代理默认 model/effort：参数优先，未出现回退 subagent_profiles
+ * 命中条目（按主会话模型匹配），再回退旧 subagents 配置；model 的 map 形式按
+ * runtime 取值，缺当前 runtime 的 key 抛 WorkloomConfigError。
  */
 export function resolveSubagentDefaults(
   config: WorkloomConfig,
   kind: string,
   overrides: { model?: string; effort?: string },
   runtime?: string,
+  mainModel?: string,
 ): ResolveSubagentDefaultsResult
 
 /**
@@ -88,17 +112,23 @@ export interface ExecutorConflict {
   configured: string
   /** 工具显式传入值。 */
   passed: string
+  /** 配置侧来源细分（whenMain 命中 / 兜底条目 / 旧 subagents）。 */
+  configuredSource?: SubagentConfigSource
+  /** configuredSource 为 whenMain 时的匹配值（提示文案展示用）。 */
+  whenMainValue?: string
 }
 
 /**
- * 检测显式 executor 参数与 subagents 配置的冲突：仅 kind 有条目且该字段显式
- * 传入时比较；model 归一化（provider/model 各自相等）比较；无冲突返回空数组。
+ * 检测显式 executor 参数与 subagents 配置的冲突：配置侧生效值按合并链解析
+ * （profile 命中条目 > 旧 subagents）；model 归一化（provider/model 各自相等）
+ * 比较；无冲突返回空数组。
  */
 export function detectExecutorConflicts(
   config: WorkloomConfig,
   kind: string,
   overrides: { model?: string; effort?: string },
   runtime?: string,
+  mainModel?: string,
 ): ExecutorConflict[]
 
 /** 组装冲突中断提示（英文运行时文案，含配置值/传入值与 force+reason 引导）。 */
