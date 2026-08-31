@@ -34,12 +34,13 @@ function makeProject(configYaml) {
   return root
 }
 
-/** 构造模拟 agent（parent，仅 id 与 cwd 被 executor 读取）。 */
-function makeAgent(root) {
+/** 构造模拟 agent（parent，仅 id 与 cwd 被 executor 读取；requestHeader 可选注入模拟主模型快照）。 */
+function makeAgent(root, requestHeader) {
   return {
     id: 'parent-1',
     session: {
       header: { cwd: root },
+      ...(requestHeader !== undefined ? { requestHeader } : {}),
     },
   }
 }
@@ -426,6 +427,45 @@ test('receipt 行：无配置时显示 default 来源（无 effort 段）', asyn
     assert.ok(text.includes('<parent session>'))
     assert.ok(text.includes('(default)'))
     assert.ok(!text.includes('effort:'), 'no effort config must omit the effort segment')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('主模型 provider/model 为空串：whenMain 按取不到跳过，回退旧 subagents', async () => {
+  const root = makeProject(`
+subagent_profiles:
+  - whenMain: deepseek-official/deepseek-v4-flash
+    subagents:
+      implement:
+        model: profile-provider/profile-model
+subagents:
+  implement:
+    model: legacy-provider/legacy-model
+`)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    // requestHeader 快照的 provider/model 均为空串：readMainModel 返回 undefined
+    // （空串拼出的 "/" 会在 core 匹配时抛错，按无值处理），whenMain 条目跳过
+    // 不 fail loud，生效值回退旧 subagents（receipt 标 legacy）。
+    const parent = makeAgent(root, () => ({ config: { provider: '', model: '' } }))
+    const result = await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'empty main model test',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const opts = startCalls[0].request.agentOptions
+    assert.equal(opts.provider, 'legacy-provider')
+    assert.equal(opts.model, 'legacy-model')
+    const text = result.output[0].text
+    assert.ok(text.includes('legacy-provider/legacy-model'))
+    assert.ok(text.includes('(config: legacy)'))
+    assert.ok(!text.includes('profile-provider'), 'whenMain entry must not take effect')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
