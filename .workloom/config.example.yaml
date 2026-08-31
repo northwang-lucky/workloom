@@ -99,6 +99,39 @@ subagents:
     model: qwen-token-plan-cn/qwen3.8-max
     effort: medium
 
+# subagent_profiles tiers the subagents block above by the main session's
+# current model: entries are matched top-down, and the FIRST entry whose
+# `whenMain` condition matches wins. It coexists with the legacy `subagents`
+# block (the default layer): fields of the winning entry win over
+# `subagents.<kind>`, and each field merges independently — explicit tool args
+# > subagent_profiles entry > subagents.<kind> > parent session.
+#
+# `whenMain` is either a full "provider/model" string (matched on every runtime)
+# or a per-runtime map (e.g. `{ dsh: ..., pi: ... }`, matched by the current
+# runtime key; a missing key just skips that entry). An entry WITHOUT whenMain
+# is the unconditional fallback — at most one is allowed (duplicates fail
+# loudly), and overlapping whenMain conditions between entries also fail loudly
+# at load time (with the conflicting runtime and value). A malformed whenMain
+# value (missing "/" or an empty side) is rejected at load time. If the main
+# session model cannot be read, all whenMain entries are skipped (fallback /
+# legacy subagents apply). When subagent_profiles is absent or empty, behavior
+# is identical to the legacy subagents-only layout. Example:
+#   subagent_profiles:
+#     - whenMain: kimi-coding/k3
+#       subagents:
+#         research:
+#           model: deepseek-v4-flash
+#           effort: high
+#     - whenMain:
+#         dsh: deepseek-official/deepseek-v4-pro
+#         pi: deepseek/deepseek-v4-pro
+#       subagents:
+#         implement:
+#           effort: max
+#     - subagents:
+#         check:
+#           model: qwen-token-plan-cn/qwen3.8-max
+
 # executor.gate (default true) blocks the main session's direct writes outside
 # .workloom/ while a task is in_progress, forcing implementation changes through
 # dispatched executor subagents.
