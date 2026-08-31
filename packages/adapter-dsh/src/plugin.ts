@@ -14,6 +14,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
 
 import { CONTEXT_KEY_PREFIX, PLUGIN_NAME } from './constants.js'
 
@@ -153,6 +154,7 @@ function resolveInjectionTarget(ctx: Context, context: unknown): InjectionTarget
 /**
  * 组装当前发起会话的 breadcrumb 注入文本。
  * 契约缺失静默返回空串；组装出错只告警，不阻塞会话。
+ * 委派深度>0（executor 等叶子子代理）时 core 直接返回 null（完全不注入）。
  * @param target 注入目标（agent + 项目根）
  * @returns 注入文本（可能为空串）
  */
@@ -164,6 +166,7 @@ function renderBreadcrumb(target: InjectionTarget): string {
     contextKey: `${CONTEXT_KEY_PREFIX}_${target.agent.id}`,
     contractText,
     userPrompt: extractUserPrompt(target.agent),
+    delegationDepth: delegationDepthOf(target.agent),
   })
   if (err) {
     console.warn(`${WARN_PREFIX} ${err.message}`)
@@ -175,26 +178,30 @@ function renderBreadcrumb(target: InjectionTarget): string {
 /**
  * 组装当前发起会话的 session-context 注入文本（取代式快照）。
  * 契约缺失静默返回空串；解析/组装出错只告警，不阻塞会话。
+ * 委派深度>0（executor 等叶子子代理）时 norms 段由 core 替换为 executor 版。
  * @param target 注入目标（agent + 项目根）
  * @returns 注入文本（可能为空串）
  */
 function renderSessionContext(target: InjectionTarget): string {
   const contractText = loadWorkflowContractText()
   if (contractText === null) return ''
-  return assembleSessionContextText(target, contractText)
+  return assembleSessionContextText(target, contractText, delegationDepthOf(target.agent))
 }
 
 /**
  * 从契约文本组装 session-context 快照文本。
  * 契约文本作为入参注入（导出供测试喂自定义契约，不依赖真实资产内容）：
  * norms 随快照每轮重组装，契约升级后下一轮即生效；解析/组装失败只告警，不阻塞会话。
+ * 委派深度透传 core（缺省 0）：深度>0 时 norms 段整体替换为 executor 版。
  * @param target 注入目标（agent + 项目根）
  * @param contractText 契约全文
+ * @param delegationDepth 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）
  * @returns 注入文本（可能为空串）
  */
 export function assembleSessionContextText(
   target: InjectionTarget,
   contractText: string,
+  delegationDepth = 0,
 ): string {
   const [parseErr, contract] = parseContract(contractText)
   if (parseErr || contract === null) {
@@ -208,6 +215,7 @@ export function assembleSessionContextText(
     contextKey: `${CONTEXT_KEY_PREFIX}_${target.agent.id}`,
     workflowSteps: contract.steps,
     norms: contract.norms,
+    delegationDepth,
   })
   if (err) {
     console.warn(`${CONTEXT_WARN_PREFIX} ${err.message}`)

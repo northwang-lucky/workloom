@@ -17,9 +17,9 @@ function makeRoot() {
   return root
 }
 
-/** 构造注入目标（最小形状：root + agent.id 用于 contextKey）。 */
+/** 构造注入目标（最小形状：root + agent.id 用于 contextKey；options/session 供 delegationDepthOf 读取）。 */
 function makeTarget(root) {
-  return { root, agent: { id: 'agent-1' } }
+  return { root, agent: { id: 'agent-1', options: {}, session: { header: {} } } }
 }
 
 /** 契约样本：旧契约（无 norms 块）。 */
@@ -75,6 +75,25 @@ test('含 norms 块契约：快照末尾追加 Always-on norms 小节（原文�
       text.includes('Implementation changes come from workloom_execute subagents.'),
       'dispatch norm keeps original text',
     )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('委派深度>0：快照 norms 段整体替换为 executor 版（零派发语义）', () => {
+  const root = makeRoot()
+  try {
+    // 深度由调用方（plugin 的 text provider 经 delegationDepthOf(target.agent) 读取）透传第三参。
+    const text = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS, 1)
+    const normsIdx = text.indexOf('Always-on norms:')
+    assert.ok(normsIdx >= 0, 'executor norms section must render for depth > 0')
+    assert.ok(normsIdx > text.indexOf('Workflow: '), 'overview kept before norms')
+    assert.ok(
+      !text.includes('Implementation changes come from workloom_execute subagents.'),
+      'contract norms must be replaced entirely',
+    )
+    assert.ok(text.includes('leaf executor'), 'executor norms name the leaf executor role')
+    assert.ok(!text.includes('dispatch'), 'executor norms carry zero dispatch semantics')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

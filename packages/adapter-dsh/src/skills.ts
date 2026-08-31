@@ -17,6 +17,8 @@
 import { dirname, join } from 'node:path'
 
 import type { Context } from '@deepseek-ai/cordis'
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
 
 import {
   ERR_PREFIX as SURFACE_ERR_PREFIX,
@@ -87,6 +89,18 @@ interface ToolsService {
   register(definition: MinimalToolDefinition): () => void
 }
 
+/** 叶子执行器提示文本模板（workloom_step 深度>0 时的契约兜底，运行时文案英文）。 */
+const LEAF_STEP_HINT = (stepId: string): string =>
+  `Workflow step ${stepId} is managed by the main session. ` +
+  'You are a leaf executor subagent: implement the task directly from the task artifacts; ' +
+  'never delegate to other agents or call workloom orchestration tools.'
+
+/** 工具执行上下文最小形状（execute 入参，仅消费 agent；缺失视为深度 0）。 */
+interface StepToolExec {
+  [k: string]: unknown
+  agent?: Agent
+}
+
 /** 工具定义的最小形状（与 DSH 工具注册面兼容的子集，参考 executor.ts）。 */
 interface MinimalToolDefinition {
   name: string
@@ -97,7 +111,7 @@ interface MinimalToolDefinition {
     render(args: unknown, value: unknown): TextBlockLike[]
   }
   isConcurrencySafe(): boolean
-  execute(args: unknown): StepToolValue
+  execute(args: unknown, exec?: unknown): StepToolValue
 }
 
 /** 步骤详情工具成功返回的 canonical 值形状（与 executor.ts 对齐）。 */
@@ -243,7 +257,7 @@ export function registerStepsTool(ctx: Context & StepsToolServices): void {
       render: (_args, value) => [renderOutput(value)],
     },
     isConcurrencySafe: () => true,
-    execute: (args) => executeStepTool(args),
+    execute: (args, exec) => executeStepTool(args, exec),
   })
 }
 
@@ -251,13 +265,20 @@ export function registerStepsTool(ctx: Context & StepsToolServices): void {
  * 从契约中查找步骤并组装详情文本；缺失/解析失败/未找到都 fail loud
  * （抛错由 DSH 工具管线转失败结果）。契约资产缺失检查留在 adapter，
  * 查找与解析编排下沉 core 的 lookupWorkflowStep。
+ * 深度>0（executor 等叶子子代理）时不返回契约原文，改返回固定叶子提示
+ * （契约兜底：编排文本对叶子不可见）。
  * @param args 工具参数
+ * @param exec 工具执行上下文（发起 agent；缺失视为深度 0）
  * @returns canonical 结果 {kind, output}
  */
-function executeStepTool(args: unknown): StepToolValue {
+function executeStepTool(args: unknown, exec?: unknown): StepToolValue {
   const params = args as { stepId?: string }
   if (params.stepId === undefined) {
     throw new Error(`${SURFACE_ERR_PREFIX.stepTool}: stepId parameter is required`)
+  }
+  const agent = (exec as StepToolExec | undefined)?.agent
+  if (agent !== undefined && delegationDepthOf(agent) > 0) {
+    return { kind: 'foreground', output: [{ type: 'text', text: LEAF_STEP_HINT(params.stepId) }] }
   }
   const contractText = loadWorkflowContractText()
   if (contractText === null) {
