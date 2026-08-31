@@ -1,0 +1,89 @@
+{
+  "id": "f5d7bf3f-33b6-439a-9a96-42c0db136620",
+  "name": "task-phase-main-session-fix",
+  "title": "引入任务 stage 字段，开放 check 阶段主会话修复窗口",
+  "description": "check 完成后仍有未修复错误时由主代理直接修复（不再派子代理）。机制：task.json 新增显式 stage 字段（implement|check），派发时写入，DSH gate 在 stage=check 时放行主会话写业务文件；同步强化 check executor\"发现即修\"职责、堵住\"带病通过\"记录、更新契约与双 adapter 文案。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-31T14:37:18.704Z",
+  "completedAt": "2026-08-31T15:55:33.730Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-08-31T15:54:52.894Z",
+    "summary": "两轮 check executor 复核通过。第一轮（stage 机制首战）：按新纪律发现即修 2 处——doctor-checks.ts 被推至 618 行超阈值拆分为 doctor-check-rules.ts（524 行）+ doctor-checks.ts（90 行）；部署产物按 repo/deployment 执行 dsh-sync-workloom rsync 同步（core/adapter-dsh dist + assets）。第二轮（用户重启 dshweb 后）：全量复核无回归、Open issues: - none、dist 与 profile checksum 零差异。验证全绿：core 386/386、adapter-dsh 88/88、adapter-pi 47/47，pnpm lint/typecheck/build 干净。端到端验证：重启后新代码经 recordExecutorDispatch 同点写入 task.json stage=check（dispatches 9 条，最后一条 15:54:32 check 复核），gate 修复窗口与 doctor stage-consistency 审计就位。S1/S2/S3 接缝断言落地（task-store/gate/contract-asset v13）。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-08-31T14:54:39.355Z",
+    "summary": "grilling 收敛（两轮）：Round 1 定 test-first 接缝 S1/S2/S3（task-store 归一化+写入、gate 主会话判定分支、workflow-contract 契约措辞；仅存问题结构化不进 seams）、check 修复指令上提 core 按 kind 注入纪律段（单一来源）、doctor 加 stage 一致性审计、带病通过采纯契约（不新增工具字段）；Round 2 定 task.json 阶段字段命名 stage（implement|check，回避与 workloom_task_check 工具入参 phase 撞名）、core 纪律段与 Pi 角色总述互补式（Pi 保留总述、删除纯报告冲突句）。设计树无开放分支。"
+  },
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-08-31T15:04:44.699Z",
+      "title": "切片1 core stage 字段与归一化"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-31T15:06:41.174Z",
+      "title": "切片2 gate stage=check 放行"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-31T15:10:07.386Z",
+      "title": "切片3 core 按 kind 注入纪律段"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-31T15:11:39.806Z",
+      "title": "切片4 Pi check 角色文案对齐"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-31T15:14:28.338Z",
+      "title": "切片5 doctor stage 一致性审计"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-31T15:17:54.626Z",
+      "title": "切片6 契约与文案对齐"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-08-31T15:20:25.434Z",
+      "title": "切片7 全量回归与一致性巡检"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-31T15:30:10.112Z",
+      "title": "最终检查 stage 机制全量"
+    },
+    {
+      "kind": "check",
+      "at": "2026-08-31T15:54:32.455Z",
+      "title": "重启后复核 stage 机制"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "stage": "check"
+}
