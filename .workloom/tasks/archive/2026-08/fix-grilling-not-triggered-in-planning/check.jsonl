@@ -1,0 +1,2 @@
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "核对 task.json 数据布局兼容（grilling 字段新增不破坏旧数据）"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "核对实现是否符合编码原则（常量/注释/类型导入/测试）"}
