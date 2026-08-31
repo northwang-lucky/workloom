@@ -8,8 +8,9 @@ argument-hint: '--fix'
 # Check workflow health
 
 1. Run the doctor engine against the project `.workloom/` to scan task state machines,
-   parent-child consistency, archive integrity, executor dispatches, active-task
-   pointers, documentation completeness, spec references and configuration.
+   parent-child consistency, archive integrity, executor dispatches, task stage
+   consistency, active-task pointers, documentation completeness, spec references
+   and configuration.
 2. The command hands a structured JSON report to the model as a followup; the model
    rewrites it as a human-readable report and guides the repair of non-structural issues.
 3. Pass `--fix` to auto-repair only the deterministic mechanical issues:
