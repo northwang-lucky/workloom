@@ -13,9 +13,10 @@
  * - 不设 timeout（与 DSH 对齐）；child 用 --no-extensions，无 workloom_execute
  *   工具，天然禁止再派发；
  * - model/effort 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置
- *   （按 executor kind 取值，字段独立合并；model 支持 map 形式按 runtime 取值），
- *   经 --model / --thinking 透传；返回文本尾部追加 receipt 行（生效 model/effort
- *   及来源，可观测性）；
+ *   （按 executor kind 取值，字段独立合并；model 支持 map 形式按 runtime 取值）；
+ *   配置支持 subagent_profiles 按主会话当前模型（工具 ctx.model 的 provider/id）
+ *   分档匹配，命中的条目优先于旧 subagents，经 --model / --thinking 透传；
+ *   返回文本尾部追加 receipt 行（生效 model/effort 及来源，可观测性）；
  * - 显式 model/effort 与 subagents 配置冲突时中断派发并返回提示文本（不派发）；
  *   force: true + reason 放行，覆盖记录写 task.json overrides、receipt 来源标注
  *   追加 (forced)（审计留痕，与 adapter-dsh 同口径）。
@@ -82,14 +83,14 @@ const RECORD_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record fo
 /** 派发审计记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
 const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
-/** 来源标注追加 forced 标记的匹配模式（param/config/default 三种来源）。 */
-const FORCED_SOURCE_PATTERN = / \((param|config|default)\)/g
+/** 来源标注追加 forced 标记的匹配模式（param/config/default 及 config 的 whenMain/fallback/legacy 细分）。 */
+const FORCED_SOURCE_PATTERN = / \((param|config|default)(?:: [^)]*)?\)/g
 
 /**
  * 在子代理输出文本尾部追加 executor receipt 行（可观测性）。
  * 空输出时只返回 receipt 行本身。
  * @param text 子代理原始输出文本
- * @param effective resolveSubagentDefaults 的返回值（含 sources）
+ * @param effective resolveSubagentDefaults 的返回值（含 sources 与配置来源细分）
  * @param forced force 放行时 true：来源标注追加 (forced) 标记（审计留痕）
  * @returns 带 receipt 的完整文本
  */
@@ -99,18 +100,28 @@ export function appendExecutorReceipt(
     model?: string
     effort?: string
     sources: { model?: 'param' | 'config'; effort?: 'param' | 'config' }
+    configSources?: {
+      model?: 'whenMain' | 'fallback' | 'legacy'
+      effort?: 'whenMain' | 'fallback' | 'legacy'
+    }
+    whenMainValue?: string
   },
   forced = false,
 ): string {
   let receipt = buildExecutorReceipt({
     model: effective.model,
     modelSource: effective.sources.model,
+    modelConfigSource: effective.configSources?.model,
+    modelWhenMainValue: effective.whenMainValue,
     effort: effective.effort,
     effortSource: effective.sources.effort,
+    effortConfigSource: effective.configSources?.effort,
+    effortWhenMainValue: effective.whenMainValue,
   })
   if (forced) {
-    // 来源标注追加 (forced)：覆盖事实与来源并存，审计一眼可辨。
-    receipt = receipt.replace(FORCED_SOURCE_PATTERN, ' ($1, forced)')
+    // 来源标注追加 (forced)：覆盖事实与来源（含 whenMain/fallback/legacy 细分）
+    // 并存，审计一眼可辨（替换函数保留括号内原有内容）。
+    receipt = receipt.replace(FORCED_SOURCE_PATTERN, (match) => match.replace(')', ', forced)'))
   }
   return text === '' ? receipt : `${text}\n\n${receipt}`
 }
@@ -125,9 +136,10 @@ export interface ConflictGateResult {
 
 /**
  * 冲突门（纯函数）：显式 model/effort 与 subagents 配置冲突时判定放行路径。
- * 无冲突 → { forced: false }（现状路径）；冲突且未 force → { notice }（不派发）；
- * 冲突且 force → 校验 reason（缺失抛错 fail loud）并放行。覆盖记录是副作用，
- * 由调用方在拿到 taskRelPath 后执行。
+ * 配置侧生效值按合并链解析（subagent_profiles 命中条目 > 旧 subagents，按
+ * 主会话模型匹配）。无冲突 → { forced: false }（现状路径）；冲突且未 force →
+ * { notice }（不派发）；冲突且 force → 校验 reason（缺失抛错 fail loud）并
+ * 放行。覆盖记录是副作用，由调用方在拿到 taskRelPath 后执行。
  */
 export function resolveConflictGate(
   config: WorkloomConfig,
@@ -138,12 +150,14 @@ export function resolveConflictGate(
     force?: boolean
     reason?: string
   },
+  mainModel?: string,
 ): ConflictGateResult {
   const conflicts = detectExecutorConflicts(
     config,
     params.kind,
     { model: params.model, effort: params.effort },
     PI_RUNTIME,
+    mainModel,
   )
   if (conflicts.length === 0) return { forced: false }
   if (params.force === true) {
@@ -208,11 +222,16 @@ export function registerExecutorTool(pi: ExtensionAPI): void {
   })
 }
 
-/** 工具执行上下文最小形状（读 cwd/会话 id/取消信号）。 */
+/** 工具执行上下文最小形状（读 cwd/会话 id/取消信号/当前模型）。 */
 interface ExecutorContextLike {
   cwd: string
   sessionManager: { getSessionId(): string }
   signal?: AbortSignal
+  /**
+   * 当前会话模型（主模型来源；Pi ExtensionAPI 工具 ctx 的窄化形状，
+   * 不引入 @earendil-works/pi-ai 的运行时类型依赖）。
+   */
+  model?: { provider?: string; id?: string }
 }
 
 /** 派发结果（最终文本 + 子进程 pid 作为 runId）。 */
@@ -244,9 +263,11 @@ async function executeTool(
     )
   }
   const root = found.root
-  // 合并子代理默认值：工具参数优先，未出现回退到 subagents 配置（字段独立合并）。
+  // 合并子代理默认值：工具参数优先，未出现回退到 subagent_profiles 命中条目
+  // （按主会话当前模型匹配），再回退到 subagents 配置（字段独立合并）。
   // runtime=PI_RUNTIME 使 model 的 map 形式按 pi 取值（core 负责解析与缺 key 报错）。
   const config = loadConfig(root)
+  const mainModel = readMainModel(ctx)
   const effective = resolveSubagentDefaults(
     config,
     params.kind,
@@ -255,13 +276,15 @@ async function executeTool(
       effort: params.effort,
     },
     PI_RUNTIME,
+    mainModel,
   )
   // effort/kind 非法值 fail loud（core 校验），与 DSH 语义一致。
   assertEffort(effective.effort)
   assertKind(params.kind)
-  // 冲突门：显式参数与配置不一致且未 force 时中断派发（返回提示文本，模型可附
-  // force+reason 重试）；force 放行在拿到 taskRelPath 后记录覆盖。
-  const gate = resolveConflictGate(config, params)
+  // 冲突门：显式参数与配置（按主模型合并后的生效值）不一致且未 force 时中断
+  // 派发（返回提示文本，模型可附 force+reason 重试）；force 放行在拿到
+  // taskRelPath 后记录覆盖。
+  const gate = resolveConflictGate(config, params, mainModel)
   if (gate.notice !== undefined) {
     return {
       content: [{ type: 'text', text: gate.notice }],
@@ -306,6 +329,20 @@ async function executeTool(
     content: [{ type: 'text', text: textWithReceipt }],
     details: { kind: 'foreground', runId: result.runId, status: 'completed' },
   }
+}
+
+/**
+ * 读取主会话当前模型（"provider/model" 字符串）：取自工具上下文 ctx.model；
+ * provider/id 任一缺失时返回 undefined（视为取不到：subagent_profiles 的全部
+ * whenMain 条目跳过，走兜底/旧 subagents，不 fail loud）。
+ * @param ctx 工具执行上下文（model 为可选字段，旧宿主缺失时 undefined）
+ * @returns 主模型标识或 undefined
+ */
+function readMainModel(ctx: ExecutorContextLike): string | undefined {
+  const provider = ctx.model?.provider
+  const id = ctx.model?.id
+  if (provider === undefined || id === undefined) return undefined
+  return `${provider}/${id}`
 }
 
 /**
