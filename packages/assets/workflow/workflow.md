@@ -1,5 +1,5 @@
 ---
-version: 11
+version: 12
 states:
   - no_task
   - planning
@@ -36,6 +36,8 @@ Every question across the workflow — fixed questions and exploratory questions
 3. Never use an interactive question tool (ask_user_question and equivalents); pose questions as plain text output on any runtime.
 4. Never ask one question at a time: once per stage, list every open question identified so far as one numbered batch, and let the user answer them freely, in any order and any subset.
 
+The fixed questions run in flow order: the test-first question (implementation tasks) → the UI-design question (yes enters 1.1b) → the grilling question (after the UI question answers no, or after 1.1b completes; yes enters 1.1c).
+
 **The fixed test-first question:** does implementation require test-first delivery?
 Options:
 - A. yes: seams join the alignment scope.
@@ -50,6 +52,13 @@ Options:
 - B. no.
 
 For A, after brainstorming, run Phase 1.1b UI design alignment with the `workloom-ui-design` skill: explore the UI axes (pages/components and information architecture, layout and navigation, visual style and design source, interactions and states, responsiveness, accessibility, observable acceptance points), record decidable UI requirements in a `## UI Design` section of prd.md, and require a UI design chapter in design.md when the task is complex. UI decisions then join grilling (Phase 1.1c) for the design-tree pressure test; all UI requirements face the same no-grey-areas gate.
+
+**The fixed grilling question:** does this task involve design-tree grilling?
+Options:
+- A. yes: grilling joins the alignment scope (Phase 1.1c).
+- B. no.
+
+Tasks whose UI-design question answered yes do not get this question — they go straight into Phase 1.1c grilling. For A: record the judgment with `workloom_task_check` (phase=grilling, required=true); after grilling converges, record passedAt + summary with a second call (phase=grilling, summary); the convergence conclusions go into prd.md acceptance criteria. For B: record required=false — the record distinguishes "answered no" from "never asked".
 
 Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, and the frontier holds no open assumptions.
 
@@ -104,7 +113,7 @@ No active task right now. When the user expresses a need, answer direct question
 [/workflow-state:no_task]
 
 [workflow-state:planning]
-The task is in planning. Follow Phase 1: align requirements (workloom-brainstorm + grilling, no-grey-areas gate) → optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
+The task is in planning. Act now, in order: load the workloom-brainstorm skill and explore requirements; then ask the fixed questions in flow order — test-first → UI → the fixed grilling question; for tasks with design decisions, run grilling (Phase 1.1c) after brainstorm and do not finalize prd.md before grilling converges. Then follow Phase 1: optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
@@ -134,4 +143,5 @@ Task decomposition (always-on):
 Grilling (always-on):
 
 - After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare "frontier empty" just because the user answered the current batch — claim convergence only when no open question remains.
+- In the planning phase, run grilling after brainstorm; do not finalize prd.md before grilling converges.
 [/workflow-norms]

@@ -1,6 +1,6 @@
 ---
 name: workloom-brainstorm
-description: Explore and align task requirements in numbered question batches (workloom Phase 1.1a); use when the user asks to "explore requirements", when a task needs requirement alignment before prd.md is written, or when any planning-phase task has open requirement questions.
+description: Explore and align task requirements in numbered question batches (workloom Phase 1.1a); use when the user asks to "explore requirements", when a task needs requirement alignment before prd.md is written, or when any planning-phase task has open requirement questions. Also use when grilling, design-tree pressure-testing, or stress-testing requirements comes up: brainstorm exploration must run first.
 ---
 
 # Workloom Brainstorm
@@ -22,7 +22,7 @@ Ask every question in the user's language, keep options out of the question text
 - **workloom-brainstorm (this skill)** clarifies _what is wanted_: it explores the user's intent into aligned requirements, each one decidable.
 - **grilling** pressure-tests _whether the decision as made is right and what is still undecided_: it works the design tree in rounds and gives a recommended answer per question.
 
-Tasks with design decisions run both: workloom-brainstorm first to settle the requirement set, then grilling to stress-test the decisions. Every requirement in `prd.md` must survive both passes. Tasks with frontend presentation requirements continue into Phase 1.1b UI design alignment (workloom-ui-design skill) before grilling.
+Tasks with design decisions run both: workloom-brainstorm first to settle the requirement set, then grilling to stress-test the decisions. Every requirement in `prd.md` must survive both passes. Tasks with frontend presentation requirements continue into Phase 1.1b UI design alignment (workloom-ui-design skill) before grilling. When exploration completes, you must first ask the fixed grilling question (workflow contract 1.1: does this task involve design-tree grilling? A. yes / B. no) before deciding whether to enter Phase 1.1c — do not skip straight to prd.md finalization.
 
 ## Completion criteria (hard gate)
 
