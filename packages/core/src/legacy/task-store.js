@@ -106,6 +106,15 @@ const DEFAULT_PRIORITY = TaskPriority.P2
 const PRIORITY_SET = new Set(Object.values(TaskPriority))
 
 /**
+ * 任务阶段枚举（task.json.stage 取值；implement/check 二相）。
+ * @type {Readonly<Record<import('./task-store.d.ts').TaskStageKey, import('./task-store.d.ts').TaskStageValue>>}
+ */
+export const TaskStage = Object.freeze({
+  IMPLEMENT: 'implement',
+  CHECK: 'check',
+})
+
+/**
  * 由标题生成 kebab-case slug：非字母数字转连字符、去首尾连字符、全小写、截断 40 字符。
  * @param {string} title 任务标题
  * @returns {string}
@@ -171,7 +180,8 @@ function pad2(value) {
 /**
  * 归一化 task.json 记录：旧格式任务缺 hooks 字段时补齐空数组，
  * 保证 create/start/finish/archive 各 hook 调用点对旧数据安全；
- * 缺 check/overrides/dispatches 字段时补 null/空数组，保证门禁读取对旧数据安全。
+ * 缺 check/overrides/dispatches 字段时补 null/空数组，保证门禁读取对旧数据安全；
+ * 缺 stage 字段时补默认 implement（旧任务未进入 check 阶段，门禁维持拦截）。
  * @param {import('./task-store.d.ts').TaskRecord} parsed task.json 解析结果
  * @returns {import('./task-store.d.ts').TaskRecord} 归一化后的记录
  */
@@ -197,6 +207,8 @@ function normalizeTaskRecord(parsed) {
     // grilling 凭据（判定/收敛）缺失补 null：与 check 同策，保证门禁对旧数据安全。
     grilling: parsed.grilling ?? null,
     overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
+    // 任务阶段：旧任务缺 stage 归一化默认 implement（未进入 check 阶段，门禁维持拦截）。
+    stage: parsed.stage ?? TaskStage.IMPLEMENT,
     dispatches: Array.isArray(parsed.dispatches) ? parsed.dispatches : [],
     // parent/children 兜底：旧任务缺字段时补 null/空数组，保证父子校验与联动对旧数据安全。
     parent: parsed.parent ?? null,
@@ -316,6 +328,8 @@ function buildTaskRecord(input) {
     // grilling 凭据（required/passedAt/summary）：planning 阶段经 checkTask phase=grilling 记录。
     grilling: null,
     overrides: [],
+    // 任务阶段：新建任务显式落盘 implement（首次派发前处于实现期）。
+    stage: TaskStage.IMPLEMENT,
     dispatches: [],
     hooks: {
       after_create: input.config.hooks.afterCreate,
@@ -808,6 +822,8 @@ function recordExecutorDispatchInternal(root, taskRelPath, entry) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, taskRelPath)
   task.dispatches.push(buildDispatchRecord(entry))
+  // 与 dispatches 同点更新 stage：research 保持，implement/frontend → implement，check → check。
+  task.stage = computeTaskStage(task.stage, entry.kind)
   writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task))
 }
 
@@ -831,6 +847,27 @@ function buildDispatchRecord(entry) {
     )
   }
   return { kind: entry.kind, at: new Date().toISOString(), title: entry.title }
+}
+
+/**
+ * 计算派发后的任务阶段（纯函数，独立可测）：research 保持 current；
+ * implement/frontend → 'implement'；check → 'check'。
+ * kind 非法（含 undefined）抛错（fail loud，与 assertKind 同语义）。
+ * @param {import('./task-store.d.ts').TaskStageValue} current 当前阶段（readTask 归一化后必有值）
+ * @param {string} kind executor 类型
+ * @returns {import('./task-store.d.ts').TaskStageValue}
+ */
+export function computeTaskStage(current, kind) {
+  if (typeof kind !== 'string' || !Object.values(EXECUTOR_KINDS).includes(kind)) {
+    throw new Error(
+      `${ERR_PREFIX}: invalid kind: ${String(kind)} (must be one of ${Object.values(
+        EXECUTOR_KINDS,
+      ).join('/')})`,
+    )
+  }
+  if (kind === EXECUTOR_KINDS.research) return current
+  if (kind === EXECUTOR_KINDS.check) return TaskStage.CHECK
+  return TaskStage.IMPLEMENT
 }
 
 /**
