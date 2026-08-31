@@ -117,8 +117,9 @@ export const PARAM_DESCRIPTIONS = {
     'Required semantic part of the child session title; the executor assembles it as [<KindLabel>] <title>; only effective on the DSH adapter',
   kind: 'Executor role: research, implement, check, or frontend',
   model:
-    'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to subagents.<kind>.model, then the parent session model',
-  effort: 'Reasoning effort: low/medium/high/xhigh/max; defaults to subagents.<kind>.effort',
+    'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to the matching subagent_profiles entry (by main session model), then subagents.<kind>.model, then the parent session model',
+  effort:
+    'Reasoning effort: low/medium/high/xhigh/max; falls back to the matching subagent_profiles entry, then subagents.<kind>.effort',
   prompt: 'Task instructions for the executor subagent',
   stepId: 'Workflow step id, e.g. 1.1 or 2.1',
   journalTitle: 'Journal entry title',
@@ -213,6 +214,9 @@ export const GRILLING_PENDING_NOTE =
  * 拼装 executor 回执行：生效 model/effort 及各自来源（运行时文案英文）。
  * 字段缺失时显示 `<parent session>` / `<unset>` 与 `(default)` 来源，
  * 使配置未生效一眼可辨。
+ * 配置来源细分：sources=config 时按 configConfigSource 渲染
+ * `(config: whenMain=<值>)` / `(config: fallback)` / `(config: legacy)`；
+ * 调用方未传细分时保持 `(config)`（向后兼容）。
  * effort 段条件渲染：effort/effortSource 均未传时整段省略（调用方未传该维度
  * 时保持 receipt 精简）；任一存在则按原格式渲染（缺失字段仍显示
  * `<unset>`/`(default)`，兼容浅传参），Pi/DSH 传参行为不变。
@@ -220,16 +224,52 @@ export const GRILLING_PENDING_NOTE =
 export function buildExecutorReceipt(params: {
   model?: string
   modelSource?: 'param' | 'config'
+  modelConfigSource?: 'whenMain' | 'fallback' | 'legacy'
+  modelWhenMainValue?: string
   effort?: string
   effortSource?: 'param' | 'config'
+  effortConfigSource?: 'whenMain' | 'fallback' | 'legacy'
+  effortWhenMainValue?: string
 }): string {
   const modelLabel = params.model ?? '<parent session>'
-  const modelSrc = params.modelSource ? ` (${params.modelSource})` : ' (default)'
+  const modelSrc = formatSource(
+    params.modelSource,
+    params.modelConfigSource,
+    params.modelWhenMainValue,
+    params.model,
+  )
   let receipt = `[workloom executor] model: ${modelLabel}${modelSrc}`
   if (params.effort !== undefined || params.effortSource !== undefined) {
     const effortLabel = params.effort ?? '<unset>'
-    const effortSrc = params.effortSource ? ` (${params.effortSource})` : ' (default)'
+    const effortSrc = formatSource(
+      params.effortSource,
+      params.effortConfigSource,
+      params.effortWhenMainValue,
+      params.effort,
+    )
     receipt += `, effort: ${effortLabel}${effortSrc}`
   }
   return receipt
+}
+
+/**
+ * 渲染单字段来源标注：param/default 原样；config 按配置来源细分
+ * （whenMain 带匹配值；细分缺失时保持 `(config)` 向后兼容）。
+ */
+function formatSource(
+  source: 'param' | 'config' | undefined,
+  configSource: 'whenMain' | 'fallback' | 'legacy' | undefined,
+  whenMainValue: string | undefined,
+  value: string | undefined,
+): string {
+  if (source === 'param') return ' (param)'
+  if (source === 'config') {
+    if (configSource === 'whenMain') {
+      return ` (config: whenMain=${whenMainValue ?? value})`
+    }
+    if (configSource === 'fallback') return ' (config: fallback)'
+    if (configSource === 'legacy') return ' (config: legacy)'
+    return ' (config)'
+  }
+  return ' (default)'
 }

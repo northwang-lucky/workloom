@@ -137,7 +137,9 @@ export {
 export type {
   WorkloomConfig,
   SubagentConfigEntry,
+  SubagentProfile,
   SubagentDefaultSource,
+  SubagentConfigSource,
   ResolveSubagentDefaultsResult,
   ExecutorConflict,
 } from './legacy/config.d.ts'
