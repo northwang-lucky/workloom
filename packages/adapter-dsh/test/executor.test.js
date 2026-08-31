@@ -9,9 +9,22 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { PARAM_DESCRIPTIONS } from '@workloom-ai/core'
+import { PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
 import { registerExecutor } from '../dist/executor.js'
 import { decideWriteGate } from '../dist/gate.js'
+
+/** DSH 原生委派类工具候选名（与实现的 deny 清单候选集一致；测试自给自足）。 */
+const NATIVE_DELEGATION_CANDIDATES = [
+  'subagent',
+  'subagent_with_model',
+  'subagent_fork',
+  'list_agents',
+  'send_message',
+  'interrupt_agent',
+  'ralph',
+  'workflow',
+  'ralph-loop',
+]
 
 /** 构造最小可工作的 workloom 项目根（含 config.yaml）。 */
 function makeProject(configYaml) {
@@ -67,9 +80,34 @@ function makeCtx(overrides = {}) {
       registered.push(def)
       return () => {}
     },
+    // 运行时可见工具名：默认 9 个 workloom 工具 + 全部委派候选 + 常规工具
+    // （模拟真实宿主注册面）；用例可经 overrides.visibleTools 自定义。
+    schemas() {
+      const names =
+        overrides.visibleTools === undefined
+          ? [...Object.values(TOOL_NAMES), ...NATIVE_DELEGATION_CANDIDATES, 'write', 'edit']
+          : overrides.visibleTools
+      return names.map((name) => ({ name }))
+    },
   }
 
   const subagents = {
+    // spawn provider 查询：默认全 capability（toolFilter: true，现状用例零影响）；
+    // 用例可经 overrides.subagentProvider / overrides.getProvider 覆盖。
+    getProvider(name) {
+      if (overrides.getProvider !== undefined) return overrides.getProvider(name)
+      if (overrides.subagentProvider !== undefined) return overrides.subagentProvider
+      return {
+        name,
+        capabilities: {
+          outputSchema: true,
+          depthLimit: true,
+          toolFilter: true,
+          persona: true,
+        },
+        inheritsParentContext: true,
+      }
+    },
     async start(name, request) {
       startCalls.push({ name, request })
       // 默认 completed + 文本输出；subagentResult 覆盖最终结果（可用函数按调用次数）。
@@ -945,6 +983,106 @@ subagents:
   }
 })
 
+test('spawn 请求携带 toolFilter deny：9 workloom 名 + 可见委派候选交集，不可见候选不入 deny', async () => {
+  const root = makeProject('')
+  try {
+    // 运行时可见工具集：9 个 workloom 工具全可见 + 部分委派候选可见 + 常规工具。
+    const visible = [
+      ...Object.values(TOOL_NAMES),
+      'subagent',
+      'subagent_with_model',
+      'ralph',
+      'write',
+      'edit',
+    ]
+    const { execute, startCalls } = setupExecutor({ visibleTools: visible })
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'toolfilter test' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    // deny = workloom 9 名全量 + 可见候选（subagent/subagent_with_model/ralph）；
+    // 不可见候选（subagent_fork 等）不得硬编码进 deny（未知名字会使 restrict fail）。
+    const expectedDeny = [...Object.values(TOOL_NAMES), 'subagent', 'subagent_with_model', 'ralph']
+    assert.deepEqual(startCalls[0].request.toolFilter, { deny: expectedDeny })
+    for (const name of NATIVE_DELEGATION_CANDIDATES) {
+      const visibleCandidate = visible.includes(name)
+      const denied = startCalls[0].request.toolFilter.deny.includes(name)
+      assert.equal(denied, visibleCandidate, `candidate ${name} must be denied only when visible`)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('provider 缺 toolFilter capability：spawn 前 fail loud（清晰英文错误，不静默丢弃）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor({
+      subagentProvider: {
+        name: 'spawn',
+        capabilities: {
+          outputSchema: true,
+          depthLimit: true,
+          toolFilter: false,
+          persona: true,
+        },
+        inheritsParentContext: true,
+      },
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'capability test' },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /toolFilter/,
+    )
+    assert.equal(startCalls.length, 0, 'start must not be called when the capability is missing')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('provider 未注册（getProvider 返回 undefined）：spawn 前 fail loud', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor({ getProvider: () => undefined })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'no provider test' },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /toolFilter/,
+    )
+    assert.equal(startCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('provider 畸形（capabilities 缺失）：spawn 前 fail loud（清晰英文错误，非 TypeError）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor({
+      subagentProvider: { name: 'spawn', inheritsParentContext: true },
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'malformed test' },
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /"toolFilter" capability/,
+    )
+    assert.equal(startCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('派发期间登记写门禁豁免、结算后注销（门禁对子代理生效）', async () => {
   const root = makeProject('executor:\n  gate: true\n')
   // 任务标记为 in_progress，使非豁免子代理在业务路径上会被门禁 deny。
@@ -963,8 +1101,18 @@ test('派发期间登记写门禁豁免、结算后注销（门禁对子代理�
           registered.push(def)
           return () => {}
         },
+        schemas() {
+          return [...Object.values(TOOL_NAMES), 'write', 'edit'].map((name) => ({ name }))
+        },
       },
       subagents: {
+        getProvider() {
+          return {
+            name: 'spawn',
+            capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: true },
+            inheritsParentContext: true,
+          }
+        },
         async start() {
           return {
             id: 'child-gate-1',

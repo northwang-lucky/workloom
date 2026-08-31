@@ -32,6 +32,11 @@
  * - 冲突中断：显式 model 与 subagents 配置不一致时，无 force 直接返回
  *   buildConflictNotice 提示文本不派发；force: true 须带非空 reason 留痕（写入
  *   task.json overrides），放行后 receipt 追加 (forced) 标注便于审计；
+ * - 工具面硬屏蔽：spawn 请求携带 toolFilter deny（workloom 9 工具全量 + DSH 原生
+ *   委派候选与运行时可见工具名的交集），使 executor 子代理的可见工具集与执行面
+ *   同时剔除编排/委派工具（未知名字会使 restrict fail，候选必须求交）；spawn 前
+ *   校验 provider 的 toolFilter capability，缺失时 fail loud（不静默丢弃），
+ *   start reject 的 UNSUPPORTED_CAPABILITY 同样转为清晰英文错误兜底；
  * - 异常终止：run.result.stopReason 非 completed 时以工具错误返回（文本为
  *   diagnostic，缺失用 stopReason 兜底），不附输出文本（避免把中止当成功消费）；
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源，使配置未生效一眼可辨。
@@ -93,6 +98,22 @@ const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record 
 /** 释放子代理运行失败告警前缀（运行时文案英文；释放失败不阻塞结果返回）。 */
 const DISPOSE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to dispose executor run:`
 
+/**
+ * DSH 原生委派类工具候选名（模型可见的派发/编排面）：与运行时可见工具名集合
+ * 求交后进 deny（未知名字会使 restrict fail，候选名不得硬编码进 deny）。
+ */
+const NATIVE_DELEGATION_CANDIDATES: readonly string[] = [
+  'subagent',
+  'subagent_with_model',
+  'subagent_fork',
+  'list_agents',
+  'send_message',
+  'interrupt_agent',
+  'ralph',
+  'workflow',
+  'ralph-loop',
+]
+
 /** 纯文本块最小形状（render 与返回值共用）。 */
 interface TextBlockLike {
   type: 'text'
@@ -131,9 +152,10 @@ interface MinimalAgent {
   }
 }
 
-/** tools 服务的最小接口（register 即可）。 */
+/** tools 服务的最小接口（register + schemas 全局视图）。 */
 interface ToolsService {
   register(definition: MinimalToolDefinition): () => void
+  schemas(): readonly { name: string }[]
 }
 
 /** 一次性子代理运行的最小形状（读取结果与释放；@deepseek-ai/dsh-subagent 契约）。 */
@@ -147,8 +169,14 @@ interface SubagentRunLike {
   dispose(): Promise<void>
 }
 
-/** subagents 服务的最小接口（one-shot 前台派发）。 */
+/** spawn provider 的最小形状（capability 校验用）。 */
+interface SpawnProviderLike {
+  capabilities: { toolFilter: boolean }
+}
+
+/** subagents 服务的最小接口（one-shot 前台派发 + provider 查询）。 */
 interface SubagentsService {
+  getProvider(name: string): SpawnProviderLike | undefined
   start(
     name: string,
     request: {
@@ -158,6 +186,7 @@ interface SubagentsService {
       signal: AbortSignal
       agentOptions?: { provider?: string; model?: string; reasoningEffort?: ReasoningEffortId }
       maxDepth?: number
+      toolFilter?: { deny: string[] }
     },
   ): Promise<SubagentRunLike>
 }
@@ -345,14 +374,27 @@ async function executeTool(
   // 拒绝 follow-up；maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理
   // 深度为 1，设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
   // 即「executor 子代理禁止再派发 workloom_execute」。
-  const run = await ctx.subagents.start(SPAWN_PROVIDER, {
-    label: buildChildLabel(root, taskRelPath, params.kind, params.title),
-    prompt: [{ type: 'text', text: built.text }],
-    parent,
-    signal: exec.signal,
-    agentOptions,
-    maxDepth: 1,
-  })
+  // 工具面硬屏蔽：spawn 前校验 provider 的 toolFilter capability（缺失 fail loud，
+  // 不静默丢弃）；deny 清单 = workloom 9 工具全量 + 委派候选与运行时可见工具名的
+  // 交集（未知名字会使 restrict fail，候选名必须求交，不得硬编码）。
+  const provider = ctx.subagents.getProvider(SPAWN_PROVIDER)
+  assertToolFilterCapability(provider)
+  const visibleNames = new Set(ctx.tools.schemas().map((schema) => schema.name))
+  let run
+  try {
+    run = await ctx.subagents.start(SPAWN_PROVIDER, {
+      label: buildChildLabel(root, taskRelPath, params.kind, params.title),
+      prompt: [{ type: 'text', text: built.text }],
+      parent,
+      signal: exec.signal,
+      agentOptions,
+      maxDepth: 1,
+      toolFilter: { deny: buildDenyList(visibleNames) },
+    })
+  } catch (error) {
+    // start reject 的 capability 错误兜底（如 provider 未注册/缺能力）转清晰英文错误。
+    throw toCapabilityError(error)
+  }
   // start resolve 即登记写门禁豁免：run.id 必等于子代理 session id（SubagentRun.id 契约），
   // 使 executor 派发的子代理在判定链中放行；start resolve 前子代理不开始 turn，无竞态。
   registerWriteGateExemption(run.id)
@@ -472,4 +514,62 @@ function renderOutput(value: unknown): TextBlockLike {
   const result = value as { output?: readonly { text?: string }[] }
   const text = result.output?.[0]?.text ?? ''
   return { type: 'text', text }
+}
+
+/**
+ * 组装 toolFilter deny 清单：workloom 自有 9 工具名全量 + DSH 原生委派候选名
+ * 与运行时可见工具名集合的交集（未知名字会使 restrict fail，候选名必须求交）。
+ * 求交源限制：ctx.tools.schemas() 是全局层工具视图（宿主 sandbox facade 按本插件
+ * 自身作用域无参调用返回），agent-plane（preset standing-mount 层）的委派工具名
+ * 不在该视图内、不可枚举，故不在本仓库可屏蔽范围——其兜底为部署层 maxDepth
+ * （任务 Notes B），并随上游跟进（Notes C：父代理 prospective 工具视图）升级求交源。
+ * @param visibleNames 运行时可见工具名集合（ctx.tools.schemas() 全局视图投影）
+ * @returns deny 清单（workloom 名在前，候选名按声明顺序在后）
+ */
+export function buildDenyList(visibleNames: ReadonlySet<string>): string[] {
+  const denied = new Set<string>()
+  for (const name of Object.values(TOOL_NAMES)) denied.add(name)
+  for (const name of NATIVE_DELEGATION_CANDIDATES) {
+    if (visibleNames.has(name)) denied.add(name)
+  }
+  return [...denied]
+}
+
+/**
+ * 校验 spawn provider 支持 toolFilter capability；缺失时 fail loud（不静默丢弃）。
+ * provider 未注册（getProvider 返回 undefined）同样 fail loud：无法验证能力即不派发。
+ * @param provider spawn provider（ctx.subagents.getProvider 的结果）
+ */
+export function assertToolFilterCapability(provider: SpawnProviderLike | undefined): void {
+  if (provider === undefined) {
+    throw new Error(
+      `${ERR_PREFIX.executor}: the subagent provider "${SPAWN_PROVIDER}" is not registered; ` +
+        'executor dispatch requires a provider that supports the "toolFilter" capability',
+    )
+  }
+  // capabilities 整体缺失（畸形 provider）与 toolFilter: false 同等 fail loud：
+  // 可选链缺省 undefined !== true，统一走清晰英文错误，不抛原始 TypeError。
+  if (provider.capabilities?.toolFilter !== true) {
+    throw new Error(
+      `${ERR_PREFIX.executor}: the subagent provider "${SPAWN_PROVIDER}" does not support the ` +
+        '"toolFilter" capability; the deployment must support toolFilter for executor dispatch',
+    )
+  }
+}
+
+/**
+ * start reject 的 capability 错误兜底：UNSUPPORTED_CAPABILITY 转清晰英文错误
+ * （指明部署需支持 toolFilter capability）；其余错误原样透传。
+ * @param error start reject 的错误
+ * @returns 转换后的错误
+ */
+function toCapabilityError(error: unknown): unknown {
+  if ((error as { code?: unknown } | null)?.code === 'UNSUPPORTED_CAPABILITY') {
+    return new Error(
+      `${ERR_PREFIX.executor}: executor dispatch requires a deployment whose subagent ` +
+        `provider supports the "toolFilter" capability (${String((error as Error).message)})`,
+      { cause: error },
+    )
+  }
+  return error
 }

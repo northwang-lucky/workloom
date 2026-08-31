@@ -147,8 +147,18 @@ subagents:
         registered.push(def)
         return () => {}
       },
+      schemas() {
+        return ['workloom_execute', 'workloom_step', 'write', 'edit'].map((name) => ({ name }))
+      },
     }
     ctx.subagents = {
+      getProvider() {
+        return {
+          name: 'spawn',
+          capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: true },
+          inheritsParentContext: true,
+        }
+      },
       async start(name, request) {
         startCalls.push({ name, request })
         // 模拟 DSH startInProcessRun：resolveChildAgentOptions 的 ...requested 展开
