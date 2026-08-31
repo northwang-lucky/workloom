@@ -1,5 +1,6 @@
 /**
- * adapter-dsh 的 executor 硬门禁：任务 in_progress 期间主会话禁止直接写业务文件。
+ * adapter-dsh 的 executor 硬门禁：任务 in_progress 期间主会话禁止直接写业务文件
+ * （stage=check 例外：check 阶段主会话修复窗口放行，契约要求修复后重派 check 复核）。
  *
  * 设计意图：
  * - 契约层（workflow.md）约束「实现改走 workloom_execute」，此处提供第二道防线：
@@ -10,8 +11,8 @@
  *   subagent_fork/continuable 复用的子代理不被豁免，与主会话走同种约束，
  *   从而堵住「fork 子代理绕过主会话门禁」的通道（进程内 Set，按 child session id 索引）；
  * - 判定链任一环节不满足即放行：非写工具、无项目根、executor.gate 关闭、
- *   无活动任务或任务非 in_progress、目标路径不在工作目录（项目根）内、
- *   目标路径在 .workloom/ 内（任务自身录放行）；
+ *   无活动任务或任务非 in_progress、任务 stage=check（主会话修复窗口，仅主会话判定链）、
+ *   目标路径不在工作目录（项目根）内、目标路径在 .workloom/ 内（任务自身录放行）；
  * - 判定基础设施故障（config/task 读取抛错等）只 console.warn 并放行：
  *   门禁是约束不是锁死，绝不能因拦截器自身故障阻塞会话；
  * - 已知边界：bash 工具内的写文件命令（cat >、sed -i 等）无法拦截，仍靠契约约束。
@@ -28,6 +29,7 @@ import {
   loadConfig,
   readTask,
   resolveActiveTask,
+  TaskStage,
   TaskStatus,
   WORKLOOM_DIR,
 } from '@workloom-ai/core'
@@ -128,6 +130,9 @@ function decideMainSessionGate(input: WriteGateInput, agent: Agent): PreToolDeci
   const [taskErr, task] = readTask(found.root, taskRelPath)
   if (taskErr !== null || task === null) return ALLOW
   if (task.status !== TaskStatus.IN_PROGRESS) return ALLOW
+  // check 阶段主会话修复窗口（design.md §3）：stage=check 时放行主会话直接修复业务文件；
+  // 修复后须重派 check 复核（契约兜底）。decideSubagentGate 与 stage 无关，fork 绕行仍拦截。
+  if (task.stage === TaskStage.CHECK) return ALLOW
   return decideTarget(input, cwd, found.root)
 }
 
