@@ -195,3 +195,37 @@ test('task.json 状态损坏时返回 err', async () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('delegationDepth>0 时完全不注入 breadcrumb（返回 null）', async () => {
+  const root = makeProject()
+  try {
+    // 深度>0（executor 等叶子子代理）：跳过全部编排，直接返回 null，不读契约与任务。
+    addTask(root, 'dsh_wf_8', 'in_progress')
+    const [err, text] = await assembleBreadcrumb({
+      root,
+      contextKey: 'dsh_wf_8',
+      contractText: CONTRACT_TEXT,
+      delegationDepth: 1,
+    })
+    assert.equal(err, null)
+    assert.equal(text, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('delegationDepth 缺省为 0：行为与现状一致（规划任务返回规划指引）', async () => {
+  const root = makeProject()
+  try {
+    addTask(root, 'dsh_wf_9', 'planning')
+    const [err, text] = await assembleBreadcrumb({
+      root,
+      contextKey: 'dsh_wf_9',
+      contractText: CONTRACT_TEXT,
+    })
+    assert.equal(err, null)
+    assert.equal(text, 'Align requirements before writing code.')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

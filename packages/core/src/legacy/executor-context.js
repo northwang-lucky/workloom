@@ -58,6 +58,16 @@ const TASK_PROMPT_HEADING = '## Task prompt'
 /** 首行任务标注模板。 */
 const ACTIVE_TASK_PREFIX = 'Active task: '
 
+/** 叶子执行器契约段标题（追加在 prompt 末尾的固定段，所有 kind 一致生效）。 */
+const EXECUTOR_CONTRACT_HEADING = '## Executor contract'
+
+/** 叶子执行器规则正文（一行，零派发语义，运行时文案英文）。 */
+const LEAF_EXECUTOR_RULE =
+  'You are a leaf executor subagent: implement directly; never dispatch subagents or call workloom orchestration tools.'
+
+/** 防重复判定关键词（userPrompt 已含时不再追加叶子契约段）。 */
+const LEAF_RULE_KEYWORD = 'leaf executor'
+
 /** 截断提示前缀（N 为保留字节数）。 */
 const TRUNCATED_PREFIX = '[...truncated at '
 
@@ -145,6 +155,10 @@ function buildInternal(params) {
   }
   if (params.userPrompt !== '') {
     parts.push(`${TASK_PROMPT_HEADING}\n${params.userPrompt}`)
+  }
+  // 叶子执行器契约段（兜底纪律，所有 kind 一致生效）：userPrompt 已含关键词时不重复追加。
+  if (!params.userPrompt.includes(LEAF_RULE_KEYWORD)) {
+    parts.push(`${EXECUTOR_CONTRACT_HEADING}\n${LEAF_EXECUTOR_RULE}`)
   }
   return { text: parts.join('\n\n'), stats }
 }

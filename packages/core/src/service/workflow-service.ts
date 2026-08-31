@@ -52,6 +52,8 @@ export interface AssembleBreadcrumbParams {
   contractText: string
   /** 本轮用户消息（逃生舱关键词判定用，可选）。 */
   userPrompt?: string
+  /** 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）。深度>0 时不注入 breadcrumb。 */
+  delegationDepth?: number
 }
 
 /**
@@ -76,6 +78,8 @@ export function assembleBreadcrumbSync(
   params: AssembleBreadcrumbParams,
 ): [Error | null, string | null] {
   try {
+    // 深度>0（executor 等叶子子代理）：完全不注入 breadcrumb，跳过全部编排。
+    if ((params.delegationDepth ?? 0) > 0) return [null, null]
     return [null, assembleBreadcrumbInternal(params)]
   } catch (error) {
     return [toError(error), null]

@@ -57,6 +57,20 @@ const GUIDELINES_LABEL = 'Guidelines (spec index — read files as needed):'
 /** norms 段标签行（固定文案）。 */
 const NORMS_LABEL = 'Always-on norms:'
 
+/**
+ * executor 版 norms（delegationDepth>0 时整体替换契约 norms，核心静态常量）。
+ * 叶子执行器实施纪律：零派发语义（不含 dispatch 字样），措辞与现有 norms 风格一致。
+ */
+const EXECUTOR_NORMS = [
+  'Executor (always-on):',
+  '- You are a leaf executor: implement the task directly, never delegate to other agents.',
+  '- Do not call workloom orchestration tools (workloom_execute, workloom_step, workloom_task_*, workloom_journal) or any subagent-spawning tools.',
+  '- Implement strictly per the task artifacts (prd/design/implement) and the files referenced by the task jsonl.',
+  '- Follow test-first discipline: write the failing test, then the minimal implementation, then run it green.',
+  '- Verify your work (lint, typecheck, tests, build) before reporting; never commit or push.',
+  '- Report concisely: changed files, red-green evidence, and remaining risks.',
+].join('\n')
+
 /** guidelines 条目缩进。 */
 const GUIDELINES_INDENT = '  '
 
@@ -73,6 +87,8 @@ export interface SessionContextParams {
   workflowSteps: readonly { id: string; title: string }[]
   /** always-on 行为规范原文（契约 norms 块，可多行）；缺失或空白时快照不输出该小节。 */
   norms?: string | null
+  /** 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）。深度>0 时 norms 段整体替换为 executor 版。 */
+  delegationDepth?: number
 }
 
 /**
@@ -109,9 +125,13 @@ function assembleInternal(params: SessionContextParams): string {
     lines.push(`${LINE_LABELS.workflow}${overview}`)
   }
   lines.push(...guidelinesLines(params.root))
-  const norms = params.norms
-  if (hasNorms(norms)) {
-    lines.push(NORMS_LABEL, norms)
+  // 深度>0（executor 等叶子子代理）：norms 段整体替换为 executor 版（无视契约 norms，
+  // 保证纪律注入不依赖契约内容）；深度=0 保持现状（契约 norms 原文，缺失不输出）。
+  const depth = params.delegationDepth ?? 0
+  if (depth > 0) {
+    lines.push(NORMS_LABEL, EXECUTOR_NORMS)
+  } else if (hasNorms(params.norms)) {
+    lines.push(NORMS_LABEL, params.norms)
   }
   return `${BLOCK_OPEN}\n${lines.join('\n')}\n${BLOCK_CLOSE}`
 }
