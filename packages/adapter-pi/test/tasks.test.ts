@@ -79,6 +79,31 @@ test('TASK_CREATE_PARAMS schema 含 parent 可选字符串（描述引用 PARAM_
   assert.ok(!def.parameters.required?.includes('parent'), 'parent must be optional')
 })
 
+test('TASK_CHECK_PARAMS schema 含 phase（枚举 grilling/check、缺省 check、描述引用 PARAM_DESCRIPTIONS.phase）与 required', () => {
+  const { pi, registered } = makePi()
+  registerTaskTools(pi)
+  const def = registered.find((entry) => entry.name === 'workloom_task_check')
+  assert.ok(def, 'check tool must be registered')
+  const props = def.parameters.properties
+  const phase = props.phase as
+    { anyOf?: { const?: string }[]; default?: string; description?: string } | undefined
+  assert.ok(phase, 'phase param must be present')
+  assert.deepEqual(
+    phase.anyOf?.map((entry) => entry.const),
+    ['check', 'grilling'],
+  )
+  assert.equal(phase.default, 'check')
+  // 描述引用 core surface 常量（phase 短描述 + phaseGrilling 完整语义）
+  const phaseDesc = readDescription(props.phase)
+  assert.ok(phaseDesc !== undefined, 'phase description must be present')
+  assert.ok(phaseDesc.includes(PARAM_DESCRIPTIONS.phase))
+  assert.ok(phaseDesc.includes(PARAM_DESCRIPTIONS.phaseGrilling))
+  const requiredParam = props.required as { type?: string; description?: string } | undefined
+  assert.ok(requiredParam, 'required param must be present')
+  assert.equal(requiredParam.type, 'boolean')
+  assert.equal(readDescription(props.required), PARAM_DESCRIPTIONS.grillingRequired)
+})
+
 test('executeCreate 转发 parent：子任务落盘 parent 字段且父 children 联动', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-tasks-'))
   mkdirSync(join(root, '.workloom'))

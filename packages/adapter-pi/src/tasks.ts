@@ -50,9 +50,20 @@ const TASK_START_PARAMS = Type.Object({
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reason })),
 })
 
-/** check 工具参数 schema（summary 必填 + taskPath/force/reason）。 */
+/**
+ * check 工具参数 schema（phase 缺省 check；summary 在 grilling 判定调用时可缺省，
+ * required 为 grilling 判定值，描述引用 core surface 常量）。
+ */
 const TASK_CHECK_PARAMS = Type.Object({
-  summary: Type.String({ description: PARAM_DESCRIPTIONS.summary }),
+  phase: Type.Optional(
+    Type.Union([Type.Literal('check'), Type.Literal('grilling')], {
+      default: 'check',
+      // 描述拼接 phaseGrilling：模型在 schema 中可见 grilling 判定/收敛两次调用的完整语义。
+      description: `${PARAM_DESCRIPTIONS.phase}. ${PARAM_DESCRIPTIONS.phaseGrilling}`,
+    }),
+  ),
+  summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.summary })),
+  required: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.grillingRequired })),
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
   force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.force })),
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reason })),
@@ -171,7 +182,12 @@ async function executeCreate(
   )
   if (err !== null || result === null)
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)
-  return resultOf({ taskRelPath: result.taskRelPath, task: result.task })
+  // nextStepNote 透传（core 附 Phase 1.1 行动指引，渲染自动带出）。
+  return resultOf({
+    taskRelPath: result.taskRelPath,
+    task: result.task,
+    nextStepNote: result.nextStepNote,
+  })
 }
 
 /** start 工具：把任务从 planning 移到 in_progress。 */
@@ -190,13 +206,15 @@ async function executeStart(
   return resultOf({ taskRelPath: task.taskRelPath, task })
 }
 
-/** check 工具：记录 2.2 check 通过凭据（写 task.json check 字段）。 */
+/** check 工具：记录任务凭据（phase=check 写 2.2 check；phase=grilling 写判定/收敛）。 */
 async function executeCheck(
   ctx: ToolContextLike,
   params: Static<typeof TASK_CHECK_PARAMS>,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
   const cwd = requireWorkloomCwd(ctx.cwd)
   const [err, task] = await executeCheckTask(cwd, contextKeyOf(ctx.sessionManager.getSessionId()), {
+    phase: params.phase,
+    required: params.required,
     summary: params.summary,
     taskPath: params.taskPath,
     force: params.force,

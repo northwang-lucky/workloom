@@ -905,6 +905,13 @@ test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend 派发被
     writeUiPrd(root, created.taskRelPath)
     writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
     writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    // UI 任务 start 前须先记录 grilling 判定 + 收敛（v12 门禁矩阵）。
+    checkTask(root, { taskRelPath: created.taskRelPath, phase: 'grilling', required: true })
+    checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      summary: 'ui decisions converged',
+    })
     await startTask(root, { taskRelPath: created.taskRelPath })
     const [err1] = await checkTask(root, {
       taskRelPath: created.taskRelPath,
@@ -937,6 +944,13 @@ test('checkTask 前端派发门禁：force 放行并留痕 overrides', async () 
     writeUiPrd(root, created.taskRelPath)
     writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
     writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    // UI 任务 start 前须先记录 grilling 判定 + 收敛（v12 门禁矩阵）。
+    checkTask(root, { taskRelPath: created.taskRelPath, phase: 'grilling', required: true })
+    checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      summary: 'ui decisions converged',
+    })
     await startTask(root, { taskRelPath: created.taskRelPath })
     const [err, task] = await checkTask(root, {
       taskRelPath: created.taskRelPath,
@@ -1105,6 +1119,266 @@ test('createTask 校验：父 children 写回失败抛错（子任务已创建�
     // 父 children 未更新（仍为空；恢复权限便于读取断言）
     chmodSync(parentTaskJson, 0o644)
     assert.deepEqual(readTaskJson(root, parent.taskRelPath).children, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：缺 grilling 字段的旧 task.json 补 null（门禁对旧数据安全）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-grilling')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({ id: 'x', name: 'no-grilling', status: TaskStatus.PLANNING }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.grilling, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask phase=grilling：planning 状态记录判定（required=true），不落 check 字段', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill Judge' })
+    const [err, task] = checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      required: true,
+    })
+    assert.equal(err, null)
+    assert.deepEqual(task.grilling, { required: true, passedAt: null, summary: null })
+    // grilling 凭据与 2.2 check 凭据互不干涉
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.check, null)
+    assert.deepEqual(saved.grilling, { required: true, passedAt: null, summary: null })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask phase=grilling：required=false 也记录（答 no 与根本没问可区分）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill No' })
+    const [err] = checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      required: false,
+    })
+    assert.equal(err, null)
+    assert.equal(readTaskJson(root, created.taskRelPath).grilling.required, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask phase=grilling：参数校验（required/summary 至少一个、required 显式布尔）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill Bad' })
+    // 一个都不给 → 报错
+    const [err1] = checkTask(root, { taskRelPath: created.taskRelPath, phase: 'grilling' })
+    assert.ok(err1)
+    assert.match(err1.message, /required.*summary/)
+    // required 非布尔 → 报错
+    const [err2] = checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      required: 'yes',
+    })
+    assert.ok(err2)
+    assert.match(err2.message, /explicit boolean/)
+    // 非法 phase → 报错
+    const [err3] = checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'bogus',
+      required: true,
+    })
+    assert.ok(err3)
+    assert.match(err3.message, /invalid check phase/)
+    // 校验失败不留字段
+    assert.equal(readTaskJson(root, created.taskRelPath).grilling, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask phase=grilling：仅 summary 为收敛调用（须先有判定），判定+收敛可一起落', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill Converge' })
+    checkTask(root, { taskRelPath: created.taskRelPath, phase: 'grilling', required: true })
+    const [err, task] = checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      summary: 'frontier empty, all decisions settled',
+    })
+    assert.equal(err, null)
+    assert.equal(task.grilling.required, true)
+    assert.equal(task.grilling.summary, 'frontier empty, all decisions settled')
+    assert.ok(!Number.isNaN(Date.parse(task.grilling.passedAt)))
+    // 未先判定直接收敛 → 报「先记录判定」
+    const [, other] = await createTask(root, { title: 'Grill No Judge' })
+    const [err2] = checkTask(root, {
+      taskRelPath: other.taskRelPath,
+      phase: 'grilling',
+      summary: 'x',
+    })
+    assert.ok(err2)
+    assert.match(err2.message, /record the grilling judgment first/)
+    // 判定 + 收敛一起落
+    const [, third] = await createTask(root, { title: 'Grill Both' })
+    const [err3, t3] = checkTask(root, {
+      taskRelPath: third.taskRelPath,
+      phase: 'grilling',
+      required: false,
+      summary: 'no design decisions',
+    })
+    assert.equal(err3, null)
+    assert.equal(t3.grilling.required, false)
+    assert.ok(!Number.isNaN(Date.parse(t3.grilling.passedAt)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask phase=grilling：跳过 check.jsonl 门禁与 in_progress 要求（check 仍要求）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill Skip Gate' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 清掉 check.jsonl 有效记录：phase=check 会被拦，phase=grilling 放行
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'check.jsonl'),
+      '{"_example": "seed"}\n',
+    )
+    const [err1] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'no context',
+    })
+    assert.ok(err1)
+    assert.match(err1.message, /check gate failed/)
+    const [err2, task] = checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      required: true,
+    })
+    assert.equal(err2, null)
+    assert.equal(task.grilling.required, true)
+    assert.equal(readTaskJson(root, created.taskRelPath).check, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask phase=grilling：completed 任务拒绝记录', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill Archived' })
+    const [archErr, archived] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test',
+    })
+    assert.equal(archErr, null)
+    const [err] = checkTask(root, {
+      taskRelPath: archived.taskRelPath,
+      phase: 'grilling',
+      required: true,
+    })
+    assert.ok(err)
+    assert.match(err.message, /planning\/in_progress/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：grilling required=true 无收敛凭据被拦截，收敛后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill Gate Start' })
+    satisfyStartGate(root, created.taskRelPath)
+    checkTask(root, { taskRelPath: created.taskRelPath, phase: 'grilling', required: true })
+    const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err1)
+    assert.match(err1.message, /start gate failed/)
+    assert.match(err1.message, /grilling required but no record/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // 收敛后放行，grillingPending=false
+    checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      summary: 'converged',
+    })
+    const [err2, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err2, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    assert.equal(started.grillingPending, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：prd 含 UI Design 小节且未判定被拦截（指引记录 required=true），判定+收敛后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill UI Gate' })
+    writeUiPrd(root, created.taskRelPath)
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err1)
+    assert.match(err1.message, /no grilling judgment recorded for a task with UI requirements/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // 只记录判定仍被拦（required=true 无收敛）
+    checkTask(root, { taskRelPath: created.taskRelPath, phase: 'grilling', required: true })
+    const [err2] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err2)
+    assert.match(err2.message, /grilling required but no record/)
+    // 判定 + 收敛后放行
+    checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      phase: 'grilling',
+      summary: 'ui decisions converged',
+    })
+    const [err3, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err3, null)
+    assert.equal(started.grillingPending, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：未判定且无 UI 小节放行（存量任务），返回 grillingPending=true', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill Legacy Start' })
+    satisfyStartGate(root, created.taskRelPath)
+    const [err, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    assert.equal(started.grillingPending, true)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：required=false 放行且 grillingPending=false（答 no 不再骚扰）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Grill No Start' })
+    satisfyStartGate(root, created.taskRelPath)
+    checkTask(root, { taskRelPath: created.taskRelPath, phase: 'grilling', required: false })
+    const [err, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(started.grillingPending, false)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
