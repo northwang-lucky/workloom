@@ -28,3 +28,18 @@ test('agent definitions: kinds match EXECUTOR_KINDS and carry full role copy', (
     assert.ok(definition.systemPrompt.includes('Do not dispatch subagents'))
   }
 })
+
+test('agent definitions: check role is fix-oriented, not report-only', () => {
+  const check = EXECUTOR_AGENT_DEFINITIONS[EXECUTOR_KINDS.check]
+  assert.ok(check !== undefined, 'missing definition for check')
+  // 纯报告导向句已移除：不再承诺"只报告问题"、不再以"报告完成"收尾
+  // （与 core check 纪律段"发现即修"冲突，见 executor-context 的 EXECUTOR_CONTRACT_BY_KIND）。
+  assert.ok(!check.systemPrompt.includes('report issues with locations and fixes'))
+  assert.ok(!check.systemPrompt.includes('You are done when your review report is complete'))
+  // 评审+修复导向：发现即修；仅剩问题以 ## Open issues 结构化段报告，
+  // 行格式含 file/line/severity/修复建议，无仅存问题写 - none；修复后验证。
+  assert.ok(check.systemPrompt.includes('fix what you find'))
+  assert.ok(check.systemPrompt.includes('## Open issues'))
+  assert.ok(check.systemPrompt.includes('- none'))
+  assert.match(check.systemPrompt, /verify/i)
+})

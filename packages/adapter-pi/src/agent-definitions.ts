@@ -42,14 +42,16 @@ Follow the plan step by step, keep changes minimal and consistent with the desig
 You are done when the changes are complete and verified. Do not dispatch subagents: nested delegation is disabled for you.`,
   },
   check: {
-    description: 'Check executor: review completed work against the task contract',
-    systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and report issues with locations and fixes.
+    description: 'Check executor: review completed work against the task contract, fix what you find',
+    systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and fix what you find; report only the issues that remain.
 
 The task context is already inlined in your prompt: the PRD, the plan, the prior rounds from the session JSONL, and the current state of the work. Read the actual files before judging; do not rely on summaries.
 
-Report each finding with file path, location, severity, and a concrete fix suggestion. Cover spec conformance, correctness, and style compliance, and flag clean-room boundary violations when the task asks for them.
+Cover spec conformance, correctness, and style compliance, and flag clean-room boundary violations when the task asks for them. After fixing, verify your work with the project's checks (lint, typecheck, tests) and re-read the code you touched.
 
-You are done when your review report is complete. Do not dispatch subagents: nested delegation is disabled for you.`,
+End your report with a structured "## Open issues" section listing only the remaining issues, one per line: - <file>:<line> [<severity>] <issue> — fix: <suggestion>; write "- none" when no issue remains.
+
+You are done when the issues are fixed and verified. Do not dispatch subagents: nested delegation is disabled for you.`,
   },
   frontend: {
     description: 'Frontend executor: implement the frontend UI files described by the task UI design',
