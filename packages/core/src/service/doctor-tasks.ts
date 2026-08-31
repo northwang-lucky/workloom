@@ -2,9 +2,9 @@
  * doctor 检查引擎的任务扫描与 issue/报告辅助（只读）。
  *
  * 设计意图：
- * - collectTasks 统一枚举 active + archive 任务，供 8 类检查与修复器复用；
+ * - collectTasks 统一枚举 active + archive 任务，供 9 类检查与修复器复用；
  * - allIssues/issueKey 在检查与修复度量之间共享「拉平」「唯一键」口径；
- * - taskJsonPath/canonicalRef/pointerPath 拼装 issue 引用的路径；
+ * - taskJsonPath/canonicalRef/pointerPath 拼装 issue 引用的路径；makeIssue 组装 issue 字段；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 
@@ -14,7 +14,13 @@ import { join } from 'node:path'
 import { insideWorkloom, WORKLOOM_DIR } from '../legacy/locate.js'
 import { readTask } from '../legacy/task-store.js'
 import { ARCHIVE_DIR, TASK_DIR } from './doctor-types.js'
-import type { DoctorCheck, DoctorIssue, DoctorIssueCode, TaskNode } from './doctor-types.js'
+import type {
+  DoctorCheck,
+  DoctorIssue,
+  DoctorIssueCode,
+  DoctorSeverity,
+  TaskNode,
+} from './doctor-types.js'
 
 /** 枚举全部任务目录（active + archive），损坏/缺失目录跳过。 */
 export function collectTasks(root: string): TaskNode[] {
@@ -77,4 +83,30 @@ export function canonicalRef(name: string): string {
 /** 指针文件路径（相对项目根，给 issue.path 用）。 */
 export function pointerPath(contextKey: string): string {
   return join(WORKLOOM_DIR, '.runtime', 'sessions', `${contextKey}.json`)
+}
+
+/** makeIssue 入参（hint 可省略）。 */
+export interface IssueInput {
+  code: DoctorIssueCode
+  title: string
+  severity: DoctorSeverity
+  task: string | null
+  message: string
+  path: string | null
+  fixable: boolean
+  hint?: string | null
+}
+
+/** 组装一条 issue（缺省 hint 为 null，保证字段齐全）。 */
+export function makeIssue(input: IssueInput): DoctorIssue {
+  return {
+    code: input.code,
+    title: input.title,
+    severity: input.severity,
+    task: input.task,
+    message: input.message,
+    path: input.path,
+    fixable: input.fixable,
+    hint: input.hint ?? null,
+  }
 }

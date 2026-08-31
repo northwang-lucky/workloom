@@ -1,5 +1,5 @@
 /**
- * doctor 模块单测：8 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
+ * doctor 模块单测：9 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
  *
  * 设计意图：
  * - 全部用临时项目根构造「病态」任务目录，断言 runDoctor 输出 issue 及 schema 字段；
@@ -198,6 +198,62 @@ test('check dispatch-audit：in_progress/archived 任务 dispatches 为空', () 
     assert.ok(tasks.includes('tasks/archive/2026-08/arch-no-dispatch'))
     for (const issue of da.issues) assertIssueSchema(issue, 'dispatch-audit')
     assert.equal(da.issues[0].fixable, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check stage-consistency：stage=check 无/非 check 派发、非法 stage 值；正常任务不报', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    // ① stage=check 但 dispatches 为空
+    writeTask(root, 'check-nodispatch', rec('check-nodispatch', {
+      status: 'in_progress',
+      stage: 'check',
+    }))
+    // ①' stage=check 但最近派发非 check
+    writeTask(root, 'check-stale', rec('check-stale', {
+      status: 'in_progress',
+      stage: 'check',
+      dispatches: [{ kind: 'implement', at: new Date().toISOString(), title: 'impl' }],
+    }))
+    // ② stage 非法值（手改/损坏；归一化只兜底 null/undefined，非空非法值原样保留）
+    writeTask(root, 'bad-stage', rec('bad-stage', {
+      status: 'in_progress',
+      stage: 'bogus',
+      dispatches: [{ kind: 'implement', at: new Date().toISOString(), title: 'impl' }],
+    }))
+    // ③ 正常：stage=implement
+    writeTask(root, 'impl-ok', rec('impl-ok', {
+      status: 'in_progress',
+      stage: 'implement',
+      dispatches: [{ kind: 'implement', at: new Date().toISOString(), title: 'impl' }],
+    }))
+    // ③' 正常：stage=check 且最近派发为 check
+    writeTask(root, 'check-ok', rec('check-ok', {
+      status: 'in_progress',
+      stage: 'check',
+      dispatches: [{ kind: 'check', at: new Date().toISOString(), title: 'check' }],
+    }))
+    // ③'' 正常：旧任务无 stage（归一化 implement）
+    writeTask(root, 'legacy-no-stage', rec('legacy-no-stage', {
+      status: 'in_progress',
+      dispatches: [{ kind: 'implement', at: new Date().toISOString(), title: 'impl' }],
+    }))
+    const [err, report] = runDoctor(root, { fix: false })
+    assert.equal(err, null)
+    const sc = report.checks.find((c) => c.code === 'stage-consistency')
+    assert.ok(sc, 'stage-consistency check must exist')
+    const tasks = sc.issues.map((i) => i.task)
+    assert.ok(tasks.includes('tasks/check-nodispatch'), 'stage=check with no dispatch reported')
+    assert.ok(tasks.includes('tasks/check-stale'), 'stage=check with stale dispatch reported')
+    assert.ok(tasks.includes('tasks/bad-stage'), 'invalid stage value reported')
+    assert.ok(!tasks.includes('tasks/impl-ok'), 'stage=implement not reported')
+    assert.ok(!tasks.includes('tasks/check-ok'), 'stage=check with check dispatch not reported')
+    assert.ok(!tasks.includes('tasks/legacy-no-stage'), 'legacy task without stage not reported')
+    for (const issue of sc.issues) assertIssueSchema(issue, 'stage-consistency')
+    assert.equal(sc.issues[0].fixable, false, 'stage consistency issues are manual')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -422,7 +478,7 @@ test('报告 schema：checks/summary/fixed/manual 字段齐全且每类检查必
     assert.equal(err, null)
     assert.ok(report)
     assert.ok(Array.isArray(report.checks))
-    assert.equal(report.checks.length, 8, 'all 8 checks always present')
+    assert.equal(report.checks.length, 9, 'all 9 checks always present')
     for (const check of report.checks) {
       for (const field of ['code', 'title', 'severity', 'issues']) {
         assert.ok(field in check, `check missing ${field}`)
