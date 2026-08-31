@@ -68,6 +68,47 @@ const LEAF_EXECUTOR_RULE =
 /** 防重复判定关键词（userPrompt 已含时不再追加叶子契约段）。 */
 const LEAF_RULE_KEYWORD = 'leaf executor'
 
+/**
+ * 按 kind 的执行器纪律段正文（硬指令，单一来源，DSH/Pi 两 runtime 共享；
+ * 与 adapter-pi 的 agent 角色总述互补不冲突）。
+ * 注入于 userPrompt 之后、叶子契约段之前；userPrompt 已含该 kind 纪律段
+ * 标题（去 `## ` 前缀）时不重复注入，与 leaf 段同规则。
+ * 键为 kind 字符串（运行时按 params.kind 索引，放宽为 Record<string, string>）。
+ * @type {Record<string, string>}
+ */
+export const EXECUTOR_CONTRACT_BY_KIND = Object.freeze({
+  [EXECUTOR_KINDS.research]: `Produce an actionable report the implementer can follow directly.
+Ground every conclusion in the real source: read the actual files or data before claiming a fact, and cite file paths for each conclusion.
+Separate verified findings from suggestions, and mark anything unverified as such.`,
+  [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/design/implement) in order.
+Make the smallest change that satisfies the requirement; do not touch unrelated code.
+Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.`,
+  [EXECUTOR_KINDS.check]: `Fix what you find — you are not a reporter: resolve every issue you discover directly in the source code.
+After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
+End your report with a structured "## Open issues" section that lists only the remaining issues, one per line:
+- <file>:<line> [<severity>] <issue> — fix: <suggestion>
+Write "- none" when no issue remains.`,
+  [EXECUTOR_KINDS.frontend]: `Follow the PRD's "## UI Design" section as the baseline and deliver all seven UI axes it asks for.
+Touch frontend files only; verify with the project's frontend checks (lint / typecheck / build / relevant tests).
+When a backend interface is missing, use an annotated mock or placeholder and mark it for later wiring.`,
+})
+
+/** 纪律段标题前缀（Markdown H2）。 */
+const HEADING_PREFIX = '## '
+
+/** 纪律段标题后缀（如 `Check executor directives`）。 */
+const DIRECTIVE_HEADING_SUFFIX = ' executor directives'
+
+/**
+ * kind 纪律段标题（如 `## Check executor directives`）；去掉 `## ` 前缀即
+ * 去重关键词（userPrompt 已含该短语时不重复注入，与 leaf 段同规则）。
+ * @param {string} kind executor 类型
+ * @returns {string}
+ */
+function kindDirectiveHeading(kind) {
+  return `${HEADING_PREFIX}${kind.charAt(0).toUpperCase()}${kind.slice(1)}${DIRECTIVE_HEADING_SUFFIX}`
+}
+
 /** 截断提示前缀（N 为保留字节数）。 */
 const TRUNCATED_PREFIX = '[...truncated at '
 
@@ -155,6 +196,12 @@ function buildInternal(params) {
   }
   if (params.userPrompt !== '') {
     parts.push(`${TASK_PROMPT_HEADING}\n${params.userPrompt}`)
+  }
+  // kind 纪律段（角色行为指令，单一来源）：注入于 userPrompt 之后、叶子契约段
+  // 之前；userPrompt 已含该 kind 纪律段标题时不重复注入（与 leaf 段同规则）。
+  const directiveHeading = kindDirectiveHeading(params.kind)
+  if (!params.userPrompt.includes(directiveHeading.slice(HEADING_PREFIX.length))) {
+    parts.push(`${directiveHeading}\n${EXECUTOR_CONTRACT_BY_KIND[params.kind]}`)
   }
   // 叶子执行器契约段（兜底纪律，所有 kind 一致生效）：userPrompt 已含关键词时不重复追加。
   if (!params.userPrompt.includes(LEAF_RULE_KEYWORD)) {

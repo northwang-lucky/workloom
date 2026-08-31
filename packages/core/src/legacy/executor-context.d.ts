@@ -8,6 +8,11 @@ export const EXECUTOR_KINDS: Readonly<
   Record<'research' | 'implement' | 'check' | 'frontend', string>
 >
 
+/** 按 kind 的执行器纪律段正文（硬指令，注入于 userPrompt 之后、叶子契约段之前）。 */
+export const EXECUTOR_CONTRACT_BY_KIND: Readonly<
+  Record<'research' | 'implement' | 'check' | 'frontend', string>
+>
+
 /** 校验 effort 档位；undefined 通过；非法值抛 Error。 */
 export function assertEffort(effort: string | undefined): void
 
