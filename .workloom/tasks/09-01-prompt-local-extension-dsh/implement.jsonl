@@ -1,0 +1,6 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层与依赖规则:core 持有 runtime 无关逻辑、adapter thin 投影,决定本机片段机制的归属"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "legacy 免构建纯 JS 与 service TS 的边界,决定 buildExecutorPrompt 参数化方式"}
+{"file": ".workloom/spec/repo/architecture/executor-voice.md", "reason": "per-kind 纪律单一来源在 core,adapter 只保留互补人设;内置 LSP 基线的落点依据"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "core 新增抽象须入 src/service(TS),legacy 模块只做字符串接参"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令(verify),实现代码风格与验证口径"}
