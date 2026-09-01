@@ -1162,3 +1162,95 @@ test('派发期间登记写门禁豁免、结算后注销（门禁对子代理�
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+/** 写入本机片段文件（目录自动创建）。 */
+function writeLocalFragment(root, name, body) {
+  const dir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, name), body)
+}
+
+test('本机片段：可见集−deny 满足 requiresTools 时首条 prompt 注入 Local directives 段', async () => {
+  const root = makeProject('')
+  writeLocalFragment(root, 'all.md', 'ALL RULES')
+  writeLocalFragment(
+    root,
+    'implement.md',
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nRun lsp_diagnostics in the final pass.',
+  )
+  try {
+    const { execute, startCalls } = setupExecutor({
+      visibleTools: [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics'],
+    })
+    const parent = makeAgent(root)
+    await execute(
+      {
+        kind: 'implement',
+        prompt: 'test',
+        taskPath: 'tasks/test-task',
+        title: 'local prompts test',
+      },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const text = startCalls[0].request.prompt[0].text
+    const directiveAt = text.indexOf('## Implement executor directives')
+    const localAt = text.indexOf('## Local directives')
+    const leafAt = text.indexOf('## Executor contract')
+    assert.ok(localAt !== -1, 'local directives section must be injected')
+    assert.ok(
+      directiveAt !== -1 && directiveAt < localAt && localAt < leafAt,
+      'local directives must sit between the kind directive and the leaf contract',
+    )
+    // 合成顺序：all.md 在前、kind 专属在后（条件满足）。
+    const section = text.slice(localAt, leafAt)
+    assert.ok(section.includes('ALL RULES'), 'all.md rules must be injected')
+    assert.ok(
+      section.indexOf('ALL RULES') < section.indexOf('Run lsp_diagnostics'),
+      'all.md rules must precede the kind-specific rules',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('本机片段：可见集−deny 缺声明工具时不注入 Local directives 段', async () => {
+  const root = makeProject('')
+  writeLocalFragment(
+    root,
+    'implement.md',
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nRun lsp_diagnostics.',
+  )
+  try {
+    // 默认可见集（workloom 9 + 委派候选 + write/edit）不含 lsp_diagnostics → 条件不满足。
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'no local test' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = startCalls[0].request.prompt[0].text
+    assert.ok(!text.includes('## Local directives'))
+    assert.ok(!text.includes('Run lsp_diagnostics.'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('本机片段：被 deny 的可见工具不算可用（探测集 = 可见集 − denyList）', async () => {
+  const root = makeProject('')
+  writeLocalFragment(root, 'implement.md', '---\nrequiresTools: [subagent]\n---\nSubagent rule.')
+  try {
+    // 默认可见集含 subagent（委派候选），但它被 buildDenyList deny → 子代理不可见 → 不注入。
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'denied tool test' },
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = startCalls[0].request.prompt[0].text
+    assert.ok(!text.includes('## Local directives'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
