@@ -13,7 +13,11 @@
   "createdAt": "2026-09-01T14:54:14.263Z",
   "completedAt": null,
   "parent": null,
-  "children": [],
+  "children": [
+    "tasks/09-01-t1-executor-context-injection",
+    "tasks/09-01-t2-executor-continuable-reuse",
+    "tasks/09-01-t3-research-facts-context-pack"
+  ],
   "subtasks": [],
   "scope": "",
   "commit": "",
@@ -23,10 +27,20 @@
   "notes": "",
   "meta": {},
   "check": null,
-  "grilling": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-01T15:27:34.625Z",
+    "summary": "Grilling 第 1 轮收敛：Q1 上下文包(D)挪入 T3（格式规范+解析器+上下文包一体交付）；Q2 workloom_execute 恢复 startContinuable 后保留前台等待语义；Q3 research 锚点格式用结构化块（标题/要点/文件:行号/代码摘录）；Q4 最小依赖文件清单由锚点索引自动生成注入模板段；Q5 验收用 dogfooding（容器任务自身 dispatch 的 executor 统计 recon 占比对照 cardx 基线 50%~80%，目标 <30%）。设计树前沿已空，无剩余开放决策。"
+  },
   "overrides": [],
   "stage": "implement",
-  "dispatches": [],
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-01T15:34:05.747Z",
+      "title": "executor 可继续化与上下文注入事实研究"
+    }
+  ],
   "hooks": {
     "after_create": [],
     "after_start": [],
