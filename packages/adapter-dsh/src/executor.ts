@@ -50,6 +50,7 @@ import {
   buildConflictNotice,
   buildExecutorPrompt,
   buildExecutorReceipt,
+  composeLocalDirectivesText,
   detectExecutorConflicts,
   EMPTY_OUTPUT_TEXT,
   ERR_PREFIX,
@@ -347,11 +348,29 @@ async function executeTool(
       console.warn(`${OVERRIDE_WARN_PREFIX} ${overrideErr}`)
     }
   }
+  // 工具面硬屏蔽：spawn 前校验 provider 的 toolFilter capability（缺失 fail loud，
+  // 不静默丢弃）；deny 清单 = workloom 9 工具全量 + 委派候选与运行时可见工具名的
+  // 交集（未知名字会使 restrict fail，候选名必须求交，不得硬编码）。
+  const provider = ctx.subagents.getProvider(SPAWN_PROVIDER)
+  assertToolFilterCapability(provider)
+  const visibleNames = new Set(ctx.tools.schemas().map((schema) => schema.name))
+  const denyList = buildDenyList(visibleNames)
+  // 本机片段（executor 首条 prompt 注入一次）：可用工具集 = 可见工具名 − denyList
+  // （与 toolFilter deny 后子代理真实可见集一致，故 buildExecutorPrompt 调用必须
+  // 在 denyList 计算之后执行）；组装失败 fail loud（本机片段是有意增强，静默失效
+  // 最难排查），条件不满足时返回空串（不注入）。
+  const [localErr, localDirectives] = composeLocalDirectivesText(
+    root,
+    params.kind,
+    availableToolNames(visibleNames, denyList),
+  )
+  if (localErr !== null) throw localErr
   const [promptErr, built] = buildExecutorPrompt({
     root,
     taskRelPath,
     kind: params.kind,
     userPrompt: params.prompt,
+    localDirectives,
   })
   if (promptErr || built === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
@@ -374,12 +393,6 @@ async function executeTool(
   // 拒绝 follow-up；maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理
   // 深度为 1，设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
   // 即「executor 子代理禁止再派发 workloom_execute」。
-  // 工具面硬屏蔽：spawn 前校验 provider 的 toolFilter capability（缺失 fail loud，
-  // 不静默丢弃）；deny 清单 = workloom 9 工具全量 + 委派候选与运行时可见工具名的
-  // 交集（未知名字会使 restrict fail，候选名必须求交，不得硬编码）。
-  const provider = ctx.subagents.getProvider(SPAWN_PROVIDER)
-  assertToolFilterCapability(provider)
-  const visibleNames = new Set(ctx.tools.schemas().map((schema) => schema.name))
   let run
   try {
     run = await ctx.subagents.start(SPAWN_PROVIDER, {
@@ -389,7 +402,7 @@ async function executeTool(
       signal: exec.signal,
       agentOptions,
       maxDepth: 1,
-      toolFilter: { deny: buildDenyList(visibleNames) },
+      toolFilter: { deny: denyList },
     })
   } catch (error) {
     // start reject 的 capability 错误兜底（如 provider 未注册/缺能力）转清晰英文错误。
@@ -533,6 +546,22 @@ export function buildDenyList(visibleNames: ReadonlySet<string>): string[] {
     if (visibleNames.has(name)) denied.add(name)
   }
   return [...denied]
+}
+
+/**
+ * 计算子代理真实可见工具名（visibleNames − denyList，保持可见集声明顺序）。
+ * 本机片段的 requiresTools 条件按此集合判定：与 toolFilter deny 后子代理实际
+ * 可见集一致，避免按全局视图误注入子代理实际用不到的工具约束。
+ * @param visibleNames 运行时可见工具名集合（ctx.tools.schemas() 全局视图投影）
+ * @param denyList toolFilter deny 清单
+ * @returns 可见且未被 deny 的工具名列表
+ */
+function availableToolNames(
+  visibleNames: ReadonlySet<string>,
+  denyList: readonly string[],
+): string[] {
+  const denied = new Set(denyList)
+  return [...visibleNames].filter((name) => !denied.has(name))
 }
 
 /**

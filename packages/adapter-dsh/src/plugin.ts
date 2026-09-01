@@ -21,6 +21,7 @@ import { CONTEXT_KEY_PREFIX, PLUGIN_NAME } from './constants.js'
 import {
   assembleBreadcrumbSync,
   assembleSessionContext,
+  composeLocalDirectivesText,
   findWorkloomRoot,
   parseContract,
 } from '@workloom-ai/core'
@@ -74,6 +75,11 @@ interface SystemPromptService {
   }): () => void
 }
 
+/** tools 服务的最小接口（schemas 全局视图投影工具名；inject 已声明硬依赖）。 */
+interface ToolsService {
+  schemas(): readonly { name: string }[]
+}
+
 /** 自激活判定的结果：当前发起 agent 与所在项目根（导出供组装函数公共签名引用）。 */
 export interface InjectionTarget {
   agent: Agent
@@ -107,7 +113,7 @@ export function apply(ctx: Context): void {
     text: (context) => {
       const target = resolveInjectionTarget(ctx, context)
       if (target === null) return ''
-      return renderSessionContext(target)
+      return renderSessionContext(ctx, target)
     },
   })
   service.section({
@@ -178,14 +184,31 @@ function renderBreadcrumb(target: InjectionTarget): string {
 /**
  * 组装当前发起会话的 session-context 注入文本（取代式快照）。
  * 契约缺失静默返回空串；解析/组装出错只告警，不阻塞会话。
- * 委派深度>0（executor 等叶子子代理）时 norms 段由 core 替换为 executor 版。
+ * 本机片段（主 agent 目标 main）：以 ctx.tools.schemas() 全局视图为可用工具集
+ * 组装（all + main），经快照尾部 Local directives 小节注入；组装失败走同样的
+ * 告警降级（返回空串，不阻塞会话快照）。
+ * @param ctx 插件上下文（tools 服务探测可用工具集）
  * @param target 注入目标（agent + 项目根）
  * @returns 注入文本（可能为空串）
  */
-function renderSessionContext(target: InjectionTarget): string {
+export function renderSessionContext(ctx: Context, target: InjectionTarget): string {
   const contractText = loadWorkflowContractText()
   if (contractText === null) return ''
-  return assembleSessionContextText(target, contractText, delegationDepthOf(target.agent))
+  const [localErr, directives] = composeLocalDirectivesText(
+    target.root,
+    'main',
+    toolsOf(ctx).schemas().map((schema) => schema.name),
+  )
+  if (localErr !== null) {
+    console.warn(`${CONTEXT_WARN_PREFIX} ${localErr.message}`)
+    return ''
+  }
+  return assembleSessionContextText(
+    target,
+    contractText,
+    delegationDepthOf(target.agent),
+    directives,
+  )
 }
 
 /**
@@ -193,15 +216,19 @@ function renderSessionContext(target: InjectionTarget): string {
  * 契约文本作为入参注入（导出供测试喂自定义契约，不依赖真实资产内容）：
  * norms 随快照每轮重组装，契约升级后下一轮即生效；解析/组装失败只告警，不阻塞会话。
  * 委派深度透传 core（缺省 0）：深度>0 时 norms 段整体替换为 executor 版。
+ * localDirectives 为本机片段合成文本（缺省空串）：depth=0 时由 core 在 norms 后
+ * 追加 Local directives 小节（depth>0 由 executor 首条 prompt 注入一次，不重复）。
  * @param target 注入目标（agent + 项目根）
  * @param contractText 契约全文
  * @param delegationDepth 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）
+ * @param localDirectives 本机片段合成文本（主 agent 目标；空串 = 不注入）
  * @returns 注入文本（可能为空串）
  */
 export function assembleSessionContextText(
   target: InjectionTarget,
   contractText: string,
   delegationDepth = 0,
+  localDirectives = '',
 ): string {
   const [parseErr, contract] = parseContract(contractText)
   if (parseErr || contract === null) {
@@ -216,6 +243,7 @@ export function assembleSessionContextText(
     workflowSteps: contract.steps,
     norms: contract.norms,
     delegationDepth,
+    localDirectives,
   })
   if (err) {
     console.warn(`${CONTEXT_WARN_PREFIX} ${err.message}`)
@@ -231,6 +259,15 @@ export function assembleSessionContextText(
  */
 function systemPromptOf(ctx: Context): SystemPromptService {
   return (ctx as Context & { systemPrompt: SystemPromptService }).systemPrompt
+}
+
+/**
+ * 读取 tools 服务（inject 已声明硬依赖，运行期必然存在）。
+ * @param ctx 插件上下文
+ * @returns tools 服务
+ */
+function toolsOf(ctx: Context): ToolsService {
+  return (ctx as Context & { tools?: ToolsService }).tools as ToolsService
 }
 
 /**

@@ -4,11 +4,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { assembleSessionContextText } from '../dist/plugin.js'
+import { assembleSessionContextText, renderSessionContext } from '../dist/plugin.js'
 
 /** 构造 .workloom 项目根（目录存在即命中自激活判定）。 */
 function makeRoot() {
@@ -94,6 +94,65 @@ test('委派深度>0：快照 norms 段整体替换为 executor 版（零派发�
     )
     assert.ok(text.includes('leaf executor'), 'executor norms name the leaf executor role')
     assert.ok(!text.includes('dispatch'), 'executor norms carry zero dispatch semantics')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('assembleSessionContextText：localDirectives 传参在 norms 后渲染小节，缺省不渲染', () => {
+  const root = makeRoot()
+  try {
+    const text = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS, 0, 'LSP directives.')
+    assert.ok(
+      text.includes('Local directives:\nLSP directives.'),
+      'local directives section must render verbatim',
+    )
+    assert.ok(
+      text.indexOf('Local directives:') > text.indexOf('Always-on norms:'),
+      'local directives section must follow the norms section',
+    )
+    const plain = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS)
+    assert.ok(!plain.includes('Local directives:'), 'default must not render the section')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('renderSessionContext：主 agent 以 ctx.tools.schemas() 为可用集探测并透传', () => {
+  const root = makeRoot()
+  const dir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    join(dir, 'main.md'),
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nHard LSP rule.',
+  )
+  try {
+    const ctxWithTool = { tools: { schemas: () => [{ name: 'lsp_diagnostics' }] } }
+    const injected = renderSessionContext(ctxWithTool, makeTarget(root))
+    assert.ok(injected.includes('Local directives:'), 'satisfied condition must inject the section')
+    assert.ok(injected.includes('Hard LSP rule.'), 'fragment text must be injected verbatim')
+    // 可用集不含声明工具：快照照常渲染但无小节（条件过滤，非错误）。
+    const ctxWithoutTool = { tools: { schemas: () => [] } }
+    const plain = renderSessionContext(ctxWithoutTool, makeTarget(root))
+    assert.ok(plain.includes('<workloom-session-context>'), 'snapshot must still render')
+    assert.ok(!plain.includes('Local directives:'), 'unsatisfied condition must not inject')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('renderSessionContext：本机片段组装失败只告警返回空串（不阻塞会话快照）', async (t) => {
+  const root = makeRoot()
+  const dir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'main.md'), '---\nrequiresTools: [unclosed\n---\nbody')
+  try {
+    const warn = t.mock.method(console, 'warn', () => {})
+    const ctx = { tools: { schemas: () => [] } }
+    const text = renderSessionContext(ctx, makeTarget(root))
+    assert.equal(text, '')
+    assert.equal(warn.mock.callCount(), 1)
+    assert.match(String(warn.mock.calls[0].arguments[0]), /session context injection skipped/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
