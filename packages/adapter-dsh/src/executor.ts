@@ -3,19 +3,22 @@
  *
  * 设计意图：
  * - 暴露一个模型可见工具 workloom_execute：按 kind（research/implement/check/frontend）用
- *   core 的 buildExecutorPrompt 组装上下文，经 ctx.subagents.start（spawn，
- *   in-process）前台派发一次性（one-shot）子代理，await run.result 取最终输出返回；
- * - one-shot 子代理是封闭的一次性记录：DSH 客户端对 mode=one-shot 渲染只读
- *   composer（“一次性任务不支持后续消息”），服务端 subagent.prompt 端点只接受
- *   continuable 子代理，用户无法对派发结果发送 follow-up 消息（双保险）；
- * - 工具依赖的 tools/subagents 服务按注册面做局部结构化声明（参考 plugin.ts 的
- *   SystemPromptService 做法），运行时由宿主注入；agents 服务不再需要（one-shot
- *   无创建后句柄，输出经 run.result 读取，runId 即 child session id）；
- * - 子代理释放失败（run.dispose）只 WARNING 不阻塞结果返回；其余故障 fail loud
- *   （抛错由 DSH 工具管线转失败结果）；
- * - 写门禁豁免：start resolve 后立即 registerWriteGateExemption(run.id)，finally 中先
- *   注销再 dispose（成功失败均注销）——executor 派发的子代理在判定链中放行，而
- *   subagent_fork/continuable 复用的子代理不被豁免，从而堵住「fork 绕过主会话门禁」；
+ *   core 的 buildExecutorPrompt 组装上下文，经 ctx.subagents.startContinuable（spawn，
+ *   in-process）前台派发 continuable 子代理：startContinuable resolve 拿到 durable
+ *   childId 后 agents.get(childId) 解析会话，记录事件边界，whenIdle 等回合结束，
+ *   finalAssistantOutput 取本轮输出，最后 drainContinuableChildren 释放 Activation；
+ * - 子代理会话为 continuable：客户端 composer 可写、会话记录 mode=continuable、服务端
+ *   接受 follow-up；主会话可经 continue_executor 参数显式续用同一会话跑多阶段——
+ *   followup(parent, childId, content) 投递下一指令（投递前按 dispatches 记录做同
+ *   kind 校验，跨 kind 返回提示不投递），等待与输出语义同新派发；
+ * - 工具依赖的 tools/subagents/agents 服务按注册面做局部结构化声明（参考 plugin.ts 的
+ *   SystemPromptService 做法），运行时由宿主注入；
+ * - 子代理释放失败（drain）只 WARNING 不阻塞结果返回；其余故障 fail loud（抛错由
+ *   DSH 工具管线转失败结果）；
+ * - 写门禁豁免：新派发在 startContinuable resolve 后、续用在 followup resolve 后立即
+ *   registerWriteGateExemption(childId)，drain 释放时注销（成功失败均注销）——豁免
+ *   存活期覆盖整个 turn（含 followup 续用轮），而 subagent_fork/非 executor 派发路径
+ *   不豁免，从而堵住「fork 绕过主会话门禁」；
  * - model 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置（按 executor
  *   kind 取值，字段独立合并）；配置支持 subagent_profiles 按主会话当前模型
  *   （requestHeader 快照的 provider/model）分档匹配，命中的条目优先于旧
@@ -32,16 +35,22 @@
  * - 冲突中断：显式 model 与 subagents 配置不一致时，无 force 直接返回
  *   buildConflictNotice 提示文本不派发；force: true 须带非空 reason 留痕（写入
  *   task.json overrides），放行后 receipt 追加 (forced) 标注便于审计；
- * - 工具面硬屏蔽：spawn 请求携带 toolFilter deny（workloom 9 工具全量 + DSH 原生
- *   委派候选与运行时可见工具名的交集），使 executor 子代理的可见工具集与执行面
- *   同时剔除编排/委派工具（未知名字会使 restrict fail，候选必须求交）；spawn 前
- *   校验 provider 的 toolFilter capability，缺失时 fail loud（不静默丢弃），
- *   start reject 的 UNSUPPORTED_CAPABILITY 同样转为清晰英文错误兜底；
- * - 异常终止：run.result.stopReason 非 completed 时以工具错误返回（文本为
- *   diagnostic，缺失用 stopReason 兜底），不附输出文本（避免把中止当成功消费）；
- * - 返回文本尾部追加 receipt 行，标注生效 model 及来源，使配置未生效一眼可辨。
+ * - 工具面硬屏蔽（deny 清单组装与 toolFilter capability 校验）下沉到
+ *   executor-dispatch.ts，与工具注册/执行编排分离；派发请求携带 toolFilter deny
+ *   （workloom 9 工具全量 + DSH 原生委派候选与运行时可见工具名的交集），使
+ *   executor 子代理的可见工具集与执行面同时剔除编排/委派工具（未知名字会使
+ *   restrict fail，候选必须求交）；派发前校验 provider 的 toolFilter capability，
+ *   缺失时 fail loud（不静默丢弃），startContinuable reject 的
+ *   UNSUPPORTED_CAPABILITY 同样转为清晰英文错误兜底；
+ * - 异常终止（continuable 无 run.result）：以会话事件面的 turn/end 终止原因为准——
+ *   最后一个 turn/end 缺失或 reason.kind 非 completed（aborted/blocked/error/
+ *   max-tokens/interrupted 等）即转工具错误（文本取 error 事件的结构化 message，
+ *   缺失用终止原因兜底），不附输出文本（避免把中止当成功消费）；
+ * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：续用轮追加
+ *   (reused)，使会话复用一眼可辨（配置来源细分随 configSources 渲染）。
  */
 import type { Context } from '@deepseek-ai/cordis'
+import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
 import {
@@ -49,16 +58,13 @@ import {
   assertForceReason,
   buildConflictNotice,
   buildExecutorPrompt,
-  buildExecutorReceipt,
   composeLocalDirectivesText,
   detectExecutorConflicts,
-  EMPTY_OUTPUT_TEXT,
   ERR_PREFIX,
   findWorkloomRoot,
   loadConfig,
   PARAM_DESCRIPTIONS,
   readTask,
-  recordExecutorDispatch,
   recordExecutorOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
@@ -69,12 +75,18 @@ import {
 
 import { CONTEXT_KEY_PREFIX } from './constants.js'
 import {
+  assertToolFilterCapability,
+  availableToolNames,
+  buildDenyList,
+  SPAWN_PROVIDER,
+  toCapabilityError,
+} from './executor-dispatch.js'
+import type { SpawnProviderLike } from './executor-dispatch.js'
+import { collectExecutorTurn, drainContinuableChild, locateContinueChildId } from './executor-continuation.js'
+import {
   registerWriteGateExemption,
   unregisterWriteGateExemption,
 } from './gate.js'
-
-/** spawn provider 名（DSH in-process 子代理提供方，one-shot start-time capability 齐备）。 */
-const SPAWN_PROVIDER = 'spawn'
 
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
 const KIND_LABELS = {
@@ -87,33 +99,11 @@ const KIND_LABELS = {
 /** KIND_LABELS 的键类型（assertKind 已保证 kind 合法，此处仅防御缺键）。 */
 type KindLabelKey = keyof typeof KIND_LABELS
 
-/** 冲突中断返回值的 runId（未派发子代理，无 run id 可用）。 */
+/** 冲突中断/续用拒绝返回值的 runId（未派发子代理，无 run id 可用）。 */
 const NO_CHILD_RUN_ID = ''
 
 /** 覆盖审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor override:`
-
-/** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
-const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
-
-/** 释放子代理运行失败告警前缀（运行时文案英文；释放失败不阻塞结果返回）。 */
-const DISPOSE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to dispose executor run:`
-
-/**
- * DSH 原生委派类工具候选名（模型可见的派发/编排面）：与运行时可见工具名集合
- * 求交后进 deny（未知名字会使 restrict fail，候选名不得硬编码进 deny）。
- */
-const NATIVE_DELEGATION_CANDIDATES: readonly string[] = [
-  'subagent',
-  'subagent_with_model',
-  'subagent_fork',
-  'list_agents',
-  'send_message',
-  'interrupt_agent',
-  'ralph',
-  'workflow',
-  'ralph-loop',
-]
 
 /** 纯文本块最小形状（render 与返回值共用）。 */
 interface TextBlockLike {
@@ -131,6 +121,8 @@ interface ExecutorArgs {
   reason?: string
   title: string
   prompt: string
+  /** 续用参数（schema key 与模型面一致：continue_executor）。 */
+  continue_executor?: string
 }
 
 /** 工具执行上下文最小形状（exec 参数，仅消费 agent 与 signal）。 */
@@ -140,14 +132,17 @@ interface ToolExec {
   signal: AbortSignal
 }
 
-/** 发起 agent 的最小形状（one-shot 无子代理句柄，仅读 id、cwd 与最近请求头）。 */
-interface MinimalAgent {
+/** 发起 agent 的最小形状（continuable 派发需读 cwd/事件与最近请求头）。 */
+export interface MinimalAgent {
   id: string
+  whenIdle(): Promise<void>
   session: {
     header: { cwd?: string }
+    /** 会话事件日志（SessionEvent 最小契约，输出边界与终止判定用）。 */
+    events: readonly SessionEvent[]
     /**
-     * 会话日志最新 request/header 快照（主模型来源；DSH 会话契约的最小形状，
-     * 不引入 @deepseek-ai/dsh-session 类型依赖）。
+     * 会话日志最新 request/header 快照（主模型来源；只声明 config 投影，不依赖
+     * dsh-session 的完整 LlmCallConfig 类型）。
      */
     requestHeader?(): { config?: { provider?: string; model?: string } } | undefined
   }
@@ -159,37 +154,33 @@ interface ToolsService {
   schemas(): readonly { name: string }[]
 }
 
-/** 一次性子代理运行的最小形状（读取结果与释放；@deepseek-ai/dsh-subagent 契约）。 */
-interface SubagentRunLike {
-  id: string
-  result: Promise<{
-    output: readonly TextBlockLike[]
-    stopReason: string
-    diagnostic?: string
-  }>
-  dispose(): Promise<void>
-}
-
-/** spawn provider 的最小形状（capability 校验用）。 */
-interface SpawnProviderLike {
-  capabilities: { toolFilter: boolean }
-}
-
-/** subagents 服务的最小接口（one-shot 前台派发 + provider 查询）。 */
+/** subagents 服务的最小接口（continuable 派发/续用/释放 + provider 查询）。 */
 interface SubagentsService {
   getProvider(name: string): SpawnProviderLike | undefined
-  start(
-    name: string,
+  startContinuable(spec: {
+    provider: string
+    label: string
     request: {
-      label?: string
-      prompt: readonly TextBlockLike[]
+      prompt: TextBlockLike[]
       parent: MinimalAgent
-      signal: AbortSignal
       agentOptions?: { provider?: string; model?: string; reasoningEffort?: ReasoningEffortId }
       maxDepth?: number
       toolFilter?: { deny: string[] }
-    },
-  ): Promise<SubagentRunLike>
+    }
+    signal: AbortSignal
+  }): Promise<{ childId: string }>
+  followup(
+    parent: MinimalAgent,
+    childId: string,
+    content: readonly TextBlockLike[],
+    options: { source: { kind: 'user' }; signal: AbortSignal },
+  ): Promise<string>
+  drainContinuableChildren(parent: MinimalAgent, childIds: readonly string[]): Promise<void>
+}
+
+/** agents 服务的最小接口（按 id 取 continuable 子代理会话）。 */
+interface AgentsService {
+  get(id: string): MinimalAgent | undefined
 }
 
 /** 工具定义的最小形状（与 DSH 工具注册面兼容的子集）。 */
@@ -209,6 +200,7 @@ interface MinimalToolDefinition {
 export interface ExecutorServices {
   tools: ToolsService
   subagents: SubagentsService
+  agents: AgentsService
 }
 
 /** 工具成功返回的 canonical 值形状。 */
@@ -220,7 +212,7 @@ interface ExecutorValue {
 
 /**
  * 注册 workloom_execute 工具（register 自绑定 fiber 生命周期，插件卸载自动注销）。
- * @param ctx 插件上下文（tools/subagents 由宿主注入）
+ * @param ctx 插件上下文（tools/subagents/agents 由宿主注入）
  */
 export function registerExecutor(ctx: Context & ExecutorServices): void {
   const { tools } = ctx
@@ -263,6 +255,10 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
           type: 'string',
           description: PARAM_DESCRIPTIONS.prompt,
         },
+        continue_executor: {
+          type: 'string',
+          description: PARAM_DESCRIPTIONS.continueExecutor,
+        },
       },
       required: ['kind', 'prompt', 'title'],
       additionalProperties: false,
@@ -276,9 +272,10 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
   })
 }
 
+/* ---- 下文分段追加：executeTool 与辅助函数 ---- */
 /**
- * 前台派发 executor 子代理并返回其输出。
- * @param ctx 插件上下文（含 subagents 服务）
+ * 前台派发（或续用）executor 子代理并返回其输出。
+ * @param ctx 插件上下文（含 subagents/agents 服务）
  * @param args 工具参数
  * @param exec 工具执行上下文（发起 agent 与取消信号）
  * @returns canonical 结果 {kind, runId, output}
@@ -348,7 +345,7 @@ async function executeTool(
       console.warn(`${OVERRIDE_WARN_PREFIX} ${overrideErr}`)
     }
   }
-  // 工具面硬屏蔽：spawn 前校验 provider 的 toolFilter capability（缺失 fail loud，
+  // 工具面硬屏蔽：派发前校验 provider 的 toolFilter capability（缺失 fail loud，
   // 不静默丢弃）；deny 清单 = workloom 9 工具全量 + 委派候选与运行时可见工具名的
   // 交集（未知名字会使 restrict fail，候选名必须求交，不得硬编码）。
   const provider = ctx.subagents.getProvider(SPAWN_PROVIDER)
@@ -389,84 +386,75 @@ async function executeTool(
             ? { reasoningEffort: ReasoningEffortId(effective.effort) }
             : {}),
         }
-  // one-shot 派发（descriptor mode=one-shot）：客户端渲染只读 composer、服务端
-  // 拒绝 follow-up；maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理
-  // 深度为 1，设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
+  // 定位本轮 childId：续用（continue_executor）按 dispatches 记录做同 kind 校验后
+  // followup 投递下一指令；新派发走 startContinuable（continuable 会话，客户端
+  // composer 可写）。maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理深度为 1，
+  // 设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
   // 即「executor 子代理禁止再派发 workloom_execute」。
-  let run
-  try {
-    run = await ctx.subagents.start(SPAWN_PROVIDER, {
-      label: buildChildLabel(root, taskRelPath, params.kind, params.title),
-      prompt: [{ type: 'text', text: built.text }],
-      parent,
-      signal: exec.signal,
-      agentOptions,
-      maxDepth: 1,
-      toolFilter: { deny: denyList },
-    })
-  } catch (error) {
-    // start reject 的 capability 错误兜底（如 provider 未注册/缺能力）转清晰英文错误。
-    throw toCapabilityError(error)
-  }
-  // start resolve 即登记写门禁豁免：run.id 必等于子代理 session id（SubagentRun.id 契约），
-  // 使 executor 派发的子代理在判定链中放行；start resolve 前子代理不开始 turn，无竞态。
-  registerWriteGateExemption(run.id)
-  try {
-    // run.result 对子代理级失败（模型/传输错误等）resolve 而非 reject，
-    // 由 stopReason 表达原因；基础设施故障才 reject（fail loud 透传）。
-    const result = await run.result
-    if (result.stopReason !== 'completed') {
-      // 异常终止：不附输出文本（避免把中止/失败当成功消费），错误文本用
-      // diagnostic，缺失时用 stopReason 的兜底文案（前缀与其余工具错误一致）。
-      throw new Error(
-        `${ERR_PREFIX.executor}: ${
-          result.diagnostic ?? `the executor subagent ended with ${result.stopReason}`
-        }`,
-      )
+  let childId: string
+  let reused = false
+  if (params.continue_executor !== undefined) {
+    // 定位失败返回明确提示（不报错）：旧记录缺 childId / 无同 kind 记录 / 跨 kind /
+    // 记录不存在，均不派发（fail loud 的「提示面」变体，避免静默续用错会话）。
+    const [locateErr, located] = locateContinueChildId(
+      root,
+      taskRelPath,
+      params.kind,
+      params.continue_executor,
+    )
+    if (locateErr !== null) {
+      return {
+        kind: 'foreground',
+        runId: NO_CHILD_RUN_ID,
+        output: [{ type: 'text', text: locateErr }],
+      }
     }
-    // 派发成功（completed）：记录派发审计（+1 条 dispatches）。记录失败仅告警不阻塞结果。
-    const [dispatchErr] = recordExecutorDispatch(root, taskRelPath, {
+    childId = located
+    reused = true
+    // followup 向同一 durable 会话投递下一指令（FIFO 由子代理 inbox 保证）；reject
+    // 透传（fail loud）：父权限/UNAUTHORIZED/接入拒绝等由 DSH 错误信息表达。
+    await ctx.subagents.followup(parent, childId, [{ type: 'text', text: built.text }], {
+      source: { kind: 'user' },
+      signal: exec.signal,
+    })
+  } else {
+    try {
+      const started = await ctx.subagents.startContinuable({
+        provider: SPAWN_PROVIDER,
+        label: buildChildLabel(root, taskRelPath, params.kind, params.title),
+        request: {
+          prompt: [{ type: 'text', text: built.text }],
+          parent,
+          agentOptions,
+          maxDepth: 1,
+          toolFilter: { deny: denyList },
+        },
+        signal: exec.signal,
+      })
+      childId = started.childId
+    } catch (error) {
+      // startContinuable reject 的 capability 错误兜底（如 provider 未注册/缺能力）
+      // 转清晰英文错误。
+      throw toCapabilityError(error)
+    }
+  }
+  // 指令已入 inbox（startContinuable/followup resolve）即登记写门禁豁免：覆盖整个
+  // turn（含续用轮）；resolve 前子代理不开始 turn，无竞态。
+  registerWriteGateExemption(childId)
+  try {
+    return await collectExecutorTurn(ctx, childId, {
+      root,
+      taskRelPath,
       kind: params.kind,
       title: params.title,
-    })
-    if (dispatchErr !== null) {
-      console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`)
-    }
-    const text = result.output
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n')
-    // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源（可观测性）；
-    // 配置来源细分（whenMain=<值>/fallback/legacy）随 configSources 渲染；
-    // force 放行时追加 (forced) 标记，使覆盖派发在输出中一眼可辨。
-    const receiptBase = buildExecutorReceipt({
-      model: effective.model,
-      modelSource: effective.sources.model,
-      modelConfigSource: effective.configSources.model,
-      modelWhenMainValue: effective.whenMainValue,
-      effort: effective.effort,
-      effortSource: effective.sources.effort,
-      effortConfigSource: effective.configSources.effort,
-      effortWhenMainValue: effective.whenMainValue,
-    })
-    const receipt = forced ? `${receiptBase} (forced)` : receiptBase
-    // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
-    const baseText = text === '' ? EMPTY_OUTPUT_TEXT : text
-    const outputText = `${baseText}\n\n${receipt}`
-    return {
-      kind: 'foreground',
-      runId: run.id,
-      output: [{ type: 'text', text: outputText }],
-    }
+      forced,
+      reused,
+    }, effective)
   } finally {
-    // 先注销写门禁豁免（成功失败均注销），再释放子代理运行。
-    unregisterWriteGateExemption(run.id)
-    try {
-      await run.dispose()
-    } catch (error) {
-      // 释放失败不阻塞结果返回：run 已结算，仅告警记录（对齐 drain 语义）。
-      console.warn(`${DISPOSE_WARN_PREFIX} ${String(error)}`)
-    }
+    // 先释放子代理 Activation（失败仅告警），再注销豁免：成功失败均注销
+    // （豁免存活期 = 指令入 inbox 至 drain 释放，覆盖 followup 续用轮）。
+    await drainContinuableChild(ctx, parent, childId)
+    unregisterWriteGateExemption(childId)
   }
 }
 
@@ -529,76 +517,3 @@ function renderOutput(value: unknown): TextBlockLike {
   return { type: 'text', text }
 }
 
-/**
- * 组装 toolFilter deny 清单：workloom 自有 9 工具名全量 + DSH 原生委派候选名
- * 与运行时可见工具名集合的交集（未知名字会使 restrict fail，候选名必须求交）。
- * 求交源限制：ctx.tools.schemas() 是全局层工具视图（宿主 sandbox facade 按本插件
- * 自身作用域无参调用返回），agent-plane（preset standing-mount 层）的委派工具名
- * 不在该视图内、不可枚举，故不在本仓库可屏蔽范围——其兜底为部署层 maxDepth
- * （任务 Notes B），并随上游跟进（Notes C：父代理 prospective 工具视图）升级求交源。
- * @param visibleNames 运行时可见工具名集合（ctx.tools.schemas() 全局视图投影）
- * @returns deny 清单（workloom 名在前，候选名按声明顺序在后）
- */
-export function buildDenyList(visibleNames: ReadonlySet<string>): string[] {
-  const denied = new Set<string>()
-  for (const name of Object.values(TOOL_NAMES)) denied.add(name)
-  for (const name of NATIVE_DELEGATION_CANDIDATES) {
-    if (visibleNames.has(name)) denied.add(name)
-  }
-  return [...denied]
-}
-
-/**
- * 计算子代理真实可见工具名（visibleNames − denyList，保持可见集声明顺序）。
- * 本机片段的 requiresTools 条件按此集合判定：与 toolFilter deny 后子代理实际
- * 可见集一致，避免按全局视图误注入子代理实际用不到的工具约束。
- * @param visibleNames 运行时可见工具名集合（ctx.tools.schemas() 全局视图投影）
- * @param denyList toolFilter deny 清单
- * @returns 可见且未被 deny 的工具名列表
- */
-function availableToolNames(
-  visibleNames: ReadonlySet<string>,
-  denyList: readonly string[],
-): string[] {
-  const denied = new Set(denyList)
-  return [...visibleNames].filter((name) => !denied.has(name))
-}
-
-/**
- * 校验 spawn provider 支持 toolFilter capability；缺失时 fail loud（不静默丢弃）。
- * provider 未注册（getProvider 返回 undefined）同样 fail loud：无法验证能力即不派发。
- * @param provider spawn provider（ctx.subagents.getProvider 的结果）
- */
-export function assertToolFilterCapability(provider: SpawnProviderLike | undefined): void {
-  if (provider === undefined) {
-    throw new Error(
-      `${ERR_PREFIX.executor}: the subagent provider "${SPAWN_PROVIDER}" is not registered; ` +
-        'executor dispatch requires a provider that supports the "toolFilter" capability',
-    )
-  }
-  // capabilities 整体缺失（畸形 provider）与 toolFilter: false 同等 fail loud：
-  // 可选链缺省 undefined !== true，统一走清晰英文错误，不抛原始 TypeError。
-  if (provider.capabilities?.toolFilter !== true) {
-    throw new Error(
-      `${ERR_PREFIX.executor}: the subagent provider "${SPAWN_PROVIDER}" does not support the ` +
-        '"toolFilter" capability; the deployment must support toolFilter for executor dispatch',
-    )
-  }
-}
-
-/**
- * start reject 的 capability 错误兜底：UNSUPPORTED_CAPABILITY 转清晰英文错误
- * （指明部署需支持 toolFilter capability）；其余错误原样透传。
- * @param error start reject 的错误
- * @returns 转换后的错误
- */
-function toCapabilityError(error: unknown): unknown {
-  if ((error as { code?: unknown } | null)?.code === 'UNSUPPORTED_CAPABILITY') {
-    return new Error(
-      `${ERR_PREFIX.executor}: executor dispatch requires a deployment whose subagent ` +
-        `provider supports the "toolFilter" capability (${String((error as Error).message)})`,
-      { cause: error },
-    )
-  }
-  return error
-}

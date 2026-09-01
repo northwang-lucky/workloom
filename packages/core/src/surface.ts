@@ -50,7 +50,7 @@ export const TOOL_DESCRIPTIONS = {
     'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
   taskList: 'List task summaries (optionally filtered by status)',
   executor:
-    'Dispatch a workloom executor subagent (research/implement/check/frontend) with the task context inlined',
+    'Dispatch a workloom executor subagent (research/implement/check/frontend) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only)',
   step: 'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
   journal: 'Record this session in the workloom journal (title + work commit hash + summary)',
 } as const
@@ -71,7 +71,7 @@ export const TOOL_SNIPPETS = {
     'workloom_task_archive(taskPath?, autoCommit?, force?, reason?) — archive the completed task',
   taskList: 'workloom_task_list(status?) — list task summaries',
   executor:
-    'workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?) — dispatch an executor',
+    'workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?) — dispatch an executor, or continue the same-kind executor session',
   step: 'workloom_step(stepId) — show one workflow step body',
   journal: 'workloom_journal(title, commit?, summary?) — record the session journal',
 } as const
@@ -121,6 +121,9 @@ export const PARAM_DESCRIPTIONS = {
   effort:
     'Reasoning effort: low/medium/high/xhigh/max; falls back to the matching subagent_profiles entry, then subagents.<kind>.effort',
   prompt: 'Task instructions for the executor subagent',
+  /** executor 工具的 continue_executor 参数（续用同一 continuable 会话；同 kind 边界）。 */
+  continueExecutor:
+    'Reuse the same continuable executor session instead of dispatching a new one: pass "latest" to reuse the most recent same-kind dispatch of this task, or pass the recorded childId (session id) of a previous same-kind dispatch; cross-kind reuse is rejected',
   stepId: 'Workflow step id, e.g. 1.1 or 2.1',
   journalTitle: 'Journal entry title',
   journalCommit: 'Work commit hash for this session',

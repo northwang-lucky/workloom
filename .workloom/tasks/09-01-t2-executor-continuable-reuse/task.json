@@ -22,15 +22,29 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-01T18:46:35.791Z",
+    "summary": "T2 全量复审 pass：startContinuable 取代 start（agentOptions/maxDepth/toolFilter/label 全量传递）；followup options 与 DSH 契约逐字段匹配（source:{kind:'user'}+signal），跨 kind 拒绝零调用；豁免注册仅 executor 路径（gate.ts 未改，06c5b96 防线完好，s3 跨轮 allow/deny 全流程）；异常终止 turn/end 判定（error.message/ended with kind/无 completed turn 兜底，异常仍 drain）；1920d32^ 基线 19/22 恢复 + 六 seam + 51 用例（effort header 3 用例按 prd 有意剔除）；DispatchRecord childId 校验 fail loud + 旧记录兼容；check 期修复：executor.ts 605 行拆分出新模块 executor-dispatch.ts（executor.ts 降至 519）、SPAWN_PROVIDER 单一来源、MinimalAgent 注释失实；验证 adapter-dsh 104/104、core 432/432、adapter-pi 47/47、typecheck/lint/build 全绿、TS 文件 LSP 0 诊断（gate.ts node:path 为存量环境噪声）。Open issues: none。"
+  },
   "grilling": {
     "required": true,
     "passedAt": "2026-09-01T17:16:43.180Z",
     "summary": "固定问题判 A（test-first）。Seams：startContinuable 派发会话可续（mode=continuable）；followup 续用进入同一会话 id；gate 豁免跨轮（followup turn 写业务文件不被 deny）；跨 kind 续用被拒；异常终止转工具错误不附输出；receipt (reused) 标注。恢复 1920d32^ 旧断言为基线。"
   },
   "overrides": [],
-  "stage": "implement",
-  "dispatches": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-01T18:35:48.707Z",
+      "title": "executor 可继续化与续用实现"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-01T18:46:29.939Z",
+      "title": "T2 可继续化实现全量复审"
+    }
+  ],
   "hooks": {
     "after_create": [],
     "after_start": [],

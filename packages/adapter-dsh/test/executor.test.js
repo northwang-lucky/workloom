@@ -1,6 +1,6 @@
 /**
- * executor 模块单测：agentOptions provider 拆分、one-shot 派发契约、stopReason
- * 异常终止、dispose 释放与 receipt 行。
+ * executor 模块单测：continuable 派发（startContinuable）、续用（followup 同一会话）、
+ * turn/end 事件面异常终止、drain 释放、gate 豁免生命周期与 receipt 行。
  * 测试依赖 dist（test 脚本先 build 再跑 node --test）。
  */
 import { test } from 'node:test'
@@ -11,6 +11,13 @@ import { join } from 'node:path'
 
 import { PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
 import { registerExecutor } from '../dist/executor.js'
+import {
+  assertToolFilterCapability,
+  availableToolNames,
+  buildDenyList,
+  SPAWN_PROVIDER,
+  toCapabilityError,
+} from '../dist/executor-dispatch.js'
 import { decideWriteGate } from '../dist/gate.js'
 
 /** DSH 原生委派类工具候选名（与实现的 deny 清单候选集一致；测试自给自足）。 */
@@ -58,7 +65,7 @@ function makeAgent(root, requestHeader) {
   }
 }
 
-/** 构造模拟子代理 agent（depth >= 1，供门禁判定观察：id 对应派发 run.id）。 */
+/** 构造模拟子代理 agent（depth >= 1，供门禁判定观察：id 对应派发 childId）。 */
 function makeChildAgent(root, id) {
   return {
     id,
@@ -69,11 +76,93 @@ function makeChildAgent(root, id) {
   }
 }
 
-/** 构造模拟 ctx（捕获注册的工具、one-shot 派发参数与 dispose 调用）。 */
+/** 构造会话事件（模拟 DSH SessionEvent 最小形状：type/seq/time/data）。 */
+function makeEvent(type, data) {
+  return { type, seq: 0, time: Date.now(), data }
+}
+
+/** turn/start 事件。 */
+function makeTurnStart(turn = 1) {
+  return makeEvent('turn/start', { turn })
+}
+
+/** turn/end 事件（reason.kind 可扩展 error/aborted 等，extra 携带 error 结构化失败）。 */
+function makeTurnEnd(kind, turn = 1, extra = {}) {
+  return makeEvent('turn/end', { turn, reason: { kind, ...extra } })
+}
+
+/** assistant/message 事件（携带子代理文本输出）。 */
+function makeAssistantMessage(text) {
+  return makeEvent('assistant/message', { message: { content: [{ type: 'text', text }] } })
+}
+
+/**
+ * 模拟一轮 turn 结算：向 child 事件数组追加 turn/start + assistant/message + turn/end。
+ * turnEndKind 非 completed 时只追加终止事件（异常终止无正常输出）。
+ */
+function pushTurnEvents(child, overrides) {
+  const events = child.session.events
+  events.push(makeTurnStart(1))
+  if (overrides.turnEndKind !== undefined && overrides.turnEndKind !== 'completed') {
+    const extra =
+      overrides.turnEndKind === 'error' && overrides.turnEndError !== undefined
+        ? { error: overrides.turnEndError }
+        : {}
+    events.push(makeTurnEnd(overrides.turnEndKind, 1, extra))
+    return
+  }
+  events.push(makeAssistantMessage(overrides.outputText ?? 'Mock executor output.'))
+  events.push(makeTurnEnd('completed', 1))
+}
+
+/**
+ * 构造 child 的 whenIdle：默认立即结算（pushTurnEvents 落盘事件）；manualIdle 时
+ * 返回受控 promise（idleControls 按轮次收集 resolve），供豁免窗口观测。
+ */
+function makeChildWhenIdle(child, overrides, idleControls) {
+  if (overrides.manualIdle === true) {
+    let resolveIdle
+    const promise = new Promise((resolve) => {
+      resolveIdle = resolve
+    })
+    idleControls.push({ childId: child.id, resolve: resolveIdle })
+    return () => {
+      pushTurnEvents(child, overrides)
+      return promise
+    }
+  }
+  if (overrides.childWhenIdle !== undefined) {
+    return () => overrides.childWhenIdle(child)
+  }
+  return () => {
+    pushTurnEvents(child, overrides)
+    return Promise.resolve()
+  }
+}
+
+/** 构造模拟 ctx（捕获注册的工具、continuable 派发/续用/释放调用与 child agent 表）。 */
 function makeCtx(overrides = {}) {
   const registered = []
   const startCalls = []
-  const disposeCalls = []
+  const followupCalls = []
+  const drainCalls = []
+  const idleControls = []
+  const childAgents = new Map()
+
+  /** 建/取 child agent（续用轮 followup 时复用同一 id 的会话，仅重绑 whenIdle）。 */
+  function ensureChild(childId, cwd) {
+    let child = childAgents.get(childId)
+    if (child === undefined) {
+      const events = overrides.childSeedEvents ? [...overrides.childSeedEvents] : []
+      child = {
+        id: childId,
+        session: { header: { cwd }, events },
+      }
+      childAgents.set(childId, child)
+    }
+    child.whenIdle = makeChildWhenIdle(child, overrides, idleControls)
+    return child
+  }
 
   const tools = {
     register(def) {
@@ -108,36 +197,51 @@ function makeCtx(overrides = {}) {
         inheritsParentContext: true,
       }
     },
-    async start(name, request) {
-      startCalls.push({ name, request })
-      // 默认 completed + 文本输出；subagentResult 覆盖最终结果（可用函数按调用次数）。
-      const result = overrides.subagentResult
-        ? (typeof overrides.subagentResult === 'function'
-          ? overrides.subagentResult(startCalls.length)
-          : overrides.subagentResult)
-        : { output: [{ type: 'text', text: 'Mock executor output.' }], stopReason: 'completed' }
-      return {
-        id: `child-${startCalls.length}`,
-        result: Promise.resolve(result),
-        async dispose() {
-          disposeCalls.push(`child-${startCalls.length}`)
-          if (overrides.dispose !== undefined) await overrides.dispose()
-        },
-      }
+    // continuable 派发：resolve 即返回 durable childId，child 会话注册进 agents 表。
+    async startContinuable(spec) {
+      if (overrides.startReject !== undefined) throw overrides.startReject
+      startCalls.push(spec)
+      const childId = `child-${startCalls.length}`
+      ensureChild(childId, spec.request.parent.session.header.cwd)
+      return { childId }
+    },
+    // 续用：向同一 childId 会话投递下一指令（mock 断言同一 session id 收消息）。
+    async followup(parent, childId, content, options) {
+      followupCalls.push({ parent, childId, content, options })
+      ensureChild(childId, parent.session.header.cwd)
+      return `msg-${followupCalls.length}`
+    },
+    // 释放 resident Activation（会话保留可 cold-resume；失败由用例注入）。
+    async drainContinuableChildren(parent, childIds) {
+      drainCalls.push({ parent, childIds })
+      if (overrides.drain !== undefined) await overrides.drain()
     },
   }
 
-  const ctx = { tools, subagents }
-  return { ctx, registered, startCalls, disposeCalls }
+  const ctx = { tools, subagents, agents: { get: (id) => childAgents.get(id) } }
+  return { ctx, registered, startCalls, followupCalls, drainCalls, idleControls, childAgents }
 }
 
-/** 注册 executor 并返回 { execute, registered, startCalls, disposeCalls }。 */
+/** 注册 executor 并返回 { execute, 各调用记录 }。 */
 function setupExecutor(overrides = {}) {
-  const { ctx, registered, startCalls, disposeCalls } = makeCtx(overrides)
-  registerExecutor(ctx)
-  const def = registered[0]
+  const made = makeCtx(overrides)
+  registerExecutor(made.ctx)
+  const def = made.registered[0]
   assert.ok(def, 'executor tool must be registered')
-  return { execute: def.execute.bind(def), registered, startCalls, disposeCalls }
+  return {
+    execute: def.execute.bind(def),
+    registered: made.registered,
+    startCalls: made.startCalls,
+    followupCalls: made.followupCalls,
+    drainCalls: made.drainCalls,
+    idleControls: made.idleControls,
+    childAgents: made.childAgents,
+  }
+}
+
+/** 常用执行参数（taskPath/title 固定，减少样板）。 */
+function execArgs(extra = {}) {
+  return { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'executor test', ...extra }
 }
 
 test('agentOptions 携带 provider+model（带前缀时）', async () => {
@@ -149,15 +253,7 @@ subagents:
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'provider prefix test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs(), { agent: parent, signal: new AbortController().signal })
     assert.equal(startCalls.length, 1)
     const opts = startCalls[0].request.agentOptions
     assert.equal(opts.provider, 'deepseek-official')
@@ -176,15 +272,7 @@ subagents:
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      {
-        kind: 'research',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'bare model test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs({ kind: 'research' }), { agent: parent, signal: new AbortController().signal })
     assert.equal(startCalls.length, 1)
     const opts = startCalls[0].request.agentOptions
     assert.equal(opts.provider, undefined)
@@ -199,15 +287,7 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      {
-        kind: 'check',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'no config test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs({ kind: 'check' }), { agent: parent, signal: new AbortController().signal })
     assert.equal(startCalls.length, 1)
     assert.equal(startCalls[0].request.agentOptions, undefined)
   } finally {
@@ -215,48 +295,94 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
   }
 })
 
-test('one-shot 派发：spawn provider、label、maxDepth 1、agentOptions、signal 与 parent', async () => {
+test('s1: 派发走 startContinuable（非 one-shot start），返回 durable childId 且 drain 释放', async () => {
   const root = makeProject(`
 subagents:
   implement:
     model: deepseek-official/deepseek-v4-flash
 `)
   try {
-    const { execute, startCalls } = setupExecutor()
+    const { execute, startCalls, drainCalls } = setupExecutor()
     const parent = makeAgent(root)
     const signal = new AbortController().signal
-    const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test prompt',
-        taskPath: 'tasks/test-task',
-        title: 'one-shot dispatch test',
-      },
-      { agent: parent, signal },
-    )
+    const result = await execute(execArgs({ title: 'continuable dispatch test' }), {
+      agent: parent,
+      signal,
+    })
+    // seam：调用的是 startContinuable（mock 未实现 one-shot start，误调用会 TypeError）
     assert.equal(startCalls.length, 1)
-    const call = startCalls[0]
-    assert.equal(call.name, 'spawn')
-    assert.equal(call.request.label, '[Implement] one-shot dispatch test')
-    assert.equal(call.request.maxDepth, 1)
-    assert.equal(call.request.signal, signal)
-    assert.equal(call.request.parent, parent)
-    assert.equal(call.request.prompt.length, 1)
-    assert.equal(call.request.prompt[0].type, 'text')
-    assert.ok(call.request.prompt[0].text.includes('Active task:'), 'prompt must inline the task')
-    assert.deepEqual(call.request.agentOptions, {
+    const spec = startCalls[0]
+    assert.equal(spec.provider, 'spawn')
+    assert.equal(spec.label, '[Implement] continuable dispatch test')
+    assert.equal(spec.request.maxDepth, 1)
+    assert.equal(spec.signal, signal)
+    assert.equal(spec.request.parent, parent)
+    assert.equal(spec.request.prompt.length, 1)
+    assert.equal(spec.request.prompt[0].type, 'text')
+    assert.ok(spec.request.prompt[0].text.includes('Active task:'), 'prompt must inline the task')
+    assert.deepEqual(spec.request.agentOptions, {
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash',
     })
-    // runId 沿用 run.id（桩按调用次数生成 child-N）
+    // durable childId：runId 沿用会话 id，可在后续续用中复用
     assert.equal(result.runId, 'child-1')
     assert.ok(result.output[0].text.includes('Mock executor output.'))
+    // 释放走 drainContinuableChildren（会话持久化保留，可 cold-resume 再续用）
+    assert.equal(drainCalls.length, 1)
+    assert.equal(drainCalls[0].parent, parent)
+    assert.deepEqual(drainCalls[0].childIds, ['child-1'])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('派发成功：task.json dispatches 记录 { kind, at, title }', async () => {
+test('s2: 续用走 followup 进入同一会话（session id 不变；边界只取本轮事件）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, followupCalls, drainCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    // 第一轮：新派发
+    const first = await execute(execArgs({ prompt: 'round 1', title: 'reuse test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const childId = first.runId
+    // 第二轮：续用（'latest' → dispatches 中同 kind 最近一次的 childId）
+    const second = await execute(
+      execArgs({ prompt: 'round 2', title: 'reuse test', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(followupCalls.length, 1)
+    // mock followup 断言同一 session id 收到下一指令（消息 FIFO 由 DSH inbox 保证）
+    assert.equal(followupCalls[0].childId, childId, 'followup must target the same session id')
+    assert.equal(followupCalls[0].parent, parent)
+    assert.equal(followupCalls[0].content.length, 1)
+    assert.equal(followupCalls[0].content[0].type, 'text')
+    assert.ok(followupCalls[0].content[0].text.includes('round 2'))
+    // 续用轮结果：同一 runId（会话未变）+ 输出 + drain
+    assert.equal(second.runId, childId, 'reused run must keep the same session id')
+    assert.ok(second.output[0].text.includes('Mock executor output.'))
+    assert.equal(drainCalls.length, 2, 'each turn drains once')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('输出边界：seed 事件不计入（boundary 排除父历史种子）', async () => {
+  const root = makeProject('')
+  try {
+    const seed = [makeEvent('user/message', { message: { content: [] }, source: { kind: 'user' } }), makeAssistantMessage('seed text')]
+    const { execute } = setupExecutor({ childSeedEvents: seed })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs(), { agent: parent, signal: new AbortController().signal })
+    assert.ok(result.output[0].text.includes('Mock executor output.'))
+    assert.ok(!result.output[0].text.includes('seed text'), 'seed events must not leak into output')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('派发成功：task.json dispatches 记录 { kind, at, title, childId }', async () => {
   const root = makeProject('')
   try {
     const { execute } = setupExecutor()
@@ -271,93 +397,80 @@ test('派发成功：task.json dispatches 记录 { kind, at, title }', async () 
     assert.equal(task.dispatches.length, 1)
     assert.equal(task.dispatches[0].kind, 'frontend')
     assert.equal(task.dispatches[0].title, 'ui impl')
+    assert.equal(task.dispatches[0].childId, 'child-1')
     assert.ok(!Number.isNaN(Date.parse(task.dispatches[0].at)))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('stopReason 非 completed：抛错且文本用 diagnostic（不附输出）', async () => {
+test('s5: turn/end 非 completed（error 带结构化 message）：抛工具错误且不附输出', async () => {
   const root = makeProject('')
   try {
-    const { execute, startCalls } = setupExecutor({
-      subagentResult: {
-        output: [{ type: 'text', text: 'partial output' }],
-        stopReason: 'refusal',
-        diagnostic: 'the model declined the task',
+    const { execute, drainCalls } = setupExecutor({
+      turnEndKind: 'error',
+      turnEndError: { message: 'the model declined the task', code: 'UNKNOWN' },
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
+      /the model declined the task/,
+    )
+    // 异常终止同样 drain 释放（finally 语义）
+    assert.equal(drainCalls.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s5b: turn/end 非 completed（aborted 无 message）：用终止原因兜底文案', async () => {
+  const root = makeProject('')
+  try {
+    const { execute } = setupExecutor({ turnEndKind: 'aborted', turnEndError: undefined })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
+      /the executor subagent ended with aborted/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s5c: 无 turn/end 事件：视为异常终止（无法确认正常完成）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute } = setupExecutor({
+      childWhenIdle: (child) => {
+        child.session.events.push(makeAssistantMessage('partial output'))
+        return Promise.resolve()
       },
     })
     const parent = makeAgent(root)
     await assert.rejects(
-      execute(
-        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'refusal test' },
-        { agent: parent, signal: new AbortController().signal },
-      ),
-      /the model declined the task/,
+      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
+      /ended without a completed turn/,
     )
-    assert.equal(startCalls.length, 1)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('stopReason 非 completed 且缺 diagnostic：用 stopReason 兜底文案', async () => {
-  const root = makeProject('')
-  try {
-    const { execute, startCalls } = setupExecutor({
-      subagentResult: { output: [], stopReason: 'aborted' },
-    })
-    const parent = makeAgent(root)
-    await assert.rejects(
-      execute(
-        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'aborted test' },
-        { agent: parent, signal: new AbortController().signal },
-      ),
-      /the executor subagent ended with aborted/,
-    )
-    assert.equal(startCalls.length, 1)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('dispose 失败仅 WARNING：结果仍正常返回', async (t) => {
+test('drain 失败仅 WARNING：结果仍正常返回', async (t) => {
   const root = makeProject('')
   try {
     const warn = t.mock.method(console, 'warn', () => {})
-    const { execute, disposeCalls } = setupExecutor({
-      dispose: () => {
-        throw new Error('dispose boom')
+    const { execute, drainCalls } = setupExecutor({
+      drain: () => {
+        throw new Error('drain boom')
       },
     })
     const parent = makeAgent(root)
-    const result = await execute(
-      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'dispose warn test' },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(disposeCalls.length, 1)
+    const result = await execute(execArgs(), { agent: parent, signal: new AbortController().signal })
+    assert.equal(drainCalls.length, 1)
     assert.equal(warn.mock.callCount(), 1)
-    assert.match(String(warn.mock.calls[0].arguments[0]), /failed to dispose executor run/)
+    assert.match(String(warn.mock.calls[0].arguments[0]), /failed to release continuable child/)
     assert.ok(result.output[0].text.includes('Mock executor output.'))
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('run.dispose 在结果被读取后调用（含异常终止路径）', async () => {
-  const root = makeProject('')
-  try {
-    const { execute, disposeCalls } = setupExecutor({
-      subagentResult: { output: [], stopReason: 'max-tokens' },
-    })
-    const parent = makeAgent(root)
-    await assert.rejects(
-      execute(
-        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'dispose error test' },
-        { agent: parent, signal: new AbortController().signal },
-      ),
-    )
-    assert.equal(disposeCalls.length, 1)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -372,15 +485,10 @@ subagents:
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
-    const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'receipt config test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    const result = await execute(execArgs({ title: 'receipt config test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     const text = result.output[0].text
     assert.ok(text.includes('[workloom executor]'))
     assert.ok(text.includes('deepseek-official/deepseek-v4-flash'))
@@ -406,13 +514,33 @@ subagents:
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      { kind: 'implement', prompt: 'test', model: 'param-provider/param-model', taskPath: 'tasks/test-task', title: 'receipt param test' },
+      execArgs({ model: 'param-provider/param-model', title: 'receipt param test' }),
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
     assert.ok(text.includes('param-provider/param-model'))
     assert.ok(text.includes('(param)'))
     assert.ok(!text.includes('effort:'), 'DSH receipt must not render the effort segment')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s6: 续用轮 receipt 追加 (reused)，新派发轮不标注', async () => {
+  const root = makeProject('')
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    const first = await execute(execArgs({ title: 'reuse receipt test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.ok(!first.output[0].text.includes('(reused)'), 'fresh dispatch must not mark reuse')
+    const second = await execute(
+      execArgs({ title: 'reuse receipt test', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.ok(second.output[0].text.includes('(reused)'), 'reused turn must mark (reused)')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -425,18 +553,18 @@ subagents:
     model: deepseek-official/deepseek-v4-flash
 `)
   try {
-    // subagentResult 空输出 → 子代理无文本产出，receipt 仍保留
-    const { execute } = setupExecutor({ subagentResult: { output: [], stopReason: 'completed' } })
-    const parent = makeAgent(root)
-    const result = await execute(
-      {
-        kind: 'check',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'empty output test',
+    // childWhenIdle 只落盘 turn/end（无 assistant/message）→ 子代理无文本产出，receipt 仍保留
+    const { execute } = setupExecutor({
+      childWhenIdle: (child) => {
+        child.session.events.push(makeTurnEnd('completed', 1))
+        return Promise.resolve()
       },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ kind: 'check', title: 'empty output test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     const text = result.output[0].text
     assert.ok(text.includes('produced no text output'))
     assert.ok(text.includes('[workloom executor]'))
@@ -452,15 +580,10 @@ test('receipt 行：无配置时显示 default 来源（无 effort 段）', asyn
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
-    const result = await execute(
-      {
-        kind: 'check',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'default source test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    const result = await execute(execArgs({ kind: 'check' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     const text = result.output[0].text
     assert.ok(text.includes('<parent session>'))
     assert.ok(text.includes('(default)'))
@@ -487,15 +610,10 @@ subagents:
     // （空串拼出的 "/" 会在 core 匹配时抛错，按无值处理），whenMain 条目跳过
     // 不 fail loud，生效值回退旧 subagents（receipt 标 legacy）。
     const parent = makeAgent(root, () => ({ config: { provider: '', model: '' } }))
-    const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'empty main model test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    const result = await execute(execArgs({ title: 'empty main model test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     assert.equal(startCalls.length, 1)
     const opts = startCalls[0].request.agentOptions
     assert.equal(opts.provider, 'legacy-provider')
@@ -521,11 +639,12 @@ test('label 组装：四种 kind 均为 [<KindLabel>] <task title>（title 缺�
       ['frontend', 'Frontend'],
     ]
     for (const [kind, kindLabel] of cases) {
-      await execute(
-        { kind, prompt: 'test', taskPath: 'tasks/test-task' },
-        { agent: parent, signal: new AbortController().signal },
-      )
-      assert.equal(startCalls[startCalls.length - 1].request.label, `[${kindLabel}] Test`)
+      // title 缺省（undefined）：回退 task title「Test」
+      await execute(execArgs({ kind, title: undefined }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      })
+      assert.equal(startCalls[startCalls.length - 1].label, `[${kindLabel}] Test`)
     }
     assert.equal(startCalls.length, 4)
   } finally {
@@ -542,11 +661,11 @@ test('label 回退：task title 空白时回退 workloom-<kind>（连字符）',
     )
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task' },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(startCalls[0].request.label, 'workloom-implement')
+    await execute(execArgs({ title: undefined }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls[0].label, 'workloom-implement')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -559,11 +678,11 @@ test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', a
     writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), '{ not json')
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      { kind: 'research', prompt: 'test', taskPath: 'tasks/test-task' },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(startCalls[0].request.label, 'workloom-research')
+    await execute(execArgs({ kind: 'research', title: undefined }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls[0].label, 'workloom-research')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -581,17 +700,12 @@ test('label 组装：title 传入时四种 kind 均为 [<KindLabel>] <title>', a
       ['frontend', 'Frontend'],
     ]
     for (const [kind, kindLabel] of cases) {
-      await execute(
-        {
-          kind,
-          prompt: 'test',
-          taskPath: 'tasks/test-task',
-          title: 'fix executor label prefix',
-        },
-        { agent: parent, signal: new AbortController().signal },
-      )
+      await execute(execArgs({ kind, title: 'fix executor label prefix' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      })
       assert.equal(
-        startCalls[startCalls.length - 1].request.label,
+        startCalls[startCalls.length - 1].label,
         `[${kindLabel}] fix executor label prefix`,
       )
     }
@@ -606,11 +720,8 @@ test('label 回退：title 为空白字符串时走缺省 task title 路径', as
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: '   ' },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(startCalls[0].request.label, '[Implement] Test')
+    await execute(execArgs({ title: '   ' }), { agent: parent, signal: new AbortController().signal })
+    assert.equal(startCalls[0].label, '[Implement] Test')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -622,16 +733,11 @@ test('label 组装：title 传入时不依赖 readTask（task.json 损坏仍可�
     writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), '{ not json')
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'semantic title wins',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    assert.equal(startCalls[0].request.label, '[Implement] semantic title wins')
+    await execute(execArgs({ title: 'semantic title wins' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls[0].label, '[Implement] semantic title wins')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -665,6 +771,15 @@ test('参数面：schema 恢复可选 effort 参数（描述引用 PARAM_DESCRIP
   assert.ok(!params.required.includes('effort'), 'effort must be optional')
 })
 
+test('参数面：continue_executor schema 可选，描述引用 PARAM_DESCRIPTIONS.continueExecutor', () => {
+  const { registered } = setupExecutor()
+  const params = registered[0].parameters
+  const props = params.properties
+  assert.equal(props.continue_executor.type, 'string')
+  assert.equal(props.continue_executor.description, PARAM_DESCRIPTIONS.continueExecutor)
+  assert.ok(!params.required.includes('continue_executor'), 'continue_executor must be optional')
+})
+
 test('effort 配置生效：subagents.<kind>.effort 进入 reasoningEffort，receipt 标 (config)', async () => {
   const root = makeProject(`
 subagents:
@@ -675,10 +790,10 @@ subagents:
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    const result = await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'effort config test' },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    const result = await execute(execArgs({ title: 'effort config test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     assert.equal(startCalls.length, 1)
     const opts = startCalls[0].request.agentOptions
     assert.equal(opts.provider, 'deepseek-official')
@@ -700,10 +815,10 @@ subagents:
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'effort only test' },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs({ title: 'effort only test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     assert.equal(startCalls.length, 1)
     const opts = startCalls[0].request.agentOptions
     assert.equal(opts.provider, undefined)
@@ -725,13 +840,7 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'effort param test',
-        effort: 'high',
-      },
+      execArgs({ title: 'effort param test', effort: 'high' }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(startCalls.length, 1)
@@ -757,13 +866,7 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'effort conflict test',
-        effort: 'max',
-      },
+      execArgs({ title: 'effort conflict test', effort: 'max' }),
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
@@ -788,15 +891,12 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
+      execArgs({
         title: 'effort forced test',
         effort: 'max',
         force: true,
         reason: 'user wants max effort for this dispatch',
-      },
+      }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(startCalls.length, 1)
@@ -825,16 +925,10 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     await assert.rejects(
-      execute(
-        {
-          kind: 'implement',
-          prompt: 'test',
-          taskPath: 'tasks/test-task',
-          title: 'invalid effort test',
-          effort: 'ultra',
-        },
-        { agent: parent, signal: new AbortController().signal },
-      ),
+      execute(execArgs({ title: 'invalid effort test', effort: 'ultra' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
       /invalid effort: ultra/,
     )
     assert.equal(startCalls.length, 0)
@@ -854,13 +948,7 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'conflict no force test',
-        model: 'deepseek-official/deepseek-v4-pro',
-      },
+      execArgs({ title: 'conflict no force test', model: 'deepseek-official/deepseek-v4-pro' }),
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
@@ -892,14 +980,7 @@ subagents:
     const parent = makeAgent(root)
     await assert.rejects(
       execute(
-        {
-          kind: 'implement',
-          prompt: 'test',
-          taskPath: 'tasks/test-task',
-          title: 'conflict force test',
-          model: 'deepseek-official/deepseek-v4-pro',
-          force: true,
-        },
+        execArgs({ title: 'conflict force test', model: 'deepseek-official/deepseek-v4-pro', force: true }),
         { agent: parent, signal: new AbortController().signal },
       ),
       /force: true requires a non-empty reason/,
@@ -922,15 +1003,12 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
+      execArgs({
         title: 'conflict forced test',
         model: 'deepseek-official/deepseek-v4-pro',
         force: true,
         reason: 'user asked to use the pro model',
-      },
+      }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(startCalls.length, 1)
@@ -941,9 +1019,10 @@ subagents:
     assert.equal(task.overrides[0].gate, 'executor_model_effort')
     assert.equal(task.overrides[0].tool, 'workloom_execute')
     assert.equal(task.overrides[0].reason, 'user asked to use the pro model')
-    // 派发审计同样落盘：force 放行后仍记录一次成功派发。
+    // 派发审计同样落盘：force 放行后仍记录一次成功派发（含 childId）。
     assert.equal(task.dispatches.length, 1)
     assert.equal(task.dispatches[0].kind, 'implement')
+    assert.equal(task.dispatches[0].childId, 'child-1')
     const text = result.output[0].text
     assert.ok(text.endsWith('(forced)'))
     assert.ok(text.includes('deepseek-official/deepseek-v4-pro'))
@@ -965,13 +1044,7 @@ subagents:
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'no conflict test',
-        model: 'deepseek-official/deepseek-v4-flash',
-      },
+      execArgs({ title: 'no conflict test', model: 'deepseek-official/deepseek-v4-flash' }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(startCalls.length, 1)
@@ -983,7 +1056,7 @@ subagents:
   }
 })
 
-test('spawn 请求携带 toolFilter deny：9 workloom 名 + 可见委派候选交集，不可见候选不入 deny', async () => {
+test('continuable 请求携带 toolFilter deny：9 workloom 名 + 可见委派候选交集，不可见候选不入 deny', async () => {
   const root = makeProject('')
   try {
     // 运行时可见工具集：9 个 workloom 工具全可见 + 部分委派候选可见 + 常规工具。
@@ -997,10 +1070,10 @@ test('spawn 请求携带 toolFilter deny：9 workloom 名 + 可见委派候选�
     ]
     const { execute, startCalls } = setupExecutor({ visibleTools: visible })
     const parent = makeAgent(root)
-    await execute(
-      { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'toolfilter test' },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs({ title: 'toolfilter test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     assert.equal(startCalls.length, 1)
     // deny = workloom 9 名全量 + 可见候选（subagent/subagent_with_model/ralph）；
     // 不可见候选（subagent_fork 等）不得硬编码进 deny（未知名字会使 restrict fail）。
@@ -1016,7 +1089,7 @@ test('spawn 请求携带 toolFilter deny：9 workloom 名 + 可见委派候选�
   }
 })
 
-test('provider 缺 toolFilter capability：spawn 前 fail loud（清晰英文错误，不静默丢弃）', async () => {
+test('provider 缺 toolFilter capability：派发前 fail loud（清晰英文错误，不静默丢弃）', async () => {
   const root = makeProject('')
   try {
     const { execute, startCalls } = setupExecutor({
@@ -1033,10 +1106,7 @@ test('provider 缺 toolFilter capability：spawn 前 fail loud（清晰英文错
     })
     const parent = makeAgent(root)
     await assert.rejects(
-      execute(
-        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'capability test' },
-        { agent: parent, signal: new AbortController().signal },
-      ),
+      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
       /toolFilter/,
     )
     assert.equal(startCalls.length, 0, 'start must not be called when the capability is missing')
@@ -1045,16 +1115,13 @@ test('provider 缺 toolFilter capability：spawn 前 fail loud（清晰英文错
   }
 })
 
-test('provider 未注册（getProvider 返回 undefined）：spawn 前 fail loud', async () => {
+test('provider 未注册（getProvider 返回 undefined）：派发前 fail loud', async () => {
   const root = makeProject('')
   try {
     const { execute, startCalls } = setupExecutor({ getProvider: () => undefined })
     const parent = makeAgent(root)
     await assert.rejects(
-      execute(
-        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'no provider test' },
-        { agent: parent, signal: new AbortController().signal },
-      ),
+      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
       /toolFilter/,
     )
     assert.equal(startCalls.length, 0)
@@ -1063,7 +1130,7 @@ test('provider 未注册（getProvider 返回 undefined）：spawn 前 fail loud
   }
 })
 
-test('provider 畸形（capabilities 缺失）：spawn 前 fail loud（清晰英文错误，非 TypeError）', async () => {
+test('provider 畸形（capabilities 缺失）：派发前 fail loud（清晰英文错误，非 TypeError）', async () => {
   const root = makeProject('')
   try {
     const { execute, startCalls } = setupExecutor({
@@ -1071,10 +1138,7 @@ test('provider 畸形（capabilities 缺失）：spawn 前 fail loud（清晰英
     })
     const parent = makeAgent(root)
     await assert.rejects(
-      execute(
-        { kind: 'check', prompt: 'test', taskPath: 'tasks/test-task', title: 'malformed test' },
-        { agent: parent, signal: new AbortController().signal },
-      ),
+      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
       /"toolFilter" capability/,
     )
     assert.equal(startCalls.length, 0)
@@ -1083,7 +1147,64 @@ test('provider 畸形（capabilities 缺失）：spawn 前 fail loud（清晰英
   }
 })
 
-test('派发期间登记写门禁豁免、结算后注销（门禁对子代理生效）', async () => {
+test('startContinuable reject（UNSUPPORTED_CAPABILITY）：转清晰英文错误兜底', async () => {
+  const root = makeProject('')
+  try {
+    const capabilityError = new Error('capability missing')
+    capabilityError.code = 'UNSUPPORTED_CAPABILITY'
+    const { execute, startCalls } = setupExecutor({ startReject: capabilityError })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
+      /"toolFilter" capability/,
+    )
+    assert.equal(startCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executor-dispatch 拆分面：deny 清单/capability 校验/错误兜底可直接导入且与工具路径一致', () => {
+  // 模块拆分 seam：工具路径经由本模块组装 deny 与校验 capability，直接断言导出面
+  // 与行为，防止拆分后 executor.ts 静默内联回退。
+  const visible = new Set([
+    ...Object.values(TOOL_NAMES),
+    'subagent',
+    'subagent_with_model',
+    'ralph',
+    'write',
+    'edit',
+  ])
+  // deny = workloom 9 名全量 + 可见委派候选交集（不可见候选不入 deny）。
+  const deny = buildDenyList(visible)
+  assert.deepEqual(deny, [...Object.values(TOOL_NAMES), 'subagent', 'subagent_with_model', 'ralph'])
+  // 真实可见集 = 可见集 − deny（保持声明顺序）。
+  assert.deepEqual(availableToolNames(visible, deny), ['write', 'edit'])
+  // capability 缺失 / provider 未注册 / 畸形 provider 均 fail loud 且指名 spawn provider。
+  assert.throws(
+    () => assertToolFilterCapability(undefined),
+    new RegExp(`"${SPAWN_PROVIDER}" is not registered`),
+  )
+  assert.throws(
+    () => assertToolFilterCapability({ capabilities: { toolFilter: false } }),
+    /does not support the "toolFilter" capability/,
+  )
+  // 畸形 provider（capabilities 整体缺失）与 toolFilter: false 同等 fail loud。
+  assert.throws(
+    () => assertToolFilterCapability({}),
+    /does not support the "toolFilter" capability/,
+  )
+  // UNSUPPORTED_CAPABILITY 兜底转清晰英文错误；其余错误原样透传。
+  const capabilityError = new Error('capability missing')
+  capabilityError.code = 'UNSUPPORTED_CAPABILITY'
+  const translated = toCapabilityError(capabilityError)
+  assert.ok(translated instanceof Error)
+  assert.match(String(translated.message), /"toolFilter" capability/)
+  const other = new Error('plain failure')
+  assert.equal(toCapabilityError(other), other)
+})
+
+test('s3: gate 豁免跨轮——续用轮 followup turn 写业务文件不被 deny，结算后注销', async () => {
   const root = makeProject('executor:\n  gate: true\n')
   // 任务标记为 in_progress，使非豁免子代理在业务路径上会被门禁 deny。
   writeFileSync(
@@ -1091,73 +1212,148 @@ test('派发期间登记写门禁豁免、结算后注销（门禁对子代理�
     JSON.stringify({ status: 'in_progress', title: 'Test', slug: 'test-task', priority: 'P2' }),
   )
   try {
-    // 手动结算的 run.result：观测「派发期间（已注册）」与「结算后（已注销）」两个时点。
-    let resolveResult
-    const registered = []
-    const disposeCalls = []
-    const ctx = {
-      tools: {
-        register(def) {
-          registered.push(def)
-          return () => {}
-        },
-        schemas() {
-          return [...Object.values(TOOL_NAMES), 'write', 'edit'].map((name) => ({ name }))
-        },
-      },
-      subagents: {
-        getProvider() {
-          return {
-            name: 'spawn',
-            capabilities: { outputSchema: true, depthLimit: true, toolFilter: true, persona: true },
-            inheritsParentContext: true,
-          }
-        },
-        async start() {
-          return {
-            id: 'child-gate-1',
-            result: new Promise((resolve) => {
-              resolveResult = resolve
-            }),
-            async dispose() {
-              disposeCalls.push('child-gate-1')
-            },
-          }
-        },
-      },
-    }
-    registerExecutor(ctx)
-    const def = registered[0]
-    assert.ok(def, 'executor tool must be registered')
+    // manualIdle：每轮 whenIdle 由 idleControls 手动结算，观测「豁免窗口」两个时点。
+    const { execute, followupCalls, drainCalls, idleControls } = setupExecutor({ manualIdle: true })
     const parent = makeAgent(root)
-    // 不 await：execute 在 start resolve 后登记豁免，并在 run.result 结算前挂起。
-    const pending = def.execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'gate exemption test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
-    // 存活 microtask 已完成登记（register 在 start resolve 后同步执行），派发期间应豁免放行。
+    // 第一轮：新派发，startContinuable resolve 后豁免注册（turn 挂起中）。
+    const pending1 = execute(execArgs({ prompt: 'round 1', title: 'gate reuse test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     await new Promise((r) => setImmediate(r))
-    const child = makeChildAgent(root, 'child-gate-1')
+    const child = makeChildAgent(root, 'child-1')
     assert.deepEqual(
       decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }),
       { kind: 'allow' },
-      'during dispatch the executor child must be exempt',
+      'during the dispatch turn the executor child must be exempt',
     )
-    // 结算后 finally 先注销再 dispose：非豁免的 fork 子代理被门禁 deny。
-    resolveResult({ output: [{ type: 'text', text: 'done' }], stopReason: 'completed' })
-    const result = await pending
-    assert.equal(disposeCalls.length, 1)
-    assert.equal(result.runId, 'child-gate-1')
+    // 结算第一轮：drain 释放时豁免注销，非豁免的 fork 子代理被门禁 deny。
+    idleControls[0].resolve()
+    const first = await pending1
+    assert.equal(first.runId, 'child-1')
+    assert.equal(drainCalls.length, 1)
     assert.equal(
       decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }).kind,
       'deny',
-      'after settlement the child must no longer be exempt',
+      'after the dispatch turn settles the child must no longer be exempt',
     )
+    // 第二轮：续用（followup 投递后豁免重新注册）——豁免跨轮生效（s3 核心）。
+    // 不 await：turn 由 idleControls[1] 手动结算。
+    const pending2 = execute(
+      execArgs({ prompt: 'round 2', title: 'gate reuse test', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    await new Promise((r) => setImmediate(r))
+    assert.equal(followupCalls.length, 1, 'reuse round must follow up the same session')
+    assert.deepEqual(
+      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }),
+      { kind: 'allow' },
+      'during the reuse turn the executor child must be exempt again (s3)',
+    )
+    // 结算续用轮：再次 drain + 注销。
+    idleControls[1].resolve()
+    const second = await pending2
+    assert.equal(second.runId, 'child-1', 'reuse must keep the same session id')
+    assert.equal(drainCalls.length, 2)
+    assert.equal(
+      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }).kind,
+      'deny',
+      'after the reuse turn settles the child must no longer be exempt',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s4: 跨 kind 续用被拒（返回提示，不派发不 followup）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    // 两个 kind 的派发记录（child-1: implement、child-2: check）。
+    await execute(execArgs({ title: 'impl round' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    await execute(execArgs({ kind: 'check', title: 'check round' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // implement 续用 check 会话（显式 childId）：同 kind 校验拒绝。
+    const result = await execute(
+      execArgs({ title: 'cross kind reuse', continue_executor: 'child-2' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = result.output[0].text
+    assert.ok(text.includes('cross-kind reuse rejected'), 'must return a clear reuse rejection')
+    assert.ok(text.includes('check'), 'notice must name the recorded kind')
+    assert.equal(startCalls.length, 2, 'no new dispatch for a rejected reuse')
+    assert.equal(followupCalls.length, 0, 'followup must not fire for a rejected reuse')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续用定位：无同 kind 记录（latest）返回明确提示不派发', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({ kind: 'research', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = result.output[0].text
+    assert.ok(text.includes('no previous research executor dispatch'), 'must explain the miss')
+    assert.equal(startCalls.length, 0)
+    assert.equal(followupCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续用定位：旧记录缺 childId（latest）返回明确提示不报错', async () => {
+  const root = makeProject('')
+  try {
+    // 预置一条旧格式派发记录（无 childId 字段）：latest 定位失败返回提示。
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    task.dispatches = [
+      { kind: 'implement', at: new Date().toISOString(), title: 'legacy dispatch' },
+    ]
+    writeFileSync(
+      join(root, '.workloom/tasks/test-task/task.json'),
+      JSON.stringify(task),
+    )
+    const { execute, startCalls, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({ continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = result.output[0].text
+    assert.ok(text.includes('no previous implement executor dispatch'), 'must explain the miss')
+    assert.equal(startCalls.length, 0)
+    assert.equal(followupCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续用定位：显式 childId 不在 dispatches 中返回明确提示不派发', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({ continue_executor: 'session-unknown' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const text = result.output[0].text
+    assert.ok(text.includes('session-unknown'), 'notice must echo the requested id')
+    assert.equal(startCalls.length, 0)
+    assert.equal(followupCalls.length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1183,15 +1379,10 @@ test('本机片段：可见集−deny 满足 requiresTools 时首条 prompt 注�
       visibleTools: [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics'],
     })
     const parent = makeAgent(root)
-    await execute(
-      {
-        kind: 'implement',
-        prompt: 'test',
-        taskPath: 'tasks/test-task',
-        title: 'local prompts test',
-      },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs({ title: 'local prompts test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     assert.equal(startCalls.length, 1)
     const text = startCalls[0].request.prompt[0].text
     const directiveAt = text.indexOf('## Implement executor directives')
@@ -1225,10 +1416,10 @@ test('本机片段：可见集−deny 缺声明工具时不注入 Local directiv
     // 默认可见集（workloom 9 + 委派候选 + write/edit）不含 lsp_diagnostics → 条件不满足。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'no local test' },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs({ title: 'no local test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     const text = startCalls[0].request.prompt[0].text
     assert.ok(!text.includes('## Local directives'))
     assert.ok(!text.includes('Run lsp_diagnostics.'))
@@ -1244,10 +1435,10 @@ test('本机片段：被 deny 的可见工具不算可用（探测集 = 可见�
     // 默认可见集含 subagent（委派候选），但它被 buildDenyList deny → 子代理不可见 → 不注入。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(
-      { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'denied tool test' },
-      { agent: parent, signal: new AbortController().signal },
-    )
+    await execute(execArgs({ title: 'denied tool test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
     const text = startCalls[0].request.prompt[0].text
     assert.ok(!text.includes('## Local directives'))
   } finally {

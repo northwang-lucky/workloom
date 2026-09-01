@@ -141,6 +141,7 @@ subagents:
     const ctx = makeEventCtx()
     const registered = []
     const startCalls = []
+    const childAgents = new Map()
     let installedChildCtx = null
     ctx.tools = {
       register(def) {
@@ -159,23 +160,41 @@ subagents:
           inheritsParentContext: true,
         }
       },
-      async start(name, request) {
-        startCalls.push({ name, request })
-        // 模拟 DSH startInProcessRun：resolveChildAgentOptions 的 ...requested 展开
+      async startContinuable(spec) {
+        startCalls.push(spec)
+        // 模拟 DSH continuable 创建：resolveChildAgentOptions 的 ...requested 展开
         // agentOptions → 子代理 options，发布路径同步触发 agent/created。
         const childCtx = makeEventCtx()
         installedChildCtx = childCtx
-        emitCreated(ctx, makeAgent({ ...(request.agentOptions ?? {}), subagentDepth: 1 }, childCtx))
-        return {
-          id: 'child-d-1',
-          result: Promise.resolve({
-            output: [{ type: 'text', text: 'done' }],
-            stopReason: 'completed',
-          }),
-          async dispose() {},
-        }
+        emitCreated(
+          ctx,
+          makeAgent({ ...(spec.request.agentOptions ?? {}), subagentDepth: 1 }, childCtx),
+        )
+        const childId = 'child-d-1'
+        childAgents.set(childId, {
+          id: childId,
+          session: {
+            header: { cwd: spec.request.parent.session.header.cwd },
+            events: [],
+          },
+          async whenIdle() {
+            const events = childAgents.get(childId).session.events
+            events.push({ type: 'turn/start', data: { turn: 1 } })
+            events.push({
+              type: 'assistant/message',
+              data: { message: { content: [{ type: 'text', text: 'done' }] } },
+            })
+            events.push({ type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+          },
+        })
+        return { childId }
       },
+      async followup() {
+        throw new Error('integration test never follows up')
+      },
+      async drainContinuableChildren() {},
     }
+    ctx.agents = { get: (id) => childAgents.get(id) }
     registerExecutor(ctx)
     registerEffortInjection(ctx)
     const def = registered[0]

@@ -68,10 +68,12 @@ export interface DispatchRecord {
   kind: string
   at: string
   title: string
+  /** continuable 子代理的 durable session id（旧记录缺省；续用定位与同 kind 校验的依据）。 */
+  childId?: string
 }
 
 /** recordExecutorDispatch 入参（at 由函数生成）。 */
-export type DispatchRecordInput = Pick<DispatchRecord, 'kind' | 'title'>
+export type DispatchRecordInput = Pick<DispatchRecord, 'kind' | 'title' | 'childId'>
 
 /** task.json 单条记录（快照字段，与数据布局一致）。 */
 export interface TaskRecord {
