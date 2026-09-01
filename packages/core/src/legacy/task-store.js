@@ -795,12 +795,13 @@ function recordExecutorOverrideInternal(root, taskRelPath, reason) {
 
 /**
  * 记录一次 executor 派发成功（adapter 在派发成功后调用）：向 task.json dispatches
- * 追加 { kind, at, title } 条目（at 自动生成）。只审计「成功」派发——失败派发无产出，
- * 不满足分工证明，不记录。记录失败只返回 err（调用方 WARNING 不阻塞派发），与
- * recordExecutorOverride 同一「元组 + WARNING」口径。
+ * 追加 { kind, at, title, childId? } 条目（at 自动生成；childId 为 continuable
+ * 子代理的 durable session id，续用定位与同 kind 校验的依据，旧记录缺省）。
+ * 只审计「成功」派发——失败派发无产出，不满足分工证明，不记录。记录失败只返回
+ * err（调用方 WARNING 不阻塞派发），与 recordExecutorOverride 同一「元组 + WARNING」口径。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').DispatchRecordInput} entry 派发条目（kind/title，at 由函数生成）
+ * @param {import('./task-store.d.ts').DispatchRecordInput} entry 派发条目（kind/title/childId?，at 由函数生成）
  * @returns {[Error | null]}
  */
 export function recordExecutorDispatch(root, taskRelPath, entry) {
@@ -828,7 +829,7 @@ function recordExecutorDispatchInternal(root, taskRelPath, entry) {
 }
 
 /**
- * 组装派发审计记录（内部）：补 at（ISO 时间），并校验 kind/title（防御，fail loud）。
+ * 组装派发审计记录（内部）：补 at（ISO 时间），并校验 kind/title/childId（防御，fail loud）。
  * @param {import('./task-store.d.ts').DispatchRecordInput} entry 输入
  * @returns {import('./task-store.d.ts').DispatchRecord}
  */
@@ -846,7 +847,20 @@ function buildDispatchRecord(entry) {
       ).join('/')})`,
     )
   }
-  return { kind: entry.kind, at: new Date().toISOString(), title: entry.title }
+  // childId 可选：提供时必须是可用的 session id 形状（非空 string），否则 fail loud
+  // （错误 childId 会污染续用定位依据，宁可拒绝记录）。
+  if (entry.childId !== undefined) {
+    if (typeof entry.childId !== 'string' || entry.childId.trim() === '') {
+      throw new Error(`${ERR_PREFIX}: dispatch entry childId must be a non-empty string when provided`)
+    }
+  }
+  const record = {
+    kind: entry.kind,
+    at: new Date().toISOString(),
+    title: entry.title,
+    ...(entry.childId !== undefined ? { childId: entry.childId } : {}),
+  }
+  return record
 }
 
 /**
