@@ -9,9 +9,10 @@
  * - 结论未含 `路径:行号` 锚点 → unverified（不丢信息，文本原样保留），供 T1 区分
  *   「已验证事实」与「待核实建议」；
  * - 上下文包按 git rev（任务所在仓库 HEAD）落盘 .workloom/tasks/<task>/context/，
- *   rev 变化自动失效重建；无 research 产物返回空包不报错；
- * - git rev 边界：无 git 环境（非仓库目录）时降级为 research 文件最新 mtime 作
- *   失效键——mtime 仅本机有效、跨机器不可比，只用于缓存失效判定（JSDoc 注明）。
+ *   rev 变化自动失效重建；无 research 产物返回空包不报错、不取 git rev（不 spawn）；
+ * - git rev 边界：git 调用静默（子进程 stderr 忽略，失败不向宿主 stderr 泄漏报错），
+ *   无 git 环境（非仓库目录）时降级为 research 文件最新 mtime 作失效键——mtime
+ *   仅本机有效、跨机器不可比，只用于缓存失效判定（JSDoc 注明）。
  */
 
 import { execFileSync } from 'node:child_process'
@@ -312,13 +313,21 @@ function isSeparatorRow(cells) {
  * 取任务所在仓库 HEAD 作失效键（git rev-parse HEAD）。
  * 无 git 环境（非仓库目录/命令失败）时降级为 fallbackFiles 最新 mtime 作失效键：
  * 该键仅本机有效、跨机器不可比，只用于上下文包缓存失效判定（边界见模块头注释）。
+ * git 调用静默：子进程 stderr 忽略（stdio 第二项为 pipe 取 stdout），失败时不向
+ * 宿主 stderr 泄漏 git 报错、不抛错，直接走 mtime 降级。
  * @param {string} root 项目根
  * @param {string[]} fallbackFiles 降级键候选文件（research 文件绝对路径）
  * @returns {string} 40 位 HEAD 哈希，或 mtime-<毫秒> 键
  */
 export function getGitRevSync(root, fallbackFiles) {
   try {
-    return execFileSync(GIT_BIN, ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
+    return execFileSync(GIT_BIN, ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      // 默认 stdio 下 execFileSync 失败会把子进程 stderr 打到宿主 stderr；
+      // stdin/stderr 置 ignore 使 git 报错完全静默，仅经 stdout 取哈希。
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
   } catch {
     let latest = 0
     for (const file of fallbackFiles) {
@@ -335,11 +344,12 @@ export function getGitRevSync(root, fallbackFiles) {
 /**
  * 读取（或重建）任务级上下文包：锚点索引 + files 去重清单（T1 seed 注入消费源）。
  * - 按 gitRev 落盘 .workloom/tasks/<task>/context/pack.json，rev 变化自动失效重建；
- * - 无 research 产物返回空包（files/sections 为空）且不落盘、不报错；
+ * - 无 research 产物返回空包（files/sections 为空）且不落盘、不报错、不取 git rev；
  * - gitRev 缺省时经 getGitRevSync 自动取（仓库 HEAD；无 git 降级 mtime）。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径（如 tasks/09-01-xxx）
- * @param {string} [gitRev] 失效键（任务所在仓库 HEAD）；缺省自动取
+ * @param {string} [gitRev] 失效键（任务所在仓库 HEAD）；缺省自动取，
+ *   无 research 产物时不取（空包 gitRev 为空串）
  * @returns {[Error | null, import('./research-facts.d.ts').ResearchContextPack | null]}
  */
 export function getContextPack(root, taskRelPath, gitRev) {
@@ -361,10 +371,12 @@ function getContextPackInternal(root, taskRelPath, gitRev) {
   const taskDir = insideWorkloom(root, taskRelPath)
   const researchDir = join(taskDir, RESEARCH_DIR)
   const researchFiles = listMarkdownFiles(researchDir)
-  const rev = gitRev === undefined ? getGitRevSync(root, researchFiles) : gitRev
   if (researchFiles.length === 0) {
-    return { gitRev: rev, files: [], sections: [], unverifiedCount: 0 }
+    // 无 research 产物：提前短路，不 spawn git；空包不落盘、无需失效键，
+    // gitRev 沿用调用方提供的值，未提供则为空串。
+    return { gitRev: gitRev === undefined ? '' : gitRev, files: [], sections: [], unverifiedCount: 0 }
   }
+  const rev = gitRev === undefined ? getGitRevSync(root, researchFiles) : gitRev
   const packPath = join(taskDir, CONTEXT_DIR, PACK_FILE)
   const cached = readPack(packPath)
   if (

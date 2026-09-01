@@ -43,6 +43,16 @@
       "kind": "check",
       "at": "2026-09-01T17:43:48.773Z",
       "title": "T3 research-facts 实现全量复审"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-01T18:50:56.302Z",
+      "title": "getGitRevSync 静默与空清单前置修复"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-01T18:59:31.312Z",
+      "title": "getGitRevSync 修复复审"
     }
   ],
   "hooks": {
