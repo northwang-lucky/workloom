@@ -4,6 +4,9 @@
  * 设计意图（W9 行为移植，规格见任务派发规格）：
  * - 子代理派发前把 prd/design/implement 与 jsonl 清单引用的 spec/research
  *   内联进首条 prompt，让子代理带完整信息自主工作（注入有预算）；
+ * - research 产物（research/*.md）自动全文注入（独立 20K 字符预算，超限保留
+ *   标题区+锚点区并追加截断标注），锚点文件清单自动生成，让子代理先读材料
+ *   再行动，消除各自重新摸底仓库的开销；
  * - 预算来自 config.contextInjection：max_file_bytes 限单文件、max_artifact_bytes
  *   限单个 artifact、max_total_bytes 限总量；0 表示不限制；
  * - 超限策略：artifact/文件内容截断（追加 [...truncated at N bytes] 提示），
@@ -11,11 +14,12 @@
  * - jsonl 缺失按空处理；jsonl 行解析失败显式报错（fail loud，无灰区）。
  */
 
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { insideWorkloom, WORKLOOM_DIR } from './locate.js'
 import { loadConfig } from './config.js'
+import { getContextPack } from './research-facts.js'
 
 /** effort 合法档位（低 → 高）。 */
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max'])
@@ -74,6 +78,39 @@ const LOCAL_DIRECTIVES_HEADING = '## Local directives'
 /** 防重复判定关键词（userPrompt 已含时不再追加本机片段段，与 leaf 段同规则）。 */
 const LOCAL_DIRECTIVES_KEYWORD = 'Local directives'
 
+/** research 产物目录名（相对任务目录）。 */
+const RESEARCH_DIR = 'research'
+
+/** research 材料注入段标题（jsonl 引用之后、Task prompt 之前）。 */
+const RESEARCH_MATERIALS_HEADING = '## Research materials'
+
+/** research 注入合计字符预算：超过即按「标题区+锚点区」截断（语义与 artifact 截断相反）。 */
+const RESEARCH_CHAR_BUDGET = 20000
+
+/** research 截断标注行前缀（N 为预算字符数）。 */
+const RESEARCH_TRUNCATED_PREFIX = '[...truncated: research/*.md research materials over '
+
+/** research 截断标注行结尾。 */
+const RESEARCH_TRUNCATED_SUFFIX = ' chars]'
+
+/** research 截断标注行（追加到被截断文件块末尾，措辞与 artifact 截断提示同风格）。 */
+const RESEARCH_TRUNCATED_MARKER = `${RESEARCH_TRUNCATED_PREFIX}${RESEARCH_CHAR_BUDGET}${RESEARCH_TRUNCATED_SUFFIX}`
+
+/** files 清单注入段标题（research 锚点文件清单，消费 T3 上下文包）。 */
+const FILES_LIST_HEADING = '## Involved files'
+
+/** files 清单段防重复判定关键词（userPrompt 已含显式清单时不重复注入清单段）。 */
+const FILES_LIST_KEYWORDS = Object.freeze(['涉及文件', 'files:', '改动文件'])
+
+/** 锚点记号正则（`:数字`，仅定位用；lastIndex 由调用方重置）。 */
+const ANCHOR_TOKEN_RE = /:\d+/g
+
+/** 标题行（1-6 级，research 截断保留区）。 */
+const HEADING_LINE_RE = /^#{1,6}\s+/
+
+/** 代码围栏起止行（research 截断锚点摘录区）。 */
+const FENCE_LINE_RE = /^```/
+
 /**
  * 内置 LSP 软基线句子（产品内置，runtime 无关，不带条件；检测到 LSP 工具时由
  * 本机片段加强为硬指令）。统一软措辞（"When available"）确保无 LSP 插件环境
@@ -82,6 +119,17 @@ const LOCAL_DIRECTIVES_KEYWORD = 'Local directives'
 const LSP_BASELINE_SENTENCE =
   'When LSP tooling is available, use it to assist coding and error diagnosis, ' +
   'and include an LSP diagnostics check in the verification pass.'
+
+/**
+ * 纪律段追加的「先读材料、禁止全局 recon」指令（implement/check 两 kind 注入；
+ * research 契约已由 research-facts 增强，不重复追加）。让子代理先消费注入的
+ * 研究产物与文件清单，消除各自重新摸底仓库（git 扫库、全库 glob、无关批量读）
+ * 的开销。
+ */
+const READ_MATERIALS_FIRST_RULE =
+  'Read the injected research materials and file list before acting; do not re-discover ' +
+  'the repository state (no git status/log sweeps, no whole-repo globs, no bulk reads of ' +
+  'unrelated files).'
 
 /**
  * 按 kind 的执行器纪律段正文（硬指令，单一来源，DSH/Pi 两 runtime 共享；
@@ -103,13 +151,15 @@ Structure the report in research-facts blocks (see the research-facts spec and i
   [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/design/implement) in order.
 Make the smallest change that satisfies the requirement; do not touch unrelated code.
 Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.
-${LSP_BASELINE_SENTENCE}`,
+${LSP_BASELINE_SENTENCE}
+${READ_MATERIALS_FIRST_RULE}`,
   [EXECUTOR_KINDS.check]: `Fix what you find — you are not a reporter: resolve every issue you discover directly in the source code.
 After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
 End your report with a structured "## Open issues" section that lists only the remaining issues, one per line:
 - <file>:<line> [<severity>] <issue> — fix: <suggestion>
 Write "- none" when no issue remains.
-${LSP_BASELINE_SENTENCE}`,
+${LSP_BASELINE_SENTENCE}
+${READ_MATERIALS_FIRST_RULE}`,
   [EXECUTOR_KINDS.frontend]: `Follow the PRD's "## UI Design" section as the baseline and deliver all seven UI axes it asks for.
 Touch frontend files only; verify with the project's frontend checks (lint / typecheck / build / relevant tests).
 When a backend interface is missing, use an annotated mock or placeholder and mark it for later wiring.
@@ -200,7 +250,13 @@ function buildInternal(params) {
   const config = loadConfig(params.root)
   const ci = config.contextInjection
   /** @type {import('./executor-context.d.ts').ExecutorPromptStats} */
-  const stats = { filesInlined: 0, filesIndexed: 0, truncated: 0 }
+  const stats = {
+    filesInlined: 0,
+    filesIndexed: 0,
+    truncated: 0,
+    researchInlined: 0,
+    researchTruncated: 0,
+  }
   const parts = [`${ACTIVE_TASK_PREFIX}${params.taskRelPath}`]
   const taskDir = insideWorkloom(params.root, params.taskRelPath)
   // 已内联进 prompt 的累计字节（总量预算跨 artifact 与 jsonl 引用文件共用）。
@@ -217,6 +273,11 @@ function buildInternal(params) {
       parts.push(...materializeJsonlEntries(params.root, taskDir, jsonlName, ci, stats, totalBytes))
     }
   }
+  // research 产物注入（自动行为，不由主会话控制）：任务上下文先于任务正文，
+  // 让子代理先读材料再行动；无 research 产物时为空段，不报错。
+  inlineResearchMaterials(parts, params.root, params.taskRelPath, taskDir, stats)
+  // files 清单注入（消费 T3 上下文包）：userPrompt 已含显式清单时不重复注入。
+  inlineFilesList(parts, params.root, params.taskRelPath, params.userPrompt)
   if (params.userPrompt !== '') {
     parts.push(`${TASK_PROMPT_HEADING}\n${params.userPrompt}`)
   }
@@ -309,6 +370,161 @@ function materializeJsonlEntries(root, taskDir, jsonlName, ci, stats, initialByt
     stats.filesInlined += 1
   }
   return blocks
+}
+
+/**
+ * 内联任务 research/*.md 全文（自动行为，不由主会话控制）：
+ * - 按文件名排序依次计入 RESEARCH_CHAR_BUDGET 字符预算——合计未超预算的文件
+ *   全文注入；超预算文件截断为「标题区 + 锚点区」并追加截断标注行（截断语义
+ *   与 artifact 截断相反：后者保头丢尾，这里保留头部标题与锚点摘录、正文叙述
+ *   行在预算外丢弃）；
+ * - 无 research 目录或无 .md 产物时为空段，不影响注入链与统计（缺省 0）。
+ * @param {string[]} parts prompt 段落列表（块文本追加于此）
+ * @param {string} root 项目根（块路径前缀用）
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {string} taskDir 任务目录绝对路径
+ * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 统计
+ */
+function inlineResearchMaterials(parts, root, taskRelPath, taskDir, stats) {
+  const names = listResearchMarkdownNames(taskDir)
+  if (names.length === 0) return
+  parts.push(RESEARCH_MATERIALS_HEADING)
+  let usedChars = 0
+  for (const name of names) {
+    const text = readTaskFile(join(taskDir, RESEARCH_DIR, name))
+    if (text === null) continue
+    const relPath = join(WORKLOOM_DIR, taskRelPath, RESEARCH_DIR, name)
+    usedChars += text.length
+    const overBudget = usedChars > RESEARCH_CHAR_BUDGET
+    const content = overBudget ? truncateResearch(text) : text
+    parts.push(
+      `${BLOCK_SEPARATOR}${relPath}${BLOCK_SEPARATOR_END}\n${content}` +
+        (overBudget ? `\n${RESEARCH_TRUNCATED_MARKER}` : ''),
+    )
+    stats.researchInlined += 1
+    if (overBudget) stats.researchTruncated += 1
+  }
+}
+
+/**
+ * 列出任务 research 目录下 *.md 文件名（字典序）；目录缺失/形态不符按空处理。
+ * @param {string} taskDir 任务目录绝对路径
+ * @returns {string[]}
+ */
+function listResearchMarkdownNames(taskDir) {
+  let entries
+  try {
+    entries = readdirSync(join(taskDir, RESEARCH_DIR))
+  } catch (error) {
+    if (isMissingLike(error)) return []
+    throw error
+  }
+  return entries.filter((name) => name.endsWith('.md')).sort()
+}
+
+/**
+ * research 截断（独立逻辑，语义与 artifact 截断相反）：保留标题区（`#`/`##` 行）
+ * 与锚点区（`路径:行号` 行及紧随其后的代码围栏摘录行），正文叙述行在预算外
+ * 丢弃；截断标注行由调用方追加。保留行保持原文顺序与换行。
+ * @param {string} text research 文件全文
+ * @returns {string} 截断后的保留行
+ */
+function truncateResearch(text) {
+  const kept = []
+  let anchorArea = false // 锚点区：锚点行之后到代码围栏结束
+  let inFence = false
+  for (const line of text.split('\n')) {
+    if (FENCE_LINE_RE.test(line)) {
+      if (inFence) {
+        inFence = false
+        if (anchorArea) kept.push(line)
+        anchorArea = false
+      } else {
+        inFence = true
+        if (anchorArea) kept.push(line)
+      }
+      continue
+    }
+    if (inFence) {
+      if (anchorArea) kept.push(line)
+      continue
+    }
+    if (HEADING_LINE_RE.test(line)) {
+      anchorArea = false
+      kept.push(line)
+      continue
+    }
+    if (isAnchorLine(line)) {
+      anchorArea = true
+      kept.push(line)
+      continue
+    }
+    if (line.trim() === '') continue // 空行不打断锚点区（锚点行与摘录围栏间常见空行）
+    anchorArea = false // 正文叙述行打断锚点区
+  }
+  return kept.join('\n')
+}
+
+/**
+ * 锚点行判定（`路径:行号`）：`:` 后紧跟数字、`:` 前路径段须含至少一个字母
+ * （排除时间等纯数字误判，与 research-facts 锚点语义一致）。用原生线性扫描
+ * 定位 `:数字` 记号再校验前缀，避免整行回溯正则的重叠字符类放大（30K 无断点
+ * 行曾实测阻塞秒级，长行锚点判定必须线性）。
+ * @param {string} line 单行文本
+ * @returns {boolean}
+ */
+function isAnchorLine(line) {
+  ANCHOR_TOKEN_RE.lastIndex = 0
+  let match
+  while ((match = ANCHOR_TOKEN_RE.exec(line)) !== null) {
+    const colonAt = match.index
+    let start = colonAt - 1
+    while (start >= 0 && isAnchorPathChar(line[start] ?? '')) start -= 1
+    if (hasAsciiLetter(line.slice(start + 1, colonAt))) return true
+  }
+  return false
+}
+
+/** @param {string} ch 单个字符 @returns {boolean} 是否路径段字符（字母数字._/-） */
+function isAnchorPathChar(ch) {
+  return (
+    isAsciiLetter(ch) || isAsciiDigit(ch) || ch === '_' || ch === '.' || ch === '/' || ch === '-'
+  )
+}
+
+/** @param {string} text 文本 @returns {boolean} 是否含 ASCII 字母 */
+function hasAsciiLetter(text) {
+  for (const ch of text) {
+    if (isAsciiLetter(ch)) return true
+  }
+  return false
+}
+
+/** @param {string} ch 单个字符 @returns {boolean} 是否 ASCII 数字 */
+function isAsciiDigit(ch) {
+  return ch >= '0' && ch <= '9'
+}
+
+/** @param {string} ch 单个字符 @returns {boolean} 是否 ASCII 字母 */
+function isAsciiLetter(ch) {
+  return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+/**
+ * files 清单注入段（消费 T3 上下文包）：从 getContextPack(root, taskRelPath).files
+ * 生成「涉及文件清单」段（相对路径行，不含 sections 全文，避免 seed 膨胀）；
+ * userPrompt 已含显式清单关键词（FILES_LIST_KEYWORDS）时不重复注入（主会话
+ * 覆盖优先级）；空包（无 research 产物/无锚点）或包读取失败时不注入，不报错。
+ * @param {string[]} parts prompt 段落列表
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {string} userPrompt 用户任务正文（防重复关键词判定用）
+ */
+function inlineFilesList(parts, root, taskRelPath, userPrompt) {
+  if (FILES_LIST_KEYWORDS.some((keyword) => userPrompt.includes(keyword))) return
+  const [err, pack] = getContextPack(root, taskRelPath)
+  if (err !== null || pack === null || pack.files.length === 0) return
+  parts.push(`${FILES_LIST_HEADING}\n${pack.files.join('\n')}`)
 }
 
 /**
@@ -466,4 +682,14 @@ function toError(value) {
 /** @param {unknown} error @returns {boolean} 是否文件不存在 */
 function isEnoent(error) {
   return /** @type {NodeJS.ErrnoException} */ (error)?.code === 'ENOENT'
+}
+
+/**
+ * 缺失或形态不符（目录不存在/父级是文件）均按“无”处理。
+ * @param {unknown} error 捕获的异常
+ * @returns {boolean}
+ */
+function isMissingLike(error) {
+  const code = (/** @type {{code?: string}} */ (error)).code
+  return code === 'ENOENT' || code === 'ENOTDIR'
 }

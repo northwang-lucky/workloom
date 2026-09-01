@@ -55,6 +55,10 @@ export interface ExecutorPromptStats {
   filesIndexed: number
   /** 发生内容截断的次数（artifact 或文件按预算截断）。 */
   truncated: number
+  /** 内联的 research/*.md 文件数（含被截断文件）。 */
+  researchInlined: number
+  /** 合计字符超预算被截断的 research 文件数（保留标题区+锚点区并追加标注行）。 */
+  researchTruncated: number
 }
 
 /** buildExecutorPrompt 成功结果。 */

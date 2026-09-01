@@ -2,7 +2,10 @@
  * executor-context 单测：W9 上下文注入组装的预算/降级/报错行为（临时项目目录）。
  *
  * 覆盖：implement 全内联与统计；文件/总量预算截断与索引降级；research 只含 prd；
- * kind/effort 非法报错；jsonl 坏行报错。
+ * research 产物全文注入与 20K 截断（标题区+锚点区，含恰好 20K 边界与全 kind 注入）；
+ * files 清单注入与去重；
+ * implement/check 纪律段「先读材料、禁止全局 recon」指令；kind/effort 非法报错；
+ * jsonl 坏行报错。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -28,9 +31,11 @@ function makeProject() {
   return root
 }
 
-/** 写任务目录内文件。 */
+/** 写任务目录内文件（自动建父目录）。 */
 function writeTaskFile(root, name, content) {
-  writeFileSync(join(root, '.workloom', TASK_REL_PATH, name), content)
+  const abs = join(root, '.workloom', TASK_REL_PATH, name)
+  mkdirSync(dirname(abs), { recursive: true })
+  writeFileSync(abs, content)
 }
 
 /** 写项目根内任意路径文件（自动建父目录）。 */
@@ -91,7 +96,13 @@ test('implement 组装：artifact 与 jsonl 引用文件全部内联，任务正
     // 任务正文在 prompt 末尾（其后仅叶子执行器契约段）
     assert.ok(text.includes('## Task prompt\nDo the thing'))
     assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
-    assert.deepEqual(result.stats, { filesInlined: 5, filesIndexed: 0, truncated: 0 })
+    assert.deepEqual(result.stats, {
+      filesInlined: 5,
+      filesIndexed: 0,
+      truncated: 0,
+      researchInlined: 0,
+      researchTruncated: 0,
+    })
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -123,7 +134,13 @@ test('预算截断：小 max_file_bytes 截断提示，小 max_total_bytes 后�
     // 第二条按截断后字节口径仍可落进总量预算：内联且截断（不再按 raw size 误降级）
     assert.ok(text.includes('--- b.txt ---'))
     assert.ok(!text.includes('[indexed]'))
-    assert.deepEqual(result.stats, { filesInlined: 5, filesIndexed: 0, truncated: 2 })
+    assert.deepEqual(result.stats, {
+      filesInlined: 5,
+      filesIndexed: 0,
+      truncated: 2,
+      researchInlined: 0,
+      researchTruncated: 0,
+    })
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -140,7 +157,13 @@ test('research 只内联 prd，无 jsonl 引用行', () => {
     assert.ok(text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
     assert.ok(!text.includes('design.md'))
     assert.ok(!text.includes('implement.jsonl'))
-    assert.deepEqual(result.stats, { filesInlined: 1, filesIndexed: 0, truncated: 0 })
+    assert.deepEqual(result.stats, {
+      filesInlined: 1,
+      filesIndexed: 0,
+      truncated: 0,
+      researchInlined: 0,
+      researchTruncated: 0,
+    })
     assert.ok(text.includes('## Task prompt\nDo the thing'))
     assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
   } finally {
@@ -524,6 +547,297 @@ test('LSP 软基线：implement/check/frontend 纪律段含软句子，research 
           `${kind} discipline must carry the LSP baseline sentence`,
         )
       }
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** research 材料注入段标题（与实现一致，测试自给自足）。 */
+const RESEARCH_MATERIALS_HEADING = '## Research materials'
+
+/** files 清单注入段标题（与实现一致，测试自给自足）。 */
+const FILES_LIST_HEADING = '## Involved files'
+
+/** research 截断标注行（与实现一致，测试自给自足）。 */
+const RESEARCH_TRUNCATED_MARKER =
+  '[...truncated: research/*.md research materials over 20000 chars]'
+
+/** 纪律段「先读材料、禁止全局 recon」指令（与实现一致，测试自给自足）。 */
+const READ_MATERIALS_RULE =
+  'Read the injected research materials and file list before acting; do not re-discover ' +
+  'the repository state (no git status/log sweeps, no whole-repo globs, no bulk reads of ' +
+  'unrelated files).'
+
+test('research 产物全文注入：research/*.md 逐文件内联，位于 artifacts 之后、Task prompt 之前', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    writeTaskFile(root, 'research/a.md', '# A 材料\n\n## 节一\n\n- `a.go:1` 锚点\n')
+    writeTaskFile(root, 'research/b.md', '# B 材料\n\n## 节二\n\n- `b.go:2` 锚点\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(err, null)
+    const text = result.text
+    assert.ok(text.includes(RESEARCH_MATERIALS_HEADING))
+    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/research/a.md ---'))
+    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/research/b.md ---'))
+    // 全文注入：标题与正文原样保留（不足 20K 预算不截断）
+    assert.ok(text.includes('# A 材料'))
+    assert.ok(text.includes('- `a.go:1` 锚点'))
+    assert.ok(text.includes('# B 材料'))
+    assert.ok(text.includes('- `b.go:2` 锚点'))
+    // 位置：research 段在 artifact 块之后、Task prompt 之前（先读材料再行动）
+    const artifactAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
+    const researchAt = text.indexOf(RESEARCH_MATERIALS_HEADING)
+    const taskPromptAt = text.indexOf('## Task prompt')
+    assert.ok(artifactAt !== -1 && researchAt !== -1 && taskPromptAt !== -1)
+    assert.ok(artifactAt < researchAt && researchAt < taskPromptAt)
+    assert.deepEqual(result.stats, {
+      filesInlined: 1,
+      filesIndexed: 0,
+      truncated: 0,
+      researchInlined: 2,
+      researchTruncated: 0,
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('research 合计超 20K 字符：截断为标题区+锚点区并追加截断标注行', () => {
+  const root = makeProject()
+  try {
+    // 大文件：头部标题 + 锚点行 + 紧随的代码围栏摘录，正文夹 30K 无锚点叙述
+    const big =
+      '# 大文件\n\n## 保留节\n\n- `big.go:1` 锚点行\n\n```go\nfunc kept() {}\n```\n\n' +
+      'NARRATIVE_BODY_MARKER\n' +
+      'x'.repeat(30000) +
+      '\n'
+    writeTaskFile(root, 'research/big.md', big)
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(err, null)
+    const text = result.text
+    // 保留区：标题、锚点行、锚点紧随的代码围栏摘录行
+    assert.ok(text.includes('# 大文件'))
+    assert.ok(text.includes('## 保留节'))
+    assert.ok(text.includes('- `big.go:1` 锚点行'))
+    assert.ok(text.includes('```go'))
+    assert.ok(text.includes('func kept() {}'))
+    // 正文叙述行预算外截掉；被截断文件追加截断标注行
+    assert.ok(!text.includes('NARRATIVE_BODY_MARKER'))
+    assert.ok(text.includes(RESEARCH_TRUNCATED_MARKER))
+    assert.equal(result.stats.researchInlined, 1)
+    assert.equal(result.stats.researchTruncated, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('research 多文件按文件名排序计入预算：预算内文件全文注入，超预算文件截断', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'research/a.md', '# A 小文件全文保留\n\nSMALL_MARKER_A\n')
+    const big =
+      '# B 大文件\n\n## B 节\n\n- `b.go:1` 锚点\n\n```ts\nconst b = 1\n```\n\n' +
+      'BODY_B_MARKER\n' +
+      'y'.repeat(30000) +
+      '\n'
+    writeTaskFile(root, 'research/b.md', big)
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(err, null)
+    const text = result.text
+    // a.md 在预算内：正文行全文保留
+    assert.ok(text.includes('SMALL_MARKER_A'))
+    // b.md 超预算：保留标题与锚点区、丢弃正文叙述并带截断标注
+    assert.ok(text.includes('# B 大文件'))
+    assert.ok(text.includes('const b = 1'))
+    assert.ok(!text.includes('BODY_B_MARKER'))
+    assert.ok(text.includes(RESEARCH_TRUNCATED_MARKER))
+    assert.deepEqual(result.stats, {
+      filesInlined: 0,
+      filesIndexed: 0,
+      truncated: 0,
+      researchInlined: 2,
+      researchTruncated: 1,
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('research 20K 字符边界：合计恰好 20000 全量注入，超过 1 字符即截断', () => {
+  // 单文件恰好 20000 字符（'# E\n' 4 字符 + 19996 x）：不截断、无标注
+  const exactRoot = makeProject()
+  try {
+    writeTaskFile(exactRoot, 'research/exact.md', `# E\n${'x'.repeat(19996)}`)
+    const [err, result] = buildExecutorPrompt(baseParams(exactRoot, 'implement'))
+    assert.equal(err, null)
+    assert.ok(result.text.includes('x'.repeat(19996)))
+    assert.ok(!result.text.includes(RESEARCH_TRUNCATED_MARKER))
+    assert.equal(result.stats.researchInlined, 1)
+    assert.equal(result.stats.researchTruncated, 0)
+  } finally {
+    rmSync(exactRoot, { recursive: true, force: true })
+  }
+  // 单文件 20001 字符：超出 1 字符即截断（保留标题，正文叙述丢弃并带标注）
+  const overRoot = makeProject()
+  try {
+    writeTaskFile(overRoot, 'research/over.md', `# O\n${'y'.repeat(19997)}`)
+    const [err, result] = buildExecutorPrompt(baseParams(overRoot, 'implement'))
+    assert.equal(err, null)
+    assert.ok(!result.text.includes('y'.repeat(19997)))
+    assert.ok(result.text.includes(RESEARCH_TRUNCATED_MARKER))
+    assert.equal(result.stats.researchInlined, 1)
+    assert.equal(result.stats.researchTruncated, 1)
+  } finally {
+    rmSync(overRoot, { recursive: true, force: true })
+  }
+  // 多文件合计恰好 20000：跨文件累计不超预算，两文件均全文注入
+  const multiRoot = makeProject()
+  try {
+    writeTaskFile(multiRoot, 'research/a.md', `# A\n${'a'.repeat(9996)}`)
+    writeTaskFile(multiRoot, 'research/b.md', `# B\n${'b'.repeat(9996)}`)
+    const [err, result] = buildExecutorPrompt(baseParams(multiRoot, 'implement'))
+    assert.equal(err, null)
+    assert.ok(result.text.includes('a'.repeat(9996)))
+    assert.ok(result.text.includes('b'.repeat(9996)))
+    assert.ok(!result.text.includes(RESEARCH_TRUNCATED_MARKER))
+    assert.equal(result.stats.researchInlined, 2)
+    assert.equal(result.stats.researchTruncated, 0)
+  } finally {
+    rmSync(multiRoot, { recursive: true, force: true })
+  }
+})
+
+test('research kind 同样注入 research 材料段与 files 清单（全 kind 自动注入）', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    writeTaskFile(root, 'research/facts.md', '# 材料\n\n## 节\n\n- `pkg/a.js:1` 锚点\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
+    assert.equal(err, null)
+    const text = result.text
+    // 材料段在 Task prompt 之前；files 清单段在材料段之后（相对路径行，来自 T3 上下文包）
+    const materialsAt = text.indexOf(RESEARCH_MATERIALS_HEADING)
+    const filesAt = text.indexOf(FILES_LIST_HEADING)
+    const taskPromptAt = text.indexOf('## Task prompt')
+    assert.ok(materialsAt !== -1, 'research kind must get the research materials section')
+    assert.ok(filesAt !== -1 && materialsAt < filesAt && filesAt < taskPromptAt)
+    const nextHeading = text.indexOf('\n## ', filesAt)
+    assert.equal(
+      text
+        .slice(filesAt + FILES_LIST_HEADING.length, nextHeading === -1 ? undefined : nextHeading)
+        .trim(),
+      'pkg/a.js',
+    )
+    assert.equal(result.stats.researchInlined, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('无 research 产物：不注入 research 段与 files 清单，统计缺省 0，注入链不受影响', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(err, null)
+    const text = result.text
+    assert.ok(!text.includes(RESEARCH_MATERIALS_HEADING))
+    assert.ok(!text.includes(FILES_LIST_HEADING))
+    // 既有注入链完整：Active task → artifact → Task prompt → 纪律段 → 叶子契约
+    assert.ok(text.startsWith(`Active task: ${TASK_REL_PATH}`))
+    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
+    assert.ok(text.includes('## Task prompt\nDo the thing'))
+    assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
+    assert.deepEqual(result.stats, {
+      filesInlined: 1,
+      filesIndexed: 0,
+      truncated: 0,
+      researchInlined: 0,
+      researchTruncated: 0,
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('files 清单注入：research 锚点生成清单段；userPrompt 含显式清单关键词时不重复注入', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(
+      root,
+      'research/facts.md',
+      [
+        '# 材料',
+        '',
+        '## 节',
+        '',
+        '- `packages/core/src/legacy/executor-context.js:100` 锚点一',
+        '- `packages/core/src/legacy/research-facts.js:60` 锚点二',
+        '',
+      ].join('\n'),
+    )
+    // 正向：无关键词时自动注入清单段（相对路径行，来自 T3 上下文包）
+    const [plainErr, plain] = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(plainErr, null)
+    const listStart = plain.text.indexOf(FILES_LIST_HEADING)
+    const nextHeading = plain.text.indexOf('\n## ', listStart)
+    const listBody = plain.text.slice(
+      listStart + FILES_LIST_HEADING.length,
+      nextHeading === -1 ? undefined : nextHeading,
+    )
+    assert.equal(
+      listBody.trim(),
+      [
+        'packages/core/src/legacy/executor-context.js',
+        'packages/core/src/legacy/research-facts.js',
+      ].join('\n'),
+    )
+    // 去重：userPrompt 已含显式清单关键词（涉及文件/files:/改动文件）时不重复注入
+    for (const keyword of ['涉及文件', 'files:', '改动文件']) {
+      const [err, result] = buildExecutorPrompt({
+        root,
+        taskRelPath: TASK_REL_PATH,
+        kind: 'implement',
+        userPrompt: `${keyword}：a.js、b.js`,
+      })
+      assert.equal(err, null)
+      assert.ok(
+        !result.text.includes(FILES_LIST_HEADING),
+        `files list must not be injected when userPrompt contains ${keyword}`,
+      )
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('implement/check 纪律段含「先读材料、禁止全局 recon」指令，research/frontend 不含', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    for (const kind of ['implement', 'check']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const start = result.text.indexOf(directiveHeading(kind))
+      const end = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(start, end)
+      assert.ok(
+        section.includes(READ_MATERIALS_RULE),
+        `${kind} discipline must carry the read-materials rule`,
+      )
+    }
+    for (const kind of ['research', 'frontend']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const start = result.text.indexOf(directiveHeading(kind))
+      const end = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(start, end)
+      assert.ok(
+        !section.includes(READ_MATERIALS_RULE),
+        `${kind} discipline must not carry the read-materials rule`,
+      )
     }
   } finally {
     rmSync(root, { recursive: true, force: true })
