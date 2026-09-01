@@ -148,3 +148,9 @@
 - Commit: 0612973
 - Summary: 引入 task.stage（implement|check）与 check 阶段主会话修复窗口：gate 在 stage=check 放行主会话直写、check executor 修复纪律上提 core 单一来源（发现即修 + ## Open issues 结构化）、doctor 第 9 类 stage-consistency 审计、契约 v13、Pi 角色对齐。check 首战即自修 2 处，重启后端到端验证 stage 写入生效。
 
+## 提示词本机扩展点机制（DSH 落地）
+
+- Time: 2026-09-01T15:02:22.158Z
+- Commit: e2c6951
+- Summary: 实现提示词本机扩展点机制（.workloom/prompts.local/，front-matter requiresTools AND 条件注入；内置 LSP 软基线入 core 纪律与 workflow 契约 v14；doctor 新增检查；本机四个偏好文件落地）。check 复核修复 5 处后全量验证绿（core 414 / dsh 94 / pi 47），TC1–TC9 全通过。
+
