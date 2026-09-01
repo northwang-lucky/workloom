@@ -1,0 +1,5 @@
+{"file":"spec/repo/code-style/index.md","reason":"编码原则与验证命令（node --test / typecheck / lint）"}
+{"file":"spec/repo/architecture/index.md","reason":"adapter-dsh 分层与 DSH 服务面依赖边界"}
+{"file":"spec/repo/language/index.md","reason":"中英文分工约定"}
+{"file":"spec/repo/commits/index.md","reason":"提交规范"}
+{"file":"spec/repo/terminology/index.md","reason":"术语表对齐"}

@@ -1,0 +1,40 @@
+{
+  "id": "c2e9c3df-df59-4cd4-ae91-c81b157fda87",
+  "name": "t2-executor-continuable-reuse",
+  "title": "T2 executor 可继续化与多阶段复用",
+  "description": "workloom_execute 从 one-shot 恢复 startContinuable 历史路线（durable childId + 前台等待语义，保留 toolFilter/effort via reasoningEffort/subagent_profiles/receipt）；gate 豁免改为会话存活期；DispatchRecord 增 childId；续用参数（主会话显式、仅同 kind）经 DSH followup 续用。继承容器任务已对齐决策。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-01T15:37:14.487Z",
+  "completedAt": null,
+  "parent": "tasks/09-01-subagent-efficiency-continuable",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-01T17:16:43.180Z",
+    "summary": "固定问题判 A（test-first）。Seams：startContinuable 派发会话可续（mode=continuable）；followup 续用进入同一会话 id；gate 豁免跨轮（followup turn 写业务文件不被 deny）；跨 kind 续用被拒；异常终止转工具错误不附输出；receipt (reused) 标注。恢复 1920d32^ 旧断言为基线。"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

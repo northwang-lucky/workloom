@@ -1,0 +1,3 @@
+{"file":"spec/repo/code-style/index.md","reason":"检查编码原则与验证命令执行结果"}
+{"file":"spec/repo/architecture/index.md","reason":"检查 adapter 分层与接口契约"}
+{"file":"spec/repo/commits/index.md","reason":"检查提交规范"}

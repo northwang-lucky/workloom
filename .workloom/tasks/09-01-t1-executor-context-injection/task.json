@@ -1,0 +1,40 @@
+{
+  "id": "5ed1d8b2-2476-4035-b787-9e29c0b11ce6",
+  "name": "t1-executor-context-injection",
+  "title": "T1 executor 上下文注入与 prompt 模板",
+  "description": "buildExecutorPrompt 自动注入任务目录 research/*.md 全文（>20K 截断保留标题+锚点区）；prompt 模板固化「先读材料、禁止全局 recon」；files 清单从 T3 锚点索引自动生成注入（主会话 prompt 可覆盖）。继承容器任务已对齐决策。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-01T15:37:14.484Z",
+  "completedAt": null,
+  "parent": "tasks/09-01-subagent-efficiency-continuable",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-01T17:16:43.179Z",
+    "summary": "固定问题判 C（仅关键路径）。Seams：research 全文注入存在且位置正确；20K 截断保留标题+锚点区并带截断标注；无 research 产物不注入不改统计；显式 files 清单（userPrompt 关键词命中）不重复注入。"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
