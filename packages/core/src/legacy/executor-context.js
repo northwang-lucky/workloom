@@ -68,6 +68,21 @@ const LEAF_EXECUTOR_RULE =
 /** 防重复判定关键词（userPrompt 已含时不再追加叶子契约段）。 */
 const LEAF_RULE_KEYWORD = 'leaf executor'
 
+/** 本机片段注入段标题（kind 纪律段之后、叶子契约段之前插入）。 */
+const LOCAL_DIRECTIVES_HEADING = '## Local directives'
+
+/** 防重复判定关键词（userPrompt 已含时不再追加本机片段段，与 leaf 段同规则）。 */
+const LOCAL_DIRECTIVES_KEYWORD = 'Local directives'
+
+/**
+ * 内置 LSP 软基线句子（产品内置，runtime 无关，不带条件；检测到 LSP 工具时由
+ * 本机片段加强为硬指令）。统一软措辞（"When available"）确保无 LSP 插件环境
+ * 不产生指向虚无的硬指令。
+ */
+const LSP_BASELINE_SENTENCE =
+  'When LSP tooling is available, use it to assist coding and error diagnosis, ' +
+  'and include an LSP diagnostics check in the verification pass.'
+
 /**
  * 按 kind 的执行器纪律段正文（硬指令，单一来源，DSH/Pi 两 runtime 共享；
  * 与 adapter-pi 的 agent 角色总述互补不冲突）。
@@ -82,15 +97,18 @@ Ground every conclusion in the real source: read the actual files or data before
 Separate verified findings from suggestions, and mark anything unverified as such.`,
   [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/design/implement) in order.
 Make the smallest change that satisfies the requirement; do not touch unrelated code.
-Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.`,
+Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.
+${LSP_BASELINE_SENTENCE}`,
   [EXECUTOR_KINDS.check]: `Fix what you find — you are not a reporter: resolve every issue you discover directly in the source code.
 After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
 End your report with a structured "## Open issues" section that lists only the remaining issues, one per line:
 - <file>:<line> [<severity>] <issue> — fix: <suggestion>
-Write "- none" when no issue remains.`,
+Write "- none" when no issue remains.
+${LSP_BASELINE_SENTENCE}`,
   [EXECUTOR_KINDS.frontend]: `Follow the PRD's "## UI Design" section as the baseline and deliver all seven UI axes it asks for.
 Touch frontend files only; verify with the project's frontend checks (lint / typecheck / build / relevant tests).
-When a backend interface is missing, use an annotated mock or placeholder and mark it for later wiring.`,
+When a backend interface is missing, use an annotated mock or placeholder and mark it for later wiring.
+${LSP_BASELINE_SENTENCE}`,
 })
 
 /** 纪律段标题前缀（Markdown H2）。 */
@@ -202,6 +220,17 @@ function buildInternal(params) {
   const directiveHeading = kindDirectiveHeading(params.kind)
   if (!params.userPrompt.includes(directiveHeading.slice(HEADING_PREFIX.length))) {
     parts.push(`${directiveHeading}\n${EXECUTOR_CONTRACT_BY_KIND[params.kind]}`)
+  }
+  // 本机片段段（adapter 探测后传入的合成文本，core 不做 IO）：kind 纪律段之后、
+  // 叶子契约段之前；userPrompt 已含标题时不重复注入（与 leaf 段同规则）；空串
+  // /未传不插入（Pi 不传参 = 不注入，向后兼容）。
+  const localDirectives = params.localDirectives
+  if (
+    localDirectives !== undefined &&
+    localDirectives !== '' &&
+    !params.userPrompt.includes(LOCAL_DIRECTIVES_KEYWORD)
+  ) {
+    parts.push(`${LOCAL_DIRECTIVES_HEADING}\n${localDirectives}`)
   }
   // 叶子执行器契约段（兜底纪律，所有 kind 一致生效）：userPrompt 已含关键词时不重复追加。
   if (!params.userPrompt.includes(LEAF_RULE_KEYWORD)) {

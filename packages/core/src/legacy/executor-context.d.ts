@@ -39,6 +39,12 @@ export interface BuildExecutorPromptParams {
   kind: string
   /** 用户任务正文（拼在 prompt 末尾的 ## Task prompt 节）。 */
   userPrompt: string
+  /**
+   * 本机片段合成文本（adapter 探测可用工具集后经 core composeLocalDirectivesText
+   * 组装；在 kind 纪律段之后、叶子契约段之前以 ## Local directives 段注入）。
+   * 空串/未传 = 不注入（Pi 不传参，向后兼容）。
+   */
+  localDirectives?: string
 }
 
 /** 组装统计：内联/索引/截断计数。 */

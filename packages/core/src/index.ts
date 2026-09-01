@@ -82,6 +82,15 @@ export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-s
 
 export { assembleSessionContext } from './service/session-context.js'
 
+export {
+  LOCAL_FRAGMENT_TARGETS,
+  WorkloomLocalPromptError,
+  parseLocalFragment,
+  filterAndOrderLocal,
+  readLocalFragments,
+  composeLocalDirectivesText,
+} from './service/local-prompts.js'
+
 export { routeNextStep } from './service/route-service.js'
 
 export {
@@ -186,6 +195,8 @@ export type { SessionPointer } from './legacy/active-task.d.ts'
 export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
 
 export type { SessionContextParams } from './service/session-context.js'
+
+export type { LocalFragmentTarget, LocalFragment } from './service/local-prompts.js'
 
 export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
 export type { SpecTemplatesParams, SpecTemplatesResult } from './service/spec-templates.js'

@@ -392,3 +392,111 @@ test('userPrompt 已含该 kind 纪律段标题时不再重复追加纪律段', 
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+/** 本机片段注入段标题（与实现一致，测试自给自足）。 */
+const LOCAL_DIRECTIVES_HEADING = '## Local directives'
+
+/** LSP 软基线句子（与实现一致，测试自给自足）。 */
+const LSP_BASELINE_SENTENCE =
+  'When LSP tooling is available, use it to assist coding and error diagnosis, ' +
+  'and include an LSP diagnostics check in the verification pass.'
+
+test('localDirectives 传入：文本注入于 kind 纪律段之后、叶子契约段之前', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const [err, result] = buildExecutorPrompt({
+      root,
+      taskRelPath: TASK_REL_PATH,
+      kind: 'implement',
+      userPrompt: 'Do the thing',
+      localDirectives: 'Always use the LSP tools.\nRun lsp_diagnostics at the end.',
+    })
+    assert.equal(err, null)
+    const taskPromptAt = result.text.indexOf('## Task prompt')
+    const directiveAt = result.text.indexOf(directiveHeading('implement'))
+    const localAt = result.text.indexOf(LOCAL_DIRECTIVES_HEADING)
+    const leafAt = result.text.indexOf('## Executor contract')
+    assert.ok(localAt !== -1, 'local directives section must be present')
+    assert.ok(
+      taskPromptAt !== -1 &&
+        directiveAt !== -1 &&
+        directiveAt < localAt &&
+        localAt < leafAt,
+      'local directives must sit between the kind directive and the leaf contract',
+    )
+    assert.ok(
+      result.text.includes(
+        `${LOCAL_DIRECTIVES_HEADING}\nAlways use the LSP tools.\nRun lsp_diagnostics at the end.`,
+      ),
+      'local directives body must be injected verbatim under the heading',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('localDirectives 未传/空串：不插入且输出与旧版逐字一致', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const base = baseParams(root, 'check')
+    const [plainErr, plain] = buildExecutorPrompt(base)
+    const [emptyErr, empty] = buildExecutorPrompt({ ...base, localDirectives: '' })
+    assert.equal(plainErr, null)
+    assert.equal(emptyErr, null)
+    // 缺省与空串输出逐字一致（Pi 不传参 = 不注入，向后兼容）。
+    assert.equal(plain.text, empty.text)
+    assert.ok(!plain.text.includes(LOCAL_DIRECTIVES_HEADING))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('userPrompt 已含 ## Local directives 时不重复注入', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const [err, result] = buildExecutorPrompt({
+      root,
+      taskRelPath: TASK_REL_PATH,
+      kind: 'implement',
+      userPrompt: '## Local directives\nUse my own local rules.',
+      localDirectives: 'extra rules',
+    })
+    assert.equal(err, null)
+    // 标题恰好出现一次（userPrompt 自带；本地段不再追加，正文也不注入）。
+    assert.equal(
+      result.text.indexOf(LOCAL_DIRECTIVES_HEADING),
+      result.text.lastIndexOf(LOCAL_DIRECTIVES_HEADING),
+      'heading must appear exactly once (from userPrompt only)',
+    )
+    assert.ok(!result.text.includes('extra rules'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('LSP 软基线：implement/check/frontend 纪律段含软句子，research 不含', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    for (const kind of ['implement', 'check', 'frontend', 'research']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const start = result.text.indexOf(directiveHeading(kind))
+      const end = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(start, end)
+      if (kind === 'research') {
+        assert.ok(!section.includes('LSP tooling'), 'research must not carry the LSP baseline')
+      } else {
+        assert.ok(
+          section.includes(LSP_BASELINE_SENTENCE),
+          `${kind} discipline must carry the LSP baseline sentence`,
+        )
+      }
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
