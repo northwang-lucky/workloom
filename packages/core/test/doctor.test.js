@@ -1,5 +1,5 @@
 /**
- * doctor 模块单测：9 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
+ * doctor 模块单测：10 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
  *
  * 设计意图：
  * - 全部用临时项目根构造「病态」任务目录，断言 runDoctor 输出 issue 及 schema 字段；
@@ -478,12 +478,13 @@ test('报告 schema：checks/summary/fixed/manual 字段齐全且每类检查必
     assert.equal(err, null)
     assert.ok(report)
     assert.ok(Array.isArray(report.checks))
-    assert.equal(report.checks.length, 9, 'all 9 checks always present')
+    assert.equal(report.checks.length, 10, 'all 10 checks always present')
     for (const check of report.checks) {
-      for (const field of ['code', 'title', 'severity', 'issues']) {
+      for (const field of ['code', 'title', 'severity', 'issues', 'info']) {
         assert.ok(field in check, `check missing ${field}`)
       }
       assert.ok(Array.isArray(check.issues))
+      assert.ok(Array.isArray(check.info))
     }
     for (const field of ['total', 'fixable', 'manual']) {
       assert.ok(field in report.summary, `summary missing ${field}`)
@@ -508,6 +509,133 @@ test('buildDoctorRelayText 含 JSON 报告与引导语', () => {
     assert.ok(text.includes('"checks"'), 'must include checks JSON')
     assert.ok(text.includes('"summary"'), 'must include summary JSON')
     assert.ok(text.includes("user's language"), 'must instruct model to report in user language')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 写入本机片段文件（目录自动创建）。 */
+function writeLocalFragment(root, name, body) {
+  const dir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, name), body)
+}
+
+/** 取 local-prompts 检查项。 */
+function localPromptsCheck(report) {
+  const check = report.checks.find((c) => c.code === 'local-prompts')
+  assert.ok(check, 'local-prompts check must be present')
+  return check
+}
+
+test('check local-prompts：目录不存在不产出 issue/info（该项通过）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    const [err, report] = runDoctor(root, { fix: false })
+    assert.equal(err, null)
+    const check = localPromptsCheck(report)
+    assert.deepEqual(check.issues, [])
+    assert.deepEqual(check.info, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check local-prompts：loaded 片段进 info（target/条件/来源文件）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  writeLocalFragment(root, 'main.md', 'Always use LSP tools.')
+  writeLocalFragment(
+    root,
+    'all.md',
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nUse lsp_diagnostics.',
+  )
+  try {
+    const [err, report] = runDoctor(root, {
+      fix: false,
+      availableTools: ['lsp_diagnostics', 'write'],
+    })
+    assert.equal(err, null)
+    const check = localPromptsCheck(report)
+    assert.deepEqual(check.issues, [])
+    assert.equal(check.info.length, 2)
+    assert.ok(check.info.some((line) => line.includes('main.md') && line.includes('target=main')))
+    assert.ok(
+      check.info.some(
+        (line) =>
+          line.includes('all.md') &&
+          line.includes('target=all') &&
+          line.includes('requiresTools=lsp_diagnostics'),
+      ),
+      'info line must carry target, condition and source file',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check local-prompts：条件不满足报 skipped（列出缺失工具名）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  writeLocalFragment(
+    root,
+    'implement.md',
+    '---\nrequiresTools: [lsp_diagnostics, write]\n---\nUse both.',
+  )
+  try {
+    const [err, report] = runDoctor(root, { fix: false, availableTools: ['write'] })
+    assert.equal(err, null)
+    const check = localPromptsCheck(report)
+    assert.equal(check.issues.length, 1)
+    assert.equal(check.issues[0].severity, 'warn')
+    assert.match(check.issues[0].message, /lsp_diagnostics/)
+    assert.equal(check.issues[0].path, '.workloom/prompts.local/implement.md')
+    assert.equal(check.issues[0].fixable, false)
+    assert.deepEqual(check.info, [], 'skipped fragment must not be listed as loaded')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check local-prompts：unknown 文件名 warn、坏 front-matter error（带 path）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  writeLocalFragment(root, 'weird.md', 'body')
+  writeLocalFragment(root, 'main.md', '---\nrequiresTools: [unclosed\n---\nbody')
+  try {
+    const [err, report] = runDoctor(root, { fix: false })
+    assert.equal(err, null)
+    const check = localPromptsCheck(report)
+    const filenameIssue = check.issues.find((i) => i.path.endsWith('weird.md'))
+    assert.ok(filenameIssue, 'unknown filename must produce an issue')
+    assert.equal(filenameIssue.severity, 'warn')
+    const fmIssue = check.issues.find((i) => i.path.endsWith('main.md'))
+    assert.ok(fmIssue, 'bad front-matter must produce an issue')
+    assert.equal(fmIssue.severity, 'error')
+    assert.match(fmIssue.message, /front-matter/)
+    assert.deepEqual(check.info, [], 'no fragment is loaded in this scenario')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('fix 路径：availableTools 透传复核（条件不满足的 warn 在 post 报告保持一致）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  writeLocalFragment(
+    root,
+    'implement.md',
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nUse lsp_diagnostics.',
+  )
+  try {
+    const [err, report] = runDoctor(root, { fix: true, availableTools: ['write'] })
+    assert.equal(err, null)
+    const check = localPromptsCheck(report)
+    assert.equal(check.issues.length, 1, 'skipped warning must survive the fix recheck')
+    assert.equal(check.issues[0].severity, 'warn')
+    assert.match(check.issues[0].message, /lsp_diagnostics/)
+    assert.deepEqual(check.info, [], 'skipped fragment must not flip to loaded after fix')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

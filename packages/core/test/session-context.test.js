@@ -379,3 +379,79 @@ test('delegationDepth>0 且契约无 norms 时仍输出 executor norms 段', () 
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('depth=0 且 localDirectives 非空：norms 之后追加 Local directives 小节', () => {
+  const root = makeProject()
+  try {
+    const norms = 'Always-on rule.'
+    const directives = 'When LSP tooling is available, use it.\nRun a final LSP check.'
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_19',
+      workflowSteps: [],
+      norms,
+      localDirectives: directives,
+    })
+    assert.equal(err, null)
+    const section = text.slice(text.indexOf('\nAlways-on norms:\n'))
+    assert.ok(
+      section.startsWith(
+        `\nAlways-on norms:\n${norms}\nLocal directives:\n${directives}\n</workloom-session-context>`,
+      ),
+      'local directives section must follow norms verbatim before block close',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('norms 缺失时 localDirectives 小节仍在快照尾部', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_22',
+      workflowSteps: [],
+      localDirectives: 'Local rule.',
+    })
+    assert.equal(err, null)
+    assert.ok(text.endsWith(`Local directives:\nLocal rule.\n</workloom-session-context>`))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('depth>0 时忽略 localDirectives（executor 首条 prompt 已注入，防重复）', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_20',
+      workflowSteps: [],
+      delegationDepth: 1,
+      localDirectives: 'should not appear',
+    })
+    assert.equal(err, null)
+    assert.ok(!text.includes('Local directives:'), 'depth>0 must not inject the section')
+    assert.ok(!text.includes('should not appear'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('localDirectives 空串/空白/null/未传：无小节且输出逐字一致', () => {
+  const root = makeProject()
+  try {
+    const baseParams = { root, contextKey: 'dsh_sess_21', workflowSteps: [], norms: 'N' }
+    const [, baseText] = assembleSessionContext(baseParams)
+    assert.ok(!baseText.includes('Local directives:'))
+    for (const localDirectives of ['', '   ', null, undefined]) {
+      const [err, text] = assembleSessionContext({ ...baseParams, localDirectives })
+      assert.equal(err, null)
+      assert.equal(text, baseText)
+      assert.ok(!text.includes('Local directives:'))
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

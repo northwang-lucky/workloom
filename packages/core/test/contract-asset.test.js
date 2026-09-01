@@ -21,11 +21,11 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
-test('契约 v13 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
+test('契约 v14 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 13)
-  assert.ok(contract.norms !== null, 'v13 契约必须含 norms 块')
+  assert.equal(contract.version, 14)
+  assert.ok(contract.norms !== null, 'v14 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
   assert.match(contract.norms, /Dispatch \(always-on\):/)
@@ -49,7 +49,7 @@ test('契约 v13 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一�
   assert.ok(implementBody.includes(dispatchRule), '2.1 正文缺派发硬约束')
 })
 
-test('契约 v13 含 UI 固定问题与 1.1b/1.1c 定位', () => {
+test('契约 v14 含 UI 固定问题与 1.1b/1.1c 定位', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const uiBody = contract.steps.find((step) => step.id === '1.1').body
@@ -61,7 +61,7 @@ test('契约 v13 含 UI 固定问题与 1.1b/1.1c 定位', () => {
   assert.ok(uiBody.includes('Phase 1.1c'), '1.1 正文缺 Phase 1.1c 定位')
 })
 
-test('契约 v13 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2）', () => {
+test('契约 v14 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
@@ -76,7 +76,7 @@ test('契约 v13 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2�
   )
 })
 
-test('契约 v13 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
+test('契约 v14 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   // 1.0 步骤正文：推荐建任务，用户确认后才创建
@@ -114,7 +114,7 @@ test('契约 v13 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁�
   assert.ok(reviewBody.includes('prd.md has no H1 title'), '1.4 正文缺 H1 门禁措辞')
 })
 
-test('契约 v13 含 grilling 固定问题（时序/选项/后果/UI yes 不问）', () => {
+test('契约 v14 含 grilling 固定问题（时序/选项/后果/UI yes 不问）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
@@ -145,7 +145,7 @@ test('契约 v13 含 grilling 固定问题（时序/选项/后果/UI yes 不问�
   }
 })
 
-test('契约 v13 planning 面包屑为行动指令式（brainstorm → grilling → 收敛前不 finalize prd）', () => {
+test('契约 v14 planning 面包屑为行动指令式（brainstorm → grilling → 收敛前不 finalize prd）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const crumb = contract.breadcrumbs.get('planning')
@@ -160,7 +160,7 @@ test('契约 v13 planning 面包屑为行动指令式（brainstorm → grilling 
   )
 })
 
-test('契约 v13 norms Grilling 条目含补强句（planning 在 brainstorm 后 grilling，收敛前不 finalize prd）', () => {
+test('契约 v14 norms Grilling 条目含补强句（planning 在 brainstorm 后 grilling，收敛前不 finalize prd）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   assert.ok(
@@ -184,7 +184,7 @@ test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {
   assert.match(loopStep.body, /red-green/)
 })
 
-test('契约 v13 §2.2 含 check 发现即修与结构化 Open issues 仅存问题段', () => {
+test('契约 v14 §2.2 含 check 发现即修与结构化 Open issues 仅存问题段', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
@@ -200,7 +200,7 @@ test('契约 v13 §2.2 含 check 发现即修与结构化 Open issues 仅存问�
   assert.ok(checkBody.includes('`- none`'), '2.2 正文缺无仅存问题时写 - none')
 })
 
-test('契约 v13 §2.2 含主会话修复窗口与重派 check 复核闭环', () => {
+test('契约 v14 §2.2 含主会话修复窗口与重派 check 复核闭环', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
@@ -223,7 +223,7 @@ test('契约 v13 §2.2 含主会话修复窗口与重派 check 复核闭环', ()
   )
 })
 
-test('契约 v13 in_progress 面包屑含 check 阶段修复放行与 implement 阶段派发指引', () => {
+test('契约 v14 in_progress 面包屑含 check 阶段修复放行与 implement 阶段派发指引', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const crumb = contract.breadcrumbs.get('in_progress')
@@ -238,7 +238,7 @@ test('契约 v13 in_progress 面包屑含 check 阶段修复放行与 implement 
   )
 })
 
-test('契约 v13 norms Dispatch 含 check 阶段主会话直接修复例外句', () => {
+test('契约 v14 norms Dispatch 含 check 阶段主会话直接修复例外句', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   assert.ok(
@@ -249,4 +249,27 @@ test('契约 v13 norms Dispatch 含 check 阶段主会话直接修复例外句',
     contract.norms.includes('re-dispatch the check executor for a full re-review'),
     'norms 缺修复后重派 check 复核句',
   )
+})
+
+/** 内置 LSP 软基线句子（与 assets 契约一致，测试自给自足）。 */
+const LSP_BASELINE_SENTENCE =
+  'When LSP tooling is available, use it to assist coding and error diagnosis, ' +
+  'and include an LSP diagnostics check in the verification pass.'
+
+test('契约 v14 含 LSP 软基线：norms（always-on）、in_progress 面包屑与 2.1/2.2 完成标准', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  // [workflow-norms] LSP (always-on) 小组：每轮注入主 agent。
+  assert.ok(contract.norms.includes(LSP_BASELINE_SENTENCE), 'norms 缺 LSP 软基线句')
+  assert.ok(contract.norms.includes('LSP (always-on):'), 'norms 缺 LSP always-on 小组标签')
+  // [workflow-state:in_progress] 面包屑：实现/检查阶段每轮可见。
+  assert.ok(
+    contract.breadcrumbs.get('in_progress').includes(LSP_BASELINE_SENTENCE),
+    'in_progress 面包屑缺 LSP 软基线句',
+  )
+  // 2.1/2.2 完成标准（软句一次性落于完成判据）。
+  const implementStep = contract.steps.find((step) => step.id === '2.1')
+  assert.ok(implementStep.body.includes(LSP_BASELINE_SENTENCE), '2.1 完成标准缺 LSP 软基线句')
+  const checkStep = contract.steps.find((step) => step.id === '2.2')
+  assert.ok(checkStep.body.includes(LSP_BASELINE_SENTENCE), '2.2 完成标准缺 LSP 软基线句')
 })

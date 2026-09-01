@@ -2,7 +2,7 @@
  * doctor 检查引擎的任务扫描与 issue/报告辅助（只读）。
  *
  * 设计意图：
- * - collectTasks 统一枚举 active + archive 任务，供 9 类检查与修复器复用；
+ * - collectTasks 统一枚举 active + archive 任务，供 10 类检查与修复器复用；
  * - allIssues/issueKey 在检查与修复度量之间共享「拉平」「唯一键」口径；
  * - taskJsonPath/canonicalRef/pointerPath 拼装 issue 引用的路径；makeIssue 组装 issue 字段；
  * - 运行时 issue/message 文案英文；注释中文。

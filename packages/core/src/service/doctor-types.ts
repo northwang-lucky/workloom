@@ -2,7 +2,7 @@
  * workloom-doctor 检查引擎的类型、检查元信息与共享常量（新增抽象，TypeScript）。
  *
  * 设计意图：
- * - 集中定义 DoctorReport 相关类型、9 类检查元信息（CHECK_META）与跨模块常量；
+ * - 集中定义 DoctorReport 相关类型、10 类检查元信息（CHECK_META）与跨模块常量；
  * - doctor-checks.ts / doctor-fixes.ts / doctor.ts 各自从此处引用类型与常量，避免循环依赖；
  * - 运行时 issue/message 文案英文；注释中文。
  */
@@ -20,6 +20,7 @@ export type DoctorIssueCode =
   | 'doc-completeness'
   | 'spec-ref'
   | 'config'
+  | 'local-prompts'
 
 /** 严重级别。 */
 export type DoctorSeverity = 'error' | 'warn'
@@ -38,12 +39,17 @@ export interface DoctorIssue {
   hint: string | null
 }
 
-/** 单类检查（code/title/severity + issues）。 */
+/** 单类检查（code/title/severity + issues + 正向状态行）。 */
 export interface DoctorCheck {
   code: DoctorIssueCode
   title: string
   severity: DoctorSeverity
   issues: DoctorIssue[]
+  /**
+   * 正向状态行（非问题信息，供可观测性展示）：如 local-prompts 检查列出每个已
+   * 加载片段（target、requiresTools 条件、来源文件）。无正向信息为空数组。
+   */
+  info: string[]
 }
 
 /** 汇总统计。 */
@@ -74,6 +80,11 @@ export interface DoctorReport {
 /** runDoctor 入参。 */
 export interface RunDoctorOpts {
   fix: boolean
+  /**
+   * 当前可用工具名集合（adapter 探测后传入；core runtime 无关，缺省 undefined 时
+   * local-prompts 检查不判定条件不满足，仅列出有条件片段的声明条件）。
+   */
+  availableTools?: readonly string[]
 }
 
 /** 任务节点（当前实际位置 + 记录）。 */
@@ -90,7 +101,7 @@ export const ARCHIVE_DIR = 'archive'
 /** task.json 写回缩进（保持 2 空格 + 尾换行）。 */
 export const JSON_INDENT = 2
 
-/** 9 类检查的元信息（顺序即输出顺序；每类必出现）。 */
+/** 10 类检查的元信息（顺序即输出顺序；每类必出现）。 */
 export const CHECK_META: ReadonlyArray<{
   code: DoctorIssueCode
   title: string
@@ -105,4 +116,5 @@ export const CHECK_META: ReadonlyArray<{
   { code: 'doc-completeness', title: 'Documentation completeness', severity: 'warn' },
   { code: 'spec-ref', title: 'Spec reference integrity', severity: 'warn' },
   { code: 'config', title: 'Configuration', severity: 'warn' },
+  { code: 'local-prompts', title: 'Local prompts', severity: 'warn' },
 ]

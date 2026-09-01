@@ -57,6 +57,9 @@ const GUIDELINES_LABEL = 'Guidelines (spec index — read files as needed):'
 /** norms 段标签行（固定文案）。 */
 const NORMS_LABEL = 'Always-on norms:'
 
+/** 本机片段小节标签行（depth=0 时 norms 之后追加；depth>0 由 executor 首条 prompt 注入一次）。 */
+const LOCAL_DIRECTIVES_LABEL = 'Local directives:'
+
 /**
  * executor 版 norms（delegationDepth>0 时整体替换契约 norms，核心静态常量）。
  * 叶子执行器实施纪律：零派发语义（不含 dispatch 字样），措辞与现有 norms 风格一致。
@@ -89,6 +92,13 @@ export interface SessionContextParams {
   norms?: string | null
   /** 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）。深度>0 时 norms 段整体替换为 executor 版。 */
   delegationDepth?: number
+  /**
+   * 本机片段合成文本（主 agent 目标：all + main；adapter 探测可用工具集后经 core
+   * composeLocalDirectivesText 组装）。depth=0 且文本非空时在 norms 之后追加
+   * Local directives 小节；depth>0 不注入（executor 的片段由首条 prompt 注入一次，
+   * 避免 all.md 重复注入）；空串/未传 = 不注入。
+   */
+  localDirectives?: string | null
 }
 
 /**
@@ -133,12 +143,23 @@ function assembleInternal(params: SessionContextParams): string {
   } else if (hasNorms(params.norms)) {
     lines.push(NORMS_LABEL, params.norms)
   }
+  // 本机片段小节（主 agent 专用）：depth=0 且文本非空时追加在 norms 段之后；
+  // depth>0 忽略——executor 的片段由 buildExecutorPrompt 首条 prompt 注入一次，
+  // 避免 all.md 在主会话与子代理两端重复注入。
+  if (depth === 0 && hasText(params.localDirectives)) {
+    lines.push(LOCAL_DIRECTIVES_LABEL, params.localDirectives)
+  }
   return `${BLOCK_OPEN}\n${lines.join('\n')}\n${BLOCK_CLOSE}`
 }
 
 /** norms 是否非空（null/undefined/空白视为无 norms，快照结构不变）。 */
 function hasNorms(norms: string | null | undefined): norms is string {
   return norms !== null && norms !== undefined && norms.trim() !== ''
+}
+
+/** 注入文本是否非空（null/undefined/空白视为无注入，快照结构不变）。 */
+function hasText(text: string | null | undefined): text is string {
+  return text !== null && text !== undefined && text.trim() !== ''
 }
 
 /**
