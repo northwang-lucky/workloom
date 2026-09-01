@@ -1,0 +1,5 @@
+{"file":"spec/repo/legacy-module/index.md","reason":"检查解析器/上下文包是否符合 legacy 约定"}
+{"file":"spec/repo/code-style/index.md","reason":"检查编码原则与验证命令执行结果"}
+{"file":"spec/repo/architecture/index.md","reason":"检查分层与依赖边界"}
+{"file":"spec/repo/language/index.md","reason":"检查中英文分工"}
+{"file":"spec/repo/commits/index.md","reason":"检查提交规范"}

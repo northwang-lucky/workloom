@@ -74,6 +74,12 @@ export {
   gitCurrentBranchSync,
 } from './legacy/git.js'
 
+export {
+  parseResearchMarkdown,
+  getGitRevSync,
+  getContextPack,
+} from './legacy/research-facts.js'
+
 export { addSession, listJournals } from './legacy/journal.js'
 
 export { DEVELOPER_PATTERN, assertDeveloper } from './legacy/identity.js'
@@ -191,6 +197,15 @@ export type {
 } from './legacy/task-store.d.ts'
 
 export type { SessionPointer } from './legacy/active-task.d.ts'
+
+export type {
+  ResearchAnchor,
+  ResearchConclusion,
+  ResearchExcerpt,
+  ResearchSection,
+  ResearchFileResult,
+  ResearchContextPack,
+} from './legacy/research-facts.d.ts'
 
 export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
 

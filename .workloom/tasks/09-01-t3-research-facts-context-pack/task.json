@@ -1,0 +1,54 @@
+{
+  "id": "d7944522-a295-4b2a-ab03-02b47fdf2794",
+  "name": "t3-research-facts-context-pack",
+  "title": "T3 research-facts 格式规范与上下文包",
+  "description": "research agent 纪律段增强（结构化块锚点格式）+ .workloom/spec/repo/research-facts 标准 + templates 产物模板资产；research 产物→锚点索引解析器（节标题/要点/文件:行号/代码摘录），按 git rev 落盘任务 context/ 目录，供 T1 的 files 清单自动生成消费。继承容器任务已对齐决策。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-01T15:37:14.488Z",
+  "completedAt": null,
+  "parent": "tasks/09-01-subagent-efficiency-continuable",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-01T17:43:57.266Z",
+    "summary": "T3 全量复审 pass：契约三要素+原始三句根保留（守卫测试）；spec/模板资产按模板形态落地且注入清单生效；解析器 9 用例 + 契约守卫通过（check 期修复 2 缺陷：要点句锚点丢弃、未闭合围栏 EOF 丢失，均 red→green 补测）；上下文包 git rev 失效/缓存/空包/mtime 降级全测；验证：core 424 test 全绿、-r typecheck/lint/-r build 全绿、.ts/.d.ts LSP 无诊断（.js 无 LSP server，tsc checkJs+eslint 兜底有据）；范围合规无 DSH/用户级改动。Open issues: none。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-01T17:16:43.179Z",
+    "summary": "固定问题判 A（test-first）。Seams：锚点解析器（节/要点/文件:行号/代码摘录提取、cardx 样本解析、unverified 标记）；上下文包 git rev 失效重建；files 清单去重。解析器 red-green 先行，spec/模板资产为文档交付不涉测试。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-01T17:28:28.892Z",
+      "title": "research-facts 格式规范与解析器实现"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-01T17:43:48.773Z",
+      "title": "T3 research-facts 实现全量复审"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

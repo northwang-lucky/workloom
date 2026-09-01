@@ -1,0 +1,6 @@
+{"file":"spec/repo/legacy-module/index.md","reason":"解析器/上下文包随 core legacy 纯 JS + JSDoc 模块约定实现"}
+{"file":"spec/repo/code-style/index.md","reason":"编码原则与验证命令（node --test / typecheck / lint）"}
+{"file":"spec/repo/architecture/index.md","reason":"core/assets/spec 分层与依赖边界，勿越层"}
+{"file":"spec/repo/language/index.md","reason":"中英文分工约定"}
+{"file":"spec/repo/terminology/index.md","reason":"术语表对齐（上下文包/锚点/facts 等命名）"}
+{"file":"spec/repo/commits/index.md","reason":"提交规范"}
