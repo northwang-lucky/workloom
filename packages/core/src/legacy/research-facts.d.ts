@@ -58,7 +58,7 @@ export interface ResearchFileResult {
 
 /** 任务级上下文包（落盘 .workloom/tasks/<task>/context/pack.json）。 */
 export interface ResearchContextPack {
-  /** 失效键：任务所在仓库 HEAD；无 git 环境为 mtime-<毫秒>。 */
+  /** 失效键：任务所在仓库 HEAD；无 git 环境为 mtime-<毫秒>；空包（无 research 产物）为调用方传入值或空串。 */
   gitRev: string
   /** 去重排序的锚点路径数组（相对任务相关仓库根），供 T1 seed 注入。 */
   files: string[]
@@ -74,7 +74,7 @@ export function parseResearchMarkdown(content: string, sourceFile: string): Rese
 /** 取任务所在仓库 HEAD；无 git 环境降级为 fallbackFiles 最新 mtime 作失效键。 */
 export function getGitRevSync(root: string, fallbackFiles: string[]): string
 
-/** 读取（或重建）任务级上下文包；无 research 产物返回空包不报错。 */
+/** 读取（或重建）任务级上下文包；无 research 产物返回空包不报错、不取 git rev。 */
 export function getContextPack(
   root: string,
   taskRelPath: string,

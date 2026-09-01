@@ -1,6 +1,7 @@
 /**
  * research-facts 单测：锚点解析（cardx 样本形态）、unverified 标记、上下文包
- * 落盘与 git rev 失效重建、files 去重、空包、git rev 降级（临时目录）。
+ * 落盘与 git rev 失效重建、files 去重、空包、git rev 降级（临时目录）、
+ * 无 research 产物不调用 git、git 失败 stderr 静默。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -160,6 +161,28 @@ test('无 research 产物返回空包且不落盘', () => {
   }
 })
 
+test('无 research 产物（目录缺失/无 .md）不调用 git，空包 gitRev 为空串', () => {
+  // 结构断言：若实现仍调用 getGitRevSync，非 git 临时目录会得到 'mtime-0'（或
+  // git HEAD 哈希），绝不可能是空串——gitRev === '' 即证明未 spawn git。
+  const root = mkdtempSync(join(tmpdir(), 'workloom-rf-'))
+  try {
+    const taskDir = join(root, '.workloom', 'tasks', 't-01')
+    mkdirSync(taskDir, { recursive: true })
+    const [err, pack] = getContextPack(root, 'tasks/t-01')
+    assert.equal(err, null)
+    assert.deepEqual(pack, { gitRev: '', files: [], sections: [], unverifiedCount: 0 })
+    assert.equal(existsSync(join(taskDir, 'context')), false)
+    // research 目录存在但无 .md 文件：同样短路，不调用 git。
+    mkdirSync(join(taskDir, 'research'), { recursive: true })
+    writeFileSync(join(taskDir, 'research', 'notes.txt'), 'not markdown\n')
+    const [err2, pack2] = getContextPack(root, 'tasks/t-01')
+    assert.equal(err2, null)
+    assert.deepEqual(pack2, { gitRev: '', files: [], sections: [], unverifiedCount: 0 })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('getGitRevSync 取仓库 HEAD；无 git 环境降级为文件 mtime 失效键', () => {
   // 有 git：HEAD 完整哈希。
   const gitRoot = mkdtempSync(join(tmpdir(), 'workloom-rf-git-'))
@@ -195,6 +218,29 @@ test('getContextPack 未传 gitRev 时自动取失效键（无 git 降级 mtime�
     assert.match(pack.gitRev, /^mtime-\d/)
     assert.deepEqual(pack.files, ['a.go'])
   } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('非 git 环境：git 失败静默降级 mtime 键且无 stderr 泄漏', () => {
+  const { root, taskDir } = makeTaskProject()
+  // 捕获宿主 stderr：execFileSync 默认 stdio 在命令失败时会直接把子进程
+  // stderr 打到宿主 stderr（git 的「不是 git 仓库」报错会泄漏出来）。
+  const chunks = []
+  const originalWrite = process.stderr.write.bind(process.stderr)
+  process.stderr.write = (chunk, ..._args) => {
+    chunks.push(String(chunk))
+    return true
+  }
+  try {
+    writeFileSync(join(taskDir, 'research', 'facts.md'), '## 节\n\n- `a.go:1` 事实\n')
+    const [err, pack] = getContextPack(root, 'tasks/t-01')
+    assert.equal(err, null)
+    assert.match(pack.gitRev, /^mtime-\d/)
+    assert.deepEqual(pack.files, ['a.go'])
+    assert.deepEqual(chunks, [])
+  } finally {
+    process.stderr.write = originalWrite
     rmSync(root, { recursive: true, force: true })
   }
 })
