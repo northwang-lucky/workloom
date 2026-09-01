@@ -22,15 +22,29 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-01T18:23:00.244Z",
+    "summary": "T1 全量复审 pass：注入序 Active task→artifacts→jsonl→Research materials→Involved files→Task prompt→纪律段→Local directives→Executor contract；20K 截断（恰好/超/多文件边界补齐测试）；files 清单关键词去重（3 关键词覆盖）；纪律段仅 implement/check 追加且其余契约逐字未变；无产物 stats 0；red→green 证据 9 红→27 绿；验证 core 432/432、adapter-dsh 94/94、adapter-pi 47/47、typecheck/lint/-r build 全绿、.d.ts LSP 干净（.js 兜底 tsc checkJs+eslint）；范围合规只改 core。Open issues: research-facts.js:364 getGitRevSync 非 git 环境 spawn git 且 stderr 泄漏（T3 文件，转容器验收时处置）。"
+  },
   "grilling": {
     "required": true,
     "passedAt": "2026-09-01T17:16:43.179Z",
     "summary": "固定问题判 C（仅关键路径）。Seams：research 全文注入存在且位置正确；20K 截断保留标题+锚点区并带截断标注；无 research 产物不注入不改统计；显式 files 清单（userPrompt 关键词命中）不重复注入。"
   },
   "overrides": [],
-  "stage": "implement",
-  "dispatches": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-01T18:08:59.608Z",
+      "title": "research 注入与模板指令实现"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-01T18:22:45.672Z",
+      "title": "T1 上下文注入实现全量复审"
+    }
+  ],
   "hooks": {
     "after_create": [],
     "after_start": [],
