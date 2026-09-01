@@ -6,3 +6,6 @@
 
 # Local config overrides (per-machine).
 config.local.yaml
+
+# Local prompt extensions (per-machine discipline fragments).
+prompts.local/

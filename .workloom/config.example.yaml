@@ -140,3 +140,38 @@ subagents:
 # check executor for a full re-review afterwards.
 executor:
   gate: true
+
+# prompt local extensions: per-machine prompt fragments (gitignored, not part of
+# the repo). They are appended as extra discipline text — the main agent gets an
+# "all.md + main.md" synthesis at the end of its session-context snapshot, and
+# each dispatched executor gets "all.md + <kind>.md" in its first prompt.
+#
+# Directory convention: .workloom/prompts.local/ (add "prompts.local/" to
+# .workloom/.gitignore). Legal file names: main.md, research.md, implement.md,
+# check.md, frontend.md, all.md — any other .md name fails loudly with the legal
+# list; non-.md files are ignored; a missing directory means no fragments at
+# all (zero behaviour).
+#
+# Fragment format: Markdown body with an optional YAML front-matter block
+# (--- delimited) at the top. The only allowed field is `requiresTools`, a list
+# of tool names with AND semantics — the fragment is injected only when EVERY
+# declared tool is in the runtime's available tool set. An empty/missing
+# requiresTools means unconditional. Invalid YAML, unknown fields, or a
+# non-string-array requiresTools fail loudly (same policy as config.yaml).
+#
+# Typical use: upgrade the built-in soft LSP baseline into a hard constraint on
+# a machine that has the LSP tooling installed:
+#   main.md:
+#     Always use LSP tools for coding and error diagnosis, and include an LSP
+#     diagnostics check in the verification pass.
+#   implement.md / check.md / frontend.md:
+#     ---
+#     requiresTools: [lsp_diagnostics]
+#     ---
+#     You MUST use LSP tools ... and report the LSP diagnostics verification in
+#     your final report.
+#
+# Composed text is injected outside the context_injection budget (discipline
+# text is small and must take full effect). workloom_doctor lists every loaded
+# fragment (target, condition, source file) and the reason skipped ones are not
+# injected.
