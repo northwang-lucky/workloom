@@ -1,0 +1,5 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "检查新增机制的归属与边界是否符合分层规则"}
+{"file": ".workloom/spec/repo/architecture/executor-voice.md", "reason": "检查 LSP 软基线是否只写 core 纪律段、未复述进 adapter 人设"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "检查实现代码风格、验证命令与类型/格式合规"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "检查提交信息是否符合仓库规范(2.3 提交口径)"}
