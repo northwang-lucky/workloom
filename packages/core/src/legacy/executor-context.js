@@ -94,7 +94,12 @@ const LSP_BASELINE_SENTENCE =
 export const EXECUTOR_CONTRACT_BY_KIND = Object.freeze({
   [EXECUTOR_KINDS.research]: `Produce an actionable report the implementer can follow directly.
 Ground every conclusion in the real source: read the actual files or data before claiming a fact, and cite file paths for each conclusion.
-Separate verified findings from suggestions, and mark anything unverified as such.`,
+Separate verified findings from suggestions, and mark anything unverified as such.
+
+Structure the report in research-facts blocks (see the research-facts spec and its template asset):
+- Use '##' section headings, each heading stating the section's takeaway in one sentence.
+- Anchor every conclusion: cite its source as 'path:line', with the path relative to the task repo root.
+- Quote the key code in fenced code blocks.`,
   [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/design/implement) in order.
 Make the smallest change that satisfies the requirement; do not touch unrelated code.
 Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.

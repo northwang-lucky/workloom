@@ -477,6 +477,35 @@ test('userPrompt 已含 ## Local directives 时不重复注入', () => {
   }
 })
 
+test('research 纪律段含结构化块三要素且保留原始三句根', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
+    assert.equal(err, null)
+    const start = result.text.indexOf(directiveHeading('research'))
+    const end = result.text.indexOf('## Executor contract')
+    const section = result.text.slice(start, end)
+    // 原始三句根逐字保留（repo/language：agent 向运行时文案为英文）
+    assert.match(section, /Produce an actionable report the implementer can follow directly\./)
+    assert.match(
+      section,
+      /Ground every conclusion in the real source: read the actual files or data before claiming a fact, and cite file paths for each conclusion\./,
+    )
+    assert.match(
+      section,
+      /Separate verified findings from suggestions, and mark anything unverified as such\./,
+    )
+    // 结构化块三要素：节标题要点句 / 每条结论 path:line 锚点 / 代码围栏摘录
+    assert.match(section, /'##' section headings/)
+    assert.match(section, /takeaway in one sentence/)
+    assert.match(section, /'path:line'/)
+    assert.match(section, /fenced code blocks/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('LSP 软基线：implement/check/frontend 纪律段含软句子，research 不含', () => {
   const root = makeProject()
   try {
