@@ -88,7 +88,7 @@ test('appendExecutorReceipt: forced 时来源标注追加 (forced) 标记', () =
     effort: 'high',
     sources: { model: 'config' as const, effort: 'param' as const },
   }
-  const result = appendExecutorReceipt('output', effective, true)
+  const result = appendExecutorReceipt('output', effective, { forced: true })
   assert.ok(result.includes('(config, forced)'))
   assert.ok(result.includes('(param, forced)'))
   assert.ok(!result.includes('(config)'))
@@ -103,6 +103,24 @@ test('appendExecutorReceipt: 未强制时来源标注不含 forced（默认参�
   const result = appendExecutorReceipt('output', effective)
   assert.ok(result.includes('(param)'))
   assert.ok(!result.includes('forced'))
+})
+
+test('appendExecutorReceipt: 注入统计四元组同行渲染（KB 一位小数）', () => {
+  const effective = {
+    model: 'm',
+    sources: { model: 'param' as const },
+  }
+  const result = appendExecutorReceipt('output', effective, {
+    injection: { bytes: 18739, inlined: 7, truncated: 0, indexed: 0 },
+  })
+  assert.ok(
+    result.includes('; injection: 18.3KB, 7 inlined, 0 truncated, 0 indexed'),
+    'injection 4-tuple must render on the same line (KB with one decimal)',
+  )
+  // 未传注入统计时保持原样（向后兼容：不渲染 injection 段）
+  const plain = appendExecutorReceipt('output', effective)
+  assert.ok(!plain.includes('; injection:'))
+  assert.ok(!plain.includes(' inlined'))
 })
 
 /** 构造完整形状的最小配置对象（冲突检测只消费 subagents 字段）。 */

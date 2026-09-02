@@ -49,7 +49,12 @@ import {
   TOOL_NAMES,
   TOOL_SNIPPETS,
 } from '@workloom-ai/core'
-import type { DispatchRecordInput, ExecutorPromptResult, WorkloomConfig } from '@workloom-ai/core'
+import type {
+  DispatchRecordInput,
+  ExecutorInjectionStats,
+  ExecutorPromptResult,
+  WorkloomConfig,
+} from '@workloom-ai/core'
 
 import { contextKeyOf } from './constants.ts'
 import { buildChildPiArgs } from './pi-args.ts'
@@ -89,11 +94,21 @@ const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record 
 const FORCED_SOURCE_PATTERN = / \((param|config|default)(?:: [^)]*)?\)/g
 
 /**
+ * appendExecutorReceipt 的可选配置（入参收敛为对象，避免第 4 个位置参数）。
+ */
+export interface AppendExecutorReceiptOptions {
+  /** force 放行时 true：来源标注追加 (forced) 标记（审计留痕）。 */
+  forced?: boolean
+  /** 注入统计（KB 一位小数 + 内联/截断/索引计数，同行追加；未传不渲染）。 */
+  injection?: ExecutorInjectionStats
+}
+
+/**
  * 在子代理输出文本尾部追加 executor receipt 行（可观测性）。
  * 空输出时只返回 receipt 行本身。
  * @param text 子代理原始输出文本
  * @param effective resolveSubagentDefaults 的返回值（含 sources 与配置来源细分）
- * @param forced force 放行时 true：来源标注追加 (forced) 标记（审计留痕）
+ * @param options force 放行与注入统计（force 放行时来源标注追加 (forced) 标记）
  * @returns 带 receipt 的完整文本
  */
 export function appendExecutorReceipt(
@@ -108,7 +123,7 @@ export function appendExecutorReceipt(
     }
     whenMainValue?: string
   },
-  forced = false,
+  options: AppendExecutorReceiptOptions = {},
 ): string {
   let receipt = buildExecutorReceipt({
     model: effective.model,
@@ -119,8 +134,9 @@ export function appendExecutorReceipt(
     effortSource: effective.sources.effort,
     effortConfigSource: effective.configSources?.effort,
     effortWhenMainValue: effective.whenMainValue,
+    injection: options.injection,
   })
-  if (forced) {
+  if (options.forced === true) {
     // 来源标注追加 (forced)：覆盖事实与来源（含 whenMain/fallback/legacy 细分）
     // 并存，审计一眼可辨（替换函数保留括号内原有内容）。
     receipt = receipt.replace(FORCED_SOURCE_PATTERN, (match) => match.replace(')', ', forced)'))
@@ -380,8 +396,20 @@ async function executeTool(
   // 派发成功（dispatchChildPi 正常返回）：记录派发审计（+1 条 dispatches）。
   // 记录失败仅告警不阻塞结果（审计增强，不留痕不拖垮执行链路）。
   recordExecutorDispatchEntry(root, taskRelPath, { kind: params.kind, title: params.title })
-  // 尾部追加 receipt 行：生效 model/effort 及来源（force 放行时标注 (forced)）。
-  const textWithReceipt = appendExecutorReceipt(result.text, effective, gate.forced)
+  // 注入统计（receipt 渲染用）：总字节取注入文本长度（KB 一位小数由 core 渲染），
+  // 计数来自 buildExecutorPrompt stats——可见喂给 child pi 的上下文规模。
+  const injection: ExecutorInjectionStats = {
+    bytes: Buffer.byteLength(piBuilt.result.text, 'utf8'),
+    inlined: piBuilt.result.stats.filesInlined,
+    truncated: piBuilt.result.stats.truncated,
+    indexed: piBuilt.result.stats.filesIndexed,
+  }
+  // 尾部追加 receipt 行：生效 model/effort 及来源（force 放行时标注 (forced)）
+  // 与注入统计（KB 一位小数 + 内联/截断/索引计数，同行追加）。
+  const textWithReceipt = appendExecutorReceipt(result.text, effective, {
+    forced: gate.forced,
+    injection,
+  })
   return {
     content: [{ type: 'text', text: textWithReceipt }],
     details: { kind: 'foreground', runId: result.runId, status: 'completed' },
