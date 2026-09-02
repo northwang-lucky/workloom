@@ -20,6 +20,3 @@ subagents:
   check:
     model: qwen-token-plan-cn/qwen3.8-max
     effort: medium
-
-executor:
-  gate: true

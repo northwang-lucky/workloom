@@ -190,7 +190,7 @@ export function checkDispatchAudit(nodes: TaskNode[]): DoctorIssue[] {
           title: 'No recorded executor dispatch',
           severity: 'warn',
           task: node.relPath,
-          message: `Task is ${rec.status} but has no recorded executor dispatch; work may have bypassed the executor gate.`,
+          message: `Task is ${rec.status} but has no recorded executor dispatch; work may have bypassed the workloom_execute dispatch convention.`,
           path: taskJsonPath(node.relPath),
           fixable: false,
           hint: 'Dispatch the work through workloom_execute so the audit has a record.',
@@ -440,7 +440,7 @@ export function checkSpecRef(root: string, nodes: TaskNode[]): DoctorIssue[] {
   return issues
 }
 
-/** 检查⑨：配置（.workloom/config.yaml 缺失/非法、executor.gate 状态）。 */
+/** 检查⑨：配置（.workloom/config.yaml 缺失/非法）。 */
 export function checkConfig(root: string): DoctorIssue[] {
   const issues: DoctorIssue[] = []
   const configPath = join(root, WORKLOOM_DIR, 'config.yaml')
@@ -454,7 +454,7 @@ export function checkConfig(root: string): DoctorIssue[] {
         message: 'config.yaml is missing; using built-in defaults.',
         path: join(WORKLOOM_DIR, 'config.yaml'),
         fixable: false,
-        hint: 'Create .workloom/config.yaml to customize hooks, packages, subagents and the executor gate.',
+        hint: 'Create .workloom/config.yaml to customize hooks, packages and subagents.',
       }),
     )
   } else {
@@ -474,24 +474,6 @@ export function checkConfig(root: string): DoctorIssue[] {
         }),
       )
     }
-  }
-  try {
-    if (loadConfig(root).executor.gate === false) {
-      issues.push(
-        makeIssue({
-          code: 'config',
-          title: 'Executor gate disabled',
-          severity: 'warn',
-          task: null,
-          message: 'executor.gate is disabled; main-session direct file writes are not hard-gated.',
-          path: join(WORKLOOM_DIR, 'config.yaml'),
-          fixable: false,
-          hint: 'Consider re-enabling executor.gate to enforce the dispatch hard constraint.',
-        }),
-      )
-    }
-  } catch {
-    // config.yaml 非法已在上面报过，此处不再重复（gate 状态无法读取）。
   }
   return issues
 }

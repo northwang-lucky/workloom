@@ -22,10 +22,6 @@ export interface WorkloomConfig {
   subagents: Record<string, SubagentConfigEntry>
   /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
   subagentProfiles: SubagentProfile[]
-  executor: {
-    /** 主会话直接写文件硬门禁（adapter-dsh tools/pre-execute），默认开启。 */
-    gate: boolean
-  }
 }
 
 /**

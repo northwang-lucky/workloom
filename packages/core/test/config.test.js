@@ -405,47 +405,24 @@ test('config.local.yaml 非法内容抛错（字段标签区分文件）', () =>
   }
 })
 
-test('executor.gate：默认 true、显式 false、非法值抛错', () => {
-  const defaults = makeRoot('')
+test('executor 不再作为配置字段：默认无 gate，旧字段静默忽略', () => {
+  // 默认配置不含 executor 字段（写门禁已整体移除，不再有 executor.gate 开关）。
+  assert.equal('executor' in DEFAULT_CONFIG, false, 'DEFAULT_CONFIG must not carry executor')
+  // 旧项目残留 executor.gate 时按未知旧字段静默忽略：加载成功且结果无 executor。
+  const legacy = makeRoot('executor:\n  gate: false\n')
   try {
-    assert.equal(loadConfig(defaults).executor.gate, true)
+    const config = loadConfig(legacy)
+    assert.deepEqual(config, DEFAULT_CONFIG)
+    assert.equal('executor' in config, false, 'old executor.gate must not appear in the result')
   } finally {
-    rmSync(defaults, { recursive: true, force: true })
+    rmSync(legacy, { recursive: true, force: true })
   }
-  const off = makeRoot('executor:\n  gate: "off"\n')
+  // executor 整体为非 map（旧字段被完全忽略，不再校验其形状）。
+  const scalar = makeRoot('executor: 5\n')
   try {
-    assert.equal(loadConfig(off).executor.gate, false)
+    assert.deepEqual(loadConfig(scalar), DEFAULT_CONFIG)
   } finally {
-    rmSync(off, { recursive: true, force: true })
-  }
-  const invalid = makeRoot('executor:\n  gate: maybe\n')
-  try {
-    assert.throws(
-      () => loadConfig(invalid),
-      (error) => {
-        assert.ok(error instanceof WorkloomConfigError)
-        assert.equal(error.field, 'executor.gate')
-        return true
-      },
-    )
-  } finally {
-    rmSync(invalid, { recursive: true, force: true })
-  }
-})
-
-test('executor 非 map 抛错', () => {
-  const root = makeRoot('executor: 5\n')
-  try {
-    assert.throws(
-      () => loadConfig(root),
-      (error) => {
-        assert.ok(error instanceof WorkloomConfigError)
-        assert.equal(error.field, 'executor')
-        return true
-      },
-    )
-  } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmSync(scalar, { recursive: true, force: true })
   }
 })
 

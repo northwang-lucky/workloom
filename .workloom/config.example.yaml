@@ -132,15 +132,6 @@ subagents:
 #         check:
 #           model: qwen-token-plan-cn/qwen3.8-max
 
-# executor.gate (default true) blocks the main session's direct writes outside
-# .workloom/ while a task is in_progress and its stage is `implement`, forcing
-# implementation changes through dispatched executor subagents. While the task
-# stage is `check`, the gate allows the main session to fix issues directly (the
-# check-stage fix window); the workflow contract requires re-dispatching the
-# check executor for a full re-review afterwards.
-executor:
-  gate: true
-
 # prompt local extensions: per-machine prompt fragments (gitignored, not part of
 # the repo). They are appended as extra discipline text — the main agent gets an
 # "all.md + main.md" synthesis at the end of its session-context snapshot, and

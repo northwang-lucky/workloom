@@ -117,7 +117,6 @@ function makeConfig(subagents: WorkloomConfig['subagents']): WorkloomConfig {
     packages: {},
     defaultPackage: null,
     subagents,
-    executor: { gate: true },
   }
 }
 
