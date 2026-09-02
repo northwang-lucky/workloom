@@ -3,7 +3,7 @@
   "name": "prompt-local-extension-pi",
   "title": "提示词本机扩展点机制（Pi 落地）",
   "description": "将 core 的本机提示词扩展点机制接入 adapter-pi 的 executor 派发链路：child pi 经 --no-extensions + --append-system-prompt 启动（见 pi-args.ts），需调研 pi-coding-agent 0.84.2 在无扩展下的工具面与 LSP 能力，决定条件注入的探测路径；本机片段（.workloom/prompts.local/）与内置 LSP 软基线在 Pi 会话中生效，且不违反 executor-voice 分层（adapter 不重复 core 指令）。",
-  "status": "planning",
+  "status": "in_progress",
   "priority": "P2",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-02T04:00:21.295Z",
+    "summary": "Pi 落地实现复核通过（re-review 两轮）：TC1–TC6 全通过。核验：pi-tools（BUILTIN_CHILD_TOOLS/PI_LSP_TOOLS 常量、buildTheoreticalTools 两态、hasLspCapability 仅事件处理器/工具执行期调用）；pi-args -e 追加（--no-extensions 后、缺省序列逐字一致）；executor buildExecutorPromptWithPi（命中注入 Local directives + 三种 kind 片段、未命中 AND 过滤、fail loud 与 DSH 同口径）；inject 主会话三态 + composeMainLocalDirectives；pi-lsp.json 经 pi-lsp 自身 normalizeConfig 解析实证四件套可用。修复 3 处 P2（inject.test.ts 端到端测试、plugin.ts docstring 与告警文案口径、adapter-dsh inject.test.js 失败路径断言同步小节级降级新语义）。全量验证：adapter-pi 67/67、core 439/439、adapter-dsh 104/104、lint/typecheck/build 全绿；10 个改动文件 lsp_diagnostics 零诊断；agent-definitions.ts 无 LSP 句；core 仅注释 diff（d.ts 更新，行为零变化）；dist/asserts 已按部署纪律同步 profile（未重启）。Open issues: none。"
+  },
   "grilling": {
     "required": true,
     "passedAt": "2026-09-02T00:55:43.707Z",
@@ -34,14 +37,56 @@
       "tool": "workloom_execute",
       "at": "2026-09-01T15:38:59.769Z",
       "reason": "subagents 配置 research 模型 deepseek-v4-flash 不在当前主会话允许列表，显式指定 qwen-token-plan-cn/deepseek-v4-flash-0731"
+    },
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-09-02T02:18:51.335Z",
+      "reason": "subagents 配置 implement 模型 deepseek-v4-flash 不在当前主会话允许列表，显式指定 qwen-token-plan-cn/deepseek-v4-flash-0731（与 DSH 任务同基准）"
+    },
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-09-02T02:33:03.210Z",
+      "reason": "subagents 配置 check 模型 deepseek-v4-pro 不在当前主会话允许列表，显式指定 qwen-token-plan-cn/qwen3.8-max（quality verification 场景）"
+    },
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-09-02T03:45:38.472Z",
+      "reason": "主会话按用户决策修订 DSH 降级语义与 core 注释，需全量重新复核（fresh re-review）后记录 pass"
     }
   ],
-  "stage": "implement",
+  "stage": "check",
   "dispatches": [
     {
       "kind": "research",
       "at": "2026-09-01T16:20:42.403Z",
       "title": "调研 pi-coding-agent 工具面与 LSP 生态"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-02T02:32:53.957Z",
+      "title": "实现提示词本机扩展点 Pi 落地",
+      "childId": "e987dbfb-2a14-4881-a9e2-d3d72b1a4183"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T03:00:57.475Z",
+      "title": "复核提示词本机扩展点 Pi 落地",
+      "childId": "3fca7ab9-b768-435f-b372-9756fb9c0e0a"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T03:59:50.032Z",
+      "title": "复核修订后 Pi 落地（含 DSH 降级语义）",
+      "childId": "98e447e1-ff11-41ec-9f3c-bf0d2a0543a2"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T04:11:47.430Z",
+      "title": "验证默认模型派发可用性",
+      "childId": "a64a7a4a-f8ca-4a91-a331-286305dab384"
     }
   ],
   "hooks": {
