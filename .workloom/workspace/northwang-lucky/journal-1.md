@@ -202,3 +202,9 @@
 - Commit: b0a92a2
 - Summary: 任务 B 全链路：1.1 对齐（七问+三追加）→ grilling 两轮十问收敛 → design/implement 文档评审 → 五切片 test-first 实现 → check 一次 PASS（2 处 P2 自修）→ 四焦点提交 → 归档。交付：workloom_execute 默认后台（foreground 开关）、派发时即写 running + subagent/end 自动回填终态（缺口 A 根治）、续接默认增量 + reinject 兜底、契约 v17 不复述纪律。部署待跑 dsh-sync-workloom（重启归用户）。遗留：Pi 记录恒 running 待评估、executor.ts 后续下沉 prompt 组装簇、注入瘦身凭可观测数据另立任务。
 
+## 上下文注入优化交付：注入基线降 60%
+
+- Time: 2026-09-02T16:02:34.800Z
+- Commit: 4704bc8
+- Summary: 任务 C 上下文注入优化全链路：五项优化（jsonl 纯指针、artifacts 按节提取、主会话先测后瘦——实测无可压对象交付测量结论、LSP 过滤、契约 v18 加载协议 + marker 回声）。体积 14.9KB→6.0KB（降约 60%，同任务同 kind receipt 口径）。插曲：首次 implement 执行器因 ④ 平台标签块不存在调 ask_user_question 被停——按新协议阻塞项回传用户决断（收窄为仅 LSP 过滤）后重派；事故促成任务 D（工具可见性治理 + 提问回传协议，planning 待启动）。遗留：部署需重启 dshweb 生效；marker 回声闭环待真实派发验证。
+
