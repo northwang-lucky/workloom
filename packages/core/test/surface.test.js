@@ -148,6 +148,24 @@ test('buildExecutorReceipt param/default 来源不变（回归）', () => {
   assert.ok(def.includes('(default)'), 'missing source must stay (default)')
 })
 
+test('buildExecutorReceipt 注入统计四元组同行追加（KB 一位小数；未传不渲染）', () => {
+  const withInjection = buildExecutorReceipt({
+    model: 'kimi-coding/k3',
+    modelSource: 'param',
+    injection: { bytes: 18739, inlined: 7, truncated: 0, indexed: 0 },
+  })
+  // 同行追加在 receipt 末尾：model 段之后接 `; injection: <KB>KB, N inlined, T truncated, I indexed`
+  assert.match(
+    withInjection,
+    /^\[workloom executor\] model: kimi-coding\/k3 \(param\); injection: 18\.3KB, 7 inlined, 0 truncated, 0 indexed$/,
+    'injection 4-tuple must append on the same receipt line with one-decimal KB',
+  )
+  // 未传注入统计时保持原样（向后兼容：不渲染 injection 段）
+  const plain = buildExecutorReceipt({ model: 'kimi-coding/k3', modelSource: 'param' })
+  assert.equal(plain, '[workloom executor] model: kimi-coding/k3 (param)')
+  assert.ok(!plain.includes('; injection:'))
+})
+
 test('TOOL_SNIPPETS.taskCreate 签名含 parent?（模型可见的父任务相对路径参数）', () => {
   assert.match(
     TOOL_SNIPPETS.taskCreate,
