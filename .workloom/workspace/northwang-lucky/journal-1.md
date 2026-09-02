@@ -196,3 +196,9 @@
 - Commit: b5dc55a
 - Summary: 按 handoff 接手：核对工作区无中断残留后重派 implement（test-first 红→绿），check 一次 PASS（3 处 P2 自修、声称复核纠出 format:check 部分不实），按焦点拆 5 个 commit + 研究文档 1 个，归档任务 A。部署待跑 dsh-sync-workloom（仅 rsync，重启归用户）。下一棒：任务 B 后台模式与续接增量。
 
+## 执行器性能治理收官：任务 B 后台模式与续接轻量化交付
+
+- Time: 2026-09-02T12:43:22.299Z
+- Commit: b0a92a2
+- Summary: 任务 B 全链路：1.1 对齐（七问+三追加）→ grilling 两轮十问收敛 → design/implement 文档评审 → 五切片 test-first 实现 → check 一次 PASS（2 处 P2 自修）→ 四焦点提交 → 归档。交付：workloom_execute 默认后台（foreground 开关）、派发时即写 running + subagent/end 自动回填终态（缺口 A 根治）、续接默认增量 + reinject 兜底、契约 v17 不复述纪律。部署待跑 dsh-sync-workloom（重启归用户）。遗留：Pi 记录恒 running 待评估、executor.ts 后续下沉 prompt 组装簇、注入瘦身凭可观测数据另立任务。
+
