@@ -1,0 +1,56 @@
+{
+  "id": "4ad77daa-0233-464c-97c1-2de1f01ffbd2",
+  "name": "lsp-baseline-tooling-expansion",
+  "title": "扩展 LSP 提示词基线：引导流程使用 lsp_diagnostics 之外的 LSP 工具",
+  "description": "实测发现：DSH 侧 8 个 lsp_* 工具均可用（dsh-lsp-actions 注册、executor 可继承），但 workloom 全链路提示词只提 \"LSP diagnostics check\"，导致实际项目 227+ 会话中除 lsp_diagnostics（400+ 次）与零星 lsp_symbols（20 次）外，其余 6 个工具零使用。目标是扩展软基线措辞，按场景引导 lsp_completion / lsp_rename / lsp_code_action / lsp_format / lsp_symbols 等的使用，落点涉及 core LSP_BASELINE_SENTENCE（executor-context.js）、workflow.md 契约（3 处 + always-on norms，version 14 → bump）、以及本机 prompts.local 片段的示范措辞；须保持无 LSP 环境的 \"When available\" 软措辞不回退成硬指令。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T04:51:55.996Z",
+  "completedAt": "2026-09-02T06:04:56.941Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-02T06:04:22.253Z",
+    "summary": "全范围 check 通过：两条基线句在 core 常量 / workflow.md 4 处 / design §1 / 测试快照六方逐字符全等，旧句源码零残留；workflow.md 恰 5 行改动、version 15；测试断言钉死四 kind 注入矩阵（双向排他）；config.example.yaml 解析有效、四片段与附表逐字符一致、哨兵门控行为经 checkLocalPrompts 复刻验证；lint/typecheck/build 全绿，core 439 pass、adapter-dsh 104 pass、adapter-pi executor 22 pass；lsp_diagnostics 改动行零诊断（未触碰行为预存在环境性误报）；profile 已 rsync 至 v15、dshweb 未重启（归用户）。P2 修 2 处（design/implement 文档措辞与代码事实对齐），无 P0/P1 遗留。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T05:34:45.958Z",
+    "summary": "grilling 两轮收敛（Q1-Q4 全按推荐）：主基线句五场景草案批准；research 只读变体句批准且仅注入 core 纪律段（contract 保持 4 处）；本机四片段按 target 定制侧重；Pi 侧零代码改动。frontier 空，无静默假设。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-02T05:55:36.064Z",
+      "title": "LSP 基线句扩展测试先行实施",
+      "childId": "6916e1d9-90a1-4e30-a0ea-fccdc0cb1561"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T06:03:59.880Z",
+      "title": "LSP 基线扩展全范围复核",
+      "childId": "1b510a16-a6f1-40cd-adc3-176629a29b32"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
