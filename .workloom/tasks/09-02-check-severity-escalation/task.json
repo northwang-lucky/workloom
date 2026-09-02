@@ -1,0 +1,40 @@
+{
+  "id": "829faa84-3169-412f-ab23-76dac3dc73cc",
+  "name": "check-severity-escalation",
+  "title": "check 内置问题分级：小修大决断，取消主会话引导分级",
+  "description": "修正 check 修复边界：v13\"发现即修\"一刀切改为小问题（确定性、无取舍、路径唯一）check 自修、大问题（取舍/影响面/设计偏离/PRD 外建议）结构化上报主会话决断；引入内置问题分级 P0/P1/P2（定义在契约，check executor 自动应用，不再依赖主会话在派发 prompt 里引导分级）；契约 2.2 禁止\"只读审查\"类派发约束；纪律段末置防主会话 prompt 覆盖；principle 5 澄清子任务 check 非只读（容器验收 ≠ check 只读）。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T00:46:18.863Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T00:51:18.150Z",
+    "summary": "grilling 收敛（设计探索后单轮验证）：分级判定标准（P0 阻断/红线、P1 重要/偏离、P2 机械性）与自修上报映射（P2 自修、P0/P1 上报）确认；Open issues 行格式统一 [P0|P1|P2]；纪律段末置权威化（与 leaf 契约合并、冲突时以纪律段为准）；2.2 主会话派发指引（禁只读审查、禁引导分级）；principle 5 澄清子任务 check 非只读；Pi 角色总述补分级句；纯 prompt/契约域不落库。验证性两问：P0 验收基线调整须用户确认（提议→确认→改 prd→重派 check）；既有非本次引入问题一律 P1 上报（check 不越界）。设计树无开放分支。"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

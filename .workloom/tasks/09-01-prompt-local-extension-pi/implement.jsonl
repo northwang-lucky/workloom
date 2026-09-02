@@ -1,1 +1,9 @@
 {"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层规则：core 持有机制、adapter thin 接线，决定本次 adapter-pi 只做探测与传参"}
+{"file": ".workloom/spec/repo/architecture/executor-voice.md", "reason": "per-kind 纪律单一来源在 core；LSP 句不写入 adapter-pi 人设（agent-definitions.ts 零改动）"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令（verify），Pi 侧 TS 代码风格与 lint/typecheck 口径"}
+{"file": ".workloom/spec/repo/research-facts/index.md", "reason": "research 产物作为上下文引用的解析契约（锚点索引）"}
+{"file": ".workloom/tasks/09-01-prompt-local-extension-pi/research/01-tools-no-extensions.md", "reason": "事实：--no-extensions 语义与 child 内置 4 工具清单，理论工具集基准"}
+{"file": ".workloom/tasks/09-01-prompt-local-extension-pi/research/02-lsp-plugin-ecosystem.md", "reason": "事实：pi-lsp（@narumitw）工具名 lsp_diagnostics/lsp_fix 与安装来源，-e 加载路径"}
+{"file": ".workloom/tasks/09-01-prompt-local-extension-pi/research/03-extension-api-tools.md", "reason": "事实：ExtensionAPI.getActiveTools 签名与探测时机（事件处理器内），探测实现依据"}
+{"file": ".workloom/tasks/09-01-prompt-local-extension-pi/research/04-child-extensions-flag.md", "reason": "事实：无 --extensions 按名机制，仅 -e 源；child 参数序列与 extensions/tools CLI 选项全览"}
