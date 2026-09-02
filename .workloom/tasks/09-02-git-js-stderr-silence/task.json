@@ -1,0 +1,56 @@
+{
+  "id": "f30ea10a-5279-4384-a0d3-fed1eade9489",
+  "name": "git-js-stderr-silence",
+  "title": "git 封装非 git 目录 stderr 泄漏修复",
+  "description": "容器验收遗留观察 #1：packages/core/src/legacy/git.js gitStatusSync/gitCurrentBranchSync 的 execFileSync 默认 stdio 在非 git 目录会把 git 报错泄漏到宿主 stderr（adapter-pi 测试可见\"致命错误\"），按 T3 同款 stdio ['ignore','pipe','ignore'] 静默化；补非 git 目录无 stderr 泄漏测试。",
+  "status": "in_progress",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T00:47:37.916Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-02T00:57:42.188Z",
+    "summary": "复审 pass：GIT_SYNC_STDIO ['ignore','pipe','ignore'] 三元素正确（stdout pipe 取输出、stderr ignore），失败语义不变 [err,null]，唯一调用方 session-context 仅 err 真值判断；JSDoc 事实准确（异步 gitStatus/runGit 零改动）；测试 patch/恢复对称、无异步交错、RED 证据（chunks 捕获\"致命错误\"×2 后还原绿）；core 435/435、typecheck/lint/build 全绿；LSP .js 无 server 以 checkJs+eslint 兜底；范围仅 git.js + git.test.js。Open issues: none。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T00:50:23.465Z",
+    "summary": "固定问题判 A（test-first）。Seam：非 git 目录 gitStatusSync/gitCurrentBranchSync 无 stderr 泄漏（捕获 process.stderr 断言为空）且仍返回 [err, null]；泄漏用例先红后绿；现有 git.test.js 全量回归。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-02T00:52:32.567Z",
+      "title": "git 封装 stderr 静默修复",
+      "childId": "7fbfbb2d-c711-464b-9abf-ef80c93b4935"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T00:57:34.451Z",
+      "title": "git stderr 修复复审",
+      "childId": "7a2c385d-f038-4ed3-ac05-8aee11f1edbb"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

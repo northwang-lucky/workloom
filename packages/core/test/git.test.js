@@ -1,5 +1,5 @@
 /**
- * git 模块单测：gitStatus 工作区状态与错误返回。
+ * git 模块单测：gitStatus 工作区状态与错误返回、同步查询 stderr 静默。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -105,6 +105,30 @@ test('非 git 目录两个同步函数都返回 err', () => {
     assert.ok(branchErr)
     assert.equal(branch, null)
   } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('非 git 目录：同步查询静默失败且无 stderr 泄漏', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-git-'))
+  // 捕获宿主 stderr：execFileSync 默认 stdio 在命令失败时会直接把子进程
+  // stderr 打到宿主 stderr（git 的「不是 git 仓库」报错会泄漏出来）。
+  const chunks = []
+  const originalWrite = process.stderr.write.bind(process.stderr)
+  process.stderr.write = (chunk, ..._args) => {
+    chunks.push(String(chunk))
+    return true
+  }
+  try {
+    const [statusErr, status] = gitStatusSync(root)
+    assert.ok(statusErr)
+    assert.equal(status, null)
+    const [branchErr, branch] = gitCurrentBranchSync(root)
+    assert.ok(branchErr)
+    assert.equal(branch, null)
+    assert.deepEqual(chunks, [])
+  } finally {
+    process.stderr.write = originalWrite
     rmSync(root, { recursive: true, force: true })
   }
 })

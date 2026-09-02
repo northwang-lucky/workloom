@@ -6,6 +6,7 @@
  *   工作区脏文件检查（gitStatus）；
  * - gitStatusSync/gitCurrentBranchSync 是同步查询变体，供 systemPrompt
  *   的同步 text provider 直接调用（与异步版本行为一致，输出经 trim）；
+ *   在非 git 目录静默失败（子进程 stderr 忽略，不向宿主 stderr 输出报错）；
  * - 每一步失败都显式返回 err，由调用方决定是否阻塞；
  * - 使用 execFile（无 shell 解释），避免命令注入。
  */
@@ -25,6 +26,14 @@ const GIT_STATUS_ARGS = ['status', '--porcelain']
 
 /** branch 固定参数：输出当前分支名（未检出分支时输出为空串）。 */
 const GIT_BRANCH_ARGS = ['branch', '--show-current']
+
+/**
+ * 同步查询的 stdio 配置：stdout 仍 pipe 取输出；stdin/stderr ignore，
+ * 默认 stdio 下 execFileSync 失败会把子进程 stderr 打到宿主 stderr，
+ * 置 ignore 后 git 报错（如「不是 git 仓库」）完全静默。
+ * @type {import('node:child_process').StdioOptions}
+ */
+const GIT_SYNC_STDIO = ['ignore', 'pipe', 'ignore']
 
 /**
  * 统计 --porcelain 输出中的脏行数（空输出为 0）；session-context 与 adapter 共用。
@@ -70,13 +79,16 @@ export function gitStatus(root) {
 /**
  * 同步读取工作区状态（git status --porcelain 的 stdout）。
  * 行为与 gitStatus 一致，但同步执行，供 systemPrompt 同步 text provider 调用；
- * 非 git 目录返回 err。
+ * 非 git 目录静默返回 err（子进程 stderr 忽略，不向宿主 stderr 输出报错）。
  * @param {string} root 工作目录
  * @returns {[Error | null, string | null]}
  */
 export function gitStatusSync(root) {
   try {
-    return [null, execFileSync(GIT_BIN, GIT_STATUS_ARGS, { cwd: root, encoding: 'utf8' }).trim()]
+    return [
+      null,
+      execFileSync(GIT_BIN, GIT_STATUS_ARGS, { cwd: root, encoding: 'utf8', stdio: GIT_SYNC_STDIO }).trim(),
+    ]
   } catch (error) {
     return [toError(error), null]
   }
@@ -84,13 +96,17 @@ export function gitStatusSync(root) {
 
 /**
  * 同步读取当前分支名（git branch --show-current 的 stdout）。
- * 非 git 目录返回 err；仓库存在但未检出分支时输出为空串（value 为 ''）。
+ * 非 git 目录静默返回 err（子进程 stderr 忽略，不向宿主 stderr 输出报错）；
+ * 仓库存在但未检出分支时输出为空串（value 为 ''）。
  * @param {string} root 工作目录
  * @returns {[Error | null, string | null]}
  */
 export function gitCurrentBranchSync(root) {
   try {
-    return [null, execFileSync(GIT_BIN, GIT_BRANCH_ARGS, { cwd: root, encoding: 'utf8' }).trim()]
+    return [
+      null,
+      execFileSync(GIT_BIN, GIT_BRANCH_ARGS, { cwd: root, encoding: 'utf8', stdio: GIT_SYNC_STDIO }).trim(),
+    ]
   } catch (error) {
     return [toError(error), null]
   }
