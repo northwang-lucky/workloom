@@ -22,6 +22,7 @@ import type {
 import {
   assembleBreadcrumbSync,
   assembleSessionContext,
+  composeLocalDirectivesText,
   findWorkloomRoot,
   parseContract,
 } from '@workloom-ai/core'
@@ -72,8 +73,13 @@ function injectSessionContext(
     console.warn(`${CONTEXT_WARN_PREFIX} workflow contract asset is missing`)
     return
   }
-  // 契约文本从 assets 加载；解析/组装失败只告警跳过，不阻塞会话。
-  const [err, text] = assembleSessionContextText(root, contextKey, contractText)
+  // 契约文本从 assets 加载；本机片段在事件处理器内探测可用工具集后组装
+  // （工具面 = 主会话真实可见集全量），解析/组装失败只告警跳过，不阻塞会话。
+  const [localErr, localDirectives] = composeMainLocalDirectives(pi, root)
+  if (localErr !== null) {
+    console.warn(`${CONTEXT_WARN_PREFIX} local directives: ${localErr.message}`)
+  }
+  const [err, text] = assembleSessionContextText(root, contextKey, contractText, localDirectives)
   if (err || text === null) {
     console.warn(
       `${CONTEXT_WARN_PREFIX} ${err?.message ?? 'session context assembly returned no text'}`,
@@ -84,18 +90,35 @@ function injectSessionContext(
 }
 
 /**
+ * 组装主会话本机片段文本（main 目标）：可用工具集 = pi.getActiveTools() 全量
+ * （主会话无 denyList，工具面即真实可见集，与 DSH 主 agent 视图同义）。
+ * 必须在事件处理器/工具执行期调用（扩展加载期 getActiveTools 是 throwing stub）。
+ * @param pi Extension API
+ * @param root 项目根
+ * @returns [err, text]：失败时 err 为片段错误，text 为空串
+ */
+export function composeMainLocalDirectives(
+  pi: ExtensionAPI,
+  root: string,
+): [Error | null, string] {
+  return composeLocalDirectivesText(root, 'main', pi.getActiveTools())
+}
+
+/**
  * 从契约文本组装注入快照文本。
  * 契约文本作为入参注入（导出供测试喂自定义契约，不依赖真实资产内容）：
  * norms 随快照每轮重组装，契约升级后下一轮即生效；解析/组装失败返回 err。
  * @param root 项目根
  * @param contextKey 会话 contextKey
  * @param contractText 契约全文
+ * @param localDirectives 本机片段合成文本（主 agent 目标；空串/未传 = 不注入）
  * @returns [err, text]：成功时 text 为整块快照
  */
 export function assembleSessionContextText(
   root: string,
   contextKey: string,
   contractText: string,
+  localDirectives?: string,
 ): [Error | null, string | null] {
   const [parseErr, contract] = parseContract(contractText)
   if (parseErr || contract === null) {
@@ -110,6 +133,7 @@ export function assembleSessionContextText(
     contextKey,
     workflowSteps: contract.steps,
     norms: contract.norms,
+    localDirectives,
   })
 }
 

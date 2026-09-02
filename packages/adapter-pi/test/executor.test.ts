@@ -15,16 +15,20 @@ import { join } from 'node:path'
 
 import { Value } from 'typebox/value'
 
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { buildExecutorReceipt, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import type { WorkloomConfig } from '@workloom-ai/core'
 
 import {
   appendExecutorReceipt,
+  buildExecutorPromptWithPi,
   EXECUTOR_PARAMS,
   recordExecutorDispatchEntry,
   recordForcedOverride,
   resolveConflictGate,
 } from '../src/executor.ts'
+import { buildChildPiArgs } from '../src/pi-args.ts'
+import { PI_LSP_SOURCE } from '../src/pi-tools.ts'
 
 test('appendExecutorReceipt: 非空文本尾部追加 receipt 行', () => {
   const text = '子代理输出内容'
@@ -300,6 +304,137 @@ test('recordExecutorDispatchEntry: task.json 缺失时只 WARNING 不抛错', ()
     assert.match(warning, /failed to record executor dispatch/)
   } finally {
     console.warn = originalWarn
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 构造最小 mock ExtensionAPI（只实现 getActiveTools，两态）。 */
+function makePi(hasLsp: boolean): ExtensionAPI {
+  return {
+    getActiveTools: () =>
+      hasLsp
+        ? ['read', 'bash', 'edit', 'write', 'lsp_diagnostics', 'lsp_fix']
+        : ['read', 'bash', 'edit', 'write'],
+  } as unknown as ExtensionAPI
+}
+
+/** 创建临时项目根并写入三个 requiresTools: [lsp_diagnostics] 的 kind 片段。 */
+function makeLspFragmentsRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-executor-fragments-'))
+  const promptsDir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(promptsDir, { recursive: true })
+  writeFileSync(
+    join(promptsDir, 'implement.md'),
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nIMPLEMENT-LSP-FRAGMENT',
+  )
+  writeFileSync(
+    join(promptsDir, 'check.md'),
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nCHECK-LSP-FRAGMENT',
+  )
+  writeFileSync(
+    join(promptsDir, 'frontend.md'),
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nFRONTEND-LSP-FRAGMENT',
+  )
+  return root
+}
+
+test('buildExecutorPromptWithPi: 探测命中 → 产物含 Local directives 与 implement 片段（TC3）', () => {
+  const root = makeLspFragmentsRoot()
+  try {
+    const [err, result] = buildExecutorPromptWithPi(makePi(true), {
+      root,
+      taskRelPath: 'tasks/09-01-demo',
+      kind: 'implement',
+      userPrompt: 'implement the task',
+    })
+    assert.equal(err, null)
+    assert.ok(result !== null)
+    assert.equal(result.hasLsp, true)
+    assert.ok(result.result.text.includes('## Local directives'))
+    assert.ok(result.result.text.includes('IMPLEMENT-LSP-FRAGMENT'))
+    assert.ok(!result.result.text.includes('CHECK-LSP-FRAGMENT'))
+    assert.ok(!result.result.text.includes('FRONTEND-LSP-FRAGMENT'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('buildExecutorPromptWithPi: 命中时 check/frontend kind 各自注入对应片段（TC3）', () => {
+  const root = makeLspFragmentsRoot()
+  try {
+    for (const [kind, mark] of [
+      ['implement', 'IMPLEMENT-LSP-FRAGMENT'],
+      ['check', 'CHECK-LSP-FRAGMENT'],
+      ['frontend', 'FRONTEND-LSP-FRAGMENT'],
+    ] as const) {
+      const [err, result] = buildExecutorPromptWithPi(makePi(true), {
+        root,
+        taskRelPath: 'tasks/09-01-demo',
+        kind,
+        userPrompt: `do ${kind}`,
+      })
+      assert.equal(err, null)
+      assert.ok(result !== null)
+      assert.ok(result.result.text.includes('## Local directives'))
+      assert.ok(result.result.text.includes(mark))
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('buildExecutorPromptWithPi: 未命中 → 无 Local directives 段（AND 过滤，TC3）', () => {
+  const root = makeLspFragmentsRoot()
+  try {
+    const [err, result] = buildExecutorPromptWithPi(makePi(false), {
+      root,
+      taskRelPath: 'tasks/09-01-demo',
+      kind: 'implement',
+      userPrompt: 'implement the task',
+    })
+    assert.equal(err, null)
+    assert.ok(result !== null)
+    assert.equal(result.hasLsp, false)
+    assert.ok(!result.result.text.includes('## Local directives'))
+    assert.ok(!result.result.text.includes('IMPLEMENT-LSP-FRAGMENT'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('buildExecutorPromptWithPi: hasLsp 驱动 buildChildPiArgs 的 loadExtensions 投影（接线）', () => {
+  const root = makeLspFragmentsRoot()
+  try {
+    const [hitErr, hit] = buildExecutorPromptWithPi(makePi(true), {
+      root,
+      taskRelPath: 'tasks/09-01-demo',
+      kind: 'implement',
+      userPrompt: 'p',
+    })
+    assert.equal(hitErr, null)
+    assert.ok(hit !== null)
+    const hitArgs = buildChildPiArgs({
+      prompt: hit.result.text,
+      kind: 'implement',
+      loadExtensions: hit.hasLsp ? [PI_LSP_SOURCE] : undefined,
+    })
+    assert.ok(hitArgs.includes('npm:@narumitw/pi-lsp'))
+
+    const [missErr, miss] = buildExecutorPromptWithPi(makePi(false), {
+      root,
+      taskRelPath: 'tasks/09-01-demo',
+      kind: 'implement',
+      userPrompt: 'p',
+    })
+    assert.equal(missErr, null)
+    assert.ok(miss !== null)
+    const missArgs = buildChildPiArgs({
+      prompt: miss.result.text,
+      kind: 'implement',
+      loadExtensions: miss.hasLsp ? [PI_LSP_SOURCE] : undefined,
+    })
+    assert.ok(!missArgs.includes('npm:@narumitw/pi-lsp'))
+  } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })

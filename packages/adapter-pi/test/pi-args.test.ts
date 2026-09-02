@@ -48,6 +48,29 @@ test('buildChildPiArgs: model is optional and sparse', () => {
   assert.deepEqual(both.slice(-4), ['--thinking', 'high', '--model', 'gpt-4o'])
 })
 
+test('buildChildPiArgs: loadExtensions 命中时 -e 在 --no-extensions 后且保留 --no-extensions（TC1）', () => {
+  const args = buildChildPiArgs({
+    prompt: 'do the thing',
+    kind: 'research',
+    loadExtensions: ['npm:@narumitw/pi-lsp'],
+  })
+  assert.equal(args[5], '--no-extensions')
+  assert.deepEqual(args.slice(6, 8), ['-e', 'npm:@narumitw/pi-lsp'])
+  assert.equal(args.includes('--no-extensions'), true)
+  assert.equal(args.includes('npm:@narumitw/pi-lsp'), true)
+})
+
+test('buildChildPiArgs: 未传 loadExtensions 时不出现 -e（TC1）', () => {
+  const plain = buildChildPiArgs({ prompt: 'p', kind: 'research' })
+  assert.equal(plain.includes('-e'), false)
+  assert.equal(plain.includes('npm:@narumitw/pi-lsp'), false)
+})
+
+test('buildChildPiArgs: 空数组同未传（缺省行为与旧版逐字一致）', () => {
+  const empty = buildChildPiArgs({ prompt: 'p', kind: 'research', loadExtensions: [] })
+  assert.deepEqual(empty, buildChildPiArgs({ prompt: 'p', kind: 'research' }))
+})
+
 test('buildChildPiArgs: unknown kind throws with executor error prefix', () => {
   assert.throws(
     () => buildChildPiArgs({ prompt: 'p', kind: 'bogus' }),
