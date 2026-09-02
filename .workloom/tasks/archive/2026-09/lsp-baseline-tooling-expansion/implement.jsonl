@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "改动落 verify 命令与编码原则：常量文本变更须 lint/typecheck/node --test 全绿，禁 magic string"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "基线句与片段是 agent-facing shipped 文本，必须英文；core 源码内注释按仓库规则中文"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "executor-context.js 属 legacy 纯 JS + JSDoc 模块，句常量结构改动须守该约定"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "契约与 core 文本变更后须 build + rsync 产物到 DSH profile，重启归用户"}
