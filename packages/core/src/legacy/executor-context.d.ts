@@ -45,20 +45,21 @@ export interface BuildExecutorPromptParams {
    * 空串/未传 = 不注入（Pi 与 DSH 均已接线，缺省保持向后兼容）。
    */
   localDirectives?: string
+  /**
+   * 目标环境是否具备 LSP 工具面（adapter 探测后传入）。false 时纪律段不注入
+   * LSP 基线句（交付时过滤，切片 ④）；缺省（undefined）视为有 LSP，向后兼容。
+   */
+  hasLsp?: boolean
 }
 
-/** 组装统计：内联/索引/截断计数。 */
+/** 组装统计：内联/指针/截断计数。 */
 export interface ExecutorPromptStats {
-  /** 成功内联的文件块数（artifact 与 jsonl 引用文件合计）。 */
+  /** 注入的 artifact 块数（prd/design/implement；含部分提取注入与 H2 目录）。 */
   filesInlined: number
-  /** 以索引形式提供的条目数（目录条目与超总量预算降级条目）。 */
-  filesIndexed: number
-  /** 发生内容截断的次数（artifact 或文件按预算截断）。 */
+  /** 指针引用条数（jsonl 清单文件/目录 + research/*.md 路径行；非内联，执行器按加载协议自读）。 */
+  filesPointed: number
+  /** 发生内容截断的次数（artifact 按预算截断）。 */
   truncated: number
-  /** 内联的 research/*.md 文件数（含被截断文件）。 */
-  researchInlined: number
-  /** 合计字符超预算被截断的 research 文件数（保留标题区+锚点区并追加标注行）。 */
-  researchTruncated: number
 }
 
 /** buildExecutorPrompt 成功结果。 */

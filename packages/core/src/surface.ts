@@ -226,12 +226,14 @@ export const GRILLING_PENDING_NOTE =
 export interface ExecutorInjectionStats {
   /** 注入文本总字节数（KB 显示 = bytes / 1024 一位小数）。 */
   bytes: number
-  /** 内联文件块数（artifact 与 jsonl 引用合计）。 */
+  /** 内联文件块数（artifact 块；jsonl 指针行不计入）。 */
   inlined: number
-  /** 内容截断次数（按预算截断的 artifact/文件）。 */
+  /** 内容截断次数（按预算截断的 artifact）。 */
   truncated: number
-  /** 索引降级条目数（目录条目与超总量预算降级条目）。 */
+  /** 索引降级条目数（指针模式恒为 0，结构保留）。 */
   indexed: number
+  /** 指针引用条数（jsonl 清单 + research 路径行；>0 时在 receipt 追加渲染）。 */
+  pointed?: number
 }
 
 /**
@@ -245,7 +247,8 @@ export interface ExecutorInjectionStats {
  * 时保持 receipt 精简）；任一存在则按原格式渲染（缺失字段仍显示
  * `<unset>`/`(default)`，兼容浅传参），Pi/DSH 传参行为不变。
  * 注入统计段条件渲染：injection 传入时同行追加
- * `; injection: <KB>KB, N inlined, T truncated, I indexed`（KB 一位小数）；
+ * `; injection: <KB>KB, N inlined, T truncated, I indexed`（KB 一位小数）；指针
+ * 引用条数 >0 时再追加 `, P pointed`（纯 artifact 注入保持原 4 元组，向后兼容）；
  * 未传时保持原样（向后兼容：不渲染 injection 段）。
  */
 export function buildExecutorReceipt(params: {
@@ -278,8 +281,12 @@ export function buildExecutorReceipt(params: {
     receipt += `, effort: ${effortLabel}${effortSrc}`
   }
   if (params.injection !== undefined) {
-    const { bytes, inlined, truncated, indexed } = params.injection
+    const { bytes, inlined, truncated, indexed, pointed } = params.injection
     receipt += `; injection: ${(bytes / 1024).toFixed(1)}KB, ${inlined} inlined, ${truncated} truncated, ${indexed} indexed`
+    // 指针引用条数条件渲染（>0 时追加；纯 artifact 注入（如测试夹具）保持原 4 元组）。
+    if (pointed !== undefined && pointed > 0) {
+      receipt += `, ${pointed} pointed`
+    }
   }
   return receipt
 }
