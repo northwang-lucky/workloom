@@ -23,7 +23,11 @@
   "notes": "",
   "meta": {},
   "check": null,
-  "grilling": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T00:55:43.707Z",
+    "summary": "Grilling 一轮收敛：Q1 定 child 的 -e 加载来源为能力探测（主会话 getActiveTools 含 lsp_diagnostics → 追加 -e npm:@narumitw/pi-lsp；未命中零行为，覆盖无插件机器）；Q2 定 pi-lsp server 配置对齐 DSH 四件套（tsgo 优先 + tsserver 兜底 + gopls + bash-language-server，落 ~/.pi/agent/pi-lsp.json）；Q3 定测试接缝 3 个（buildChildPiArgs -e 追加、理论工具集纯函数、inject 主会话注入），pi-lsp.json 手工验收。前置事实全部经源码核验（-e 与 --no-extensions 并存官方语义、registerExecutorTool 持 ExtensionAPI 句柄、pi-lsp 仅两工具无 workloom 工具）。无未决分支。"
+  },
   "overrides": [
     {
       "gate": "executor_model_effort",

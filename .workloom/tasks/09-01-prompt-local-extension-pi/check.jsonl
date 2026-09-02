@@ -1,1 +1,7 @@
 {"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "检查 adapter-pi 是否保持 thin（探测/传参无业务逻辑）"}
+{"file": ".workloom/spec/repo/architecture/executor-voice.md", "reason": "检查 LSP 句未写进 agent-definitions.ts 人设；core 纪律与 Pi 角色未分叉"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "检查 TS 代码风格、lint/typecheck 与验证命令合规"}
+{"file": ".workloom/spec/repo/research-facts/index.md", "reason": "检查 research 引用的锚点与实现是否一致（未验证结论不被当作事实使用）"}
+{"file": ".workloom/tasks/09-01-prompt-local-extension-pi/research/01-tools-no-extensions.md", "reason": "复核基于的事实与实现假设一致（工具清单、-e 并存语义）"}
+{"file": ".workloom/tasks/09-01-prompt-local-extension-pi/research/04-child-extensions-flag.md", "reason": "复核 child 参数序列与 extensions/tools 选项，防止引入不存在的能力"}
