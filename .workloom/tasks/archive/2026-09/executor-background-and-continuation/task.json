@@ -1,0 +1,62 @@
+{
+  "id": "b77285c1-2eef-40e7-b739-40b56f1c252b",
+  "name": "executor-background-and-continuation",
+  "title": "executor 后台模式与续接轻量化",
+  "description": "executor 生命周期与续接语义重设计（等 09-02-executor-batching-and-injection-stats 完成后启动）：①workloom_execute 后台模式——派发即返回、不阻塞主会话（现状前台阻塞 10-50 分钟/次），完成时主会话收通知并收集结果；②派发时即写 dispatches 记录（带状态，含失败派发——根治\"429 失败的活子会话在 task.json 不可见\"缺口 A，session-8240 实证）；③续接只传主会话增量指令，不重注入全量上下文（现状 L426 followup 发完整 buildExecutorPrompt 产物，子会话历史已含全部上下文，三重冗余；send_message 短消息续接成功为正面样例；留可选 reinject 开关应对压缩丢失）；④主会话派发/续接 prompt 不复述子会话已持有的上下文（契约 §2.1/§2.2 指引，治提供商指出的\"输入重复信息\"）；⑤缺口 B（跨实例归属）维持转译文案兜底，根治依赖 DSH 上游不纳入。Pi 侧异步进程管理可后行（DSH 先行）。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T10:35:06.030Z",
+  "completedAt": "2026-09-02T12:43:08.209Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-02T12:42:29.850Z",
+    "summary": "check 一次通过（PASS）：九项设计决策逐条核实——后台默认返回 {kind:'background', childId, receipt}（foreground:true 才阻塞）、receipt 前后台共用 buildExecutorReceipt、报告走 subagent-settled 通知不二次发、初写 running 保留 stage 语义、回填按 info.id 只改 status/error、failed 只管生命周期且摘要 = stopReason 一行映射（上游枚举实证 + default 兜底）、存量无 status 视为 completed、续接默认增量 + reinject 单次恢复、增量 receipt 统计如实。契约 v17 版本号/§2.1§2.2 后台叙述/不复述句逐字核对，措辞命令式无弱化词。687 行豁免接受（先例属实、本轮已两处下沉、建议后续下沉 prompt 组装簇 ≈130 行）。check 自修 2 处 P2（s1-bg 测试改真实缺省断言、SubagentEndInfoLike 转私有）。两条声称复核成立（LSP Buffer 误报、回归数字 450/96/68 复跑吻合）。验证全绿：build/三包测试/lint/typecheck/git diff --check/LSP 改动文件。Open issues: none。移交：归档后跑 dsh-sync-workloom rsync 段（重启归用户）；Pi 记录恒 running 待后续评估；同 childId 重叠续接回填归因最新 running 为 design 已接受近似。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T11:53:32.113Z",
+    "summary": "grilling 收敛（两轮，设计树全分支走完）：Q1 后台返回即带完整 receipt（注入统计派发前就绪，完成报告走 DSH 通知）；Q2 前台开关命名 foreground（默认 false）；Q3 状态回填由 adapter 自动完成（监听 subagent/end，按 childId 关联，研究实证）；Q4 failed 仅覆盖生命周期异常，业务结论（check FAIL）仍记 completed；Q5 错误摘要 = stopReason 一行映射，不截取子代理输出；Q6 契约 §2.1/§2.2 改写为后台流程叙述 + norms Dispatch 段补后台默认句，措辞实现时定稿经 check 核对；Q7 报告从完成通知直接获得，续接只用于追加工作；Q8 增量续接 receipt 格式不变，统计如实反映增量；Q9 存量无 status 记录视为 completed，不迁移；Q10 不拆分，整体交付（S1/S2 强耦合、S3 同链路、S4 纯文本）。前置事实（research）：adapter 可监听 subagent/end 自动回填、注入统计 startContinuable 前可得、续接全量重注入位于 executor.ts:437、DispatchRecord 无 status 需 core 扩展、现有 mock 补事件接缝即可测。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-02T11:49:09.360Z",
+      "title": "后台模式事实查证",
+      "childId": "c5d5377b-28a1-4a33-ab4e-ac016091d146"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-02T12:20:26.539Z",
+      "title": "后台模式与续接轻量化实现",
+      "childId": "a20a4505-22d8-4eee-8137-6683f3aecd54"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T12:41:59.060Z",
+      "title": "后台模式与续接轻量化全量检查",
+      "childId": "63f57fff-9d5e-49e5-94f4-077282e5d66c"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
