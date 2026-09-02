@@ -54,3 +54,13 @@ test('正向对照：激活过程注册 effort 注入通道（agent/created）�
     'apply must register the effort injection channel (agent/created)',
   )
 })
+
+test('激活过程注册 executor 派发终态回填通道（subagent/end）', () => {
+  const { ctx, listeners } = makeMockCtx()
+  apply(ctx)
+  const events = listeners.map((entry) => entry.event)
+  assert.ok(
+    events.includes('subagent/end'),
+    'apply must register the dispatch settlement channel (subagent/end)',
+  )
+})

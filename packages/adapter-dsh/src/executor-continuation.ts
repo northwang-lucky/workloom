@@ -18,7 +18,6 @@ import {
   EMPTY_OUTPUT_TEXT,
   ERR_PREFIX,
   readTask,
-  recordExecutorDispatch,
 } from '@workloom-ai/core'
 import type {
   DispatchRecord,
@@ -30,9 +29,6 @@ import type { MinimalAgent } from './executor.js'
 
 /** 续用定位入参 `continue_executor` 的 'latest' 魔法值（复用 dispatches 同 kind 最近一次）。 */
 const REUSE_LATEST = 'latest'
-
-/** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
-const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
 /** 释放子代理 Activation 失败告警前缀（运行时文案英文；释放失败不阻塞结果返回）。 */
 const DRAIN_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to release continuable child:`
@@ -46,15 +42,11 @@ interface TurnEndReasonLike {
 /** 输出边界之后的 child 会话事件切片（读 events 的最小投影）。 */
 type EventSlice = readonly SessionEvent[]
 
-/** 一轮 executor turn 的结算元数据（新派发/续用共用）。 */
+/** 一轮 executor turn 的结算元数据（前台结算/后台 receipt 共用）。 */
 export interface TurnMeta {
-  root: string
-  taskRelPath: string
-  kind: string
-  title: string
   forced: boolean
   reused: boolean
-  /** 注入统计（receipt 渲染用；总字节取注入文本长度，计数来自 buildExecutorPrompt stats）。 */
+  /** 注入统计（receipt 渲染用；总字节取实际发送内容，计数来自 buildExecutorPrompt stats）。 */
   injection: ExecutorInjectionStats
 }
 
@@ -62,10 +54,11 @@ export interface TurnMeta {
 export type ResolvedDefaultsLike = ResolveSubagentDefaultsResult
 
 /**
- * 结算一轮 executor turn：等待子代理 idle，按事件面判定终止，取本轮输出并返回。
+ * 结算一轮 executor turn（前台阻塞语义）：等待子代理 idle，按事件面判定终止，
+ * 取本轮输出并返回。
  * @param ctx 插件上下文（agents 服务）
  * @param childId 子代理 durable session id
- * @param meta 本轮元数据（root/kind/title/forced/reused）
+ * @param meta 本轮元数据（forced/reused/injection）
  * @param effective 生效的 model/effort（receipt 渲染）
  * @returns canonical 结果
  */
@@ -95,20 +88,31 @@ export async function collectExecutorTurn(
     .filter((block) => block.type === 'text')
     .map((block) => block.text)
     .join('\n')
-  // 派发成功（completed）：记录派发审计（+1 条 dispatches，携带 childId 供续用定位；
-  // 续用轮同样记录——同 kind 记录追加，可链式再续用）。记录失败仅告警不阻塞结果。
-  const [dispatchErr] = recordExecutorDispatch(meta.root, meta.taskRelPath, {
-    kind: meta.kind,
-    title: meta.title,
-    childId,
-  })
-  if (dispatchErr !== null) {
-    console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`)
-  }
   // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源（可观测性）；
   // 配置来源细分（whenMain=<值>/fallback/legacy）随 configSources 渲染；
   // force 放行追加 (forced)、续用轮追加 (reused)，使覆盖/复用一眼可辨；
   // 注入统计（KB 一位小数 + 内联/截断/索引计数）同行追加，可见喂给子代理的规模。
+  const receipt = buildTurnReceiptText(meta, effective)
+  // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
+  const baseText = text === '' ? EMPTY_OUTPUT_TEXT : text
+  return {
+    kind: 'foreground',
+    runId: childId,
+    output: [{ type: 'text', text: `${baseText}\n\n${receipt}` }],
+  }
+}
+
+/**
+ * 拼装一轮 turn 的 receipt 文本（前台输出尾部与后台返回值共用同一渲染，格式与
+ * 任务 A 交付一致）：生效 model/effort 及来源 + 注入统计 + (forced)/(reused) 标注。
+ * @param meta 本轮元数据（forced/reused/injection）
+ * @param effective 生效的 model/effort（receipt 渲染）
+ * @returns receipt 文本行
+ */
+export function buildTurnReceiptText(
+  meta: TurnMeta,
+  effective: ResolvedDefaultsLike,
+): string {
   const receiptBase = buildExecutorReceipt({
     model: effective.model,
     modelSource: effective.sources.model,
@@ -120,14 +124,7 @@ export async function collectExecutorTurn(
     effortWhenMainValue: effective.whenMainValue,
     injection: meta.injection,
   })
-  const receipt = `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}`
-  // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
-  const baseText = text === '' ? EMPTY_OUTPUT_TEXT : text
-  return {
-    kind: 'foreground',
-    runId: childId,
-    output: [{ type: 'text', text: `${baseText}\n\n${receipt}` }],
-  }
+  return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}`
 }
 
 /**

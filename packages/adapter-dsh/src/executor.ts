@@ -1,18 +1,29 @@
 /**
- * adapter-dsh 的 executor 工具：把 workloom 任务上下文组装成子代理首条 prompt 并前台派发。
+ * adapter-dsh 的 executor 工具：把 workloom 任务上下文组装成子代理首条 prompt 并派发。
  *
  * 设计意图：
  * - 暴露一个模型可见工具 workloom_execute：按 kind（research/implement/check/frontend）用
  *   core 的 buildExecutorPrompt 组装上下文，经 ctx.subagents.startContinuable（spawn，
- *   in-process）前台派发 continuable 子代理：startContinuable resolve 拿到 durable
- *   childId 后 agents.get(childId) 解析会话，记录事件边界，whenIdle 等回合结束，
- *   finalAssistantOutput 取本轮输出，最后 drainContinuableChildren 释放 Activation；
+ *   in-process）派发 continuable 子代理；
+ * - 默认后台派发：startContinuable 接受初始 prompt 后立即返回
+ *   { kind: 'background', childId, receipt }——receipt（生效 model/effort + 注入四元组）
+ *   在派发启动前已就绪，不等待 turn 结算、不阻塞主会话；显式传 foreground: true 才走
+ *   前台阻塞链路（startContinuable resolve 拿到 durable childId 后 agents.get 解析会话，
+ *   记录事件边界，whenIdle 等回合结束，finalAssistantOutput 取本轮输出，最后
+ *   drainContinuableChildren 释放 Activation）；四类 kind 统一；
  * - 子代理会话为 continuable：客户端 composer 可写、会话记录 mode=continuable、服务端
  *   接受 follow-up；主会话可经 continue_executor 参数显式续用同一会话跑多阶段——
- *   followup(parent, childId, content) 投递下一指令（投递前按 dispatches 记录做同
- *   kind 校验，跨 kind 返回提示不投递；投递被上游 parent 严格校验拒绝时——fork 分身
+ *   续用默认只发主会话增量指令（不重注入全量上下文），reinject: true 恢复全量注入；
+ *   续用走 followup(parent, childId, content) 投递下一指令（投递前按 dispatches 记录做
+ *   同 kind 校验，跨 kind 返回提示不投递；投递被上游 parent 严格校验拒绝时——fork 分身
  *   接续源会话派发的 executor 必然命中——转译为全新派发引导文案），等待与输出语义同
  *   新派发；
+ * - 完成报告不二次发 receipt：DSH 结算时向父会话投递 subagent-settled notice（含收尾
+ *   消息），主会话从通知直接获得报告；续接（continue_executor/send_message）只用于
+ *   追加新工作，不为取报告而续接，不新增结果收集工具；
+ * - 派发留痕：派发时刻即写 task.json dispatches（status: running），终态由
+ *   executor-settle 的 subagent/end 全局监听按 childId 自动回填 completed/failed
+ *   + 一行错误摘要，主会话不参与；失败派发（初写后未结算）也留痕可见；
  * - 工具依赖的 tools/subagents/agents 服务按注册面做局部结构化声明（参考 plugin.ts 的
  *   SystemPromptService 做法），运行时由宿主注入；
  * - 子代理释放失败（drain）只 WARNING 不阻塞结果返回；其余故障 fail loud（抛错由
@@ -43,15 +54,15 @@
  * - 异常终止（continuable 无 run.result）：以会话事件面的 turn/end 终止原因为准——
  *   最后一个 turn/end 缺失或 reason.kind 非 completed（aborted/blocked/error/
  *   max-tokens/interrupted 等）即转工具错误（文本取 error 事件的结构化 message，
- *   缺失用终止原因兜底），不附输出文本（避免把中止当成功消费）；
- * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：续用轮追加
- *   (reused)，使会话复用一眼可辨（配置来源细分随 configSources 渲染）。
+ *   缺失用终止原因兜底），不附输出文本（避免把中止当成功消费）；仅前台链路判定；
+ * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：前台输出追加
+ *   (reused) 于续用轮；后台 receipt 与前台同一渲染，使配置来源/复用一眼可辨。
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
-import type { ExecutorInjectionStats } from '@workloom-ai/core'
+import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core'
 
 import {
   assertEffort,
@@ -65,6 +76,7 @@ import {
   loadConfig,
   PARAM_DESCRIPTIONS,
   readTask,
+  recordExecutorDispatch,
   recordExecutorOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
@@ -82,7 +94,13 @@ import {
   toCapabilityError,
 } from './executor-dispatch.js'
 import type { SpawnProviderLike } from './executor-dispatch.js'
-import { collectExecutorTurn, drainContinuableChild, locateContinueChildId } from './executor-continuation.js'
+import {
+  buildTurnReceiptText,
+  collectExecutorTurn,
+  drainContinuableChild,
+  locateContinueChildId,
+} from './executor-continuation.js'
+import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
 
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
 const KIND_LABELS = {
@@ -100,6 +118,9 @@ const NO_CHILD_RUN_ID = ''
 
 /** 覆盖审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor override:`
+
+/** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
+const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
 /**
  * 上游 DSH 接续拒绝的错误片段（parent 严格校验：child.parentSession ≠ 当前会话，
@@ -132,6 +153,10 @@ interface ExecutorArgs {
   prompt: string
   /** 续用参数（schema key 与模型面一致：continue_executor）。 */
   continue_executor?: string
+  /** 前台阻塞开关（默认 false = 后台派发，返回即带 receipt；true = 阻塞等结算）。 */
+  foreground?: boolean
+  /** 续接全量重注入开关（默认关：续接只发增量指令；true = 恢复全量上下文注入）。 */
+  reinject?: boolean
 }
 
 /** 工具执行上下文最小形状（exec 参数，仅消费 agent 与 signal）。 */
@@ -212,12 +237,10 @@ export interface ExecutorServices {
   agents: AgentsService
 }
 
-/** 工具成功返回的 canonical 值形状。 */
-interface ExecutorValue {
-  kind: 'foreground'
-  runId: string
-  output: TextBlockLike[]
-}
+/** 工具成功返回的 canonical 值形状（前台：runId + 输出；后台：childId + receipt）。 */
+type ExecutorValue =
+  | { kind: 'foreground'; runId: string; output: TextBlockLike[] }
+  | { kind: 'background'; childId: string; receipt: string }
 
 /**
  * 注册 workloom_execute 工具（register 自绑定 fiber 生命周期，插件卸载自动注销）。
@@ -268,6 +291,14 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
           type: 'string',
           description: PARAM_DESCRIPTIONS.continueExecutor,
         },
+        foreground: {
+          type: 'boolean',
+          description: PARAM_DESCRIPTIONS.foregroundExecutor,
+        },
+        reinject: {
+          type: 'boolean',
+          description: PARAM_DESCRIPTIONS.reinjectExecutor,
+        },
       },
       required: ['kind', 'prompt', 'title'],
       additionalProperties: false,
@@ -279,6 +310,9 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
     isConcurrencySafe: () => true,
     execute: (args, exec: unknown) => executeTool(ctx, args, exec as ToolExec),
   })
+  // 派发终态回填通道：全局 subagent/end 监听按 childId 自动回填 dispatches 终态
+  // （register 自绑定 fiber 生命周期，插件卸载自动清理）。
+  registerDispatchSettlement(ctx)
 }
 
 /* ---- 下文分段追加：executeTool 与辅助函数 ---- */
@@ -365,31 +399,7 @@ async function executeTool(
   // （与 toolFilter deny 后子代理真实可见集一致，故 buildExecutorPrompt 调用必须
   // 在 denyList 计算之后执行）；组装失败 fail loud（本机片段是有意增强，静默失效
   // 最难排查），条件不满足时返回空串（不注入）。
-  const [localErr, localDirectives] = composeLocalDirectivesText(
-    root,
-    params.kind,
-    availableToolNames(visibleNames, denyList),
-  )
-  if (localErr !== null) throw localErr
-  const [promptErr, built] = buildExecutorPrompt({
-    root,
-    taskRelPath,
-    kind: params.kind,
-    userPrompt: params.prompt,
-    localDirectives,
-  })
-  if (promptErr || built === null) {
-    throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
-  }
-  // 注入统计（receipt 渲染用）：总字节取注入文本长度（KB 一位小数由 core 渲染），
-  // 计数来自 buildExecutorPrompt stats——新派发与续接（续用轮同样重新组装 prompt）
-  // 都可见喂给子代理的上下文规模，大任务顶格预算时立即察觉。
-  const injection: ExecutorInjectionStats = {
-    bytes: Buffer.byteLength(built.text, 'utf8'),
-    inlined: built.stats.filesInlined,
-    truncated: built.stats.truncated,
-    indexed: built.stats.filesIndexed,
-  }
+  const availableNames = availableToolNames(visibleNames, denyList)
   // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
   // 一并传入，跨 provider 派发才不报 UNKNOWN_MODEL；裸 id 无 provider 按父 provider
   // 解析）；effort 原样 brand 进 reasoningEffort（同名直通），model 缺省时也能
@@ -411,6 +421,11 @@ async function executeTool(
   // 即「executor 子代理禁止再派发 workloom_execute」。
   let childId: string
   let reused = false
+  // 本轮实际发送内容与其注入统计：新派发/续接 reinject 走全量 buildExecutorPrompt
+  // 产物；续接默认只发主会话增量指令（不重注入全量上下文），注入统计如实反映
+  // 实际发送内容（增量时内联/截断/索引为 0、KB 为增量体积）。
+  let sendText: string
+  let injection: ExecutorInjectionStats
   if (params.continue_executor !== undefined) {
     // 定位失败返回明确提示（不报错）：旧记录缺 childId / 无同 kind 记录 / 跨 kind /
     // 记录不存在，均不派发（fail loud 的「提示面」变体，避免静默续用错会话）。
@@ -429,12 +444,33 @@ async function executeTool(
     }
     childId = located
     reused = true
+    if (params.reinject === true) {
+      // 显式 reinject：恢复全量上下文注入（压缩丢失的兜底），与现状行为一致。
+      const [localErr, localDirectives] = composeLocalDirectivesText(
+        root,
+        params.kind,
+        availableNames,
+      )
+      if (localErr !== null) throw localErr
+      const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives)
+      sendText = built.text
+      injection = injectionStats(built)
+    } else {
+      // 增量续接：只发主会话增量指令（params.prompt），不复述子会话已持有上下文。
+      sendText = params.prompt
+      injection = {
+        bytes: Buffer.byteLength(params.prompt, 'utf8'),
+        inlined: 0,
+        truncated: 0,
+        indexed: 0,
+      }
+    }
     // followup 向同一 durable 会话投递下一指令（FIFO 由子代理 inbox 保证）；reject
     // 透传（fail loud）：父权限/UNAUTHORIZED/接入拒绝等由 DSH 错误信息表达；仅
     // fork 分身的 parent 严格校验拒绝（belongs to another parent session）转译为
     // 引导文案（见 translateForkContinueError，保留 isError 语义）。
     try {
-      await ctx.subagents.followup(parent, childId, [{ type: 'text', text: built.text }], {
+      await ctx.subagents.followup(parent, childId, [{ type: 'text', text: sendText }], {
         source: { kind: 'user' },
         signal: exec.signal,
       })
@@ -442,12 +478,21 @@ async function executeTool(
       throw translateForkContinueError(error)
     }
   } else {
+    const [localErr, localDirectives] = composeLocalDirectivesText(
+      root,
+      params.kind,
+      availableNames,
+    )
+    if (localErr !== null) throw localErr
+    const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives)
+    sendText = built.text
+    injection = injectionStats(built)
     try {
       const started = await ctx.subagents.startContinuable({
         provider: SPAWN_PROVIDER,
         label: buildChildLabel(root, taskRelPath, params.kind, params.title),
         request: {
-          prompt: [{ type: 'text', text: built.text }],
+          prompt: [{ type: 'text', text: sendText }],
           parent,
           agentOptions,
           maxDepth: 1,
@@ -462,24 +507,82 @@ async function executeTool(
       throw toCapabilityError(error)
     }
   }
-  try {
-    return await collectExecutorTurn(
-      ctx,
-      childId,
-      {
-        root,
-        taskRelPath,
-        kind: params.kind,
-        title: params.title,
-        forced,
-        reused,
-        injection,
-      },
-      effective,
-    )
-  } finally {
-    // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 followup 续用轮）。
-    await drainContinuableChild(ctx, parent, childId)
+  // 派发时刻初写 dispatches（status: running）：失败派发也留痕（缺口 A）；记录
+  // 失败仅告警不阻塞派发。终态由 executor-settle 的 subagent/end 监听回填。
+  const [dispatchErr] = recordExecutorDispatch(root, taskRelPath, {
+    kind: params.kind,
+    title: params.title,
+    childId,
+  })
+  if (dispatchErr !== null) {
+    console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`)
+  }
+  // 登记终态回填定位（subagent/end 按 childId 关联 dispatches 记录）。
+  trackDispatchSettle(childId, root, taskRelPath)
+  // 前台显式开关：阻塞等结算（现状行为，含 (reused) 续用轮语义）；否则默认后台
+  // 派发——返回子代理标识 + 完整 receipt（注入统计派发前已就绪），不等待结算。
+  if (params.foreground === true) {
+    try {
+      return await collectExecutorTurn(
+        ctx,
+        childId,
+        { forced, reused, injection },
+        effective,
+      )
+    } finally {
+      // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 followup 续用轮）。
+      await drainContinuableChild(ctx, parent, childId)
+    }
+  }
+  return {
+    kind: 'background',
+    childId,
+    receipt: buildTurnReceiptText({ forced, reused, injection }, effective),
+  }
+}
+
+/**
+ * 组装全量注入 prompt（新派发/reinject 续接共用）：本机片段已由调用方探测，此处
+ * 调用 core buildExecutorPrompt；组装失败 fail loud。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param kind executor 类型
+ * @param userPrompt 用户任务正文
+ * @param localDirectives 本机片段合成文本（已探测可用工具集）
+ * @returns 组装结果（text + stats）
+ */
+function buildFullInjection(
+  root: string,
+  taskRelPath: string,
+  kind: string,
+  userPrompt: string,
+  localDirectives: string,
+): ExecutorPromptResult {
+  const [promptErr, built] = buildExecutorPrompt({
+    root,
+    taskRelPath,
+    kind,
+    userPrompt,
+    localDirectives,
+  })
+  if (promptErr !== null || built === null) {
+    throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
+  }
+  return built
+}
+
+/**
+ * 从 buildExecutorPrompt 结果投影注入统计（receipt 渲染用）：总字节取注入文本长度
+ * （KB 一位小数由 core 渲染），计数来自 stats——可见喂给子代理的上下文规模。
+ * @param built buildExecutorPrompt 结果
+ * @returns 注入统计四元组
+ */
+function injectionStats(built: ExecutorPromptResult): ExecutorInjectionStats {
+  return {
+    bytes: Buffer.byteLength(built.text, 'utf8'),
+    inlined: built.stats.filesInlined,
+    truncated: built.stats.truncated,
+    indexed: built.stats.filesIndexed,
   }
 }
 
@@ -532,14 +635,37 @@ function buildChildLabel(root: string, taskRelPath: string, kind: string, title?
 }
 
 /**
- * 从 canonical 值投影模型可见文本（纯函数，仅提取 output 首块文本）。
+ * 从 canonical 值投影模型可见文本（纯函数）：前台取 output 首块文本；后台拼
+ * childId + receipt 为可读文本（子代理标识 + 完整 receipt，指引等待完成通知）。
  * @param value canonical 结果
  * @returns 文本块
  */
 function renderOutput(value: unknown): TextBlockLike {
-  const result = value as { output?: readonly { text?: string }[] }
+  const result = value as {
+    kind?: string
+    output?: readonly { text?: string }[]
+    childId?: string
+    receipt?: string
+  }
+  if (result.kind === 'background') {
+    return { type: 'text', text: renderBackground(result.childId ?? '', result.receipt ?? '') }
+  }
   const text = result.output?.[0]?.text ?? ''
   return { type: 'text', text }
+}
+
+/**
+ * 拼装后台派发的模型可见文本：子代理标识 + 后台语义指引 + receipt（主会话据此
+ * 继续其他工作，完成报告由 subagent-settled 通知送达）。
+ * @param childId 子代理 durable session id
+ * @param receipt 完整 receipt 文本（model/effort + 注入四元组）
+ * @returns 后台派发文本
+ */
+function renderBackground(childId: string, receipt: string): string {
+  return (
+    `Dispatched in background; child session: ${childId}. Continue with other work; ` +
+    `the completion report arrives via the subagent notice.\n\n${receipt}`
+  )
 }
 
 /**
