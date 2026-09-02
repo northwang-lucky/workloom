@@ -184,3 +184,9 @@
 - Commit: 923ce0d
 - Summary: 排查 429 续跑误判后确认彻底删除 DSH 写入硬门禁：gate 模块/豁免/配置/doctor/workflow 描述全删，保留 implement executor 分工提示；TDD 四接缝，独立 check PASS，profile 已同步未重启。
 
+## 契约 v16 stage 正交化与 fork 接续兜底
+
+- Time: 2026-09-02T09:42:42.547Z
+- Commit: a1d0641
+- Summary: 执行器指令冲突治理：契约 v16 stage 正交化（主会话写权限句全部限定 implement、check 修复窗口明确含实现代码）、core 权威声明追加冲突终结句（全 kind 防权衡空转）、adapter-dsh 对 fork 场景 continue 失败转译引导文案。源起 session-4bff0f6c check 空转与 session-35cb4f6a fork 接续失败两个实证。check 自修 4 处 P2，Open issues - none。
+
