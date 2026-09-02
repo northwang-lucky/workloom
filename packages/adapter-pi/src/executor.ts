@@ -300,9 +300,15 @@ export function buildExecutorPromptWithPi(
   const [promptErr, built] = buildExecutorPrompt({
     ...params,
     localDirectives,
+    // 交付时过滤（切片 ④）：无 LSP 工具时不注入纪律段 LSP 句（hasLsp 探测已驱动
+    // 理论工具集与本机片段，此处同源传给 core）。
+    hasLsp,
   })
   if (promptErr || built === null) {
-    return [promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`), null]
+    return [
+      promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`),
+      null,
+    ]
   }
   return [null, { hasLsp, result: built }]
 }
@@ -398,11 +404,13 @@ async function executeTool(
   recordExecutorDispatchEntry(root, taskRelPath, { kind: params.kind, title: params.title })
   // 注入统计（receipt 渲染用）：总字节取注入文本长度（KB 一位小数由 core 渲染），
   // 计数来自 buildExecutorPrompt stats——可见喂给 child pi 的上下文规模。
+  // 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed。
   const injection: ExecutorInjectionStats = {
     bytes: Buffer.byteLength(piBuilt.result.text, 'utf8'),
     inlined: piBuilt.result.stats.filesInlined,
     truncated: piBuilt.result.stats.truncated,
-    indexed: piBuilt.result.stats.filesIndexed,
+    indexed: 0,
+    pointed: piBuilt.result.stats.filesPointed,
   }
   // 尾部追加 receipt 行：生效 model/effort 及来源（force 放行时标注 (forced)）
   // 与注入统计（KB 一位小数 + 内联/截断/索引计数，同行追加）。
