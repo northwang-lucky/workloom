@@ -38,6 +38,19 @@ export interface SpawnProviderLike {
   capabilities: { toolFilter: boolean }
 }
 
+/** LSP 工具名前缀（DSH 宿主 LSP 工具统一 lsp_ 前缀命名，如 lsp_diagnostics/lsp_symbols）。 */
+const LSP_TOOL_PREFIX = 'lsp_'
+
+/**
+ * 判定目标环境是否具备 LSP 工具面：可见工具名中任一名以 `lsp_` 开头即命中
+ * （与 Pi 侧 hasLspCapability 语义等价；用于交付时过滤纪律段 LSP 句，切片 ④）。
+ * @param availableNames 执行器可见工具名列表（visibleNames − denyList）
+ * @returns 是否具备 LSP 工具
+ */
+export function hasLspTooling(availableNames: readonly string[]): boolean {
+  return availableNames.some((name) => name.startsWith(LSP_TOOL_PREFIX))
+}
+
 /**
  * 组装 toolFilter deny 清单：workloom 自有 9 工具名全量 + DSH 原生委派候选名
  * 与运行时可见工具名集合的交集（未知名字会使 restrict fail，候选名必须求交）。
