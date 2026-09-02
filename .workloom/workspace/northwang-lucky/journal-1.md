@@ -166,3 +166,9 @@
 - Commit: 84d2d67
 - Summary: check 内置分级制度：P0/P1/P2 契约化定义，P2 自修、P0/P1 结构化上报主会话决断（Open issues [Px]），取消主会话派发 prompt 引导分级；纪律段末置权威化（与更早文本冲突时以纪律段为准）堵住"只读审查"类用户指令覆盖；契约 v14（派发指引禁只读审查、P0 权属、principle 5 澄清子任务 check 非只读）；Pi 角色分级句。首战自证：check 自修 P2 注释失真、主会话按决断窗口修 P1 去重缺口。
 
+## 提示词本机扩展点机制（Pi 落地）
+
+- Time: 2026-09-02T04:12:33.742Z
+- Commit: 9a9ccdb
+- Summary: 本机提示词扩展点机制 Pi 落地：adapter-pi 接入（pi-tools 能力探测与理论工具集；child 命中时 -e npm:@narumitw/pi-lsp；主会话 session_start 快照注入 Local directives）；pi-lsp.json 四件套配置落盘；DSH 侧小节级降级对齐；core 注释更新。TC1–TC6 全通过（三接缝 test-first），全量验证绿（pi 67 / core 439 / dsh 104）。另实证：workloom_execute 默认配置模型派发可用，后续派发不再 force 覆盖。
+
