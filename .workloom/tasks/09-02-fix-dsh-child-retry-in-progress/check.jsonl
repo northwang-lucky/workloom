@@ -1,0 +1,5 @@
+{"_example":"check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file":".workloom/spec/repo/code-style/verify.md","type":"spec","reason":"独立复核 lint、typecheck、build 与受影响测试"}
+{"file":".workloom/spec/repo/deployment/index.md","type":"spec","reason":"检查干净构建、rsync --delete 与不重启约束"}
+{"file":".workloom/spec/repo/architecture/index.md","type":"spec","reason":"检查删除后无跨层残留或无效兼容层"}
+{"file":".workloom/spec/repo/language/index.md","type":"spec","reason":"检查保留的 Agent 提示及运行时文本语言"}
