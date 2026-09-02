@@ -160,3 +160,9 @@
 - Commit: 9b942d0
 - Summary: workloom 仓库内（DSH 零改动）完成 executor 子代理效率优化：research 产物注入与上下文包（T3）、seed 注入与反 recon 模板（T1）、one-shot 恢复 startContinuable 可继续化与同 kind 续用（T2），含 spec/模板资产与 6 项验收全 PASS（dogfooding 摸底 ~10%）。
 
+## check 内置分级：小修大决断
+
+- Time: 2026-09-02T01:31:52.277Z
+- Commit: 84d2d67
+- Summary: check 内置分级制度：P0/P1/P2 契约化定义，P2 自修、P0/P1 结构化上报主会话决断（Open issues [Px]），取消主会话派发 prompt 引导分级；纪律段末置权威化（与更早文本冲突时以纪律段为准）堵住"只读审查"类用户指令覆盖；契约 v14（派发指引禁只读审查、P0 权属、principle 5 澄清子任务 check 非只读）；Pi 角色分级句。首战自证：check 自修 P2 注释失真、主会话按决断窗口修 P1 去重缺口。
+
