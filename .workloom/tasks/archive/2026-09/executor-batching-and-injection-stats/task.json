@@ -1,0 +1,56 @@
+{
+  "id": "a28a07c6-f063-46a3-9251-f93101148f4c",
+  "name": "executor-batching-and-injection-stats",
+  "title": "执行器批处理纪律与注入体积可观测",
+  "description": "两个小改进：①批处理纪律固化——core 执行器纪律段（EXECUTOR_CONTRACT_BY_KIND）为 implement/check 各加一句验证与比对命令合并执行的纪律（措辞命令式，不用\"尽量\"类弱化词），对应测试断言；②注入体积可观测——workloom_execute 派发结果的 receipt 携带注入 stats（总字节/内联文件数/截断数/索引降级数），让主会话每次派发可见喂给子代理的上下文规模，大任务顶格预算时能立即察觉。背景：workloom check 39.7 分钟中 37 分钟为推理、工具仅 2.5 分钟，145 次碎粒度 bash 是主税；实测大任务注入 28-33KB 未顶格，可观测先行、瘦身挂起。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T10:21:37.643Z",
+  "completedAt": "2026-09-02T11:17:36.519Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-02T11:16:04.539Z",
+    "summary": "check 一次通过（PASS）：四判据逐项核对——两句纪律与 prd 逐字节一致（源码/渲染契约/测试断言三层比对）且 research/frontend 不含；buildExecutorReceipt 注入四元组逐字、未传不渲染、类型经 index.ts 导出；dsh 新派发+续接续用轮、pi options 收敛均落实且字节口径一致；注入结构/预算与 workflow.md 未动。check 自修 3 处 P2（executor-continuation.ts/pi executor.ts import 超宽展开、dsh collectExecutorTurn 调用区按 prettier 展开），修后 format:check 告警文件数回到存量 90。implement 两条声称复核：LSP Buffer/node:* 误报成立；format:check「无新增」部分不实、已自修兜底。验证全绿：三包测试 442/87/68、build/typecheck/lint exit 0、git diff --check 干净、10 改动文件 LSP 仅剩已证实环境性误报。Open issues: none。移交：archive pack.json gitRev 改动系 harness 刷新、commit 时甄别；format 存量0 文件存量告警治理另立任务。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T10:35:06.030Z",
+    "summary": "grilling 收敛（短一轮+范围追加）：Q1 批处理纪律句定稿（命令式、无弱化词，implement/check 同句：\"Combine verification and comparison commands that do not depend on each other's output into a single shell invocation; one command per invocation wastes a reasoning round each.\"）；Q2 receipt 注入统计定稿（同行追加 `; injection: 18.3KB, 7 inlined, 0 truncated, 0 indexed`，KB 一位小数四项数字，core buildExecutorReceipt 两 adapter 共用）。范围追加（提供商数据佐证：710 次调用/4 次限流/大量 200k 输入请求）：新增\"工具输出紧凑\"纪律（ targeted ranges、限量搜索输出、不整文件倾倒，措辞命令式）。注入结构/预算不动（瘦身挂起）。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-02T10:50:27.640Z",
+      "title": "批处理纪律与注入统计重派",
+      "childId": "3e7545fc-51eb-41cb-8453-c4fd47238df2"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T11:15:32.253Z",
+      "title": "批处理纪律与注入统计全量检查",
+      "childId": "f071794c-82ad-4197-8358-1c9a1511491b"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
