@@ -1,0 +1,4 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令（后台派发/状态回填/增量续接的实现与回归口径）"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/adapter 分层：DispatchRecord 与回填 API 在 core，subagent/end 监听在 adapter-dsh"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "core task-store.js 为 legacy 纯 JS 模块，status 字段与回填函数遵循其约定"}
