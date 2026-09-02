@@ -20,7 +20,11 @@ import {
   readTask,
   recordExecutorDispatch,
 } from '@workloom-ai/core'
-import type { DispatchRecord, ResolveSubagentDefaultsResult } from '@workloom-ai/core'
+import type {
+  DispatchRecord,
+  ExecutorInjectionStats,
+  ResolveSubagentDefaultsResult,
+} from '@workloom-ai/core'
 
 import type { MinimalAgent } from './executor.js'
 
@@ -50,6 +54,8 @@ export interface TurnMeta {
   title: string
   forced: boolean
   reused: boolean
+  /** 注入统计（receipt 渲染用；总字节取注入文本长度，计数来自 buildExecutorPrompt stats）。 */
+  injection: ExecutorInjectionStats
 }
 
 /** collectExecutorTurn 消费的生效默认值形状（core ResolveSubagentDefaultsResult）。 */
@@ -101,7 +107,8 @@ export async function collectExecutorTurn(
   }
   // 返回文本尾部追加 receipt 行，标注生效 model/effort 及来源（可观测性）；
   // 配置来源细分（whenMain=<值>/fallback/legacy）随 configSources 渲染；
-  // force 放行追加 (forced)、续用轮追加 (reused)，使覆盖/复用一眼可辨。
+  // force 放行追加 (forced)、续用轮追加 (reused)，使覆盖/复用一眼可辨；
+  // 注入统计（KB 一位小数 + 内联/截断/索引计数）同行追加，可见喂给子代理的规模。
   const receiptBase = buildExecutorReceipt({
     model: effective.model,
     modelSource: effective.sources.model,
@@ -111,6 +118,7 @@ export async function collectExecutorTurn(
     effortSource: effective.sources.effort,
     effortConfigSource: effective.configSources.effort,
     effortWhenMainValue: effective.whenMainValue,
+    injection: meta.injection,
   })
   const receipt = `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}`
   // 空输出时 receipt 同样保留：可观测性不依赖子代理是否有文本产出（与 adapter-pi 对齐）。
