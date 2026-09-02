@@ -40,9 +40,6 @@ export const DEFAULT_CONFIG = {
   defaultPackage: null,
   subagents: {},
   subagentProfiles: [],
-  executor: {
-    gate: true,
-  },
 }
 
 /** 布尔值合法写法（大小写不敏感），行为对齐原规格。 */
@@ -214,12 +211,6 @@ function mergeWithDefaults(doc) {
   }
   if (doc.subagent_profiles !== undefined) {
     config.subagentProfiles = parseSubagentProfiles(doc.subagent_profiles)
-  }
-  if (doc.executor !== undefined) {
-    const executor = requireMap('executor', doc.executor)
-    if (executor.gate !== undefined) {
-      config.executor.gate = requireBoolean('executor.gate', executor.gate)
-    }
   }
   return config
 }

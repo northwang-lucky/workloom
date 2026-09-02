@@ -175,7 +175,8 @@ test('config.example.yaml 覆盖 DEFAULT_CONFIG 全部字段键', () => {
       DEFAULT_CONFIG.contextInjection.maxTotalBytes,
     )
     assert.equal(doc.prompt_injection.skip_keyword, DEFAULT_CONFIG.promptInjection.skipKeyword)
-    assert.equal(doc.executor.gate, DEFAULT_CONFIG.executor.gate)
+    // executor 写门禁字段已整体移除：模板不得再输出 executor.gate 说明。
+    assert.equal(doc.executor, undefined, 'config.example.yaml must not document executor')
     // hooks 四钩子带示例命令；packages/default_package 带示例值。
     for (const hook of ['after_create', 'after_start', 'after_finish', 'after_archive']) {
       assert.ok(

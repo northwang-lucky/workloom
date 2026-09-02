@@ -334,7 +334,7 @@ test('check spec-ref：jsonl 引用的文件不存在', () => {
   }
 })
 
-test('check config：无 .workloom / config.yaml 非法 / gate 关闭', () => {
+test('check config：无 .workloom / config.yaml 非法 / 旧 executor.gate 残留不报 issue', () => {
   // 无 .workloom
   const root = makeRoot()
   try {
@@ -358,14 +358,16 @@ test('check config：无 .workloom / config.yaml 非法 / gate 关闭', () => {
     rmSync(root2, { recursive: true, force: true })
   }
 
-  // executor.gate = false
+  // 旧项目残留 executor.gate：按未知旧字段静默忽略，不产生任何 issue（无修复建议）。
   const root3 = makeRoot()
   initWorkloom(root3)
   try {
     writeFileSync(join(root3, '.workloom', 'config.yaml'), 'executor:\n  gate: false\n')
-    const [, report3] = runDoctor(root3, { fix: false })
+    const [err3, report3] = runDoctor(root3, { fix: false })
+    assert.equal(err3, null)
     const cfg = report3.checks.find((c) => c.code === 'config')
-    assert.ok(cfg.issues.some((i) => i.message.includes('gate is disabled')), 'gate disabled reported')
+    assert.equal(cfg.issues.length, 0, 'old executor.gate residue must not produce config issues')
+    assert.equal(report3.summary.total, 0, 'no gate-related issue or fix suggestion anywhere')
   } finally {
     rmSync(root3, { recursive: true, force: true })
   }

@@ -168,12 +168,6 @@ const CONFIG_EXAMPLE_TEMPLATE = [
   '#       check:',
   '#         model: kimi-coding/k3',
   '',
-  '# executor.gate blocks the main session\'s direct writes outside .workloom/ while a',
-  '# task is in_progress and its stage is `implement`; while the stage is `check`, the',
-  '# main session may fix issues directly (check-stage fix window).',
-  '# executor:',
-  '#   gate: true',
-  '',
 ].join('\n')
 
 /** .gitignore 模板：忽略策略随 .workloom 自包含（全英文，写入用户项目）。 */
