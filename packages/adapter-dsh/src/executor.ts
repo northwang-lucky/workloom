@@ -51,6 +51,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
+import type { ExecutorInjectionStats } from '@workloom-ai/core'
+
 import {
   assertEffort,
   assertForceReason,
@@ -379,6 +381,15 @@ async function executeTool(
   if (promptErr || built === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
+  // 注入统计（receipt 渲染用）：总字节取注入文本长度（KB 一位小数由 core 渲染），
+  // 计数来自 buildExecutorPrompt stats——新派发与续接（续用轮同样重新组装 prompt）
+  // 都可见喂给子代理的上下文规模，大任务顶格预算时立即察觉。
+  const injection: ExecutorInjectionStats = {
+    bytes: Buffer.byteLength(built.text, 'utf8'),
+    inlined: built.stats.filesInlined,
+    truncated: built.stats.truncated,
+    indexed: built.stats.filesIndexed,
+  }
   // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
   // 一并传入，跨 provider 派发才不报 UNKNOWN_MODEL；裸 id 无 provider 按父 provider
   // 解析）；effort 原样 brand 进 reasoningEffort（同名直通），model 缺省时也能
@@ -452,14 +463,20 @@ async function executeTool(
     }
   }
   try {
-    return await collectExecutorTurn(ctx, childId, {
-      root,
-      taskRelPath,
-      kind: params.kind,
-      title: params.title,
-      forced,
-      reused,
-    }, effective)
+    return await collectExecutorTurn(
+      ctx,
+      childId,
+      {
+        root,
+        taskRelPath,
+        kind: params.kind,
+        title: params.title,
+        forced,
+        reused,
+        injection,
+      },
+      effective,
+    )
   } finally {
     // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 followup 续用轮）。
     await drainContinuableChild(ctx, parent, childId)

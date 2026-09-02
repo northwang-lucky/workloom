@@ -523,6 +523,60 @@ test('s6: 续用轮 receipt 追加 (reused)，新派发轮不标注', async () =
   }
 })
 
+test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数来自 buildExecutorPrompt stats）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'injection stats dispatch test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const text = result.output[0].text
+    // 注入字节口径 = 派发给子代理的 prompt 文本长度（KB = bytes / 1024 一位小数）。
+    const built = startCalls[0].request.prompt[0].text
+    assert.equal(startCalls.length, 1)
+    assert.equal(typeof built, 'string')
+    const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
+    // makeProject 只写 prd/design/implement 三个 artifact（无 jsonl）：内联 3、截断 0、索引 0。
+    assert.ok(
+      text.includes(`; injection: ${kb}KB, 3 inlined, 0 truncated, 0 indexed`),
+      'new dispatch receipt must carry the injection 4-tuple',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('receipt 行：续用轮同样含注入统计四元组（续接派发同口径）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    // 第一轮：新派发；第二轮：续用（'latest'）。
+    await execute(execArgs({ prompt: 'round 1', title: 'injection stats reuse test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const second = await execute(
+      execArgs({ prompt: 'round 2', title: 'injection stats reuse test', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(followupCalls.length, 1)
+    // 续用轮注入字节口径 = 投递给同一会话的下一指令 prompt 文本长度。
+    const built = followupCalls[0].content[0].text
+    assert.equal(typeof built, 'string')
+    const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
+    assert.ok(
+      second.output[0].text.includes(`; injection: ${kb}KB, 3 inlined, 0 truncated, 0 indexed`),
+      'reused-turn receipt must carry the injection 4-tuple',
+    )
+    assert.ok(second.output[0].text.includes('(reused)'), 'reused turn must still mark (reused)')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('receipt 行：空输出时仍追加（EMPTY_OUTPUT_TEXT 之后）', async () => {
   const root = makeProject(`
 subagents:
