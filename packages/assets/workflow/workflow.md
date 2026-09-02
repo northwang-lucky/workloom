@@ -1,5 +1,5 @@
 ---
-version: 14
+version: 15
 states:
   - no_task
   - planning
@@ -89,7 +89,7 @@ Completion criteria: for a task involving implementation work, the design/implem
 Dispatch the implement executor with `workloom_execute` (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). Always pass a semantic `title` with the dispatch (required by the schema) so repeated dispatches of the same task remain distinguishable in subagent sessions. The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop. Hard constraint: the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent. On DSH, `executor.gate` denies the main session's direct write/edit of files outside `.workloom/` while the task stage is `implement`, and file writes inside bash commands are not interceptable, so this contract is the backstop — route changes through `workloom_execute` instead of working around the gate.
 
 For a task with frontend UI presentation (the UI-design fixed question answered yes), its frontend file implementation must go through a `workloom_execute` dispatch with `kind: frontend`; the logic and backend parts still go through the implement executor. The check tool refuses such a task unless a frontend dispatch has been recorded (see 2.2), so route UI work through a dedicated frontend dispatch instead of folding it into the implement dispatch.
-Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned. When LSP tooling is available, use it to assist coding and error diagnosis, and include an LSP diagnostics check in the verification pass.
+Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned. When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
 
 #### 2.2 Check
 
@@ -104,7 +104,7 @@ The check executor fixes P2 findings itself — leaving one unfixed is a derelic
 The main session's dispatch prompt must carry the same fix-and-escalate semantics — "fix small findings (P2) yourself, escalate big ones (P0/P1)" — and must not write constraints like "read-only review", "report only", or "do not change code": as user-level instructions they override the injected discipline. It must not steer the severity classification either; classification is the check executor's standard duty.
 
 While the task stage is `check`, the main session may fix issues directly, no fix dispatch needed; after fixing, re-dispatch the check executor for a full re-review. Before recording the pass with `workloom_task_check`, handle every remaining issue — fix it or record why not — and state the outcome in the summary. For a P0 finding the "record why not" path does not apply: the main session may only fix it or propose adjusting the acceptance baseline to the user, and only after the user confirms may it amend prd.md and re-dispatch the check executor against the new baseline. The tool writes `check.passedAt` + `check.summary` into task.json (it requires at least one real check.jsonl entry; `force: true` bypasses and is recorded). Any change after the pass is recorded requires a fresh check re-dispatch. For a task with a `## UI Design` section, it additionally refuses unless a `frontend` dispatch has been recorded.
-Completion criteria: no unresolved findings against spec, lint and typecheck all green, and `workloom_task_check` has recorded the pass. When LSP tooling is available, use it to assist coding and error diagnosis, and include an LSP diagnostics check in the verification pass.
+Completion criteria: no unresolved findings against spec, lint and typecheck all green, and `workloom_task_check` has recorded the pass. When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
 
 #### 2.3 Commit
 
@@ -127,7 +127,7 @@ The task is in planning. Act now, in order: load the workloom-brainstorm skill a
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
-The task is in progress. Follow Phase 2: implement → check → commit. Subagent artifacts are persisted; the main session controls commits; do not declare completion before 2.2 has passed, and once 2.2 passes record it with `workloom_task_check` — archiving refuses without it. On DSH, `executor.gate` blocks the main session's direct write/edit of files outside `.workloom/` while the task stage is `implement` — route implementation through `workloom_execute`. While the task stage is `check`, the main session may fix issues directly; after fixing, re-dispatch the check executor for a full re-review before recording the pass. When LSP tooling is available, use it to assist coding and error diagnosis, and include an LSP diagnostics check in the verification pass.
+The task is in progress. Follow Phase 2: implement → check → commit. Subagent artifacts are persisted; the main session controls commits; do not declare completion before 2.2 has passed, and once 2.2 passes record it with `workloom_task_check` — archiving refuses without it. On DSH, `executor.gate` blocks the main session's direct write/edit of files outside `.workloom/` while the task stage is `implement` — route implementation through `workloom_execute`. While the task stage is `check`, the main session may fix issues directly; after fixing, re-dispatch the check executor for a full re-review before recording the pass. When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
@@ -158,5 +158,5 @@ Grilling (always-on):
 
 LSP (always-on):
 
-- When LSP tooling is available, use it to assist coding and error diagnosis, and include an LSP diagnostics check in the verification pass.
+- When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
 [/workflow-norms]
