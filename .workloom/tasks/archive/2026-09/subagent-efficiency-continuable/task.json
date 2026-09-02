@@ -3,7 +3,7 @@
   "name": "subagent-efficiency-continuable",
   "title": "子代理效率优化：上下文注入 + 可继续化",
   "description": "消除 workloom executor 子代理重复仓库摸底：A 注入 research 产物、B research 锚点格式、C prompt 模板最小依赖清单、D 子代理上下文继承、E 多阶段合并/可继续、F projcache 上下文缓存；并将 DSH 子代理默认从 one-shot 改回 continuable。",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-09-01T14:54:14.263Z",
-  "completedAt": null,
+  "completedAt": "2026-09-02T00:39:52.334Z",
   "parent": null,
   "children": [
     "tasks/09-01-t1-executor-context-injection",
