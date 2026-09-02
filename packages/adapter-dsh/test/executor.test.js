@@ -181,9 +181,11 @@ function makeCtx(overrides = {}) {
       ensureChild(childId, spec.request.parent.session.header.cwd)
       return { childId }
     },
-    // 续用：向同一 childId 会话投递下一指令（mock 断言同一 session id 收消息）。
+    // 续用：向同一 childId 会话投递下一指令（mock 断言同一 session id 收消息；
+    // 用例可经 overrides.followupReject 注入上游 reject，如 fork 的 parent 严格校验拒绝）。
     async followup(parent, childId, content, options) {
       followupCalls.push({ parent, childId, content, options })
+      if (overrides.followupReject !== undefined) throw overrides.followupReject
       ensureChild(childId, parent.session.header.cwd)
       return `msg-${followupCalls.length}`
     },
@@ -1268,6 +1270,68 @@ test('续用定位：显式 childId 不在 dispatches 中返回明确提示不�
     assert.ok(text.includes('session-unknown'), 'notice must echo the requested id')
     assert.equal(startCalls.length, 0)
     assert.equal(followupCalls.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续用被上游拒绝（belongs to another parent session，fork 场景）：返回引导文案且 isError', async () => {
+  const root = makeProject('')
+  try {
+    // 模拟 fork 分身接续源会话派发的 executor：followup 被 DSH parent 严格校验拒绝
+    // （research/current-state.md 的 session-35cb4f6a 实证）。
+    const { execute, followupCalls, drainCalls } = setupExecutor({
+      followupReject: new Error('executor child session belongs to another parent session'),
+    })
+    const parent = makeAgent(root)
+    // 第一轮：新派发（dispatches 记录 child-1，供续用定位）。
+    await execute(execArgs({ prompt: 'round 1', title: 'fork continue test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 第二轮：continue_executor='latest' 定位到 child-1 后，followup 被上游拒绝——
+    // 工具结果是 design §4.2 的引导文案且保持 isError 语义（抛错，由 DSH 转失败）。
+    await assert.rejects(
+      execute(
+        execArgs({ prompt: 'round 2', title: 'fork continue test', continue_executor: 'latest' }),
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /Cannot continue the recorded executor: it belongs to the session that dispatched it, not this one \(typically because the current session is a fork\)\. Dispatch a fresh executor instead, carrying the needed context in the prompt\./,
+    )
+    // 上游拒绝只发生一次（不重试）；拒绝轮未产生子代理运行，drain 仅第一轮一次。
+    assert.equal(followupCalls.length, 1, 'followup must be attempted exactly once')
+    assert.equal(drainCalls.length, 1, 'rejected followup must not drain an extra turn')
+    // 拒绝轮不落 dispatches 记录：源会话的记录保持可续用，不被失败续用污染。
+    const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    assert.equal(task.dispatches.length, 1, 'rejected followup must not record a dispatch')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续用被上游以其他原因拒绝：原样透传上游错误（不套 fork 引导文案）', async () => {
+  const root = makeProject('')
+  try {
+    // 转译只认 parent 校验拒绝片段，其余接续失败必须原样抛出（fail loud 不加工）。
+    const upstream = new Error('executor child session is busy')
+    const { execute } = setupExecutor({ followupReject: upstream })
+    const parent = makeAgent(root)
+    await execute(execArgs({ prompt: 'round 1', title: 'continue passthrough test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    await assert.rejects(
+      execute(
+        execArgs({
+          prompt: 'round 2',
+          title: 'continue passthrough test',
+          continue_executor: 'latest',
+        }),
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      (error) => error === upstream,
+      'non-fork followup rejection must propagate unchanged',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
