@@ -1,0 +1,68 @@
+{
+  "id": "3bac8b27-dcef-4b88-8352-ec7061e71e1c",
+  "name": "executor-conflict-hardening",
+  "title": "执行器指令冲突治理：契约 stage 正交化与 fork 接续兜底",
+  "description": "治理执行器指令冲突：①契约 v16 stage 正交化——norms Hard constraint/§2.1/in_progress 的\"主会话不得写实现代码\"全部加 stage=implement 限定，Exception 与修复窗口明确 including implementation code，principle 4 补主会话按 2.2 修复句；②core 权威声明追加冲突终结句（遵循本节、报告首行声明一次、继续执行、禁止反复权衡，全 kind 生效），契约 §2.2 补\"冲突时执行器按纪律执行并在报告首行声明\"的透明闭环说明；③adapter-dsh 对 continue_executor 接续失败（belongs to another parent session，fork 场景）转译为引导文案（改全新派发），根治（谱系校验放宽）不纳入、列 Notes。背景：4bff0f6c 会话 check 因派发 prompt\"只读审查\"与纪律段强冲突空转 70+ 步；35cb4f6a 会话 continue_executor 在 fork 分身上必然失败且文案无引导。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T08:10:52.471Z",
+  "completedAt": "2026-09-02T09:42:01.618Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-02T09:41:38.393Z",
+    "summary": "check 一次通过（PASS）：三接缝逐项核对与 design 逐字一致——契约 v16 七处 stage 正交化（norms 两句/§2.1/in_progress/principle 4/§2.2 告知句，LSP 五场景句 4 处逐字节未动）、core 权威声明冲突终结句（实现与测试脚本比对 IDENTICAL）、adapter-dsh fork continue 转译（引导文案逐字、isError 经 toolErrorResult 实证、脆性注释三处、Pi 无 continue 路径已核实）。check 自修 4 处 P2（断言引号、透传分支用例、被拒续用轮不得写 dispatches 断言、文件头注释）。验证全绿：core 440/dsh 85/pi 67，lint/typecheck/build exit 0，git diff --check 干净。Open issues: - none。移交：profile 产物需 rsync 同步（重启归用户）、DSH 谱系校验放宽列后续任务。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T08:16:47.368Z",
+    "summary": "grilling 收敛（逐项对齐 + 单轮验证）：项 1 契约 stage 正交化定稿——norms Hard constraint/§2.1/in_progress 全部加 stage=implement 限定，Exception 与修复窗口明确 including implementation code，principle 4 选 B（补主会话按 2.2 修复句），v15→v16，保留并行任务 v15 的 LSP 五场景句不动；项 2 权威声明追加冲突终结句（遵循本节、报告首行声明一次冲突、继续执行、禁止反复权衡，全 kind 生效）+ 契约 §2.2 补中性告知句（冲突时执行器按纪律执行并在报告首行声明）；项 3 adapter-dsh 转译 continue 接续失败为引导文案（改全新派发；Pi 无 continue 路径不涉及；匹配上游错误字符串并注释标注脆性），根治（谱系校验放宽）不纳入列 Notes。验证轮两问：LSP norms 保持通用（权限归 Dispatch、工具归 LSP）；透明闭环说明采中性告知。设计树无开放分支。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-02T08:42:57.892Z",
+      "title": "切片1 终结句与契约v16",
+      "childId": "a3f41320-7a86-4992-a3f9-a87f0cb84ba2"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-02T08:55:20.948Z",
+      "title": "切片2 continue 失败转译",
+      "childId": "8a7098c9-ea42-4511-ada3-cf441f4260d4"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-02T08:59:28.535Z",
+      "title": "切片3 全量回归与巡检",
+      "childId": "a2412be4-f78d-4eb8-aecb-f1479161296b"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T09:40:53.309Z",
+      "title": "最终检查 冲突治理全量",
+      "childId": "b746f5e8-f345-4e3d-8b9e-94131078479e"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
