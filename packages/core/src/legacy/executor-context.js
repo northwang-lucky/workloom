@@ -155,6 +155,22 @@ const READ_MATERIALS_FIRST_RULE =
   'unrelated files).'
 
 /**
+ * 批处理纪律句（implement/check 纪律段共用，命令式、无弱化词）：把互不依赖
+ * 输出的验证/比对命令合并进单次 shell 调用，一次一命令浪费一轮推理。
+ */
+const BATCHING_DISCIPLINE =
+  "Combine verification and comparison commands that do not depend on each other's output " +
+  'into a single shell invocation; one command per invocation wastes a reasoning round each.'
+
+/**
+ * 工具输出紧凑纪律句（implement/check 纪律段共用，命令式）：定向读区间、限量
+ * 搜索/列表输出、倾向摘要而非整文件倾倒，抑制每步上下文累积撑爆注入预算。
+ */
+const COMPACT_OUTPUT_DISCIPLINE =
+  'Keep tool outputs compact: read targeted ranges instead of whole files, cap search and ' +
+  'list output, and prefer summaries over full dumps.'
+
+/**
  * 按 kind 的执行器纪律段正文（硬指令，单一来源，DSH/Pi 两 runtime 共享；
  * 与 adapter-pi 的 agent 角色总述互补不冲突）。
  * 并入注入文本末尾的终极权威段（`## Executor contract` 内 `### <Kind> executor
@@ -177,6 +193,8 @@ Structure the report in research-facts blocks (see the research-facts spec and i
 Make the smallest change that satisfies the requirement; do not touch unrelated code.
 Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.
 ${LSP_BASELINE_SENTENCE}
+${BATCHING_DISCIPLINE}
+${COMPACT_OUTPUT_DISCIPLINE}
 ${READ_MATERIALS_FIRST_RULE}`,
   [EXECUTOR_KINDS.check]: `Classify every finding by severity before acting (definitions in the workflow contract §2.2; summarized here):
 - P0 (blocking): acceptance criteria unmet; hard lint / typecheck / build / tests failures; security or data-integrity risks.
@@ -188,6 +206,8 @@ Fix P2 findings yourself — leaving a P2 unfixed is a dereliction of duty. Do n
 Write "- none" when no issue remains.
 After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
 ${LSP_BASELINE_SENTENCE}
+${BATCHING_DISCIPLINE}
+${COMPACT_OUTPUT_DISCIPLINE}
 ${READ_MATERIALS_FIRST_RULE}`,
   [EXECUTOR_KINDS.frontend]: `Follow the PRD's "## UI Design" section as the baseline and deliver all seven UI axes it asks for.
 Touch frontend files only; verify with the project's frontend checks (lint / typecheck / build / relevant tests).
