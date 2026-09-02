@@ -3,7 +3,7 @@
   "name": "subagent-efficiency-continuable",
   "title": "子代理效率优化：上下文注入 + 可继续化",
   "description": "消除 workloom executor 子代理重复仓库摸底：A 注入 research 产物、B research 锚点格式、C prompt 模板最小依赖清单、D 子代理上下文继承、E 多阶段合并/可继续、F projcache 上下文缓存；并将 DSH 子代理默认从 one-shot 改回 continuable。",
-  "status": "planning",
+  "status": "in_progress",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -26,19 +26,28 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-02T00:39:42.456Z",
+    "summary": "容器验收复审（check executor 实测）全部 AC PASS：AC1 可继续化（startContinuable/durable childId/followup 同会话/豁免跨轮，会话记录 mode=continuable 真机证据——验收子代理 e7a4fe8e 会话已出现 continuable 模式）；AC2 注入（本次 seed 实见 Research materials 含截断标注 + Involved files 19 个与 pack.json 一致 + 反 recon 指令）；AC3 上下文包（解析器/落盘/gitRev 失效重建/本任务 pack.json 实际生成，spec+模板齐备）；AC4 回归（core 434/adapter-dsh 104/adapter-pi 47、typecheck/lint/build 全绿、TS LSP 干净）；AC5 dogfooding（真正摸底约 10%，零全库 glob/零 git log 扫库；字面口径 75% 为验收自身验证命令消耗，阈值按 implement 标定）；AC6 部署（profile 与 HEAD 产物逐文件一致，已同步、用户已重启生效）。移交项处置：context/ 已入 .workloom/.gitignore；git.js stderr 泄漏为既有代码转后续候选；模板 .templates 拷贝流确认设计如此。无阻塞缺陷，可归档。"
+  },
   "grilling": {
     "required": true,
     "passedAt": "2026-09-01T15:27:34.625Z",
     "summary": "Grilling 第 1 轮收敛：Q1 上下文包(D)挪入 T3（格式规范+解析器+上下文包一体交付）；Q2 workloom_execute 恢复 startContinuable 后保留前台等待语义；Q3 research 锚点格式用结构化块（标题/要点/文件:行号/代码摘录）；Q4 最小依赖文件清单由锚点索引自动生成注入模板段；Q5 验收用 dogfooding（容器任务自身 dispatch 的 executor 统计 recon 占比对照 cardx 基线 50%~80%，目标 <30%）。设计树前沿已空，无剩余开放决策。"
   },
   "overrides": [],
-  "stage": "implement",
+  "stage": "check",
   "dispatches": [
     {
       "kind": "research",
       "at": "2026-09-01T15:34:05.747Z",
       "title": "executor 可继续化与上下文注入事实研究"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T00:38:28.337Z",
+      "title": "容器验收：三个子任务整体复审",
+      "childId": "e7a4fe8e-7ea7-49ef-a239-fa99c8fcd81c"
     }
   ],
   "hooks": {

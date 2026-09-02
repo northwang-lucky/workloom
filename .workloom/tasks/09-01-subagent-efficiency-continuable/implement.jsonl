@@ -1,1 +1,7 @@
-{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file":"spec/repo/architecture/index.md","reason":"容器验收核验分层与依赖边界"}
+{"file":"spec/repo/code-style/index.md","reason":"容器验收核验编码原则与验证命令执行结果"}
+{"file":"spec/repo/deployment/index.md","reason":"部署同步纪律（build + profile rsync，重启归用户）"}
+{"file":"spec/repo/language/index.md","reason":"中英文分工（契约英文/注释中文）"}
+{"file":"spec/repo/legacy-module/index.md","reason":"解析器 legacy 纯 JS + JSDoc 约定"}
+{"file":"spec/repo/research-facts/index.md","reason":"新增格式标准（本容器任务交付）"}
+{"file":"spec/repo/terminology/index.md","reason":"术语表对齐"}

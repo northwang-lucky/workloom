@@ -9,3 +9,6 @@ config.local.yaml
 
 # Local prompt extensions (per-machine discipline fragments).
 prompts.local/
+
+# Task context packs (derived artifacts; rebuilt on git rev drift).
+tasks/*/context/

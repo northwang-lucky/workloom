@@ -1,0 +1,49 @@
+{
+  "id": "acff0479-f26f-49dd-8ffe-3705e4882257",
+  "name": "prompt-local-extension-pi",
+  "title": "提示词本机扩展点机制（Pi 落地）",
+  "description": "将 core 的本机提示词扩展点机制接入 adapter-pi 的 executor 派发链路：child pi 经 --no-extensions + --append-system-prompt 启动（见 pi-args.ts），需调研 pi-coding-agent 0.84.2 在无扩展下的工具面与 LSP 能力，决定条件注入的探测路径；本机片段（.workloom/prompts.local/）与内置 LSP 软基线在 Pi 会话中生效，且不违反 executor-voice 分层（adapter 不重复 core 指令）。",
+  "status": "planning",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-01T15:38:23.023Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "grilling": null,
+  "overrides": [
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-09-01T15:38:59.769Z",
+      "reason": "subagents 配置 research 模型 deepseek-v4-flash 不在当前主会话允许列表，显式指定 qwen-token-plan-cn/deepseek-v4-flash-0731"
+    }
+  ],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-01T16:20:42.403Z",
+      "title": "调研 pi-coding-agent 工具面与 LSP 生态"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
