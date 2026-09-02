@@ -1,5 +1,5 @@
 ---
-version: 17
+version: 18
 states:
   - no_task
   - planning
@@ -150,6 +150,7 @@ Dispatch (always-on):
 - Dispatch and continuation prompts must not restate the context the subagent already holds (spec, research, prd/design/implement, and the session history); send only the new work for this round, and use `reinject` only when compaction lost context.
 - Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
 - Exception (stage `check`): while the task stage is `check`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the check executor for a full re-review afterwards.
+- Loading protocol: Read the files in the injected pointer list before acting. Echo the injection marker token in the first line of your report as proof the protocol was read.
 
 Task decomposition (always-on):
 

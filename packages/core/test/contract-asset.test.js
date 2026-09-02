@@ -21,10 +21,25 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
+/** 强制加载协议 + marker 回声纪律句（v18 契约 norms Dispatch 段，与 executor-context 纪律段逐字一致）。 */
+const INJECTION_PROTOCOL_DISCIPLINE =
+  'Read the files in the injected pointer list before acting. ' +
+  'Echo the injection marker token in the first line of your report as proof the protocol was read.'
+
+test('契约 v18 含强制加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.equal(contract.version, 18)
+  assert.ok(
+    contract.norms.includes(INJECTION_PROTOCOL_DISCIPLINE),
+    'v18 契约 norms 必须含强制加载协议 + marker 回声纪律句',
+  )
+})
+
 test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 17)
+  assert.equal(contract.version, 18)
   assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
@@ -235,10 +250,7 @@ test('契约 v17 §2.2 含 P0/P1/P2 分级定义（单一来源）', () => {
     '2.2 正文缺 P1 定义（非本次引入问题即使机械性）',
   )
   // P2 次要：机械性 / 单文件局部小缺陷 / 无取舍合规修复
-  assert.ok(
-    checkBody.includes('- P2 (minor): mechanical issues'),
-    '2.2 正文缺 P2 定义（机械性）',
-  )
+  assert.ok(checkBody.includes('- P2 (minor): mechanical issues'), '2.2 正文缺 P2 定义（机械性）')
   assert.ok(
     checkBody.includes('small local defects confined to a single file'),
     '2.2 正文缺 P2 定义（单文件局部小缺陷）',
@@ -345,10 +357,7 @@ test('契约 v17 §2.2 含主会话修复窗口与重派 check 复核闭环', ()
     checkBody.includes('re-dispatch the check executor for a full re-review'),
     '2.2 正文缺修复后重派 check 全量复核措辞',
   )
-  assert.ok(
-    checkBody.includes('fix it or record why not'),
-    '2.2 正文缺仅存问题逐条处理措辞',
-  )
+  assert.ok(checkBody.includes('fix it or record why not'), '2.2 正文缺仅存问题逐条处理措辞')
   assert.match(
     checkBody,
     /any change after the pass is recorded requires a fresh check/i,
@@ -405,7 +414,9 @@ test('契约 v17 不再提及 DSH 运行时写门禁（executor.gate / 文件拦
     '2.1 正文必须保留 implement executor 分工硬提示（stage 限定）',
   )
   assert.ok(
-    implementBody.includes('every implementation file change comes from the dispatched implement subagent'),
+    implementBody.includes(
+      'every implementation file change comes from the dispatched implement subagent',
+    ),
     '2.1 正文必须保留「实现文件一律来自派发的 implement 子代理」',
   )
   // check 阶段主会话修复例外仍然存在（2.2 正文 + norms）。
