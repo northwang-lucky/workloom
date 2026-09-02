@@ -4,12 +4,17 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { assembleSessionContextText, registerInjections } from '../src/inject.ts'
+import { SESSION_CONTEXT_CUSTOM_TYPE } from '../src/constants.ts'
+import {
+  assembleSessionContextText,
+  composeMainLocalDirectives,
+  registerInjections,
+} from '../src/inject.ts'
 
 /** 构造 .workloom 项目根（目录存在即命中自激活判定）。 */
 function makeRoot() {
@@ -92,4 +97,183 @@ test('registerInjections 注册 session_start 与 before_agent_start 监听', ()
   registerInjections(pi)
   assert.ok(listeners.has('session_start'))
   assert.ok(listeners.has('before_agent_start'))
+})
+
+/** 构造最小 mock ExtensionAPI（只实现 getActiveTools，两态）。 */
+function makePiWithTools(activeTools: string[]): ExtensionAPI {
+  return { getActiveTools: () => activeTools } as unknown as ExtensionAPI
+}
+
+/** 构造临时项目根并写入 main.md（无条件）+ all.md（requiresTools: [lsp_diagnostics]）。 */
+function makeFragmentsRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-inject-fragments-'))
+  const promptsDir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(promptsDir, { recursive: true })
+  writeFileSync(join(promptsDir, 'main.md'), 'MAIN-UNCONDITIONAL-FRAGMENT')
+  writeFileSync(
+    join(promptsDir, 'all.md'),
+    '---\nrequiresTools: [lsp_diagnostics]\n---\nALL-LSP-FRAGMENT',
+  )
+  return root
+}
+
+test('composeMainLocalDirectives: 工具面含 lsp_diagnostics（pi-lsp 已装）→ main 与 all 片段都注入', () => {
+  const root = makeFragmentsRoot()
+  try {
+    const pi = makePiWithTools(['read', 'bash', 'edit', 'write', 'lsp_diagnostics', 'lsp_fix'])
+    const [err, text] = composeMainLocalDirectives(pi, root)
+    assert.equal(err, null)
+    assert.ok(text.includes('MAIN-UNCONDITIONAL-FRAGMENT'))
+    assert.ok(text.includes('ALL-LSP-FRAGMENT'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('composeMainLocalDirectives: 工具面不含 lsp_diagnostics → 无条件 main 注入、requiresTools 片段过滤', () => {
+  const root = makeFragmentsRoot()
+  try {
+    const pi = makePiWithTools(['read', 'bash', 'edit', 'write'])
+    const [err, text] = composeMainLocalDirectives(pi, root)
+    assert.equal(err, null)
+    assert.ok(text.includes('MAIN-UNCONDITIONAL-FRAGMENT'))
+    assert.ok(!text.includes('ALL-LSP-FRAGMENT'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('assembleSessionContextText: 传 localDirectives → 快照含 Local directives 小节与内容（TC4）', () => {
+  const root = makeRoot()
+  try {
+    const [err, text] = assembleSessionContextText(
+      root,
+      'pi_sess-1',
+      CONTRACT_WITH_NORMS,
+      'MAIN-LOCAL-DIRECTIVE',
+    )
+    assert.equal(err, null)
+    assert.ok(text !== null)
+    assert.ok(text.includes('Local directives:'))
+    assert.ok(text.includes('MAIN-LOCAL-DIRECTIVE'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('assembleSessionContextText: 不传 localDirectives → 无 Local directives 小节（基线不变）', () => {
+  const root = makeRoot()
+  try {
+    const [err, text] = assembleSessionContextText(root, 'pi_sess-1', CONTRACT_WITH_NORMS)
+    assert.equal(err, null)
+    assert.ok(text !== null)
+    assert.ok(!text.includes('Local directives:'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 构造捕获监听注册与 sendMessage 调用的 mock pi（session_start 端到端接线断言用）。 */
+function makeInjectingPi(activeTools: string[]) {
+  const listeners = new Map<string, (event: unknown, ctx: unknown) => void>()
+  const sent: { customType: string; content: string; display: boolean }[] = []
+  const pi = {
+    on: (event: string, listener: (event: unknown, ctx: unknown) => void) => {
+      listeners.set(event, listener)
+    },
+    sendMessage: (message: { customType: string; content: string; display: boolean }) => {
+      sent.push(message)
+    },
+    getActiveTools: () => activeTools,
+  } as unknown as ExtensionAPI
+  return { pi, listeners, sent }
+}
+
+/** 构造 session_start 的 mock ctx（cwd 在 .workloom 项目内 + 会话 id）。 */
+function makeSessionCtx(root: string) {
+  return { cwd: root, sessionManager: { getSessionId: () => 'sess-1' } }
+}
+
+test('session_start 注入（探测命中）：快照含 Local directives 小节与 main/all 片段（TC4 接线）', () => {
+  const root = makeFragmentsRoot()
+  try {
+    const { pi, listeners, sent } = makeInjectingPi([
+      'read',
+      'bash',
+      'edit',
+      'write',
+      'lsp_diagnostics',
+      'lsp_fix',
+    ])
+    registerInjections(pi)
+    const handler = listeners.get('session_start')
+    assert.ok(handler !== undefined)
+    handler({ reason: 'startup' }, makeSessionCtx(root))
+    assert.equal(sent.length, 1)
+    const message = sent[0]
+    assert.ok(message !== undefined)
+    assert.equal(message.customType, SESSION_CONTEXT_CUSTOM_TYPE)
+    assert.ok(message.content.includes('<workloom-session-context>'))
+    assert.ok(message.content.includes('Local directives:'))
+    assert.ok(message.content.includes('MAIN-UNCONDITIONAL-FRAGMENT'))
+    assert.ok(message.content.includes('ALL-LSP-FRAGMENT'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('session_start 注入（探测未命中）：main 片段仍注入、requiresTools 片段被过滤（TC4 接线）', () => {
+  const root = makeFragmentsRoot()
+  try {
+    const { pi, listeners, sent } = makeInjectingPi(['read', 'bash', 'edit', 'write'])
+    registerInjections(pi)
+    const handler = listeners.get('session_start')
+    assert.ok(handler !== undefined)
+    handler({ reason: 'startup' }, makeSessionCtx(root))
+    assert.equal(sent.length, 1)
+    const message = sent[0]
+    assert.ok(message !== undefined)
+    assert.equal(message.customType, SESSION_CONTEXT_CUSTOM_TYPE)
+    assert.ok(message.content.includes('Local directives:'))
+    assert.ok(message.content.includes('MAIN-UNCONDITIONAL-FRAGMENT'))
+    assert.ok(!message.content.includes('ALL-LSP-FRAGMENT'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('session_start 注入（片段组装失败）：只告警不阻塞，快照照常注入且无 Local directives 小节', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-inject-bad-fragment-'))
+  mkdirSync(join(root, '.workloom', 'prompts.local'), { recursive: true })
+  // all.md 含未知 front-matter 字段 → 片段组装 fail loud；main.md 合法但同批被弃。
+  writeFileSync(join(root, '.workloom', 'prompts.local', 'main.md'), 'MAIN-OK')
+  writeFileSync(
+    join(root, '.workloom', 'prompts.local', 'all.md'),
+    '---\nbogusField: 1\n---\nALL-BAD',
+  )
+  const warnings: string[] = []
+  const originalWarn = console.warn
+  console.warn = (message: unknown) => {
+    warnings.push(String(message))
+  }
+  try {
+    const { pi, listeners, sent } = makeInjectingPi(['read', 'bash', 'edit', 'write'])
+    registerInjections(pi)
+    const handler = listeners.get('session_start')
+    assert.ok(handler !== undefined)
+    handler({ reason: 'startup' }, makeSessionCtx(root))
+    assert.equal(warnings.length, 1)
+    const warning = warnings[0]
+    assert.ok(warning !== undefined)
+    assert.match(warning, /local directives/)
+    assert.equal(sent.length, 1, '注入是增强不是门禁：片段失败不阻塞会话快照')
+    const message = sent[0]
+    assert.ok(message !== undefined)
+    assert.equal(message.customType, SESSION_CONTEXT_CUSTOM_TYPE)
+    assert.ok(!message.content.includes('Local directives:'))
+    assert.ok(!message.content.includes('MAIN-OK'))
+  } finally {
+    console.warn = originalWarn
+    rmSync(root, { recursive: true, force: true })
+  }
 })

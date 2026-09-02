@@ -35,6 +35,7 @@ import {
   buildConflictNotice,
   buildExecutorPrompt,
   buildExecutorReceipt,
+  composeLocalDirectivesText,
   detectExecutorConflicts,
   ERR_PREFIX,
   findWorkloomRoot,
@@ -48,11 +49,12 @@ import {
   TOOL_NAMES,
   TOOL_SNIPPETS,
 } from '@workloom-ai/core'
-import type { DispatchRecordInput, WorkloomConfig } from '@workloom-ai/core'
+import type { DispatchRecordInput, ExecutorPromptResult, WorkloomConfig } from '@workloom-ai/core'
 
 import { contextKeyOf } from './constants.ts'
 import { buildChildPiArgs } from './pi-args.ts'
 import { extractExecutorText, parsePiEventLine, type PiEventState } from './pi-events.ts'
+import { buildTheoreticalTools, hasLspCapability, PI_LSP_SOURCE } from './pi-tools.ts'
 
 /** 工具参数 TypeBox schema（与 DSH 的参数语义一致）。 */
 export const EXECUTOR_PARAMS = Type.Object({
@@ -215,9 +217,10 @@ export function registerExecutorTool(pi: ExtensionAPI): void {
     promptSnippet: TOOL_SNIPPETS.executor,
     parameters: EXECUTOR_PARAMS,
     // 工具级 signal 与 ctx.signal 同源（工具执行期间 agent 处于 streaming），
-    // 按 spec 统一走 ctx.signal 的 abort 通道。
+    // 按 spec 统一走 ctx.signal 的 abort 通道；pi 句柄传入执行路径供
+    // 能力探测（getActiveTools 在工具执行期可安全调用）。
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      return executeTool(params, ctx)
+      return executeTool(pi, params, ctx)
     },
   })
 }
@@ -240,13 +243,63 @@ interface DispatchResult {
   runId: string
 }
 
+/** buildExecutorPromptWithPi 入参（executor 首条 prompt 组装所需上下文）。 */
+export interface ExecutorPromptAssemblyParams {
+  root: string
+  taskRelPath: string
+  kind: string
+  userPrompt: string
+}
+
+/** buildExecutorPromptWithPi 结果（探测与组装共用一次探测）。 */
+export interface PiExecutorPromptResult {
+  /** 探测结论：能力命中时调用方应以 PI_LSP_SOURCE 追加 -e 加载。 */
+  hasLsp: boolean
+  /** core 组装结果（text + stats）。 */
+  result: ExecutorPromptResult
+}
+
+/**
+ * 组装 executor 首条 prompt（Pi 接线：探测 → 理论工具集 → 本机片段 → core
+ * 组装）。探测在工具执行期进行（pi.getActiveTools 加载期是 throwing stub）；
+ * 理论工具集命中时含 pi-lsp 两工具、requiresTools 片段注入，未命中时只有
+ * 内置 4、片段被过滤（零行为）；本机片段组装失败 fail loud（本机片段是有意
+ * 增强，静默失效最难排查），与 DSH executor 同口径。
+ * @param pi Extension API（registerExecutorTool 持句柄，工具执行时传入）
+ * @param params 组装入参
+ * @returns [err, result]：与 core buildExecutorPrompt 同形，result 附带探测结论
+ */
+export function buildExecutorPromptWithPi(
+  pi: ExtensionAPI,
+  params: ExecutorPromptAssemblyParams,
+): [Error | null, PiExecutorPromptResult | null] {
+  const hasLsp = hasLspCapability(pi)
+  const theoreticalTools = buildTheoreticalTools(hasLsp)
+  const [localErr, localDirectives] = composeLocalDirectivesText(
+    params.root,
+    params.kind,
+    theoreticalTools,
+  )
+  if (localErr !== null) return [localErr, null]
+  const [promptErr, built] = buildExecutorPrompt({
+    ...params,
+    localDirectives,
+  })
+  if (promptErr || built === null) {
+    return [promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`), null]
+  }
+  return [null, { hasLsp, result: built }]
+}
+
 /**
  * 前台派发 executor 子代理并返回其输出文本。
+ * @param pi Extension API（持句柄供能力探测，工具执行期传入）
  * @param params 工具参数（TypeBox 已校验）
  * @param ctx 工具执行上下文（cwd/会话 id/取消信号）
  * @returns AgentToolResult（content 文本 + details 运行信息）
  */
 async function executeTool(
+  pi: ExtensionAPI,
   params: Static<typeof EXECUTOR_PARAMS>,
   ctx: ExecutorContextLike,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: Record<string, unknown> }> {
@@ -301,22 +354,26 @@ async function executeTool(
   if (gate.forced) {
     recordForcedOverride(root, taskRelPath, params.reason)
   }
-  const [promptErr, built] = buildExecutorPrompt({
+  // 探测 → 组装一次完成（buildExecutorPromptWithPi 内部先 hasLspCapability
+  // 再以理论工具集组装本机片段）；结果同时驱动 -e 加载（命中时 child 携带
+  // pi-lsp，使 requiresTools: [lsp_diagnostics] 片段在 child 真正可用）。
+  const [promptErr, piBuilt] = buildExecutorPromptWithPi(pi, {
     root,
     taskRelPath,
     kind: params.kind,
     userPrompt: params.prompt,
   })
-  if (promptErr || built === null) {
+  if (promptErr || piBuilt === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
   const result = await dispatchChildPi(
     {
       cwd,
-      prompt: built.text,
+      prompt: piBuilt.result.text,
       kind: params.kind,
       model: effective.model,
       effort: effective.effort,
+      loadExtensions: piBuilt.hasLsp ? [PI_LSP_SOURCE] : undefined,
     },
     ctx.signal,
   )
@@ -352,12 +409,20 @@ function readMainModel(ctx: ExecutorContextLike): string | undefined {
 
 /**
  * spawn child pi 并等待其 JSONL 事件流完成，提取最终文本。
- * @param params 派发参数（prompt 为 buildExecutorPrompt 产物）
+ * @param params 派发参数（prompt 为 buildExecutorPrompt 产物；loadExtensions
+ *   为能力命中时显式加载的扩展源，缺省不加载）
  * @param signal 取消信号（可选）
  * @returns 派发结果
  */
 async function dispatchChildPi(
-  params: { cwd: string; prompt: string; kind: string; model?: string; effort?: string },
+  params: {
+    cwd: string
+    prompt: string
+    kind: string
+    model?: string
+    effort?: string
+    loadExtensions?: string[]
+  },
   signal: AbortSignal | undefined,
 ): Promise<DispatchResult> {
   if (signal?.aborted === true) {

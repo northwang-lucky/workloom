@@ -25,6 +25,11 @@ export interface BuildChildPiArgsParams {
   model?: string
   /** effort 档位（可选，同名映射为 --thinking）。 */
   effort?: string
+  /**
+   * 显式加载的扩展源列表（每源一对 `-e <src>`；与 --no-extensions 并存合法，
+   * 官方 CLI 语义：显式 -e 路径不受扩展自动发现开关影响）。缺省不加载。
+   */
+  loadExtensions?: string[]
 }
 
 /**
@@ -42,16 +47,13 @@ export function buildChildPiArgs(params: BuildChildPiArgsParams): string[] {
   if (definition.systemPrompt.trim() === '') {
     throw new Error(`${ERR_PREFIX.executor}: empty system prompt for kind ${params.kind}`)
   }
-  const args = [
-    '--mode',
-    'json',
-    '-p',
-    params.prompt,
-    '--no-session',
-    '--no-extensions',
-    '--append-system-prompt',
-    definition.systemPrompt,
-  ]
+  const args = ['--mode', 'json', '-p', params.prompt, '--no-session', '--no-extensions']
+  // 扩展显式加载：-e 对紧跟 --no-extensions（只关自动发现，不挡显式路径；
+  // 缺省不传时零行为，序列与旧版逐字一致）。
+  for (const source of params.loadExtensions ?? []) {
+    args.push('-e', source)
+  }
+  args.push('--append-system-prompt', definition.systemPrompt)
   if (params.effort !== undefined) {
     args.push('--thinking', params.effort)
   }
