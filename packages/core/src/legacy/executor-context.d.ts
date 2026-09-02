@@ -42,7 +42,7 @@ export interface BuildExecutorPromptParams {
   /**
    * 本机片段合成文本（adapter 探测可用工具集后经 core composeLocalDirectivesText
    * 组装；在 userPrompt 之后、终极权威段之前以 ## Local directives 段注入）。
-   * 空串/未传 = 不注入（Pi 不传参，向后兼容）。
+   * 空串/未传 = 不注入（Pi 与 DSH 均已接线，缺省保持向后兼容）。
    */
   localDirectives?: string
 }
