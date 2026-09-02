@@ -76,10 +76,7 @@ test('buildExecutorReceipt: 与 core 的导出行为一致（sanity check）', (
     effort: 'max',
     effortSource: 'config',
   })
-  assert.equal(
-    line,
-    '[workloom executor] model: pi-model (config), effort: max (config)',
-  )
+  assert.equal(line, '[workloom executor] model: pi-model (config), effort: max (config)')
 })
 
 test('appendExecutorReceipt: forced 时来源标注追加 (forced) 标记', () => {
@@ -414,6 +411,49 @@ test('buildExecutorPromptWithPi: 未命中 → 无 Local directives 段（AND �
     assert.equal(result.hasLsp, false)
     assert.ok(!result.result.text.includes('## Local directives'))
     assert.ok(!result.result.text.includes('IMPLEMENT-LSP-FRAGMENT'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** LSP 主基线句（与 core 纪律段一致，测试自给自足）。 */
+const LSP_BASELINE_SENTENCE =
+  'When LSP tooling is available, treat it as the first choice for code work: ' +
+  'read structure through LSP symbol outlines and call signatures; ' +
+  'resolve members and arguments with completions; ' +
+  'rename symbols through server-side rename and fix them with code actions ' +
+  'instead of hand-searched edits; ' +
+  'and include an LSP diagnostics check in the verification pass.'
+
+test('S4 交付时过滤：无 LSP 能力时首条 prompt 不含纪律段 LSP 句，命中时保留', () => {
+  const root = makeLspFragmentsRoot()
+  try {
+    // 未命中（无 pi-lsp）：纪律段剔除 LSP 基线句
+    const [missErr, miss] = buildExecutorPromptWithPi(makePi(false), {
+      root,
+      taskRelPath: 'tasks/09-01-demo',
+      kind: 'implement',
+      userPrompt: 'p',
+    })
+    assert.equal(missErr, null)
+    assert.ok(miss !== null)
+    assert.ok(
+      !miss.result.text.includes(LSP_BASELINE_SENTENCE),
+      'no LSP capability must drop the LSP discipline sentence',
+    )
+    // 命中（有 pi-lsp）：纪律段保留 LSP 基线句
+    const [hitErr, hit] = buildExecutorPromptWithPi(makePi(true), {
+      root,
+      taskRelPath: 'tasks/09-01-demo',
+      kind: 'implement',
+      userPrompt: 'p',
+    })
+    assert.equal(hitErr, null)
+    assert.ok(hit !== null)
+    assert.ok(
+      hit.result.text.includes(LSP_BASELINE_SENTENCE),
+      'with LSP capability must keep the LSP discipline sentence',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
