@@ -8,7 +8,7 @@ export const EXECUTOR_KINDS: Readonly<
   Record<'research' | 'implement' | 'check' | 'frontend', string>
 >
 
-/** 按 kind 的执行器纪律段正文（硬指令，注入于 userPrompt 之后、叶子契约段之前）。 */
+/** 按 kind 的执行器纪律段正文（硬指令，并入注入文本末尾的终极权威段）。 */
 export const EXECUTOR_CONTRACT_BY_KIND: Readonly<
   Record<'research' | 'implement' | 'check' | 'frontend', string>
 >
@@ -41,7 +41,7 @@ export interface BuildExecutorPromptParams {
   userPrompt: string
   /**
    * 本机片段合成文本（adapter 探测可用工具集后经 core composeLocalDirectivesText
-   * 组装；在 kind 纪律段之后、叶子契约段之前以 ## Local directives 段注入）。
+   * 组装；在 userPrompt 之后、终极权威段之前以 ## Local directives 段注入）。
    * 空串/未传 = 不注入（Pi 不传参，向后兼容）。
    */
   localDirectives?: string

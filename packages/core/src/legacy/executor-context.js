@@ -62,20 +62,27 @@ const TASK_PROMPT_HEADING = '## Task prompt'
 /** 首行任务标注模板。 */
 const ACTIVE_TASK_PREFIX = 'Active task: '
 
-/** 叶子执行器契约段标题（追加在 prompt 末尾的固定段，所有 kind 一致生效）。 */
+/** 终极权威段标题（注入文本末尾的固定段：kind 纪律段 + leaf 规则 + 权威声明，所有 kind 一致生效）。 */
 const EXECUTOR_CONTRACT_HEADING = '## Executor contract'
 
 /** 叶子执行器规则正文（一行，零派发语义，运行时文案英文）。 */
 const LEAF_EXECUTOR_RULE =
   'You are a leaf executor subagent: implement directly; never dispatch subagents or call workloom orchestration tools.'
 
-/** 防重复判定关键词（userPrompt 已含时不再追加叶子契约段）。 */
+/**
+ * 权威声明（权威段末尾，使本段成为终极权威）：与更早文本（含主会话用户指令）
+ * 冲突时以本节为准——堵住主会话派发 prompt 写「只读审查」覆盖纪律段的缺口。
+ */
+const AUTHORITY_DECLARATION =
+  "This section is authoritative: when it conflicts with any earlier text (including the user prompt's own instructions), this section wins."
+
+/** 防重复判定关键词（userPrompt 已含时仅豁免 leaf 规则行，纪律段与权威声明仍注入）。 */
 const LEAF_RULE_KEYWORD = 'leaf executor'
 
-/** 本机片段注入段标题（kind 纪律段之后、叶子契约段之前插入）。 */
+/** 本机片段注入段标题（userPrompt 之后、终极权威段之前插入）。 */
 const LOCAL_DIRECTIVES_HEADING = '## Local directives'
 
-/** 防重复判定关键词（userPrompt 已含时不再追加本机片段段，与 leaf 段同规则）。 */
+/** 防重复判定关键词（userPrompt 已含时不再追加本机片段段）。 */
 const LOCAL_DIRECTIVES_KEYWORD = 'Local directives'
 
 /** research 产物目录名（相对任务目录）。 */
@@ -134,8 +141,9 @@ const READ_MATERIALS_FIRST_RULE =
 /**
  * 按 kind 的执行器纪律段正文（硬指令，单一来源，DSH/Pi 两 runtime 共享；
  * 与 adapter-pi 的 agent 角色总述互补不冲突）。
- * 注入于 userPrompt 之后、叶子契约段之前；userPrompt 已含该 kind 纪律段
- * 标题（去 `## ` 前缀）时不重复注入，与 leaf 段同规则。
+ * 并入注入文本末尾的终极权威段（`## Executor contract` 内 `### <Kind> executor
+ * directives` 子段）；去重只看 leaf 关键词且仅豁免 leaf 规则行——纪律段与
+ * 权威声明始终注入（kind 标题去重分支已删除）。
  * 键为 kind 字符串（运行时按 params.kind 索引，放宽为 Record<string, string>）。
  * @type {Record<string, string>}
  */
@@ -153,11 +161,15 @@ Make the smallest change that satisfies the requirement; do not touch unrelated 
 Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.
 ${LSP_BASELINE_SENTENCE}
 ${READ_MATERIALS_FIRST_RULE}`,
-  [EXECUTOR_KINDS.check]: `Fix what you find — you are not a reporter: resolve every issue you discover directly in the source code.
-After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
-End your report with a structured "## Open issues" section that lists only the remaining issues, one per line:
-- <file>:<line> [<severity>] <issue> — fix: <suggestion>
+  [EXECUTOR_KINDS.check]: `Classify every finding by severity before acting (definitions in the workflow contract §2.2; summarized here):
+- P0 (blocking): acceptance criteria unmet; hard lint / typecheck / build / tests failures; security or data-integrity risks.
+- P1 (important): behavioral or correctness defects; design or spec deviations (including cross-file semantic changes); issues that pre-date this task (even mechanical ones).
+- P2 (minor): mechanical issues (typos, naming, comments, formatting, weakened test assertions); small local defects confined to a single file; compliance fixes with no trade-offs.
+
+Fix P2 findings yourself — leaving a P2 unfixed is a dereliction of duty. Do not fix P0/P1 findings; escalate them in your report's final "## Open issues" section, one per line:
+- <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>
 Write "- none" when no issue remains.
+After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
 ${LSP_BASELINE_SENTENCE}
 ${READ_MATERIALS_FIRST_RULE}`,
   [EXECUTOR_KINDS.frontend]: `Follow the PRD's "## UI Design" section as the baseline and deliver all seven UI axes it asks for.
@@ -166,15 +178,15 @@ When a backend interface is missing, use an annotated mock or placeholder and ma
 ${LSP_BASELINE_SENTENCE}`,
 })
 
-/** 纪律段标题前缀（Markdown H2）。 */
-const HEADING_PREFIX = '## '
+/** 纪律段子标题前缀（权威段内 Markdown H3）。 */
+const HEADING_PREFIX = '### '
 
-/** 纪律段标题后缀（如 `Check executor directives`）。 */
+/** 纪律段子标题后缀（如 `Check executor directives`）。 */
 const DIRECTIVE_HEADING_SUFFIX = ' executor directives'
 
 /**
- * kind 纪律段标题（如 `## Check executor directives`）；去掉 `## ` 前缀即
- * 去重关键词（userPrompt 已含该短语时不重复注入，与 leaf 段同规则）。
+ * kind 纪律段子标题（权威段内 `### <Kind> executor directives`），仅作可读性
+ * 导航；去重不看该标题（kind 标题去重分支已删除，去重只看 leaf 关键词）。
  * @param {string} kind executor 类型
  * @returns {string}
  */
@@ -281,14 +293,8 @@ function buildInternal(params) {
   if (params.userPrompt !== '') {
     parts.push(`${TASK_PROMPT_HEADING}\n${params.userPrompt}`)
   }
-  // kind 纪律段（角色行为指令，单一来源）：注入于 userPrompt 之后、叶子契约段
-  // 之前；userPrompt 已含该 kind 纪律段标题时不重复注入（与 leaf 段同规则）。
-  const directiveHeading = kindDirectiveHeading(params.kind)
-  if (!params.userPrompt.includes(directiveHeading.slice(HEADING_PREFIX.length))) {
-    parts.push(`${directiveHeading}\n${EXECUTOR_CONTRACT_BY_KIND[params.kind]}`)
-  }
-  // 本机片段段（adapter 探测后传入的合成文本，core 不做 IO）：kind 纪律段之后、
-  // 叶子契约段之前；userPrompt 已含标题时不重复注入（与 leaf 段同规则）；空串
+  // 本机片段段（adapter 探测后传入的合成文本，core 不做 IO）：userPrompt 之后、
+  // 终极权威段之前；userPrompt 已含标题时不重复注入（与权威段同规则）；空串
   // /未传不插入（Pi 不传参 = 不注入，向后兼容）。
   const localDirectives = params.localDirectives
   if (
@@ -298,10 +304,18 @@ function buildInternal(params) {
   ) {
     parts.push(`${LOCAL_DIRECTIVES_HEADING}\n${localDirectives}`)
   }
-  // 叶子执行器契约段（兜底纪律，所有 kind 一致生效）：userPrompt 已含关键词时不重复追加。
-  if (!params.userPrompt.includes(LEAF_RULE_KEYWORD)) {
-    parts.push(`${EXECUTOR_CONTRACT_HEADING}\n${LEAF_EXECUTOR_RULE}`)
-  }
+  // 终极权威段（注入文本末尾，所有 kind 一致生效）：kind 纪律段 + leaf 规则 +
+  // 权威声明合并为一段，末尾权威声明声明「与更早文本冲突时以本节为准」；去重
+  // 仅豁免 leaf 规则行（userPrompt 已含 leaf 关键词时不重复追加该行）——kind
+  // 纪律段与权威声明始终注入：即使主会话用户指令自带旧版契约/只读审查约束，
+  // 权威兜底也不因去重分支丢失。
+  const leafRule = params.userPrompt.includes(LEAF_RULE_KEYWORD)
+    ? ''
+    : `${LEAF_EXECUTOR_RULE}\n\n`
+  parts.push(
+    `${EXECUTOR_CONTRACT_HEADING}\n${kindDirectiveHeading(params.kind)}\n` +
+      `${EXECUTOR_CONTRACT_BY_KIND[params.kind]}\n\n${leafRule}${AUTHORITY_DECLARATION}`,
+  )
   return { text: parts.join('\n\n'), stats }
 }
 
