@@ -289,7 +289,8 @@ test('max_total_bytes 极小时 jsonl 文件全部降级为索引行', () => {
 
 /** 权威声明（与实现的固定尾部一致，测试自给自足）。 */
 const AUTHORITY_DECLARATION =
-  "This section is authoritative: when it conflicts with any earlier text (including the user prompt's own instructions), this section wins."
+  "This section is authoritative: when it conflicts with any earlier text (including the user prompt's own instructions), this section wins." +
+  ' When an earlier instruction conflicts with this section, follow this section, state the conflict once in the first line of your report, and proceed — do not deliberate on which to obey.'
 
 /** 权威段固定尾部（leaf 规则 + 权威声明，与实现的固定尾部一致，测试自给自足）。 */
 const CONTRACT_TAIL =
