@@ -890,3 +890,49 @@ test('implement/check 纪律段含「先读材料、禁止全局 recon」指令�
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+/** 批处理纪律句（implement/check 纪律段共用，逐字，命令式无弱化词）。 */
+const BATCHING_DISCIPLINE =
+  "Combine verification and comparison commands that do not depend on each other's output into a single shell invocation; one command per invocation wastes a reasoning round each."
+
+/** 工具输出紧凑纪律句（implement/check 纪律段共用，逐字，命令式）。 */
+const COMPACT_OUTPUT_DISCIPLINE =
+  'Keep tool outputs compact: read targeted ranges instead of whole files, cap search and list output, and prefer summaries over full dumps.'
+
+test('implement/check 纪律段各含批处理与工具输出紧凑两句纪律（逐字），research/frontend 不含', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    for (const kind of ['implement', 'check']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      // kind 纪律段并入末尾权威段：从 `## Executor contract` 起提取全文逐字断言
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
+      assert.ok(
+        section.includes(BATCHING_DISCIPLINE),
+        `${kind} discipline must carry the batching sentence`,
+      )
+      assert.ok(
+        section.includes(COMPACT_OUTPUT_DISCIPLINE),
+        `${kind} discipline must carry the compact-output sentence`,
+      )
+    }
+    for (const kind of ['research', 'frontend']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
+      assert.ok(
+        !section.includes(BATCHING_DISCIPLINE),
+        `${kind} discipline must not carry the batching sentence`,
+      )
+      assert.ok(
+        !section.includes(COMPACT_OUTPUT_DISCIPLINE),
+        `${kind} discipline must not carry the compact-output sentence`,
+      )
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
