@@ -8,9 +8,10 @@
  *   maxSubagentDepth）与 thinking 概念随文件式注册一并废弃：「不继承项目
  *   上下文」由 --no-session --no-extensions + fresh prompt 保证，「禁止
  *   再派发」由 child 无 workloom_execute 工具（--no-extensions）保证；
- * - 四个 executor kind 的 description/systemPrompt 文案自写（英文）：前三个与废弃前
- *   逐字一致；frontend 以「UI 小节为基线、七轴落地、前端验证、后端接口缺失 mock
- *   标注」四要素为角色边界（见 task design §3.3），并随新增扩为四 kind。
+ * - 四个 executor kind 的 description/systemPrompt 文案自写（英文）：research/implement
+ *   与废弃前逐字一致，check 随执行器纪律演进（P0/P1/P2 分级修复语义，见 core 纪律段）；
+ *   frontend 以「UI 小节为基线、七轴落地、前端验证、后端接口缺失 mock 标注」四要素
+ *   为角色边界（见 task design §3.3），并随新增扩为四 kind。
  */
 
 /** 本地 executor agent 定义（仅保留角色说明与注册描述）。 */
@@ -43,13 +44,13 @@ You are done when the changes are complete and verified. Do not dispatch subagen
   },
   check: {
     description: 'Check executor: review completed work against the task contract, fix what you find',
-    systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and fix what you find; report only the issues that remain.
+    systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and fix what you find. Classify findings P0/P1/P2: fix P2 yourself, escalate P0/P1 in the report's Open issues.
 
 The task context is already inlined in your prompt: the PRD, the plan, the prior rounds from the session JSONL, and the current state of the work. Read the actual files before judging; do not rely on summaries.
 
 Cover spec conformance, correctness, and style compliance, and flag clean-room boundary violations when the task asks for them. After fixing, verify your work with the project's checks (lint, typecheck, tests) and re-read the code you touched.
 
-End your report with a structured "## Open issues" section listing only the remaining issues, one per line: - <file>:<line> [<severity>] <issue> — fix: <suggestion>; write "- none" when no issue remains.
+End your report with a structured "## Open issues" section listing only the escalated P0/P1 issues, one per line: - <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>; write "- none" when no issue remains.
 
 You are done when the issues are fixed and verified. Do not dispatch subagents: nested delegation is disabled for you.`,
   },

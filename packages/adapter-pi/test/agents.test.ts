@@ -43,3 +43,16 @@ test('agent definitions: check role is fix-oriented, not report-only', () => {
   assert.ok(check.systemPrompt.includes('- none'))
   assert.match(check.systemPrompt, /verify/i)
 })
+
+test('agent definitions: check role classifies findings P0/P1/P2, fixes P2, escalates P0/P1', () => {
+  const check = EXECUTOR_AGENT_DEFINITIONS[EXECUTOR_KINDS.check]
+  assert.ok(check !== undefined, 'missing definition for check')
+  // 分级导向：发现按 P0/P1/P2 分级，P2 自修、P0/P1 上报（分级定义以 core
+  // 纪律段与契约 §2.2 为单一来源，角色总述只引用动作、不重复定义）。
+  assert.ok(check.systemPrompt.includes('P0/P1/P2'))
+  assert.ok(check.systemPrompt.includes('fix P2'))
+  assert.ok(check.systemPrompt.includes('escalate'))
+  // Open issues 行格式与 core 纪律段一致：[P0|P1|P2] 占位，不再用 [<severity>]。
+  assert.ok(check.systemPrompt.includes('[P0|P1|P2]'))
+  assert.ok(!check.systemPrompt.includes('[<severity>]'))
+})
