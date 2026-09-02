@@ -172,3 +172,9 @@
 - Commit: 9a9ccdb
 - Summary: 本机提示词扩展点机制 Pi 落地：adapter-pi 接入（pi-tools 能力探测与理论工具集；child 命中时 -e npm:@narumitw/pi-lsp；主会话 session_start 快照注入 Local directives）；pi-lsp.json 四件套配置落盘；DSH 侧小节级降级对齐；core 注释更新。TC1–TC6 全通过（三接缝 test-first），全量验证绿（pi 67 / core 439 / dsh 104）。另实证：workloom_execute 默认配置模型派发可用，后续派发不再 force 覆盖。
 
+## 扩展 LSP 提示词基线：从 diagnostics 单点到五场景引导
+
+- Time: 2026-09-02T06:05:14.641Z
+- Commit: 2ced46d
+- Summary: LSP 提示词基线扩展：主句五场景化 + research 只读变体句，契约 v15，本机片段点名式定制；顺带修复 cordis.patch.yml 缺失的 .js LSP 映射（未重启，待用户）
+
