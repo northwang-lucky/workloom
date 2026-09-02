@@ -1,0 +1,66 @@
+{
+  "id": "93f7f8c7-f634-43f1-a88f-efa12804901c",
+  "name": "context-injection-optimization",
+  "title": "上下文注入优化",
+  "description": "压缩执行器首次派发注入与主会话 breadcrumb 的基线体积（会话内累积是 200k 主因，但注入基线每步都背着，用户明确要求优化）。范围候选（按调研 docs/research/context-injection-optimization.md §3 排序，取舍走 1.1 对齐）：①jsonl 清单基线化（两角色统一\"路径+reason+先读后判\"，implement 现状内联作过渡预取）；②artifacts 关键段提取；③breadcrumb 瘦身（状态文本压缩为状态句+指针，借既有 workloom_step 按步取正文）；④交付时按角色过滤；⑤可靠性护栏（加载协议进纪律段）。验证基线：用任务 A 交付的 receipt 注入统计做同任务同 kind 优化前后对照。已交付的互补项：任务 A 批处理纪律+注入统计、任务 B 后台派发+续接增量（续接侧冗余已砍）。脱敏纪律：仓库文档不记参考来源名。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T12:49:31.850Z",
+  "completedAt": "2026-09-02T16:02:05.610Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-02T16:00:44.744Z",
+    "summary": "check 一次通过（PASS，0 P0/0 P1）：五切片逐项核实——契约 v18 纪律句与纪律段逐字一致（命令式、强制加载协议 + 报告首行回显）；①② 指针化产物级抽查确认无全文进入注入；③\"测量+不动\"数据可复现（norms 3008B/72%、状态块 641B）、norms 逐字未动；④ LSP 过滤收窄范围与偏差登记一致；marker 同任务两次派发不同有断言。注入统计口径变更（增 filesPointed、receipt 追加 pointed）判为 prd S6 允许范围内、消费方与断言同步无破坏。体积 6.0KB/3 inlined/4 pointed 产物级复现。check 自修 2 处 P2（surface.test.js 补 pointed 渲染断言、executor-context.test.js S2 补指针行逐字断言），修后回归 453/98/69 全绿 + lint/typecheck/build/git diff --check。Open issues: none。移交：部署需 rsync（契约 v18 + core/adapter dist），dshweb 重启归用户；本次派发无 marker 可回显系旧资产未同步的预期现象。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T13:19:31.647Z",
+    "summary": "grilling 收敛（两轮，设计树全分支走完）：Q1 marker 机制定稿——单一注入标记回声：每次派发生成唯一 marker token 随指针清单注入，纪律句要求执行器报告首行回显（证明注入到达且协议被读）；\"实读文件\"由既有\"报告引用实读文件\"纪律保证；子代理实读不可观测的能力边界已声明。Q2 ②提取规则定稿——design/implement 只注入 H2 目录+指针，放弃\"决议关键段\"启发式；prd Requirements/Acceptance 全文保留。Q3 ③策略修正——实测主会话注入大头是 norms（保持全文，约 2.5KB），可压仅状态块（约 0.5KB）：改为先测后瘦，量化状态块字节后只动确有收益的部分，不盲改。Q4 不拆分——单任务 5 切片顺序 ⑤纪律句先行→①→②→③→④（①②同模块、③④同注入面）。Q5 ④过滤范围定稿——只做两类：LSP 段按工具可用性过滤、平台标签块按当前平台过滤；角色 norms 维持现有深度替换机制不动。前置对齐（brainstorm）：五项全做、两角色纯指针本轮撤预取（2B 激进，风险登记依赖 5B 兜底）、check 纯指针、norms 全文不动、预算 128KB 不动、对照记 prd/Notes、不设硬指标、六接缝 test-first。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-02T13:23:04.201Z",
+      "title": "上下文注入优化五切片实现",
+      "status": "failed",
+      "childId": "918afc28-83c9-4326-89fc-3018b6514946",
+      "error": "the executor was stopped before it finished"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-02T15:03:54.272Z",
+      "title": "注入优化重派（④收窄后）",
+      "status": "completed",
+      "childId": "ac1cd81a-0426-4a60-a031-d61fc139bb47"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T15:43:11.943Z",
+      "title": "注入优化全量检查",
+      "status": "completed",
+      "childId": "2d8896f8-e055-44e4-af5d-58b00987f9d9"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

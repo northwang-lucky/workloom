@@ -1,0 +1,6 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令核对"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层核对：core 注入组装与 adapter 注入面的边界"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "executor-context.js 改动遵循 legacy 模块约定核对"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "契约与 adapter 变更涉及 profile 资产，移交时核对部署同步纪律"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "注入/指针/marker 等术语一致性核对"}

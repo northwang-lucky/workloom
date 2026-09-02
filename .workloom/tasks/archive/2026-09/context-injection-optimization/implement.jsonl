@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令（五项优化的实现与回归口径）"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层依据：注入组装在 core、breadcrumb/session-context 注入面在 adapter-dsh、契约在 assets"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "主改造点 executor-context.js 是 legacy 纯 JS 模块"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "契约纪律句与指针协议句的中英文分工"}
