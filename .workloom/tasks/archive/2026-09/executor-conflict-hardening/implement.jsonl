@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令（枚举/注释/契约断言风格）"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "core 纯 JS 模块约定（executor-context.js 改动遵循）"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "术语核对（executor/stage/check 措辞与术语表一致）"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "executor voice 分层（纪律段与契约措辞单一来源衔接）"}
+{"file": ".workloom/tasks/09-02-executor-conflict-hardening/research/current-state.md", "reason": "v15 现状行号、AUTHORITY_DECLARATION 现文、fork 兜底落点与测试面"}
