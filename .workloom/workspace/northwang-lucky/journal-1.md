@@ -190,3 +190,9 @@
 - Commit: a1d0641
 - Summary: 执行器指令冲突治理：契约 v16 stage 正交化（主会话写权限句全部限定 implement、check 修复窗口明确含实现代码）、core 权威声明追加冲突终结句（全 kind 防权衡空转）、adapter-dsh 对 fork 场景 continue 失败转译引导文案。源起 session-4bff0f6c check 空转与 session-35cb4f6a fork 接续失败两个实证。check 自修 4 处 P2，Open issues - none。
 
+## 接手执行器性能治理：任务 A 批处理纪律与注入统计交付
+
+- Time: 2026-09-02T11:17:56.744Z
+- Commit: b5dc55a
+- Summary: 按 handoff 接手：核对工作区无中断残留后重派 implement（test-first 红→绿），check 一次 PASS（3 处 P2 自修、声称复核纠出 format:check 部分不实），按焦点拆 5 个 commit + 研究文档 1 个，归档任务 A。部署待跑 dsh-sync-workloom（仅 rsync，重启归用户）。下一棒：任务 B 后台模式与续接增量。
+
