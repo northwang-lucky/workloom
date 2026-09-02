@@ -105,13 +105,18 @@ function pushTurnEvents(child, overrides) {
 
 /**
  * 构造 child 的 whenIdle：默认立即结算（pushTurnEvents 落盘事件）；用例可
- * 经 overrides.childWhenIdle 覆盖结算行为。
+ * 经 overrides.childWhenIdle 覆盖结算行为。每次调用记录进 whenIdleCalls
+ * （后台模式不消费 whenIdle 的断言依据）。
  */
-function makeChildWhenIdle(child, overrides) {
+function makeChildWhenIdle(child, overrides, whenIdleCalls) {
   if (overrides.childWhenIdle !== undefined) {
-    return () => overrides.childWhenIdle(child)
+    return () => {
+      whenIdleCalls.push(child.id)
+      return overrides.childWhenIdle(child)
+    }
   }
   return () => {
+    whenIdleCalls.push(child.id)
     pushTurnEvents(child, overrides)
     return Promise.resolve()
   }
@@ -123,6 +128,8 @@ function makeCtx(overrides = {}) {
   const startCalls = []
   const followupCalls = []
   const drainCalls = []
+  const whenIdleCalls = []
+  const listeners = []
   const childAgents = new Map()
 
   /** 建/取 child agent（续用轮 followup 时复用同一 id 的会话，仅重绑 whenIdle）。 */
@@ -136,7 +143,7 @@ function makeCtx(overrides = {}) {
       }
       childAgents.set(childId, child)
     }
-    child.whenIdle = makeChildWhenIdle(child, overrides)
+    child.whenIdle = makeChildWhenIdle(child, overrides, whenIdleCalls)
     return child
   }
 
@@ -196,8 +203,18 @@ function makeCtx(overrides = {}) {
     },
   }
 
-  const ctx = { tools, subagents, agents: { get: (id) => childAgents.get(id) } }
-  return { ctx, registered, startCalls, followupCalls, drainCalls, childAgents }
+  const ctx = {
+    tools,
+    subagents,
+    agents: { get: (id) => childAgents.get(id) },
+    // 事件注册面（registerExecutor 经 registerDispatchSettlement 注册 subagent/end 监听；
+    // 测试经 listeners 手动触发终态回填）。
+    on: (event, listener) => {
+      listeners.push({ event, listener })
+      return () => {}
+    },
+  }
+  return { ctx, registered, startCalls, followupCalls, drainCalls, childAgents, whenIdleCalls, listeners }
 }
 
 /** 注册 executor 并返回 { execute, 各调用记录 }。 */
@@ -213,12 +230,32 @@ function setupExecutor(overrides = {}) {
     followupCalls: made.followupCalls,
     drainCalls: made.drainCalls,
     childAgents: made.childAgents,
+    whenIdleCalls: made.whenIdleCalls,
+    listeners: made.listeners,
   }
 }
 
-/** 常用执行参数（taskPath/title 固定，减少样板）。 */
+/**
+ * 常用执行参数（taskPath/title 固定，减少样板）。
+ * 默认 foreground: true 保持既有用例阻塞语义（现状行为）；后台默认语义由
+ * 新增用例显式传 foreground: false 覆盖。
+ */
 function execArgs(extra = {}) {
-  return { kind: 'implement', prompt: 'test', taskPath: 'tasks/test-task', title: 'executor test', ...extra }
+  return {
+    kind: 'implement',
+    prompt: 'test',
+    taskPath: 'tasks/test-task',
+    title: 'executor test',
+    foreground: true,
+    ...extra,
+  }
+}
+
+/** 触发已注册的 subagent/end 监听（slice 3 事件接缝：按 info.id 回填）。 */
+function emitSubagentEnd(setup, info) {
+  const entry = setup.listeners.find((l) => l.event === 'subagent/end')
+  assert.ok(entry, 'subagent/end listener must be registered')
+  entry.listener(info)
 }
 
 test('agentOptions 携带 provider+model（带前缀时）', async () => {
@@ -548,30 +585,105 @@ test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数
   }
 })
 
-test('receipt 行：续用轮同样含注入统计四元组（续接派发同口径）', async () => {
+test('receipt 行：续用轮 reinject: true 恢复全量注入（统计同新派发口径）', async () => {
   const root = makeProject('')
   try {
     const { execute, followupCalls } = setupExecutor()
     const parent = makeAgent(root)
-    // 第一轮：新派发；第二轮：续用（'latest'）。
-    await execute(execArgs({ prompt: 'round 1', title: 'injection stats reuse test' }), {
+    // 第一轮：新派发；第二轮：续用（'latest'）+ reinject 全量重注入。
+    await execute(execArgs({ prompt: 'round 1', title: 'reinject stats reuse test' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
     const second = await execute(
-      execArgs({ prompt: 'round 2', title: 'injection stats reuse test', continue_executor: 'latest' }),
+      execArgs({
+        prompt: 'round 2',
+        title: 'reinject stats reuse test',
+        continue_executor: 'latest',
+        reinject: true,
+      }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(followupCalls.length, 1)
-    // 续用轮注入字节口径 = 投递给同一会话的下一指令 prompt 文本长度。
+    // reinject 续用注入字节口径 = 投递给同一会话的全量 prompt 文本长度。
     const built = followupCalls[0].content[0].text
     assert.equal(typeof built, 'string')
+    assert.ok(built.includes('Active task:'), 'reinject must restore the full prompt')
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
     assert.ok(
       second.output[0].text.includes(`; injection: ${kb}KB, 3 inlined, 0 truncated, 0 indexed`),
-      'reused-turn receipt must carry the injection 4-tuple',
+      'reinject receipt must carry the full injection 4-tuple',
     )
     assert.ok(second.output[0].text.includes('(reused)'), 'reused turn must still mark (reused)')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s3-inc: 续接默认只发增量指令（followup 内容 = 参数 prompt，不含全量注入），receipt 统计如实反映', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ prompt: 'round 1', title: 'incremental continue test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const second = await execute(
+      execArgs({
+        prompt: 'round 2 incremental only',
+        title: 'incremental continue test',
+        continue_executor: 'latest',
+      }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(followupCalls.length, 1)
+    // 续接默认只发增量指令：followup 内容 = 参数 prompt，不复述全量上下文。
+    assert.equal(followupCalls[0].content[0].text, 'round 2 incremental only')
+    assert.ok(
+      !followupCalls[0].content[0].text.includes('Active task:'),
+      'incremental continue must not re-inject the full prompt',
+    )
+    // receipt 注入统计如实反映实际发送内容：KB 为增量体积、内联/截断/索引为 0。
+    const kb = (Buffer.byteLength('round 2 incremental only', 'utf8') / 1024).toFixed(1)
+    assert.ok(
+      second.output[0].text.includes(`; injection: ${kb}KB, 0 inlined, 0 truncated, 0 indexed`),
+      'incremental receipt must carry the incremental 4-tuple',
+    )
+    assert.ok(second.output[0].text.includes('(reused)'), 'incremental turn must still mark (reused)')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s3-inc-bg: 后台续接同样只发增量指令且返回增量 receipt', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ prompt: 'round 1', title: 'incremental bg continue test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const second = await execute(
+      execArgs({
+        foreground: false,
+        prompt: 'round 2 increment',
+        title: 'incremental bg continue test',
+        continue_executor: 'latest',
+      }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(followupCalls.length, 1)
+    assert.equal(followupCalls[0].content[0].text, 'round 2 increment')
+    assert.equal(second.kind, 'background')
+    assert.equal(second.childId, 'child-1')
+    const kb = (Buffer.byteLength('round 2 increment', 'utf8') / 1024).toFixed(1)
+    assert.ok(
+      second.receipt.includes(`; injection: ${kb}KB, 0 inlined, 0 truncated, 0 indexed`),
+      'background incremental receipt must carry the incremental 4-tuple',
+    )
+    assert.ok(second.receipt.includes('(reused)'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1473,6 +1585,145 @@ test('本机片段：被 deny 的可见工具不算可用（探测集 = 可见�
     })
     const text = startCalls[0].request.prompt[0].text
     assert.ok(!text.includes('## Local directives'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s1-bg: 默认后台派发立即返回（不消费 whenIdle、不 drain），返回 {kind, childId, receipt}', async () => {
+  const root = makeProject(`
+subagents:
+  implement:
+    model: deepseek-official/deepseek-v4-flash
+`)
+  try {
+    const { execute, startCalls, drainCalls, whenIdleCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    // 默认语义用例：删除 execArgs 注入的 foreground 键，参数缺省（undefined）即后台。
+    const args = execArgs({ title: 'background dispatch test' })
+    delete args.foreground
+    const result = await execute(args, {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // seam：startContinuable 仍被调用（后台也是派发），但不等 turn 结算。
+    assert.equal(startCalls.length, 1)
+    assert.equal(whenIdleCalls.length, 0, 'background must not consume whenIdle')
+    assert.equal(drainCalls.length, 0, 'background must not drain')
+    assert.equal(result.kind, 'background')
+    assert.equal(result.childId, 'child-1', 'background must return the child session id')
+    // receipt 完整：model/effort + 注入四元组（注入统计派发前已就绪）。
+    const built = startCalls[0].request.prompt[0].text
+    const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
+    assert.ok(result.receipt.includes('deepseek-official/deepseek-v4-flash'))
+    assert.ok(
+      result.receipt.includes(`; injection: ${kb}KB, 3 inlined, 0 truncated, 0 indexed`),
+      'background receipt must carry the injection 4-tuple',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s1-fg: foreground: true 阻塞返回（消费 whenIdle、drain、含输出与 receipt 文本）', async () => {
+  const root = makeProject('')
+  try {
+    const { execute, whenIdleCalls, drainCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ foreground: true, title: 'foreground test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(result.kind, 'foreground')
+    assert.equal(result.runId, 'child-1')
+    assert.equal(whenIdleCalls.length, 1, 'foreground must consume whenIdle')
+    assert.equal(drainCalls.length, 1, 'foreground must drain')
+    assert.ok(result.output[0].text.includes('Mock executor output.'))
+    assert.ok(result.output[0].text.includes('[workloom executor]'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s2-settle: 派发初写 running；subagent/end 按 info.id 回填 completed（不用 runId）', async () => {
+  const root = makeProject('')
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle completed test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 派发初写即 status: running（主会话不参与终态回填）。
+    let task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.dispatches[0].status, 'running')
+    assert.equal(task.dispatches[0].childId, 'child-1')
+    // 手动 emit completed 终态：按 info.id 关联（runId 每 epoch 随机，不可用）。
+    emitSubagentEnd(setup, { runId: 'random-epoch-1', id: 'child-1', stopReason: 'completed' })
+    task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    assert.equal(task.dispatches[0].status, 'completed')
+    assert.equal(task.dispatches[0].error, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s2-settle-fail: subagent/end error 终态回填 failed + stopReason 一行摘要（不截取输出）', async () => {
+  const root = makeProject('')
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle failed test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    emitSubagentEnd(setup, { runId: 'epoch-2', id: 'child-1', stopReason: 'error' })
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.dispatches[0].status, 'failed')
+    assert.equal(task.dispatches[0].error, 'the executor failed before it finished')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s2-settle-other: refusal/max-tokens 等 stopReason 同样回填 failed + 摘要', async () => {
+  const root = makeProject('')
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle refusal test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    emitSubagentEnd(setup, { runId: 'epoch-3', id: 'child-1', stopReason: 'refusal' })
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.dispatches[0].status, 'failed')
+    assert.equal(task.dispatches[0].error, 'the executor declined the task')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s2-settle-ghost: 未知 childId 的 subagent/end 不落盘（no-op，不误伤 running 记录）', async () => {
+  const root = makeProject('')
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle ghost test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    emitSubagentEnd(setup, { runId: 'epoch-4', id: 'ghost-session', stopReason: 'error' })
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.dispatches[0].status, 'running', 'unknown child must not be touched')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
