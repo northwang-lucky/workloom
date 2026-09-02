@@ -1,6 +1,6 @@
 /**
  * executor 模块单测：continuable 派发（startContinuable）、续用（followup 同一会话）、
- * turn/end 事件面异常终止、drain 释放、gate 豁免生命周期与 receipt 行。
+ * turn/end 事件面异常终止、drain 释放与 receipt 行。
  * 测试依赖 dist（test 脚本先 build 再跑 node --test）。
  */
 import { test } from 'node:test'
@@ -18,7 +18,6 @@ import {
   SPAWN_PROVIDER,
   toCapabilityError,
 } from '../dist/executor-dispatch.js'
-import { decideWriteGate } from '../dist/gate.js'
 
 /** DSH 原生委派类工具候选名（与实现的 deny 清单候选集一致；测试自给自足）。 */
 const NATIVE_DELEGATION_CANDIDATES = [
@@ -65,17 +64,6 @@ function makeAgent(root, requestHeader) {
   }
 }
 
-/** 构造模拟子代理 agent（depth >= 1，供门禁判定观察：id 对应派发 childId）。 */
-function makeChildAgent(root, id) {
-  return {
-    id,
-    options: { subagentDepth: 1 },
-    session: {
-      header: { cwd: root, delegationDepth: 1 },
-    },
-  }
-}
-
 /** 构造会话事件（模拟 DSH SessionEvent 最小形状：type/seq/time/data）。 */
 function makeEvent(type, data) {
   return { type, seq: 0, time: Date.now(), data }
@@ -116,21 +104,10 @@ function pushTurnEvents(child, overrides) {
 }
 
 /**
- * 构造 child 的 whenIdle：默认立即结算（pushTurnEvents 落盘事件）；manualIdle 时
- * 返回受控 promise（idleControls 按轮次收集 resolve），供豁免窗口观测。
+ * 构造 child 的 whenIdle：默认立即结算（pushTurnEvents 落盘事件）；用例可
+ * 经 overrides.childWhenIdle 覆盖结算行为。
  */
-function makeChildWhenIdle(child, overrides, idleControls) {
-  if (overrides.manualIdle === true) {
-    let resolveIdle
-    const promise = new Promise((resolve) => {
-      resolveIdle = resolve
-    })
-    idleControls.push({ childId: child.id, resolve: resolveIdle })
-    return () => {
-      pushTurnEvents(child, overrides)
-      return promise
-    }
-  }
+function makeChildWhenIdle(child, overrides) {
   if (overrides.childWhenIdle !== undefined) {
     return () => overrides.childWhenIdle(child)
   }
@@ -146,7 +123,6 @@ function makeCtx(overrides = {}) {
   const startCalls = []
   const followupCalls = []
   const drainCalls = []
-  const idleControls = []
   const childAgents = new Map()
 
   /** 建/取 child agent（续用轮 followup 时复用同一 id 的会话，仅重绑 whenIdle）。 */
@@ -160,7 +136,7 @@ function makeCtx(overrides = {}) {
       }
       childAgents.set(childId, child)
     }
-    child.whenIdle = makeChildWhenIdle(child, overrides, idleControls)
+    child.whenIdle = makeChildWhenIdle(child, overrides)
     return child
   }
 
@@ -219,7 +195,7 @@ function makeCtx(overrides = {}) {
   }
 
   const ctx = { tools, subagents, agents: { get: (id) => childAgents.get(id) } }
-  return { ctx, registered, startCalls, followupCalls, drainCalls, idleControls, childAgents }
+  return { ctx, registered, startCalls, followupCalls, drainCalls, childAgents }
 }
 
 /** 注册 executor 并返回 { execute, 各调用记录 }。 */
@@ -234,7 +210,6 @@ function setupExecutor(overrides = {}) {
     startCalls: made.startCalls,
     followupCalls: made.followupCalls,
     drainCalls: made.drainCalls,
-    idleControls: made.idleControls,
     childAgents: made.childAgents,
   }
 }
@@ -1202,67 +1177,6 @@ test('executor-dispatch 拆分面：deny 清单/capability 校验/错误兜底�
   assert.match(String(translated.message), /"toolFilter" capability/)
   const other = new Error('plain failure')
   assert.equal(toCapabilityError(other), other)
-})
-
-test('s3: gate 豁免跨轮——续用轮 followup turn 写业务文件不被 deny，结算后注销', async () => {
-  const root = makeProject('executor:\n  gate: true\n')
-  // 任务标记为 in_progress，使非豁免子代理在业务路径上会被门禁 deny。
-  writeFileSync(
-    join(root, '.workloom/tasks/test-task/task.json'),
-    JSON.stringify({ status: 'in_progress', title: 'Test', slug: 'test-task', priority: 'P2' }),
-  )
-  try {
-    // manualIdle：每轮 whenIdle 由 idleControls 手动结算，观测「豁免窗口」两个时点。
-    const { execute, followupCalls, drainCalls, idleControls } = setupExecutor({ manualIdle: true })
-    const parent = makeAgent(root)
-    // 第一轮：新派发，startContinuable resolve 后豁免注册（turn 挂起中）。
-    const pending1 = execute(execArgs({ prompt: 'round 1', title: 'gate reuse test' }), {
-      agent: parent,
-      signal: new AbortController().signal,
-    })
-    await new Promise((r) => setImmediate(r))
-    const child = makeChildAgent(root, 'child-1')
-    assert.deepEqual(
-      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }),
-      { kind: 'allow' },
-      'during the dispatch turn the executor child must be exempt',
-    )
-    // 结算第一轮：drain 释放时豁免注销，非豁免的 fork 子代理被门禁 deny。
-    idleControls[0].resolve()
-    const first = await pending1
-    assert.equal(first.runId, 'child-1')
-    assert.equal(drainCalls.length, 1)
-    assert.equal(
-      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }).kind,
-      'deny',
-      'after the dispatch turn settles the child must no longer be exempt',
-    )
-    // 第二轮：续用（followup 投递后豁免重新注册）——豁免跨轮生效（s3 核心）。
-    // 不 await：turn 由 idleControls[1] 手动结算。
-    const pending2 = execute(
-      execArgs({ prompt: 'round 2', title: 'gate reuse test', continue_executor: 'latest' }),
-      { agent: parent, signal: new AbortController().signal },
-    )
-    await new Promise((r) => setImmediate(r))
-    assert.equal(followupCalls.length, 1, 'reuse round must follow up the same session')
-    assert.deepEqual(
-      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }),
-      { kind: 'allow' },
-      'during the reuse turn the executor child must be exempt again (s3)',
-    )
-    // 结算续用轮：再次 drain + 注销。
-    idleControls[1].resolve()
-    const second = await pending2
-    assert.equal(second.runId, 'child-1', 'reuse must keep the same session id')
-    assert.equal(drainCalls.length, 2)
-    assert.equal(
-      decideWriteGate({ name: 'write', agent: child, filePath: 'src/main.ts' }).kind,
-      'deny',
-      'after the reuse turn settles the child must no longer be exempt',
-    )
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
 })
 
 test('s4: 跨 kind 续用被拒（返回提示，不派发不 followup）', async () => {

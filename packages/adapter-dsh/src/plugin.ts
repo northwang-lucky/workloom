@@ -31,7 +31,6 @@ import { registerCommands } from './commands.js'
 import { registerExecutor } from './executor.js'
 import type { ExecutorServices } from './executor.js'
 import { registerEffortInjection } from './effort-inject.js'
-import { registerGate } from './gate.js'
 import { registerSkills, registerStepsTool } from './skills.js'
 import type { SkillsServices, StepsToolServices } from './skills.js'
 import { registerTaskTools } from './tasks.js'
@@ -136,8 +135,6 @@ export function apply(ctx: Context): void {
   registerStepsTool(ctx as Context & StepsToolServices)
   registerTaskTools(ctx as Context & TaskToolsServices)
   registerJournalTool(ctx as Context & JournalToolServices)
-  // 硬门禁：任务 in_progress 期间主会话直接写文件被 deny（stage=check 修复窗口放行），引导走 workloom_execute。
-  registerGate(ctx)
 }
 
 /**
