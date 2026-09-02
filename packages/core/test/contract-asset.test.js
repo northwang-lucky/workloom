@@ -184,20 +184,131 @@ test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {
   assert.match(loopStep.body, /red-green/)
 })
 
-test('契约 v14 §2.2 含 check 发现即修与结构化 Open issues 仅存问题段', () => {
+test('契约 v14 §2.2 含 check 分级发现即修（P2 自修）与结构化 Open issues 仅存问题段', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
   assert.ok(
-    checkBody.includes('fixes what it finds itself — do not merely report'),
-    '2.2 正文缺 check 发现即修措辞',
+    checkBody.includes('fixes P2 findings itself — leaving one unfixed is a dereliction of duty'),
+    '2.2 正文缺 check P2 自修措辞',
   )
   assert.ok(checkBody.includes('## Open issues'), '2.2 正文缺结构化仅存问题段名')
   assert.ok(
-    checkBody.includes('<file>:<line> [<severity>] <issue> — fix: <suggestion>'),
-    '2.2 正文缺仅存问题行格式',
+    checkBody.includes('<file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>'),
+    '2.2 正文缺仅存问题行格式 [P0|P1|P2]',
   )
   assert.ok(checkBody.includes('`- none`'), '2.2 正文缺无仅存问题时写 - none')
+})
+
+test('契约 v14 §2.2 含 P0/P1/P2 分级定义（单一来源）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  // P0 阻断：验收判据不满足 / 构建或测试红线失败 / 安全或数据风险
+  assert.ok(
+    checkBody.includes('- P0 (blocking): acceptance criteria unmet'),
+    '2.2 正文缺 P0 定义（验收判据不满足）',
+  )
+  assert.ok(
+    checkBody.includes('hard lint / typecheck / build / tests failures'),
+    '2.2 正文缺 P0 定义（构建或测试红线失败）',
+  )
+  assert.ok(
+    checkBody.includes('security or data-integrity risks'),
+    '2.2 正文缺 P0 定义（安全或数据风险）',
+  )
+  // P1 重要：行为或正确性缺陷 / 设计或 spec 偏离（含跨文件语义变更）/ 非本次引入问题（即使机械性）
+  assert.ok(
+    checkBody.includes('- P1 (important): behavioral or correctness defects'),
+    '2.2 正文缺 P1 定义（行为或正确性缺陷）',
+  )
+  assert.ok(
+    checkBody.includes('design or spec deviations (including cross-file semantic changes)'),
+    '2.2 正文缺 P1 定义（设计或 spec 偏离含跨文件语义变更）',
+  )
+  assert.ok(
+    checkBody.includes('issues that pre-date the current task, even mechanical ones'),
+    '2.2 正文缺 P1 定义（非本次引入问题即使机械性）',
+  )
+  // P2 次要：机械性 / 单文件局部小缺陷 / 无取舍合规修复
+  assert.ok(
+    checkBody.includes('- P2 (minor): mechanical issues'),
+    '2.2 正文缺 P2 定义（机械性）',
+  )
+  assert.ok(
+    checkBody.includes('small local defects confined to a single file'),
+    '2.2 正文缺 P2 定义（单文件局部小缺陷）',
+  )
+  assert.ok(
+    checkBody.includes('compliance fixes with no trade-offs'),
+    '2.2 正文缺 P2 定义（无取舍合规修复）',
+  )
+})
+
+test('契约 v14 §2.2 含主会话派发指引（禁只读审查、禁引导分级、prompt 必含小修大上报）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  // 派发 prompt 必须含「发现即修（P2）+ 分级上报（P0/P1）」语义
+  assert.ok(
+    checkBody.includes('"fix small findings (P2) yourself, escalate big ones (P0/P1)"'),
+    '2.2 正文缺派发 prompt 必含小修大上报语义',
+  )
+  // 禁止「只读审查 / 仅报告 / 不要改代码」类约束（用户级指令会覆盖注入纪律）
+  assert.ok(
+    checkBody.includes('"read-only review", "report only", or "do not change code"'),
+    '2.2 正文缺禁止只读审查类约束措辞',
+  )
+  // 不得在 prompt 中引导分级——分级是 check 标准职责
+  assert.ok(
+    checkBody.includes("classification is the check executor's standard duty"),
+    '2.2 正文缺禁止引导分级措辞',
+  )
+})
+
+test('契约 v14 §2.2 含 P0 处理权属（只能修或用户确认后调基线，不得记不修原因豁免）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  // P0 只有两条路：直接修 / 向用户提议调整验收基线；不得记「不修原因」豁免
+  assert.ok(
+    checkBody.includes('For a P0 finding the "record why not" path does not apply'),
+    '2.2 正文缺 P0 不得记不修原因豁免措辞',
+  )
+  assert.ok(
+    checkBody.includes(
+      'the main session may only fix it or propose adjusting the acceptance baseline to the user',
+    ),
+    '2.2 正文缺 P0 只能修或提议调基线措辞',
+  )
+  // 基线调整闭环：用户确认 → 改 prd → 重派 check 按新基线复核
+  assert.ok(
+    checkBody.includes(
+      'only after the user confirms may it amend prd.md and re-dispatch the check executor against the new baseline',
+    ),
+    '2.2 正文缺「用户确认后改 prd 并重派 check」措辞',
+  )
+})
+
+test('契约 v14 principle 5 澄清子任务 check 非只读（容器验收 ≠ check 只读）', () => {
+  const raw = readFileSync(assetPath, 'utf8')
+  // 子任务 check 同样适用 check 纪律（P2 自修、P0/P1 上报）
+  assert.ok(
+    raw.includes('Subtask checks follow the same check discipline as main-task checks'),
+    'principle 5 缺子任务 check 适用 check 纪律澄清',
+  )
+  // 「容器做最终验收」仅指整体验收时机与责任，不含 check 只读语义
+  assert.ok(
+    raw.includes(
+      '"the container does the final acceptance" refers only to the timing and responsibility of the overall acceptance',
+    ),
+    'principle 5 缺容器验收仅指时机与责任澄清',
+  )
+  // 「修复由容器决定」不成立
+  assert.ok(
+    raw.includes('"fixing is decided by the container" does not hold'),
+    'principle 5 缺修复由容器决定不成立澄清',
+  )
 })
 
 test('契约 v14 §2.2 含主会话修复窗口与重派 check 复核闭环', () => {
