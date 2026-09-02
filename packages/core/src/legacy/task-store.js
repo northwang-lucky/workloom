@@ -178,6 +178,19 @@ function pad2(value) {
 }
 
 /**
+ * 归一化单条派发记录（内部）：存量无 status 字段的旧记录读取时视为 completed
+ * （不迁移落盘——只改读取视图，不改文件）；有 status 的按原样保留。
+ * @param {import('./task-store.d.ts').DispatchRecord} entry 原始派发记录
+ * @returns {import('./task-store.d.ts').DispatchRecord} 归一化后的记录
+ */
+function normalizeDispatchRecord(entry) {
+  if (entry === null || typeof entry !== 'object' || entry.status !== undefined) {
+    return entry
+  }
+  return { ...entry, status: 'completed' }
+}
+
+/**
  * 归一化 task.json 记录：旧格式任务缺 hooks 字段时补齐空数组，
  * 保证 create/start/finish/archive 各 hook 调用点对旧数据安全；
  * 缺 check/overrides/dispatches 字段时补 null/空数组，保证门禁读取对旧数据安全；
@@ -209,7 +222,8 @@ function normalizeTaskRecord(parsed) {
     overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
     // 任务阶段：旧任务缺 stage 归一化默认 implement（未进入 check 阶段，门禁维持拦截）。
     stage: parsed.stage ?? TaskStage.IMPLEMENT,
-    dispatches: Array.isArray(parsed.dispatches) ? parsed.dispatches : [],
+    // 派发记录归一化：存量无 status 字段视为 completed（读取视图，不迁移落盘）。
+    dispatches: Array.isArray(parsed.dispatches) ? parsed.dispatches.map(normalizeDispatchRecord) : [],
     // parent/children 兜底：旧任务缺字段时补 null/空数组，保证父子校验与联动对旧数据安全。
     parent: parsed.parent ?? null,
     children: Array.isArray(parsed.children) ? parsed.children : [],
@@ -794,11 +808,13 @@ function recordExecutorOverrideInternal(root, taskRelPath, reason) {
 }
 
 /**
- * 记录一次 executor 派发成功（adapter 在派发成功后调用）：向 task.json dispatches
- * 追加 { kind, at, title, childId? } 条目（at 自动生成；childId 为 continuable
- * 子代理的 durable session id，续用定位与同 kind 校验的依据，旧记录缺省）。
- * 只审计「成功」派发——失败派发无产出，不满足分工证明，不记录。记录失败只返回
- * err（调用方 WARNING 不阻塞派发），与 recordExecutorOverride 同一「元组 + WARNING」口径。
+ * 记录一次 executor 派发（初写，派发时刻调用）：向 task.json dispatches 追加
+ * { kind, at, title, childId?, status: 'running' } 条目（at 自动生成；childId 为
+ * continuable 子代理的 durable session id，续用定位与终态回填关联的依据，旧记录缺省）。
+ * 初写即记 running——即使后续未结算（子代理未回填）也留痕可见（缺口 A：失败派发在
+ * task.json 可见）。终态由 settleExecutorDispatch 按 childId 回填 completed/failed，
+ * 主会话不参与。记录失败只返回 err（调用方 WARNING 不阻塞派发），与
+ * recordExecutorOverride 同一「元组 + WARNING」口径。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {import('./task-store.d.ts').DispatchRecordInput} entry 派发条目（kind/title/childId?，at 由函数生成）
@@ -814,7 +830,7 @@ export function recordExecutorDispatch(root, taskRelPath, entry) {
 }
 
 /**
- * 记录 executor 派发成功（内部实现，失败抛错由外层转元组）。
+ * 记录 executor 派发（初写，内部实现，失败抛错由外层转元组）。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {import('./task-store.d.ts').DispatchRecordInput} entry 派发条目
@@ -829,7 +845,78 @@ function recordExecutorDispatchInternal(root, taskRelPath, entry) {
 }
 
 /**
- * 组装派发审计记录（内部）：补 at（ISO 时间），并校验 kind/title/childId（防御，fail loud）。
+ * 回填一次 executor 派发的终态（adapter 监听 subagent/end 后调用）：按 childId
+ * 关联 dispatches 中最近一条仍为 running 的记录，只改 status/error——不动 stage、
+ * 不新增记录（不重复计数）。无匹配 running 记录时 no-op（返回成功，不报错：
+ * 监听对非 workloom 子代理也会触发，未知 childId 静默跳过）。记录失败只返回 err。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').DispatchSettleInput} entry 回填条目（childId + status + error?）
+ * @returns {[Error | null]}
+ */
+export function settleExecutorDispatch(root, taskRelPath, entry) {
+  try {
+    settleExecutorDispatchInternal(root, taskRelPath, entry)
+    return [null]
+  } catch (error) {
+    return [toError(error)]
+  }
+}
+
+/**
+ * 回填 executor 派发终态（内部实现，失败抛错由外层转元组）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').DispatchSettleInput} entry 回填条目
+ */
+function settleExecutorDispatchInternal(root, taskRelPath, entry) {
+  const projectRoot = requireProjectRoot(root)
+  const task = requireTask(projectRoot, taskRelPath)
+  const settle = assertSettleEntry(entry)
+  // 按 childId 关联最近一条 running 记录（同 childId 多轮派发时回填最新一轮）。
+  for (let i = task.dispatches.length - 1; i >= 0; i--) {
+    const record = task.dispatches[i]
+    if (record === undefined || record === null || typeof record !== 'object') continue
+    if (record.childId !== settle.childId) continue
+    if (record.status !== 'running') continue
+    record.status = settle.status
+    if (settle.error !== undefined) {
+      record.error = settle.error
+    }
+    writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task))
+    return
+  }
+  // 无匹配 running 记录：no-op（未知 childId / 已结算，静默跳过）。
+}
+
+/**
+ * 校验并归一化回填条目（内部，fail loud）：childId 非空 string、status 为
+ * completed/failed（拒绝 running——终态不回退到运行中）、error 可选非空 string。
+ * @param {import('./task-store.d.ts').DispatchSettleInput} entry 回填条目
+ * @returns {import('./task-store.d.ts').DispatchSettleInput} 校验后的条目
+ */
+function assertSettleEntry(entry) {
+  if (typeof entry !== 'object' || entry === null) {
+    throw new Error(`${ERR_PREFIX}: settle entry must be an object`)
+  }
+  if (typeof entry.childId !== 'string' || entry.childId.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: settle entry childId must be a non-empty string`)
+  }
+  if (entry.status !== 'completed' && entry.status !== 'failed') {
+    throw new Error(
+      `${ERR_PREFIX}: settle entry status must be completed or failed (got ${String(entry.status)})`,
+    )
+  }
+  const error = entry.error
+  if (error !== undefined && (typeof error !== 'string' || error.trim() === '')) {
+    throw new Error(`${ERR_PREFIX}: settle entry error must be a non-empty string when provided`)
+  }
+  return { childId: entry.childId, status: entry.status, ...(error !== undefined ? { error } : {}) }
+}
+
+/**
+ * 组装派发审计记录（内部）：补 at（ISO 时间）与 status: 'running'，并校验
+ * kind/title/childId（防御，fail loud）。
  * @param {import('./task-store.d.ts').DispatchRecordInput} entry 输入
  * @returns {import('./task-store.d.ts').DispatchRecord}
  */
@@ -854,10 +941,13 @@ function buildDispatchRecord(entry) {
       throw new Error(`${ERR_PREFIX}: dispatch entry childId must be a non-empty string when provided`)
     }
   }
+  /** @type {import('./task-store.d.ts').DispatchRecord} */
   const record = {
     kind: entry.kind,
     at: new Date().toISOString(),
     title: entry.title,
+    // 派发初写即记 running：终态由 settleExecutorDispatch 回填，失败派发也留痕。
+    status: 'running',
     ...(entry.childId !== undefined ? { childId: entry.childId } : {}),
   }
   return record
