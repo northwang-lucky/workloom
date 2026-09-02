@@ -90,6 +90,7 @@ import {
   assertToolFilterCapability,
   availableToolNames,
   buildDenyList,
+  hasLspTooling,
   SPAWN_PROVIDER,
   toCapabilityError,
 } from './executor-dispatch.js'
@@ -400,6 +401,8 @@ async function executeTool(
   // 在 denyList 计算之后执行）；组装失败 fail loud（本机片段是有意增强，静默失效
   // 最难排查），条件不满足时返回空串（不注入）。
   const availableNames = availableToolNames(visibleNames, denyList)
+  // LSP 工具面探测（切片 ④）：交付时过滤纪律段 LSP 句——无 LSP 工具时不注入。
+  const hasLsp = hasLspTooling(availableNames)
   // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
   // 一并传入，跨 provider 派发才不报 UNKNOWN_MODEL；裸 id 无 provider 按父 provider
   // 解析）；effort 原样 brand 进 reasoningEffort（同名直通），model 缺省时也能
@@ -452,7 +455,14 @@ async function executeTool(
         availableNames,
       )
       if (localErr !== null) throw localErr
-      const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives)
+      const built = buildFullInjection(
+        root,
+        taskRelPath,
+        params.kind,
+        params.prompt,
+        localDirectives,
+        hasLsp,
+      )
       sendText = built.text
       injection = injectionStats(built)
     } else {
@@ -484,7 +494,14 @@ async function executeTool(
       availableNames,
     )
     if (localErr !== null) throw localErr
-    const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives)
+    const built = buildFullInjection(
+      root,
+      taskRelPath,
+      params.kind,
+      params.prompt,
+      localDirectives,
+      hasLsp,
+    )
     sendText = built.text
     injection = injectionStats(built)
     try {
@@ -523,12 +540,7 @@ async function executeTool(
   // 派发——返回子代理标识 + 完整 receipt（注入统计派发前已就绪），不等待结算。
   if (params.foreground === true) {
     try {
-      return await collectExecutorTurn(
-        ctx,
-        childId,
-        { forced, reused, injection },
-        effective,
-      )
+      return await collectExecutorTurn(ctx, childId, { forced, reused, injection }, effective)
     } finally {
       // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 followup 续用轮）。
       await drainContinuableChild(ctx, parent, childId)
@@ -543,12 +555,14 @@ async function executeTool(
 
 /**
  * 组装全量注入 prompt（新派发/reinject 续接共用）：本机片段已由调用方探测，此处
- * 调用 core buildExecutorPrompt；组装失败 fail loud。
+ * 调用 core buildExecutorPrompt；组装失败 fail loud。hasLsp 由调用方按可见工具集
+ * 探测（交付时过滤纪律段 LSP 句，切片 ④）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param kind executor 类型
  * @param userPrompt 用户任务正文
  * @param localDirectives 本机片段合成文本（已探测可用工具集）
+ * @param hasLsp 目标环境是否具备 LSP 工具面
  * @returns 组装结果（text + stats）
  */
 function buildFullInjection(
@@ -557,6 +571,7 @@ function buildFullInjection(
   kind: string,
   userPrompt: string,
   localDirectives: string,
+  hasLsp: boolean,
 ): ExecutorPromptResult {
   const [promptErr, built] = buildExecutorPrompt({
     root,
@@ -564,6 +579,7 @@ function buildFullInjection(
     kind,
     userPrompt,
     localDirectives,
+    hasLsp,
   })
   if (promptErr !== null || built === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
@@ -574,15 +590,17 @@ function buildFullInjection(
 /**
  * 从 buildExecutorPrompt 结果投影注入统计（receipt 渲染用）：总字节取注入文本长度
  * （KB 一位小数由 core 渲染），计数来自 stats——可见喂给子代理的上下文规模。
+ * 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed。
  * @param built buildExecutorPrompt 结果
- * @returns 注入统计四元组
+ * @returns 注入统计五元组
  */
 function injectionStats(built: ExecutorPromptResult): ExecutorInjectionStats {
   return {
     bytes: Buffer.byteLength(built.text, 'utf8'),
     inlined: built.stats.filesInlined,
     truncated: built.stats.truncated,
-    indexed: built.stats.filesIndexed,
+    indexed: 0,
+    pointed: built.stats.filesPointed,
   }
 }
 
@@ -684,4 +702,3 @@ function translateForkContinueError(error: unknown): unknown {
   }
   return error
 }
-
