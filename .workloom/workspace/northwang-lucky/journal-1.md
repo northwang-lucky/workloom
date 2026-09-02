@@ -178,3 +178,9 @@
 - Commit: 2ced46d
 - Summary: LSP 提示词基线扩展：主句五场景化 + research 只读变体句，契约 v15，本机片段点名式定制；顺带修复 cordis.patch.yml 缺失的 .js LSP 映射（未重启，待用户）
 
+## 移除 DSH 写入硬门禁
+
+- Time: 2026-09-02T08:01:55.583Z
+- Commit: 923ce0d
+- Summary: 排查 429 续跑误判后确认彻底删除 DSH 写入硬门禁：gate 模块/豁免/配置/doctor/workflow 描述全删，保留 implement executor 分工提示；TDD 四接缝，独立 check PASS，profile 已同步未重启。
+
