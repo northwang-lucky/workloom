@@ -15,10 +15,6 @@
  *   SystemPromptService 做法），运行时由宿主注入；
  * - 子代理释放失败（drain）只 WARNING 不阻塞结果返回；其余故障 fail loud（抛错由
  *   DSH 工具管线转失败结果）；
- * - 写门禁豁免：新派发在 startContinuable resolve 后、续用在 followup resolve 后立即
- *   registerWriteGateExemption(childId)，drain 释放时注销（成功失败均注销）——豁免
- *   存活期覆盖整个 turn（含 followup 续用轮），而 subagent_fork/非 executor 派发路径
- *   不豁免，从而堵住「fork 绕过主会话门禁」；
  * - model 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置（按 executor
  *   kind 取值，字段独立合并）；配置支持 subagent_profiles 按主会话当前模型
  *   （requestHeader 快照的 provider/model）分档匹配，命中的条目优先于旧
@@ -83,10 +79,6 @@ import {
 } from './executor-dispatch.js'
 import type { SpawnProviderLike } from './executor-dispatch.js'
 import { collectExecutorTurn, drainContinuableChild, locateContinueChildId } from './executor-continuation.js'
-import {
-  registerWriteGateExemption,
-  unregisterWriteGateExemption,
-} from './gate.js'
 
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
 const KIND_LABELS = {
@@ -438,9 +430,6 @@ async function executeTool(
       throw toCapabilityError(error)
     }
   }
-  // 指令已入 inbox（startContinuable/followup resolve）即登记写门禁豁免：覆盖整个
-  // turn（含续用轮）；resolve 前子代理不开始 turn，无竞态。
-  registerWriteGateExemption(childId)
   try {
     return await collectExecutorTurn(ctx, childId, {
       root,
@@ -451,10 +440,8 @@ async function executeTool(
       reused,
     }, effective)
   } finally {
-    // 先释放子代理 Activation（失败仅告警），再注销豁免：成功失败均注销
-    // （豁免存活期 = 指令入 inbox 至 drain 释放，覆盖 followup 续用轮）。
+    // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 followup 续用轮）。
     await drainContinuableChild(ctx, parent, childId)
-    unregisterWriteGateExemption(childId)
   }
 }
 
