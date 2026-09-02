@@ -28,6 +28,7 @@ import {
   listTasks,
   readTask,
   recordExecutorDispatch,
+  settleExecutorDispatch,
   runTaskHooks,
   computeTaskStage,
 } from '../src/legacy/task-store.js'
@@ -1468,6 +1469,153 @@ test('listTasks 摘要包含 parent 字段', async () => {
     assert.equal(childSummary.parent, parent.taskRelPath)
     const parentSummary = list.find((t) => t.title === 'Summary Parent')
     assert.equal(parentSummary.parent, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 初写：派发记录含 status running，stage 更新语义保留', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Running' })
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: 'ui impl',
+      childId: 'child-1',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1)
+    assert.equal(saved.dispatches[0].status, 'running', 'initial write must record status running')
+    assert.equal(saved.dispatches[0].childId, 'child-1')
+    // stage 更新语义保留（frontend → implement）
+    assert.equal(saved.stage, TaskStage.IMPLEMENT)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('settleExecutorDispatch 回填 completed/failed：只改 status/error，不动 stage、不重复计数', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Settle Record' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'check',
+      title: 'c1',
+      childId: 'child-1',
+    })
+    // 回填 completed（无 error）
+    const [err1] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'child-1',
+      status: 'completed',
+    })
+    assert.equal(err1, null)
+    let saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1, 'backfill must not append a new record')
+    assert.equal(saved.dispatches[0].status, 'completed')
+    assert.equal(saved.dispatches[0].error, undefined)
+    assert.equal(saved.stage, TaskStage.CHECK, 'backfill must not change stage')
+    // 再初写一条 running 后回填 failed + 一行错误摘要
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'check',
+      title: 'c2',
+      childId: 'child-2',
+    })
+    const [err2] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'child-2',
+      status: 'failed',
+      error: 'the executor failed before it finished',
+    })
+    assert.equal(err2, null)
+    saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 2, 'backfill must not re-count')
+    assert.equal(saved.dispatches[1].status, 'failed')
+    assert.equal(saved.dispatches[1].error, 'the executor failed before it finished')
+    assert.equal(saved.stage, TaskStage.CHECK, 'backfill must not change stage')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('settleExecutorDispatch 按 childId 关联最近一条 running；无匹配/已结算 no-op', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Settle Match' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'i1',
+      childId: 'child-1',
+    })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'i2',
+      childId: 'child-1',
+    })
+    // 最后一条同 childId 仍是 running：只回填它（前一条保持 running）
+    const [err] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'child-1',
+      status: 'failed',
+      error: 'declined',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].status, 'running')
+    assert.equal(saved.dispatches[1].status, 'failed')
+    // 未知 childId：no-op（不报错、不新增记录）
+    const [err2] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'ghost',
+      status: 'failed',
+      error: 'x',
+    })
+    assert.equal(err2, null)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：存量无 status 的派发记录读取视为 completed（不迁移落盘）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '09-02-legacy-dispatch')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({
+        id: 'x',
+        name: 'legacy-dispatch',
+        status: TaskStatus.PLANNING,
+        dispatches: [
+          { kind: 'implement', at: new Date().toISOString(), title: 'legacy', childId: 'child-9' },
+        ],
+      }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.dispatches[0].status, 'completed', 'legacy record must read as completed')
+    // 不迁移：落盘文件仍无 status 字段
+    const raw = JSON.parse(readFileSync(join(root, '.workloom', rel, 'task.json'), 'utf8'))
+    assert.equal('status' in raw.dispatches[0], false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('失败派发（初写后未结算）留痕可见：running 记录在 task.json 可读', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Trace' })
+    // 初写后不结算（派发后未回填）：记录仍留在 task.json，缺口 A 场景可见。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'check',
+      title: 'c1',
+      childId: 'child-7',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1)
+    assert.equal(saved.dispatches[0].status, 'running')
+    assert.equal(saved.dispatches[0].childId, 'child-7')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

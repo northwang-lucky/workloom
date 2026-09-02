@@ -63,6 +63,9 @@ export interface GateOverride {
   reason?: string
 }
 
+/** executor 派发记录的生命周期状态（派发初写 running；终态由回填 API 写 completed/failed）。 */
+export type DispatchStatus = 'running' | 'completed' | 'failed'
+
 /** executor 派发审计条目（task.json.dispatches 元素）。 */
 export interface DispatchRecord {
   kind: string
@@ -70,10 +73,28 @@ export interface DispatchRecord {
   title: string
   /** continuable 子代理的 durable session id（旧记录缺省；续用定位与同 kind 校验的依据）。 */
   childId?: string
+  /**
+   * 派发生命周期状态：初写（recordExecutorDispatch）写 running；终态由
+   * settleExecutorDispatch 回填 completed/failed。存量无 status 字段的记录
+   * 读取时视为 completed（不迁移落盘）。
+   */
+  status?: DispatchStatus
+  /** 失败一行摘要（终态原因 stopReason 的一行映射；仅 status=failed 时由回填写入）。 */
+  error?: string
 }
 
 /** recordExecutorDispatch 入参（at 由函数生成）。 */
 export type DispatchRecordInput = Pick<DispatchRecord, 'kind' | 'title' | 'childId'>
+
+/** settleExecutorDispatch 回填入参（只改 status/error，不动 stage、不新增记录）。 */
+export interface DispatchSettleInput {
+  /** 关联的 continuable 子代理 id（与 dispatches 记录的 childId 匹配）。 */
+  childId: string
+  /** 终态：completed 或 failed。 */
+  status: Exclude<DispatchStatus, 'running'>
+  /** 失败一行摘要（仅 status=failed 时提供）。 */
+  error?: string
+}
 
 /** task.json 单条记录（快照字段，与数据布局一致）。 */
 export interface TaskRecord {
@@ -224,11 +245,18 @@ export function recordExecutorOverride(
   reason?: string,
 ): [Error | null]
 
-/** 记录一次 executor 派发成功：向 dispatches 追加 { kind, at, title }（at 自动生成）。 */
+/** 记录一次 executor 派发（初写，派发时刻调用）：向 dispatches 追加 { kind, at, title, childId?, status: 'running' }（at 自动生成）。 */
 export function recordExecutorDispatch(
   root: string,
   taskRelPath: string,
   entry: DispatchRecordInput,
+): [Error | null]
+
+/** 回填一次 executor 派发的终态：按 childId 关联最近一条 running 记录，只改 status/error，不动 stage、不新增记录。 */
+export function settleExecutorDispatch(
+  root: string,
+  taskRelPath: string,
+  entry: DispatchSettleInput,
 ): [Error | null]
 
 /**
