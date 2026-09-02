@@ -160,16 +160,36 @@ executor:
 # non-string-array requiresTools fail loudly (same policy as config.yaml).
 #
 # Typical use: upgrade the built-in soft LSP baseline into a hard constraint on
-# a machine that has the LSP tooling installed:
+# a machine that has the LSP tooling installed. The fragments below are an
+# example written for DSH with dsh-lsp-actions; the tool names and the exposed
+# set vary by runtime and machine configuration, and requiresTools only gates on
+# tools the runtime actually exposes (on Pi, keep the wording scenario-based
+# instead of naming tools). Shared naming table: lsp_symbols / lsp_signature /
+# lsp_completion / lsp_rename / lsp_code_action / lsp_diagnostics (hard), plus
+# lsp_format / lsp_inlay_hints marked "as needed".
 #   main.md:
-#     Always use LSP tools for coding and error diagnosis, and include an LSP
-#     diagnostics check in the verification pass.
-#   implement.md / check.md / frontend.md:
+#     You MUST lean on LSP tooling on this machine: use lsp_symbols /
+#     lsp_signature to orient before touching code, lsp_completion /
+#     lsp_code_action to resolve details and fixes, lsp_rename for renames
+#     instead of textual search, and include an lsp_diagnostics check in the
+#     verification pass of every task. lsp_format / lsp_inlay_hints: as needed.
+#   implement.md:
 #     ---
 #     requiresTools: [lsp_diagnostics]
 #     ---
-#     You MUST use LSP tools ... and report the LSP diagnostics verification in
-#     your final report.
+#     You MUST use LSP tooling while implementing on this machine:
+#     lsp_symbols / lsp_signature / lsp_completion for structure and APIs,
+#     lsp_rename for every symbol rename (never textual find-replace),
+#     lsp_code_action for quick-fixes, and lsp_diagnostics after each edit; the
+#     final report MUST include the lsp_diagnostics verification result.
+#     lsp_format / lsp_inlay_hints: as needed.
+#   check.md / frontend.md:
+#     ---
+#     requiresTools: [lsp_diagnostics]
+#     ---
+#     Same recipe per role: check leans on lsp_code_action + lsp_diagnostics and
+#     reports the result; frontend takes the implement subset for its
+#     verification pass. Both mark lsp_format / lsp_inlay_hints "as needed".
 #
 # Composed text is injected outside the context_injection budget (discipline
 # text is small and must take full effect). workloom_doctor lists every loaded
