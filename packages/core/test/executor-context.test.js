@@ -448,10 +448,20 @@ test('userPrompt 已含 kind 纪律段标题不影响权威段注入（kind 标�
 /** 本机片段注入段标题（与实现一致，测试自给自足）。 */
 const LOCAL_DIRECTIVES_HEADING = '## Local directives'
 
-/** LSP 软基线句子（与实现一致，测试自给自足）。 */
+/** LSP 主基线句子（与实现一致，测试自给自足）。 */
 const LSP_BASELINE_SENTENCE =
-  'When LSP tooling is available, use it to assist coding and error diagnosis, ' +
+  'When LSP tooling is available, treat it as the first choice for code work: ' +
+  'read structure through LSP symbol outlines and call signatures; ' +
+  'resolve members and arguments with completions; ' +
+  'rename symbols through server-side rename and fix them with code actions ' +
+  'instead of hand-searched edits; ' +
   'and include an LSP diagnostics check in the verification pass.'
+
+/** LSP 只读变体句子（research 纪律段专用，与实现一致，测试自给自足）。 */
+const LSP_RESEARCH_BASELINE_SENTENCE =
+  'When LSP tooling is available, explore through it before falling back to ' +
+  'text-search sweeps: map code structure with LSP symbol outlines and resolve ' +
+  'call signatures and members from the language server.'
 
 test('localDirectives 传入：文本注入于 userPrompt 之后、终极权威段之前', () => {
   const root = makeProject()
@@ -554,25 +564,37 @@ test('research 纪律段含结构化块三要素且保留原始三句根', () =>
   }
 })
 
-test('LSP 软基线：implement/check/frontend 纪律段含软句子，research 不含', () => {
+test('LSP 基线：implement/check/frontend 纪律段含主句，research 段含只读变体句', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    for (const kind of ['implement', 'check', 'frontend', 'research']) {
+    for (const kind of ['implement', 'check', 'frontend']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       // kind 纪律段并入末尾权威段：从 `## Executor contract` 起提取全文断言
       const contractAt = result.text.indexOf('## Executor contract')
       const section = result.text.slice(contractAt)
-      if (kind === 'research') {
-        assert.ok(!section.includes('LSP tooling'), 'research must not carry the LSP baseline')
-      } else {
-        assert.ok(
-          section.includes(LSP_BASELINE_SENTENCE),
-          `${kind} discipline must carry the LSP baseline sentence`,
-        )
-      }
+      assert.ok(
+        section.includes(LSP_BASELINE_SENTENCE),
+        `${kind} discipline must carry the LSP main baseline sentence`,
+      )
+      assert.ok(
+        !section.includes(LSP_RESEARCH_BASELINE_SENTENCE),
+        `${kind} discipline must not carry the research-only variant sentence`,
+      )
     }
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
+    assert.equal(err, null)
+    const contractAt = result.text.indexOf('## Executor contract')
+    const section = result.text.slice(contractAt)
+    assert.ok(
+      section.includes(LSP_RESEARCH_BASELINE_SENTENCE),
+      'research discipline must carry the read-only LSP variant sentence',
+    )
+    assert.ok(
+      !section.includes(LSP_BASELINE_SENTENCE),
+      'research discipline must not carry the LSP main baseline sentence',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

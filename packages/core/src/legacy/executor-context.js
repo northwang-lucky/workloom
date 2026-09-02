@@ -119,13 +119,27 @@ const HEADING_LINE_RE = /^#{1,6}\s+/
 const FENCE_LINE_RE = /^```/
 
 /**
- * 内置 LSP 软基线句子（产品内置，runtime 无关，不带条件；检测到 LSP 工具时由
+ * 内置 LSP 主基线句子（产品内置，runtime 无关，不带条件；检测到 LSP 工具时由
  * 本机片段加强为硬指令）。统一软措辞（"When available"）确保无 LSP 插件环境
- * 不产生指向虚无的硬指令。
+ * 不产生指向虚无的硬指令。场景语言点名五类 LSP 能力（symbol 大纲/签名、
+ * 补全、改名、修复动作、diagnostics 验证），不指名 runtime 特有工具名。
  */
 const LSP_BASELINE_SENTENCE =
-  'When LSP tooling is available, use it to assist coding and error diagnosis, ' +
+  'When LSP tooling is available, treat it as the first choice for code work: ' +
+  'read structure through LSP symbol outlines and call signatures; ' +
+  'resolve members and arguments with completions; ' +
+  'rename symbols through server-side rename and fix them with code actions ' +
+  'instead of hand-searched edits; ' +
   'and include an LSP diagnostics check in the verification pass.'
+
+/**
+ * 内置 LSP 只读变体句子（research 纪律段专用，同主句的 runtime 无关软措辞）：
+ * 探索阶段优先用 LSP 读结构（symbol 大纲/签名解析），再回退文本扫描。
+ */
+const LSP_RESEARCH_BASELINE_SENTENCE =
+  'When LSP tooling is available, explore through it before falling back to ' +
+  'text-search sweeps: map code structure with LSP symbol outlines and resolve ' +
+  'call signatures and members from the language server.'
 
 /**
  * 纪律段追加的「先读材料、禁止全局 recon」指令（implement/check 两 kind 注入；
@@ -151,6 +165,7 @@ export const EXECUTOR_CONTRACT_BY_KIND = Object.freeze({
   [EXECUTOR_KINDS.research]: `Produce an actionable report the implementer can follow directly.
 Ground every conclusion in the real source: read the actual files or data before claiming a fact, and cite file paths for each conclusion.
 Separate verified findings from suggestions, and mark anything unverified as such.
+${LSP_RESEARCH_BASELINE_SENTENCE}
 
 Structure the report in research-facts blocks (see the research-facts spec and its template asset):
 - Use '##' section headings, each heading stating the section's takeaway in one sentence.
