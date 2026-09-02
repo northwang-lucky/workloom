@@ -21,11 +21,11 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
-test('契约 v16 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
+test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 16)
-  assert.ok(contract.norms !== null, 'v16 契约必须含 norms 块')
+  assert.equal(contract.version, 17)
+  assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
   assert.match(contract.norms, /Dispatch \(always-on\):/)
@@ -53,7 +53,7 @@ test('契约 v16 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一�
   assert.ok(contract.norms.includes(dispatchException), 'norms 缺派发例外句')
 })
 
-test('契约 v16 含 UI 固定问题与 1.1b/1.1c 定位', () => {
+test('契约 v17 含 UI 固定问题与 1.1b/1.1c 定位', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const uiBody = contract.steps.find((step) => step.id === '1.1').body
@@ -65,7 +65,7 @@ test('契约 v16 含 UI 固定问题与 1.1b/1.1c 定位', () => {
   assert.ok(uiBody.includes('Phase 1.1c'), '1.1 正文缺 Phase 1.1c 定位')
 })
 
-test('契约 v16 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2）', () => {
+test('契约 v17 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
@@ -80,7 +80,7 @@ test('契约 v16 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2�
   )
 })
 
-test('契约 v16 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
+test('契约 v17 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁措辞', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   // 1.0 步骤正文：推荐建任务，用户确认后才创建
@@ -118,7 +118,7 @@ test('契约 v16 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁�
   assert.ok(reviewBody.includes('prd.md has no H1 title'), '1.4 正文缺 H1 门禁措辞')
 })
 
-test('契约 v16 含 grilling 固定问题（时序/选项/后果/UI yes 不问）', () => {
+test('契约 v17 含 grilling 固定问题（时序/选项/后果/UI yes 不问）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
@@ -149,7 +149,7 @@ test('契约 v16 含 grilling 固定问题（时序/选项/后果/UI yes 不问�
   }
 })
 
-test('契约 v16 planning 面包屑为行动指令式（brainstorm → grilling → 收敛前不 finalize prd）', () => {
+test('契约 v17 planning 面包屑为行动指令式（brainstorm → grilling → 收敛前不 finalize prd）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const crumb = contract.breadcrumbs.get('planning')
@@ -164,7 +164,7 @@ test('契约 v16 planning 面包屑为行动指令式（brainstorm → grilling 
   )
 })
 
-test('契约 v16 norms Grilling 条目含补强句（planning 在 brainstorm 后 grilling，收敛前不 finalize prd）', () => {
+test('契约 v17 norms Grilling 条目含补强句（planning 在 brainstorm 后 grilling，收敛前不 finalize prd）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   assert.ok(
@@ -188,7 +188,7 @@ test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {
   assert.match(loopStep.body, /red-green/)
 })
 
-test('契约 v16 §2.2 含 check 分级发现即修（P2 自修）与结构化 Open issues 仅存问题段', () => {
+test('契约 v17 §2.2 含 check 分级发现即修（P2 自修）与结构化 Open issues 仅存问题段', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
@@ -204,7 +204,7 @@ test('契约 v16 §2.2 含 check 分级发现即修（P2 自修）与结构化 O
   assert.ok(checkBody.includes('`- none`'), '2.2 正文缺无仅存问题时写 - none')
 })
 
-test('契约 v16 §2.2 含 P0/P1/P2 分级定义（单一来源）', () => {
+test('契约 v17 §2.2 含 P0/P1/P2 分级定义（单一来源）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
@@ -249,7 +249,7 @@ test('契约 v16 §2.2 含 P0/P1/P2 分级定义（单一来源）', () => {
   )
 })
 
-test('契约 v16 §2.2 含主会话派发指引（禁只读审查、禁引导分级、prompt 必含小修大上报）', () => {
+test('契约 v17 §2.2 含主会话派发指引（禁只读审查、禁引导分级、prompt 必含小修大上报）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
@@ -277,7 +277,7 @@ test('契约 v16 §2.2 含主会话派发指引（禁只读审查、禁引导分
   )
 })
 
-test('契约 v16 §2.2 含 P0 处理权属（只能修或用户确认后调基线，不得记不修原因豁免）', () => {
+test('契约 v17 §2.2 含 P0 处理权属（只能修或用户确认后调基线，不得记不修原因豁免）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
@@ -301,7 +301,7 @@ test('契约 v16 §2.2 含 P0 处理权属（只能修或用户确认后调基�
   )
 })
 
-test('契约 v16 principle 4 含 check 阶段修复权属句（修复窗口归主会话，按 2.2）', () => {
+test('契约 v17 principle 4 含 check 阶段修复权属句（修复窗口归主会话，按 2.2）', () => {
   const raw = readFileSync(assetPath, 'utf8')
   // principle 4：子代理实现与检查、主会话修复 check 阶段发现（按 2.2）、提交权留在主会话
   assert.ok(
@@ -312,7 +312,7 @@ test('契约 v16 principle 4 含 check 阶段修复权属句（修复窗口归�
   )
 })
 
-test('契约 v16 principle 5 澄清子任务 check 非只读（容器验收 ≠ check 只读）', () => {
+test('契约 v17 principle 5 澄清子任务 check 非只读（容器验收 ≠ check 只读）', () => {
   const raw = readFileSync(assetPath, 'utf8')
   // 子任务 check 同样适用 check 纪律（P2 自修、P0/P1 上报）
   assert.ok(
@@ -333,7 +333,7 @@ test('契约 v16 principle 5 澄清子任务 check 非只读（容器验收 ≠ 
   )
 })
 
-test('契约 v16 §2.2 含主会话修复窗口与重派 check 复核闭环', () => {
+test('契约 v17 §2.2 含主会话修复窗口与重派 check 复核闭环', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
@@ -356,7 +356,7 @@ test('契约 v16 §2.2 含主会话修复窗口与重派 check 复核闭环', ()
   )
 })
 
-test('契约 v16 in_progress 面包屑含 check 阶段修复放行（含实现代码）与 implement 阶段派发指引（stage 限定）', () => {
+test('契约 v17 in_progress 面包屑含 check 阶段修复放行（含实现代码）与 implement 阶段派发指引（stage 限定）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const crumb = contract.breadcrumbs.get('in_progress')
@@ -379,7 +379,7 @@ test('契约 v16 in_progress 面包屑含 check 阶段修复放行（含实现�
   )
 })
 
-test('契约 v16 norms Dispatch 含 check 阶段主会话直接修复例外句', () => {
+test('契约 v17 norms Dispatch 含 check 阶段主会话直接修复例外句', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   assert.ok(
@@ -392,7 +392,7 @@ test('契约 v16 norms Dispatch 含 check 阶段主会话直接修复例外句',
   )
 })
 
-test('契约 v16 不再提及 DSH 运行时写门禁（executor.gate / 文件拦截），分工与 check 例外保留', () => {
+test('契约 v17 不再提及 DSH 运行时写门禁（executor.gate / 文件拦截），分工与 check 例外保留', () => {
   const raw = readFileSync(assetPath, 'utf8')
   const [err, contract] = parseContract(raw)
   assert.equal(err, null)
@@ -432,7 +432,7 @@ const LSP_BASELINE_SENTENCE =
   'instead of hand-searched edits; ' +
   'and include an LSP diagnostics check in the verification pass.'
 
-test('契约 v16 含 LSP 软基线：norms（always-on）、in_progress 面包屑与 2.1/2.2 完成标准', () => {
+test('契约 v17 含 LSP 软基线：norms（always-on）、in_progress 面包屑与 2.1/2.2 完成标准', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   // [workflow-norms] LSP (always-on) 小组：每轮注入主 agent。
@@ -448,4 +448,52 @@ test('契约 v16 含 LSP 软基线：norms（always-on）、in_progress 面包�
   assert.ok(implementStep.body.includes(LSP_BASELINE_SENTENCE), '2.1 完成标准缺 LSP 软基线句')
   const checkStep = contract.steps.find((step) => step.id === '2.2')
   assert.ok(checkStep.body.includes(LSP_BASELINE_SENTENCE), '2.2 完成标准缺 LSP 软基线句')
+})
+
+test('契约 v17 norms Dispatch 段含后台默认说明与「不复述」句（逐字断言）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.ok(
+    contract.norms.includes(
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately and does not block the main session; pass `foreground: true` only when the main session must wait on the result.',
+    ),
+    'norms Dispatch 缺后台默认说明句',
+  )
+  // 「不复述」句：派发/续接 prompt 不复述子会话已持有的上下文（纪律对象是主会话）。
+  assert.ok(
+    contract.norms.includes(
+      'Dispatch and continuation prompts must not restate the context the subagent already holds (spec, research, prd/design/implement, and the session history); send only the new work for this round',
+    ),
+    'norms 缺「不复述子会话已有上下文」句',
+  )
+})
+
+test('契约 v17 §2.1/§2.2 含后台流程叙述（派发即返回→继续其他工作→完成通知收报告）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const implementBody = contract.steps.find((step) => step.id === '2.1').body
+  assert.ok(
+    implementBody.includes(
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives via the subagent notice',
+    ),
+    '2.1 正文缺后台流程叙述',
+  )
+  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  assert.ok(
+    checkBody.includes(
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives via the subagent notice',
+    ),
+    '2.2 正文缺后台流程叙述',
+  )
+})
+
+test('契约 v17 norms Dispatch 段含「续接只追加新工作、不取报告」句', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.ok(
+    contract.norms.includes(
+      'use `continue_executor` only to append new work, never to collect a report',
+    ),
+    'norms 缺续接只追加新工作句',
+  )
 })

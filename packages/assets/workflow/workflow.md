@@ -1,5 +1,5 @@
 ---
-version: 16
+version: 17
 states:
   - no_task
   - planning
@@ -86,7 +86,7 @@ Completion criteria: for a task involving implementation work, the design/implem
 
 #### 2.1 Implement
 
-Dispatch the implement executor with `workloom_execute` (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). Always pass a semantic `title` with the dispatch (required by the schema) so repeated dispatches of the same task remain distinguishable in subagent sessions. The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop. Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
+Dispatch the implement executor with `workloom_execute` (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). Always pass a semantic `title` with the dispatch (required by the schema) so repeated dispatches of the same task remain distinguishable in subagent sessions. Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives via the subagent notice. Pass `foreground: true` only when the main session must wait on the result, and use `continue_executor` only to append new work — never to collect a report. The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop. Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
 
 For a task with frontend UI presentation (the UI-design fixed question answered yes), its frontend file implementation must go through a `workloom_execute` dispatch with `kind: frontend`; the logic and backend parts still go through the implement executor. The check tool refuses such a task unless a frontend dispatch has been recorded (see 2.2), so route UI work through a dedicated frontend dispatch instead of folding it into the implement dispatch.
 Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned. When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
@@ -98,6 +98,8 @@ Dispatch the check executor with `workloom_execute`: it reviews changes against 
 - P0 (blocking): acceptance criteria unmet; hard lint / typecheck / build / tests failures; security or data-integrity risks.
 - P1 (important): behavioral or correctness defects; design or spec deviations (including cross-file semantic changes); issues that pre-date the current task, even mechanical ones.
 - P2 (minor): mechanical issues (typos, naming, comments, formatting, weakened test assertions); small local defects confined to a single file; compliance fixes with no trade-offs.
+
+Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives via the subagent notice. Pass `foreground: true` only when the main session must wait on the result, and use `continue_executor` only to append new work (for example a re-review) — never to collect a report.
 
 The check executor fixes P2 findings itself — leaving one unfixed is a dereliction of duty — then runs lint and typecheck after fixing. It does not fix P0/P1 findings: its report ends with a structured `## Open issues` section listing every remaining issue as `- <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>`, or `- none` when nothing remains. The final check of a task must cover the full scope.
 
@@ -144,6 +146,8 @@ Questioning (always-on):
 
 Dispatch (always-on):
 
+- Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately and does not block the main session; pass `foreground: true` only when the main session must wait on the result. The completion report arrives with the subagent notice; do not block or poll for it, and use `continue_executor` only to append new work, never to collect a report.
+- Dispatch and continuation prompts must not restate the context the subagent already holds (spec, research, prd/design/implement, and the session history); send only the new work for this round, and use `reinject` only when compaction lost context.
 - Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
 - Exception (stage `check`): while the task stage is `check`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the check executor for a full re-review afterwards.
 
