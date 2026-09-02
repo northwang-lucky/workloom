@@ -185,8 +185,8 @@ function renderBreadcrumb(target: InjectionTarget): string {
  * 组装当前发起会话的 session-context 注入文本（取代式快照）。
  * 契约缺失静默返回空串；解析/组装出错只告警，不阻塞会话。
  * 本机片段（主 agent 目标 main）：以 ctx.tools.schemas() 全局视图为可用工具集
- * 组装（all + main），经快照尾部 Local directives 小节注入；组装失败走同样的
- * 告警降级（返回空串，不阻塞会话快照）。
+ * 组装（all + main），经快照尾部 Local directives 小节注入；组装失败只告警，
+ * 以空 directives 继续组装快照（小节级降级，与 Pi 侧 injectSessionContext 对齐）。
  * @param ctx 插件上下文（tools 服务探测可用工具集）
  * @param target 注入目标（agent + 项目根）
  * @returns 注入文本（可能为空串）
@@ -200,14 +200,13 @@ export function renderSessionContext(ctx: Context, target: InjectionTarget): str
     toolsOf(ctx).schemas().map((schema) => schema.name),
   )
   if (localErr !== null) {
-    console.warn(`${CONTEXT_WARN_PREFIX} ${localErr.message}`)
-    return ''
+    console.warn(`${CONTEXT_WARN_PREFIX} local directives: ${localErr.message}`)
   }
   return assembleSessionContextText(
     target,
     contractText,
     delegationDepthOf(target.agent),
-    directives,
+    localErr !== null ? '' : directives,
   )
 }
 

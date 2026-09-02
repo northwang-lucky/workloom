@@ -141,7 +141,7 @@ test('renderSessionContext：主 agent 以 ctx.tools.schemas() 为可用集探�
   }
 })
 
-test('renderSessionContext：本机片段组装失败只告警返回空串（不阻塞会话快照）', async (t) => {
+test('renderSessionContext：本机片段组装失败只告警，快照照常注入且无 Local directives 小节（小节级降级）', async (t) => {
   const root = makeRoot()
   const dir = join(root, '.workloom', 'prompts.local')
   mkdirSync(dir, { recursive: true })
@@ -150,9 +150,14 @@ test('renderSessionContext：本机片段组装失败只告警返回空串（不
     const warn = t.mock.method(console, 'warn', () => {})
     const ctx = { tools: { schemas: () => [] } }
     const text = renderSessionContext(ctx, makeTarget(root))
-    assert.equal(text, '')
+    assert.ok(text.includes('<workloom-session-context>'), '片段失败不阻塞会话快照')
+    assert.ok(text.includes('Workflow: '), '快照内容完整，不是空串降级')
+    assert.ok(!text.includes('Local directives:'), '组装失败时小节整体省略')
     assert.equal(warn.mock.callCount(), 1)
-    assert.match(String(warn.mock.calls[0].arguments[0]), /session context injection skipped/)
+    assert.match(
+      String(warn.mock.calls[0].arguments[0]),
+      /session context injection skipped: local directives:/,
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
