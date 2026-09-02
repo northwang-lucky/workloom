@@ -150,6 +150,8 @@ export {
   GRILLING_PENDING_NOTE,
 } from './surface.js'
 
+export type { ExecutorInjectionStats } from './surface.js'
+
 export type {
   WorkloomConfig,
   SubagentConfigEntry,

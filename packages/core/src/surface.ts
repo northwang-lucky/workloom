@@ -214,6 +214,21 @@ export const GRILLING_PENDING_NOTE =
   'No grilling judgment recorded yet; consider recording the fixed grilling question answer via workloom_task_check with phase=grilling.'
 
 /**
+ * 注入体积统计（receipt 渲染用）：让主会话每次派发可见喂给子代理的上下文规模，
+ * 大任务顶格预算时立即可察觉。
+ */
+export interface ExecutorInjectionStats {
+  /** 注入文本总字节数（KB 显示 = bytes / 1024 一位小数）。 */
+  bytes: number
+  /** 内联文件块数（artifact 与 jsonl 引用合计）。 */
+  inlined: number
+  /** 内容截断次数（按预算截断的 artifact/文件）。 */
+  truncated: number
+  /** 索引降级条目数（目录条目与超总量预算降级条目）。 */
+  indexed: number
+}
+
+/**
  * 拼装 executor 回执行：生效 model/effort 及各自来源（运行时文案英文）。
  * 字段缺失时显示 `<parent session>` / `<unset>` 与 `(default)` 来源，
  * 使配置未生效一眼可辨。
@@ -223,6 +238,9 @@ export const GRILLING_PENDING_NOTE =
  * effort 段条件渲染：effort/effortSource 均未传时整段省略（调用方未传该维度
  * 时保持 receipt 精简）；任一存在则按原格式渲染（缺失字段仍显示
  * `<unset>`/`(default)`，兼容浅传参），Pi/DSH 传参行为不变。
+ * 注入统计段条件渲染：injection 传入时同行追加
+ * `; injection: <KB>KB, N inlined, T truncated, I indexed`（KB 一位小数）；
+ * 未传时保持原样（向后兼容：不渲染 injection 段）。
  */
 export function buildExecutorReceipt(params: {
   model?: string
@@ -233,6 +251,7 @@ export function buildExecutorReceipt(params: {
   effortSource?: 'param' | 'config'
   effortConfigSource?: 'whenMain' | 'fallback' | 'legacy'
   effortWhenMainValue?: string
+  injection?: ExecutorInjectionStats
 }): string {
   const modelLabel = params.model ?? '<parent session>'
   const modelSrc = formatSource(
@@ -251,6 +270,10 @@ export function buildExecutorReceipt(params: {
       params.effort,
     )
     receipt += `, effort: ${effortLabel}${effortSrc}`
+  }
+  if (params.injection !== undefined) {
+    const { bytes, inlined, truncated, indexed } = params.injection
+    receipt += `; injection: ${(bytes / 1024).toFixed(1)}KB, ${inlined} inlined, ${truncated} truncated, ${indexed} indexed`
   }
   return receipt
 }
