@@ -1,0 +1,1150 @@
+{
+  "gitRev": "c4f6b37c57ac60e62719c5ce3f0542730ff5224c",
+  "files": [
+    "agent-session-services.js",
+    "agent-session.js",
+    "args.js",
+    "dist/cli/args.js",
+    "dist/core/agent-session.js",
+    "dist/core/package-manager.js",
+    "dist/core/sdk.js",
+    "dist/extensions/index.js",
+    "dist/index.ts",
+    "dist/main.js",
+    "main.js",
+    "package-manager.js",
+    "pi-args.ts",
+    "resource-loader.js",
+    "sdk.js",
+    "settings-manager.js"
+  ],
+  "sections": [
+    {
+      "sourceFile": "research/01-tools-no-extensions.md",
+      "title": "定义与解析",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "dist/cli/args.js",
+          "line": 124,
+          "lineEnd": 125
+        },
+        {
+          "path": "dist/cli/args.js",
+          "line": 279,
+          "lineEnd": null
+        },
+        {
+          "path": "dist/main.js",
+          "line": 568,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "`dist/cli/args.js:124-125`",
+          "text": "`else if (arg === \"--no-extensions\" |  | arg === \"-ne\") { result.noExtensions = true; }` —— 参数解析，含短别名 `-ne`",
+          "anchors": [
+            {
+              "path": "dist/cli/args.js",
+              "line": 124,
+              "lineEnd": 125
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`dist/cli/args.js:279`",
+          "text": "帮助文本：`--no-extensions, -ne   Disable extension discovery (explicit -e paths still work)`",
+          "anchors": [
+            {
+              "path": "dist/cli/args.js",
+              "line": 279,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`dist/main.js:568,614,618`",
+          "text": "`parsed.extensions`（即 `-e` 值）→ `resolvedExtensionPaths` → `additionalExtensionPaths`；`parsed.noExtensions` 原样传入 `DefaultResourceLoader` 的 `noExtensions`",
+          "anchors": [
+            {
+              "path": "dist/main.js",
+              "line": 568,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-tools-no-extensions.md",
+      "title": "语义（核心）",
+      "summary": "`dist/core/resource-loader.js` 有两处消费 `this.noExtensions`，逻辑一致：",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "含义：**`--no-extensions` 只禁用\"扩展自动发现\"，不阻止 `-e` 显式传入的扩展**（帮助文本\"explicit -e paths still work\"与实现一致）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "被跳过的\"自动发现\"来源（`docs/extensions.md` \"Extension Locations\" + `package-manager.js` settings 解析）：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "全局目录 `~/.pi/agent/extensions/*.ts` 及 `*/index.ts`；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "项目目录 `.pi/extensions/*.ts` 及 `*/index.ts`（需项目信任）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "settings（`~/.pi/agent/settings.json` / `.pi/settings.json`）`packages` 字段中已安装的 npm/git 扩展（如本机已装的 `@narumitw/pi-lsp`、`pi-mcp-adapter` 等）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "js",
+          "code": "// resource-loader.js:315（loadCurrentExtensionSet）与 :408（load 主流程）\nconst extensionPaths = this.noExtensions\n    ? cliEnabledExtensions                       // 仅 -e 显式路径\n    : this.mergePaths(cliEnabledExtensions, enabledExtensions); // -e + 自动发现\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/01-tools-no-extensions.md",
+      "title": "影响边界（重要细节）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "dist/extensions/index.js",
+          "line": 2,
+          "lineEnd": null
+        },
+        {
+          "path": "package-manager.js",
+          "line": 1135,
+          "lineEnd": null
+        },
+        {
+          "path": "resource-loader.js",
+          "line": 276,
+          "lineEnd": null
+        },
+        {
+          "path": "resource-loader.js",
+          "line": 311,
+          "lineEnd": null
+        },
+        {
+          "path": "resource-loader.js",
+          "line": 415,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**`-e` 路径不受影响**：`cliEnabledExtensions` 来自 `resolveExtensionSources(additionalExtensionPaths, { temporary: true })`（`resource-loader.js:276`，取值于 `resource-loader.js:311`），`-e` 接受本地路径、`npm:` 源、`git:` 源（`package-manager.js:1135` parseSource）。",
+          "anchors": [
+            {
+              "path": "resource-loader.js",
+              "line": 276,
+              "lineEnd": null
+            },
+            {
+              "path": "resource-loader.js",
+              "line": 311,
+              "lineEnd": null
+            },
+            {
+              "path": "package-manager.js",
+              "line": 1135,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**内联扩展不受影响**：`extensionFactories`（内置 `llama.cpp` 扩展 + SDK 调用方传入的工厂）在 `loadFinalExtensionSet` 中**总是**追加（`resource-loader.js:415,426` inlineExtensions），与 `noExtensions` 无关。内置 llama.cpp 是 hidden 扩展，只注册 provider，不注册工具（`dist/extensions/index.js:2`）。",
+          "anchors": [
+            {
+              "path": "resource-loader.js",
+              "line": 415,
+              "lineEnd": null
+            },
+            {
+              "path": "dist/extensions/index.js",
+              "line": 2,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**只影响 extensions**：skills/prompts/themes/context-files 各自有独立开关（`--no-skills`/`--no-prompt-templates`/`--no-themes`/`--no-context-files`），`--no-extensions` 不会关掉它们。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`CHANGELOG.md` 佐证：`--no-extensions` 引入自 #524（\"disable extension discovery while still allowing explicit -e paths\"），#776 曾修复漏关问题；`-ne` 短别名用于脚本化。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-tools-no-extensions.md",
+      "title": "内置工具注册表：共 7 个",
+      "summary": "`dist/core/tools/index.d.ts` / `index.js`（`allToolNames`）：",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`read`",
+          "text": "`dist/core/tools/read.js`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`bash`",
+          "text": "`dist/core/tools/bash.js`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`edit`",
+          "text": "`dist/core/tools/edit.js`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`write`",
+          "text": "`dist/core/tools/write.js`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`grep`",
+          "text": "`dist/core/tools/grep.js`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`find`",
+          "text": "`dist/core/tools/find.js`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`ls`",
+          "text": "`dist/core/tools/ls.js`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "注意：`dist/core/tools/` 下的 `edit-diff.js` **不是独立工具**，是 edit 内部共用的 diff 算法库（d.ts 文件头注明 \"Shared diff computation utilities for the edit and similar tools\"）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-tools-no-extensions.md",
+      "title": "默认激活的工具：仅 4 个",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "agent-session.js",
+          "line": 1995,
+          "lineEnd": 2012
+        },
+        {
+          "path": "agent-session.js",
+          "line": 2003,
+          "lineEnd": 2006
+        },
+        {
+          "path": "dist/core/agent-session.js",
+          "line": 2043,
+          "lineEnd": null
+        },
+        {
+          "path": "dist/core/sdk.js",
+          "line": 132,
+          "lineEnd": null
+        },
+        {
+          "path": "sdk.js",
+          "line": 137,
+          "lineEnd": null
+        },
+        {
+          "path": "settings-manager.js",
+          "line": 857,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`dist/core/sdk.js:132` 与 `dist/core/agent-session.js:2043` 的 `defaultActiveToolNames = [\"read\", \"bash\", \"edit\", \"write\"]`（两处一致）。",
+          "anchors": [
+            {
+              "path": "dist/core/sdk.js",
+              "line": 132,
+              "lineEnd": null
+            },
+            {
+              "path": "dist/core/agent-session.js",
+              "line": 2043,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "若用户 settings 配置了 `defaultTools`，会替换该默认集（`settings-manager.js:857 getDefaultTools`；`sdk.js:137` `configuredDefaultToolNames ?? defaultActiveToolNames`）。workloom 未传 `--tools`/`--no-tools`，因此受用户全局 settings 影响。",
+          "anchors": [
+            {
+              "path": "settings-manager.js",
+              "line": 857,
+              "lineEnd": null
+            },
+            {
+              "path": "sdk.js",
+              "line": 137,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`grep`/`find`/`ls` 已注册但**默认不激活**：`_refreshToolRegistry`（`agent-session.js:1995-2012`）在传入 `activeToolNames` 且无 allowlist 时只追加扩展工具（`includeAllExtensionTools` 分支，`agent-session.js:2003-2006`），不会自动补齐 registry 里其余内置工具。",
+          "anchors": [
+            {
+              "path": "agent-session.js",
+              "line": 1995,
+              "lineEnd": 2012
+            },
+            {
+              "path": "agent-session.js",
+              "line": 2003,
+              "lineEnd": 2006
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-tools-no-extensions.md",
+      "title": "工具组装链路",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "agent-session.js",
+          "line": 633,
+          "lineEnd": 645
+        },
+        {
+          "path": "agent-session.js",
+          "line": 1990,
+          "lineEnd": 2012
+        },
+        {
+          "path": "agent-session.js",
+          "line": 2021,
+          "lineEnd": 2027
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`_buildRuntime`（`agent-session.js:2021-2027`）：`createAllToolDefinitions(cwd, ...)` 生成 7 个定义；",
+          "anchors": [
+            {
+              "path": "agent-session.js",
+              "line": 2021,
+              "lineEnd": 2027
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`_refreshToolRegistry`（`agent-session.js:1990-2012`）：内置 7 个 + 扩展工具合并进 `_toolRegistry`；",
+          "anchors": [
+            {
+              "path": "agent-session.js",
+              "line": 1990,
+              "lineEnd": 2012
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`--no-extensions` 且未传 `-e` 时：扩展工具集合为空，激活集 = 默认 4 个。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "最终发送给 LLM 的工具 = `agent.state.tools`（激活集），见 `setActiveToolsByName`（`agent-session.js:633-645`）。",
+          "anchors": [
+            {
+              "path": "agent-session.js",
+              "line": 633,
+              "lineEnd": 645
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-tools-no-extensions.md",
+      "title": "3. LSP / 诊断类工具：不存在",
+      "summary": "穷举验证（dist 全树，仅 .js/.d.ts，排除 .map）：",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "关键词 `lsp`（忽略大小写）：命中全部为 `modelsPath`/`pixelsPerFrame`/`installSpec` 等字符串子串，无任何 Language Server Protocol 引用；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "关键词 `langserver` / `language server`：仅 `docs/security.md` 一处作为一般进程描述（\"language servers ... behave as ordinary local processes\"），与内置工具无关；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "关键词 `diagnostics`：仅 settings/skill 加载诊断信息（`skillDiagnostics`、`promptDiagnostics` 等资源加载报告），不是 LLM 可调用的诊断工具；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`dist/core/tools/` 8 个文件中无 lsp_*/langserver/diagnostics 工具。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**结论：0.84.2 内置工具无任何 LSP/诊断能力；child pi 在 `--no-extensions`（且不 `-e`）下，LLM 可调用工具严格为默认激活的 `read`/`bash`/`edit`/`write` 4 个。**",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/02-lsp-plugin-ecosystem.md",
+      "title": "1. 官方：无 LSP 扩展，examples 中无语言服务器示例",
+      "summary": "**结论：官方不提供 LSP 扩展，语言服务器支持只能来自第三方扩展。**",
+      "anchors": [
+        {
+          "path": "dist/extensions/index.js",
+          "line": 2,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "官方内置扩展仅 1 个：`dist/extensions/index.js:2` `builtInExtensions = [{ name: \"llama.cpp\", factory: llamaExtension, hidden: true }]`（只注册本地 llama provider，与 LSP 无关）。",
+          "anchors": [
+            {
+              "path": "dist/extensions/index.js",
+              "line": 2,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`examples/extensions/`（40+ 示例）逐一 grep：无任何 LSP / language server / diagnostics 工具示例（README 表格中唯一含 \"autocomplete\" 的是 `github-issue-autocomplete.ts`，那是 TUI 输入补全，不是 LSP completion）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`docs/` 中仅在 `security.md` 提到 language servers（作为一般进程说明）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/02-lsp-plugin-ecosystem.md",
+      "title": "A. `@narumitw/pi-lsp`（本机已安装 0.49.5）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "dist/index.ts",
+          "line": 1468,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "安装：`pi install npm:@narumitw/pi-lsp`；临时试用：`pi -e npm:@narumitw/pi-lsp` 或 `pi -e ./<目录>`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "本机路径：`~/.pi/agent/npm/node_modules/@narumitw/pi-lsp/`（package.json 声明 `\"pi\": { \"extensions\": [\"./dist/index.ts\"] }`）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "能力：注册 2 个工具（`dist/index.ts:1468,1528,1561-1562`）：",
+          "anchors": [
+            {
+              "path": "dist/index.ts",
+              "line": 1468,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`lsp_diagnostics`：按配置的语言服务器跑诊断（支持多个服务器按扩展名路由，如 `.py` 同时用 `ty`+`ruff`）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`lsp_fix`：服务端 source code action 修复（如 `source.fixAll`）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**不提供** definition/references/hover/rename 等导航能力（README \"Current limitations\" 明示）；诊断不自动注入对话，需 agent 主动调用；语言服务器每次调用起停。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "语言无关、配置驱动：默认内置 30+ 语言服务器目录（biome/ty/ruff/rust-analyzer/gopls/clangd/jdtls...），按文件扩展名路由；**不下载语言服务器**，二进制需自行装到 PATH。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "生命周期标注 `\"piExtension\": { \"lifecycle\": \"stable\" }`，仓库 `github.com/narumiruna/pi-extensions`（packages/pi-lsp）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/02-lsp-plugin-ecosystem.md",
+      "title": "B. `lsp-pi`（npm latest 1.0.5）",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "仓库 `github.com/trotsky1997/pi-lsp-extension`；安装：`pi install https://github.com/trotsky1997/pi-lsp-extension` 或固定 ref：`pi install git:github.com/trotsky1997/pi-lsp-extension@main`；也可 `pi install npm:lsp-pi`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "四层能力：`lsp`（语言服务器，on-demand `lsp` 工具的 definition/references/hover/rename/diagnostics/code actions）、`formatter`（format-on-write）、`analyzer`（semgrep/ruff-check/shellcheck 等非 LSP 诊断）、`debug`（DAP 调试器驱动）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "内置 40+ LSP server 注册表（typescript/gopls/rust-analyzer/clangd/pyright 等），可通过 `.pi/settings.json`/`~/.pi/agent/settings.json` 配置；自动诊断 hook（agent_end 或 write/edit 后）；附 `lsp-configurator` skill 与 `/lsp doctor` 命令。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "同样不自动安装语言服务器二进制。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/02-lsp-plugin-ecosystem.md",
+      "title": "C. `0xnayuta/pi-lsp`（GitHub 仓库，README 引 npm:lsp-pi）",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "双扩展形态：`lsp.ts`（hook 扩展，自动诊断，默认 agent_end 触发）+ `lsp-tool.ts`（on-demand `lsp` 工具：definition/references/hover/signature/symbols/diagnostics/workspace-diagnostics/rename/codeAction）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "README 安装方式：`pi install npm:lsp-pi` 后 `pi config` 启用；多语言（TS/JS、Python、Go、Rust、C/C++、Swift、Kotlin 等）；支持 push/pull 两种诊断获取。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "该仓库与 `lsp-pi` npm 包关系：README 相互引用，均指向同一 npm 产物形态，属同一生态脉络（均未固化为官方）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/02-lsp-plugin-ecosystem.md",
+      "title": "D. `@piex-dev/lsp`（npm latest 0.3.0）",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`pi install npm:@piex-dev/lsp`；package.json 声明 `\"pi\": { \"extensions\": [\"./extensions/lsp.ts\"] }`，keywords 含 lsp/diagnostics/formatting；homepage `github.com/piex-dev/piex`。能力细节未深度核验（三级证据：仅 registry 元数据）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/02-lsp-plugin-ecosystem.md",
+      "title": "3. 扩展安装机制（0.84.2 内置）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "dist/core/package-manager.js",
+          "line": 1135,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "子命令（`dist/cli/args.js` printHelp + `dist/package-manager-cli.js`）：`pi install <source> [-l]` / `remove` / `update` / `list` / `config [-l]`（config 是启用/禁用已安装包资源的 TUI）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "source 三态（`dist/core/package-manager.js:1135 parseSource`）：`npm:<spec>`（npm 包）、git URL（含 `git:host/path@ref` 形式，README 示例）、本地路径。`-l/--local` 装到项目 `.pi/settings.json`，否则装到 `~/.pi/agent/settings.json`，均写入 `packages` 字段。",
+          "anchors": [
+            {
+              "path": "dist/core/package-manager.js",
+              "line": 1135,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/02-lsp-plugin-ecosystem.md",
+      "title": "4. 在 child spawn 时启用 LSP 扩展的方法（关键）",
+      "summary": "child pi 的 `--no-extensions`（workloom `pi-args.ts:51`）**只关自动发现，不关 `-e`**（见主题 1）。因此对 child 选择性启用 LSP 扩展只有两条路：",
+      "anchors": [
+        {
+          "path": "package-manager.js",
+          "line": 720,
+          "lineEnd": null
+        },
+        {
+          "path": "pi-args.ts",
+          "line": 51,
+          "lineEnd": null
+        },
+        {
+          "path": "resource-loader.js",
+          "line": 276,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`-e <源>` 显式加载（临时 scope，不写 settings）：如 `-e npm:@narumitw/pi-lsp`、`-e /abs/path/to/lsp-tool.ts`。经 `resolveExtensionSources(..., { temporary: true })` 解析（`resource-loader.js:276`、`package-manager.js:720`）。",
+          "anchors": [
+            {
+              "path": "resource-loader.js",
+              "line": 276,
+              "lineEnd": null
+            },
+            {
+              "path": "package-manager.js",
+              "line": 720,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "工具名过滤：扩展加载后其工具受 `--tools <names>` allowlist / `--exclude-tools <names>` denylist 约束（同样作用于内置工具）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**没有\"按扩展名启用\"的开关（无 `--extensions <name>`），详见主题 4。**",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/03-extension-api-tools.md",
+      "title": "1. ExtensionAPI（扩展工厂 `export default (pi: ExtensionAPI) => ...` 收到的对象）",
+      "summary": "有明确的三元组接口可供扩展**运行时探测与修改工具集**：",
+      "anchors": [
+        {
+          "path": "dist/core/agent-session.js",
+          "line": 608,
+          "lineEnd": 645
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "`getActiveTools(): string[]`",
+          "text": "当前**激活**工具名列表（实现委托 AgentSession，见下）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`getAllTools(): ToolInfo[]`",
+          "text": "全部**已注册**（激活 + 未激活）工具，含参数 schema、prompt 指南、来源元数据",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`setActiveTools(toolNames: string[]): void`",
+          "text": "按名替换激活集；registry 中不存在的名字被忽略（对应 AgentSession.setActiveToolsByName）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "配套类型：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`ToolInfo` 的 `sourceInfo: SourceInfo`（`dist/core/source-info.d.ts`）携带工具来源（内置/扩展路径/CLI 等），可供扩展区分工具归属。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`ToolDefinition` 完整形态见同一文件（`name/label/description/promptSnippet/promptGuidelines/parameters/execute/...`）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "底层实现：`ExtensionActions`（types.d.ts 中 `getActiveTools/getAllTools/setActiveTools/refreshTools/...`）由 `ExtensionRunner.initialize()` 注入会话方法——对应 `AgentSession`：`getActiveToolNames()`、`getAllTools()`、`getToolDefinition(name)`、`setActiveToolsByName()`（`dist/core/agent-session.js:608-645`）。",
+          "anchors": [
+            {
+              "path": "dist/core/agent-session.js",
+              "line": 608,
+              "lineEnd": 645
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "ts",
+          "code": "// types.d.ts\nexport type ToolInfo = Pick<ToolDefinition, \"name\" | \"description\" | \"parameters\" | \"promptGuidelines\"> & {\n    sourceInfo: SourceInfo;\n};\nexport type GetActiveToolsHandler = () => string[];\nexport type GetAllToolsHandler = () => ToolInfo[];\nexport type SetActiveToolsHandler = (toolNames: string[]) => void;\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/03-extension-api-tools.md",
+      "title": "2. ExtensionContext（事件处理器第二参数 ctx）",
+      "summary": "**没有直接列出工具的方法**。`ExtensionContext` 提供的是 `ui/mode/hasUI/cwd/sessionManager/modelRegistry/model/scopedModels/thinkingLevel/isIdle()/getContextUsage()/getSystemPrompt()/...`（types.d.ts）。工具探测只能通过扩展工厂闭包里的 `pi.getActiveTools()/pi.getAllTools()` 或经 `ctx.sessionManager` 读会话状态。",
+      "anchors": [],
+      "conclusions": [],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/03-extension-api-tools.md",
+      "title": "3. 时序约束（实现时注意）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "agent-session.js",
+          "line": 1990,
+          "lineEnd": 1993
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "扩展加载期（工厂函数同步段）注册工具；`ExtensionRuntime` 的 action 在 `runner.initialize()` 之前是 **throwing stubs**（types.d.ts 注释：\"actions are throwing stubs until runner.initialize()\"），即工厂顶层直接调 `pi.getAllTools()` 会抛错。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "可靠探测时机：**事件处理器内**（如 `session_start`、`agent_start`、`resources_discover`）或命令处理器内（`ExtensionCommandContext`）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "且扩展工具注册顺序：内置工具先入 registry，扩展工具随后并入（`agent-session.js:1990-1993` `_refreshToolRegistry`），事件处理器触发时全量已就绪。",
+          "anchors": [
+            {
+              "path": "agent-session.js",
+              "line": 1990,
+              "lineEnd": 1993
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/03-extension-api-tools.md",
+      "title": "4. 对 workloom 的意义",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "若未来给 child 挂 LSP 扩展并想验证\"本会话工具集\"，扩展内 `session_start` 事件后调用 `pi.getAllTools()` 即可拿到全量（含 `read/bash/edit/write/grep/find/ls` + 扩展工具名与来源）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "也可用 `pi.getActiveTools()` 拿到 LLM 实际可调用的激活集（默认 4 个）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "workloom 侧要\"探测 child 有什么工具\"不需要扩展：`pi --mode json` 会话内可通过 `getActiveToolNames`/`getAllTools` 等方法，但 CLI 层无直接输出开关；更简途径是信任 `--no-extensions` 的静态结论（主题 1）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/04-child-extensions-flag.md",
+      "title": "1. 结论先行：没有 `--extensions <name>` 之类的\"按名字启用扩展\"机制",
+      "summary": "0.84.2 中扩展**只按路径/源**加载（`-e <path|npm:|git:>`），**不存在按名称/ID 选择性启用**的参数；也不存在 `--plugin*` 家族参数（全 dist 无 \"plugin\" 一词，unified 术语为 **extension**）。对 child 选择性启用扩展的唯一手段是 `-e`（可多次）+ 工具名过滤 `--tools`/`--exclude-tools`。",
+      "anchors": [],
+      "conclusions": [],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/04-child-extensions-flag.md",
+      "title": "2. workloom 现有 child 参数（`packages/adapter-pi/src/pi-args.ts:45-61`）",
+      "summary": "该序列未传任何工具/扩展启用参数，因此 child 保持默认：`--no-extensions`（无自动发现扩展）+ 默认激活 `read/bash/edit/write`（详见主题 1）。",
+      "anchors": [],
+      "conclusions": [],
+      "excerpts": [
+        {
+          "lang": "ts",
+          "code": "args = ['--mode', 'json', '-p', prompt, '--no-session', '--no-extensions',\n        '--append-system-prompt', definition.systemPrompt]\n// 可选追加：--thinking <effort>、--model <id>\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/04-child-extensions-flag.md",
+      "title": "资源加载（extension 及其同类）",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`--extension <path>`",
+          "text": "`-e` | Load an extension file (can be used multiple times)；值支持本地路径/npm:/git: 源",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--no-extensions`",
+          "text": "`-ne` | Disable extension discovery (explicit -e paths still work)",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--skill <path>`",
+          "text": "— | Load a skill file or directory (multiple)",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--no-skills`",
+          "text": "`-ns` | Disable skills discovery and loading",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--prompt-template <path>`",
+          "text": "— | Load a prompt template file or directory (multiple)",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--no-prompt-templates`",
+          "text": "`-np` | Disable prompt template discovery and loading",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--theme <path>`",
+          "text": "— | Load a theme file or directory (multiple)",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--use-theme <name[/name]>`",
+          "text": "— | Set the initial interactive theme",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--no-themes`",
+          "text": "— | Disable theme discovery and loading",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--no-context-files`",
+          "text": "`-nc` | Disable AGENTS.md and CLAUDE.md discovery and loading",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/04-child-extensions-flag.md",
+      "title": "工具控制（对 built-in + extension + custom 三类工具统一生效）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "agent-session.js",
+          "line": 1945,
+          "lineEnd": null
+        },
+        {
+          "path": "agent-session.js",
+          "line": 2003,
+          "lineEnd": 2006
+        },
+        {
+          "path": "main.js",
+          "line": 417,
+          "lineEnd": 418
+        },
+        {
+          "path": "main.js",
+          "line": 420,
+          "lineEnd": 421
+        },
+        {
+          "path": "sdk.js",
+          "line": 134,
+          "lineEnd": null
+        },
+        {
+          "path": "sdk.js",
+          "line": 137,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "`--no-tools`",
+          "text": "`-nt` | Disable all tools by default (built-in and extension)。→ `noTools=\"all\"`（`main.js:417-418`）：`allowedToolNames=[]` + 初始激活 `[]`（`sdk.js:134,137`），扩展工具也被过滤（`agent-session.js:1945 isAllowedTool`）",
+          "anchors": [
+            {
+              "path": "main.js",
+              "line": 417,
+              "lineEnd": 418
+            },
+            {
+              "path": "sdk.js",
+              "line": 134,
+              "lineEnd": null
+            },
+            {
+              "path": "agent-session.js",
+              "line": 1945,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`--no-builtin-tools`",
+          "text": "`-nbt` | Disable built-in tools by default but keep extension/custom tools enabled。→ `noTools=\"builtin\"`（`main.js:420-421`）：初始激活 `[]` 但 allowlist 不设，扩展工具经 `includeAllExtensionTools` 仍激活（`sdk.js:134`、`agent-session.js:2003-2006`）",
+          "anchors": [
+            {
+              "path": "main.js",
+              "line": 420,
+              "lineEnd": 421
+            },
+            {
+              "path": "sdk.js",
+              "line": 134,
+              "lineEnd": null
+            },
+            {
+              "path": "agent-session.js",
+              "line": 2003,
+              "lineEnd": 2006
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`--tools <names>`",
+          "text": "`-t` | Comma-separated allowlist of tool names；作用于三类工具（`sdk.js` CreateAgentSessionOptions.tools 注释）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`--exclude-tools <names>`",
+          "text": "`-xt` | Comma-separated denylist；在 allowlist 之后应用（`sdk.js:137` filter）",
+          "anchors": [
+            {
+              "path": "sdk.js",
+              "line": 137,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/04-child-extensions-flag.md",
+      "title": "包管理子命令（扩展安装/管理，非 spawn 参数）",
+      "summary": "`pi install <source> [-l]` / `remove` / `uninstall` / `update [source|self|pi]` / `list` / `config [-l]`（source 语法见主题 2 第 3 节）。",
+      "anchors": [],
+      "conclusions": [],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/04-child-extensions-flag.md",
+      "title": "扩展可自注册 flag",
+      "summary": "`--help` 尾部会列出扩展注册的自定义 flag（`args.js printHelp` 的 `extensionFlags` 部分）。实机 0.84.2（本机已装 `@narumitw/pi-plan-mode`、`pi-mcp-adapter` 等）输出：",
+      "anchors": [
+        {
+          "path": "agent-session-services.js",
+          "line": 99,
+          "lineEnd": null
+        },
+        {
+          "path": "args.js",
+          "line": 205,
+          "lineEnd": 215
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "这些 flag 随扩展加载而存在；`--no-extensions`（不 `-e`）时 child 不加载上述扩展，对应 flag 不生效。`parseArgs` 把未知 `--xx` 收进 `unknownFlags`（`args.js:205-215`），扩展 flag 值经 `ExtensionRuntimeState.flagValues` 注入会话（`applyExtensionFlagValues`，`agent-session-services.js:99` → `agent-session.js _buildRuntime`）。",
+          "anchors": [
+            {
+              "path": "args.js",
+              "line": 205,
+              "lineEnd": 215
+            },
+            {
+              "path": "agent-session-services.js",
+              "line": 99,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": null,
+          "code": "Extension CLI Flags:\n  --mcp-config <value>   Path to MCP config file\n  --plan                 Start in Codex-like Plan mode\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/04-child-extensions-flag.md",
+      "title": "4. 给 workloom 的落地建议（事实 vs 判断）",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "事实：child 当前固定序列已含 `--no-extensions`，且不 `-e` → LLM 工具 = `read/bash/edit/write`，无 LSP/诊断/再派发工具（主题 1 已证）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "若未来需要给 child **选择性**挂 LSP 扩展：在 `buildChildPiArgs` 追加 `-e npm:@narumitw/pi-lsp`（或解析后的绝对路径），并与 `--tools`/`--exclude-tools` 组合过滤；`-e` 与 `--no-extensions` 并存合法。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "判断（建议，非源码事实）：保持 child 无 `-e` 是当前\"天然禁止再派发\"设计的最简保证；引入扩展前需评估其是否自注册 command/provider（`@narumitw/pi-lsp` 仅 registerTool，无 provider/command，风险低）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    }
+  ],
+  "unverifiedCount": 66
+}
