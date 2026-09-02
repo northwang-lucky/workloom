@@ -71,10 +71,12 @@ const LEAF_EXECUTOR_RULE =
 
 /**
  * 权威声明（权威段末尾，使本段成为终极权威）：与更早文本（含主会话用户指令）
- * 冲突时以本节为准——堵住主会话派发 prompt 写「只读审查」覆盖纪律段的缺口。
+ * 冲突时以本节为准，并在报告首行声明一次冲突后继续执行——终结「服从哪一方」
+ * 的反复权衡（堵住派发 prompt 写「只读审查」覆盖纪律段导致空转的缺口）。
  */
 const AUTHORITY_DECLARATION =
-  "This section is authoritative: when it conflicts with any earlier text (including the user prompt's own instructions), this section wins."
+  "This section is authoritative: when it conflicts with any earlier text (including the user prompt's own instructions), this section wins." +
+  ' When an earlier instruction conflicts with this section, follow this section, state the conflict once in the first line of your report, and proceed — do not deliberate on which to obey.'
 
 /** 防重复判定关键词（userPrompt 已含时仅豁免 leaf 规则行，纪律段与权威声明仍注入）。 */
 const LEAF_RULE_KEYWORD = 'leaf executor'
