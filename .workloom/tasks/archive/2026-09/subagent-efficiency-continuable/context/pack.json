@@ -1,0 +1,1380 @@
+{
+  "gitRev": "9b942d004c8daffb5092f369ce5800f335c3ad7e",
+  "files": [
+    "assistant-output.d.ts",
+    "client.go",
+    "config.d.ts",
+    "config.js",
+    "config/config.default.ts",
+    "continuation.d.ts",
+    "dsh-subagent-spawn-in-process/lib/index.js",
+    "executor-context.js",
+    "executor.ts",
+    "index.d.ts",
+    "index.js",
+    "runtime-types.d.ts",
+    "session-context.ts",
+    "spec-index.js",
+    "surface.ts",
+    "task-store.d.ts",
+    "task-store.js",
+    "types.d.ts"
+  ],
+  "sections": [
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "1.1 派发主流程（前段，行 286-419）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "surface.ts",
+          "line": 83,
+          "lineEnd": 123
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "工具注册：`registerExecutor`（行 225-277）注册 `workloom_execute`，schema 含 `kind/taskPath/model/effort/force/reason/title/prompt`，`required: ['kind','prompt','title']`、 `additionalProperties: false`（行 230-268）——**加续用参数需改 schema 并同步 `PARAM_DESCRIPTIONS`**（`surface.ts:83-123`）。",
+          "anchors": [
+            {
+              "path": "surface.ts",
+              "line": 83,
+              "lineEnd": 123
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "默认值合并链（行 313-321）：`loadConfig` → `readMainModel(parent)` → `resolveSubagentDefaults(config, kind, {model, effort}, 'dsh', mainModel)`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "effort 校验 + 冲突检测（行 325-339）：`assertEffort` fail loud；`detectExecutorConflicts` 有冲突且无 `force` 时返回 `buildConflictNotice`（不派发，`runId: ''`）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "本机片段（行 362-374）：`composeLocalDirectivesText(root, kind, availableToolNames(...))` 失败 fail loud；结果进 `buildExecutorPrompt({localDirectives})`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "派发（行 396-406）：**one-shot** `ctx.subagents.start(SPAWN_PROVIDER, {label, prompt, parent, signal, agentOptions, maxDepth: 1, toolFilter: {deny: denyList}})`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "写门禁豁免（行 411-413）：start resolve 后 `registerWriteGateExemption(run.id)`。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "1.2 结果消费与异常转译（行 414-470）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "surface.ts",
+          "line": 224,
+          "lineEnd": 241
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`run.result`（行 417）：子代理级失败 resolve 而非 reject，`stopReason` 表达原因； 基础设施故障 reject（fail loud 透传）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "异常终止（行 418-426）：`stopReason !== 'completed'` 时抛错，文本用 `result.diagnostic` （缺失时 `the executor subagent ended with <stopReason>` 兜底），**不附输出文本**。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "派发审计（行 427-434）：`recordExecutorDispatch(root, taskRelPath, {kind, title})` 记录 成功派发；失败仅 `console.warn`（`DISPATCH_WARN_PREFIX`）不阻塞。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "输出组装 + receipt（行 435-455）：文本块 join；`buildExecutorReceipt`（`surface.ts:224-241+`） 渲染生效 model/effort 及来源（`modelSource/effortSource/configSources/whenMainValue`）； `forced` 时追加 ` (forced)`；空输出用 `EMPTY_OUTPUT_TEXT`。",
+          "anchors": [
+            {
+              "path": "surface.ts",
+              "line": 224,
+              "lineEnd": 241
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "返回值（行 456-460）：`{kind:'foreground', runId: run.id, output:[{type:'text',text}]}`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "finally（行 461-470）：先 `unregisterWriteGateExemption(run.id)`，再 `run.dispose()` （失败仅 WARNING，`DISPOSE_WARN_PREFIX`）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "1.3 其余辅助函数（行 473-604）",
+      "summary": "**结论**：one-shot 语义贯穿全文件（服务接口 `SubagentsService.start` 行 179-193、",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`readMainModel`（行 481-492）：`parent.session.requestHeader?.()` 取最新 request/header 快照的 provider/model；任一缺失/空串返回 undefined（whenMain 跳过）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`buildChildLabel`（行 504-519）：`[<KindLabel>] <title>`，title 缺省回退 task title， 再退 `workloom-<kind>`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`renderOutput`（行 526-530）：取 canonical 值 output 首块文本（纯投影）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`buildDenyList`（行 542-549）：workloom 9 工具名全量 + `NATIVE_DELEGATION_CANDIDATES` （subagent/subagent_with_model/subagent_fork/list_agents/send_message/interrupt_agent/ ralph/workflow/ralph-loop，行 106-116）与 `ctx.tools.schemas()` 可见名的交集。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`availableToolNames`（行 559-565）：可见集 − deny 清单（保持可见集声明顺序）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`assertToolFilterCapability`（行 572-587）：provider 未注册或 `capabilities.toolFilter !== true` 时 fail loud（`ERR_PREFIX.executor` 前缀英文文案）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`toCapabilityError`（行 595-604）：start reject 的 `UNSUPPORTED_CAPABILITY` 转清晰 英文错误；其余原样透传。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`MinimalAgent`（行 144-154）：只读 `id/session.header.cwd` 与可选 `session.requestHeader?()`； 无 whenIdle/events/append（**one-shot 无子代理句柄，这些在旧版有、现版已删**）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`SubagentRunLike` 行 163-171、注释行 6-13/392-395）。恢复 continuable 需改接口声明、 派发调用、结果消费三处，receipt/dispatch/toolFilter/effort 逻辑可原样保留。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "2.1 buildExecutorPrompt（packages/core/src/legacy/executor-context.js，464 行）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "config.js",
+          "line": 26,
+          "lineEnd": 28
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "入口（行 177-183）：`buildExecutorPrompt(params)` 返回 `[err, {text, stats}]` 元组； 内部 `buildInternal`（行 190-240）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "注入内容与顺序（行 199-239）：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "首行 `Active task: <taskRelPath>`（行 199）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "artifact 内联（行 203-209）：`ARTIFACT_FILES = ['prd.md','design.md','implement.md']` （行 35）；**research kind 只内联 `prd.md`**（`RESEARCH_ARTIFACT`，行 38）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "jsonl 引用文件物化（行 210-213）：`JSONL_FILES = {implement: implement.jsonl, check: check.jsonl, frontend: implement.jsonl}`（行 42-47）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`## Task prompt` + userPrompt（行 215-217，非空才注入）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "kind 纪律段 `## <Kind> executor directives`（行 220-223， `EXECUTOR_CONTRACT_BY_KIND` 行 94-112；userPrompt 已含标题时不重复）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**`## Local directives` + localDirectives**（行 227-234；空串/未传不注入； userPrompt 已含关键词不重复）——**这是现有唯一的注入扩展点**；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`## Executor contract` 叶子契约段（行 236-238）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "预算与截断（行 195-198、242-307）：`config.contextInjection`（`maxFileBytes` 默认 32768 / `maxArtifactBytes` 默认 65536 / `maxTotalBytes` 默认 131072， `config.js:26-28`）；超限 `limitByBytes` 追加 `[...truncated at N bytes]`（行 390-398）； 总量耗尽降级 `indexLine`（行 407-410）；UTF-8 安全截断 `truncateUtf8`（行 418-424）。",
+          "anchors": [
+            {
+              "path": "config.js",
+              "line": 26,
+              "lineEnd": 28
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**research 产物（`research/*.md`）当前完全不在注入链**：ARTIFACT_FILES 与 JSONL_FILES 均不含 research 目录——与背景假设一致（research 产物未进 seed）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "扩展点评估：`buildInternal` 已接受 `localDirectives` 可选参数（`executor-context.d.ts: 33-48` 的 `BuildExecutorPromptParams`），新增「research 产物注入」可走同模式 （新增可选参数 + 段落），或扩展 `ARTIFACT_FILES`/新增 research 专属列表。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "2.2 composeLocalDirectivesText / localDirectives（packages/core/src/service/local-prompts.ts）",
+      "summary": "**结论**：注入扩展点在 core 侧已具备形态（可选参数 + 段插入 + 预算截断），research",
+      "anchors": [
+        {
+          "path": "executor.ts",
+          "line": 362,
+          "lineEnd": 374
+        },
+        {
+          "path": "session-context.ts",
+          "line": 146,
+          "lineEnd": 151
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`composeLocalDirectivesText(root, target, availableTools)`（行 205-218）： `readLocalFragments` + `filterAndOrderLocal`，输出 `'\\n\\n'` 拼接（空串 = 无注入）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "片段来源：`.workloom/prompts.local/` 目录（`LOCAL_PROMPTS_REL`，行 29）；文件名 → 目标 映射 `main/research/implement/check/frontend/all`（行 32-39、55-62）；`all.md` 在前、 `<target>.md` 在后（`rankOf` 行 351-353）；`requiresTools` 为 AND 条件（行 158-180）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "进入 seed 的路径（executor.ts:362-374）：adapter 计算可用工具集 （`availableToolNames(visibleNames, denyList)`）→ `composeLocalDirectivesText` → 结果 作 `localDirectives` 传给 `buildExecutorPrompt`。**localDirectives 是 DSH 侧已生效的 注入通道**（主会话经 session-context.ts:146-151 注入 norms 之后，executor 经首条 prompt 注入一次）。",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 362,
+              "lineEnd": 374
+            },
+            {
+              "path": "session-context.ts",
+              "line": 146,
+              "lineEnd": 151
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "产物注入可复用 `limitByBytes`/`indexLine` 的预算语义；`research/*.md` 全文注入的 「>20K 截断保留标题+锚点区」需新增专门逻辑（现有截断是「从头截断」，不是「保留首尾」）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "3.1 旧版 executor.ts 主体（git show 1920d32^:packages/adapter-dsh/src/executor.ts，442 行）",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "派发（旧版行 314-322）：`ctx.subagents.startContinuable({provider: SPAWN_PROVIDER, label, request: {prompt, parent, agentOptions, maxDepth: 1}, signal})` → `{childId}`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "取子代理句柄（旧版行 324-330）：`ctx.agents.get(childId)`；boundary = `child.session.events.length`（行 331，**输出边界：只取子代理自身事件，排除父历史种子前缀**）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "effort header hack（旧版行 333-336 + writeEffortHeader 函数 418-442）：`session.append( 'request/header', {...reasoningEffort}, reason:'change')`——**已确认失效，不恢复**。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "等待与输出（旧版行 338-343）：`await child.whenIdle()` → `finalAssistantOutput(child.session.events.slice(boundary)) ?? []` → 文本 join。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "释放（旧版行 344-351）：`drainContinuableChildren(parent, [childId])`（失败 WARNING， `DRAIN_WARN_PREFIX`）——**不是 dispose**。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "返回（旧版行 361-368）：`runId: childId`（runId 即 durable child session id）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "服务接口（旧版行 106-170）：`SubagentsService` 含 `startContinuable`（行 134-143）+ `drainContinuableChildren`（行 145）；`AgentsService.get(id)`；`MinimalAgent` 含 `whenIdle()/ options/session.events/session.requestHeader()/session.append(...)`。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "3.2 新旧 test 差异（git show 1920d32^:test/executor.test.js 672 行 vs 当前 1256 行）",
+      "summary": "**恢复后需改回的测试**：所有依赖 `start(name, request)` 桩与 `run.result/dispose` 的用例",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "桩接口",
+          "text": "`startContinuable(spec)` 捕获 `startCalls`，返回 `{childId}`；`agents.get(childId)` 返回模拟子代理（含 events/append/whenIdle） | `start(name, request)` 返回 `{id, result, dispose}`；无 agents 服务",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "effort 测试",
+          "text": "`writeEffortHeader 兜底链` ×3（既有 header/派发生效值/父 options 优先） | 改为 `agentOptions.reasoningEffort` 断言（effort 配置生效/单独生效/参数优先，当前 test 行 668-743）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "结果断言",
+          "text": "`childWhenIdle` 追加 assistant 事件 → `finalAssistantOutput` | `subagentResult`（output/stopReason/diagnostic）→ `run.result`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "释放",
+          "text": "`drainContinuableChildren` mock | `disposeCalls` 断言（dispose 失败仅 WARNING、结果读取后调用）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "门禁豁免",
+          "text": "无 | `派发期间登记写门禁豁免、结算后注销`（当前 test 行 1086-1164）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "标题",
+          "text": "三种 kind（research/implement/check） | 四种（+frontend）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "新增",
+          "text": "— | 主模型空串 whenMain 回退、toolFilter deny、provider capability 校验、本机片段注入",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "（当前 test 行 218-365、1086-1164 为核心；effort 用例断言 `startCalls[0].request.agentOptions` 需改为 `startContinuable` spec 形状）；旧版已删的 `writeEffortHeader` 测试**不恢复**。 **保留不变的测试**：receipt（行 366-470）、label 组装（行 512-639）、schema 参数面 （行 640-666）、冲突/force（行 846-985）、toolFilter/capability（行 986-1085）、本机 片段（行 1173-1256）、dispatches 记录（行 259-278）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**结论**：`1920d32^` 是完整可参照实现；恢复路线 = 取旧版派发/等待/输出/释放骨架， 叠加当前 HEAD 的 toolFilter/effort(agentOptions)/subagent_profiles/receipt/门禁豁免适配。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "4.1 豁免注册表",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`EXEMPTIONS = new Set<string>()`（行 55）：**键 = 子代理 session id**（注释行 54： 「键 = 子代理 session id（workloom_execute 派发期间有效）」）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`registerWriteGateExemption(childSessionId)`（行 62-64）/ `unregisterWriteGateExemption` （行 70-72）：幂等增删。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "判定链 `decideWriteGate`（行 103-113）：工具名 ∈ {write, edit} → 子代理 （`delegationDepthOf(agent) !== 0`）先查豁免（命中放行）；**未命中的子代理走 `decideSubagentGate`（行 146-156）变体判定：项目根 → `executor.gate === true` → 项目内存在 in_progress 任务 → 目标在 root 内且不在 `.workloom/` 内 → deny**。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "06c5b96 语义（commit message：「gate 拦截 fork 子代理绕行写文件」）：executor 派发 者豁免，`subagent_fork`/continuable 复用的子代理**不被豁免**，与主会话走同种约束。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "4.2 ⚠️ 冲突点：continuable 子代理 followup 第二轮 turn 的豁免",
+      "summary": "**结论**：gate 逻辑本身与 continuable 兼容（键就是 session id，continuable 的 childId",
+      "anchors": [
+        {
+          "path": "executor.ts",
+          "line": 413,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 463,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**事实**：豁免注册在 `start` resolve 后（executor.ts:413），注销在 `finally`（executor.ts:463）。 对 one-shot，run 结算 = 子代理生命周期结束，注销即「派发期间」结束，语义自洽。",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 413,
+              "lineEnd": null
+            },
+            {
+              "path": "executor.ts",
+              "line": 463,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**冲突**：恢复 continuable 后，第一轮 turn 结束时若仍按 finally 注销，则该 childId 在 **followup 第二轮 turn 期间不在 EXEMPTIONS 中** → 子代理 depth≥1 且未被豁免 → 走 `decideSubagentGate` → 项目 in_progress 且写业务文件（root 内、.workloom 外）时 被 **deny**。即「同一子代理第一轮能写、第二轮（续用后）不能写」，破坏续用语义。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**风险点**：continuable 子代理的豁免窗口必须跨轮维持（不能按「单次派发」注销）， 与 06c5b96「fork 绕行不豁免」的边界如何区分需要设计决策（如：豁免按 childId 注册后 在任务结算/drain 时统一注销，而非每轮 finally 注销；或 followup 前重新注册）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "附带事实：`registerGate`（行 181-197）订阅 `tools/pre-execute`，判定抛错只 warn+放行； 主会话（depth=0）判定链 `decideMainSessionGate`（行 121-137）有 stage=check 修复窗口 （行 135），子代理判定链无 stage 例外（注释行 134）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "即 session id）；冲突集中在豁免生命周期管理，属实现决策点，非结构性障碍。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "5.1 数据结构",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "task-store.d.ts",
+          "line": 66,
+          "lineEnd": 74
+        },
+        {
+          "path": "task-store.d.ts",
+          "line": 106,
+          "lineEnd": null
+        },
+        {
+          "path": "task-store.js",
+          "line": 212,
+          "lineEnd": null
+        },
+        {
+          "path": "task-store.js",
+          "line": 806,
+          "lineEnd": 828
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`DispatchRecord { kind, at, title }`（`task-store.d.ts:66-74`）：`kind`（executor 类型）、 `at`（ISO 时间，函数生成）、`title`（非空字符串校验）。",
+          "anchors": [
+            {
+              "path": "task-store.d.ts",
+              "line": 66,
+              "lineEnd": 74
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "存储位置：`task.json.dispatches` 数组（`TaskRecord.dispatches`，`task-store.d.ts:106`）； `readTask` 归一化：缺失补 `[]`（`task-store.js:212`）。",
+          "anchors": [
+            {
+              "path": "task-store.d.ts",
+              "line": 106,
+              "lineEnd": null
+            },
+            {
+              "path": "task-store.js",
+              "line": 212,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`recordExecutorDispatch(root, taskRelPath, entry)`（`task-store.js:806-828`）： `requireTask` → `task.dispatches.push(buildDispatchRecord(entry))` → 同点更新 `task.stage = computeTaskStage(task.stage, entry.kind)`（research 保持/implement、 frontend → implement/check → check，行 860-871）→ `writeTaskJson`。失败返回 err （调用方 WARNING 不阻塞派发）。",
+          "anchors": [
+            {
+              "path": "task-store.js",
+              "line": 806,
+              "lineEnd": 828
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "5.2 ⚠️ 续用复用可行性：字段缺口",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "executor-context.js",
+          "line": 24,
+          "lineEnd": 29
+        },
+        {
+          "path": "executor.ts",
+          "line": 428,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**事实**：`DispatchRecord` 只有 `{kind, at, title}`，**没有 childId/runId/会话标识字段**。 现有 executor.ts:428 只传 `{kind, title}`。",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 428,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**结论**：要「复用 dispatches 记录的同一 kind executor 会话」经 DSH followup 续用， 必须在 `DispatchRecord` 增加子代理会话标识字段（如 `childId`/`runId`），并让 `recordExecutorDispatch` 的调用方（executor.ts）把 childId 传入；否则 dispatches 无法定位可续用的会话。这是续用参数实现的前置数据缺口，属**需扩展**而非现成可用。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "补充事实：`computeTaskStage` 的 kind→stage 映射（行 860-871）与 `EXECUTOR_KINDS` 枚举（`executor-context.js:24-29`：research/implement/check/frontend）是复用 kind 校验的现成通道；`recordExecutorOverride`（行 774-794）给出同形态的 「追加记录 + 写回」先例。",
+          "anchors": [
+            {
+              "path": "executor-context.js",
+              "line": 24,
+              "lineEnd": 29
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "6.1 startContinuable（continuation.d.ts + index.d.ts）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "continuation.d.ts",
+          "line": 80,
+          "lineEnd": 98
+        },
+        {
+          "path": "continuation.d.ts",
+          "line": 100,
+          "lineEnd": 105
+        },
+        {
+          "path": "index.d.ts",
+          "line": 120,
+          "lineEnd": null
+        },
+        {
+          "path": "types.d.ts",
+          "line": 91,
+          "lineEnd": 140
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`ContinuableStartSpec`（continuation.d.ts:80-98）： `{ provider: string, label: string, childId?: SessionId, request: Omit<SubagentStartRequest, 'label'|'signal'|'outputSchema'>, signal: AbortSignal }`。",
+          "anchors": [
+            {
+              "path": "continuation.d.ts",
+              "line": 80,
+              "lineEnd": 98
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`ContinuableStart`（continuation.d.ts:100-105）：`{ childId: SessionId, messageId: MessageId }`。",
+          "anchors": [
+            {
+              "path": "continuation.d.ts",
+              "line": 100,
+              "lineEnd": 105
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`SubagentRuntime.startContinuable(spec): Promise<ContinuableStart>`（index.d.ts:120）： resolve 于 inbox 接受初始 prompt，**不等待 turn 开始/进入 Session log**。",
+          "anchors": [
+            {
+              "path": "index.d.ts",
+              "line": 120,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**⚠️ 与旧版接口差异**：旧版（1920d32^）的 `startContinuable` 参数是 `{provider, label, request:{prompt, parent, agentOptions?, maxDepth?}, signal}`， request 直接平铺；当前版本的 `request` 是 `Omit<SubagentStartRequest, ...>`，即 **label/signal/outputSchema 被剔除，但 `prompt/parent/agentOptions/maxDepth/toolFilter/ persona` 全部保留在 request 内**（`types.d.ts:91-140`）。恢复时字段位置按当前版本 （label 在 spec 顶层、toolFilter 可进 request）。",
+          "anchors": [
+            {
+              "path": "types.d.ts",
+              "line": 91,
+              "lineEnd": 140
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "6.2 SubagentStartRequest 完整字段（types.d.ts:91-140）",
+      "summary": "`label?`、`prompt: ContentBlock[]`、`parent: Agent`、`signal: AbortSignal`、",
+      "anchors": [
+        {
+          "path": "types.d.ts",
+          "line": 69,
+          "lineEnd": 77
+        },
+        {
+          "path": "types.d.ts",
+          "line": 124,
+          "lineEnd": 131
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`agentOptions?: AgentOptions`、`outputSchema?`、`maxDepth?`、`toolFilter?: ToolRestriction`、 `persona?`。其中 `toolFilter` 语义（types.d.ts:124-131）：需 provider 支持 `toolFilter` capability；in-process 后端以 `tools.restrict()` 应用到子代理创建窗口， 命名工具从子代理 prompt 消失**且拒绝执行**（loud unknown-name 校验）——toolFilter deny 对 continuable 子代理同样可用（capability 校验对象是 provider 的 `prepareContinuable` 存在性，types.d.ts:69-77 注释：continuable 由 `SubagentProvider.prepareContinuable` 门控，而非 one-shot 的 capabilities）。",
+          "anchors": [
+            {
+              "path": "types.d.ts",
+              "line": 124,
+              "lineEnd": 131
+            },
+            {
+              "path": "types.d.ts",
+              "line": 69,
+              "lineEnd": 77
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "6.3 followup / drain / cold-resume",
+      "summary": "**结论**：DSH 服务面完整支持恢复 continuable（startContinuable → agents.get →",
+      "anchors": [
+        {
+          "path": "assistant-output.d.ts",
+          "line": 47,
+          "lineEnd": null
+        },
+        {
+          "path": "continuation.d.ts",
+          "line": 111,
+          "lineEnd": 117
+        },
+        {
+          "path": "continuation.d.ts",
+          "line": 119,
+          "lineEnd": 124
+        },
+        {
+          "path": "continuation.d.ts",
+          "line": 194,
+          "lineEnd": 198
+        },
+        {
+          "path": "continuation.d.ts",
+          "line": 210,
+          "lineEnd": null
+        },
+        {
+          "path": "continuation.d.ts",
+          "line": 450,
+          "lineEnd": 451
+        },
+        {
+          "path": "dsh-subagent-spawn-in-process/lib/index.js",
+          "line": 36,
+          "lineEnd": null
+        },
+        {
+          "path": "index.d.ts",
+          "line": 136,
+          "lineEnd": null
+        },
+        {
+          "path": "index.d.ts",
+          "line": 152,
+          "lineEnd": null
+        },
+        {
+          "path": "index.d.ts",
+          "line": 174,
+          "lineEnd": null
+        },
+        {
+          "path": "index.d.ts",
+          "line": 195,
+          "lineEnd": null
+        },
+        {
+          "path": "index.d.ts",
+          "line": 225,
+          "lineEnd": null
+        },
+        {
+          "path": "index.d.ts",
+          "line": 349,
+          "lineEnd": null
+        },
+        {
+          "path": "index.js",
+          "line": 24,
+          "lineEnd": 30
+        },
+        {
+          "path": "runtime-types.d.ts",
+          "line": 87,
+          "lineEnd": null
+        },
+        {
+          "path": "types.d.ts",
+          "line": 191,
+          "lineEnd": 198
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`followup(parent: Agent, childId: SessionId, content: ContentBlock[], options: SubagentFollowupOptions): Promise<MessageId>`（continuation.d.ts:210，index.d.ts:136）。 `SubagentFollowupOptions { source: MessageSource, signal: AbortSignal }`（continuation.d.ts:119-124）。",
+          "anchors": [
+            {
+              "path": "continuation.d.ts",
+              "line": 210,
+              "lineEnd": null
+            },
+            {
+              "path": "index.d.ts",
+              "line": 136,
+              "lineEnd": null
+            },
+            {
+              "path": "continuation.d.ts",
+              "line": 119,
+              "lineEnd": 124
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**cold-resume 说明**（continuation.d.ts:194-198 followup 注释 + 326-331 coldResume 注释）： 「a running Activation enqueues, a waiting one wakes the same Agent, and an **absent one cold-resumes a new Activation from the persisted Session**」；coldResume「This never dispatches through a subagent provider — the persisted Session already holds the initial prefix and the descriptor is the whole reconstruction input」。**已释放 Activation（drain 后）的子代理可以 cold-resume + followup，前提是 Session 已持久化** （`requirePersistence`，continuation.d.ts:450-451，无 persistence 时 fail loud）。",
+          "anchors": [
+            {
+              "path": "continuation.d.ts",
+              "line": 194,
+              "lineEnd": 198
+            },
+            {
+              "path": "continuation.d.ts",
+              "line": 450,
+              "lineEnd": 451
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`drainContinuableChildren(parent: Agent, childIds: readonly SessionId[]): Promise<void>` （index.d.ts:195）：释放指定 resident 直接子代理的 Activation（release handle）， 不关闭该父代理其他 continuable 子代理的准入；absent 目标为 accepted no-op。",
+          "anchors": [
+            {
+              "path": "index.d.ts",
+              "line": 195,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`interrupt(targetSessionId, authority)`（index.d.ts:152）：`SubagentInterruptAuthority` 为 `{kind:'user', parentSessionId}` 或 `{kind:'ancestor', agent}`（continuation.d.ts:111-117）。",
+          "anchors": [
+            {
+              "path": "index.d.ts",
+              "line": 152,
+              "lineEnd": null
+            },
+            {
+              "path": "continuation.d.ts",
+              "line": 111,
+              "lineEnd": 117
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`finalAssistantOutput(events: readonly SessionEvent[]): ContentBlock[] | undefined` （assistant-output.d.ts:47）：选最后非空 assistant 消息，否则累计流式文本，再无则 undefined——旧版输出选择规则沿用此函数。",
+          "anchors": [
+            {
+              "path": "assistant-output.d.ts",
+              "line": 47,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`Agent.whenIdle(): Promise<void>`（dsh-agent runtime-types.d.ts:87）、 `Agent.session.events`（dsh-session index.d.ts:174）、`Session.requestHeader(): EpochHeader | undefined`（dsh-session index.d.ts:225；EpochHeader.config 为 LlmCallConfig，含 provider/model/reasoningEffort，types.d.ts:191-198）——**旧版 MinimalAgent 的三个能力面当前 DSH 全部保留**，`ctx.agents.get(id): Agent | undefined` （dsh-agent index.d.ts:349）亦在。",
+          "anchors": [
+            {
+              "path": "runtime-types.d.ts",
+              "line": 87,
+              "lineEnd": null
+            },
+            {
+              "path": "index.d.ts",
+              "line": 174,
+              "lineEnd": null
+            },
+            {
+              "path": "index.d.ts",
+              "line": 225,
+              "lineEnd": null
+            },
+            {
+              "path": "types.d.ts",
+              "line": 191,
+              "lineEnd": 198
+            },
+            {
+              "path": "index.d.ts",
+              "line": 349,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "spawn provider 的 continuable 能力（`dsh-subagent-spawn-in-process/lib/index.js:36`）： `prepareContinuable() { return Promise.resolve({}) }`——**存在即能力**，返回空 seed （无父历史种子）；capabilities 全 true（outputSchema/depthLimit/toolFilter/persona， index.js:24-30）。",
+          "anchors": [
+            {
+              "path": "dsh-subagent-spawn-in-process/lib/index.js",
+              "line": 36,
+              "lineEnd": null
+            },
+            {
+              "path": "index.js",
+              "line": 24,
+              "lineEnd": 30
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "whenIdle → finalAssistantOutput → drainContinuableChildren → followup cold-resume）， 与背景假设一致，无类型层面障碍。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "7.1 research skill 位置与产出模板",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**workloom assets 内无 research skill**：`packages/assets/skills/` 只有 workloom-brainstorm / workloom-ui-design / workloom-update-spec 三个（assets 侧 无 research skill 目录）。实际生效的 research skill 在全局 `/data00/home/wangyubo.1219/.agents/skills/research/SKILL.md`（用户级 skills，非仓库内）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "research skill 内容（SKILL.md 全文）：后台 agent 调研 primary sources → 单文件 Markdown → 引用来源 → 匹配仓库既有约定。**无结构化产出模板**（无锚点/代码摘录规范）， 与 prd「research-facts 格式（B）需新增格式标准 + research skill 模板对齐」的现状一致。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "补充：workloom 仓库自身 research 先例 `.workloom/tasks/08-26-adapter-opencode/research/upstream-v2-tools.md`（3710 字节）： 结论式结构（结论一/二/三 + 恢复判据清单），无锚点索引——说明现有 research 产出 格式自由，无统一规范。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "7.2 .workloom/spec/repo/ 现有组织",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "spec-index.js",
+          "line": 24,
+          "lineEnd": 25
+        },
+        {
+          "path": "spec-index.js",
+          "line": 50,
+          "lineEnd": 77
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "布局：`spec/<package>/<layer>/index.md` 是注入单元（`spec-index.js:24-25`， `INDEX_FILE_NAME = 'index.md'`）；detail 文件（*.md）与 index 同级（spec README）。",
+          "anchors": [
+            {
+              "path": "spec-index.js",
+              "line": 24,
+              "lineEnd": 25
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "现有 layer：architecture（dependency/executor-voice/layering）、code-style（verify）、 commits、deployment、language、legacy-module、terminology（`ls .workloom/spec/repo/`）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "index.md 样例（code-style/index.md，全文 14 行）：**无 YAML front-matter**，纯 Markdown：`# repo/code-style standards` 标题 + `- key: value` 无序列表，detail 引用 形式 `— see verify.md`。新增 `research-facts` layer 的 index.md 可完全对齐此形态。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "收集语义（`spec-index.js:50-77`）：config.packages 声明非空时只收集声明包的 spec； 目录名过 `DIR_NAME_RE`（字母数字 + `._-`）校验；字节预算 `MAX_GUIDELINES_BYTES = 8192`（行 19）超限截断记 truncated。",
+          "anchors": [
+            {
+              "path": "spec-index.js",
+              "line": 50,
+              "lineEnd": 77
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "7.3 cardx 样本 research 产出（锚点格式范本）",
+      "summary": "**结论**：T3 的格式标准（.workloom/spec/ 新增 research-facts）与锚点解析器输入",
+      "anchors": [
+        {
+          "path": "client.go",
+          "line": 120,
+          "lineEnd": 179
+        },
+        {
+          "path": "config/config.default.ts",
+          "line": 129,
+          "lineEnd": 131
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "章节结构：`# 标题` → ⚠️ 实施以 design.md 为准提示块（含已关闭项清单）→ 任务/范围 头（声明「输出单一 Markdown，供 implement 子代理直接消费」）→ `## 1 调研范围与方法` → `## 2 现状事实基线`（`### 2.1 CLI 侧` / `### 2.2 API 侧`，**表格「主题 | 事实 （带路径）」为主形态**）→ `## 3 架构边界`（mermaid）→ `## 4 数据模型建议` → `## 5 统一 token 入口与锁升级 seam`（`### 5.x` 小节 + **go 代码摘录块**（```go， 带 `// internal/store/lock.go` 路径注释）+ 实现要点列表 + mermaid 状态机）→ `## 6 精确文件清单`（`### 6.1 CLI 新增 / 6.2 修改 / 6.3 API / 6.4 跨任务`）→ `## 7 测试矩阵` → `## 8 实施顺序` → `## 9 待确认项（供 Grilling）`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "锚点样式事实：表格行内嵌 `路径:行号` 引用（如 `client.go:120-179`、 `config/config.default.ts:129-131`）；代码摘录块带 `// internal/store/lock.go` 式 路径注释；章节编号为 `## N. 标题` 与 `### N.M 子标题`——可直接作为结构化锚点 解析（节标题/要点/文件:行号/代码摘录）的输入范本。",
+          "anchors": [
+            {
+              "path": "client.go",
+              "line": 120,
+              "lineEnd": 179
+            },
+            {
+              "path": "config/config.default.ts",
+              "line": 129,
+              "lineEnd": 131
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "（cardx 样本结构）均有现成素材；research skill 在用户级目录而非仓库 assets，模板 对齐需改用户级 skill（或仓库内新增/引用），属部署面决策点。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "8.1 配置加载与字段",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "config.d.ts",
+          "line": 6,
+          "lineEnd": 10
+        },
+        {
+          "path": "config.d.ts",
+          "line": 22,
+          "lineEnd": 24
+        },
+        {
+          "path": "config.d.ts",
+          "line": 25,
+          "lineEnd": 28
+        },
+        {
+          "path": "config.d.ts",
+          "line": 86,
+          "lineEnd": null
+        },
+        {
+          "path": "config.js",
+          "line": 172,
+          "lineEnd": 184
+        },
+        {
+          "path": "config.js",
+          "line": 218,
+          "lineEnd": 221
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`loadConfig(root)`（`config.d.ts:86`，实现 `config.js`）：`config.yaml` 起底， `config.local.yaml` 存在时深合并覆盖；均缺失返回全默认。",
+          "anchors": [
+            {
+              "path": "config.d.ts",
+              "line": 86,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`executor:` 配置节读取点（`config.js:218-221`）：仅 `executor.gate`（boolean）一个 字段，读入 `config.executor.gate`（默认 true，`config.d.ts:25-28`）；`.workloom/ config.yaml` 现例为 `executor:\\n  gate: true`。",
+          "anchors": [
+            {
+              "path": "config.js",
+              "line": 218,
+              "lineEnd": 221
+            },
+            {
+              "path": "config.d.ts",
+              "line": 25,
+              "lineEnd": 28
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`contextInjection:` 三字段（`config.js:172-184`，`config.d.ts:6-10`）： maxFileBytes/maxArtifactBytes/maxTotalBytes（默认 32768/65536/131072）。",
+          "anchors": [
+            {
+              "path": "config.js",
+              "line": 172,
+              "lineEnd": 184
+            },
+            {
+              "path": "config.d.ts",
+              "line": 6,
+              "lineEnd": 10
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`subagents: Record<kind, SubagentConfigEntry>` 与 `subagent_profiles`（`config.d.ts:22-24`、 36-48）：entry 为 `{model?: string|map, effort?: string}`；**当前无 childId/续用类字段**。",
+          "anchors": [
+            {
+              "path": "config.d.ts",
+              "line": 22,
+              "lineEnd": 24
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "8.2 合并语义（续用参数复用评估）",
+      "summary": "**结论**：配置链现状与续用无直接冲突，但续用参数的解析应在 executor 层完成",
+      "anchors": [
+        {
+          "path": "config.d.ts",
+          "line": 93,
+          "lineEnd": 99
+        },
+        {
+          "path": "config.js",
+          "line": 458,
+          "lineEnd": 525
+        },
+        {
+          "path": "config.js",
+          "line": 617,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`resolveSubagentDefaults(config, kind, overrides, runtime, mainModel)`（`config.js:458-525`）： 合并链「显式参数 overrides → subagent_profiles 命中条目（whenMain 按主模型匹配）→ 旧 subagents」，model/effort **字段独立合并**；返回 `{model, effort, sources, configSources, whenMainValue?}`。",
+          "anchors": [
+            {
+              "path": "config.js",
+              "line": 458,
+              "lineEnd": 525
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`detectExecutorConflicts(config, kind, overrides, runtime, mainModel)`（`config.js:617-`）： 配置侧生效值按 `resolveSubagentDefaults(config, kind, {}, runtime, mainModel)` 同口径 解析，model 归一化（provider/model 各自相等）比较，effort 直接比较；冲突条目含 field/configured/passed/configuredSource/whenMainValue。",
+          "anchors": [
+            {
+              "path": "config.js",
+              "line": 617,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**续用参数可行性**：该合并通道是「工具参数 + 配置 → 生效 model/effort」的专用通道， overrides 形状固定为 `{model?, effort?}`（`config.d.ts:93-99`）；续用参数（childId 等） 不属于 model/effort，**不能直接复用此通道**，需在 executor 层独立读取（如直接 校验 dispatches 或新增 schema 参数），不引入 config 合并。若续用参数要进配置 （如默认续用策略），需扩展 `SubagentConfigEntry` 与解析器——prd 未要求，默认不做。",
+          "anchors": [
+            {
+              "path": "config.d.ts",
+              "line": 93,
+              "lineEnd": 99
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "（读 dispatches / 工具参数），配置链无需改动；`resolveSubagentDefaults`/conflicts 保持 model/effort 语义不变即可。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/executor-continuable-facts.md",
+      "title": "9. 与背景假设的核对清单",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "index.d.ts",
+          "line": 349,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "DSH 0.1.1-rc.2 服务面保留 startContinuable/followup/drainContinuableChildren/ctx.agents.get",
+          "text": "✅ 全部确认（§6；`dsh-agent index.d.ts:349` agents.get 在）",
+          "anchors": [
+            {
+              "path": "index.d.ts",
+              "line": 349,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "research 产物未进 seed",
+          "text": "✅ `ARTIFACT_FILES`/`JSONL_FILES` 不含 research（§2.1）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "1920d32^ 即可继续实现（effort header hack 除外）",
+          "text": "✅ 完整恢复参照（§3.1），effort header hack 确认不恢复",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "dispatches 可作续用记录",
+          "text": "⚠️ 缺 childId 字段，需扩展（§5.2）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "写门禁豁免按 session id、continuable 第二轮仍豁免",
+          "text": "⚠️ 现状每轮注销，续用第二轮会被 deny，需改豁免生命周期（§4.2）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "research skill 在仓库内可改",
+          "text": "⚠️ 实际在用户级 `.agents/skills/research/`，仓库 assets 无 research skill（§7.1）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "续用参数走现有配置合并通道",
+          "text": "❌ 通道仅 model/effort，续用参数需 executor 层独立解析（§8.2）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    }
+  ],
+  "unverifiedCount": 73
+}
