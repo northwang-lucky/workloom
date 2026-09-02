@@ -1,0 +1,7 @@
+{"_example":"implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file":".workloom/spec/repo/architecture/index.md","type":"spec","reason":"遵守 core/assets/adapter 分层和依赖方向"}
+{"file":".workloom/spec/repo/code-style/index.md","type":"spec","reason":"遵守代码风格、LSP 与测试要求"}
+{"file":".workloom/spec/repo/code-style/verify.md","type":"spec","reason":"执行提交前完整验证"}
+{"file":".workloom/spec/repo/deployment/index.md","type":"spec","reason":"按规范干净构建并同步 DSH profile"}
+{"file":".workloom/spec/repo/language/index.md","type":"spec","reason":"运行时文案与任务文档使用正确语言"}
+{"file":".workloom/spec/repo/legacy-module/index.md","type":"spec","reason":"修改 core legacy JS 时保持 JSDoc 与数据兼容"}

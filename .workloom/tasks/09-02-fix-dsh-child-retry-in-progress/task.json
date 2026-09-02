@@ -1,0 +1,62 @@
+{
+  "id": "9245f02d-a0a9-4e31-a273-48ab2f292df1",
+  "name": "fix-dsh-child-retry-in-progress",
+  "title": "移除 DSH 写入硬门禁",
+  "description": "彻底删除 workloom DSH adapter 的运行时文件写入硬门禁及相关配置、doctor 和测试，保留 Agent prompt/workflow 的 implement executor 分工提示；原 429 续跑会话仅作为决策背景和回归证据。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-02T06:06:04.332Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-02T07:56:48.052Z",
+    "summary": "独立 check PASS：8 条验收标准逐条满足；gate 源码/产物/测试/豁免全删，配置/初始化/doctor 无 executor.gate 且旧字段静默忽略，workflow 保留 implement executor 分工与 check 例外；lint、typecheck、build、core 439/adapter-dsh 83/adapter-pi 67 测试全绿；工作区与 DSH profile 均无 dist/gate.*；未重启 DSH Web，无 commit 前置操作。上轮 4 个问题（config.example、doctor 文案、测试死脚手架、plugin 正向对照）确认修复。Open issues: none。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-02T06:35:22.801Z",
+    "summary": "已确认彻底移除 DSH 写入硬门禁：完整删除运行时 gate、配置、doctor 与相关测试；保留 Agent prompt/workflow 的 implement executor 分工提示；旧 executor.gate 静默忽略；按 plugin、配置/初始化、doctor、workflow 公共接缝执行 TDD；干净构建后同步 profile，不重启 DSH Web；不实现 429 专用续跑机制。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-02T06:54:28.076Z",
+      "title": "删除 DSH 写入硬门禁",
+      "childId": "accd4e2c-1cec-4ebe-96e1-3c16c9c7c787"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-02T07:47:47.718Z",
+      "title": "修复 check 复核发现的四个问题",
+      "childId": "ebd0c046-a03d-4496-8df8-2797cf683466"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-02T07:55:26.372Z",
+      "title": "复核硬门禁删除最终版",
+      "childId": "bb7afdad-42b9-4cd1-8ab0-74425e8d00ae"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
