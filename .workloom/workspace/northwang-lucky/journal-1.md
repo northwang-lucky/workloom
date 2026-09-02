@@ -154,3 +154,9 @@
 - Commit: e2c6951
 - Summary: 实现提示词本机扩展点机制（.workloom/prompts.local/，front-matter requiresTools AND 条件注入；内置 LSP 软基线入 core 纪律与 workflow 契约 v14；doctor 新增检查；本机四个偏好文件落地）。check 复核修复 5 处后全量验证绿（core 414 / dsh 94 / pi 47），TC1–TC9 全通过。
 
+## 子代理效率优化：上下文注入 + 可继续化
+
+- Time: 2026-09-02T00:40:03.736Z
+- Commit: 9b942d0
+- Summary: workloom 仓库内（DSH 零改动）完成 executor 子代理效率优化：research 产物注入与上下文包（T3）、seed 注入与反 recon 模板（T1）、one-shot 恢复 startContinuable 可继续化与同 kind 续用（T2），含 spec/模板资产与 6 项验收全 PASS（dogfooding 摸底 ~10%）。
+
