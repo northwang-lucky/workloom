@@ -1,20 +1,25 @@
 /**
  * executor 上下文注入组装（行为移植模块，纯 JS + JSDoc）。
  *
- * 设计意图（W9 行为移植，规格见任务派发规格）：
- * - 子代理派发前把 prd/design/implement 与 jsonl 清单引用的 spec/research
- *   内联进首条 prompt，让子代理带完整信息自主工作（注入有预算）；
- * - research 产物（research/*.md）自动全文注入（独立 20K 字符预算，超限保留
- *   标题区+锚点区并追加截断标注），锚点文件清单自动生成，让子代理先读材料
- *   再行动，消除各自重新摸底仓库的开销；
- * - 预算来自 config.contextInjection：max_file_bytes 限单文件、max_artifact_bytes
- *   限单个 artifact、max_total_bytes 限总量；0 表示不限制；
- * - 超限策略：artifact/文件内容截断（追加 [...truncated at N bytes] 提示），
- *   总量耗尽后剩余条目降级为索引行（[... [indexed] 提示），不静默丢弃；
+ * 设计意图（W9 行为移植，规格见任务派发规格；注入优化任务 09-02 五项切片）：
+ * - 子代理派发前组装首条 prompt：artifacts（prd/design/implement 按节提取）+
+ *   jsonl 清单指针行 + research 产物指针 + 任务正文 + 纪律段，让子代理带完整
+ *   信息自主工作（注入有预算）；
+ * - 注入优化（指针化，切片 ①/②）：jsonl 引用文件与 research/*.md 只给「路径 +
+ *   reason + 先读后判」指针行，不再内联全文（体积压到指针级）；prd 保留
+ *   Requirements/Acceptance 两节全文、其余节只留标题指针；design/implement 只进
+ *   H2 目录 + 文件指针——正文由执行器按强制加载协议（纪律段 + 注入标记回声）自读；
+ * - 可靠性护栏（切片 ⑤）：每次派发注入唯一 marker token，纪律句要求执行器报告
+ *   首行回显（证明注入到达且协议被读）；「实读文件」由既有「报告引用实读文件」
+ *   纪律保证（子代理实读不可观测为已知能力边界）；
+ * - 预算来自 config.contextInjection：max_artifact_bytes 限单个 artifact 块、
+ *   max_total_bytes 限总量；指针行极轻量，无截断/索引降级语义，预算仅对 artifact
+ *   内容生效（128KB 上限保留作兜底）；
+ * - 超限策略：artifact 块内容截断（追加 [...truncated at N bytes] 提示）；
  * - jsonl 缺失按空处理；jsonl 行解析失败显式报错（fail loud，无灰区）。
  */
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { insideWorkloom, WORKLOOM_DIR } from './locate.js'
@@ -93,17 +98,11 @@ const RESEARCH_DIR = 'research'
 /** research 材料注入段标题（jsonl 引用之后、Task prompt 之前）。 */
 const RESEARCH_MATERIALS_HEADING = '## Research materials'
 
-/** research 注入合计字符预算：超过即按「标题区+锚点区」截断（语义与 artifact 截断相反）。 */
-const RESEARCH_CHAR_BUDGET = 20000
+/** jsonl 指针清单段标题（artifacts 之后、research 之前；指针行极轻量无预算语义）。 */
+const POINTER_LIST_HEADING = '## Pointer list'
 
-/** research 截断标注行前缀（N 为预算字符数）。 */
-const RESEARCH_TRUNCATED_PREFIX = '[...truncated: research/*.md research materials over '
-
-/** research 截断标注行结尾。 */
-const RESEARCH_TRUNCATED_SUFFIX = ' chars]'
-
-/** research 截断标注行（追加到被截断文件块末尾，措辞与 artifact 截断提示同风格）。 */
-const RESEARCH_TRUNCATED_MARKER = `${RESEARCH_TRUNCATED_PREFIX}${RESEARCH_CHAR_BUDGET}${RESEARCH_TRUNCATED_SUFFIX}`
+/** 指针行「先读后判」指令（指针行后缀，与纪律段强制加载协议同措辞）。 */
+const READ_BEFORE_ACTING = 'read before acting'
 
 /** files 清单注入段标题（research 锚点文件清单，消费 T3 上下文包）。 */
 const FILES_LIST_HEADING = '## Involved files'
@@ -111,14 +110,14 @@ const FILES_LIST_HEADING = '## Involved files'
 /** files 清单段防重复判定关键词（userPrompt 已含显式清单时不重复注入清单段）。 */
 const FILES_LIST_KEYWORDS = Object.freeze(['涉及文件', 'files:', '改动文件'])
 
-/** 锚点记号正则（`:数字`，仅定位用；lastIndex 由调用方重置）。 */
-const ANCHOR_TOKEN_RE = /:\d+/g
+/** prd 全文保留节（Requirements/Acceptance 两节全文；其余节只留标题指针）。 */
+const PRD_FULL_SECTIONS = Object.freeze(['Requirements', 'Acceptance Criteria'])
 
-/** 标题行（1-6 级，research 截断保留区）。 */
-const HEADING_LINE_RE = /^#{1,6}\s+/
+/** H2 标题行判定正则（## 起头且非 ###/####）。 */
+const H2_HEADING_RE = /^##\s+\S/
 
-/** 代码围栏起止行（research 截断锚点摘录区）。 */
-const FENCE_LINE_RE = /^```/
+/** H2 标题文字捕获正则（截取 ## 之后的标题文本）。 */
+const H2_TITLE_RE = /^##\s+(.+)$/
 
 /**
  * 内置 LSP 主基线句子（产品内置，runtime 无关，不带条件；检测到 LSP 工具时由
@@ -171,6 +170,30 @@ const COMPACT_OUTPUT_DISCIPLINE =
   'list output, and prefer summaries over full dumps.'
 
 /**
+ * 强制加载协议 + 注入标记回声纪律句（全部 kind 纪律段共用，命令式、无弱化词）：
+ * 指针模式不再内联文件全文，执行器必须先读指针清单所列文件再动手，并在报告首行
+ * 回显本次派发的唯一 marker token（证明注入到达且协议被读）。措辞与 assets
+ * workflow.md 契约 norms 逐字一致（check 逐字核对）。
+ */
+const INJECTION_PROTOCOL_DISCIPLINE =
+  'Read the files in the injected pointer list before acting. ' +
+  'Echo the injection marker token in the first line of your report as proof the protocol was read.'
+
+/** 注入标记行前缀（行内 token 唯一标识一次派发注入，随指针清单注入）。 */
+const INJECTION_MARKER_PREFIX = 'Injection marker: '
+
+/**
+ * 生成唯一注入标记行（任务相对路径 + 时间戳 + 随机后缀）：同一任务两次派发的
+ * token 必然不同（单次注入标记回声机制的判定依据）。返回整行（含前缀）。
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @returns {string} 注入标记行
+ */
+function buildInjectionMarkerLine(taskRelPath) {
+  const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+  return `${INJECTION_MARKER_PREFIX}${taskRelPath}:${nonce}`
+}
+
+/**
  * 按 kind 的执行器纪律段正文（硬指令，单一来源，DSH/Pi 两 runtime 共享；
  * 与 adapter-pi 的 agent 角色总述互补不冲突）。
  * 并入注入文本末尾的终极权威段（`## Executor contract` 内 `### <Kind> executor
@@ -188,14 +211,16 @@ ${LSP_RESEARCH_BASELINE_SENTENCE}
 Structure the report in research-facts blocks (see the research-facts spec and its template asset):
 - Use '##' section headings, each heading stating the section's takeaway in one sentence.
 - Anchor every conclusion: cite its source as 'path:line', with the path relative to the task repo root.
-- Quote the key code in fenced code blocks.`,
+- Quote the key code in fenced code blocks.
+${INJECTION_PROTOCOL_DISCIPLINE}`,
   [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/design/implement) in order.
 Make the smallest change that satisfies the requirement; do not touch unrelated code.
 Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.
 ${LSP_BASELINE_SENTENCE}
 ${BATCHING_DISCIPLINE}
 ${COMPACT_OUTPUT_DISCIPLINE}
-${READ_MATERIALS_FIRST_RULE}`,
+${READ_MATERIALS_FIRST_RULE}
+${INJECTION_PROTOCOL_DISCIPLINE}`,
   [EXECUTOR_KINDS.check]: `Classify every finding by severity before acting (definitions in the workflow contract §2.2; summarized here):
 - P0 (blocking): acceptance criteria unmet; hard lint / typecheck / build / tests failures; security or data-integrity risks.
 - P1 (important): behavioral or correctness defects; design or spec deviations (including cross-file semantic changes); issues that pre-date this task (even mechanical ones).
@@ -208,11 +233,13 @@ After fixing, verify with the project's checks (lint / typecheck / tests) and re
 ${LSP_BASELINE_SENTENCE}
 ${BATCHING_DISCIPLINE}
 ${COMPACT_OUTPUT_DISCIPLINE}
-${READ_MATERIALS_FIRST_RULE}`,
+${READ_MATERIALS_FIRST_RULE}
+${INJECTION_PROTOCOL_DISCIPLINE}`,
   [EXECUTOR_KINDS.frontend]: `Follow the PRD's "## UI Design" section as the baseline and deliver all seven UI axes it asks for.
 Touch frontend files only; verify with the project's frontend checks (lint / typecheck / build / relevant tests).
 When a backend interface is missing, use an annotated mock or placeholder and mark it for later wiring.
-${LSP_BASELINE_SENTENCE}`,
+${LSP_BASELINE_SENTENCE}
+${INJECTION_PROTOCOL_DISCIPLINE}`,
 })
 
 /** 纪律段子标题前缀（权威段内 Markdown H3）。 */
@@ -231,17 +258,31 @@ function kindDirectiveHeading(kind) {
   return `${HEADING_PREFIX}${kind.charAt(0).toUpperCase()}${kind.slice(1)}${DIRECTIVE_HEADING_SUFFIX}`
 }
 
+/**
+ * 渲染 kind 纪律段正文（交付时过滤，切片 ④）：目标环境无 LSP 工具
+ * （hasLsp === false）时剔除 LSP 基线句（主句与 research 只读变体），使纪律段
+ * 不产生指向虚无的 LSP 指令；缺省（undefined）视为有 LSP，保持原输出（向后
+ * 兼容：未传该字段的一切既有调用方输出逐字不变）。
+ * @param {string} kind executor 类型
+ * @param {boolean | undefined} hasLsp 目标环境是否具备 LSP 工具面
+ * @returns {string} 纪律段正文
+ */
+function renderKindDiscipline(kind, hasLsp) {
+  // kind 已由 assertKind 在 buildInternal 校验，此处 ?? '' 仅防御索引类型边界。
+  const body = EXECUTOR_CONTRACT_BY_KIND[kind] ?? ''
+  if (hasLsp !== false) return body
+  return body
+    .split(`${LSP_BASELINE_SENTENCE}\n`)
+    .join('')
+    .split(`${LSP_RESEARCH_BASELINE_SENTENCE}\n`)
+    .join('')
+}
+
 /** 截断提示前缀（N 为保留字节数）。 */
 const TRUNCATED_PREFIX = '[...truncated at '
 
 /** 截断提示结尾。 */
 const TRUNCATED_SUFFIX = ' bytes]'
-
-/** 索引行模板片段（超总量预算后的降级行）。 */
-const INDEXED_SUFFIX = ' bytes [indexed]'
-
-/** 目录条目类型标记（jsonl 条目 type 字段）。 */
-const DIRECTORY_TYPE = 'directory'
 
 /**
  * 校验 effort 档位；undefined 通过（未指定）。非法值抛 Error（英文文案）。
@@ -301,30 +342,34 @@ function buildInternal(params) {
   /** @type {import('./executor-context.d.ts').ExecutorPromptStats} */
   const stats = {
     filesInlined: 0,
-    filesIndexed: 0,
+    filesPointed: 0,
     truncated: 0,
-    researchInlined: 0,
-    researchTruncated: 0,
   }
-  const parts = [`${ACTIVE_TASK_PREFIX}${params.taskRelPath}`]
+  // 首行任务标注 + 注入标记（单次注入标记回声机制）：每次派发生成唯一 marker
+  // token 随指针清单注入（放在首行附近便于执行器最先读到），纪律句要求执行器
+  // 在报告首行回显，证明注入到达且强制加载协议被读。
+  const parts = [
+    `${ACTIVE_TASK_PREFIX}${params.taskRelPath}\n${buildInjectionMarkerLine(params.taskRelPath)}`,
+  ]
   const taskDir = insideWorkloom(params.root, params.taskRelPath)
-  // 已内联进 prompt 的累计字节（总量预算跨 artifact 与 jsonl 引用文件共用）。
-  let totalBytes = 0
   if (params.kind === EXECUTOR_KINDS.research) {
-    // research 不物化 jsonl，totalBytes 无后续消费，直接丢弃内联字节。
-    inlineArtifact(parts, params.root, params.taskRelPath, taskDir, RESEARCH_ARTIFACT, ci, stats)
+    // research 只物化 prd（按节提取），不读 jsonl。
+    inlineArtifact(parts, params.taskRelPath, taskDir, RESEARCH_ARTIFACT, ci, stats)
   } else {
     for (const name of ARTIFACT_FILES) {
-      totalBytes += inlineArtifact(parts, params.root, params.taskRelPath, taskDir, name, ci, stats)
+      inlineArtifact(parts, params.taskRelPath, taskDir, name, ci, stats)
     }
     const jsonlName = JSONL_FILES[params.kind]
     if (jsonlName !== undefined) {
-      parts.push(...materializeJsonlEntries(params.root, taskDir, jsonlName, ci, stats, totalBytes))
+      const pointerLines = materializeJsonlEntries(params.root, taskDir, jsonlName, stats)
+      if (pointerLines.length > 0) {
+        parts.push(`${POINTER_LIST_HEADING}\n${pointerLines.join('\n')}`)
+      }
     }
   }
-  // research 产物注入（自动行为，不由主会话控制）：任务上下文先于任务正文，
+  // research 产物指针注入（自动行为，不由主会话控制）：任务上下文先于任务正文，
   // 让子代理先读材料再行动；无 research 产物时为空段，不报错。
-  inlineResearchMaterials(parts, params.root, params.taskRelPath, taskDir, stats)
+  inlineResearchMaterials(parts, params.taskRelPath, taskDir, stats)
   // files 清单注入（消费 T3 上下文包）：userPrompt 已含显式清单时不重复注入。
   inlineFilesList(parts, params.root, params.taskRelPath, params.userPrompt)
   if (params.userPrompt !== '') {
@@ -346,33 +391,34 @@ function buildInternal(params) {
   // 仅豁免 leaf 规则行（userPrompt 已含 leaf 关键词时不重复追加该行）——kind
   // 纪律段与权威声明始终注入：即使主会话用户指令自带旧版契约/只读审查约束，
   // 权威兜底也不因去重分支丢失。
-  const leafRule = params.userPrompt.includes(LEAF_RULE_KEYWORD)
-    ? ''
-    : `${LEAF_EXECUTOR_RULE}\n\n`
+  const leafRule = params.userPrompt.includes(LEAF_RULE_KEYWORD) ? '' : `${LEAF_EXECUTOR_RULE}\n\n`
   parts.push(
     `${EXECUTOR_CONTRACT_HEADING}\n${kindDirectiveHeading(params.kind)}\n` +
-      `${EXECUTOR_CONTRACT_BY_KIND[params.kind]}\n\n${leafRule}${AUTHORITY_DECLARATION}`,
+      `${renderKindDiscipline(params.kind, params.hasLsp)}\n\n${leafRule}${AUTHORITY_DECLARATION}`,
   )
   return { text: parts.join('\n\n'), stats }
 }
 
 /**
- * 内联单个 artifact（prd/design/implement.md）：按 maxArtifactBytes 截断，
+ * 内联单个 artifact（prd/design/implement.md）：按节提取注入（切片 ②），
  * 文件缺失跳过；块文本写入 parts；返回实际写入的字节数（缺失为 0）。
+ * - prd.md：Requirements/Acceptance 两节全文保留，其余节只留标题指针；
+ * - design.md/implement.md：只进 H2 目录 + 文件指针（正文执行器自读）。
+ * 按 maxArtifactBytes 截断（预算兜底）。
  * @param {string[]} parts prompt 段落列表（块文本追加于此）
- * @param {string} root 项目根（块路径前缀用）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {string} taskDir 任务目录绝对路径
  * @param {string} name artifact 文件名
  * @param {import('./config.d.ts').WorkloomConfig['contextInjection']} ci 注入预算
  * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 统计
- * @returns {number} 内联字节数（写入调用方累计预算）
+ * @returns {number} 注入字节数（写入调用方累计预算）
  */
-function inlineArtifact(parts, root, taskRelPath, taskDir, name, ci, stats) {
+function inlineArtifact(parts, taskRelPath, taskDir, name, ci, stats) {
   const text = readTaskFile(join(taskDir, name))
   if (text === null) return 0
   const relPath = join(WORKLOOM_DIR, taskRelPath, name)
-  const limited = limitByBytes(text, ci.maxArtifactBytes)
+  const content = extractArtifactContent(name, text)
+  const limited = limitByBytes(content, ci.maxArtifactBytes)
   parts.push(`${BLOCK_SEPARATOR}${relPath}${BLOCK_SEPARATOR_END}\n${limited.text}`)
   if (limited.truncated) stats.truncated += 1
   stats.filesInlined += 1
@@ -380,80 +426,155 @@ function inlineArtifact(parts, root, taskRelPath, taskDir, name, ci, stats) {
 }
 
 /**
- * 物化 jsonl 引用条目为文件块列表（内部，失败抛错）。
- * 逐行 JSON {file, reason?, type?}：无 file 行跳过；type:'directory' 跳过计入
- * indexed；预算耗尽后剩余条目降级为索引行；jsonl 缺失按空处理。
- * @param {string} root 项目根
- * @param {string} taskDir 任务目录绝对路径
- * @param {string} jsonlName jsonl 文件名
- * @param {import('./config.d.ts').WorkloomConfig['contextInjection']} ci 注入预算
- * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 统计
- * @param {number} initialBytes 已累计的预算字节（artifact 已占）
- * @returns {string[]} 文件块文本列表
+ * 按 artifact 类型提取注入正文（切片 ②）：
+ * - prd.md：Requirements/Acceptance 两节全文 + 其余节标题指针（Read in file:）；
+ *   无全文节时整体只给文件指针；
+ * - design.md/implement.md：H2 目录（标题行列表）+ 文件指针（Read the full
+ *   document in the file），正文执行器按强制加载协议自读。
+ * @param {string} name artifact 文件名
+ * @param {string} text artifact 全文
+ * @returns {string} 注入正文（可能为空串）
  */
-function materializeJsonlEntries(root, taskDir, jsonlName, ci, stats, initialBytes) {
-  const raw = readTaskFile(join(taskDir, jsonlName))
-  if (raw === null) return []
-  const blocks = []
-  let totalBytes = initialBytes
-  for (const entry of parseJsonlEntries(raw, jsonlName)) {
-    if (entry.type === DIRECTORY_TYPE) {
-      stats.filesIndexed += 1
-      continue
-    }
-    const absFile = resolveInsideRoot(root, entry.file)
-    if (absFile === null) continue // 越界路径跳过，防路径逃逸
-    const fileText = readTaskFile(absFile)
-    if (fileText === null) continue // 引用文件缺失跳过，不阻塞其余条目
-    const size = byteLength(fileText)
-    // 判定与累加统一用「截断后实际注入字节」口径：大文件截断后本可落进预算，
-    // 按 raw size 判定会把它过早降级成索引行。
-    const effective = ci.maxFileBytes > 0 ? Math.min(size, ci.maxFileBytes) : size
-    if (ci.maxTotalBytes > 0 && totalBytes + effective > ci.maxTotalBytes) {
-      blocks.push(indexLine(entry.file, entry.reason, size))
-      stats.filesIndexed += 1
-      continue
-    }
-    const limited = limitByBytes(fileText, ci.maxFileBytes)
-    blocks.push(`${BLOCK_SEPARATOR}${entry.file}${BLOCK_SEPARATOR_END}\n${limited.text}`)
-    totalBytes += byteLength(limited.text)
-    if (limited.truncated) stats.truncated += 1
-    stats.filesInlined += 1
-  }
-  return blocks
+function extractArtifactContent(name, text) {
+  if (name === 'prd.md') return extractPrdContent(text)
+  return extractOutlineContent(text)
 }
 
 /**
- * 内联任务 research/*.md 全文（自动行为，不由主会话控制）：
- * - 按文件名排序依次计入 RESEARCH_CHAR_BUDGET 字符预算——合计未超预算的文件
- *   全文注入；超预算文件截断为「标题区 + 锚点区」并追加截断标注行（截断语义
- *   与 artifact 截断相反：后者保头丢尾，这里保留头部标题与锚点摘录、正文叙述
- *   行在预算外丢弃）；
- * - 无 research 目录或无 .md 产物时为空段，不影响注入链与统计（缺省 0）。
+ * prd 提取：Requirements/Acceptance 两节全文保留，其余 H2 节只留标题指针。
+ * 无 Requirements/Acceptance 节时整体只给文件指针（不猜节、无启发式）。
+ * @param {string} text prd 全文
+ * @returns {string} 注入正文
+ */
+function extractPrdContent(text) {
+  const kept = []
+  const others = []
+  for (const section of splitH2Sections(text)) {
+    if (PRD_FULL_SECTIONS.includes(section.heading)) {
+      kept.push(`## ${section.heading}\n${section.body.trim()}`)
+    } else {
+      others.push(`## ${section.heading}`)
+    }
+  }
+  const parts = []
+  if (kept.length > 0) parts.push(kept.join('\n\n'))
+  if (others.length > 0) parts.push(`Read in file: ${others.join(', ')}`)
+  if (parts.length === 0) {
+    parts.push(
+      'Read the full document in the file (no Requirements or Acceptance Criteria sections).',
+    )
+  }
+  return parts.join('\n\n')
+}
+
+/**
+ * design/implement 提取：只进 H2 目录（标题行列表）+ 文件指针。
+ * @param {string} text 文档全文
+ * @returns {string} 注入正文
+ */
+function extractOutlineContent(text) {
+  const headings = listH2Headings(text)
+  if (headings.length === 0) {
+    return 'Read the full document in the file (no H2 sections).'
+  }
+  return `${headings.join('\n')}\nRead the full document in the file.`
+}
+
+/**
+ * 按 H2 节切分 markdown 文本：返回 [{heading, body}]，body 不含标题行；
+ * H2 之前（H1 标题等）的内容不属于任何节，跳过。
+ * @param {string} text markdown 全文
+ * @returns {{heading: string, body: string}[]}
+ */
+function splitH2Sections(text) {
+  const sections = []
+  /** @type {{heading: string, bodyLines: string[]} | null} */
+  let current = null
+  for (const line of text.split('\n')) {
+    if (H2_HEADING_RE.test(line)) {
+      const title = H2_TITLE_RE.exec(line)?.[1]?.trim() ?? ''
+      current = { heading: title, bodyLines: [] }
+      sections.push(current)
+      continue
+    }
+    if (current !== null) current.bodyLines.push(line)
+  }
+  return sections.map((section) => ({
+    heading: section.heading,
+    body: section.bodyLines.join('\n'),
+  }))
+}
+
+/**
+ * 列出文档全部 H2 标题行（原样含 `## ` 前缀，作为 H2 目录）。
+ * @param {string} text markdown 全文
+ * @returns {string[]}
+ */
+function listH2Headings(text) {
+  return text.split('\n').filter((line) => H2_HEADING_RE.test(line))
+}
+
+/**
+ * 物化 jsonl 引用条目为指针行列表（切片 ①，内部，失败抛错）。
+ * 逐行 JSON {file, reason?, type?}：无 file 行跳过；两角色（implement/check，
+ * frontend 同 implement）统一输出「路径 + reason + 先读后判」指针行，撤全文
+ * 内联与预取——全文由执行器按强制加载协议自读；越界路径与缺失文件跳过；
+ * 指针行极轻量且是可靠性基线，不受预算截断/索引降级影响（预算仅对 artifact
+ * 内容生效，128KB 上限保留作兜底）；jsonl 缺失按空处理。
+ * @param {string} root 项目根
+ * @param {string} taskDir 任务目录绝对路径
+ * @param {string} jsonlName jsonl 文件名
+ * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 统计
+ * @returns {string[]} 指针行文本列表
+ */
+function materializeJsonlEntries(root, taskDir, jsonlName, stats) {
+  const raw = readTaskFile(join(taskDir, jsonlName))
+  if (raw === null) return []
+  const lines = []
+  for (const entry of parseJsonlEntries(raw, jsonlName)) {
+    const absFile = resolveInsideRoot(root, entry.file)
+    if (absFile === null) continue // 越界路径跳过，防路径逃逸
+    if (!existsSync(absFile)) continue // 引用文件缺失跳过，指针不指向空
+    lines.push(pointerLine(entry.file, entry.reason))
+    stats.filesPointed += 1
+  }
+  return lines
+}
+
+/**
+ * 拼装 jsonl 引用指针行：`- <file> (<reason>) — read before acting`（reason 缺失
+ * 省略括号；「先读后判」指令与纪律段强制加载协议同措辞）。
+ * @param {string} file 条目路径
+ * @param {string | undefined} reason 引用理由
+ * @returns {string} 指针行
+ */
+function pointerLine(file, reason) {
+  const reasonPart = reason === undefined ? '' : ` (${reason})`
+  return `- ${file}${reasonPart} — ${READ_BEFORE_ACTING}`
+}
+
+/**
+ * 内联任务 research/*.md 指针（切片 ②，自动行为，不由主会话控制）：
+ * 按文件名排序逐文件给「路径 — read before acting」指针行，不内联正文（与 jsonl
+ * ① 同口径）；无 research 目录或无 .md 产物时为空段，不影响注入链与统计（缺省 0）。
  * @param {string[]} parts prompt 段落列表（块文本追加于此）
- * @param {string} root 项目根（块路径前缀用）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {string} taskDir 任务目录绝对路径
  * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 统计
  */
-function inlineResearchMaterials(parts, root, taskRelPath, taskDir, stats) {
+function inlineResearchMaterials(parts, taskRelPath, taskDir, stats) {
   const names = listResearchMarkdownNames(taskDir)
   if (names.length === 0) return
-  parts.push(RESEARCH_MATERIALS_HEADING)
-  let usedChars = 0
+  const lines = []
   for (const name of names) {
-    const text = readTaskFile(join(taskDir, RESEARCH_DIR, name))
-    if (text === null) continue
+    const absPath = join(taskDir, RESEARCH_DIR, name)
+    if (!existsSync(absPath)) continue // 产物缺失跳过
     const relPath = join(WORKLOOM_DIR, taskRelPath, RESEARCH_DIR, name)
-    usedChars += text.length
-    const overBudget = usedChars > RESEARCH_CHAR_BUDGET
-    const content = overBudget ? truncateResearch(text) : text
-    parts.push(
-      `${BLOCK_SEPARATOR}${relPath}${BLOCK_SEPARATOR_END}\n${content}` +
-        (overBudget ? `\n${RESEARCH_TRUNCATED_MARKER}` : ''),
-    )
-    stats.researchInlined += 1
-    if (overBudget) stats.researchTruncated += 1
+    lines.push(`- ${relPath} — ${READ_BEFORE_ACTING}`)
+    stats.filesPointed += 1
+  }
+  if (lines.length > 0) {
+    parts.push(`${RESEARCH_MATERIALS_HEADING}\n${lines.join('\n')}`)
   }
 }
 
@@ -471,94 +592,6 @@ function listResearchMarkdownNames(taskDir) {
     throw error
   }
   return entries.filter((name) => name.endsWith('.md')).sort()
-}
-
-/**
- * research 截断（独立逻辑，语义与 artifact 截断相反）：保留标题区（`#`/`##` 行）
- * 与锚点区（`路径:行号` 行及紧随其后的代码围栏摘录行），正文叙述行在预算外
- * 丢弃；截断标注行由调用方追加。保留行保持原文顺序与换行。
- * @param {string} text research 文件全文
- * @returns {string} 截断后的保留行
- */
-function truncateResearch(text) {
-  const kept = []
-  let anchorArea = false // 锚点区：锚点行之后到代码围栏结束
-  let inFence = false
-  for (const line of text.split('\n')) {
-    if (FENCE_LINE_RE.test(line)) {
-      if (inFence) {
-        inFence = false
-        if (anchorArea) kept.push(line)
-        anchorArea = false
-      } else {
-        inFence = true
-        if (anchorArea) kept.push(line)
-      }
-      continue
-    }
-    if (inFence) {
-      if (anchorArea) kept.push(line)
-      continue
-    }
-    if (HEADING_LINE_RE.test(line)) {
-      anchorArea = false
-      kept.push(line)
-      continue
-    }
-    if (isAnchorLine(line)) {
-      anchorArea = true
-      kept.push(line)
-      continue
-    }
-    if (line.trim() === '') continue // 空行不打断锚点区（锚点行与摘录围栏间常见空行）
-    anchorArea = false // 正文叙述行打断锚点区
-  }
-  return kept.join('\n')
-}
-
-/**
- * 锚点行判定（`路径:行号`）：`:` 后紧跟数字、`:` 前路径段须含至少一个字母
- * （排除时间等纯数字误判，与 research-facts 锚点语义一致）。用原生线性扫描
- * 定位 `:数字` 记号再校验前缀，避免整行回溯正则的重叠字符类放大（30K 无断点
- * 行曾实测阻塞秒级，长行锚点判定必须线性）。
- * @param {string} line 单行文本
- * @returns {boolean}
- */
-function isAnchorLine(line) {
-  ANCHOR_TOKEN_RE.lastIndex = 0
-  let match
-  while ((match = ANCHOR_TOKEN_RE.exec(line)) !== null) {
-    const colonAt = match.index
-    let start = colonAt - 1
-    while (start >= 0 && isAnchorPathChar(line[start] ?? '')) start -= 1
-    if (hasAsciiLetter(line.slice(start + 1, colonAt))) return true
-  }
-  return false
-}
-
-/** @param {string} ch 单个字符 @returns {boolean} 是否路径段字符（字母数字._/-） */
-function isAnchorPathChar(ch) {
-  return (
-    isAsciiLetter(ch) || isAsciiDigit(ch) || ch === '_' || ch === '.' || ch === '/' || ch === '-'
-  )
-}
-
-/** @param {string} text 文本 @returns {boolean} 是否含 ASCII 字母 */
-function hasAsciiLetter(text) {
-  for (const ch of text) {
-    if (isAsciiLetter(ch)) return true
-  }
-  return false
-}
-
-/** @param {string} ch 单个字符 @returns {boolean} 是否 ASCII 数字 */
-function isAsciiDigit(ch) {
-  return ch >= '0' && ch <= '9'
-}
-
-/** @param {string} ch 单个字符 @returns {boolean} 是否 ASCII 字母 */
-function isAsciiLetter(ch) {
-  return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 
 /**
@@ -670,18 +703,6 @@ function limitByBytes(text, maxBytes) {
 }
 
 /**
- * 降级索引行：`- <file> (<reason>) — <size> bytes [indexed]`（reason 缺失省略括号）。
- * @param {string} file 条目路径
- * @param {string | undefined} reason 引用理由
- * @param {number} size 文件字节数
- * @returns {string}
- */
-function indexLine(file, reason, size) {
-  const reasonPart = reason === undefined ? '' : ` (${reason})`
-  return `- ${file}${reasonPart} — ${size}${INDEXED_SUFFIX}`
-}
-
-/**
  * UTF-8 安全截断：不切断多字节字符（避免 U+FFFD 乱码）。
  * @param {string} text 原始文本
  * @param {number} maxBytes 字节上限
@@ -741,6 +762,6 @@ function isEnoent(error) {
  * @returns {boolean}
  */
 function isMissingLike(error) {
-  const code = (/** @type {{code?: string}} */ (error)).code
+  const code = /** @type {{code?: string}} */ (error).code
   return code === 'ENOENT' || code === 'ENOTDIR'
 }

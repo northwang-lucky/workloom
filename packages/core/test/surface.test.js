@@ -62,7 +62,10 @@ test('buildErrorRelayText 含命令名与原始错误消息，并要求按用户
 test('buildSuccessRelayText 含命令名与结果原文，并要求按用户语言转述', () => {
   const text = buildSuccessRelayText(COMMAND_NAMES.init, 'Workloom initialized at /tmp/x.')
   assert.ok(text.includes(COMMAND_NAMES.init), 'relay text must name the command')
-  assert.ok(text.includes('Workloom initialized at /tmp/x.'), 'relay text must keep the result text')
+  assert.ok(
+    text.includes('Workloom initialized at /tmp/x.'),
+    'relay text must keep the result text',
+  )
   assert.match(text, /user's language/, 'relay text must instruct answering in the user language')
 })
 
@@ -164,6 +167,26 @@ test('buildExecutorReceipt 注入统计四元组同行追加（KB 一位小数�
   const plain = buildExecutorReceipt({ model: 'kimi-coding/k3', modelSource: 'param' })
   assert.equal(plain, '[workloom executor] model: kimi-coding/k3 (param)')
   assert.ok(!plain.includes('; injection:'))
+})
+
+test('buildExecutorReceipt 指针引用条数条件追加：>0 时同行追加 , N pointed（0 不追加）', () => {
+  const pointed = buildExecutorReceipt({
+    model: 'kimi-coding/k3',
+    modelSource: 'param',
+    injection: { bytes: 6144, inlined: 3, truncated: 0, indexed: 0, pointed: 4 },
+  })
+  assert.match(
+    pointed,
+    /; injection: 6\.0KB, 3 inlined, 0 truncated, 0 indexed, 4 pointed$/,
+    'pointed count must append after the 4-tuple on the same receipt line',
+  )
+  // pointed 为 0 时不追加 pointed 段（纯 artifact 注入保持原 4 元组收尾）
+  const zero = buildExecutorReceipt({
+    model: 'kimi-coding/k3',
+    modelSource: 'param',
+    injection: { bytes: 1024, inlined: 1, truncated: 0, indexed: 0, pointed: 0 },
+  })
+  assert.ok(!zero.includes('pointed'), 'pointed=0 must not render the pointed segment')
 })
 
 test('TOOL_SNIPPETS.taskCreate 签名含 parent?（模型可见的父任务相对路径参数）', () => {

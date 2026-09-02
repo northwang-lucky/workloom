@@ -13,7 +13,6 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-
 import {
   EFFORT_LEVELS,
   EXECUTOR_KINDS,
@@ -66,55 +65,115 @@ test('常量导出：effort 档位与 executor kind 枚举', () => {
   })
 })
 
-test('implement 组装：artifact 与 jsonl 引用文件全部内联，任务正文在末尾', () => {
+test('S1 jsonl 纯指针：implement/check 注入只含「路径 + reason + 先读后判」指针行，无文件全文', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     writeTaskFile(root, 'design.md', '# Design\n')
     writeTaskFile(root, 'implement.md', '# Implement\n')
-    writeTaskFile(
-      root,
-      'implement.jsonl',
-      [
-        '{"_example": "seed line"}',
-        '{"file": "packages/a.js", "reason": "spec"}',
-        '{"file": "packages/b.md", "reason": "research"}',
-      ].join('\n'),
-    )
-    writeRootFile(root, 'packages/a.js', 'const a = 1\n')
-    writeRootFile(root, 'packages/b.md', '# B\n')
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
-    assert.equal(err, null)
-    const text = result.text
-    assert.ok(text.startsWith(`Active task: ${TASK_REL_PATH}`))
-    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
-    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/design.md ---'))
-    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/implement.md ---'))
-    assert.ok(text.includes('--- packages/a.js ---'))
-    assert.ok(text.includes('--- packages/b.md ---'))
-    // seed _example 行被跳过，不产生内容块
-    assert.ok(!text.includes('seed line'))
-    // 任务正文之后是终极权威段（kind 纪律段 + leaf 规则 + 权威声明），文本以权威声明结尾
-    assert.ok(text.includes('## Task prompt\nDo the thing'))
-    assert.ok(text.endsWith(CONTRACT_TAIL))
-    assert.deepEqual(result.stats, {
-      filesInlined: 5,
-      filesIndexed: 0,
-      truncated: 0,
-      researchInlined: 0,
-      researchTruncated: 0,
-    })
+    const entries = [
+      '{"_example": "seed line"}',
+      '{"file": "packages/a.js", "reason": "spec"}',
+      '{"file": "packages/b.md", "reason": "research"}',
+    ].join('\n')
+    writeTaskFile(root, 'implement.jsonl', entries)
+    writeTaskFile(root, 'check.jsonl', entries)
+    writeRootFile(root, 'packages/a.js', 'const a = 1\nFULL_CONTENT_A_MARKER\n')
+    writeRootFile(root, 'packages/b.md', '# B\nFULL_CONTENT_B_MARKER\n')
+    for (const kind of ['implement', 'check']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const text = result.text
+      // 指针清单段带标题（指针行归入 Pointer list 段，与纪律句「injected pointer list」呼应）
+      assert.ok(text.includes(POINTER_LIST_HEADING))
+      // 两角色统一纯指针：指针行含路径 + reason + 先读后判
+      assert.ok(text.includes('- packages/a.js (spec) — read before acting'))
+      assert.ok(text.includes('- packages/b.md (research) — read before acting'))
+      // 无文件全文进入注入（撤全文内联与预取）
+      assert.ok(!text.includes('FULL_CONTENT_A_MARKER'))
+      assert.ok(!text.includes('FULL_CONTENT_B_MARKER'))
+      assert.ok(!text.includes('--- packages/a.js ---'))
+      // seed _example 行被跳过，不产生指针行
+      assert.ok(!text.includes('seed line'))
+      // 指针行不算 inlined 文件：filesInlined 只含 artifact 块，filesPointed 计数指针
+      assert.deepEqual(result.stats, { filesInlined: 3, filesPointed: 2, truncated: 0 })
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('预算截断：小 max_file_bytes 截断提示，小 max_total_bytes 后序条目降级索引行', () => {
+test('S2 artifacts 提取：prd Requirements/Acceptance 全文保留、其余节标题指针；design/implement 只进 H2 目录 + 指针', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(
+      root,
+      'prd.md',
+      [
+        '# 任务',
+        '',
+        '## Goal',
+        '目标正文 GOAL_BODY_MARKER',
+        '',
+        '## Requirements',
+        '需求正文 REQ_BODY_MARKER',
+        '',
+        '## Acceptance Criteria',
+        '验收正文 ACC_BODY_MARKER',
+        '',
+        '## Notes',
+        '备注正文 NOTES_BODY_MARKER',
+        '',
+      ].join('\n'),
+    )
+    writeTaskFile(
+      root,
+      'design.md',
+      [
+        '# Design',
+        '',
+        '## 1. 决策一',
+        '设计正文 DESIGN_BODY_MARKER',
+        '',
+        '## 2. 决策二',
+        '设计正文二 BODY2_MARKER',
+        '',
+      ].join('\n'),
+    )
+    writeTaskFile(root, 'implement.md', '# Implement\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(err, null)
+    const text = result.text
+    // prd：Requirements/Acceptance 两节全文保留
+    assert.ok(text.includes('## Requirements'))
+    assert.ok(text.includes('REQ_BODY_MARKER'))
+    assert.ok(text.includes('## Acceptance Criteria'))
+    assert.ok(text.includes('ACC_BODY_MARKER'))
+    // prd 其余节（Goal/Notes）只留标题指针，正文不进注入
+    assert.ok(text.includes('Read in file: ## Goal, ## Notes'))
+    assert.ok(!text.includes('GOAL_BODY_MARKER'))
+    assert.ok(!text.includes('NOTES_BODY_MARKER'))
+    // design：只进 H2 目录 + 文件指针，正文不进注入
+    assert.ok(text.includes('## 1. 决策一'))
+    assert.ok(text.includes('## 2. 决策二'))
+    assert.ok(!text.includes('DESIGN_BODY_MARKER'))
+    assert.ok(!text.includes('BODY2_MARKER'))
+    // design 指针行逐字断言（正文由执行器按加载协议自读的入口）
+    assert.ok(text.includes('Read the full document in the file.'))
+    // implement：无 H2 节 → 只给文件指针（逐字断言，正文不进注入）
+    assert.ok(text.includes('Read the full document in the file (no H2 sections).'))
+    assert.ok(text.endsWith(CONTRACT_TAIL))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('jsonl 纯指针：指针行不受文件/总量预算影响（无截断、无索引降级）', () => {
   const root = makeProject()
   try {
     writeConfig(
       root,
-      ['context_injection:', '  max_file_bytes: 16', '  max_total_bytes: 120', ''].join('\n'),
+      ['context_injection:', '  max_file_bytes: 16', '  max_total_bytes: 1', ''].join('\n'),
     )
     writeTaskFile(root, 'prd.md', '# PRD\n')
     writeTaskFile(root, 'design.md', '# D\n')
@@ -124,24 +183,18 @@ test('预算截断：小 max_file_bytes 截断提示，小 max_total_bytes 后�
       'implement.jsonl',
       ['{"file": "a.txt", "reason": "first"}', '{"file": "b.txt", "reason": "second"}'].join('\n'),
     )
-    writeRootFile(root, 'a.txt', 'x'.repeat(100))
-    writeRootFile(root, 'b.txt', 'y'.repeat(100))
+    writeRootFile(root, 'a.txt', 'x'.repeat(500))
+    writeRootFile(root, 'b.txt', 'y'.repeat(500))
     const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
     assert.equal(err, null)
     const text = result.text
-    // 第一条文件内联但按 max_file_bytes 截断并带提示
-    assert.ok(text.includes('--- a.txt ---'))
-    assert.ok(text.includes('[...truncated at 16 bytes]'))
-    // 第二条按截断后字节口径仍可落进总量预算：内联且截断（不再按 raw size 误降级）
-    assert.ok(text.includes('--- b.txt ---'))
+    // 全部转指针行：无全文、无截断提示、无 [indexed] 降级
+    assert.ok(text.includes('- a.txt (first) — read before acting'))
+    assert.ok(text.includes('- b.txt (second) — read before acting'))
+    assert.ok(!text.includes('[...truncated'))
     assert.ok(!text.includes('[indexed]'))
-    assert.deepEqual(result.stats, {
-      filesInlined: 5,
-      filesIndexed: 0,
-      truncated: 2,
-      researchInlined: 0,
-      researchTruncated: 0,
-    })
+    assert.ok(!text.includes('x'.repeat(500)))
+    assert.deepEqual(result.stats, { filesInlined: 3, filesPointed: 2, truncated: 0 })
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -160,10 +213,8 @@ test('research 只内联 prd，无 jsonl 引用行', () => {
     assert.ok(!text.includes('implement.jsonl'))
     assert.deepEqual(result.stats, {
       filesInlined: 1,
-      filesIndexed: 0,
+      filesPointed: 0,
       truncated: 0,
-      researchInlined: 0,
-      researchTruncated: 0,
     })
     assert.ok(text.includes('## Task prompt\nDo the thing'))
     assert.ok(text.endsWith(CONTRACT_TAIL))
@@ -205,35 +256,33 @@ test('jsonl 坏行报错（fail loud，带文件名与行号）', () => {
   }
 })
 
-test('maxFileBytes 为 0 时整文件内联不截断', async () => {
-  const root = makeProject()
-  try {
-    writeConfig(root, 'context_injection:\n  max_file_bytes: 0\n')
-    writeRootFile(root, 'big.txt', 'x'.repeat(500))
-    writeTaskFile(root, 'implement.jsonl', '{"file": "big.txt", "reason": "big"}\n')
-    const [err, built] = await buildExecutorPrompt(baseParams(root, 'implement'))
-    assert.equal(err, null)
-    assert.match(built.text, /x{500}/)
-    assert.equal(built.stats.filesInlined, 1)
-    assert.equal(built.stats.truncated, 0)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('越界路径条目被跳过且防逃逸', async () => {
+test('越界路径条目被跳过且防逃逸', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'implement.jsonl', '{"file": "../secret.txt", "reason": "escape"}\n')
-    const [err, built] = await buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
     assert.equal(err, null)
     assert.doesNotMatch(built.text, /secret/)
+    assert.equal(built.stats.filesPointed, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('目录条目计入 indexed 且不输出内容', async () => {
+test('引用文件缺失时跳过指针行（不指向空）', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'implement.jsonl', '{"file": "missing.txt", "reason": "gone"}\n')
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(err, null)
+    assert.ok(!built.text.includes('missing.txt'))
+    assert.equal(built.stats.filesPointed, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('目录条目转指针行（与文件同口径，先读后判）', () => {
   const root = makeProject()
   try {
     writeTaskFile(
@@ -241,47 +290,25 @@ test('目录条目计入 indexed 且不输出内容', async () => {
       'implement.jsonl',
       '{"file": "sub", "type": "directory", "reason": "dir"}\n',
     )
-    const [err, built] = await buildExecutorPrompt(baseParams(root, 'implement'))
+    mkdirSync(join(root, 'sub'), { recursive: true })
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
     assert.equal(err, null)
-    assert.equal(built.stats.filesIndexed, 1)
+    assert.ok(built.text.includes('- sub (dir) — read before acting'))
+    assert.equal(built.stats.filesPointed, 1)
     assert.equal(built.stats.filesInlined, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('无 file 且非 _example 的行报错', async () => {
+test('无 file 且非 _example 的行报错', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'implement.jsonl', '{"foo": 1}\n')
-    const [err, built] = await buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
     assert.ok(err)
     assert.match(err.message, /no file field/)
     assert.equal(built, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('max_total_bytes 极小时 jsonl 文件全部降级为索引行', () => {
-  const root = makeProject()
-  try {
-    writeConfig(root, ['context_injection:', '  max_total_bytes: 1', ''].join('\n'))
-    writeTaskFile(root, 'prd.md', '# PRD\n')
-    writeTaskFile(
-      root,
-      'implement.jsonl',
-      ['{"file": "a.txt", "reason": "first"}', '{"file": "b.txt", "reason": "second"}'].join('\n'),
-    )
-    writeRootFile(root, 'a.txt', 'x'.repeat(50))
-    writeRootFile(root, 'b.txt', 'y'.repeat(50))
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
-    assert.equal(err, null)
-    assert.ok(result.text.includes('- a.txt (first) — 50 bytes [indexed]'))
-    assert.ok(result.text.includes('- b.txt (second) — 50 bytes [indexed]'))
-    assert.ok(!result.text.includes('--- a.txt ---'))
-    assert.equal(result.stats.filesIndexed, 2)
-    assert.equal(result.stats.filesInlined, 1)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -495,7 +522,7 @@ test('localDirectives 传入：文本注入于 userPrompt 之后、终极权威�
   }
 })
 
-test('localDirectives 未传/空串：不插入且输出与旧版逐字一致', () => {
+test('localDirectives 未传/空串：不插入且输出（除 marker 行外）逐字一致', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
@@ -504,8 +531,10 @@ test('localDirectives 未传/空串：不插入且输出与旧版逐字一致', 
     const [emptyErr, empty] = buildExecutorPrompt({ ...base, localDirectives: '' })
     assert.equal(plainErr, null)
     assert.equal(emptyErr, null)
-    // 缺省与空串输出逐字一致（Pi 不传参 = 不注入，向后兼容）。
-    assert.equal(plain.text, empty.text)
+    // 缺省与空串输出（剔除随派发生成的唯一 marker 行后）逐字一致：marker 为
+    // 单次注入标记，两次派发 token 不同属预期，其余内容不因 localDirectives 差异
+    // 而改变（Pi 不传参 = 不注入，向后兼容）。
+    assert.equal(stripMarkerLine(plain.text), stripMarkerLine(empty.text))
     assert.ok(!plain.text.includes(LOCAL_DIRECTIVES_HEADING))
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -601,15 +630,57 @@ test('LSP 基线：implement/check/frontend 纪律段含主句，research 段含
   }
 })
 
+test('S4 过滤：hasLsp=false 时纪律段不含 LSP 基线句；缺省/true 时保留（交付时过滤）', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+      // 无 LSP 工具：纪律段不注入 LSP 基线句（主句与 research 只读变体均剔除）
+      const [noErr, noLsp] = buildExecutorPrompt({ ...baseParams(root, kind), hasLsp: false })
+      assert.equal(noErr, null)
+      const noSection = noLsp.text.slice(noLsp.text.indexOf('## Executor contract'))
+      assert.ok(
+        !noSection.includes(LSP_BASELINE_SENTENCE),
+        `${kind} must drop the LSP main baseline when no LSP tooling`,
+      )
+      assert.ok(
+        !noSection.includes(LSP_RESEARCH_BASELINE_SENTENCE),
+        `${kind} must drop the LSP research variant when no LSP tooling`,
+      )
+      // 缺省（undefined）向后兼容：保留 LSP 句
+      const [defErr, def] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(defErr, null)
+      const defSection = def.text.slice(def.text.indexOf('## Executor contract'))
+      assert.ok(
+        kind === 'research'
+          ? defSection.includes(LSP_RESEARCH_BASELINE_SENTENCE)
+          : defSection.includes(LSP_BASELINE_SENTENCE),
+        `${kind} default must keep the LSP sentence`,
+      )
+      // 显式 hasLsp=true 同样保留
+      const [trueErr, withLsp] = buildExecutorPrompt({ ...baseParams(root, kind), hasLsp: true })
+      assert.equal(trueErr, null)
+      const trueSection = withLsp.text.slice(withLsp.text.indexOf('## Executor contract'))
+      assert.ok(
+        kind === 'research'
+          ? trueSection.includes(LSP_RESEARCH_BASELINE_SENTENCE)
+          : trueSection.includes(LSP_BASELINE_SENTENCE),
+        `${kind} with LSP must keep the LSP sentence`,
+      )
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 /** research 材料注入段标题（与实现一致，测试自给自足）。 */
 const RESEARCH_MATERIALS_HEADING = '## Research materials'
 
+/** jsonl 指针清单段标题（与实现一致，测试自给自足）。 */
+const POINTER_LIST_HEADING = '## Pointer list'
+
 /** files 清单注入段标题（与实现一致，测试自给自足）。 */
 const FILES_LIST_HEADING = '## Involved files'
-
-/** research 截断标注行（与实现一致，测试自给自足）。 */
-const RESEARCH_TRUNCATED_MARKER =
-  '[...truncated: research/*.md research materials over 20000 chars]'
 
 /** 纪律段「先读材料、禁止全局 recon」指令（与实现一致，测试自给自足）。 */
 const READ_MATERIALS_RULE =
@@ -617,143 +688,69 @@ const READ_MATERIALS_RULE =
   'the repository state (no git status/log sweeps, no whole-repo globs, no bulk reads of ' +
   'unrelated files).'
 
-test('research 产物全文注入：research/*.md 逐文件内联，位于 artifacts 之后、Task prompt 之前', () => {
+test('research 产物指针化：research/*.md 只给路径不内联正文，位于 artifacts 之后、Task prompt 之前', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    writeTaskFile(root, 'research/a.md', '# A 材料\n\n## 节一\n\n- `a.go:1` 锚点\n')
-    writeTaskFile(root, 'research/b.md', '# B 材料\n\n## 节二\n\n- `b.go:2` 锚点\n')
+    writeTaskFile(
+      root,
+      'research/a.md',
+      '# A 材料\n\n## 节一\n\n- `a.go:1` 锚点\nRESEARCH_BODY_A\n',
+    )
+    writeTaskFile(
+      root,
+      'research/b.md',
+      '# B 材料\n\n## 节二\n\n- `b.go:2` 锚点\nRESEARCH_BODY_B\n',
+    )
     const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
     assert.equal(err, null)
     const text = result.text
     assert.ok(text.includes(RESEARCH_MATERIALS_HEADING))
-    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/research/a.md ---'))
-    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/research/b.md ---'))
-    // 全文注入：标题与正文原样保留（不足 20K 预算不截断）
-    assert.ok(text.includes('# A 材料'))
-    assert.ok(text.includes('- `a.go:1` 锚点'))
-    assert.ok(text.includes('# B 材料'))
-    assert.ok(text.includes('- `b.go:2` 锚点'))
+    // 只给路径指针行（先读后判），正文不进注入
+    assert.ok(text.includes('- .workloom/tasks/08-24-demo/research/a.md — read before acting'))
+    assert.ok(text.includes('- .workloom/tasks/08-24-demo/research/b.md — read before acting'))
+    assert.ok(!text.includes('RESEARCH_BODY_A'))
+    assert.ok(!text.includes('RESEARCH_BODY_B'))
+    assert.ok(!text.includes('# A 材料'))
     // 位置：research 段在 artifact 块之后、Task prompt 之前（先读材料再行动）
     const artifactAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
     const researchAt = text.indexOf(RESEARCH_MATERIALS_HEADING)
     const taskPromptAt = text.indexOf('## Task prompt')
     assert.ok(artifactAt !== -1 && researchAt !== -1 && taskPromptAt !== -1)
     assert.ok(artifactAt < researchAt && researchAt < taskPromptAt)
-    assert.deepEqual(result.stats, {
-      filesInlined: 1,
-      filesIndexed: 0,
-      truncated: 0,
-      researchInlined: 2,
-      researchTruncated: 0,
-    })
+    // research 指针行计入 filesPointed（不算 inlined）
+    assert.deepEqual(result.stats, { filesInlined: 1, filesPointed: 2, truncated: 0 })
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('research 合计超 20K 字符：截断为标题区+锚点区并追加截断标注行', () => {
+test('research 多文件按文件名排序输出指针行（无截断/无预算语义）', () => {
   const root = makeProject()
   try {
-    // 大文件：头部标题 + 锚点行 + 紧随的代码围栏摘录，正文夹 30K 无锚点叙述
-    const big =
-      '# 大文件\n\n## 保留节\n\n- `big.go:1` 锚点行\n\n```go\nfunc kept() {}\n```\n\n' +
-      'NARRATIVE_BODY_MARKER\n' +
-      'x'.repeat(30000) +
-      '\n'
-    writeTaskFile(root, 'research/big.md', big)
+    writeTaskFile(
+      root,
+      'research/a.md',
+      '# A 大文件\n\nRESEARCH_BODY_A\n' + 'x'.repeat(30000) + '\n',
+    )
+    writeTaskFile(
+      root,
+      'research/b.md',
+      '# B 大文件\n\nRESEARCH_BODY_B\n' + 'y'.repeat(30000) + '\n',
+    )
     const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
     assert.equal(err, null)
     const text = result.text
-    // 保留区：标题、锚点行、锚点紧随的代码围栏摘录行
-    assert.ok(text.includes('# 大文件'))
-    assert.ok(text.includes('## 保留节'))
-    assert.ok(text.includes('- `big.go:1` 锚点行'))
-    assert.ok(text.includes('```go'))
-    assert.ok(text.includes('func kept() {}'))
-    // 正文叙述行预算外截掉；被截断文件追加截断标注行
-    assert.ok(!text.includes('NARRATIVE_BODY_MARKER'))
-    assert.ok(text.includes(RESEARCH_TRUNCATED_MARKER))
-    assert.equal(result.stats.researchInlined, 1)
-    assert.equal(result.stats.researchTruncated, 1)
+    // 指针行按文件名排序，正文/截断标注均不出现
+    assert.ok(text.indexOf('research/a.md') < text.indexOf('research/b.md'))
+    assert.ok(text.includes('- .workloom/tasks/08-24-demo/research/a.md — read before acting'))
+    assert.ok(text.includes('- .workloom/tasks/08-24-demo/research/b.md — read before acting'))
+    assert.ok(!text.includes('RESEARCH_BODY_A'))
+    assert.ok(!text.includes('RESEARCH_BODY_B'))
+    assert.ok(!text.includes('[...truncated'))
+    assert.deepEqual(result.stats, { filesInlined: 0, filesPointed: 2, truncated: 0 })
   } finally {
     rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('research 多文件按文件名排序计入预算：预算内文件全文注入，超预算文件截断', () => {
-  const root = makeProject()
-  try {
-    writeTaskFile(root, 'research/a.md', '# A 小文件全文保留\n\nSMALL_MARKER_A\n')
-    const big =
-      '# B 大文件\n\n## B 节\n\n- `b.go:1` 锚点\n\n```ts\nconst b = 1\n```\n\n' +
-      'BODY_B_MARKER\n' +
-      'y'.repeat(30000) +
-      '\n'
-    writeTaskFile(root, 'research/b.md', big)
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
-    assert.equal(err, null)
-    const text = result.text
-    // a.md 在预算内：正文行全文保留
-    assert.ok(text.includes('SMALL_MARKER_A'))
-    // b.md 超预算：保留标题与锚点区、丢弃正文叙述并带截断标注
-    assert.ok(text.includes('# B 大文件'))
-    assert.ok(text.includes('const b = 1'))
-    assert.ok(!text.includes('BODY_B_MARKER'))
-    assert.ok(text.includes(RESEARCH_TRUNCATED_MARKER))
-    assert.deepEqual(result.stats, {
-      filesInlined: 0,
-      filesIndexed: 0,
-      truncated: 0,
-      researchInlined: 2,
-      researchTruncated: 1,
-    })
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('research 20K 字符边界：合计恰好 20000 全量注入，超过 1 字符即截断', () => {
-  // 单文件恰好 20000 字符（'# E\n' 4 字符 + 19996 x）：不截断、无标注
-  const exactRoot = makeProject()
-  try {
-    writeTaskFile(exactRoot, 'research/exact.md', `# E\n${'x'.repeat(19996)}`)
-    const [err, result] = buildExecutorPrompt(baseParams(exactRoot, 'implement'))
-    assert.equal(err, null)
-    assert.ok(result.text.includes('x'.repeat(19996)))
-    assert.ok(!result.text.includes(RESEARCH_TRUNCATED_MARKER))
-    assert.equal(result.stats.researchInlined, 1)
-    assert.equal(result.stats.researchTruncated, 0)
-  } finally {
-    rmSync(exactRoot, { recursive: true, force: true })
-  }
-  // 单文件 20001 字符：超出 1 字符即截断（保留标题，正文叙述丢弃并带标注）
-  const overRoot = makeProject()
-  try {
-    writeTaskFile(overRoot, 'research/over.md', `# O\n${'y'.repeat(19997)}`)
-    const [err, result] = buildExecutorPrompt(baseParams(overRoot, 'implement'))
-    assert.equal(err, null)
-    assert.ok(!result.text.includes('y'.repeat(19997)))
-    assert.ok(result.text.includes(RESEARCH_TRUNCATED_MARKER))
-    assert.equal(result.stats.researchInlined, 1)
-    assert.equal(result.stats.researchTruncated, 1)
-  } finally {
-    rmSync(overRoot, { recursive: true, force: true })
-  }
-  // 多文件合计恰好 20000：跨文件累计不超预算，两文件均全文注入
-  const multiRoot = makeProject()
-  try {
-    writeTaskFile(multiRoot, 'research/a.md', `# A\n${'a'.repeat(9996)}`)
-    writeTaskFile(multiRoot, 'research/b.md', `# B\n${'b'.repeat(9996)}`)
-    const [err, result] = buildExecutorPrompt(baseParams(multiRoot, 'implement'))
-    assert.equal(err, null)
-    assert.ok(result.text.includes('a'.repeat(9996)))
-    assert.ok(result.text.includes('b'.repeat(9996)))
-    assert.ok(!result.text.includes(RESEARCH_TRUNCATED_MARKER))
-    assert.equal(result.stats.researchInlined, 2)
-    assert.equal(result.stats.researchTruncated, 0)
-  } finally {
-    rmSync(multiRoot, { recursive: true, force: true })
   }
 })
 
@@ -778,7 +775,7 @@ test('research kind 同样注入 research 材料段与 files 清单（全 kind �
         .trim(),
       'pkg/a.js',
     )
-    assert.equal(result.stats.researchInlined, 1)
+    assert.equal(result.stats.filesPointed, 1)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -800,10 +797,8 @@ test('无 research 产物：不注入 research 段与 files 清单，统计缺�
     assert.ok(text.endsWith(CONTRACT_TAIL))
     assert.deepEqual(result.stats, {
       filesInlined: 1,
-      filesIndexed: 0,
+      filesPointed: 0,
       truncated: 0,
-      researchInlined: 0,
-      researchTruncated: 0,
     })
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -899,6 +894,14 @@ const BATCHING_DISCIPLINE =
 const COMPACT_OUTPUT_DISCIPLINE =
   'Keep tool outputs compact: read targeted ranges instead of whole files, cap search and list output, and prefer summaries over full dumps.'
 
+/** 强制加载协议 + marker 回声纪律句（与契约 assets workflow.md 逐字一致，测试自给自足）。 */
+const INJECTION_PROTOCOL_DISCIPLINE =
+  'Read the files in the injected pointer list before acting. ' +
+  'Echo the injection marker token in the first line of your report as proof the protocol was read.'
+
+/** 注入标记行前缀（与实现一致，测试自给自足）。 */
+const INJECTION_MARKER_PREFIX = 'Injection marker: '
+
 test('implement/check 纪律段各含批处理与工具输出紧凑两句纪律（逐字），research/frontend 不含', () => {
   const root = makeProject()
   try {
@@ -932,6 +935,65 @@ test('implement/check 纪律段各含批处理与工具输出紧凑两句纪律�
         `${kind} discipline must not carry the compact-output sentence`,
       )
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 提取注入文本中的 marker token（无 marker 时返回 null，测试辅助）。 */
+function extractMarkerToken(text) {
+  const at = text.indexOf(INJECTION_MARKER_PREFIX)
+  if (at === -1) return null
+  const lineEnd = text.indexOf('\n', at)
+  const token = text.slice(
+    at + INJECTION_MARKER_PREFIX.length,
+    lineEnd === -1 ? undefined : lineEnd,
+  )
+  return token.trim()
+}
+
+/** 剔除注入标记行（单次注入 marker 随机，跨调用比较时先归一）。 */
+function stripMarkerLine(text) {
+  return text
+    .split('\n')
+    .filter((line) => !line.startsWith(INJECTION_MARKER_PREFIX))
+    .join('\n')
+}
+
+test('S5 护栏：四种 kind 纪律段均含强制加载协议句（逐字）；注入含唯一 marker token（两次派发不同）', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    writeTaskFile(root, 'design.md', '# Design\n')
+    writeTaskFile(root, 'implement.md', '# Implement\n')
+    writeTaskFile(root, 'implement.jsonl', '{"file": "packages/a.js", "reason": "spec"}\n')
+    writeRootFile(root, 'packages/a.js', 'const a = 1\n')
+    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      // 纪律段含强制加载协议句（逐字断言，与契约 assets 同句）
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
+      assert.ok(
+        section.includes(INJECTION_PROTOCOL_DISCIPLINE),
+        `${kind} discipline must carry the injection protocol sentence verbatim`,
+      )
+      // 注入含唯一 marker token（随派发注入，证明注入到达）
+      assert.ok(
+        extractMarkerToken(result.text) !== null,
+        `${kind} injection must carry the unique marker token`,
+      )
+    }
+    // 同任务两次派发 token 不同（单次注入标记回声机制）
+    const first = buildExecutorPrompt(baseParams(root, 'implement'))
+    const second = buildExecutorPrompt(baseParams(root, 'implement'))
+    assert.equal(first[0], null)
+    assert.equal(second[0], null)
+    assert.notEqual(
+      extractMarkerToken(first[1].text),
+      extractMarkerToken(second[1].text),
+      'two dispatches of the same task must produce different marker tokens',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

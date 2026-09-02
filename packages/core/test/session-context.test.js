@@ -346,7 +346,10 @@ test('delegationDepth>0 时 norms 段整体替换为 executor 版（零派发语
     assert.equal(err, null)
     const normsStart = text.indexOf('\nAlways-on norms:\n')
     assert.ok(normsStart > 0, 'executor norms section must render for depth > 0')
-    assert.ok(text.indexOf('\nWorkflow: 2.1 Implement\n') < normsStart, 'overview kept before norms')
+    assert.ok(
+      text.indexOf('\nWorkflow: 2.1 Implement\n') < normsStart,
+      'overview kept before norms',
+    )
     const normsSection = text.slice(normsStart)
     assert.ok(
       !normsSection.includes('dispatch'),
@@ -451,6 +454,45 @@ test('localDirectives 空串/空白/null/未传：无小节且输出逐字一致
       assert.equal(text, baseText)
       assert.ok(!text.includes('Local directives:'))
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('S3 主会话注入：norms 段逐字未动（防瘦身误伤纪律），状态块字段齐全', () => {
+  const root = makeProject()
+  try {
+    // 与契约 norms 同构的多行纪律文本（模拟 always-on 载体）
+    const norms = [
+      'Questioning (always-on):',
+      "1. Ask in the user's language.",
+      '2. Never use an interactive question tool.',
+      'Dispatch (always-on):',
+      '- Dispatch is background by default.',
+    ].join('\n')
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_s3',
+      workflowSteps: [
+        { id: '1.0', title: 'Create task' },
+        { id: '2.1', title: 'Implement' },
+      ],
+      norms,
+    })
+    assert.equal(err, null)
+    // norms 段逐字未动：Always-on norms: 标签之后紧跟 norms 原文（先测后瘦不得误伤纪律载体）
+    const normsStart = text.indexOf('\nAlways-on norms:\n')
+    assert.ok(normsStart > 0, 'must contain the Always-on norms section')
+    assert.ok(
+      text
+        .slice(normsStart)
+        .startsWith(`\nAlways-on norms:\n${norms}\n</workloom-session-context>`),
+      'norms body must be preserved verbatim before block close',
+    )
+    // 状态块字段齐全（瘦身只针对测量证实有收益的部分，不得删除状态字段）
+    assert.match(text, /\nDeveloper: /)
+    assert.match(text, /\nGit: /)
+    assert.match(text, /\nWorkflow: 1\.0 Create task \| 2\.1 Implement\n/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
