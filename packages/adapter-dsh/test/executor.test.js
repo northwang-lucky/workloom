@@ -1385,16 +1385,16 @@ test('本机片段：可见集−deny 满足 requiresTools 时首条 prompt 注�
     })
     assert.equal(startCalls.length, 1)
     const text = startCalls[0].request.prompt[0].text
-    const directiveAt = text.indexOf('## Implement executor directives')
+    const taskPromptAt = text.indexOf('## Task prompt')
     const localAt = text.indexOf('## Local directives')
-    const leafAt = text.indexOf('## Executor contract')
+    const contractAt = text.indexOf('## Executor contract')
     assert.ok(localAt !== -1, 'local directives section must be injected')
     assert.ok(
-      directiveAt !== -1 && directiveAt < localAt && localAt < leafAt,
-      'local directives must sit between the kind directive and the leaf contract',
+      taskPromptAt !== -1 && taskPromptAt < localAt && localAt < contractAt,
+      'local directives must sit between the task prompt and the authoritative contract',
     )
     // 合成顺序：all.md 在前、kind 专属在后（条件满足）。
-    const section = text.slice(localAt, leafAt)
+    const section = text.slice(localAt, contractAt)
     assert.ok(section.includes('ALL RULES'), 'all.md rules must be injected')
     assert.ok(
       section.indexOf('ALL RULES') < section.indexOf('Run lsp_diagnostics'),

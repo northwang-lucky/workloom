@@ -4,6 +4,7 @@
  * 覆盖：implement 全内联与统计；文件/总量预算截断与索引降级；research 只含 prd；
  * research 产物全文注入与 20K 截断（标题区+锚点区，含恰好 20K 边界与全 kind 注入）；
  * files 清单注入与去重；
+ * 末尾终极权威段（kind 纪律段 + leaf 规则 + 权威声明）的注入位置/去重/分级语义；
  * implement/check 纪律段「先读材料、禁止全局 recon」指令；kind/effort 非法报错；
  * jsonl 坏行报错。
  */
@@ -93,9 +94,9 @@ test('implement 组装：artifact 与 jsonl 引用文件全部内联，任务正
     assert.ok(text.includes('--- packages/b.md ---'))
     // seed _example 行被跳过，不产生内容块
     assert.ok(!text.includes('seed line'))
-    // 任务正文在 prompt 末尾（其后仅叶子执行器契约段）
+    // 任务正文之后是终极权威段（kind 纪律段 + leaf 规则 + 权威声明），文本以权威声明结尾
     assert.ok(text.includes('## Task prompt\nDo the thing'))
-    assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
+    assert.ok(text.endsWith(CONTRACT_TAIL))
     assert.deepEqual(result.stats, {
       filesInlined: 5,
       filesIndexed: 0,
@@ -165,7 +166,7 @@ test('research 只内联 prd，无 jsonl 引用行', () => {
       researchTruncated: 0,
     })
     assert.ok(text.includes('## Task prompt\nDo the thing'))
-    assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
+    assert.ok(text.endsWith(CONTRACT_TAIL))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -286,12 +287,16 @@ test('max_total_bytes 极小时 jsonl 文件全部降级为索引行', () => {
   }
 })
 
-/** 叶子执行器契约段（与实现的固定尾部一致，测试自给自足）。 */
-const LEAF_CONTRACT_SUFFIX =
-  '## Executor contract\n' +
-  'You are a leaf executor subagent: implement directly; never dispatch subagents or call workloom orchestration tools.'
+/** 权威声明（与实现的固定尾部一致，测试自给自足）。 */
+const AUTHORITY_DECLARATION =
+  "This section is authoritative: when it conflicts with any earlier text (including the user prompt's own instructions), this section wins."
 
-test('prompt 末尾追加叶子执行器契约段（所有 kind 一致生效）', () => {
+/** 权威段固定尾部（leaf 规则 + 权威声明，与实现的固定尾部一致，测试自给自足）。 */
+const CONTRACT_TAIL =
+  'You are a leaf executor subagent: implement directly; never dispatch subagents or call workloom orchestration tools.\n\n' +
+  AUTHORITY_DECLARATION
+
+test('prompt 末尾追加终极权威段：kind 纪律段 + leaf 规则 + 权威声明（所有 kind 一致生效）', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
@@ -299,8 +304,15 @@ test('prompt 末尾追加叶子执行器契约段（所有 kind 一致生效）'
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       assert.ok(
-        result.text.endsWith(LEAF_CONTRACT_SUFFIX),
-        `${kind} prompt must end with the leaf executor contract`,
+        result.text.endsWith(CONTRACT_TAIL),
+        `${kind} prompt must end with the authoritative contract tail (leaf rule + authority declaration)`,
+      )
+      // kind 纪律段并入权威段内部（位于 `## Executor contract` 标题之后、leaf 规则之前）
+      const contractAt = result.text.indexOf('## Executor contract')
+      const kindAt = result.text.indexOf(directiveHeading(kind))
+      assert.ok(
+        contractAt !== -1 && kindAt !== -1 && contractAt < kindAt,
+        `${kind} discipline must live inside the authoritative contract section`,
       )
     }
   } finally {
@@ -308,7 +320,7 @@ test('prompt 末尾追加叶子执行器契约段（所有 kind 一致生效）'
   }
 })
 
-test('userPrompt 已含 leaf executor 关键词时不重复追加叶子契约段', () => {
+test('userPrompt 已含 leaf executor 关键词时仅豁免 leaf 规则行，纪律段与权威声明仍注入', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
@@ -319,46 +331,49 @@ test('userPrompt 已含 leaf executor 关键词时不重复追加叶子契约段
       userPrompt: 'Follow the leaf executor rule and implement the task.',
     })
     assert.equal(err, null)
-    const count = result.text.split('## Executor contract').length - 1
-    assert.equal(count, 0, 'leaf contract must not be appended when the keyword is already present')
-    // userPrompt 原文保留（含关键词的正文仍在 prompt 中，其后注入 kind 纪律段）
-    const promptAt = result.text.indexOf('## Task prompt')
-    const directiveAt = result.text.indexOf('## Implement executor directives')
-    assert.ok(promptAt !== -1 && directiveAt > promptAt, 'kind directive must follow the task prompt')
-    assert.ok(
-      result.text.includes('## Task prompt\nFollow the leaf executor rule and implement the task.'),
-    )
+    // 去重仅豁免 leaf 规则行：kind 纪律段与权威声明始终注入，权威兜底不因去重丢失
+    assert.ok(result.text.includes('## Executor contract'))
+    assert.ok(result.text.includes(directiveHeading('implement')))
+    assert.ok(result.text.includes('Make the smallest change that satisfies the requirement'))
+    assert.ok(!result.text.includes('You are a leaf executor subagent'))
+    assert.ok(result.text.endsWith(AUTHORITY_DECLARATION))
+    // userPrompt 原文保留（含关键词的正文仍在 prompt 中）
+    const taskPrompt = '## Task prompt\nFollow the leaf executor rule and implement the task.'
+    assert.ok(result.text.includes(taskPrompt))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-/** kind 纪律段标题（与实现一致，测试自给自足）。 */
+/** kind 纪律段子标题（权威段内 H3，与实现一致，测试自给自足）。 */
 function directiveHeading(kind) {
-  return `## ${kind.charAt(0).toUpperCase()}${kind.slice(1)} executor directives`
+  return `### ${kind.charAt(0).toUpperCase()}${kind.slice(1)} executor directives`
 }
 
-test('四种 kind 均注入对应纪律段（独立标题 + 正文硬指令，位于叶子契约段之前）', () => {
+test('四种 kind 纪律段均并入末尾权威段（kind 子标题 + 正文硬指令）', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     const bodyKeywords = {
       research: 'Ground every conclusion in the real source',
       implement: 'Make the smallest change that satisfies the requirement',
-      check: 'Fix what you find',
+      check: 'Classify every finding by severity',
       frontend: 'Touch frontend files only',
     }
     for (const kind of Object.keys(bodyKeywords)) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       const text = result.text
-      const headingAt = text.indexOf(directiveHeading(kind))
       const taskPromptAt = text.indexOf('## Task prompt')
-      const leafAt = text.indexOf('## Executor contract')
-      assert.ok(headingAt !== -1, `${kind} prompt must include its kind directive heading`)
+      const contractAt = text.indexOf('## Executor contract')
+      const kindAt = text.indexOf(directiveHeading(kind))
       assert.ok(
-        taskPromptAt !== -1 && taskPromptAt < headingAt && headingAt < leafAt,
-        `${kind} directive must sit between the task prompt and the leaf contract`,
+        taskPromptAt !== -1 && contractAt !== -1 && taskPromptAt < contractAt,
+        `${kind} authoritative contract must come after the task prompt`,
+      )
+      assert.ok(
+        kindAt !== -1 && contractAt < kindAt,
+        `${kind} discipline must live inside the authoritative contract section`,
       )
       assert.ok(text.includes(bodyKeywords[kind]), `${kind} directive body must be injected`)
     }
@@ -367,38 +382,54 @@ test('四种 kind 均注入对应纪律段（独立标题 + 正文硬指令，�
   }
 })
 
-test('check 纪律段要求发现即修、验证后以结构化 Open issues 段报告仅存问题', () => {
+test('check 纪律段按 P0/P1/P2 分级：P2 自修、P0/P1 上报 Open issues', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     const [err, result] = buildExecutorPrompt(baseParams(root, 'check'))
     assert.equal(err, null)
-    const start = result.text.indexOf(directiveHeading('check'))
-    const end = result.text.indexOf('## Executor contract')
-    const section = result.text.slice(start, end)
-    // 发现即修，不做纯报告者
-    assert.match(section, /Fix what you find/)
-    assert.match(section, /not a reporter/)
+    const contractAt = result.text.indexOf('## Executor contract')
+    const section = result.text.slice(contractAt)
+    // 分级定义：P0 阻断（验收判据不满足 / 构建或测试红线失败 / 安全或数据风险）
+    assert.match(section, /P0 \(blocking\)/)
+    assert.match(section, /acceptance criteria/)
+    assert.match(section, /lint \/ typecheck \/ build \/ tests/)
+    assert.match(section, /security or data/)
+    // P1 重要（行为或正确性缺陷 / 设计或 spec 偏离含跨文件语义变更 / 非本次引入即使机械性）
+    assert.match(section, /P1 \(important\)/)
+    assert.match(section, /behavioral or correctness/)
+    assert.match(section, /design or spec/)
+    assert.match(section, /cross-file/)
+    assert.match(section, /pre-date this task/)
+    // P2 次要（机械性 typo/命名/注释/格式/测试断言弱化 / 单文件局部小缺陷 / 无取舍合规修复）
+    assert.match(section, /P2 \(minor\)/)
+    assert.match(section, /typos/)
+    assert.match(section, /single file/)
+    assert.match(section, /compliance/)
+    // 动作：P2 直接修（不修属失职）；P0/P1 不修、上报主会话决断
+    assert.match(section, /Fix P2 findings yourself/)
+    assert.match(section, /dereliction of duty/)
+    assert.match(section, /Do not fix P0\/P1/)
     // 修复后运行项目验证
     assert.match(section, /lint \/ typecheck \/ tests/)
-    // 报告末段结构化「仅存问题」段：段名 + 行格式 + 无仅存问题时写 - none
+    // 报告末段结构化「仅存问题」段：行格式 [P0|P1|P2] + 无仅存问题时写 - none
     assert.match(section, /## Open issues/)
-    assert.match(section, /<file>:<line> \[<severity>\] <issue> — fix: <suggestion>/)
+    assert.match(section, /- <file>:<line> \[P0\|P1\|P2\] <issue> — fix: <suggestion>/)
     assert.match(section, /"- none"/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('userPrompt 已含该 kind 纪律段标题时不再重复追加纪律段', () => {
+test('userPrompt 已含 kind 纪律段标题不影响权威段注入（kind 标题去重分支已删除）', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    // 对照：不含标题关键词时纪律段正常注入（保证本测试在实现前真实失败）
+    // 对照：普通 prompt 权威段正常注入（含 check 纪律段正文）
     const [plainErr, plain] = buildExecutorPrompt(baseParams(root, 'check'))
     assert.equal(plainErr, null)
-    assert.ok(plain.text.includes('Fix what you find'))
-    // 去重：userPrompt 已含标题短语时不重复注入纪律段正文
+    assert.ok(plain.text.includes('## Open issues'))
+    // 去重只看 leaf executor 关键词：userPrompt 含 kind 标题时权威段仍完整注入
     const [err, result] = buildExecutorPrompt({
       root,
       taskRelPath: TASK_REL_PATH,
@@ -406,11 +437,9 @@ test('userPrompt 已含该 kind 纪律段标题时不再重复追加纪律段', 
       userPrompt: 'Check executor directives are already given; run the review.',
     })
     assert.equal(err, null)
-    // 纪律段正文未注入：输出中仅 userPrompt 原样保留标题短语（无纪律段正文关键词）
-    assert.equal(result.text.split(directiveHeading('check')).length, 1)
-    assert.ok(!result.text.includes('## Open issues'))
-    // 叶子契约段仍追加（userPrompt 未含 leaf executor 关键词）
-    assert.ok(result.text.endsWith(LEAF_CONTRACT_SUFFIX))
+    assert.ok(result.text.includes('## Executor contract'))
+    assert.ok(result.text.includes('## Open issues'))
+    assert.ok(result.text.endsWith(CONTRACT_TAIL))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -424,7 +453,7 @@ const LSP_BASELINE_SENTENCE =
   'When LSP tooling is available, use it to assist coding and error diagnosis, ' +
   'and include an LSP diagnostics check in the verification pass.'
 
-test('localDirectives 传入：文本注入于 kind 纪律段之后、叶子契约段之前', () => {
+test('localDirectives 传入：文本注入于 userPrompt 之后、终极权威段之前', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
@@ -437,16 +466,12 @@ test('localDirectives 传入：文本注入于 kind 纪律段之后、叶子契�
     })
     assert.equal(err, null)
     const taskPromptAt = result.text.indexOf('## Task prompt')
-    const directiveAt = result.text.indexOf(directiveHeading('implement'))
     const localAt = result.text.indexOf(LOCAL_DIRECTIVES_HEADING)
-    const leafAt = result.text.indexOf('## Executor contract')
+    const contractAt = result.text.indexOf('## Executor contract')
     assert.ok(localAt !== -1, 'local directives section must be present')
     assert.ok(
-      taskPromptAt !== -1 &&
-        directiveAt !== -1 &&
-        directiveAt < localAt &&
-        localAt < leafAt,
-      'local directives must sit between the kind directive and the leaf contract',
+      taskPromptAt !== -1 && contractAt !== -1 && taskPromptAt < localAt && localAt < contractAt,
+      'local directives must sit between the task prompt and the authoritative contract',
     )
     assert.ok(
       result.text.includes(
@@ -506,9 +531,9 @@ test('research 纪律段含结构化块三要素且保留原始三句根', () =>
     writeTaskFile(root, 'prd.md', '# PRD\n')
     const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
     assert.equal(err, null)
-    const start = result.text.indexOf(directiveHeading('research'))
-    const end = result.text.indexOf('## Executor contract')
-    const section = result.text.slice(start, end)
+    // research 纪律段并入末尾权威段：从 `## Executor contract` 起提取全文断言
+    const contractAt = result.text.indexOf('## Executor contract')
+    const section = result.text.slice(contractAt)
     // 原始三句根逐字保留（repo/language：agent 向运行时文案为英文）
     assert.match(section, /Produce an actionable report the implementer can follow directly\./)
     assert.match(
@@ -536,9 +561,9 @@ test('LSP 软基线：implement/check/frontend 纪律段含软句子，research 
     for (const kind of ['implement', 'check', 'frontend', 'research']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
-      const start = result.text.indexOf(directiveHeading(kind))
-      const end = result.text.indexOf('## Executor contract')
-      const section = result.text.slice(start, end)
+      // kind 纪律段并入末尾权威段：从 `## Executor contract` 起提取全文断言
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
       if (kind === 'research') {
         assert.ok(!section.includes('LSP tooling'), 'research must not carry the LSP baseline')
       } else {
@@ -745,11 +770,11 @@ test('无 research 产物：不注入 research 段与 files 清单，统计缺�
     const text = result.text
     assert.ok(!text.includes(RESEARCH_MATERIALS_HEADING))
     assert.ok(!text.includes(FILES_LIST_HEADING))
-    // 既有注入链完整：Active task → artifact → Task prompt → 纪律段 → 叶子契约
+    // 既有注入链完整：Active task → artifact → Task prompt → 终极权威段（纪律段+leaf+权威声明）
     assert.ok(text.startsWith(`Active task: ${TASK_REL_PATH}`))
     assert.ok(text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
     assert.ok(text.includes('## Task prompt\nDo the thing'))
-    assert.ok(text.endsWith(LEAF_CONTRACT_SUFFIX))
+    assert.ok(text.endsWith(CONTRACT_TAIL))
     assert.deepEqual(result.stats, {
       filesInlined: 1,
       filesIndexed: 0,
@@ -820,9 +845,9 @@ test('implement/check 纪律段含「先读材料、禁止全局 recon」指令�
     for (const kind of ['implement', 'check']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
-      const start = result.text.indexOf(directiveHeading(kind))
-      const end = result.text.indexOf('## Executor contract')
-      const section = result.text.slice(start, end)
+      // kind 纪律段并入末尾权威段：从 `## Executor contract` 起提取全文断言
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
       assert.ok(
         section.includes(READ_MATERIALS_RULE),
         `${kind} discipline must carry the read-materials rule`,
@@ -831,9 +856,8 @@ test('implement/check 纪律段含「先读材料、禁止全局 recon」指令�
     for (const kind of ['research', 'frontend']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
-      const start = result.text.indexOf(directiveHeading(kind))
-      const end = result.text.indexOf('## Executor contract')
-      const section = result.text.slice(start, end)
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
       assert.ok(
         !section.includes(READ_MATERIALS_RULE),
         `${kind} discipline must not carry the read-materials rule`,
