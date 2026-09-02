@@ -344,7 +344,7 @@ test('契约 v15 in_progress 面包屑含 check 阶段修复放行与 implement 
     'in_progress 缺主会话修复放行措辞',
   )
   assert.ok(
-    crumb.includes('route implementation through `workloom_execute`'),
+    crumb.includes('Route implementation through `workloom_execute`'),
     'in_progress 缺 implement 阶段派发指引',
   )
 })
@@ -360,6 +360,37 @@ test('契约 v15 norms Dispatch 含 check 阶段主会话直接修复例外句',
     contract.norms.includes('re-dispatch the check executor for a full re-review'),
     'norms 缺修复后重派 check 复核句',
   )
+})
+
+test('契约 v15 不再提及 DSH 运行时写门禁（executor.gate / 文件拦截），分工与 check 例外保留', () => {
+  const raw = readFileSync(assetPath, 'utf8')
+  const [err, contract] = parseContract(raw)
+  assert.equal(err, null)
+  // 分工硬提示仍然存在（仅删除 DSH 运行时门禁描述，不动契约分工）。
+  const implementBody = contract.steps.find((step) => step.id === '2.1').body
+  assert.ok(
+    implementBody.includes(
+      'Hard constraint: the main session must not write implementation code directly',
+    ),
+    '2.1 正文必须保留 implement executor 分工硬提示',
+  )
+  assert.ok(
+    implementBody.includes('every implementation file change comes from the dispatched implement subagent'),
+    '2.1 正文必须保留「实现文件一律来自派发的 implement 子代理」',
+  )
+  // check 阶段主会话修复例外仍然存在（2.2 正文 + norms）。
+  assert.ok(
+    contract.norms.includes('the task stage is `check`, the main session may fix issues directly'),
+    'norms 必须保留 check 阶段主会话直接修复例外',
+  )
+  assert.ok(
+    contract.norms.includes('re-dispatch the check executor for a full re-review'),
+    'norms 必须保留修复后重派 check 复核',
+  )
+  // 全文不再提及 executor.gate 或 DSH 运行时文件写入拦截。
+  assert.ok(!raw.includes('executor.gate'), '契约不得提及 executor.gate 配置字段')
+  assert.ok(!raw.includes('not interceptable'), '契约不得提及 bash 写文件不可拦截')
+  assert.ok(!raw.includes('direct write/edit'), '契约不得提及主会话写文件被运行时拦截')
 })
 
 /** LSP 主基线句子（与 assets 契约一致，测试自给自足）。 */
