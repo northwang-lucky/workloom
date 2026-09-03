@@ -76,6 +76,20 @@
       "title": "复审：P1 修复后的全量范围",
       "status": "completed",
       "childId": "5d8e52d7-611d-4e0a-9a03-afa69dcb4ef5"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-03T05:36:37.984Z",
+      "title": "部署冒烟：回执口径与工具面验证",
+      "status": "completed",
+      "childId": "e19732a1-e6c0-4ff8-8222-3ca30642cc45"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-03T06:36:26.248Z",
+      "title": "冒烟第二轮：基集修复验证",
+      "status": "completed",
+      "childId": "2b19704f-9f40-42af-b500-aa1de320d619"
     }
   ],
   "hooks": {
