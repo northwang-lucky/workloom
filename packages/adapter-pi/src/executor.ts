@@ -24,6 +24,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createInterface } from 'node:readline'
+import { fileURLToPath } from 'node:url'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type, type Static } from 'typebox'
@@ -32,6 +33,7 @@ import {
   assertEffort,
   assertForceReason,
   assertKind,
+  buildAllowList,
   buildConflictNotice,
   buildExecutorPrompt,
   buildExecutorReceipt,
@@ -53,13 +55,19 @@ import type {
   DispatchRecordInput,
   ExecutorInjectionStats,
   ExecutorPromptResult,
+  SubagentTools,
   WorkloomConfig,
 } from '@workloom-ai/core'
 
 import { contextKeyOf } from './constants.ts'
 import { buildChildPiArgs } from './pi-args.ts'
 import { extractExecutorText, parsePiEventLine, type PiEventState } from './pi-events.ts'
-import { hasLspCapability, PI_LSP_SOURCE } from './pi-tools.ts'
+import {
+  buildTheoreticalTools,
+  hasLspCapability,
+  hasLspTools,
+  PI_LSP_SOURCE,
+} from './pi-tools.ts'
 
 /** 工具参数 TypeBox schema（与 DSH 的参数语义一致）。 */
 export const EXECUTOR_PARAMS = Type.Object({
@@ -83,6 +91,11 @@ const KILL_SIGNAL = 'SIGTERM'
 
 /** 当前 runtime 名（subagents.model map 形式的取值 key，与 core 的 runtime 参数对齐）。 */
 const PI_RUNTIME = 'pi'
+
+/** research 子代理的 write/edit 范围限定扩展（随包发布，-e 显式加载用绝对路径）。 */
+const RESEARCH_SCOPE_EXTENSION = fileURLToPath(
+  new URL('../assets/research-scope.ts', import.meta.url),
+)
 
 /** force 覆盖记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
 const RECORD_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record forced override:`
@@ -267,28 +280,28 @@ export interface ExecutorPromptAssemblyParams {
   userPrompt: string
 }
 
-/** buildExecutorPromptWithPi 结果（探测与组装共用一次探测）。 */
+/** buildExecutorPromptWithPi 结果（组装与工具面探测共用一次 hasLsp 结论）。 */
 export interface PiExecutorPromptResult {
-  /** 探测结论：能力命中时调用方应以 PI_LSP_SOURCE 追加 -e 加载。 */
+  /** 本次组装的 LSP 结论（= 入参 hasLsp 透传，调用方与 -e 接线保持一致）。 */
   hasLsp: boolean
   /** core 组装结果（text + stats）。 */
   result: ExecutorPromptResult
 }
 
 /**
- * 组装 executor 首条 prompt（Pi 接线：探测 → 本机片段 → core 组装）。探测在工具
- * 执行期进行（pi.getActiveTools 加载期是 throwing stub）；本机片段三层叠加注入
- * （requiresTools 机制已移除，无工具面过滤）；组装失败 fail loud（本机片段是有意
- * 增强，静默失效最难排查），与 DSH executor 同口径。
- * @param pi Extension API（registerExecutorTool 持句柄，工具执行时传入）
+ * 组装 executor 首条 prompt（Pi 接线：本机片段 → core 组装）。hasLsp 由调用方
+ * 按 allow 清单推导（buildPiToolAllow 的 childHasLsp）传入，保证纪律段 LSP 句与
+ * child 实际工具面一致；本机片段三层叠加注入（requiresTools 机制已移除，无工具面
+ * 过滤）；组装失败 fail loud（本机片段是有意增强，静默失效最难排查），与 DSH
+ * executor 同口径。
  * @param params 组装入参
- * @returns [err, result]：与 core buildExecutorPrompt 同形，result 附带探测结论
+ * @param hasLsp child 是否实际具备 LSP 工具（allow 清单推导）
+ * @returns [err, result]：与 core buildExecutorPrompt 同形，result 附带 hasLsp
  */
 export function buildExecutorPromptWithPi(
-  pi: ExtensionAPI,
   params: ExecutorPromptAssemblyParams,
+  hasLsp: boolean,
 ): [Error | null, PiExecutorPromptResult | null] {
-  const hasLsp = hasLspCapability(pi)
   const [localErr, localDirectives] = composeLocalDirectivesText(
     params.root,
     params.kind,
@@ -297,8 +310,7 @@ export function buildExecutorPromptWithPi(
   const [promptErr, built] = buildExecutorPrompt({
     ...params,
     localDirectives,
-    // 交付时过滤（切片 ④）：无 LSP 工具时不注入纪律段 LSP 句（hasLsp 探测已驱动
-    // 理论工具集与本机片段，此处同源传给 core）。
+    // 交付时过滤：无 LSP 工具时不注入纪律段 LSP 句（与 DSH 侧按 allow 集同口径）。
     hasLsp,
   })
   if (promptErr || built === null) {
@@ -308,6 +320,26 @@ export function buildExecutorPromptWithPi(
     ]
   }
   return [null, { hasLsp, result: built }]
+}
+
+/**
+ * 组装 Pi 的最终 allow 清单与 child LSP 结论（纯函数，可单测）：理论工具集
+ * = 内置 4 ∪ （父会话命中 pi-lsp 时）pi-lsp 2，core buildAllowList 在理论可见集上
+ * 求交（includes/excludes 前缀模式）；childHasLsp = allow 含任一 pi-lsp 工具。
+ * @param toolsConfig 该 kind 的 tools 配置（includes/excludes；缺省零行为）
+ * @param parentHasLsp 父会话是否探测到 pi-lsp（hasLspCapability 结论）
+ * @returns allow 清单 + childHasLsp（驱动 -e pi-lsp 与纪律段 LSP 句）
+ */
+export function buildPiToolAllow(
+  toolsConfig: SubagentTools | undefined,
+  parentHasLsp: boolean,
+): { allow: string[]; childHasLsp: boolean } {
+  const allow = buildAllowList({
+    runtime: 'pi',
+    toolsConfig,
+    visibleNames: buildTheoreticalTools(parentHasLsp),
+  })
+  return { allow, childHasLsp: hasLspTools(allow) }
 }
 
 /**
@@ -373,17 +405,29 @@ async function executeTool(
   if (gate.forced) {
     recordForcedOverride(root, taskRelPath, params.reason)
   }
-  // 探测 → 组装一次完成（buildExecutorPromptWithPi 内部先 hasLspCapability
-  // 再组装本机片段）；结果同时驱动 -e 加载（命中时 child 携带 pi-lsp）。
-  const [promptErr, piBuilt] = buildExecutorPromptWithPi(pi, {
-    root,
-    taskRelPath,
-    kind: params.kind,
-    userPrompt: params.prompt,
-  })
+  // 工具面白名单链路：父会话探测 → 理论可见集 → core 组装 allow（± tools 配置）→
+  // childHasLsp（allow 含 pi-lsp 工具才具备）。hasLsp 探测在工具执行期进行
+  // （pi.getActiveTools 加载期是 throwing stub）。
+  const parentHasLsp = hasLspCapability(pi)
+  const allowInfo = buildPiToolAllow(effective.tools, parentHasLsp)
+  // 组装 → 派发一次完成：hasLsp 用 allow 推导的 childHasLsp（纪律段 LSP 句与
+  // child 实际工具面一致）；-e 按需：pi-lsp 仅当 allow 含其工具时加载，research
+  // 额外加载随包的 write/edit 范围限定扩展。
+  const [promptErr, piBuilt] = buildExecutorPromptWithPi(
+    {
+      root,
+      taskRelPath,
+      kind: params.kind,
+      userPrompt: params.prompt,
+    },
+    allowInfo.childHasLsp,
+  )
   if (promptErr || piBuilt === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
   }
+  const loadExtensions: string[] = []
+  if (allowInfo.childHasLsp) loadExtensions.push(PI_LSP_SOURCE)
+  if (params.kind === 'research') loadExtensions.push(RESEARCH_SCOPE_EXTENSION)
   const result = await dispatchChildPi(
     {
       cwd,
@@ -391,7 +435,8 @@ async function executeTool(
       kind: params.kind,
       model: effective.model,
       effort: effective.effort,
-      loadExtensions: piBuilt.hasLsp ? [PI_LSP_SOURCE] : undefined,
+      tools: allowInfo.allow,
+      loadExtensions,
     },
     ctx.signal,
   )
@@ -400,13 +445,15 @@ async function executeTool(
   recordExecutorDispatchEntry(root, taskRelPath, { kind: params.kind, title: params.title })
   // 注入统计（receipt 渲染用）：总字节取注入文本长度（KB 一位小数由 core 渲染），
   // 计数来自 buildExecutorPrompt stats——可见喂给 child pi 的上下文规模。
-  // 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed。
+  // 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed；
+  // toolsAllowed = 实际下发 allow 工具数（K，receipt 同行追加）。
   const injection: ExecutorInjectionStats = {
     bytes: Buffer.byteLength(piBuilt.result.text, 'utf8'),
     inlined: piBuilt.result.stats.filesInlined,
     truncated: piBuilt.result.stats.truncated,
     indexed: 0,
     pointed: piBuilt.result.stats.filesPointed,
+    toolsAllowed: allowInfo.allow.length,
   }
   // 尾部追加 receipt 行：生效 model/effort 及来源（force 放行时标注 (forced)）
   // 与注入统计（KB 一位小数 + 内联/截断/索引计数，同行追加）。
@@ -453,6 +500,7 @@ async function dispatchChildPi(
     kind: string
     model?: string
     effort?: string
+    tools?: string[]
     loadExtensions?: string[]
   },
   signal: AbortSignal | undefined,

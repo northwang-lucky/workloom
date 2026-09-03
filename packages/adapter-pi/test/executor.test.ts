@@ -22,6 +22,7 @@ import type { WorkloomConfig } from '@workloom-ai/core'
 import {
   appendExecutorReceipt,
   buildExecutorPromptWithPi,
+  buildPiToolAllow,
   EXECUTOR_PARAMS,
   recordExecutorDispatchEntry,
   recordForcedOverride,
@@ -29,6 +30,7 @@ import {
 } from '../src/executor.ts'
 import { buildChildPiArgs } from '../src/pi-args.ts'
 import { PI_LSP_SOURCE } from '../src/pi-tools.ts'
+import researchScope from '../assets/research-scope.ts'
 
 test('appendExecutorReceipt: 非空文本尾部追加 receipt 行', () => {
   const text = '子代理输出内容'
@@ -321,16 +323,6 @@ test('recordExecutorDispatchEntry: task.json 缺失时只 WARNING 不抛错', ()
   }
 })
 
-/** 构造最小 mock ExtensionAPI（只实现 getActiveTools，两态）。 */
-function makePi(hasLsp: boolean): ExtensionAPI {
-  return {
-    getActiveTools: () =>
-      hasLsp
-        ? ['read', 'bash', 'edit', 'write', 'lsp_diagnostics', 'lsp_fix']
-        : ['read', 'bash', 'edit', 'write'],
-  } as unknown as ExtensionAPI
-}
-
 /** 创建临时项目根并写入三个无条件 kind 片段（requiresTools 已移除）。 */
 function makeLspFragmentsRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-executor-fragments-'))
@@ -342,15 +334,18 @@ function makeLspFragmentsRoot(): string {
   return root
 }
 
-test('buildExecutorPromptWithPi: 探测命中 → 产物含 Local directives 与 implement 片段（TC3）', () => {
+test('buildExecutorPromptWithPi: hasLsp=true → 产物含 Local directives 与 implement 片段（TC3）', () => {
   const root = makeLspFragmentsRoot()
   try {
-    const [err, result] = buildExecutorPromptWithPi(makePi(true), {
-      root,
-      taskRelPath: 'tasks/09-01-demo',
-      kind: 'implement',
-      userPrompt: 'implement the task',
-    })
+    const [err, result] = buildExecutorPromptWithPi(
+      {
+        root,
+        taskRelPath: 'tasks/09-01-demo',
+        kind: 'implement',
+        userPrompt: 'implement the task',
+      },
+      true,
+    )
     assert.equal(err, null)
     assert.ok(result !== null)
     assert.equal(result.hasLsp, true)
@@ -371,12 +366,15 @@ test('buildExecutorPromptWithPi: 命中时 check/frontend kind 各自注入对�
       ['check', 'CHECK-LSP-FRAGMENT'],
       ['frontend', 'FRONTEND-LSP-FRAGMENT'],
     ] as const) {
-      const [err, result] = buildExecutorPromptWithPi(makePi(true), {
-        root,
-        taskRelPath: 'tasks/09-01-demo',
-        kind,
-        userPrompt: `do ${kind}`,
-      })
+      const [err, result] = buildExecutorPromptWithPi(
+        {
+          root,
+          taskRelPath: 'tasks/09-01-demo',
+          kind,
+          userPrompt: `do ${kind}`,
+        },
+        true,
+      )
       assert.equal(err, null)
       assert.ok(result !== null)
       assert.ok(result.result.text.includes('## Local directives'))
@@ -387,15 +385,18 @@ test('buildExecutorPromptWithPi: 命中时 check/frontend kind 各自注入对�
   }
 })
 
-test('buildExecutorPromptWithPi: 未命中 pi-lsp → 本机片段仍注入（无工具面过滤），纪律段 LSP 句被过滤', () => {
+test('buildExecutorPromptWithPi: hasLsp=false → 本机片段仍注入（无工具面过滤），纪律段 LSP 句被过滤', () => {
   const root = makeLspFragmentsRoot()
   try {
-    const [err, result] = buildExecutorPromptWithPi(makePi(false), {
-      root,
-      taskRelPath: 'tasks/09-01-demo',
-      kind: 'implement',
-      userPrompt: 'implement the task',
-    })
+    const [err, result] = buildExecutorPromptWithPi(
+      {
+        root,
+        taskRelPath: 'tasks/09-01-demo',
+        kind: 'implement',
+        userPrompt: 'implement the task',
+      },
+      false,
+    )
     assert.equal(err, null)
     assert.ok(result !== null)
     assert.equal(result.hasLsp, false)
@@ -416,29 +417,23 @@ const LSP_BASELINE_SENTENCE =
   'instead of hand-searched edits; ' +
   'and include an LSP diagnostics check in the verification pass.'
 
-test('S4 交付时过滤：无 LSP 能力时首条 prompt 不含纪律段 LSP 句，命中时保留', () => {
+test('S4 交付时过滤：hasLsp=false 时首条 prompt 不含纪律段 LSP 句，true 时保留', () => {
   const root = makeLspFragmentsRoot()
   try {
-    // 未命中（无 pi-lsp）：纪律段剔除 LSP 基线句
-    const [missErr, miss] = buildExecutorPromptWithPi(makePi(false), {
-      root,
-      taskRelPath: 'tasks/09-01-demo',
-      kind: 'implement',
-      userPrompt: 'p',
-    })
+    const [missErr, miss] = buildExecutorPromptWithPi(
+      { root, taskRelPath: 'tasks/09-01-demo', kind: 'implement', userPrompt: 'p' },
+      false,
+    )
     assert.equal(missErr, null)
     assert.ok(miss !== null)
     assert.ok(
       !miss.result.text.includes(LSP_BASELINE_SENTENCE),
       'no LSP capability must drop the LSP discipline sentence',
     )
-    // 命中（有 pi-lsp）：纪律段保留 LSP 基线句
-    const [hitErr, hit] = buildExecutorPromptWithPi(makePi(true), {
-      root,
-      taskRelPath: 'tasks/09-01-demo',
-      kind: 'implement',
-      userPrompt: 'p',
-    })
+    const [hitErr, hit] = buildExecutorPromptWithPi(
+      { root, taskRelPath: 'tasks/09-01-demo', kind: 'implement', userPrompt: 'p' },
+      true,
+    )
     assert.equal(hitErr, null)
     assert.ok(hit !== null)
     assert.ok(
@@ -450,38 +445,104 @@ test('S4 交付时过滤：无 LSP 能力时首条 prompt 不含纪律段 LSP �
   }
 })
 
-test('buildExecutorPromptWithPi: hasLsp 驱动 buildChildPiArgs 的 loadExtensions 投影（接线）', () => {
-  const root = makeLspFragmentsRoot()
-  try {
-    const [hitErr, hit] = buildExecutorPromptWithPi(makePi(true), {
-      root,
-      taskRelPath: 'tasks/09-01-demo',
-      kind: 'implement',
-      userPrompt: 'p',
-    })
-    assert.equal(hitErr, null)
-    assert.ok(hit !== null)
-    const hitArgs = buildChildPiArgs({
-      prompt: hit.result.text,
-      kind: 'implement',
-      loadExtensions: hit.hasLsp ? [PI_LSP_SOURCE] : undefined,
-    })
-    assert.ok(hitArgs.includes('npm:@narumitw/pi-lsp'))
+test('buildPiToolAllow: 默认 allow = 内置 4 件；父会话有 lsp 但未配置 includes 也不授 lsp', () => {
+  const noParent = buildPiToolAllow(undefined, false)
+  assert.deepEqual(noParent.allow, ['read', 'bash', 'edit', 'write'])
+  assert.equal(noParent.childHasLsp, false)
+  // 父会话有 pi-lsp（理论可见集含 lsp）但未配置 includes：lsp 不入 allow（默认不授）。
+  const parentLsp = buildPiToolAllow(undefined, true)
+  assert.deepEqual(parentLsp.allow, ['read', 'bash', 'edit', 'write'])
+  assert.equal(parentLsp.childHasLsp, false)
+})
 
-    const [missErr, miss] = buildExecutorPromptWithPi(makePi(false), {
-      root,
-      taskRelPath: 'tasks/09-01-demo',
-      kind: 'implement',
-      userPrompt: 'p',
-    })
-    assert.equal(missErr, null)
-    assert.ok(miss !== null)
-    const missArgs = buildChildPiArgs({
-      prompt: miss.result.text,
-      kind: 'implement',
-      loadExtensions: miss.hasLsp ? [PI_LSP_SOURCE] : undefined,
-    })
-    assert.ok(!missArgs.includes('npm:@narumitw/pi-lsp'))
+test('buildPiToolAllow: config tools.includes lsp_* 补入 → childHasLsp true（父会话无 lsp 则不可见）', () => {
+  const withLsp = buildPiToolAllow({ includes: ['lsp_*'] }, true)
+  assert.deepEqual(withLsp.allow, [
+    'read',
+    'bash',
+    'edit',
+    'write',
+    'lsp_diagnostics',
+    'lsp_fix',
+  ])
+  assert.equal(withLsp.childHasLsp, true)
+  // 父会话无 pi-lsp：理论可见集无 lsp，即使配置 includes 也不进 allow。
+  const noParent = buildPiToolAllow({ includes: ['lsp_*'] }, false)
+  assert.deepEqual(noParent.allow, ['read', 'bash', 'edit', 'write'])
+  assert.equal(noParent.childHasLsp, false)
+})
+
+test('buildPiToolAllow: excludes 全移除 → allow 空（dispatch 空交集前兆）', () => {
+  const empty = buildPiToolAllow({ excludes: ['read', 'bash', 'edit', 'write'] }, false)
+  assert.deepEqual(empty.allow, [])
+  assert.equal(empty.childHasLsp, false)
+  // 空集经 buildChildPiArgs fail loud（指明 kind）。
+  assert.throws(
+    () => buildChildPiArgs({ prompt: 'p', kind: 'research', tools: empty.allow }),
+    /research/,
+  )
+})
+
+test('接线：childHasLsp 驱动 PI_LSP_SOURCE 的 -e 按需加载（allow 含 lsp 才加载）', () => {
+  // 未配置 includes：allow 无 lsp → 不加载 pi-lsp。
+  const miss = buildPiToolAllow(undefined, true)
+  assert.equal(miss.childHasLsp, false)
+  const missArgs = buildChildPiArgs({ prompt: 'p', kind: 'implement', tools: miss.allow })
+  assert.ok(!missArgs.includes('npm:@narumitw/pi-lsp'))
+  // 配置 includes lsp_*：allow 含 lsp → 加载 pi-lsp。
+  const hit = buildPiToolAllow({ includes: ['lsp_*'] }, true)
+  assert.equal(hit.childHasLsp, true)
+  const hitArgs = buildChildPiArgs({
+    prompt: 'p',
+    kind: 'implement',
+    tools: hit.allow,
+    loadExtensions: hit.childHasLsp ? [PI_LSP_SOURCE] : undefined,
+  })
+  assert.ok(hitArgs.includes('npm:@narumitw/pi-lsp'))
+})
+
+test('research-scope 扩展：同名 write/edit 副本，域内成功、越界拒绝（英文）', async () => {
+  const registered: Record<string, { execute: (...args: unknown[]) => Promise<unknown> }> = {}
+  const mockPi = {
+    registerTool: (tool: { name: string; execute: (...args: unknown[]) => Promise<unknown> }) => {
+      registered[tool.name] = tool
+    },
+  } as unknown as ExtensionAPI
+  researchScope(mockPi)
+  const write = registered['write']
+  const edit = registered['edit']
+  assert.ok(write && edit, 'same-name write/edit must be registered')
+  const root = mkdtempSync(join(tmpdir(), 'pi-research-scope-'))
+  try {
+    const ctx = { cwd: root }
+    // 域内 write：成功落盘。
+    await write.execute('c1', { path: '.workloom/x.md', content: 'hello' }, undefined, undefined, ctx)
+    assert.equal(readFileSync(join(root, '.workloom/x.md'), 'utf8'), 'hello')
+    // 越界 write：拒绝（英文）。
+    await assert.rejects(
+      write.execute('c2', { path: '/tmp/escape.md', content: 'x' }, undefined, undefined, ctx),
+      /denied|outside/i,
+    )
+    // 域内 edit：成功替换。
+    await edit.execute(
+      'c3',
+      { path: '.workloom/x.md', edits: [{ oldText: 'hello', newText: 'world' }] },
+      undefined,
+      undefined,
+      ctx,
+    )
+    assert.equal(readFileSync(join(root, '.workloom/x.md'), 'utf8'), 'world')
+    // 越界 edit（相对路径逃逸）：拒绝。
+    await assert.rejects(
+      edit.execute(
+        'c4',
+        { path: '../escape.md', edits: [{ oldText: 'a', newText: 'b' }] },
+        undefined,
+        undefined,
+        ctx,
+      ),
+      /denied|outside/i,
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

@@ -24,6 +24,7 @@ function makeMockCtx() {
       tools: {
         register: () => {},
         schemas: () => [],
+        guard: () => () => {},
       },
       skills: { register: () => {} },
       agents: {},

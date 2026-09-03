@@ -81,3 +81,44 @@ test('buildChildPiArgs: unknown kind throws with executor error prefix', () => {
     },
   )
 })
+
+test('buildChildPiArgs: tools 非空时 -t 逗号连接（扩展源后、append-system-prompt 前）', () => {
+  const args = buildChildPiArgs({
+    prompt: 'p',
+    kind: 'research',
+    tools: ['read', 'bash', 'edit', 'write'],
+  })
+  assert.deepEqual(args.slice(6, 8), ['-t', 'read,bash,edit,write'])
+  // -t 在 --no-extensions 之后、--append-system-prompt 之前。
+  assert.equal(args[5], '--no-extensions')
+  assert.equal(args[8], '--append-system-prompt')
+})
+
+test('buildChildPiArgs: tools 与 loadExtensions 并存时 -t 在 -e 之后', () => {
+  const args = buildChildPiArgs({
+    prompt: 'p',
+    kind: 'research',
+    tools: ['read', 'bash', 'edit', 'write', 'lsp_diagnostics'],
+    loadExtensions: ['npm:@narumitw/pi-lsp'],
+  })
+  assert.deepEqual(args.slice(6, 10), ['-e', 'npm:@narumitw/pi-lsp', '-t', 'read,bash,edit,write,lsp_diagnostics'])
+})
+
+test('buildChildPiArgs: 空 tools 集 → fail loud（ERR_PREFIX.executor，指明 kind）', () => {
+  assert.throws(
+    () => buildChildPiArgs({ prompt: 'p', kind: 'check', tools: [] }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error)
+      assert.ok(error.message.includes(ERR_PREFIX.executor))
+      assert.match(error.message, /check/)
+      return true
+    },
+  )
+})
+
+test('buildChildPiArgs: 未传 tools 时不出现 -t（缺省向后兼容）', () => {
+  const plain = buildChildPiArgs({ prompt: 'p', kind: 'research' })
+  assert.equal(plain.includes('-t'), false)
+  const empty = buildChildPiArgs({ prompt: 'p', kind: 'research', tools: undefined })
+  assert.equal(empty.includes('-t'), false)
+})

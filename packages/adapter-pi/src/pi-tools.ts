@@ -39,6 +39,16 @@ export function buildTheoreticalTools(hasLsp: boolean): string[] {
 }
 
 /**
+ * 判定 allow 清单是否含 pi-lsp 工具（lsp_diagnostics / lsp_fix 任一命中）：
+ * child 是否实际具备 LSP 工具面，驱动 pi-lsp 的 -e 按需加载与纪律段 LSP 句过滤。
+ * @param allow 最终下发的 allow 工具名清单
+ * @returns allow 含任一 pi-lsp 工具时为 true
+ */
+export function hasLspTools(allow: readonly string[]): boolean {
+  return allow.some((name) => (PI_LSP_TOOLS as readonly string[]).includes(name))
+}
+
+/**
  * 探测当前会话是否具备 pi-lsp 诊断能力（实例封装）。必须在事件处理器/工具
  * 执行时调用（扩展加载期 getActiveTools 是 throwing stub）。
  * @param pi Extension API
