@@ -5,9 +5,10 @@
  * - research 子代理只允许写 `<cwd>/.workloom/` 内路径：插件激活时经
  *   ctx.tools.guard 注册一次守卫，按派发登记的 research 子会话身份识别
  *   （executor.ts 派发成功时加入，不移除）；
- * - dsh 重启后内存身份集为空：守卫按 execution 的 cwd 定位项目根后懒重建
- *   （遍历非归档任务全部 research dispatches，不区分活跃/已结算），等价于
- *   「插件激活时重建」的持久化语义；
+ * - dsh 重启后内存身份集为空：任一触发点（守卫判定或派发登记）按项目懒
+ *   重建——遍历非归档任务全部 research dispatches，不区分活跃/已结算；
+ *   登记路径缺失集合时先重建再加入新 id，防止新派发先到以空集占位导致
+ *   旧子会话失守（等价「插件激活时重建」的持久化语义）；
  * - write/edit 均判 execution.arguments.file_path（DSH 文件工具参数名）；
  *   越界返回英文拒绝串（含路径与允许域，ERR_PREFIX.executor 前缀），其余
  *   调用返回 undefined（放行）；bash 路径绕过记为已知边界，不根治。
@@ -16,7 +17,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 
-import { ERR_PREFIX, findWorkloomRoot } from '@workloom-ai/core'
+import { ERR_PREFIX, EXECUTOR_KINDS, findWorkloomRoot } from '@workloom-ai/core'
 
 /** 受守卫约束的工具名（DSH 文件工具；其余工具一律放行）。 */
 const WRITE_TOOL = 'write'
@@ -92,7 +93,7 @@ export function rebuildResearchChildIds(root: string): Set<string> {
     const dispatches = task?.dispatches
     if (!Array.isArray(dispatches)) continue
     for (const dispatch of dispatches) {
-      if (dispatch?.kind === 'research' && typeof dispatch.childId === 'string' && dispatch.childId !== '') {
+      if (dispatch?.kind === EXECUTOR_KINDS.research && typeof dispatch.childId === 'string' && dispatch.childId !== '') {
         ids.add(dispatch.childId)
       }
     }
@@ -100,11 +101,15 @@ export function rebuildResearchChildIds(root: string): Set<string> {
   return ids
 }
 
-/** 登记一次 research 派发成功的子代理 id（不移除）。 */
+/**
+ * 登记一次 research 派发成功的子代理 id（不移除）。
+ * 集合缺失时先按任务记录重建再加入新 id——防止重启后新派发先到、
+ * 以仅含新 id 的空集占位导致懒重建永不触发（旧子会话失守）。
+ */
 export function registerResearchChild(state: ResearchGuardState, root: string, childId: string): void {
   let ids = state.byRoot.get(root)
   if (ids === undefined) {
-    ids = new Set<string>()
+    ids = rebuildResearchChildIds(root)
     state.byRoot.set(root, ids)
   }
   ids.add(childId)
