@@ -9,14 +9,3 @@ packages:
     path: packages/adapter-pi
   repo:
     path: .
-
-subagents:
-  research:
-    model: deepseek-official/deepseek-v4-flash-vision-exp
-    effort: high
-  implement:
-    model: deepseek-official/deepseek-v4-flash-vision-exp
-    effort: max
-  check:
-    model: qwen-token-plan-cn/qwen3.8-max
-    effort: medium
