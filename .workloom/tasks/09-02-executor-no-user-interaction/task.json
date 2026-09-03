@@ -3,7 +3,7 @@
   "name": "executor-no-user-interaction",
   "title": "执行器工具可见性治理与提问回传协议",
   "description": "两层治理，机制断根 + 协议导流（用户 2026-09-02 定方向）。①机制层——子代理工具可见性配置：workloom 内置执行器默认工具白名单（数组），配置文件（.workloom/config.yaml subagents 段）支持 includes 扩充 / excludes 移除；派发时经 DSH SubagentStartRequest.toolFilter（ToolRestriction {allow, deny}，已实证：子会话创建窗口 tools.restrict()，被滤工具从提示词消失且拒绝执行，能力位 SubagentCapabilities.toolFilter）下发。②协议层——提问回传：执行器契约（全 kind）补纪律句：执行器没有用户通道、禁止交互式提问；发现无法自决的缺口必须停下来，把问题作为阻塞项写进报告回传主会话，由主会话成批交给用户决断；主会话侧补对应处置句。配逐字测试断言 + 契约版本号递增。实证：2026-09-02 cardx-cli-work 项目 session-e9bb3aca 派发的 implement 执行器 96f11210 因\"设计 vs 代码事实冲突\"（figma 错误码 -40/-41 与已占用的 RESOURCE_NOT_FOUND -40）调用 ask_user_question，DSH 对子会话该调用静默返回空答案。二次实证（同日）：本仓任务 C implement 执行器 918afc28 撞\"设计假设与仓库事实冲突\"（④ 平台标签块不存在）时同样调用 ask_user_question，被用户中止，未留代码改动；主会话按\"阻塞项回传、用户决断\"协议处置后重派。依赖：等 09-02-context-injection-optimization 归档后启动（同批文件：workflow.md、executor-context.js、executor.ts、config 解析）。",
-  "status": "planning",
+  "status": "in_progress",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -23,7 +23,11 @@
   "notes": "",
   "meta": {},
   "check": null,
-  "grilling": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-03T03:11:36.577Z",
+    "summary": "7 轮设计树压测收敛（41 项决策）：① 配置系统换轨——config.json/config.js 取代 YAML（函数工厂接低层合并结果）、对象层顶层 key 覆盖、deepMerge 废止、三层优先级（项目 local > 项目 > 全局 $HOME/.workloom）、全局仅消费 6 类项目无关字段、三层 prompts 目录叠加注入（全局→项目→项目 local）、requiresTools 整体移除、default_package 死字段删除；② 工具可见性机制层——allow 单一事实源（原生全集 − lsp_* 为四 kind 默认，lsp_* 前缀模式经 includes 补回）、DSH toolFilter 只传 allow、Pi -t 下发、research .workloom/ 限制（DSH ToolGuard + Pi extension 副本）、buildDenyList/availableToolNames 删除；③ 协议层——全 kind 纪律三句 + research 路径告知句 + 主会话处置句进 workflow.md 2.1、契约 18→19。验收：test-first 五组 seams、逐字断言三处、回执追加 `, K tools allowed`、不拆任务按 ①→②→③ 串行。已知边界：bash 路径绕过、DSH 子会话 ask_user_question 静默空答案（上游行为）均记录不根治。"
+  },
   "overrides": [],
   "stage": "implement",
   "dispatches": [],
