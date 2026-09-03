@@ -10,7 +10,8 @@
 ## Requirements
 
 1. 会话上下文注入生效中的执行器画像（`Executor profiles` 节）：四个 kind 全量
-   展示，紧跟 Active task 行。配置命中的行给出 model、effort、tools 配置
+   展示；与 `Last dispatch` 节一起紧跟 Active task 行，先派发状态、后画像
+   （两行消费同一次任务读取）。配置命中的行给出 model、effort、tools 配置
    （includes/excludes 原值，过长截断留计数）与来源标注
    `global/project/local config (whenMain match | fallback entry | legacy subagents)`；
    未配置的行标注 `not configured (inherits parent session model)`。首行带主会话
@@ -20,7 +21,8 @@
    `subagentsSource`（`global | project | local`），记录该 key 最后写入层。函数
    工厂层返回文档含 `subagent_profiles` 时归工厂层，否则沿用低层 provenance。
 3. 会话上下文注入最近派发状态（`Last dispatch` 节）：活跃任务存在派发记录时，
-   紧跟画像节展示最新一条：`Last dispatch: <kind> <status> at <time> (child <id>)
+   紧跟 Active task 行（`Executor profiles` 节之前）展示最新一条：
+   `Last dispatch: <kind> <status> at <time> (child <id>)
    — <一行错误>`；completed 同样展示；无记录不输出。
 4. 执行器终态错误落账（仅 DSH runtime）：全局 `session/event` 监听器对登记表内
    childId 捕获最近一次 `turn/end` 的 error（message + code）；subagent/end 且
