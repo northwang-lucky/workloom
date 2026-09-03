@@ -1,0 +1,6 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令（lint/typecheck/build/test 全量门）"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "core/src/legacy/config.js 是纯 JS + JSDoc 移植模块，provenance 字段扩展遵循该约定"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/adapter 分层：画像解析与注入组装在 core，session/event 监听在 adapter-dsh，禁止越层"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "注入块与运行时文案一律英文，注释与提交用中文"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "每阶段独立提交，<type>(<scope>): <中文描述>，主会话负责提交"}
