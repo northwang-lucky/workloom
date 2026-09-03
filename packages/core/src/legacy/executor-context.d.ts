@@ -40,7 +40,7 @@ export interface BuildExecutorPromptParams {
   /** 用户任务正文（拼在 prompt 末尾的 ## Task prompt 节）。 */
   userPrompt: string
   /**
-   * 本机片段合成文本（adapter 探测可用工具集后经 core composeLocalDirectivesText
+   * 本机片段合成文本（三层 prompts 叠加后经 core composeLocalDirectivesText
    * 组装；在 userPrompt 之后、终极权威段之前以 ## Local directives 段注入）。
    * 空串/未传 = 不注入（Pi 与 DSH 均已接线，缺省保持向后兼容）。
    */

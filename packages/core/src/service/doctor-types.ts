@@ -47,7 +47,7 @@ export interface DoctorCheck {
   issues: DoctorIssue[]
   /**
    * 正向状态行（非问题信息，供可观测性展示）：如 local-prompts 检查列出每个已
-   * 加载片段（target、requiresTools 条件、来源文件）。无正向信息为空数组。
+   * 加载片段（target、来源层、来源文件）。无正向信息为空数组。
    */
   info: string[]
 }
@@ -80,11 +80,6 @@ export interface DoctorReport {
 /** runDoctor 入参。 */
 export interface RunDoctorOpts {
   fix: boolean
-  /**
-   * 当前可用工具名集合（adapter 探测后传入；core runtime 无关，缺省 undefined 时
-   * local-prompts 检查不判定条件不满足，仅列出有条件片段的声明条件）。
-   */
-  availableTools?: readonly string[]
 }
 
 /** 任务节点（当前实际位置 + 记录）。 */

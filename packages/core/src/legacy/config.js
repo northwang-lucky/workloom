@@ -1,20 +1,28 @@
 /**
- * .workloom/config.yaml 解析（行为移植模块，纯 JS + JSDoc）。
+ * .workloom 配置解析（行为移植模块，纯 JS + JSDoc）。
  *
  * 设计意图：
- * - 字段与默认值为既有数据布局约定（数据格式兼容），文案自撰；
- * - 解析失败显式抛错（fail loud），不静默回退，符合“无灰区”哲学；
- * - 未知字段容错忽略（如 channel/codex 等历史平台特定字段），向前兼容；
- * - config.local.yaml 为本地覆盖层：存在时深合并覆盖 config.yaml
- *   （map 按 key 递归合并，数组/标量整体替换）；
- * - 逃生舱关键词为 no-workloom；
- * - executor 派发参数与 subagents 配置的冲突检测与 force 校验
- *   （detectExecutorConflicts/assertForceReason），提示文案 buildConflictNotice。
+ * - 配置格式为 config.json / config.js（及 .local 变体），YAML 已退役：探测到
+ *   遗留 config.yaml / config.local.yaml 时 fail loud，错误文案指明迁移目标文件；
+ * - 三层流水线：全局 $HOME/.workloom/config → 项目 .workloom/config →
+ *   本地 .workloom/config.local；对象层导出做顶层 key 覆盖（{...base, ...doc}），
+ *   deepMerge 废止；函数工厂接收低层合并结果（无则 undefined）、同步返回本层
+ *   最终文档（不再自动合并）；工厂入参逐层传递；
+ * - 全局层仅消费项目无关字段（白名单校验）：subagent_profiles / session_auto_commit /
+ *   session_commit_message / max_journal_lines / prompt_injection / context_injection；
+ *   packages / hooks 报"项目字段"专属错误，其余白名单外顶层字段报"全局配置不支持"；
+ * - 遗留 subagents：接受 + 加载期一次性 deprecation WARNING（项目层同口径）；
+ * - 解析失败显式抛错（fail loud），不静默回退，符合"无灰区"哲学；
+ * - 未知顶层字段容错忽略（channel/codex 等历史平台字段），向前兼容；
+ * - 条目内 tools 字段仅 subagent_profiles 层支持（includes/excludes 数组，去重）；
+ * - executor 派发参数与 subagents 配置的冲突检测（detectExecutorConflicts）。
  */
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { parse as parseYaml } from 'yaml'
+import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { homedir } from 'node:os'
+import { basename, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /** 内置默认配置（与规格一致）。 */
 /** @type {import('./config.d.ts').WorkloomConfig} */
@@ -37,10 +45,31 @@ export const DEFAULT_CONFIG = {
     afterArchive: [],
   },
   packages: {},
-  defaultPackage: null,
   subagents: {},
   subagentProfiles: [],
 }
+
+/** 主配置层候选文件名（同层并存即歧义）。 */
+const MAIN_CONFIG_NAMES = Object.freeze(['config.json', 'config.js'])
+
+/** 本地覆盖层候选文件名（同层并存即歧义）。 */
+const LOCAL_CONFIG_NAMES = Object.freeze(['config.local.json', 'config.local.js'])
+
+/** 遗留 YAML 文件名（探测到即 fail loud，指明迁移目标）。 */
+const LEGACY_YAML_BY_LAYER = Object.freeze({ main: 'config.yaml', local: 'config.local.yaml' })
+
+/** 全局层允许消费的项目无关顶层字段。 */
+const GLOBAL_ALLOWED_TOP_FIELDS = new Set([
+  'subagent_profiles',
+  'session_auto_commit',
+  'session_commit_message',
+  'max_journal_lines',
+  'prompt_injection',
+  'context_injection',
+])
+
+/** 全局层禁止出现的项目级字段（报专属错误）。 */
+const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks'])
 
 /** 布尔值合法写法（大小写不敏感），行为对齐原规格。 */
 const BOOLEAN_WORDS = new Map([
@@ -70,87 +99,179 @@ export class WorkloomConfigError extends Error {
 }
 
 /**
- * 从项目根加载配置；config.yaml 缺失时以空文档起底（叠加 local 后仍可全默认）。
- * config.local.yaml 存在时深合并覆盖 config.yaml（map 按 key 递归、其余替换）。
+ * 从项目根加载配置（三层流水线）：
+ * 全局 $HOME/.workloom/config → 项目 .workloom/config → 本地 .workloom/config.local；
+ * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；遗留 subagents WARNING。
  * @param {string} root 项目根目录
+ * @param {{homeDir?: string}} [options] 可选项：homeDir 覆盖全局层基准目录
+ *   （测试/沙箱用，缺省取 os.homedir()）
  * @returns {import('./config.d.ts').WorkloomConfig} 合并默认后的配置对象
  */
-export function loadConfig(root) {
-  const dir = join(root, '.workloom')
-  const base = readConfigDoc(join(dir, 'config.yaml'), '<yaml>', '<root>') ?? {}
-  const overlay = readConfigDoc(
-    join(dir, 'config.local.yaml'),
-    '<config.local.yaml>',
-    '<config.local.yaml>',
-  )
-  const doc = overlay === undefined ? base : deepMerge(base, overlay)
-  return mergeWithDefaults(doc)
+export function loadConfig(root, options = {}) {
+  const homeDir = options.homeDir ?? homedir()
+  // 全局层：缺失 = 零行为（base 保持 undefined）；白名单校验在层求值后执行。
+  const globalFile = discoverConfigLayer(join(homeDir, '.workloom'), 'main')
+  let base
+  if (globalFile !== null) {
+    const globalDoc = evaluateLayerDoc(globalFile, undefined)
+    applyGlobalWhitelist(globalDoc)
+    base = globalDoc
+  }
+  // 项目层 → 本地层：逐层求值（对象覆盖 / 工厂接管），base 逐层传递。
+  const projectFile = discoverConfigLayer(join(root, '.workloom'), 'main')
+  if (projectFile !== null) base = evaluateLayerDoc(projectFile, base)
+  const localFile = discoverConfigLayer(join(root, '.workloom'), 'local')
+  if (localFile !== null) base = evaluateLayerDoc(localFile, base)
+  return mergeWithDefaults(base ?? {})
 }
 
 /**
- * 读取单个 YAML 配置文档：ENOENT 视为缺失返回 undefined；
- * 解析失败/根非 map 抛 WorkloomConfigError（fail loud，不静默回退）。
- * @param {string} file 配置文件路径
- * @param {string} parseField 解析失败时的字段标签
- * @param {string} rootField 根非 map 时的字段标签
- * @returns {Record<string, unknown> | undefined}
+ * 探测单个配置层：按 config.json/config.js（local 层为 config.local.json/config.local.js）
+ * 枚举；探测到遗留 YAML 或同层双文件并存均 fail loud（WorkloomConfigError）。
+ * @param {string} dir 所在目录（项目 .workloom 或全局 .workloom）
+ * @param {'main' | 'local'} layer 层类型（main = config，local = config.local）
+ * @returns {string | null} 唯一候选文件的绝对路径；无配置文件返回 null
  */
-function readConfigDoc(file, parseField, rootField) {
+function discoverConfigLayer(dir, layer) {
+  const names = layer === 'main' ? MAIN_CONFIG_NAMES : LOCAL_CONFIG_NAMES
+  const legacyPath = join(dir, LEGACY_YAML_BY_LAYER[layer])
+  if (existsSync(legacyPath)) {
+    throw new WorkloomConfigError(
+      LEGACY_YAML_BY_LAYER[layer],
+      `legacy YAML config is retired; migrate to ${names[0]} or ${names[1]}`,
+    )
+  }
+  const found = names.filter((name) => existsSync(join(dir, name)))
+  if (found.length > 1) {
+    throw new WorkloomConfigError(
+      layer === 'main' ? 'config' : 'config.local',
+      `ambiguous: both ${found[0]} and ${found[1]} exist; keep exactly one`,
+    )
+  }
+  return found.length === 0 ? null : join(dir, /** @type {string} */ (found[0]))
+}
+
+/**
+ * 加载 JSON 配置文档：解析失败 / 根非对象抛 WorkloomConfigError（带字段路径）。
+ * @param {string} file 配置文件绝对路径
+ * @param {string} field 字段标签（文件名）
+ * @returns {Record<string, unknown> | Function} 配置文档或工厂函数
+ */
+function loadJsonDoc(file, field) {
   let raw
   try {
     raw = readFileSync(file, 'utf8')
   } catch (error) {
-    if (/** @type {NodeJS.ErrnoException} */ (error).code === 'ENOENT') {
-      return undefined
-    }
-    throw error
+    throw new WorkloomConfigError(field, `failed to read: ${String(error)}`)
   }
   let doc
   try {
-    doc = parseYaml(raw) ?? {}
+    doc = JSON.parse(raw)
   } catch (error) {
-    throw new WorkloomConfigError(parseField, `parse failed: ${String(error)}`)
+    throw new WorkloomConfigError(field, `parse failed: ${String(error)}`)
   }
-  if (typeof doc !== 'object' || Array.isArray(doc)) {
-    throw new WorkloomConfigError(rootField, 'must be an object map')
+  return assertLayerExport(doc, field)
+}
+
+/**
+ * 加载 JS 配置文档（同步，createRequire）：兼容 module.exports 与 export default
+ * （ESM 取 .default 归一）；低版本环境无 require(esm) 时 fail loud 说明。
+ * @param {string} file 配置文件绝对路径
+ * @param {string} field 字段标签（文件名）
+ * @returns {Record<string, unknown> | Function} 配置文档或工厂函数
+ */
+function loadJsDoc(file, field) {
+  const require = createRequire(fileURLToPath(import.meta.url))
+  let mod
+  try {
+    mod = require(file)
+  } catch (error) {
+    if (/** @type {NodeJS.ErrnoException} */ (error).code === 'ERR_REQUIRE_ESM') {
+      throw new WorkloomConfigError(
+        field,
+        `this Node version cannot require() an ES module (${basename(file)}); use CommonJS module.exports, or upgrade Node to >= 22.12 for require(esm)`,
+      )
+    }
+    throw new WorkloomConfigError(field, `failed to load: ${String(error)}`)
+  }
+  // ESM export default 经 require 返回 { default }，取 .default 归一；CJS 原样。
+  const doc = mod?.default ?? mod
+  return assertLayerExport(doc, field)
+}
+
+/**
+ * 断言层导出类型：必须为 plain object 或函数，否则报错（JSON 无法表达函数）。
+ * @param {unknown} doc 模块导出
+ * @param {string} field 字段标签
+ * @returns {Record<string, unknown> | Function}
+ */
+function assertLayerExport(doc, field) {
+  if (typeof doc === 'function') return doc
+  if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) {
+    throw new WorkloomConfigError(field, 'must export an object map or a factory function')
   }
   return /** @type {Record<string, unknown>} */ (doc)
 }
 
 /**
- * 深合并两份配置文档：两边同为 plain object 时按 key 递归合并，
- * 其余情况（数组/标量/null）overlay 整体替换。纯函数，不修改入参。
- * @param {Record<string, unknown>} base 底层文档（config.yaml）
- * @param {Record<string, unknown>} overlay 覆盖层文档（config.local.yaml）
- * @returns {Record<string, unknown>}
+ * 求值单个配置层：对象导出 → 顶层 key 覆盖低层（{...base, ...doc}）；函数导出 →
+ * 工厂（入参为低层合并结果，无则 undefined），返回值即本层最终形态（不再合并）。
+ * @param {string} file 配置文件绝对路径
+ * @param {Record<string, unknown> | undefined} base 低层合并结果（全局层为 undefined）
+ * @returns {Record<string, unknown>} 本层求值后的配置文档
  */
-function deepMerge(base, overlay) {
-  /** @type {Record<string, unknown>} */
-  const result = { ...base }
-  for (const [key, value] of Object.entries(overlay)) {
-    const current = result[key]
-    if (isPlainObject(current) && isPlainObject(value)) {
-      result[key] = deepMerge(current, value)
-    } else {
-      result[key] = value
+function evaluateLayerDoc(file, base) {
+  const field = basename(file)
+  const doc = file.endsWith('.json') ? loadJsonDoc(file, field) : loadJsDoc(file, field)
+  if (typeof doc === 'function') {
+    const result = doc(base)
+    if (typeof result !== 'object' || result === null || Array.isArray(result)) {
+      throw new WorkloomConfigError(field, 'factory must return an object map')
     }
+    return /** @type {Record<string, unknown>} */ (result)
   }
-  return result
+  return base === undefined ? doc : { ...base, ...doc }
 }
 
-/** @param {unknown} value @returns {value is Record<string, unknown>} */
-function isPlainObject(value) {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+/**
+ * 全局层白名单校验（fail loud）：仅允许项目无关字段；packages/hooks 报项目专属
+ * 错误；其余白名单外顶层字段报"全局配置不支持"。遗留 subagents 在此放行
+ * （加载期 deprecation WARNING 在 mergeWithDefaults 统一处理）。
+ * @param {Record<string, unknown>} doc 全局层文档
+ */
+function applyGlobalWhitelist(doc) {
+  for (const key of Object.keys(doc)) {
+    if (GLOBAL_PROJECT_ONLY_FIELDS.has(key)) {
+      throw new WorkloomConfigError(
+        'global config',
+        `${key} is a project-level field; keep it in the project config, not in $HOME/.workloom`,
+      )
+    }
+    if (!GLOBAL_ALLOWED_TOP_FIELDS.has(key) && key !== 'subagents') {
+      throw new WorkloomConfigError(
+        'global config',
+        `unsupported global field "${key}" (allowed: ${[
+          ...GLOBAL_ALLOWED_TOP_FIELDS,
+          'subagents (deprecated)',
+        ].join(', ')})`,
+      )
+    }
+  }
 }
 
 /**
  * 把用户文档合并进默认值，逐字段校验。
- * @param {Record<string, unknown>} doc 用户 YAML 文档
+ * @param {Record<string, unknown>} doc 三层合并后的用户文档
  * @returns {import('./config.d.ts').WorkloomConfig}
  */
 function mergeWithDefaults(doc) {
   const config = structuredClone(DEFAULT_CONFIG)
-
+  // 遗留 subagents：接受 + 加载期一次性 deprecation WARNING（项目层同口径）。
+  if (doc.subagents !== undefined) {
+    console.warn(
+      'workloom config: "subagents" is deprecated; use "subagent_profiles" instead',
+    )
+  }
   if (doc.session_commit_message !== undefined) {
     config.sessionCommitMessage = requireString(
       'session_commit_message',
@@ -203,9 +324,6 @@ function mergeWithDefaults(doc) {
   if (doc.packages !== undefined) {
     config.packages = parsePackages(doc.packages)
   }
-  if (doc.default_package !== undefined) {
-    config.defaultPackage = requireString('default_package', doc.default_package)
-  }
   if (doc.subagents !== undefined) {
     config.subagents = parseSubagents(doc.subagents)
   }
@@ -239,34 +357,54 @@ function parsePackages(value) {
 /**
  * 校验 subagents 映射：每个值是含可选 model/effort 的对象，key 不限集合
  * （不对 executor kind 白名单校验，可容纳未来新增 kind / 拼写错误）。
- * model 支持两种形式：string（所有 runtime 同值）或按 runtime 取值的 map
- * （map 的 key 同样不白名单，与 kind 约定一致）。
+ * model 支持两种形式：string（所有 runtime 同值）或按 runtime 取值的 map。
  * @param {unknown} value 用户文档中的 subagents 字段
  * @returns {Record<string, {model?: string | Record<string, string>, effort?: string}>}
  */
 function parseSubagents(value) {
-  return parseSubagentsEntries('subagents', requireMap('subagents', value))
+  return parseSubagentsEntries('subagents', requireMap('subagents', value), {
+    allowTools: false,
+  })
 }
 
 /**
  * 校验 subagents 条目映射（解析核心，前缀可参数化：旧 subagents 字段与
- * subagent_profiles 内层复用同一套 entry 校验）。
+ * subagent_profiles 内层复用同一套 entry 校验）。条目内未知字段 fail loud
+ * （两层一致）；tools 字段仅 subagent_profiles 层支持（allowTools 开关）。
  * @param {string} prefix 字段路径前缀（subagents 或 subagent_profiles[i].subagents）
  * @param {Record<string, unknown>} map 条目映射
- * @returns {Record<string, {model?: string | Record<string, string>, effort?: string}>}
+ * @param {{allowTools: boolean}} options 是否允许 tools 字段
+ * @returns {Record<string, import('./config.d.ts').SubagentConfigEntry>}
  */
-function parseSubagentsEntries(prefix, map) {
-  /** @type {Record<string, {model?: string | Record<string, string>, effort?: string}>} */
+function parseSubagentsEntries(prefix, map, { allowTools }) {
+  /** @type {Record<string, import('./config.d.ts').SubagentConfigEntry>} */
   const result = {}
   for (const [name, entry] of Object.entries(map)) {
     const spec = requireMap(`${prefix}.${name}`, entry)
-    /** @type {{model?: string | Record<string, string>, effort?: string}} */
+    for (const key of Object.keys(spec)) {
+      if (key === 'tools' && !allowTools) {
+        throw new WorkloomConfigError(
+          `${prefix}.${name}.tools`,
+          'is only supported under subagent_profiles',
+        )
+      }
+      if (key !== 'model' && key !== 'effort' && key !== 'tools') {
+        throw new WorkloomConfigError(
+          `${prefix}.${name}.${key}`,
+          `unknown field (allowed: model, effort${allowTools ? ', tools' : ''})`,
+        )
+      }
+    }
+    /** @type {import('./config.d.ts').SubagentConfigEntry} */
     const parsed = {}
     if (spec.model !== undefined) {
       parsed.model = parseSubagentModel(`${prefix}.${name}.model`, spec.model)
     }
     if (spec.effort !== undefined) {
       parsed.effort = requireString(`${prefix}.${name}.effort`, spec.effort)
+    }
+    if (spec.tools !== undefined) {
+      parsed.tools = parseTools(`${prefix}.${name}.tools`, spec.tools)
     }
     result[name] = parsed
   }
@@ -294,9 +432,48 @@ function parseSubagentModel(field, value) {
 }
 
 /**
+ * 解析 tools 字段（profiles 层条目）：{includes?, excludes?}，两数组成员必须为
+ * 非空字符串（空数组合法），重复去重（保序）。缺省字段为空数组。
+ * @param {string} field 字段路径（...tools）
+ * @param {unknown} value 用户文档值
+ * @returns {{includes: string[], excludes: string[]}}
+ */
+function parseTools(field, value) {
+  const spec = requireMap(field, value)
+  return {
+    includes: parseToolList(`${field}.includes`, spec.includes),
+    excludes: parseToolList(`${field}.excludes`, spec.excludes),
+  }
+}
+
+/**
+ * 校验并去重工具名列表（内部）：缺省为空数组；必须为非空字符串数组，否则
+ * 抛错（元素错误带下标路径）。
+ * @param {string} field 字段路径（...includes / ...excludes）
+ * @param {unknown} value 用户文档值
+ * @returns {string[]}
+ */
+function parseToolList(field, value) {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) {
+    throw new WorkloomConfigError(field, 'must be an array of non-empty tool name strings')
+  }
+  /** @type {string[]} */
+  const result = []
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== 'string' || item.trim() === '') {
+      throw new WorkloomConfigError(`${field}[${index}]`, 'must be a non-empty string')
+    }
+    if (!result.includes(item)) result.push(item)
+  }
+  return result
+}
+
+/**
  * 校验 subagent_profiles 数组：每条为 {whenMain?, subagents}，顺序即匹配顺序。
  * whenMain 支持 string（所有 runtime 同值）或按 runtime 取值的 map，值必须是
- * 完整 provider/model；内层 subagents 复用 parseSubagentsEntries 的 entry 校验。
+ * 完整 provider/model；内层 subagents 复用 parseSubagentsEntries 的 entry 校验
+ * （allowTools = true，tools 字段在此层合法）。
  * 解析后做歧义检查（多条兜底条目、whenMain 条件重叠，均 fail loud）。
  * @param {unknown} value 用户文档中的 subagent_profiles 字段
  * @returns {import('./config.d.ts').SubagentProfile[]}
@@ -310,12 +487,14 @@ function parseSubagentProfiles(value) {
   for (let i = 0; i < value.length; i++) {
     const entry = requireMap(`subagent_profiles[${i}]`, value[i])
     /** @type {import('./config.d.ts').SubagentProfile} */
-    const parsed = {}
+    const parsed = { subagents: {} }
     if (entry.whenMain !== undefined) {
       parsed.whenMain = parseWhenMain(`subagent_profiles[${i}].whenMain`, entry.whenMain)
     }
     const subs = requireMap(`subagent_profiles[${i}].subagents`, entry.subagents ?? {})
-    parsed.subagents = parseSubagentsEntries(`subagent_profiles[${i}].subagents`, subs)
+    parsed.subagents = parseSubagentsEntries(`subagent_profiles[${i}].subagents`, subs, {
+      allowTools: true,
+    })
     result.push(parsed)
   }
   assertNoAmbiguousProfiles(result)
@@ -540,7 +719,7 @@ function whenMainValueFor(whenMain, mainModel, runtime) {
  * 缺 key 抛错（fail loud）。runtime 未提供但 model 为 map 时同样抛错。
  * @param {string} field 字段路径（subagents.<kind>.model 或
  *   subagent_profiles[i].subagents.<kind>.model）
- * @param {{model?: string | Record<string, string>, effort?: string} | undefined} entry
+ * @param {import('./config.d.ts').SubagentConfigEntry | undefined} entry
  * @param {string | undefined} runtime 当前 runtime 名
  * @returns {string | undefined}
  */
@@ -698,6 +877,11 @@ export function assertForceReason(force, reason) {
       `${ERR_PREFIX}: force: true requires a non-empty reason (the override is recorded in task.json overrides)`,
     )
   }
+}
+
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** @param {string} field @param {unknown} value @returns {string} */

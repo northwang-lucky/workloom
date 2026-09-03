@@ -36,10 +36,10 @@ export function runDoctor(root: string, opts: RunDoctorOpts): [Error | null, Doc
 
 /** doctor 编排（内部）：无 --fix 直接出报告；有 --fix 先快照、修复、再复核。 */
 function doctorInternal(root: string, opts: RunDoctorOpts): DoctorReport {
-  const pre = collectChecks(root, opts.availableTools)
+  const pre = collectChecks(root)
   if (!opts.fix) return buildReport(pre, [])
   const fixableSnapshot = allIssues(pre).filter((issue) => issue.fixable)
-  const { fixed, post } = applyFixesAndMeasure(root, fixableSnapshot, opts.availableTools)
+  const { fixed, post } = applyFixesAndMeasure(root, fixableSnapshot)
   return buildReport(post, fixed)
 }
 

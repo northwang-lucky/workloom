@@ -40,7 +40,7 @@ function makeRoot(options = {}) {
   const root = mkdtempSync(join(tmpdir(), 'workloom-task-'))
   mkdirSync(join(root, '.workloom'))
   if (options.config !== undefined) {
-    writeFileSync(join(root, '.workloom', 'config.yaml'), options.config)
+    writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify(options.config))
   }
   if (options.developer !== undefined) {
     writeFileSync(join(root, '.workloom', '.developer'), options.developer)
@@ -202,7 +202,7 @@ test('finishTask 清理指向本任务的会话指针', async () => {
 })
 
 test('archiveTask 移动目录、置 completed 并 git 自动提交', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: true\n' })
+  const root = makeRoot({ config: { session_auto_commit: true } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])
@@ -238,7 +238,7 @@ test('archiveTask 移动目录、置 completed 并 git 自动提交', async () =
 })
 
 test('archiveTask 关闭自动提交时不产生 git 提交', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: false\n' })
+  const root = makeRoot({ config: { session_auto_commit: false } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])
@@ -263,7 +263,7 @@ test('archiveTask 关闭自动提交时不产生 git 提交', async () => {
 })
 
 test('archiveTask 在非 git 目录中 git 失败不阻塞归档', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: true\n' })
+  const root = makeRoot({ config: { session_auto_commit: true } })
   try {
     const [, created] = await createTask(root, { title: 'No Git' })
     const [err, task] = await archiveTask(root, {
@@ -304,13 +304,15 @@ test('archiveTask 归档目标已存在返回 err', async () => {
 
 test('after_create hooks 执行并注入 TASK_JSON_PATH，失败不阻塞', async () => {
   const root = makeRoot({
-    config: `
-hooks:
-  after_create:
-    - "echo created > created.txt"
-    - "echo $TASK_JSON_PATH > taskjson.txt"
-    - "exit 1"
-`,
+    config: {
+      hooks: {
+        after_create: [
+          'echo created > created.txt',
+          'echo $TASK_JSON_PATH > taskjson.txt',
+          'exit 1',
+        ],
+      },
+    },
   })
   try {
     const [err, result] = await createTask(root, { title: 'Hooked' })
@@ -359,13 +361,15 @@ test('archiveTask 冲突失败不破坏原任务状态与位置', async () => {
 
 test('after_archive hooks 执行并注入 TASK_JSON_PATH，失败不阻塞', async () => {
   const root = makeRoot({
-    config: `
-hooks:
-  after_archive:
-    - "echo archived > archived.txt"
-    - "echo $TASK_JSON_PATH > archived-path.txt"
-    - "exit 1"
-`,
+    config: {
+      hooks: {
+        after_archive: [
+          'echo archived > archived.txt',
+          'echo $TASK_JSON_PATH > archived-path.txt',
+          'exit 1',
+        ],
+      },
+    },
   })
   try {
     const [, created] = await createTask(root, { title: 'Archive Hook' })
@@ -408,7 +412,7 @@ test('startTask 传入 contextKey 时写入会话指针', async () => {
 })
 
 test('archiveTask 显式 autoCommit: false 覆盖 config 默认开启', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: true\n' })
+  const root = makeRoot({ config: { session_auto_commit: true } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])

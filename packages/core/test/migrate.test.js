@@ -121,7 +121,8 @@ test('config 映射：已知字段迁移、no-trellis 改写、未知字段丢�
     )
     const [err, result] = migrateLegacyTrellis(root)
     assert.equal(err, null)
-    assert.deepEqual(result.droppedConfigFields, ['channel', 'codex'])
+    // default_package 死字段已删除：与 channel/codex 一样按未知字段丢弃。
+    assert.deepEqual(result.droppedConfigFields, ['default_package', 'channel', 'codex'])
     const config = loadConfig(root)
     assert.equal(config.sessionCommitMessage, 'feat: commit')
     assert.equal(config.maxJournalLines, 500)
@@ -130,7 +131,7 @@ test('config 映射：已知字段迁移、no-trellis 改写、未知字段丢�
     assert.equal(config.promptInjection.skipKeyword, 'no-workloom')
     assert.deepEqual(config.hooks.afterCreate, ['echo hi'])
     assert.deepEqual(config.packages, { cli: { path: 'packages/cli' } })
-    assert.equal(config.defaultPackage, 'cli')
+    assert.equal('defaultPackage' in config, false, 'default_package must not be parsed')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -164,7 +165,8 @@ test('config 全默认时不覆盖 init 模板', () => {
     )
     const [err] = migrateLegacyTrellis(root)
     assert.equal(err, null)
-    assert.equal(readFileSync(join(root, '.workloom/config.yaml'), 'utf8').trim(), '')
+    // 迁移产物为 config.json；全默认时不覆盖 init 模板（保持 {}）。
+    assert.equal(readFileSync(join(root, '.workloom/config.json'), 'utf8').trim(), '{}')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

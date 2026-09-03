@@ -28,7 +28,7 @@
  *   SystemPromptService 做法），运行时由宿主注入；
  * - 子代理释放失败（drain）只 WARNING 不阻塞结果返回；其余故障 fail loud（抛错由
  *   DSH 工具管线转失败结果）；
- * - model 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置（按 executor
+ * - model 未显式传入时回退到 .workloom/config.json|js 的 subagents 配置（按 executor
  *   kind 取值，字段独立合并）；配置支持 subagent_profiles 按主会话当前模型
  *   （requestHeader 快照的 provider/model）分档匹配，命中的条目优先于旧
  *   subagents，供用户配置默认派发参数；
@@ -396,13 +396,8 @@ async function executeTool(
   assertToolFilterCapability(provider)
   const visibleNames = new Set(ctx.tools.schemas().map((schema) => schema.name))
   const denyList = buildDenyList(visibleNames)
-  // 本机片段（executor 首条 prompt 注入一次）：可用工具集 = 可见工具名 − denyList
-  // （与 toolFilter deny 后子代理真实可见集一致，故 buildExecutorPrompt 调用必须
-  // 在 denyList 计算之后执行）；组装失败 fail loud（本机片段是有意增强，静默失效
-  // 最难排查），条件不满足时返回空串（不注入）。
-  const availableNames = availableToolNames(visibleNames, denyList)
   // LSP 工具面探测（切片 ④）：交付时过滤纪律段 LSP 句——无 LSP 工具时不注入。
-  const hasLsp = hasLspTooling(availableNames)
+  const hasLsp = hasLspTooling(availableToolNames(visibleNames, denyList))
   // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
   // 一并传入，跨 provider 派发才不报 UNKNOWN_MODEL；裸 id 无 provider 按父 provider
   // 解析）；effort 原样 brand 进 reasoningEffort（同名直通），model 缺省时也能
@@ -452,7 +447,6 @@ async function executeTool(
       const [localErr, localDirectives] = composeLocalDirectivesText(
         root,
         params.kind,
-        availableNames,
       )
       if (localErr !== null) throw localErr
       const built = buildFullInjection(
@@ -491,7 +485,6 @@ async function executeTool(
     const [localErr, localDirectives] = composeLocalDirectivesText(
       root,
       params.kind,
-      availableNames,
     )
     if (localErr !== null) throw localErr
     const built = buildFullInjection(

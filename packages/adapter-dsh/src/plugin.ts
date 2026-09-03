@@ -74,11 +74,6 @@ interface SystemPromptService {
   }): () => void
 }
 
-/** tools 服务的最小接口（schemas 全局视图投影工具名；inject 已声明硬依赖）。 */
-interface ToolsService {
-  schemas(): readonly { name: string }[]
-}
-
 /** 自激活判定的结果：当前发起 agent 与所在项目根（导出供组装函数公共签名引用）。 */
 export interface InjectionTarget {
   agent: Agent
@@ -112,7 +107,7 @@ export function apply(ctx: Context): void {
     text: (context) => {
       const target = resolveInjectionTarget(ctx, context)
       if (target === null) return ''
-      return renderSessionContext(ctx, target)
+      return renderSessionContext(target)
     },
   })
   service.section({
@@ -181,21 +176,16 @@ function renderBreadcrumb(target: InjectionTarget): string {
 /**
  * 组装当前发起会话的 session-context 注入文本（取代式快照）。
  * 契约缺失静默返回空串；解析/组装出错只告警，不阻塞会话。
- * 本机片段（主 agent 目标 main）：以 ctx.tools.schemas() 全局视图为可用工具集
- * 组装（all + main），经快照尾部 Local directives 小节注入；组装失败只告警，
- * 以空 directives 继续组装快照（小节级降级，与 Pi 侧 injectSessionContext 对齐）。
- * @param ctx 插件上下文（tools 服务探测可用工具集）
+ * 本机片段（主 agent 目标 main）：三层（全局 → 项目共享 → 项目本机）叠加组装
+ * （all + main），经快照尾部 Local directives 小节注入；组装失败只告警，以空
+ * directives 继续组装快照（小节级降级，与 Pi 侧 injectSessionContext 对齐）。
  * @param target 注入目标（agent + 项目根）
  * @returns 注入文本（可能为空串）
  */
-export function renderSessionContext(ctx: Context, target: InjectionTarget): string {
+export function renderSessionContext(target: InjectionTarget): string {
   const contractText = loadWorkflowContractText()
   if (contractText === null) return ''
-  const [localErr, directives] = composeLocalDirectivesText(
-    target.root,
-    'main',
-    toolsOf(ctx).schemas().map((schema) => schema.name),
-  )
+  const [localErr, directives] = composeLocalDirectivesText(target.root, 'main')
   if (localErr !== null) {
     console.warn(`${CONTEXT_WARN_PREFIX} local directives: ${localErr.message}`)
   }
@@ -255,15 +245,6 @@ export function assembleSessionContextText(
  */
 function systemPromptOf(ctx: Context): SystemPromptService {
   return (ctx as Context & { systemPrompt: SystemPromptService }).systemPrompt
-}
-
-/**
- * 读取 tools 服务（inject 已声明硬依赖，运行期必然存在）。
- * @param ctx 插件上下文
- * @returns tools 服务
- */
-function toolsOf(ctx: Context): ToolsService {
-  return (ctx as Context & { tools?: ToolsService }).tools as ToolsService
 }
 
 /**

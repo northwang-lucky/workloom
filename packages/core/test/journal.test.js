@@ -15,7 +15,7 @@ function makeRoot(options = {}) {
   const root = mkdtempSync(join(tmpdir(), 'workloom-journal-'))
   mkdirSync(join(root, '.workloom'))
   if (options.config !== undefined) {
-    writeFileSync(join(root, '.workloom', 'config.yaml'), options.config)
+    writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify(options.config))
   }
   return root
 }
@@ -46,7 +46,7 @@ function expectedEntry(params) {
 }
 
 test('首次 addSession 从 journal-1.md 开始，条目格式与两个索引正确', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: false\n' })
+  const root = makeRoot({ config: { session_auto_commit: false } })
   try {
     const [err, result] = await addSession(root, {
       developer: 'alice',
@@ -78,7 +78,7 @@ test('首次 addSession 从 journal-1.md 开始，条目格式与两个索引正
 })
 
 test('连续两次 addSession 追加同一文件，索引累计与 last_active_at 更新', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: false\n' })
+  const root = makeRoot({ config: { session_auto_commit: false } })
   try {
     await addSession(root, { developer: 'alice', title: 'One' })
     const firstIndex = readText(root, 'workspace/alice/index.md')
@@ -104,7 +104,7 @@ test('连续两次 addSession 追加同一文件，索引累计与 last_active_a
 })
 
 test('超出行数上限滚动到 journal-2.md，旧文件内容不变', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: false\nmax_journal_lines: 6\n' })
+  const root = makeRoot({ config: { session_auto_commit: false, max_journal_lines: 6 } })
   try {
     const [err1, first] = await addSession(root, { developer: 'alice', title: 'One' })
     assert.equal(err1, null)
@@ -127,7 +127,7 @@ test('超出行数上限滚动到 journal-2.md，旧文件内容不变', async (
 })
 
 test('关闭自动提交时不产生 git 提交', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: false\n' })
+  const root = makeRoot({ config: { session_auto_commit: false } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])
@@ -142,7 +142,7 @@ test('关闭自动提交时不产生 git 提交', async () => {
 
 test('开启自动提交时 commit message 取 config 配置', async () => {
   const root = makeRoot({
-    config: 'session_auto_commit: true\nsession_commit_message: "chore: my journal"\n',
+    config: { session_auto_commit: true, session_commit_message: 'chore: my journal' },
   })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
@@ -158,7 +158,7 @@ test('开启自动提交时 commit message 取 config 配置', async () => {
 })
 
 test('developer 非法值报错（越界/分隔符/中文/空），白名单内可用', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: false\n' })
+  const root = makeRoot({ config: { session_auto_commit: false } })
   try {
     for (const developer of [
       '../evil',
@@ -200,7 +200,7 @@ test('developer 非法值报错（越界/分隔符/中文/空），白名单内�
 })
 
 test('listJournals 汇总多 developer 的文件与总行数，可按 developer 过滤', async () => {
-  const root = makeRoot({ config: 'session_auto_commit: false\n' })
+  const root = makeRoot({ config: { session_auto_commit: false } })
   try {
     await addSession(root, { developer: 'alice', title: 'A1' })
     await addSession(root, { developer: 'alice', title: 'A2' })

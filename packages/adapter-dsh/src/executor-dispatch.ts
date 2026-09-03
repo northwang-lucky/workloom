@@ -72,8 +72,8 @@ export function buildDenyList(visibleNames: ReadonlySet<string>): string[] {
 
 /**
  * 计算子代理真实可见工具名（visibleNames − denyList，保持可见集声明顺序）。
- * 本机片段的 requiresTools 条件按此集合判定：与 toolFilter deny 后子代理实际
- * 可见集一致，避免按全局视图误注入子代理实际用不到的工具约束。
+ * 本机片段已无条件注入（requiresTools 机制移除），此集仅用于 hasLspTooling
+ * 的纪律段 LSP 句过滤（与 toolFilter deny 后子代理真实可见集一致）。
  * @param visibleNames 运行时可见工具名集合（ctx.tools.schemas() 全局视图投影）
  * @param denyList toolFilter deny 清单
  * @returns 可见且未被 deny 的工具名列表

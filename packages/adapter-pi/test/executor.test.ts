@@ -130,7 +130,6 @@ function makeConfig(subagents: WorkloomConfig['subagents']): WorkloomConfig {
     promptInjection: { skipKeyword: 'SKIP' },
     hooks: { afterCreate: [], afterStart: [], afterFinish: [], afterArchive: [] },
     packages: {},
-    defaultPackage: null,
     subagents,
   }
 }
@@ -332,23 +331,14 @@ function makePi(hasLsp: boolean): ExtensionAPI {
   } as unknown as ExtensionAPI
 }
 
-/** 创建临时项目根并写入三个 requiresTools: [lsp_diagnostics] 的 kind 片段。 */
+/** 创建临时项目根并写入三个无条件 kind 片段（requiresTools 已移除）。 */
 function makeLspFragmentsRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-executor-fragments-'))
   const promptsDir = join(root, '.workloom', 'prompts.local')
   mkdirSync(promptsDir, { recursive: true })
-  writeFileSync(
-    join(promptsDir, 'implement.md'),
-    '---\nrequiresTools: [lsp_diagnostics]\n---\nIMPLEMENT-LSP-FRAGMENT',
-  )
-  writeFileSync(
-    join(promptsDir, 'check.md'),
-    '---\nrequiresTools: [lsp_diagnostics]\n---\nCHECK-LSP-FRAGMENT',
-  )
-  writeFileSync(
-    join(promptsDir, 'frontend.md'),
-    '---\nrequiresTools: [lsp_diagnostics]\n---\nFRONTEND-LSP-FRAGMENT',
-  )
+  writeFileSync(join(promptsDir, 'implement.md'), 'IMPLEMENT-LSP-FRAGMENT')
+  writeFileSync(join(promptsDir, 'check.md'), 'CHECK-LSP-FRAGMENT')
+  writeFileSync(join(promptsDir, 'frontend.md'), 'FRONTEND-LSP-FRAGMENT')
   return root
 }
 
@@ -397,7 +387,7 @@ test('buildExecutorPromptWithPi: 命中时 check/frontend kind 各自注入对�
   }
 })
 
-test('buildExecutorPromptWithPi: 未命中 → 无 Local directives 段（AND 过滤，TC3）', () => {
+test('buildExecutorPromptWithPi: 未命中 pi-lsp → 本机片段仍注入（无工具面过滤），纪律段 LSP 句被过滤', () => {
   const root = makeLspFragmentsRoot()
   try {
     const [err, result] = buildExecutorPromptWithPi(makePi(false), {
@@ -409,8 +399,9 @@ test('buildExecutorPromptWithPi: 未命中 → 无 Local directives 段（AND �
     assert.equal(err, null)
     assert.ok(result !== null)
     assert.equal(result.hasLsp, false)
-    assert.ok(!result.result.text.includes('## Local directives'))
-    assert.ok(!result.result.text.includes('IMPLEMENT-LSP-FRAGMENT'))
+    // requiresTools 已移除：片段无条件注入，与 LSP 能力无关。
+    assert.ok(result.result.text.includes('## Local directives'))
+    assert.ok(result.result.text.includes('IMPLEMENT-LSP-FRAGMENT'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

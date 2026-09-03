@@ -12,17 +12,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { buildDoctorRelayText, runDoctor } from '../dist/index.js'
+import { checkLocalPrompts } from '../dist/service/doctor-local-prompts.js'
 
 /** 创建临时项目根（空目录，不含 .workloom）。 */
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-doctor-'))
 }
 
-/** 初始化最小 .workloom：tasks 目录 + 合法 config.yaml + 会话目录。 */
+/** 初始化最小 .workloom：tasks 目录 + 合法 config.json + 会话目录。 */
 function initWorkloom(root) {
   mkdirSync(join(root, '.workloom', 'tasks'), { recursive: true })
   mkdirSync(join(root, '.workloom', '.runtime', 'sessions'), { recursive: true })
-  writeFileSync(join(root, '.workloom', 'config.yaml'), 'session_auto_commit: false\n')
+  writeFileSync(join(root, '.workloom', 'config.json'), '{"session_auto_commit": false}')
 }
 
 /** 构造一条 task.json 记录（默认 planning、无 hook/派发）。 */
@@ -334,7 +335,7 @@ test('check spec-ref：jsonl 引用的文件不存在', () => {
   }
 })
 
-test('check config：无 .workloom / config.yaml 非法 / 旧 executor.gate 残留不报 issue', () => {
+test('check config：无 .workloom / config.json 非法 / 旧 executor.gate 残留不报 issue', () => {
   // 无 .workloom
   const root = makeRoot()
   try {
@@ -346,11 +347,11 @@ test('check config：无 .workloom / config.yaml 非法 / 旧 executor.gate 残�
     rmSync(root, { recursive: true, force: true })
   }
 
-  // config.yaml 非法
+  // config.json 非法
   const root2 = makeRoot()
   initWorkloom(root2)
   try {
-    writeFileSync(join(root2, '.workloom', 'config.yaml'), 'executor: [invalid\n')
+    writeFileSync(join(root2, '.workloom', 'config.json'), '{invalid')
     const [, report2] = runDoctor(root2, { fix: false })
     const cfg = report2.checks.find((c) => c.code === 'config')
     assert.ok(cfg.issues.some((i) => i.message.includes('invalid')), 'invalid config reported')
@@ -358,11 +359,23 @@ test('check config：无 .workloom / config.yaml 非法 / 旧 executor.gate 残�
     rmSync(root2, { recursive: true, force: true })
   }
 
+  // 遗留 config.yaml：按 fail loud 报配置非法（提示迁移），不静默。
+  const root4 = makeRoot()
+  initWorkloom(root4)
+  try {
+    writeFileSync(join(root4, '.workloom', 'config.yaml'), 'packages:\n  cli:\n    path: x\n')
+    const [, report4] = runDoctor(root4, { fix: false })
+    const cfg = report4.checks.find((c) => c.code === 'config')
+    assert.ok(cfg.issues.some((i) => i.message.includes('invalid')), 'legacy yaml must be reported')
+  } finally {
+    rmSync(root4, { recursive: true, force: true })
+  }
+
   // 旧项目残留 executor.gate：按未知旧字段静默忽略，不产生任何 issue（无修复建议）。
   const root3 = makeRoot()
   initWorkloom(root3)
   try {
-    writeFileSync(join(root3, '.workloom', 'config.yaml'), 'executor:\n  gate: false\n')
+    writeFileSync(join(root3, '.workloom', 'config.json'), '{"executor": {"gate": false}}')
     const [err3, report3] = runDoctor(root3, { fix: false })
     assert.equal(err3, null)
     const cfg = report3.checks.find((c) => c.code === 'config')
@@ -516,9 +529,23 @@ test('buildDoctorRelayText 含 JSON 报告与引导语', () => {
   }
 })
 
-/** 写入本机片段文件（目录自动创建）。 */
+/** 写入项目本机片段文件（.workloom/prompts.local/，目录自动创建）。 */
 function writeLocalFragment(root, name, body) {
   const dir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, name), body)
+}
+
+/** 写入项目共享片段文件（.workloom/prompts/，目录自动创建）。 */
+function writeSharedFragment(root, name, body) {
+  const dir = join(root, '.workloom', 'prompts')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, name), body)
+}
+
+/** 写入全局片段文件（$HOME/.workloom/prompts/，目录自动创建）。 */
+function writeGlobalFragment(homeDir, name, body) {
+  const dir = join(homeDir, '.workloom', 'prompts')
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, name), body)
 }
@@ -544,20 +571,13 @@ test('check local-prompts：目录不存在不产出 issue/info（该项通过�
   }
 })
 
-test('check local-prompts：loaded 片段进 info（target/条件/来源文件）', () => {
+test('check local-prompts：loaded 片段进 info（target/来源层/来源文件）', () => {
   const root = makeRoot()
   initWorkloom(root)
   writeLocalFragment(root, 'main.md', 'Always use LSP tools.')
-  writeLocalFragment(
-    root,
-    'all.md',
-    '---\nrequiresTools: [lsp_diagnostics]\n---\nUse lsp_diagnostics.',
-  )
+  writeLocalFragment(root, 'all.md', 'Use all tools.')
   try {
-    const [err, report] = runDoctor(root, {
-      fix: false,
-      availableTools: ['lsp_diagnostics', 'write'],
-    })
+    const [err, report] = runDoctor(root, { fix: false })
     assert.equal(err, null)
     const check = localPromptsCheck(report)
     assert.deepEqual(check.issues, [])
@@ -565,38 +585,49 @@ test('check local-prompts：loaded 片段进 info（target/条件/来源文件�
     assert.ok(check.info.some((line) => line.includes('main.md') && line.includes('target=main')))
     assert.ok(
       check.info.some(
-        (line) =>
-          line.includes('all.md') &&
-          line.includes('target=all') &&
-          line.includes('requiresTools=lsp_diagnostics'),
+        (line) => line.includes('all.md') && line.includes('source=prompts.local'),
       ),
-      'info line must carry target, condition and source file',
+      'info line must carry target and source layer',
     )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('check local-prompts：条件不满足报 skipped（列出缺失工具名）', () => {
+test('check local-prompts：项目共享与项目本机目录均被扫描', () => {
   const root = makeRoot()
   initWorkloom(root)
-  writeLocalFragment(
-    root,
-    'implement.md',
-    '---\nrequiresTools: [lsp_diagnostics, write]\n---\nUse both.',
-  )
+  writeSharedFragment(root, 'main.md', 'SHARED RULE')
+  writeLocalFragment(root, 'implement.md', 'LOCAL RULE')
   try {
-    const [err, report] = runDoctor(root, { fix: false, availableTools: ['write'] })
+    const [err, report] = runDoctor(root, { fix: false })
     assert.equal(err, null)
     const check = localPromptsCheck(report)
-    assert.equal(check.issues.length, 1)
-    assert.equal(check.issues[0].severity, 'warn')
-    assert.match(check.issues[0].message, /lsp_diagnostics/)
-    assert.equal(check.issues[0].path, '.workloom/prompts.local/implement.md')
-    assert.equal(check.issues[0].fixable, false)
-    assert.deepEqual(check.info, [], 'skipped fragment must not be listed as loaded')
+    assert.equal(check.info.length, 2)
+    assert.ok(check.info.some((l) => l.includes('main.md') && l.includes('source=prompts')))
+    assert.ok(
+      check.info.some((l) => l.includes('implement.md') && l.includes('source=prompts.local')),
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check local-prompts：全局目录被扫描（直接调用，注入 homeDir）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  const home = mkdtempSync(join(tmpdir(), 'workloom-doctor-home-'))
+  writeGlobalFragment(home, 'main.md', 'GLOBAL RULE')
+  try {
+    const result = checkLocalPrompts(root, home)
+    assert.equal(result.info.length, 1)
+    assert.ok(
+      result.info[0].includes('main.md') && result.info[0].includes('source=global'),
+      'global fragment must be scanned with the global layer label',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    rmSync(home, { recursive: true, force: true })
   }
 })
 
@@ -604,7 +635,7 @@ test('check local-prompts：unknown 文件名 warn、坏 front-matter error（�
   const root = makeRoot()
   initWorkloom(root)
   writeLocalFragment(root, 'weird.md', 'body')
-  writeLocalFragment(root, 'main.md', '---\nrequiresTools: [unclosed\n---\nbody')
+  writeLocalFragment(root, 'main.md', '---\nfoo: [unclosed\n---\nbody')
   try {
     const [err, report] = runDoctor(root, { fix: false })
     assert.equal(err, null)
@@ -622,22 +653,34 @@ test('check local-prompts：unknown 文件名 warn、坏 front-matter error（�
   }
 })
 
-test('fix 路径：availableTools 透传复核（条件不满足的 warn 在 post 报告保持一致）', () => {
+test('check local-prompts：requiresTools 残留 front-matter 报 error（机制已移除）', () => {
   const root = makeRoot()
   initWorkloom(root)
-  writeLocalFragment(
-    root,
-    'implement.md',
-    '---\nrequiresTools: [lsp_diagnostics]\n---\nUse lsp_diagnostics.',
-  )
+  writeLocalFragment(root, 'main.md', '---\nrequiresTools: [write]\n---\nbody')
   try {
-    const [err, report] = runDoctor(root, { fix: true, availableTools: ['write'] })
+    const [err, report] = runDoctor(root, { fix: false })
     assert.equal(err, null)
     const check = localPromptsCheck(report)
-    assert.equal(check.issues.length, 1, 'skipped warning must survive the fix recheck')
-    assert.equal(check.issues[0].severity, 'warn')
-    assert.match(check.issues[0].message, /lsp_diagnostics/)
-    assert.deepEqual(check.info, [], 'skipped fragment must not flip to loaded after fix')
+    assert.equal(check.issues.length, 1)
+    assert.equal(check.issues[0].severity, 'error')
+    assert.match(check.issues[0].message, /removed|retired|deprecated/i)
+    assert.equal(check.issues[0].path, '.workloom/prompts.local/main.md')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('fix 路径：local-prompts 加载状态在 fix 后保持不变（无工具面条件）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  writeLocalFragment(root, 'implement.md', '---\nrequiresTools: [write]\n---\nUse write.')
+  try {
+    const [err, report] = runDoctor(root, { fix: true })
+    assert.equal(err, null)
+    const check = localPromptsCheck(report)
+    assert.equal(check.issues.length, 1, 'front-matter error must survive the fix recheck')
+    assert.equal(check.issues[0].severity, 'error')
+    assert.deepEqual(check.info, [], 'bad fragment must not be listed as loaded')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

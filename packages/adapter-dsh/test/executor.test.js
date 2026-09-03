@@ -33,12 +33,12 @@ const NATIVE_DELEGATION_CANDIDATES = [
   'ralph-loop',
 ]
 
-/** 构造最小可工作的 workloom 项目根（含 config.yaml）。 */
-function makeProject(configYaml) {
+/** 构造最小可工作的 workloom 项目根（含 config.json）。 */
+function makeProject(configDoc = {}) {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-exe-'))
   const workloomDir = join(root, '.workloom')
   mkdirSync(workloomDir)
-  writeFileSync(join(workloomDir, 'config.yaml'), configYaml)
+  writeFileSync(join(workloomDir, 'config.json'), JSON.stringify(configDoc))
   // 创建最小任务目录使 buildExecutorPrompt 不报错
   const tasksDir = join(workloomDir, 'tasks')
   mkdirSync(tasksDir)
@@ -269,11 +269,7 @@ function emitSubagentEnd(setup, info) {
 }
 
 test('agentOptions 携带 provider+model（带前缀时）', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -288,11 +284,7 @@ subagents:
 })
 
 test('agentOptions 仅 model（裸 id，无 provider）', async () => {
-  const root = makeProject(`
-subagents:
-  research:
-    model: deepseek-v4-flash
-`)
+  const root = makeProject({ subagents: { research: { model: 'deepseek-v4-flash' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -310,7 +302,7 @@ subagents:
 })
 
 test('agentOptions 为 undefined（无 model 配置）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -326,11 +318,7 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
 })
 
 test('s1: 派发走 startContinuable（非 one-shot start），返回 durable childId 且 drain 释放', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
   try {
     const { execute, startCalls, drainCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -367,7 +355,7 @@ subagents:
 })
 
 test('s2: 续用走 followup 进入同一会话（session id 不变；边界只取本轮事件）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, followupCalls, drainCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -399,7 +387,7 @@ test('s2: 续用走 followup 进入同一会话（session id 不变；边界只�
 })
 
 test('输出边界：seed 事件不计入（boundary 排除父历史种子）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const seed = [
       makeEvent('user/message', { message: { content: [] }, source: { kind: 'user' } }),
@@ -419,7 +407,7 @@ test('输出边界：seed 事件不计入（boundary 排除父历史种子）', 
 })
 
 test('派发成功：task.json dispatches 记录 { kind, at, title, childId }', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
@@ -439,7 +427,7 @@ test('派发成功：task.json dispatches 记录 { kind, at, title, childId }', 
 })
 
 test('s5: turn/end 非 completed（error 带结构化 message）：抛工具错误且不附输出', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, drainCalls } = setupExecutor({
       turnEndKind: 'error',
@@ -458,7 +446,7 @@ test('s5: turn/end 非 completed（error 带结构化 message）：抛工具错�
 })
 
 test('s5b: turn/end 非 completed（aborted 无 message）：用终止原因兜底文案', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute } = setupExecutor({ turnEndKind: 'aborted', turnEndError: undefined })
     const parent = makeAgent(root)
@@ -472,7 +460,7 @@ test('s5b: turn/end 非 completed（aborted 无 message）：用终止原因兜�
 })
 
 test('s5c: 无 turn/end 事件：视为异常终止（无法确认正常完成）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute } = setupExecutor({
       childWhenIdle: (child) => {
@@ -491,7 +479,7 @@ test('s5c: 无 turn/end 事件：视为异常终止（无法确认正常完成�
 })
 
 test('drain 失败仅 WARNING：结果仍正常返回', async (t) => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const warn = t.mock.method(console, 'warn', () => {})
     const { execute, drainCalls } = setupExecutor({
@@ -514,11 +502,7 @@ test('drain 失败仅 WARNING：结果仍正常返回', async (t) => {
 })
 
 test('receipt 行出现在返回文本尾部（来源标注正确，无 effort 段）', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
@@ -542,11 +526,7 @@ subagents:
 })
 
 test('receipt 行：param 来源标注正确', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: param-provider/param-model
-`)
+  const root = makeProject({ subagents: { implement: { model: 'param-provider/param-model' } } })
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
@@ -564,7 +544,7 @@ subagents:
 })
 
 test('s6: 续用轮 receipt 追加 (reused)，新派发轮不标注', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
@@ -584,7 +564,7 @@ test('s6: 续用轮 receipt 追加 (reused)，新派发轮不标注', async () =
 })
 
 test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数来自 buildExecutorPrompt stats）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -609,7 +589,7 @@ test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数
 })
 
 test('receipt 行：续用轮 reinject: true 恢复全量注入（统计同新派发口径）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, followupCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -644,7 +624,7 @@ test('receipt 行：续用轮 reinject: true 恢复全量注入（统计同新�
 })
 
 test('s3-inc: 续接默认只发增量指令（followup 内容 = 参数 prompt，不含全量注入），receipt 统计如实反映', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, followupCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -683,7 +663,7 @@ test('s3-inc: 续接默认只发增量指令（followup 内容 = 参数 prompt�
 })
 
 test('s3-inc-bg: 后台续接同样只发增量指令且返回增量 receipt', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, followupCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -716,11 +696,7 @@ test('s3-inc-bg: 后台续接同样只发增量指令且返回增量 receipt', a
 })
 
 test('receipt 行：空输出时仍追加（EMPTY_OUTPUT_TEXT 之后）', async () => {
-  const root = makeProject(`
-subagents:
-  check:
-    model: deepseek-official/deepseek-v4-flash
-`)
+  const root = makeProject({ subagents: { check: { model: 'deepseek-official/deepseek-v4-flash' } } })
   try {
     // childWhenIdle 只落盘 turn/end（无 assistant/message）→ 子代理无文本产出，receipt 仍保留
     const { execute } = setupExecutor({
@@ -745,7 +721,7 @@ subagents:
 })
 
 test('receipt 行：无配置时显示 default 来源（无 effort 段）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
@@ -763,16 +739,15 @@ test('receipt 行：无配置时显示 default 来源（无 effort 段）', asyn
 })
 
 test('主模型 provider/model 为空串：whenMain 按取不到跳过，回退旧 subagents', async () => {
-  const root = makeProject(`
-subagent_profiles:
-  - whenMain: deepseek-official/deepseek-v4-flash
-    subagents:
-      implement:
-        model: profile-provider/profile-model
-subagents:
-  implement:
-    model: legacy-provider/legacy-model
-`)
+  const root = makeProject({
+    subagent_profiles: [
+      {
+        whenMain: 'deepseek-official/deepseek-v4-flash',
+        subagents: { implement: { model: 'profile-provider/profile-model' } },
+      },
+    ],
+    subagents: { implement: { model: 'legacy-provider/legacy-model' } },
+  })
   try {
     const { execute, startCalls } = setupExecutor()
     // requestHeader 快照的 provider/model 均为空串：readMainModel 返回 undefined
@@ -797,7 +772,7 @@ subagents:
 })
 
 test('label 组装：四种 kind 均为 [<KindLabel>] <task title>（title 缺省回退）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -822,7 +797,7 @@ test('label 组装：四种 kind 均为 [<KindLabel>] <task title>（title 缺�
 })
 
 test('label 回退：task title 空白时回退 workloom-<kind>（连字符）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     writeFileSync(
       join(root, '.workloom/tasks/test-task/task.json'),
@@ -841,7 +816,7 @@ test('label 回退：task title 空白时回退 workloom-<kind>（连字符）',
 })
 
 test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     // task.json 损坏：readTask 报错，但 buildExecutorPrompt 只读 md/jsonl，不受影响。
     writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), '{ not json')
@@ -858,7 +833,7 @@ test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', a
 })
 
 test('label 组装：title 传入时四种 kind 均为 [<KindLabel>] <title>', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -885,7 +860,7 @@ test('label 组装：title 传入时四种 kind 均为 [<KindLabel>] <title>', a
 })
 
 test('label 回退：title 为空白字符串时走缺省 task title 路径', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -900,7 +875,7 @@ test('label 回退：title 为空白字符串时走缺省 task title 路径', as
 })
 
 test('label 组装：title 传入时不依赖 readTask（task.json 损坏仍可用）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), '{ not json')
     const { execute, startCalls } = setupExecutor()
@@ -953,12 +928,7 @@ test('参数面：continue_executor schema 可选，描述引用 PARAM_DESCRIPTI
 })
 
 test('effort 配置生效：subagents.<kind>.effort 进入 reasoningEffort，receipt 标 (config)', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-    effort: max
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'max' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -979,11 +949,7 @@ subagents:
 })
 
 test('effort 单独生效：无 model 配置时 agentOptions 仅含 reasoningEffort', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    effort: max
-`)
+  const root = makeProject({ subagents: { implement: { effort: 'max' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1002,12 +968,7 @@ subagents:
 })
 
 test('effort 参数优先：显式 effort 生效并标 (param)（与配置一致时无冲突）', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-    effort: high
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1029,11 +990,7 @@ subagents:
 })
 
 test('effort 冲突无 force：返回提示（含 effort 维度）且不派发', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    effort: high
-`)
+  const root = makeProject({ subagents: { implement: { effort: 'high' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1056,11 +1013,7 @@ subagents:
 })
 
 test('effort 冲突 + force + reason：放行派发、overrides 记录 executor_model_effort', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    effort: high
-`)
+  const root = makeProject({ subagents: { implement: { effort: 'high' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1088,11 +1041,7 @@ subagents:
 })
 
 test('非法 effort 档位：派发时 fail loud（assertEffort 文案）', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    effort: high
-`)
+  const root = makeProject({ subagents: { implement: { effort: 'high' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1110,12 +1059,7 @@ subagents:
 })
 
 test('冲突无 force：model 冲突返回提示且不派发（未传 effort 参数，无 effort 冲突）', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-    effort: high
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1146,11 +1090,7 @@ subagents:
 })
 
 test('冲突 + force 缺 reason：抛错', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1172,12 +1112,7 @@ subagents:
 })
 
 test('冲突 + force + reason：放行派发、overrides 写入、receipt 带 (forced)', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-    effort: high
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
   try {
     // 配置含 effort 但工具只传 model（未传 effort 参数）：effort 不参与冲突，force 仅因 model 冲突。
     const { execute, startCalls } = setupExecutor()
@@ -1211,12 +1146,7 @@ subagents:
 })
 
 test('无冲突（归一化等价）：正常派发且无 (forced) 标注', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-    effort: high
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
   try {
     // 工具只传等价 model（不传 effort）：无 model/effort 冲突，正常派发（无 (forced) 标注）。
     const { execute, startCalls } = setupExecutor()
@@ -1235,7 +1165,7 @@ subagents:
 })
 
 test('continuable 请求携带 toolFilter deny：9 workloom 名 + 可见委派候选交集，不可见候选不入 deny', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     // 运行时可见工具集：9 个 workloom 工具全可见 + 部分委派候选可见 + 常规工具。
     const visible = [
@@ -1268,7 +1198,7 @@ test('continuable 请求携带 toolFilter deny：9 workloom 名 + 可见委派�
 })
 
 test('provider 缺 toolFilter capability：派发前 fail loud（清晰英文错误，不静默丢弃）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor({
       subagentProvider: {
@@ -1294,7 +1224,7 @@ test('provider 缺 toolFilter capability：派发前 fail loud（清晰英文错
 })
 
 test('provider 未注册（getProvider 返回 undefined）：派发前 fail loud', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor({ getProvider: () => undefined })
     const parent = makeAgent(root)
@@ -1309,7 +1239,7 @@ test('provider 未注册（getProvider 返回 undefined）：派发前 fail loud
 })
 
 test('provider 畸形（capabilities 缺失）：派发前 fail loud（清晰英文错误，非 TypeError）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor({
       subagentProvider: { name: 'spawn', inheritsParentContext: true },
@@ -1326,7 +1256,7 @@ test('provider 畸形（capabilities 缺失）：派发前 fail loud（清晰英
 })
 
 test('startContinuable reject（UNSUPPORTED_CAPABILITY）：转清晰英文错误兜底', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const capabilityError = new Error('capability missing')
     capabilityError.code = 'UNSUPPORTED_CAPABILITY'
@@ -1383,7 +1313,7 @@ test('executor-dispatch 拆分面：deny 清单/capability 校验/错误兜底�
 })
 
 test('s4: 跨 kind 续用被拒（返回提示，不派发不 followup）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls, followupCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1412,7 +1342,7 @@ test('s4: 跨 kind 续用被拒（返回提示，不派发不 followup）', asyn
 })
 
 test('续用定位：无同 kind 记录（latest）返回明确提示不派发', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls, followupCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1430,7 +1360,7 @@ test('续用定位：无同 kind 记录（latest）返回明确提示不派发',
 })
 
 test('续用定位：旧记录缺 childId（latest）返回明确提示不报错', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     // 预置一条旧格式派发记录（无 childId 字段）：latest 定位失败返回提示。
     const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
@@ -1454,7 +1384,7 @@ test('续用定位：旧记录缺 childId（latest）返回明确提示不报错
 })
 
 test('续用定位：显式 childId 不在 dispatches 中返回明确提示不派发', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, startCalls, followupCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1472,7 +1402,7 @@ test('续用定位：显式 childId 不在 dispatches 中返回明确提示不�
 })
 
 test('续用被上游拒绝（belongs to another parent session，fork 场景）：返回引导文案且 isError', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     // 模拟 fork 分身接续源会话派发的 executor：followup 被 DSH parent 严格校验拒绝
     // （research/current-state.md 的 session-35cb4f6a 实证）。
@@ -1506,7 +1436,7 @@ test('续用被上游拒绝（belongs to another parent session，fork 场景）
 })
 
 test('续用被上游以其他原因拒绝：原样透传上游错误（不套 fork 引导文案）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     // 转译只认 parent 校验拒绝片段，其余接续失败必须原样抛出（fail loud 不加工）。
     const upstream = new Error('executor child session is busy')
@@ -1540,18 +1470,12 @@ function writeLocalFragment(root, name, body) {
   writeFileSync(join(dir, name), body)
 }
 
-test('本机片段：可见集−deny 满足 requiresTools 时首条 prompt 注入 Local directives 段', async () => {
-  const root = makeProject('')
+test('本机片段：首条 prompt 注入 Local directives 段（all 前、专属后，无条件注入）', async () => {
+  const root = makeProject()
   writeLocalFragment(root, 'all.md', 'ALL RULES')
-  writeLocalFragment(
-    root,
-    'implement.md',
-    '---\nrequiresTools: [lsp_diagnostics]\n---\nRun lsp_diagnostics in the final pass.',
-  )
+  writeLocalFragment(root, 'implement.md', 'Run lsp_diagnostics in the final pass.')
   try {
-    const { execute, startCalls } = setupExecutor({
-      visibleTools: [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics'],
-    })
+    const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     await execute(execArgs({ title: 'local prompts test' }), {
       agent: parent,
@@ -1567,7 +1491,7 @@ test('本机片段：可见集−deny 满足 requiresTools 时首条 prompt 注�
       taskPromptAt !== -1 && taskPromptAt < localAt && localAt < contractAt,
       'local directives must sit between the task prompt and the authoritative contract',
     )
-    // 合成顺序：all.md 在前、kind 专属在后（条件满足）。
+    // 合成顺序：all.md 在前、kind 专属在后。
     const section = text.slice(localAt, contractAt)
     assert.ok(section.includes('ALL RULES'), 'all.md rules must be injected')
     assert.ok(
@@ -1579,42 +1503,53 @@ test('本机片段：可见集−deny 满足 requiresTools 时首条 prompt 注�
   }
 })
 
-test('本机片段：可见集−deny 缺声明工具时不注入 Local directives 段', async () => {
-  const root = makeProject('')
+test('本机片段：requiresTools 残留 front-matter 时 fail loud（派发中断）', async () => {
+  const root = makeProject()
   writeLocalFragment(
     root,
     'implement.md',
     '---\nrequiresTools: [lsp_diagnostics]\n---\nRun lsp_diagnostics.',
   )
   try {
-    // 默认可见集（workloom 9 + 委派候选 + write/edit）不含 lsp_diagnostics → 条件不满足。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(execArgs({ title: 'no local test' }), {
-      agent: parent,
-      signal: new AbortController().signal,
-    })
-    const text = startCalls[0].request.prompt[0].text
-    assert.ok(!text.includes('## Local directives'))
-    assert.ok(!text.includes('Run lsp_diagnostics.'))
+    await assert.rejects(
+      execute(execArgs({ title: 'requiresTools residue test' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      /removed|retired|deprecated/i,
+    )
+    assert.equal(startCalls.length, 0, 'no dispatch when local prompts fail loud')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('本机片段：被 deny 的可见工具不算可用（探测集 = 可见集 − denyList）', async () => {
-  const root = makeProject('')
-  writeLocalFragment(root, 'implement.md', '---\nrequiresTools: [subagent]\n---\nSubagent rule.')
+test('本机片段：项目共享层（prompts/）与本机层（prompts.local/）叠加注入', async () => {
+  const root = makeProject()
+  const sharedDir = join(root, '.workloom', 'prompts')
+  mkdirSync(sharedDir, { recursive: true })
+  writeFileSync(join(sharedDir, 'all.md'), 'SHARED ALL RULES')
+  writeLocalFragment(root, 'implement.md', 'LOCAL IMPLEMENT RULES')
   try {
-    // 默认可见集含 subagent（委派候选），但它被 buildDenyList deny → 子代理不可见 → 不注入。
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(execArgs({ title: 'denied tool test' }), {
+    await execute(execArgs({ title: 'shared local test' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
+    assert.equal(startCalls.length, 1)
     const text = startCalls[0].request.prompt[0].text
-    assert.ok(!text.includes('## Local directives'))
+    const localAt = text.indexOf('## Local directives')
+    const contractAt = text.indexOf('## Executor contract')
+    const section = text.slice(localAt, contractAt)
+    assert.ok(section.includes('SHARED ALL RULES'), 'shared-layer all.md must be injected')
+    assert.ok(section.includes('LOCAL IMPLEMENT RULES'), 'local-layer fragment must be injected')
+    assert.ok(
+      section.indexOf('SHARED ALL RULES') < section.indexOf('LOCAL IMPLEMENT RULES'),
+      'shared all must precede local kind-specific fragment',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1637,7 +1572,7 @@ test('S4 hasLspTooling：可见集含 lsp_ 前缀工具判定具备 LSP 工具�
 })
 
 test('S4 交付时过滤：可见集无 LSP 工具时首条 prompt 不含纪律段 LSP 句，含时保留', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     // 无 LSP 工具（默认可见集）：纪律段剔除 LSP 基线句
     const { execute, startCalls } = setupExecutor()
@@ -1670,11 +1605,7 @@ test('S4 交付时过滤：可见集无 LSP 工具时首条 prompt 不含纪律�
 })
 
 test('s1-bg: 默认后台派发立即返回（不消费 whenIdle、不 drain），返回 {kind, childId, receipt}', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    model: deepseek-official/deepseek-v4-flash
-`)
+  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
   try {
     const { execute, startCalls, drainCalls, whenIdleCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1705,7 +1636,7 @@ subagents:
 })
 
 test('s1-fg: foreground: true 阻塞返回（消费 whenIdle、drain、含输出与 receipt 文本）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const { execute, whenIdleCalls, drainCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1725,7 +1656,7 @@ test('s1-fg: foreground: true 阻塞返回（消费 whenIdle、drain、含输出
 })
 
 test('s2-settle: 派发初写 running；subagent/end 按 info.id 回填 completed（不用 runId）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const setup = setupExecutor()
     const parent = makeAgent(root)
@@ -1748,7 +1679,7 @@ test('s2-settle: 派发初写 running；subagent/end 按 info.id 回填 complete
 })
 
 test('s2-settle-fail: subagent/end error 终态回填 failed + stopReason 一行摘要（不截取输出）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const setup = setupExecutor()
     const parent = makeAgent(root)
@@ -1766,7 +1697,7 @@ test('s2-settle-fail: subagent/end error 终态回填 failed + stopReason 一行
 })
 
 test('s2-settle-other: refusal/max-tokens 等 stopReason 同样回填 failed + 摘要', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const setup = setupExecutor()
     const parent = makeAgent(root)
@@ -1784,7 +1715,7 @@ test('s2-settle-other: refusal/max-tokens 等 stopReason 同样回填 failed + �
 })
 
 test('s2-settle-ghost: 未知 childId 的 subagent/end 不落盘（no-op，不误伤 running 记录）', async () => {
-  const root = makeProject('')
+  const root = makeProject()
   try {
     const setup = setupExecutor()
     const parent = makeAgent(root)

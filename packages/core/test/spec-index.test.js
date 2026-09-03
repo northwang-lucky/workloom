@@ -24,10 +24,10 @@ function addIndex(root, pkg, layer) {
   writeFileSync(join(dir, 'index.md'), `# ${pkg}/${layer}\n`)
 }
 
-/** 声明 packages 配置并落盘。 */
+/** 声明 packages 配置并落盘（config.json）。 */
 function declarePackages(root, names) {
-  const body = names.map((name) => `  ${name}:\n    path: .`).join('\n')
-  writeFileSync(join(root, '.workloom', 'config.yaml'), `packages:\n${body}\n`)
+  const packages = Object.fromEntries(names.map((name) => [name, { path: '.' }]))
+  writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify({ packages }, null, 2))
 }
 
 test('packages 未声明时全量收集且按 (package, layer) 字典序', () => {

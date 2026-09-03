@@ -5,7 +5,8 @@
 .developer
 
 # Local config overrides (per-machine).
-config.local.yaml
+config.local.json
+config.local.js
 
 # Local prompt extensions (per-machine discipline fragments).
 prompts.local/

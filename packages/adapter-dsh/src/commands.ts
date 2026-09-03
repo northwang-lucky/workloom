@@ -69,24 +69,8 @@ export function registerCommands(ctx: Context): void {
     name: COMMAND_NAMES.doctor,
     description: COMMAND_DESCRIPTIONS.doctor,
     input: { hint: '--fix' },
-    // 闭包绑定 tools 服务：doctor 的本机片段检查以当前可见工具集判定条件不满足。
-    handler: (invocation) => handleDoctor(invocation, toolsOf(ctx)),
+    handler: handleDoctor,
   })
-}
-
-/** tools 服务的最小接口（schemas 全局视图投影工具名；inject 已声明硬依赖）。 */
-interface ToolsService {
-  schemas(): readonly { name: string }[]
-}
-
-/**
- * 读取 tools 服务（inject 已声明硬依赖，运行期必然存在；缺省防御返回 undefined，
- * doctor 退化为不判定本机片段条件）。
- * @param ctx 插件上下文
- * @returns tools 服务或 undefined
- */
-function toolsOf(ctx: Context): ToolsService | undefined {
-  return (ctx as Context & { tools?: ToolsService }).tools
 }
 
 /**
@@ -241,13 +225,10 @@ async function handleFinish(invocation: CommandInvocation): Promise<CommandResul
 
 /**
  * doctor 命令：解析 --fix，跑健康检查引擎，followup 注入 JSON 报告 + 引导语触发模型回合。
- * 本机片段检查以当前可见工具集（ctx.tools.schemas() 投影）判定条件不满足；tools
- * 服务缺失时退化为不判定（core 仅列出有条件片段的声明条件）。
  * @param invocation 命令调用
- * @param tools tools 服务（可选，探测本机片段条件用）
  * @returns 成功提示或失败转述回执
  */
-function handleDoctor(invocation: CommandInvocation, tools: ToolsService | undefined): CommandResult {
+function handleDoctor(invocation: CommandInvocation): CommandResult {
   const cwd = cwdOf(invocation)
   if (cwd === null) {
     return relayFailure(
@@ -257,9 +238,7 @@ function handleDoctor(invocation: CommandInvocation, tools: ToolsService | undef
     )
   }
   const fix = hasFixFlag(invocation.rawInput)
-  const availableTools =
-    tools === undefined ? undefined : tools.schemas().map((schema) => schema.name)
-  const [err, report] = runDoctor(cwd, { fix, availableTools })
+  const [err, report] = runDoctor(cwd, { fix })
   if (err !== null || report === null) {
     return relayFailure(
       invocation,

@@ -30,7 +30,15 @@
   },
   "overrides": [],
   "stage": "implement",
-  "dispatches": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-03T03:38:15.515Z",
+      "title": "切片 0+①：配置系统换轨",
+      "status": "completed",
+      "childId": "3f5ff120-fc78-4a5f-ab1b-7fd473dfee6c"
+    }
+  ],
   "hooks": {
     "after_create": [],
     "after_start": [],
