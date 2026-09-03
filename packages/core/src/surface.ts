@@ -117,13 +117,13 @@ export const PARAM_DESCRIPTIONS = {
     'Required semantic part of the child session title; the executor assembles it as [<KindLabel>] <title>; only effective on the DSH adapter',
   kind: 'Executor role: research, implement, check, or frontend',
   model:
-    'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to the matching subagent_profiles entry (by main session model), then subagents.<kind>.model, then the parent session model',
+    'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to the matching subagent_profiles entry (by main session model), then subagents.<kind>.model, then the parent session model. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor model',
   effort:
-    'Reasoning effort: low/medium/high/xhigh/max; falls back to the matching subagent_profiles entry, then subagents.<kind>.effort',
+    'Reasoning effort: low/medium/high/xhigh/max; falls back to the matching subagent_profiles entry, then subagents.<kind>.effort. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor effort',
   prompt: 'Task instructions for the executor subagent',
   /** executor 工具的 continue_executor 参数（续用同一 continuable 会话；同 kind 边界）。 */
   continueExecutor:
-    'Reuse the same continuable executor session instead of dispatching a new one: pass "latest" to reuse the most recent same-kind dispatch of this task, or pass the recorded childId (session id) of a previous same-kind dispatch; cross-kind reuse is rejected',
+    'Reuse the same continuable executor session instead of dispatching a new one: pass "latest" to reuse the most recent same-kind dispatch of this task, or pass the recorded childId (session id) of a previous same-kind dispatch; cross-kind reuse is rejected. A continuation cannot rebind the executor model/effort bound at its original dispatch: to change the model or effort, start a new dispatch instead',
   /** executor 工具的 foreground 参数（默认后台派发；true 才前台阻塞）。 */
   foregroundExecutor:
     'Run the dispatch in the foreground and block the main session until the executor turn settles; the default is background, which returns the child session id and the receipt immediately',
