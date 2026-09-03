@@ -899,6 +899,18 @@ const INJECTION_PROTOCOL_DISCIPLINE =
 /** 注入标记行前缀（与实现一致，测试自给自足）。 */
 const INJECTION_MARKER_PREFIX = 'Injection marker: '
 
+/** 无用户通道纪律句（终极权威段共用部分两句，逐字，命令式无弱化词）。 */
+const NO_USER_CHANNEL_DISCIPLINE =
+  'You have no user channel: never ask the user questions and never call ' +
+  'interactive question tools (ask_user_question or equivalents). ' +
+  'When you hit a gap you cannot resolve yourself, stop working, write every open ' +
+  'question as a blocking item in your final report, and let the main session batch ' +
+  'them to the user for decisions.'
+
+/** research 写/编辑路径限制告知句（research 纪律段专属，逐字，机制强制前置告知）。 */
+const RESEARCH_WRITE_SCOPE_DISCIPLINE =
+  'Your write/edit reach is confined to the .workloom/ directory: paths ' + 'outside it are denied.'
+
 test('implement/check 纪律段各含批处理与工具输出紧凑两句纪律（逐字），research/frontend 不含', () => {
   const root = makeProject()
   try {
@@ -991,6 +1003,53 @@ test('S5 护栏：四种 kind 纪律段均含强制加载协议句（逐字）�
       extractMarkerToken(second[1].text),
       'two dispatches of the same task must produce different marker tokens',
     )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('纪律两句：四种 kind 纪律段均含「无用户通道」共用句（逐字，命令式无弱化词）', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      // 纪律段并入末尾权威段：从 `## Executor contract` 起提取全文逐字断言
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
+      assert.ok(
+        section.includes(NO_USER_CHANNEL_DISCIPLINE),
+        `${kind} discipline must carry the no-user-channel sentence verbatim`,
+      )
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('research 路径句：research 纪律段含 .workloom/ 路径限制告知句（逐字），其余 kind 不含', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
+    assert.equal(err, null)
+    const contractAt = result.text.indexOf('## Executor contract')
+    const section = result.text.slice(contractAt)
+    assert.ok(
+      section.includes(RESEARCH_WRITE_SCOPE_DISCIPLINE),
+      'research discipline must carry the write-scope sentence verbatim',
+    )
+    for (const kind of ['implement', 'check', 'frontend']) {
+      const [kErr, kResult] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(kErr, null)
+      const kContractAt = kResult.text.indexOf('## Executor contract')
+      const kSection = kResult.text.slice(kContractAt)
+      assert.ok(
+        !kSection.includes(RESEARCH_WRITE_SCOPE_DISCIPLINE),
+        `${kind} discipline must not carry the research write-scope sentence`,
+      )
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
