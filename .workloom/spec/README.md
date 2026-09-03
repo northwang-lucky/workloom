@@ -10,7 +10,7 @@ Team coding standards live here, organized as `<package>/<layer>/index.md`.
 
 ## Scope
 
-- `packages` in `.workloom/config.yaml` declares which packages get injected.
+- `packages` in `.workloom/config.json|js` declares which packages get injected.
   When it is empty, every `<package>/<layer>/index.md` is collected.
 
 ## Minimal example

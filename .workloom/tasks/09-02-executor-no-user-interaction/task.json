@@ -22,14 +22,17 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-03T05:19:43.813Z",
+    "summary": "两轮审查通过。首轮：3 项 P1（守卫懒重建毒化、workloom-init 骨架 config.yaml 死引用、update-spec SKILL 两处死引用）由主会话修复；4 项 P2 审查自修（package.json files 补 assets、EXECUTOR_KINDS 枚举、skills 构建产物同步、.workloom/spec/README.md 陈旧引用、毒化回归断言）。复审确认全部闭环、无新回归：四提交 + 工作区修复全绿（lint/typecheck/build，core 468 / dsh 106 / pi 75），已知边界按 prd 豁免。"
+  },
   "grilling": {
     "required": true,
     "passedAt": "2026-09-03T03:11:36.577Z",
     "summary": "7 轮设计树压测收敛（41 项决策）：① 配置系统换轨——config.json/config.js 取代 YAML（函数工厂接低层合并结果）、对象层顶层 key 覆盖、deepMerge 废止、三层优先级（项目 local > 项目 > 全局 $HOME/.workloom）、全局仅消费 6 类项目无关字段、三层 prompts 目录叠加注入（全局→项目→项目 local）、requiresTools 整体移除、default_package 死字段删除；② 工具可见性机制层——allow 单一事实源（原生全集 − lsp_* 为四 kind 默认，lsp_* 前缀模式经 includes 补回）、DSH toolFilter 只传 allow、Pi -t 下发、research .workloom/ 限制（DSH ToolGuard + Pi extension 副本）、buildDenyList/availableToolNames 删除；③ 协议层——全 kind 纪律三句 + research 路径告知句 + 主会话处置句进 workflow.md 2.1、契约 18→19。验收：test-first 五组 seams、逐字断言三处、回执追加 `, K tools allowed`、不拆任务按 ①→②→③ 串行。已知边界：bash 路径绕过、DSH 子会话 ask_user_question 静默空答案（上游行为）均记录不根治。"
   },
   "overrides": [],
-  "stage": "implement",
+  "stage": "check",
   "dispatches": [
     {
       "kind": "implement",
@@ -59,6 +62,20 @@
       "title": "切片 ③：提问回传协议与契约 19",
       "status": "completed",
       "childId": "0d544958-e177-4d8e-a46c-bd66cccc2787"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T04:52:28.600Z",
+      "title": "首轮全量审查：任务 D 四提交",
+      "status": "completed",
+      "childId": "5d8e52d7-611d-4e0a-9a03-afa69dcb4ef5"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T05:14:21.614Z",
+      "title": "复审：P1 修复后的全量范围",
+      "status": "completed",
+      "childId": "5d8e52d7-611d-4e0a-9a03-afa69dcb4ef5"
     }
   ],
   "hooks": {

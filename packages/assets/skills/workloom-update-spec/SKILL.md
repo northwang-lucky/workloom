@@ -16,7 +16,7 @@ Standards live in `.workloom/spec/<package>/<layer>/index.md` (the injection uni
 
 ### 1. Place the standard
 
-- **package** — a key declared under `packages` in `.workloom/config.yaml`. If no package fits, tell the user to declare one first, or create a new directory with their confirmation.
+- **package** — a key declared under `packages` in `.workloom/config.json|js`. If no package fits, tell the user to declare one first, or create a new directory with their confirmation.
 - **layer** — the layer inside the package (e.g. `backend`, `frontend`); create it if missing.
 - Names allow `[A-Za-z0-9._-]`, starting with a letter or digit.
 
@@ -50,4 +50,4 @@ The index and detail files follow the layout, links resolve, and no detail file 
 ## Boundaries
 
 - Write only under `.workloom/spec/`.
-- Do not edit `workflow.md`, `config.yaml`, or anything under `tasks/`.
+- Do not edit `workflow.md`, `config.json|js`, or anything under `tasks/`.
