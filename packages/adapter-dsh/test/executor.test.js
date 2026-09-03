@@ -25,6 +25,14 @@ import {
   researchWriteGuard,
 } from '../dist/executor-guard.js'
 
+// 测试隔离：core 三层配置解析的全局层读 $HOME/.workloom/config（executor 链路内部
+// 调 loadConfig(root)，无 homeDir 注入缝）；本机真实全局配置（如机器级
+// subagent_profiles）会泄漏进单测，污染 agentOptions/receipt/toolFilter 断言。
+// 重定向 HOME 到临时目录使全局层恒为空——与 core config.test.js 的 homeDir 注入
+// 同口径（os.homedir() 每次读取 $HOME，无缓存，文件级覆盖对全文件生效）。
+const ISOLATED_HOME = mkdtempSync(join(tmpdir(), 'workloom-dsh-exe-home-'))
+process.env.HOME = ISOLATED_HOME
+
 /** DSH 原生委派类工具候选名（与实现的 deny 清单候选集一致；测试自给自足）。 */
 const NATIVE_DELEGATION_CANDIDATES = [
   'subagent',
@@ -285,6 +293,13 @@ function emitSubagentEnd(setup, info) {
   const entry = setup.listeners.find((l) => l.event === 'subagent/end')
   assert.ok(entry, 'subagent/end listener must be registered')
   entry.listener(info)
+}
+
+/** 触发已注册的 session/event 监听（终态错误捕获接缝：session + event 双参）。 */
+function emitSessionEvent(setup, session, event) {
+  const entry = setup.listeners.find((l) => l.event === 'session/event')
+  assert.ok(entry, 'session/event listener must be registered')
+  entry.listener(session, event)
 }
 
 test('agentOptions 携带 provider+model（带前缀时）', async () => {
@@ -1776,7 +1791,7 @@ test('s2-settle: 派发初写 running；subagent/end 按 info.id 回填 complete
   }
 })
 
-test('s2-settle-fail: subagent/end error 终态回填 failed + stopReason 一行摘要（不截取输出）', async () => {
+test('s2-settle-fail: turn/end error 捕获 → 结算以真实错误整体替换（<message> (<code>)）', async () => {
   const root = makeProject()
   try {
     const setup = setupExecutor()
@@ -1785,10 +1800,19 @@ test('s2-settle-fail: subagent/end error 终态回填 failed + stopReason 一行
       agent: parent,
       signal: new AbortController().signal,
     })
+    // 会话事件面先落 turn/end error（真实 DSH：reason.error 结构化 message+code），
+    // subagent/end 结算时消费登记，整体替换泛化文案。
+    emitSessionEvent(
+      setup,
+      { id: 'child-1' },
+      makeTurnEnd('error', 1, {
+        error: { message: 'provider rejected the request', code: 'UNKNOWN_MODEL' },
+      }),
+    )
     emitSubagentEnd(setup, { runId: 'epoch-2', id: 'child-1', stopReason: 'error' })
     const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
     assert.equal(task.dispatches[0].status, 'failed')
-    assert.equal(task.dispatches[0].error, 'the executor failed before it finished')
+    assert.equal(task.dispatches[0].error, 'provider rejected the request (UNKNOWN_MODEL)')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1824,6 +1848,139 @@ test('s2-settle-ghost: 未知 childId 的 subagent/end 不落盘（no-op，不�
     emitSubagentEnd(setup, { runId: 'epoch-4', id: 'ghost-session', stopReason: 'error' })
     const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
     assert.equal(task.dispatches[0].status, 'running', 'unknown child must not be touched')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- 终态错误捕获与落账（executor-settle.ts，design §4） ----------
+
+test('s2-settle-fallback: stopReason=error 但登记缺失 → 回退泛化文案 + WARNING（不阻塞结算）', async (t) => {
+  const root = makeProject()
+  try {
+    const warn = t.mock.method(console, 'warn', () => {})
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle fallback test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 无任何 turn/end error 事件：结算回退既有泛化文案，并记一条 WARNING。
+    emitSubagentEnd(setup, { runId: 'epoch-5', id: 'child-1', stopReason: 'error' })
+    const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    assert.equal(task.dispatches[0].status, 'failed')
+    assert.equal(task.dispatches[0].error, 'the executor failed before it finished')
+    assert.equal(warn.mock.callCount(), 1)
+    assert.match(String(warn.mock.calls[0].arguments[0]), /no captured turn\/end error/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s3-error-latest: 覆盖式取最近一次 turn/end error；非 error 轮不清、登记外/非 turn/end 忽略', async () => {
+  const root = makeProject()
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle latest test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 第一次 error 落登记 → 中间 completed 轮不清理 → 第二次 error 覆盖（取最近）。
+    emitSessionEvent(
+      setup,
+      { id: 'child-1' },
+      makeTurnEnd('error', 1, { error: { message: 'first failure', code: 'E1' } }),
+    )
+    emitSessionEvent(setup, { id: 'child-1' }, makeTurnEnd('completed', 2))
+    emitSessionEvent(
+      setup,
+      { id: 'child-1' },
+      makeTurnEnd('error', 3, { error: { message: 'second failure', code: 'E2' } }),
+    )
+    // 登记表外 childId 与 非 turn/end 事件：一律忽略（不污染登记）。
+    emitSessionEvent(
+      setup,
+      { id: 'ghost-session' },
+      makeTurnEnd('error', 1, { error: { message: 'ghost failure', code: 'GHOST' } }),
+    )
+    emitSessionEvent(setup, { id: 'child-1' }, makeTurnStart(4))
+    emitSubagentEnd(setup, { runId: 'epoch-6', id: 'child-1', stopReason: 'error' })
+    const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    assert.equal(task.dispatches[0].status, 'failed')
+    assert.equal(task.dispatches[0].error, 'second failure (E2)')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s3-error-truncate: 真实错误压成单行，超 200 字符截断并追加 …', async () => {
+  const root = makeProject()
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle truncate test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const longMessage = 'x'.repeat(250)
+    emitSessionEvent(
+      setup,
+      { id: 'child-1' },
+      makeTurnEnd('error', 1, { error: { message: longMessage, code: 'E' } }),
+    )
+    emitSubagentEnd(setup, { runId: 'epoch-7', id: 'child-1', stopReason: 'error' })
+    const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    assert.equal(task.dispatches[0].status, 'failed')
+    // <message> (<code>) = 255 字符，截断到前 200 字符加 …。
+    assert.equal(task.dispatches[0].error, `${'x'.repeat(200)}…`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s3-extract: 真实错误提取纯函数（message+code 合并、换行压行、解码失败回退 null）', async () => {
+  const { extractTurnErrorText } = await import('../dist/executor-settle.js')
+  assert.equal(
+    extractTurnErrorText({
+      kind: 'error',
+      error: { message: 'provider quota exceeded', code: 'RATE_LIMITED' },
+    }),
+    'provider quota exceeded (RATE_LIMITED)',
+  )
+  // 换行折叠为单行（dispatches.error 按行展示，注入与审计可读）。
+  assert.equal(
+    extractTurnErrorText({ kind: 'error', error: { message: 'line1\nline2', code: 'E' } }),
+    'line1 line2 (E)',
+  )
+  // 解码失败（字段缺失 / 形状不符 / 非 error 终态）：返回 null，由结算回退泛化文案。
+  assert.equal(extractTurnErrorText({ kind: 'error', error: { message: 'missing code' } }), null)
+  assert.equal(extractTurnErrorText({ kind: 'error', error: { code: 'NO_MESSAGE' } }), null)
+  assert.equal(extractTurnErrorText({ kind: 'error', error: 'plain string' }), null)
+  assert.equal(extractTurnErrorText({ kind: 'error' }), null)
+  assert.equal(extractTurnErrorText({ kind: 'completed' }), null)
+  assert.equal(extractTurnErrorText(null), null)
+})
+
+test('s3-listener-guard: session/event 监听器内部异常只告警不冒泡', async (t) => {
+  const root = makeProject()
+  try {
+    const warn = t.mock.method(console, 'warn', () => {})
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'settle guard test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 事件字段访问抛错（模拟异常载荷）：监听器同步边界只告警，不向事件流冒泡。
+    const boomEvent = {
+      get type() {
+        throw new Error('boom payload')
+      },
+    }
+    assert.doesNotThrow(() => emitSessionEvent(setup, { id: 'child-1' }, boomEvent))
+    assert.equal(warn.mock.callCount(), 1)
+    assert.match(String(warn.mock.calls[0].arguments[0]), /failed to capture turn\/end error/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
