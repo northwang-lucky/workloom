@@ -19,6 +19,12 @@ import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import { registerEffortInjection } from '../dist/effort-inject.js'
 import { registerExecutor } from '../dist/executor.js'
 
+// 测试隔离：executor 集成面（D）经三层配置解析读全局层 $HOME/.workloom/config，
+// 本机真实全局 profile 会覆盖项目 subagents 配置（effort/model），重定向 HOME 到
+// 临时目录使全局层恒为空（与 executor.test.js 同口径）。
+const ISOLATED_HOME = mkdtempSync(join(tmpdir(), 'workloom-dsh-effort-home-'))
+process.env.HOME = ISOLATED_HOME
+
 /** 构造可捕获事件监听器的 ctx（on 记录回调，供 emit 触发）。 */
 function makeEventCtx() {
   const listeners = new Map()
