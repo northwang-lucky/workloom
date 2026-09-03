@@ -1,1 +1,10 @@
-{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层总则：allow 清单组装下沉 core、两 adapter 只做下发成形，先读索引再按需读细节"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "core/assets/adapter 依赖方向：配置解析与清单组装属 core，toolFilter/-t 成形属 adapter"}
+{"file": ".workloom/spec/repo/architecture/executor-voice.md", "reason": "执行器契约措辞规范：切片③纪律句/处置句的命令式口径依据"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "config.js/executor-context.js/local-prompts 属 legacy 纯 JS 模块，改动遵守 JSDoc + 纯函数 + 无构建约定"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与命名口径（枚举禁 Magic String、注释中文等）"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "验证命令清单：lint/typecheck/build/双 runtime 测试，交付前全跑"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "错误消息/运行时文案英文、注释中文的分工（守卫拒绝消息、fail loud 文案）"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "执行器/派发/回执/纪律段等术语统一口径"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "产物部署同步纪律：改后跑 dsh-sync-workloom，重启归用户"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交信息格式与切片粒度（三切片分别成 commit）"}
