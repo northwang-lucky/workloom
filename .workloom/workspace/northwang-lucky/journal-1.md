@@ -214,3 +214,9 @@
 - Commit: 6bf7801
 - Summary: 三切片交付并归档：①配置系统换轨（json/js 三层合并、全局配置白名单、三层 prompts、requiresTools 移除、default_package 清除）②工具白名单机制（core 组装 + DSH toolFilter allow + research 守卫、Pi -t + 同名受限副本扩展）③协议层（纪律句/处置句/契约 19）。两轮审查闭环（3 P1 + 5 P2），测试 core 468 / dsh 106 / pi 75 全绿；部署产物已同步、垫片已删，待用户重启 dshweb 生效（回执新口径 `, K tools allowed`）。
 
+## 执行器配置可见性与终态错误可观测：诊断、规划与开工
+
+- Time: 2026-09-03T07:54:46.401Z
+- Commit: 2a6bca0
+- Summary: 诊断 cardx 两条会话（session-2fe7e677 错误 force 覆盖全局配置 / session-eb22f744 裸 model id 三连 UNKNOWN_MODEL 不可见），定位根因：task.json override 留痕的判例效应 + 全局配置层对会话不可见 + 终态错误只映射 stopReason。建任务 09-03-executor-config-visibility（P1）：brainstorm + grilling 一轮收敛 8 项决策，design/implement 落定，三阶段 test-first 开工。阶段一首派因全局配置 provider 拼写错误（deepseek-offical，用户已授权修正为 deepseek-official）NO_ADAPTER 零产出，新开子会话 947469cd 重派，纯配置解析无 force。另给 /tmp/figma-auth-handoff.md 过时模型条款加失效标注。
+

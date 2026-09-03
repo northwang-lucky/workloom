@@ -1,0 +1,48 @@
+{
+  "id": "56e127ab-89d0-41cd-8dae-d48d58345540",
+  "name": "unify-workloom-alignment",
+  "title": "统一 workloom alignment skill 与需求对齐门禁",
+  "description": "以 workloom-alignment 统一 Phase 1.1 的需求探索、UI/TDD 适用性与 design-tree pressure-test，并重构 alignment 凭据、PRD hash 失效机制、门禁、迁移检查及双 runtime 注册。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-03T07:18:45.201Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-03T07:35:25.381Z",
+    "summary": "Final reconvergence after implementation research: full-PRD SHA-256 with CRLF/CR normalized to LF; language-neutral open-node marker; same-hash confirm is idempotent without timestamp refresh; stale_alignment is a distinct audited gate covering new and continuation executor dispatches; protocol version is checked at DSH/Pi startup with package semver build assertions; smoke uses isolated DSH headless and Pi sandbox only; workloom_task_align remains main-session-only. User accepted every recommendation."
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-03T07:23:40.576Z",
+      "title": "梳理 alignment 重构影响面",
+      "status": "completed",
+      "childId": "5ff318df-c1a8-48db-8127-f07f86ef6e0a"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

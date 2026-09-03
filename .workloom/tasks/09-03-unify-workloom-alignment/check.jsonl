@@ -1,0 +1,7 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"复核 core/assets/adapter 分层与依赖方向"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"复核 lint、typecheck、LSP 与测试质量"}
+{"file":".workloom/spec/repo/legacy-module/index.md","reason":"复核旧任务可读性和显式迁移边界"}
+{"file":".workloom/spec/repo/language/index.md","reason":"复核资产、运行时文案和注释语言"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"复核构建、同步与隔离 smoke 流程"}
+{"file":".workloom/spec/repo/terminology/index.md","reason":"复核术语替换无残留歧义"}
+{"file":".workloom/tasks/09-03-unify-workloom-alignment/research/01-alignment-refactor-impact.md","reason":"逐项核对研究识别的影响面、风险和测试缺口"}
