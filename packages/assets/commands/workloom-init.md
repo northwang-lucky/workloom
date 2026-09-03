@@ -7,7 +7,7 @@ argument-hint: '[developer identity | --purge]'
 
 # Initialize workloom
 
-Generate the `.workloom/` asset directory skeleton in the current project: `config.yaml`, `tasks/`, `spec/`, `workspace/`, plus a `.developer` identity file.
+Generate the `.workloom/` asset directory skeleton in the current project: `config.json`, `tasks/`, `spec/`, `workspace/`, plus a `.developer` identity file.
 
 The free-form argument is the developer identity recorded into `.developer`; omit it to leave the identity empty for now.
 
