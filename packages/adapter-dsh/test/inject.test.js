@@ -132,6 +132,41 @@ test('renderSessionContext：本机片段（main 目标）注入 Local directive
   }
 })
 
+test('assembleSessionContextText：requestHeader 快照注入主模型（画像首行带 provider/model）', () => {
+  const root = makeRoot()
+  try {
+    const target = makeTarget(root)
+    target.agent.session.requestHeader = () => ({
+      config: { provider: 'kimi-coding', model: 'k3' },
+    })
+    const text = assembleSessionContextText(target, CONTRACT_WITH_NORMS)
+    assert.ok(
+      text.includes('Executor profiles (main model kimi-coding/k3):'),
+      '画像首行必须携带 requestHeader 快照的主模型',
+    )
+    assert.ok(!text.includes('main model unknown'), '快照主模型必须替换 unknown 首行')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('renderSessionContext：主会话 requestHeader 快照经接线进入画像首行（端到端）', () => {
+  const root = makeRoot()
+  try {
+    const target = makeTarget(root)
+    target.agent.session.requestHeader = () => ({
+      config: { provider: 'kimi-coding', model: 'k3' },
+    })
+    const text = renderSessionContext(target)
+    assert.ok(
+      text.includes('Executor profiles (main model kimi-coding/k3):'),
+      'renderSessionContext 链路必须透传 requestHeader 主模型',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('renderSessionContext：本机片段组装失败只告警，快照照常注入且无 Local directives 小节（小节级降级）', async (t) => {
   const root = makeRoot()
   const dir = join(root, '.workloom', 'prompts.local')

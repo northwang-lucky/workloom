@@ -14,6 +14,15 @@ import { join } from 'node:path'
 import { buildDoctorRelayText, runDoctor } from '../dist/index.js'
 import { checkLocalPrompts } from '../dist/service/doctor-local-prompts.js'
 
+// 测试隔离：local-prompts 检查的全局层读 $HOME/.workloom/prompts（runDoctor 链路
+// 内部无 homeDir 注入缝，checkLocalPrompts 缺省取 os.homedir()）；本机真实全局
+// 片段（如 ~/.workloom/prompts 的 main.md 等）会泄漏进单测，污染 info/issues
+// 断言。重定向 HOME 到临时目录使全局层恒为空——与 executor.test.js /
+// effort-inject.test.js 的文件级 process.env.HOME 重定向同口径（os.homedir()
+// 每次读取 $HOME，无缓存，文件级覆盖对全文件生效）。
+const ISOLATED_HOME = mkdtempSync(join(tmpdir(), 'workloom-doctor-home-'))
+process.env.HOME = ISOLATED_HOME
+
 /** 创建临时项目根（空目录，不含 .workloom）。 */
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-doctor-'))
