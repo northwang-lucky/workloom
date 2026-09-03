@@ -269,3 +269,44 @@ test('buildSpawnBindingReceipt 注入统计段同行追加（与新派回执同�
     'spawn receipt must append the injection 4-tuple on the same line',
   )
 })
+
+// ---------- 阶段四 4a：workloom_execute 参数描述覆盖/续派警示（design §5 / §8.4） ----------
+
+test('PARAM_DESCRIPTIONS.model 描述含三层配置覆盖警示（仅用户明确要求时传）', () => {
+  assert.match(
+    PARAM_DESCRIPTIONS.model,
+    /overrides the three-tier config resolution \(global > project > project-local\)/,
+    'model 描述必须警示传参会覆盖三层配置解析结果',
+  )
+  assert.match(
+    PARAM_DESCRIPTIONS.model,
+    /only when the user explicitly asks to change the executor model/,
+    'model 描述必须限定仅用户明确要求换模型时传递',
+  )
+})
+
+test('PARAM_DESCRIPTIONS.effort 描述含三层配置覆盖警示（仅用户明确要求时传）', () => {
+  assert.match(
+    PARAM_DESCRIPTIONS.effort,
+    /overrides the three-tier config resolution \(global > project > project-local\)/,
+    'effort 描述必须警示传参会覆盖三层配置解析结果',
+  )
+  assert.match(
+    PARAM_DESCRIPTIONS.effort,
+    /only when the user explicitly asks to change the executor effort/,
+    'effort 描述必须限定仅用户明确要求换 effort 时传递',
+  )
+})
+
+test('PARAM_DESCRIPTIONS.continueExecutor 描述含续派不可换模型警示（换模型须新开派发）', () => {
+  assert.match(
+    PARAM_DESCRIPTIONS.continueExecutor,
+    /cannot (change|rebind) the (executor )?(model|model\/effort)/,
+    'continueExecutor 描述必须警示续派不能更换模型/effort',
+  )
+  assert.match(
+    PARAM_DESCRIPTIONS.continueExecutor,
+    /(start|dispatch) a new dispatch/,
+    'continueExecutor 描述必须指引换模型须新开派发',
+  )
+})
