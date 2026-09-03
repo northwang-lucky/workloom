@@ -76,6 +76,7 @@ import {
   composeLocalDirectivesText,
   detectExecutorConflicts,
   ERR_PREFIX,
+  EXECUTOR_KINDS,
   findWorkloomRoot,
   loadConfig,
   PARAM_DESCRIPTIONS,
@@ -540,7 +541,7 @@ async function executeTool(
   // 登记终态回填定位（subagent/end 按 childId 关联 dispatches 记录）。
   trackDispatchSettle(childId, root, taskRelPath)
   // research 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
-  if (params.kind === 'research') {
+  if (params.kind === EXECUTOR_KINDS.research) {
     registerResearchChildId(root, childId)
   }
   // 前台显式开关：阻塞等结算（现状行为，含 (reused) 续用轮语义）；否则默认后台

@@ -1862,6 +1862,35 @@ test('executor-guard：rebuildResearchChildIds 从任务 task.json dispatches �
   }
 })
 
+test('executor-guard：重启后新派发先登记时先重建再加入新 id（防空集占位毒化）', () => {
+  const root = makeGuardRoot()
+  try {
+    const tasksDir = join(root, '.workloom', 'tasks')
+    // 重启前的派发记录：旧 research 子会话 childId 落在 task.json。
+    mkdirSync(join(tasksDir, 't1'), { recursive: true })
+    writeFileSync(
+      join(tasksDir, 't1', 'task.json'),
+      JSON.stringify({ dispatches: [{ kind: 'research', childId: 'res-old' }] }),
+    )
+    // 重启后新 research 派发先到：登记路径集合缺失时须先重建再加入新 id，
+    // 否则仅含新 id 的集合占位后懒重建永不触发（旧子会话失守）。
+    const state = createResearchGuardState()
+    registerResearchChild(state, root, 'res-new')
+    assert.deepEqual([...state.byRoot.get(root)].sort(), ['res-new', 'res-old'])
+    // 毒化场景闭环：旧 research 子会话越界 write 仍被守卫拒绝。
+    const guard = researchWriteGuard(state)
+    const denied = guard({
+      name: 'write',
+      arguments: { file_path: '/tmp/escape.md' },
+      agent: { id: 'res-old', session: { header: { cwd: root } } },
+    })
+    assert.ok(typeof denied === 'string', 'pre-restart research child must still be guarded')
+    assert.match(denied, /denied/i)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('executor-guard：researchWriteGuard 拒绝越界 write/edit、放行域内与非 research', () => {
   const root = makeGuardRoot()
   try {
