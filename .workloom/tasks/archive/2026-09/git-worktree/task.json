@@ -1,0 +1,64 @@
+{
+  "id": "5440b22d-6c6d-4398-b32e-b184b5b1d0b0",
+  "name": "git-worktree",
+  "title": "git worktree 兼容性加固",
+  "description": "把 workloom 在人工创建的 git worktree 中的兼容性从口头结论升级为有真实集成测试背书的能力：覆盖 worktree 根/深层子目录 cwd 定位、脏工作区、.runtime 隔离、task 数据随分支隔离的行为固化；修复 cwd 深层目录解析缺陷。原生 branch/worktree 生命周期管理为后续演进方向，本期仅留接缝。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-03T12:05:01.631Z",
+  "completedAt": "2026-09-03T13:30:26.332Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-03T13:06:58.826Z",
+    "summary": "AC1-7 全满足：worktree 根全链路、深层 cwd 红→绿（回退实测复现）、脏工作区、.runtime 双向隔离、分支隔离固化、test-first 唯一接缝成立；lint/typecheck/build/三包测试全绿（core 536）；修复为通用机制、legacy 约定未破坏；归属边界确认：task-ops.ts 三 hunk 可独立暂存且不依赖并行改动。遗留：worktree-compat.test.js 依赖并行工作（alignment 重构）新增的 index.ts 导出与 alignment 门禁，存在提交顺序耦合。"
+  },
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-03T12:39:46.353Z",
+    "summary": "grilling 一轮收敛：修复形态=resolveTaskRelPath 复用 findWorkloomRoot 向上定位；测试基建=core/test 下 mkdtemp 临时仓库+真实 git worktree+skip 兜底；adapter 层不改不测；操作指引文档不交付；不预演原生阶段接口。前沿已空，待用户确认共识。"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-03T12:48:02.695Z",
+      "title": "worktree 兼容性加固实现",
+      "status": "completed",
+      "childId": "988a0971-e801-4061-92d0-f48d4bdf9ae1",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T12:54:57.267Z",
+      "title": "worktree 兼容性加固复核",
+      "status": "completed",
+      "childId": "107fc64a-fbf5-4a1b-b07f-f85f4ec2acbe",
+      "model": "ark-coding-plan/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
