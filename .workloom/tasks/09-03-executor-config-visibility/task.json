@@ -22,14 +22,24 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-03T10:43:34.114Z",
+    "summary": "2.2 复审两轮通过：首轮 PASS（无 P0）+ 7 项已声明偏差全接受，遗留 P1（Pi 派发记录缺绑定）/P2（PRD 节顺序措辞）经用户裁决由主会话 check 阶段直接修复（bc37fb2/e035dc2）；复核轮确认两项关闭、无新问题。独立全量门（默认 HOME）：lint/typecheck/build 全绿，core 505、adapter-dsh 124、adapter-pi 80 全过；改动文件 lsp_diagnostics 无归因诊断（仅 executor.ts 两条既有行 Buffer LSP 环境伪报，tsc 权威门绿）。"
+  },
   "grilling": {
     "required": true,
     "passedAt": "2026-09-03T07:40:31.124Z",
     "summary": "Design-tree grilling converged in one round; user confirmed all 8 frontier decisions as recommended. Settled: (Q1) config-source provenance as top-level fields subagentProfilesSource/subagentsSource (single-key single-source, no per-entry tagging); (Q2) function-factory layer owns provenance when subagent_profiles appears in the factory doc, else inherits lower layer; (Q3) Executor profiles section lists all 4 kinds, unconfigured marked 'inherits parent session model', source shown as 'global/project/local config (whenMain match | fallback entry | legacy subagents)', tools truncated with count, 'main model unknown; whenMain entries skipped' when unavailable; (Q4) both sections placed right after Active task line, Last dispatch line = 'Last dispatch: <kind> <status> at <time> (child <id>) — <one-line error>', shown for completed too, only latest, omitted when none; (Q5) error extraction via global session/event listener capturing latest turn/end error for registered childIds into an in-process registry consumed at settle (no zstd/storage coupling); (Q6) dispatches[].error fully replaced with the real one-line error (cap 200 chars), generic wording only as extraction-failure fallback; (Q7) override-warning wording appended to PARAM_DESCRIPTIONS.model/effort in core/surface.ts (single source, both adapters), force/reason text untouched; (Q8) post-deploy smoke covers profile-section visibility plus a deliberate bad provider/model dispatch to confirm the real error lands in task.json. Engineering defaults declared: session/event listener consumes only turn/end for registered childIds; completed/aborted/max-tokens/refusal wording unchanged; sibling task 09-03-unify-workloom-alignment file surface assumed non-overlapping, re-verify on conflict."
   },
-  "overrides": [],
-  "stage": "implement",
+  "overrides": [
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-09-03T10:53:28.431Z",
+      "reason": "Q8 部署冒烟：故意传入不存在的 provider，验证子会话终态错误（NO_ADAPTER/UNKNOWN_MODEL）被真实落进 dispatches[].error"
+    }
+  ],
+  "stage": "check",
   "dispatches": [
     {
       "kind": "implement",
@@ -45,6 +55,67 @@
       "title": "阶段一：provenance 与画像注入（core）",
       "status": "completed",
       "childId": "947469cd-fae2-4de5-9a28-26644adde120"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T08:11:01.486Z",
+      "title": "阶段二：终态错误捕获与落账（adapter-dsh）",
+      "status": "completed",
+      "childId": "92f1b128-eab4-4fa7-b0b2-2fe7ce9904ab"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T08:22:25.388Z",
+      "title": "阶段三：续派模型治理",
+      "status": "completed",
+      "childId": "2dd82382-3c9f-4beb-b5fc-c7f0e0a3c096"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T09:03:57.475Z",
+      "title": "阶段四：描述警示、接线与全量门",
+      "status": "failed",
+      "childId": "d8296c9d-9efb-4fa0-8780-a30a0ecd3826",
+      "error": "the executor was stopped before it finished"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T09:26:40.796Z",
+      "title": "阶段四-a：工具描述警示文案",
+      "status": "completed",
+      "childId": "439ed70b-82d4-40c6-aaed-31054e454ece"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T09:34:54.315Z",
+      "title": "阶段四-b：双端接线与全量门",
+      "status": "completed",
+      "childId": "7d539c2c-f282-464b-9fb9-12a4f88874e3"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T09:48:32.937Z",
+      "title": "2.2 全量复审",
+      "status": "completed",
+      "childId": "6874e59e-f980-48ac-913c-096a4e47ed1d"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T10:36:28.416Z",
+      "title": "2.2 复审复核轮",
+      "status": "completed",
+      "childId": "2a2be1b2-6ed4-468b-a2dd-555987fbd1b3"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-03T10:53:28.474Z",
+      "title": "Q8 冒烟：故意失败派发",
+      "status": "failed",
+      "childId": "51c16216-098b-41d6-90fe-0c59ebd79584",
+      "model": "no-such-provider/no-such-model",
+      "effort": "high",
+      "modelSource": "param",
+      "error": "no adapter registered for provider \"no-such-provider\" (NO_ADAPTER)"
     }
   ],
   "hooks": {
