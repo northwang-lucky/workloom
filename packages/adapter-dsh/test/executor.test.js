@@ -2154,3 +2154,290 @@ test('executor-guard 接线：仅 research 派发登记（implement 派发不登
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// ---------- 续派模型治理（design §8，阶段三） ----------
+
+/** 读取任务当前派发记录（断言辅助；无 dispatches 字段视为空数组）。 */
+function readDispatches(root) {
+  const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+  return task.dispatches ?? []
+}
+
+test('续派 + model 同传：fail loud 拒绝（相同值也拒；无登记/结算副作用）', async () => {
+  const root = makeProject({
+    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } },
+  })
+  try {
+    const { execute, startCalls, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    // 新派一轮（dispatches 留 child-1 供续用定位）。
+    await execute(execArgs({ foreground: false, title: 'spawn for reject test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1)
+    // 续派同传相同 model：一律拒绝（含相同值），不产生新派发记录。
+    await assert.rejects(
+      execute(
+        execArgs({
+          foreground: false,
+          title: 'rejected continue',
+          continue_executor: 'latest',
+          model: 'deepseek-official/deepseek-v4-flash',
+        }),
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /cannot be combined with model\/effort/,
+    )
+    assert.equal(followupCalls.length, 0, 'rejected continue must not followup')
+    assert.equal(readDispatches(root).length, 1, 'rejected continue must not record a dispatch')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续派 + effort 同传：fail loud 拒绝（不产生登记副作用）', async () => {
+  const root = makeProject()
+  try {
+    const { execute, followupCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(
+        execArgs({ foreground: false, title: 'reject effort', continue_executor: 'latest', effort: 'high' }),
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /cannot be combined with model\/effort/,
+    )
+    assert.equal(followupCalls.length, 0)
+    assert.equal(readDispatches(root).length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('新派记录落绑定：param/legacy 来源标注与生效值写入 dispatches', async () => {
+  const root = makeProject({
+    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
+  })
+  try {
+    // param 来源：显式 model + 与配置归一化等价（无冲突），记录标 param。
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      execArgs({
+        foreground: false,
+        title: 'param binding',
+        model: 'deepseek-official/deepseek-v4-flash',
+        effort: 'high',
+      }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    let records = readDispatches(root)
+    assert.equal(records[0].model, 'deepseek-official/deepseek-v4-flash')
+    assert.equal(records[0].effort, 'high')
+    assert.equal(records[0].modelSource, 'param')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('新派记录落绑定：whenMain 来源标注（主模型命中 profile）', async () => {
+  const root = makeProject({
+    subagent_profiles: [
+      {
+        whenMain: 'deepseek-official/deepseek-v4-flash',
+        subagents: { implement: { model: 'kimi-coding/k3', effort: 'high' } },
+      },
+    ],
+  })
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root, () => ({
+      config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    }))
+    await execute(execArgs({ foreground: false, title: 'whenMain binding' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const records = readDispatches(root)
+    assert.equal(records[0].model, 'kimi-coding/k3')
+    assert.equal(records[0].effort, 'high')
+    assert.equal(records[0].modelSource, 'whenMain')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('新派记录落绑定：inherit 且主模型不可读 → modelSource inherit（model 不落值）', async () => {
+  const root = makeProject()
+  try {
+    // makeAgent 不带 requestHeader：readMainModel 返回 undefined，无可落快照。
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ foreground: false, title: 'inherit binding' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const records = readDispatches(root)
+    assert.equal(records[0].modelSource, 'inherit')
+    assert.equal(records[0].model, undefined)
+    assert.equal(records[0].effort, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('新派记录落绑定：legacy 来源标注（旧 subagents 配置命中）', async () => {
+  const root = makeProject({
+    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
+  })
+  try {
+    // 不传显式 model/effort：解析链回退 legacy subagents，来源标 legacy。
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ foreground: false, title: 'legacy binding' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const records = readDispatches(root)
+    assert.equal(records[0].model, 'deepseek-official/deepseek-v4-flash')
+    assert.equal(records[0].effort, 'high')
+    assert.equal(records[0].modelSource, 'legacy')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('新派记录落绑定：fallback 来源标注（无 whenMain 的 profile 兜底条目命中）', async () => {
+  const root = makeProject({
+    subagent_profiles: [
+      { subagents: { implement: { model: 'kimi-coding/k3', effort: 'medium' } } },
+    ],
+  })
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ foreground: false, title: 'fallback binding' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const records = readDispatches(root)
+    assert.equal(records[0].model, 'kimi-coding/k3')
+    assert.equal(records[0].effort, 'medium')
+    assert.equal(records[0].modelSource, 'fallback')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('新派记录落绑定：inherit 时 model 落主会话模型快照（modelSource inherit）', async () => {
+  const root = makeProject()
+  try {
+    const { execute } = setupExecutor()
+    // 无配置但主模型可读：子会话继承主模型，记录落 spawn 时刻的绑定值。
+    const parent = makeAgent(root, () => ({
+      config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    }))
+    await execute(execArgs({ foreground: false, title: 'inherit snapshot binding' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const records = readDispatches(root)
+    assert.equal(records[0].model, 'deepseek-official/deepseek-v4-flash')
+    assert.equal(records[0].modelSource, 'inherit')
+    assert.equal(records[0].effort, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续派轮记录沿用 childId 首次绑定：modelSource 记 spawn', async () => {
+  const root = makeProject({
+    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
+  })
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    // 第一轮：新派（dispatches[0] 绑定 legacy 配置生效值）。
+    await execute(execArgs({ foreground: false, title: 'spawn round' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 第二轮：续派（dispatches[1] 沿用 childId 首次绑定的 model/effort，modelSource: spawn）。
+    await execute(
+      execArgs({ foreground: false, title: 'followup round', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const records = readDispatches(root)
+    assert.equal(records.length, 2)
+    assert.equal(records[1].childId, records[0].childId)
+    assert.equal(records[1].model, records[0].model)
+    assert.equal(records[1].effort, records[0].effort)
+    assert.equal(records[1].modelSource, 'spawn')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续派回执：展示 spawn 绑定值 (spawn binding)；不再回显当前配置来源', async () => {
+  const root = makeProject({
+    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
+  })
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    // 第一轮新派：回执标 (config: legacy)（现状口径不变）。
+    const first = await execute(execArgs({ foreground: true, title: 'receipt spawn round' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.ok(first.output[0].text.includes('deepseek-official/deepseek-v4-flash'))
+    assert.ok(first.output[0].text.includes('(config: legacy)'))
+    // 第二轮续派：回执展示 spawn 绑定（值来自首次派发记录），不再显示 (config…) 与 (reused) 外的来源。
+    const second = await execute(
+      execArgs({ foreground: true, title: 'receipt followup round', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.ok(
+      second.output[0].text.includes('deepseek-official/deepseek-v4-flash (spawn binding)'),
+      'followup receipt must show the spawn binding',
+    )
+    assert.ok(second.output[0].text.includes('(reused)'), 'reused marker must stay')
+    assert.ok(
+      !second.output[0].text.includes('(config: legacy)'),
+      'followup receipt must not echo the current config source',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('续派回执：spawn 记录缺绑定 → 显示 (unrecorded spawn binding)', async () => {
+  const root = makeProject()
+  try {
+    // 预置一条旧格式派发记录（无 model/effort/modelSource），childId 供续用定位。
+    const taskPath = join(root, '.workloom/tasks/test-task/task.json')
+    const task = JSON.parse(readFileSync(taskPath, 'utf8'))
+    task.dispatches = [
+      { kind: 'implement', at: new Date().toISOString(), title: 'legacy spawn', childId: 'child-1' },
+    ]
+    writeFileSync(taskPath, JSON.stringify(task))
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({ foreground: true, title: 'unrecorded binding followup', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.ok(
+      result.output[0].text.includes('(unrecorded spawn binding)'),
+      'followup receipt must say the spawn binding is unrecorded',
+    )
+    // 续派轮记录本身 modelSource 仍记 spawn（值缺省不炸）。
+    const records = readDispatches(root)
+    assert.equal(records.length, 2)
+    assert.equal(records[1].modelSource, 'spawn')
+    assert.equal(records[1].model, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
