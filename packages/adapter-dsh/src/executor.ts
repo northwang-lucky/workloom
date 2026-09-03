@@ -189,10 +189,10 @@ export interface MinimalAgent {
   }
 }
 
-/** tools 服务的最小接口（register + schemas 全局视图 + guard 守卫注册）。 */
+/** tools 服务的最小接口（register + 作用域工具视图 + guard 守卫注册）。 */
 interface ToolsService {
   register(definition: MinimalToolDefinition): () => void
-  schemas(): readonly { name: string }[]
+  schemas(scope?: object): readonly { name: string }[]
   guard(guard: (execution: Readonly<ResearchExecutionLike>) => string | undefined): () => void
 }
 
@@ -404,7 +404,10 @@ async function executeTool(
   // 不入，经 subagent_profiles 的 tools.includes 补回）。
   const provider = ctx.subagents.getProvider(SPAWN_PROVIDER)
   assertToolFilterCapability(provider)
-  const visibleNames = ctx.tools.schemas().map((schema) => schema.name)
+  // 可见集必须取父代理作用域视图：原生工具挂在 agent-plane（preset 层），
+  // 无参全局视图枚举不到，会把基集整个丢出 allow（冒烟实证）；父代理视图
+  // 即子代理的继承面，与 toolFilter allow 的过滤目标一致。
+  const visibleNames = ctx.tools.schemas(parent).map((schema) => schema.name)
   const allowFilter = buildAllowFilter(visibleNames, effective.tools)
   // LSP 工具面探测：交付时过滤纪律段 LSP 句——allow 清单含 lsp_ 工具才注入。
   const hasLsp = hasLspTooling(allowFilter.allow)
