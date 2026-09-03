@@ -1,0 +1,40 @@
+{
+  "id": "d9fc96f3-9fbc-4c4a-b277-1d0cb8858a7d",
+  "name": "executor-config-visibility",
+  "title": "执行器配置可见性与终态错误可观测",
+  "description": "修复 2026-09-03 两条 cardx 会话暴露的三项缺陷：① workloom 会话上下文注入生效中的执行器画像（kind → model/effort/工具面 + 配置来源层），消除\"看不到全局配置层只能猜\"；② 执行器终态 stopReason=error 时，从子会话记录提取真实 turn 错误，写进 task.json dispatches[].error（替代泛化的 \"the executor failed before it finished\"）；③ workloom_execute 工具描述补充覆盖语义警示：model/effort 参数覆盖三层配置，仅用户明确要求时传递。根因证据：session-2fe7e677（task.json override 留痕被当判例 + 全局配置层不可见 → 错误 force 覆盖全局配置）、session-eb22f744（裸 model id → UNKNOWN_MODEL ×3，终态错误不可见导致误诊重试）。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-03T07:27:59.004Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "grilling": {
+    "required": true,
+    "passedAt": "2026-09-03T07:40:31.124Z",
+    "summary": "Design-tree grilling converged in one round; user confirmed all 8 frontier decisions as recommended. Settled: (Q1) config-source provenance as top-level fields subagentProfilesSource/subagentsSource (single-key single-source, no per-entry tagging); (Q2) function-factory layer owns provenance when subagent_profiles appears in the factory doc, else inherits lower layer; (Q3) Executor profiles section lists all 4 kinds, unconfigured marked 'inherits parent session model', source shown as 'global/project/local config (whenMain match | fallback entry | legacy subagents)', tools truncated with count, 'main model unknown; whenMain entries skipped' when unavailable; (Q4) both sections placed right after Active task line, Last dispatch line = 'Last dispatch: <kind> <status> at <time> (child <id>) — <one-line error>', shown for completed too, only latest, omitted when none; (Q5) error extraction via global session/event listener capturing latest turn/end error for registered childIds into an in-process registry consumed at settle (no zstd/storage coupling); (Q6) dispatches[].error fully replaced with the real one-line error (cap 200 chars), generic wording only as extraction-failure fallback; (Q7) override-warning wording appended to PARAM_DESCRIPTIONS.model/effort in core/surface.ts (single source, both adapters), force/reason text untouched; (Q8) post-deploy smoke covers profile-section visibility plus a deliberate bad provider/model dispatch to confirm the real error lands in task.json. Engineering defaults declared: session/event listener consumes only turn/end for registered childIds; completed/aborted/max-tokens/refusal wording unchanged; sibling task 09-03-unify-workloom-alignment file surface assumed non-overlapping, re-verify on conflict."
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
