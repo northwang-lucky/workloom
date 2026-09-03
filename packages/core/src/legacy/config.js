@@ -102,27 +102,36 @@ export class WorkloomConfigError extends Error {
  * 从项目根加载配置（三层流水线）：
  * 全局 $HOME/.workloom/config → 项目 .workloom/config → 本地 .workloom/config.local；
  * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；遗留 subagents WARNING。
+ * 结果挂载只读来源层字段 subagentProfilesSource / subagentsSource（记录该 key 最后
+ * 写入层，见 trackLayerProvenance；全程未出现时字段不定义、读取为 undefined）。
  * @param {string} root 项目根目录
  * @param {{homeDir?: string}} [options] 可选项：homeDir 覆盖全局层基准目录
  *   （测试/沙箱用，缺省取 os.homedir()）
- * @returns {import('./config.d.ts').WorkloomConfig} 合并默认后的配置对象
+ * @returns {import('./config.d.ts').WorkloomConfig} 合并默认后的配置对象（含来源层字段）
  */
 export function loadConfig(root, options = {}) {
   const homeDir = options.homeDir ?? homedir()
+  // 来源层跟踪器：subagent_profiles / subagents 顶层 key 各自「最后写入层」。
+  /** @type {Partial<Record<'subagentProfilesSource' | 'subagentsSource', import('./config.d.ts').ConfigSourceLayer>>} */
+  const provenance = {}
   // 全局层：缺失 = 零行为（base 保持 undefined）；白名单校验在层求值后执行。
   const globalFile = discoverConfigLayer(join(homeDir, '.workloom'), 'main')
   let base
   if (globalFile !== null) {
-    const globalDoc = evaluateLayerDoc(globalFile, undefined)
+    const globalDoc = evaluateLayerDoc(globalFile, undefined, provenance, 'global')
     applyGlobalWhitelist(globalDoc)
     base = globalDoc
   }
   // 项目层 → 本地层：逐层求值（对象覆盖 / 工厂接管），base 逐层传递。
   const projectFile = discoverConfigLayer(join(root, '.workloom'), 'main')
-  if (projectFile !== null) base = evaluateLayerDoc(projectFile, base)
+  if (projectFile !== null) {
+    base = evaluateLayerDoc(projectFile, base, provenance, 'project')
+  }
   const localFile = discoverConfigLayer(join(root, '.workloom'), 'local')
-  if (localFile !== null) base = evaluateLayerDoc(localFile, base)
-  return mergeWithDefaults(base ?? {})
+  if (localFile !== null) base = evaluateLayerDoc(localFile, base, provenance, 'local')
+  const config = mergeWithDefaults(base ?? {})
+  attachConfigProvenance(config, provenance)
+  return config
 }
 
 /**
@@ -214,13 +223,17 @@ function assertLayerExport(doc, field) {
 }
 
 /**
- * 求值单个配置层：对象导出 → 顶层 key 覆盖低层（{...base, ...doc}）；函数导出 →
- * 工厂（入参为低层合并结果，无则 undefined），返回值即本层最终形态（不再合并）。
+ * 求值单个配置层并跟踪来源层（内部）：对象导出 → 顶层 key 覆盖低层（{...base, ...doc}）；
+ * 函数导出 → 工厂（入参为低层合并结果，无则 undefined），返回值即本层最终形态（不再合并）。
+ * provenance 按「最后写入层」跟踪：对象层看本层原始导出文档的顶层 key（不含则不覆盖）；
+ * 工厂层以返回文档为准（是否含 key 均以该文档判断，见 trackLayerProvenance）。
  * @param {string} file 配置文件绝对路径
  * @param {Record<string, unknown> | undefined} base 低层合并结果（全局层为 undefined）
+ * @param {Partial<Record<'subagentProfilesSource' | 'subagentsSource', import('./config.d.ts').ConfigSourceLayer>>} provenance 来源层跟踪器
+ * @param {import('./config.d.ts').ConfigSourceLayer} layer 当前层名
  * @returns {Record<string, unknown>} 本层求值后的配置文档
  */
-function evaluateLayerDoc(file, base) {
+function evaluateLayerDoc(file, base, provenance, layer) {
   const field = basename(file)
   const doc = file.endsWith('.json') ? loadJsonDoc(file, field) : loadJsDoc(file, field)
   if (typeof doc === 'function') {
@@ -228,9 +241,53 @@ function evaluateLayerDoc(file, base) {
     if (typeof result !== 'object' || result === null || Array.isArray(result)) {
       throw new WorkloomConfigError(field, 'factory must return an object map')
     }
+    trackLayerProvenance(provenance, layer, /** @type {Record<string, unknown>} */ (result))
     return /** @type {Record<string, unknown>} */ (result)
   }
+  trackLayerProvenance(provenance, layer, doc)
   return base === undefined ? doc : { ...base, ...doc }
+}
+
+/** 来源层跟踪的目标字段（配置顶层 key → WorkloomConfig 字段名）。 */
+const PROVENANCE_FIELDS = Object.freeze({
+  subagent_profiles: 'subagentProfilesSource',
+  subagents: 'subagentsSource',
+})
+
+/**
+ * 按层文档更新来源层跟踪（内部）：文档含 subagent_profiles/subagents 顶层 key 时
+ * 记录该层为最后写入层（对象层传原始导出文档、工厂层传返回文档，与 design §1 一致，
+ * 不逐条目打标）。纯同步、无副作用。
+ * @param {Partial<Record<'subagentProfilesSource' | 'subagentsSource', import('./config.d.ts').ConfigSourceLayer>>} provenance 来源层跟踪器
+ * @param {import('./config.d.ts').ConfigSourceLayer} layer 当前层名
+ * @param {Record<string, unknown>} doc 该层文档
+ */
+function trackLayerProvenance(provenance, layer, doc) {
+  for (const [docKey, field] of Object.entries(PROVENANCE_FIELDS)) {
+    if (Object.prototype.hasOwnProperty.call(doc, docKey)) {
+      provenance[/** @type {'subagentProfilesSource' | 'subagentsSource'} */ (field)] = layer
+    }
+  }
+}
+
+/**
+ * 挂载只读来源层字段（内部）：仅在该 key 实际出现过时定义属性（缺失 = 读取
+ * undefined；不定义属性，保证与 DEFAULT_CONFIG 的深度相等比较不被污染）。
+ * @param {import('./config.d.ts').WorkloomConfig} config 合并默认后的配置对象
+ * @param {Partial<Record<'subagentProfilesSource' | 'subagentsSource', import('./config.d.ts').ConfigSourceLayer>>} provenance 来源层跟踪器
+ */
+function attachConfigProvenance(config, provenance) {
+  for (const field of ['subagentProfilesSource', 'subagentsSource']) {
+    const layer = provenance[/** @type {'subagentProfilesSource' | 'subagentsSource'} */ (field)]
+    if (layer !== undefined) {
+      Object.defineProperty(config, field, {
+        value: layer,
+        enumerable: true,
+        writable: false,
+        configurable: false,
+      })
+    }
+  }
 }
 
 /**

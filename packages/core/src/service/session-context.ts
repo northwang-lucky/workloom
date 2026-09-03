@@ -20,6 +20,9 @@ import { resolveActiveTask } from '../legacy/active-task.js'
 import { readTask } from '../legacy/task-store.js'
 import { loadConfig } from '../legacy/config.js'
 import { collectSpecIndexes } from '../legacy/spec-index.js'
+import { renderExecutorProfilesSection } from '../legacy/executor-profiles.js'
+import type { WorkloomConfig } from '../legacy/config.d.ts'
+import type { TaskRecordWithPath } from '../legacy/task-store.d.ts'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom session context'
@@ -36,6 +39,9 @@ const UNKNOWN_VALUE = 'unknown'
 
 /** 无活跃任务行（整行固定文案）。 */
 const NO_ACTIVE_TASK_LINE = 'No active task.'
+
+/** Last dispatch 行前缀（派发记录展示，无记录不输出）。 */
+const LAST_DISPATCH_PREFIX = 'Last dispatch: '
 
 /** 各行的固定标签前缀。 */
 const LINE_LABELS = Object.freeze({
@@ -99,6 +105,12 @@ export interface SessionContextParams {
    * 避免 all.md 重复注入）；空串/未传 = 不注入。
    */
   localDirectives?: string | null
+  /**
+   * 主会话模型（"provider/model"，adapter 从请求头快照读取后传入）。Executor
+   * profiles 节的 whenMain 条目按它匹配、首行标题展示；缺省/空白/null = 取不到
+   * （whenMain 条目跳过，标题标注 main model unknown）。
+   */
+  mainModel?: string | null
 }
 
 /**
@@ -117,15 +129,21 @@ export function assembleSessionContext(
 }
 
 /**
- * 组装实现（内部）：按 Developer/任务/git/工作流/guidelines 顺序拼行，
- * 结尾按需追加 norms 小节（always-on 规范原文），整体包进块标记。
+ * 组装实现（内部）：按 Developer / Active task / Last dispatch / Executor profiles /
+ * Git / 工作流 / guidelines 顺序拼行，结尾按需追加 norms 小节（always-on 规范原文），
+ * 整体包进块标记。配置一次读取、两节消费（画像节 + guidelines 共用 loadConfig 结果），
+ * 配置解析失败时两节各自整节降级，不拖垮快照。
  * @param params 入参
  * @returns 快照文本
  */
 function assembleInternal(params: SessionContextParams): string {
+  const config = loadConfigSafely(params.root)
+  const active = activeTaskContext(params)
   const lines = [
     `${LINE_LABELS.developer}${readDeveloper(params.root)}`,
-    activeTaskLine(params),
+    active.line,
+    ...lastDispatchLines(active.task),
+    ...executorProfilesLines(params, config),
     gitLine(params.root),
   ]
   if (params.workflowSteps.length > 0) {
@@ -134,7 +152,7 @@ function assembleInternal(params: SessionContextParams): string {
       .join(STEP_SEPARATOR)
     lines.push(`${LINE_LABELS.workflow}${overview}`)
   }
-  lines.push(...guidelinesLines(params.root))
+  lines.push(...guidelinesLines(params.root, config))
   // 深度>0（executor 等叶子子代理）：norms 段整体替换为 executor 版（无视契约 norms，
   // 保证纪律注入不依赖契约内容）；深度=0 保持现状（契约 norms 原文，缺失不输出）。
   const depth = params.delegationDepth ?? 0
@@ -152,6 +170,40 @@ function assembleInternal(params: SessionContextParams): string {
   return `${BLOCK_OPEN}\n${lines.join('\n')}\n${BLOCK_CLOSE}`
 }
 
+/**
+ * 尽力加载配置（内部）：配置解析失败返回 null（配置错误不 fail loud——画像节与
+ * guidelines 节各自整节降级，保持既有降级策略，不拖垮整份快照）。
+ * @param root 项目根
+ * @returns 配置对象或 null
+ */
+function loadConfigSafely(root: string): WorkloomConfig | null {
+  try {
+    return loadConfig(root)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 组装 Executor profiles 节（内部）：复用 renderExecutorProfilesSection 渲染四个
+ * kind 画像；配置缺失（解析失败已降级为 null）或画像解析失败（如 per-runtime
+ * model 缺 runtime）时整节不输出。
+ * @param params 入参（mainModel 供 whenMain 匹配与标题展示）
+ * @param config 配置对象（可能为 null）
+ * @returns 节行列表（可能为空）
+ */
+function executorProfilesLines(
+  params: SessionContextParams,
+  config: WorkloomConfig | null,
+): string[] {
+  if (config === null) return []
+  try {
+    return renderExecutorProfilesSection(config, { mainModel: params.mainModel })
+  } catch {
+    return []
+  }
+}
+
 /** norms 是否非空（null/undefined/空白视为无 norms，快照结构不变）。 */
 function hasNorms(norms: string | null | undefined): norms is string {
   return norms !== null && norms !== undefined && norms.trim() !== ''
@@ -167,15 +219,11 @@ function hasText(text: string | null | undefined): text is string {
  * config 解析失败时整段降级为空（与 developer/git 降级同策，不拖垮整份快照）；
  * spec 目录读取失败仍抛错上行（fail loud，行为规格 §3.6）。
  * @param root 项目根
+ * @param config 配置对象（assembleInternal 已加载；解析失败为 null）
  * @returns 段行列表（可能为空）
  */
-function guidelinesLines(root: string): string[] {
-  let config
-  try {
-    config = loadConfig(root)
-  } catch {
-    return []
-  }
+function guidelinesLines(root: string, config: WorkloomConfig | null): string[] {
+  if (config === null) return []
   const [specErr, spec] = collectSpecIndexes(root, config)
   if (specErr) throw specErr
   if (spec === null || spec.indexes.length === 0) return []
@@ -201,15 +249,24 @@ function readDeveloper(root: string): string {
   }
 }
 
+/** 活跃任务解析结果（内部）：行文本 + 任务记录（一次读取、两行消费）。 */
+interface ActiveTaskContext {
+  /** 活跃任务行文本（无任务时为固定文案）。 */
+  line: string
+  /** 任务记录（无活跃任务时为 null）。 */
+  task: TaskRecordWithPath | null
+}
+
 /**
- * 组装活跃任务行：无任务返回固定文案；任务解析失败抛错（结构性故障）。
+ * 解析活跃任务（内部）：一次 readTask、同时产出 Active task 行与任务记录（供
+ * Last dispatch 行消费）。无任务返回固定文案 + null；任务解析失败抛错（结构性故障）。
  * @param params 入参
- * @returns 任务行
+ * @returns 活跃任务行与任务记录
  */
-function activeTaskLine(params: SessionContextParams): string {
+function activeTaskContext(params: SessionContextParams): ActiveTaskContext {
   const [ptrErr, taskRelPath] = resolveActiveTask(params.root, params.contextKey)
   if (ptrErr) throw ptrErr
-  if (taskRelPath === null) return NO_ACTIVE_TASK_LINE
+  if (taskRelPath === null) return { line: NO_ACTIVE_TASK_LINE, task: null }
   const [taskErr, task] = readTask(params.root, taskRelPath)
   if (taskErr || task === null) {
     throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`)
@@ -218,7 +275,36 @@ function activeTaskLine(params: SessionContextParams): string {
   if (typeof task.title !== 'string' || typeof task.status !== 'string') {
     throw new Error(`${ERR_PREFIX}: task record missing title or status: ${taskRelPath}`)
   }
-  return `${LINE_LABELS.activeTask}${task.title}" (${task.status}) at ${task.taskRelPath}.`
+  return {
+    line: `${LINE_LABELS.activeTask}${task.title}" (${task.status}) at ${task.taskRelPath}.`,
+    task,
+  }
+}
+
+/**
+ * 组装 Last dispatch 行（内部）：活跃任务 dispatches 非空时取最新一条（append-only，
+ * 末位即最新）展示 kind/status/时间（task.json 存储的 ISO 原文，确定性）/childId/
+ * 错误；无任务、无记录或记录缺 kind/status 时输出空（不输出该行）。
+ * @param task 活跃任务记录（无任务为 null）
+ * @returns 派发行列表（空数组 = 不输出）
+ */
+function lastDispatchLines(task: TaskRecordWithPath | null): string[] {
+  if (task === null) return []
+  const dispatches = task.dispatches
+  if (dispatches.length === 0) return []
+  const latest = dispatches[dispatches.length - 1]
+  if (latest === undefined) return []
+  if (typeof latest.kind !== 'string' || latest.kind === '') return []
+  if (typeof latest.status !== 'string' || latest.status.trim() === '') return []
+  let line = `${LAST_DISPATCH_PREFIX}${latest.kind} ${latest.status} at ${latest.at}`
+  if (typeof latest.childId === 'string' && latest.childId !== '') {
+    line += ` (child ${latest.childId})`
+  }
+  // 无 error 不接破折号段（completed 常态）。
+  if (typeof latest.error === 'string' && latest.error !== '') {
+    line += ` — ${latest.error}`
+  }
+  return [line]
 }
 
 /**
