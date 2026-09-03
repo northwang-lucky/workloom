@@ -220,3 +220,9 @@
 - Commit: 2a6bca0
 - Summary: 诊断 cardx 两条会话（session-2fe7e677 错误 force 覆盖全局配置 / session-eb22f744 裸 model id 三连 UNKNOWN_MODEL 不可见），定位根因：task.json override 留痕的判例效应 + 全局配置层对会话不可见 + 终态错误只映射 stopReason。建任务 09-03-executor-config-visibility（P1）：brainstorm + grilling 一轮收敛 8 项决策，design/implement 落定，三阶段 test-first 开工。阶段一首派因全局配置 provider 拼写错误（deepseek-offical，用户已授权修正为 deepseek-official）NO_ADAPTER 零产出，新开子会话 947469cd 重派，纯配置解析无 force。另给 /tmp/figma-auth-handoff.md 过时模型条款加失效标注。
 
+## 执行器配置可见性与终态错误可观测：交付与冒烟
+
+- Time: 2026-09-03T10:54:04.602Z
+- Commit: bc37fb2
+- Summary: 任务 09-03-executor-config-visibility 交付：三层配置执行器画像注入（四 kind + 来源层 + Last dispatch 行）、终态真实错误捕获落账（session/event 登记表）、续派模型治理（同传拒绝 + 派发记录绑定 + 诚实回执）、参数覆盖警示文案；check 两轮通过，Q8 冒烟三条全过（画像可见/错误落账/续派拒绝）。五阶段实现 + 复审修复共 9 笔提交。
+
