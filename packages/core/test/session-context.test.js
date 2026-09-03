@@ -37,6 +37,37 @@ function addTask(root, contextKey, title, status) {
   setActiveTask(root, contextKey, 'tasks/08-24-demo')
 }
 
+/** 在项目内落一个携带派发记录的任务（task.json 直写 + 会话指针）。 */
+function addTaskWithDispatches(root, contextKey, title, status, dispatches) {
+  const taskDir = join(root, '.workloom', 'tasks', '08-24-demo')
+  mkdirSync(taskDir, { recursive: true })
+  writeFileSync(
+    join(taskDir, 'task.json'),
+    `${JSON.stringify({ title, status, dispatches })}\n`,
+  )
+  setActiveTask(root, contextKey, 'tasks/08-24-demo')
+}
+
+/** 写入项目 .workloom 下的配置文件（对象 → JSON；隔离全局层用）。 */
+function writeProjectConfig(root, name, value) {
+  writeFileSync(join(root, '.workloom', name), JSON.stringify(value, null, 2))
+}
+
+/**
+ * 以空 home 目录执行回调（隔离 $HOME/.workloom 全局配置层；os.homedir 每次调用
+ * 实时读 process.env.HOME，loadConfig 的全局层探测随之指向临时目录）。
+ */
+function withEmptyHome(fn) {
+  const original = process.env.HOME
+  process.env.HOME = mkdtempSync(join(tmpdir(), 'workloom-ctx-home-'))
+  try {
+    return fn()
+  } finally {
+    if (original === undefined) delete process.env.HOME
+    else process.env.HOME = original
+  }
+}
+
 test('developer 缺失时降级为 unknown 且不报错', () => {
   const root = makeProject()
   try {
@@ -493,6 +524,166 @@ test('S3 主会话注入：norms 段逐字未动（防瘦身误伤纪律），�
     assert.match(text, /\nDeveloper: /)
     assert.match(text, /\nGit: /)
     assert.match(text, /\nWorkflow: 1\.0 Create task \| 2\.1 Implement\n/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Executor profiles 节紧跟 Active task、Git 之前；命中行带来源层标注', () => {
+  const root = makeProject()
+  try {
+    addTask(root, 'dsh_sess_p1', 'Implement X', 'planning')
+    writeProjectConfig(root, 'config.json', {
+      subagent_profiles: [
+        {
+          whenMain: 'kimi-coding/k3',
+          subagents: {
+            implement: {
+              model: 'deepseek/deepseek-v4-pro',
+              effort: 'max',
+              tools: { includes: ['lsp_diagnostics', 'lsp_symbols'] },
+            },
+          },
+        },
+      ],
+    })
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({
+        root,
+        contextKey: 'dsh_sess_p1',
+        workflowSteps: [],
+        mainModel: 'kimi-coding/k3',
+      }),
+    )
+    assert.equal(err, null)
+    const activeIdx = text.indexOf('\nActive task: "Implement X" (planning) at tasks/08-24-demo.\n')
+    const profilesIdx = text.indexOf('\nExecutor profiles (main model kimi-coding/k3):\n')
+    const gitIdx = text.indexOf('\nGit: ')
+    assert.ok(activeIdx >= 0 && profilesIdx > activeIdx && gitIdx > profilesIdx, 'order: active task → profiles → git')
+    assert.ok(
+      text.includes(
+        'implement: deepseek/deepseek-v4-pro | effort max | tools: includes [lsp_diagnostics, lsp_symbols] | source: project config (whenMain match)',
+      ),
+      'configured row carries model/effort/tools and layer tag',
+    )
+    assert.ok(
+      text.includes('  research: not configured (inherits parent session model)'),
+      'unconfigured row uses the inherit-notice',
+    )
+    assert.ok(!text.includes('Last dispatch:'), 'no dispatch records → no Last dispatch line')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Last dispatch 节：最新一条在 Active task 与画像节之间，格式含时间/childId/error', () => {
+  const root = makeProject()
+  try {
+    addTaskWithDispatches(root, 'dsh_sess_p2', 'Implement X', 'in_progress', [
+      {
+        kind: 'research',
+        at: '2026-09-03T09:00:00.000Z',
+        title: 'r1',
+        childId: 'child-1',
+        status: 'completed',
+      },
+      {
+        kind: 'implement',
+        at: '2026-09-03T10:00:00.000Z',
+        title: 'i1',
+        childId: 'child-2',
+        status: 'failed',
+        error: 'the executor failed before it finished',
+      },
+    ])
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({
+        root,
+        contextKey: 'dsh_sess_p2',
+        workflowSteps: [],
+        mainModel: 'kimi-coding/k3',
+      }),
+    )
+    assert.equal(err, null)
+    const activeIdx = text.indexOf('\nActive task:')
+    const dispatchIdx = text.indexOf(
+      '\nLast dispatch: implement failed at 2026-09-03T10:00:00.000Z (child child-2) — the executor failed before it finished\n',
+    )
+    const profilesIdx = text.indexOf('\nExecutor profiles (main model kimi-coding/k3):\n')
+    const gitIdx = text.indexOf('\nGit: ')
+    assert.ok(dispatchIdx > activeIdx, 'dispatch line after active task line')
+    assert.ok(profilesIdx > dispatchIdx, 'profiles section after dispatch line')
+    assert.ok(gitIdx > profilesIdx, 'git after profiles section')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Last dispatch 无 error 变体：completed 不接破折号段', () => {
+  const root = makeProject()
+  try {
+    addTaskWithDispatches(root, 'dsh_sess_p3', 'Ui impl', 'in_progress', [
+      {
+        kind: 'frontend',
+        at: '2026-09-03T08:00:00.000Z',
+        title: 'ui',
+        childId: 'child-3',
+        status: 'completed',
+      },
+    ])
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_p3', workflowSteps: [] }),
+    )
+    assert.equal(err, null)
+    assert.ok(
+      text.includes('\nLast dispatch: frontend completed at 2026-09-03T08:00:00.000Z (child child-3)\n'),
+      'completed row renders without dash segment',
+    )
+    assert.ok(!text.includes('—'), 'no em-dash when error is absent')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Last dispatch 无活跃任务/无派发记录：不输出该行', () => {
+  const root = makeProject()
+  try {
+    // 无活跃任务：无派发行（画像节照常可渲染）
+    const [noTaskErr, noTaskText] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_p4', workflowSteps: [] }),
+    )
+    assert.equal(noTaskErr, null)
+    assert.ok(!noTaskText.includes('Last dispatch:'), 'no task → no dispatch line')
+    // 活跃任务但 dispatches 为空：同样无派发行
+    addTask(root, 'dsh_sess_p4', 'No dispatch', 'in_progress')
+    const [emptyErr, emptyText] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_p4', workflowSteps: [] }),
+    )
+    assert.equal(emptyErr, null)
+    assert.ok(!emptyText.includes('Last dispatch:'), 'empty dispatches → no dispatch line')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('画像解析失败（无 runtime 的 per-runtime model map）：整节降级不拖垮快照', () => {
+  const root = makeProject()
+  try {
+    addTask(root, 'dsh_sess_p5', 'Broken config', 'in_progress')
+    // 兜底条目命中但 model 是 per-runtime map：core 无 runtime 时 fail loud → 节降级
+    writeProjectConfig(root, 'config.local.json', {
+      subagent_profiles: [
+        { subagents: { implement: { model: { dsh: 'deepseek/deepseek-v4-flash' } } } },
+      ],
+    })
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_p5', workflowSteps: [] }),
+    )
+    assert.equal(err, null, 'config error must not fail the whole snapshot')
+    assert.ok(!text.includes('Executor profiles'), 'profiles section dropped on resolution error')
+    assert.ok(!text.includes('inherits parent session model'), 'no partial profile rows leak')
+    assert.match(text, /\nGit: /, 'rest of snapshot stays intact')
+    assert.ok(text.endsWith('\n</workloom-session-context>'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

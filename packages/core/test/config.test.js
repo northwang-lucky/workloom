@@ -1044,3 +1044,169 @@ test('detectExecutorConflicts：配置限定字段与显式参数不一致时报
   const consistent = detectExecutorConflicts(config, 'implement', { model: 'deepseek-official/x' }, 'dsh')
   assert.equal(consistent.length, 0)
 })
+
+// ---------- L7：来源层 provenance（subagentProfilesSource / subagentsSource） ----------
+
+test('provenance：全程无 subagent_profiles/subagents 时来源字段为 undefined（不定义属性）', () => {
+  // 项目/全局均无任何配置文件：来源字段不定义（读取为 undefined），且与默认配置完全相等
+  const root = makeRoot()
+  const home = makeHome()
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfilesSource, undefined)
+    assert.equal(config.subagentsSource, undefined)
+    assert.deepEqual(config, DEFAULT_CONFIG)
+  } finally {
+    cleanup(root, home)
+  }
+  // 配置文件存在但只写无关字段：同样不定义来源字段
+  const withDoc = makeRoot()
+  const withDocHome = makeHome()
+  writeProjectFile(withDoc, 'config.json', { max_journal_lines: 300 })
+  try {
+    const config = loadConfig(withDoc, { homeDir: withDocHome })
+    assert.equal(config.subagentProfilesSource, undefined)
+    assert.equal(config.subagentsSource, undefined)
+    assert.equal(config.maxJournalLines, 300)
+  } finally {
+    cleanup(withDoc, withDocHome)
+  }
+})
+
+test('provenance：subagent_profiles 写在单层时记录该层来源', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeHomeFile(home, 'config.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'm' } } }],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfilesSource, 'global')
+    assert.equal(config.subagentsSource, undefined)
+  } finally {
+    cleanup(root, home)
+  }
+  const proj = makeRoot()
+  const projHome = makeHome()
+  writeProjectFile(proj, 'config.json', {
+    subagent_profiles: [{ subagents: { research: { model: 'm' } } }],
+  })
+  try {
+    const config = loadConfig(proj, { homeDir: projHome })
+    assert.equal(config.subagentProfilesSource, 'project')
+  } finally {
+    cleanup(proj, projHome)
+  }
+})
+
+test('provenance：三层逐级写入 subagent_profiles，只记最后写入层（local）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeHomeFile(home, 'config.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'g' } } }],
+  })
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+  })
+  writeProjectFile(root, 'config.local.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'l' } } }],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfilesSource, 'local')
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('provenance：对象层不含该 key 时沿用低层来源（顶层 key 覆盖语义）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeHomeFile(home, 'config.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'g' } } }],
+  })
+  // 项目/local 对象层只写了别的字段：不覆盖来源层
+  writeProjectFile(root, 'config.json', { max_journal_lines: 200 })
+  writeProjectFile(root, 'config.local.json', { session_auto_commit: false })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfilesSource, 'global')
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('provenance：subagents 与 subagent_profiles 独立记录各自来源层', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeHomeFile(home, 'config.json', {
+    subagent_profiles: [{ subagents: { research: { model: 'm' } } }],
+  })
+  writeProjectFile(root, 'config.json', { subagents: { research: { effort: 'high' } } })
+  // local 只覆盖 subagents：profiles 来源仍为 global，subagents 来源为 local
+  writeProjectFile(root, 'config.local.json', { subagents: { check: { model: 'x/y' } } })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfilesSource, 'global')
+    assert.equal(config.subagentsSource, 'local')
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('provenance：工厂层返回文档含 subagent_profiles 时归工厂层', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+  })
+  // local 工厂返回含 subagent_profiles 的文档（无论重写还是 ...base 透传）：归工厂层
+  writeProjectFile(
+    root,
+    'config.local.js',
+    'module.exports = (base) => ({ ...base, subagent_profiles: [{ subagents: { research: { model: "l" } } }] })\n',
+  )
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfilesSource, 'local')
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('provenance：工厂层返回文档不含 subagent_profiles 时沿用低层来源（返回文档为准）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+  })
+  // local 工厂丢弃 subagent_profiles（未透传 base）：最终配置不再含 profiles，
+  // 来源沿用低层（project），不因丢弃而抹掉追溯信息
+  writeProjectFile(
+    root,
+    'config.local.js',
+    'module.exports = () => ({ max_journal_lines: 400 })\n',
+  )
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfilesSource, 'project')
+    assert.deepEqual(config.subagentProfiles, [])
+    assert.equal(config.maxJournalLines, 400)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('provenance：legacy subagents 单独跟踪来源（global 层放行 + 独立字段）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeHomeFile(home, 'config.json', { subagents: { research: { model: 'g-r' } } })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentsSource, 'global')
+    assert.equal(config.subagentProfilesSource, undefined)
+    assert.deepEqual(config.subagents, { research: { model: 'g-r' } })
+  } finally {
+    cleanup(root, home)
+  }
+})

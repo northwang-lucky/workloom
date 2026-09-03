@@ -21,7 +21,17 @@ export interface WorkloomConfig {
   subagents: Record<string, SubagentConfigEntry>
   /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
   subagentProfiles: SubagentProfile[]
+  /**
+   * subagent_profiles 顶层 key 最后写入层（对象层看本层原始导出文档、工厂层看返回
+   * 文档）；全程未出现时属性不定义、读取为 undefined（只读字段，loadConfig 挂载）。
+   */
+  readonly subagentProfilesSource?: ConfigSourceLayer
+  /** 遗留 subagents 顶层 key 最后写入层（口径同上）；全程未出现时属性不定义。 */
+  readonly subagentsSource?: ConfigSourceLayer
 }
+
+/** 配置来源层（subagent_profiles / subagents 顶层 key 最后写入层）。 */
+export type ConfigSourceLayer = 'global' | 'project' | 'local'
 
 /**
  * subagent_profiles 条目：whenMain 为命中条件（string 对所有 runtime 同值，
