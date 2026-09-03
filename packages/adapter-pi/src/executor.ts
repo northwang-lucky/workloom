@@ -40,12 +40,16 @@ import {
   composeLocalDirectivesText,
   detectExecutorConflicts,
   ERR_PREFIX,
+  evaluateStaleAlignmentGate,
   findWorkloomRoot,
   buildNewDispatchBinding,
+  GATES,
   loadConfig,
   PARAM_DESCRIPTIONS,
+  readTask,
   recordExecutorDispatch,
   recordExecutorOverride,
+  recordGateOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
   TOOL_DESCRIPTIONS,
@@ -225,6 +229,31 @@ export function recordForcedOverride(
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param entry 派发条目（kind/title，at 由 core 生成）
  */
+
+/**
+ * 记录一次派发调用实际绕过的全部 gate 覆盖（R14：每个实际绕过的 gate 独立留痕）。
+ * 冲突放行落 executor_model_effort，stale 放行落 stale_alignment——同时绕过时一次
+ * 调用落两条；都不绕过时零写入。记录失败只 WARNING，不阻塞派发。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param input 绕过判定（conflictForced/staleMissing + reason）
+ */
+export function recordForceOverrides(
+  root: string,
+  taskRelPath: string,
+  input: { conflictForced: boolean; staleMissing: boolean; reason: string },
+): void {
+  if (input.conflictForced) {
+    recordForcedOverride(root, taskRelPath, input.reason)
+  }
+  if (input.staleMissing) {
+    const [recordErr] = recordGateOverride(root, taskRelPath, GATES.STALE_ALIGN, input.reason)
+    if (recordErr !== null) {
+      console.warn(`${RECORD_WARN_PREFIX} ${recordErr}`)
+    }
+  }
+}
+
 export function recordExecutorDispatchEntry(
   root: string,
   taskRelPath: string,
@@ -403,10 +432,41 @@ async function executeTool(
     params.taskPath,
     ERR_PREFIX.executor,
   )
-  // force 放行留痕：记录失败只 WARNING 不阻塞派发（审计增强）。
-  if (gate.forced) {
-    recordForcedOverride(root, taskRelPath, params.reason)
+  // stale alignment 门禁（R13）：in_progress 且 alignment 凭据 stale 时拦截派发
+  // （planning research 与旧 in_progress 空凭据任务不受此门影响）。阻断返回提示
+  // 文本（模型可附 force+reason 重试）；force 放行按实际绕过的 gate 独立留痕
+  // （stale_alignment override；与冲突 override 并存时同次调用写两条）。
+  const [staleTaskErr, staleTask] = readTask(root, taskRelPath)
+  let staleMissing: string[] = []
+  if (staleTaskErr !== null || staleTask === null) {
+    console.warn(
+      `${RECORD_WARN_PREFIX} ${staleTaskErr?.message ?? 'readTask returned no task'}`,
+    )
+  } else {
+    staleMissing = evaluateStaleAlignmentGate(root, taskRelPath, staleTask)
+    if (staleMissing.length > 0) {
+      if (params.force !== true) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `${staleMissing.join('; ')} ` +
+                '(pass force: true with a non-empty reason to bypass; the override is recorded in task.json overrides)',
+            },
+          ],
+          details: { kind: 'stale_alignment', status: 'blocked' },
+        }
+      }
+      assertForceReason(params.force, params.reason)
+    }
   }
+  // 冲突与 stale 的覆盖记录统一收口（同次调用可落多条）：每个实际绕过的 gate
+  // 独立留痕；即使 stale task 读取失败，已实际绕过的冲突 gate 仍必须被审计。
+  recordForceOverrides(root, taskRelPath, {
+    conflictForced: gate.forced,
+    staleMissing: staleMissing.length > 0,
+    reason: params.reason ?? '',
+  })
   // 工具面白名单链路：父会话探测 → 理论可见集 → core 组装 allow（± tools 配置）→
   // childHasLsp（allow 含 pi-lsp 工具才具备）。hasLsp 探测在工具执行期进行
   // （pi.getActiveTools 加载期是 throwing stub）。

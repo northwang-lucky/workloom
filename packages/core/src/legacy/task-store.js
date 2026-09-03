@@ -20,6 +20,7 @@ import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 
+import { writeFileAtomic } from './file-atomic.js'
 import { findWorkloomRoot, insideWorkloom } from './locate.js'
 import { loadConfig } from './config.js'
 import { EXECUTOR_KINDS } from './executor-context.js'
@@ -36,6 +37,7 @@ import {
   evaluateCheckLogGate,
   evaluateFrontendDispatchGate,
   evaluateStartGate,
+  evaluateStaleAlignmentGate,
   makeOverride,
 } from './task-gates.js'
 
@@ -217,8 +219,9 @@ function normalizeTaskRecord(parsed) {
     ...parsed,
     hooks,
     check: parsed.check ?? null,
-    // grilling 凭据（判定/收敛）缺失补 null：与 check 同策，保证门禁对旧数据安全。
-    grilling: parsed.grilling ?? null,
+    // alignment 凭据缺失补 null：与 check 同策，保证门禁对旧数据安全。
+    // 旧 grilling 字段经 ...parsed 原样透传（惰性历史数据，不参与新语义、不迁移）。
+    alignment: parsed.alignment ?? null,
     overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
     // 任务阶段：旧任务缺 stage 归一化默认 implement（未进入 check 阶段，门禁维持拦截）。
     stage: parsed.stage ?? TaskStage.IMPLEMENT,
@@ -281,15 +284,21 @@ function requireTask(root, taskRelPath) {
 }
 
 /**
- * 序列化并写入 task.json（内部）。
+ * 序列化并写入 task.json（内部；常规写口）。
  * @param {string} taskDir 任务目录绝对路径
  * @param {import('./task-store.d.ts').TaskRecord} record 任务记录（不含 taskRelPath）
  */
 function writeTaskJson(taskDir, record) {
-  writeFileSync(
-    join(taskDir, FILE_NAMES.taskJson),
-    `${JSON.stringify(record, null, JSON_INDENT)}\n`,
-  )
+  writeFileSync(join(taskDir, FILE_NAMES.taskJson), serializeTask(record))
+}
+
+/**
+ * 序列化任务记录为落盘文本（内部）。
+ * @param {import('./task-store.d.ts').TaskRecord} record 任务记录（不含 taskRelPath）
+ * @returns {string} task.json 全文（含尾换行）
+ */
+function serializeTask(record) {
+  return `${JSON.stringify(record, null, JSON_INDENT)}\n`
 }
 
 /**
@@ -339,8 +348,9 @@ function buildTaskRecord(input) {
     notes: '',
     meta: {},
     check: null,
-    // grilling 凭据（required/passedAt/summary）：planning 阶段经 checkTask phase=grilling 记录。
-    grilling: null,
+    // alignment 凭据（passedAt/summary/prdHash）：planning 阶段经 workloom_task_align
+    // action=confirm 原子写入；新建任务仅落 null（旧 grilling 不再写入新任务）。
+    alignment: null,
     overrides: [],
     // 任务阶段：新建任务显式落盘 implement（首次派发前处于实现期）。
     stage: TaskStage.IMPLEMENT,
@@ -610,15 +620,21 @@ async function startTaskInternal(root, params) {
     )
   }
   if (params.force === true) {
-    // force 豁免：留痕后放行（hotfix 等无 spec 可引用的场景）。
-    task.overrides.push(makeOverride(GATES.START, params.reason))
+    // force 豁免（R14）：reason 必填非空；先求值实际会拦的门禁，仅对确实绕过的
+    // gate 留痕（不写 alignment 凭据——凭据只能由 workloom_task_align confirm 写）。
+    assertTaskForceReason(params.reason)
+    const missing = evaluateStartGate(projectRoot, params.taskRelPath, task)
+    if (missing.length > 0) {
+      task.overrides.push(makeOverride(GATES.START, params.reason))
+    }
   } else {
-    // 门禁消费归一化后的任务记录（grilling 凭据缺失时读 null，存量任务零阻塞）。
+    // 门禁消费归一化后的任务记录（alignment 凭据缺失时读 null，旧 in_progress
+    // 不受影响；planning 任务 start 前必须先完成 Phase 1.1 对齐确认）。
     const missing = evaluateStartGate(projectRoot, params.taskRelPath, task)
     if (missing.length > 0) {
       throw new Error(
         `${ERR_PREFIX}: start gate failed: ${missing.join('; ')} ` +
-          '(pass force: true to bypass; the bypass is recorded in task.json overrides)',
+          '(pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)',
       )
     }
   }
@@ -631,15 +647,12 @@ async function startTaskInternal(root, params) {
   const taskJsonPath = join(insideWorkloom(projectRoot, params.taskRelPath), FILE_NAMES.taskJson)
   const warnings = await runTaskHooks(projectRoot, taskJsonPath, task.hooks.after_start)
   logWarnings(warnings)
-  // 收敛判定提示（不落盘）：grilling 未判定时返回记录附 true，供模型建议补录。
-  const started = /** @type {import('./task-store.d.ts').StartedTaskRecord} */ (task)
-  started.grillingPending = task.grilling === null
-  return started
+  return task
 }
 
 /**
- * 记录任务凭据：phase=check（缺省）写 2.2 check 通过凭据（task.json check 字段）；
- * phase=grilling 写 grilling 判定/收敛凭据（task.json grilling 字段，planning 阶段可用）。
+ * 记录 2.2 check 通过凭据（task.json check 字段，同步）。
+ * 前置：in_progress、summary 非空；force 豁免见 checkTaskInternal。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').CheckTaskParams} params
  * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
@@ -653,12 +666,11 @@ export function checkTask(root, params) {
 }
 
 /**
- * 记录任务凭据（内部实现）：按 phase 分支写 task.json 的 check 或 grilling 字段。
- * - phase=check（缺省）：维持现状——要求 in_progress、summary 非空、
- *   force!==true 时要求 check.jsonl 有有效记录与 frontend 派发门禁；
- * - phase=grilling：允许 planning/in_progress 记录，跳过 check.jsonl 与
- *   frontend 门禁（grilling 凭据与 2.2 check 凭据互不干涉，force 不入口）；
- *   参数校验见 recordGrillingCredential。
+ * 记录 2.2 check 凭据（内部实现）：
+ * - in_progress + summary 非空为硬前置；
+ * - 门禁面：check.jsonl 有效记录 + frontend 派发门禁（非 force 求值并拦截）；
+ * - stale alignment 门禁（R13）：in_progress 且凭据 stale 时拒绝写 check，
+ *   force 放行须逐项留痕（CHECK 与 STALE_ALIGN 各按实际绕过记录）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').CheckTaskParams} params
  * @returns {import('./task-store.d.ts').TaskRecordWithPath}
@@ -666,13 +678,6 @@ export function checkTask(root, params) {
 function checkTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, params.taskRelPath)
-  const phase = params.phase ?? 'check'
-  if (phase === 'grilling') {
-    return recordGrillingCredential(projectRoot, task, params)
-  }
-  if (phase !== 'check') {
-    throw new Error(`${ERR_PREFIX}: invalid check phase: ${phase} (must be check or grilling)`)
-  }
   if (task.status !== TaskStatus.IN_PROGRESS) {
     throw new Error(
       `${ERR_PREFIX}: only tasks in in_progress can record a check (current: ${task.status})`,
@@ -683,22 +688,31 @@ function checkTaskInternal(root, params) {
   if (typeof summary !== 'string' || summary.trim() === '') {
     throw new Error(`${ERR_PREFIX}: checkTask requires a non-empty summary`)
   }
-  if (params.force === true) {
-    // force 豁免：留痕后放行（「必须真跑过 check executor」跨会话无法可靠校验）。
-    task.overrides.push(makeOverride(GATES.CHECK, params.reason))
+  const forced = params.force === true
+  if (forced) {
+    // force 豁免（R14）：reason 必填非空；仅对实际会拦的门禁逐项留痕。
+    assertTaskForceReason(params.reason)
+    if (collectCheckGateMissing(projectRoot, params.taskRelPath, task).length > 0) {
+      task.overrides.push(makeOverride(GATES.CHECK, params.reason))
+    }
   } else {
-    const missing = evaluateCheckLogGate(projectRoot, params.taskRelPath)
-    // 前端派发门禁（机制强制）：prd 含「UI Design」小节的任务必须经 frontend 派发。
-    // prd 内容在 task-store 侧读取（任务读写分层），纯求值在 task-gates。
-    const prd = readTaskContent(
-      insideWorkloom(projectRoot, params.taskRelPath),
-      FILE_NAMES.prd,
-    )
-    missing.push(...evaluateFrontendDispatchGate(prd, task.dispatches))
+    const missing = collectCheckGateMissing(projectRoot, params.taskRelPath, task)
     if (missing.length > 0) {
       throw new Error(
         `${ERR_PREFIX}: check gate failed: ${missing.join('; ')} ` +
-          '(pass force: true to bypass; the bypass is recorded in task.json overrides)',
+          '(pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)',
+      )
+    }
+  }
+  // stale alignment 门禁（机制强制，R13）：in_progress 凭据 stale 时拒绝写 check。
+  const staleMissing = evaluateStaleAlignmentGate(projectRoot, params.taskRelPath, task)
+  if (staleMissing.length > 0) {
+    if (forced) {
+      task.overrides.push(makeOverride(GATES.STALE_ALIGN, params.reason))
+    } else {
+      throw new Error(
+        `${ERR_PREFIX}: check gate failed: ${staleMissing.join('; ')} ` +
+          '(pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)',
       )
     }
   }
@@ -708,72 +722,92 @@ function checkTaskInternal(root, params) {
 }
 
 /**
- * 记录 grilling 凭据（内部）：向 task.json 写 grilling 字段，两次调用分离——
- * ① 判定（用户回答固定问题后，phase=grilling + required=yes/no，落 required）；
- * ② 收敛（grilling 收敛后，phase=grilling + summary，落 passedAt + summary）。
- * 参数校验：required 与 summary 至少提供一个；只有 required → 落判定（required
- * 必须显式布尔）；只有 summary → 收敛调用（要求任务已有 grilling.required，
- * 否则报「先记录判定」）；都有 → 判定 + 收敛一起落。
+ * 求值 check 门禁缺失项（内部）：check.jsonl 有效记录 + 前端派发门禁。
+ * prd 内容在 task-store 侧读取（任务读写分层），纯求值在 task-gates。
  * @param {string} root 项目根
- * @param {import('./task-store.d.ts').TaskRecordWithPath} task 归一化后的任务记录
- * @param {import('./task-store.d.ts').CheckTaskParams} params
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').TaskRecord} task 任务记录（dispatches 供前端门禁）
+ * @returns {string[]} 缺失项描述列表
+ */
+function collectCheckGateMissing(root, taskRelPath, task) {
+  const missing = evaluateCheckLogGate(root, taskRelPath)
+  const prd = readTaskContent(insideWorkloom(root, taskRelPath), FILE_NAMES.prd)
+  missing.push(...evaluateFrontendDispatchGate(prd, task.dispatches))
+  return missing
+}
+
+/**
+ * 记录 alignment 凭据（workloom_task_align confirm 的窄写口，同步全链路）：
+ * 校验入参与任务状态后，经同目录临时文件 + renameSync 原子写 task.json
+ * alignment；相同 prdHash 重复 confirm 幂等早退（不刷新 passedAt，R11）。
+ * 校验失败零写入；服务层负责 PRD 结构/hash/开放节点等前置校验，本口只落凭据。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').AlignmentCredentialInput} entry 凭据入参（summary/prdHash）
+ * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
+ */
+export function recordAlignmentCredential(root, taskRelPath, entry) {
+  try {
+    return [null, recordAlignmentCredentialInternal(root, taskRelPath, entry)]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
+
+/**
+ * 记录 alignment 凭据（内部实现，失败抛错由外层转元组）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').AlignmentCredentialInput} entry 凭据入参
  * @returns {import('./task-store.d.ts').TaskRecordWithPath}
  */
-function recordGrillingCredential(root, task, params) {
+function recordAlignmentCredentialInternal(root, taskRelPath, entry) {
+  const projectRoot = requireProjectRoot(root)
+  const task = requireTask(projectRoot, taskRelPath)
   if (task.status === TaskStatus.COMPLETED) {
     throw new Error(
-      `${ERR_PREFIX}: only planning/in_progress tasks can record grilling (current: ${task.status})`,
+      `${ERR_PREFIX}: only planning/in_progress tasks can record an alignment credential ` +
+        `(current: ${task.status})`,
     )
   }
-  // 局部收窄：属性访问不保持窄化，required/summary 先取到局部变量再校验。
-  const requiredValue = params.required
-  const summaryText = typeof params.summary === 'string' ? params.summary.trim() : ''
-  const hasRequired = requiredValue !== undefined
-  const hasSummary = summaryText !== ''
-  if (!hasRequired && !hasSummary) {
-    throw new Error(
-      `${ERR_PREFIX}: phase=grilling requires required (judgment) and/or summary (convergence)`,
-    )
+  // 局部收窄：属性访问不保持窄化，summary/prdHash 先取到局部变量再校验。
+  const summary = entry.summary
+  const prdHash = entry.prdHash
+  if (typeof summary !== 'string' || summary.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: alignment credential requires a non-empty summary`)
   }
-  if (hasRequired && typeof requiredValue !== 'boolean') {
-    throw new Error(
-      `${ERR_PREFIX}: phase=grilling required must be an explicit boolean (true/false)`,
-    )
+  if (typeof prdHash !== 'string' || prdHash.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: alignment credential requires a non-empty prdHash`)
   }
-  /** @type {import('./task-store.d.ts').TaskGrillingRecord} */
-  let grilling
-  if (hasRequired && hasSummary) {
-    // 判定 + 收敛一起落：一次调用完成两段记录。
-    grilling = {
-      required: /** @type {boolean} */ (requiredValue),
-      passedAt: new Date().toISOString(),
-      summary: summaryText,
-    }
-  } else if (hasRequired) {
-    // 仅判定：覆盖旧判定并清空收敛凭据（改判后必须重新收敛）。
-    grilling = {
-      required: /** @type {boolean} */ (requiredValue),
-      passedAt: null,
-      summary: null,
-    }
-  } else {
-    // 仅收敛：要求任务已有判定（区分「答过 no」与「根本没问」）。
-    const previous = task.grilling
-    if (previous === null || typeof previous.required !== 'boolean') {
-      throw new Error(
-        `${ERR_PREFIX}: record the grilling judgment first ` +
-          '(workloom_task_check with phase=grilling and required=yes/no)',
-      )
-    }
-    grilling = {
-      ...previous,
-      passedAt: new Date().toISOString(),
-      summary: summaryText,
-    }
+  // 幂等早退：相同 hash 重复 confirm 返回旧凭据，不刷新 passedAt（R11）。
+  const previous = task.alignment
+  if (previous !== null && previous.prdHash === prdHash) {
+    return task
   }
-  task.grilling = grilling
-  writeTaskJson(insideWorkloom(root, params.taskRelPath), stripTaskPath(task))
+  task.alignment = {
+    passedAt: new Date().toISOString(),
+    summary,
+    prdHash,
+  }
+  // 凭据写口全程同步 + 原子替换（temp + renameSync；失败清理残留）。
+  writeFileAtomic(
+    join(insideWorkloom(projectRoot, taskRelPath), FILE_NAMES.taskJson),
+    serializeTask(stripTaskPath(task)),
+  )
   return task
+}
+
+/**
+ * 校验 force 豁免 reason（内部）：force=true 必须带非空 reason（R14），
+ * 否则抛错（force 路径只留痕、绝不写 alignment 凭据）。
+ * @param {string | undefined} reason 豁免原因
+ */
+function assertTaskForceReason(reason) {
+  if (typeof reason !== 'string' || reason.trim() === '') {
+    throw new Error(
+      `${ERR_PREFIX}: force: true requires a non-empty reason (the override is recorded in task.json overrides)`,
+    )
+  }
 }
 
 /**
@@ -801,9 +835,41 @@ export function recordExecutorOverride(root, taskRelPath, reason) {
  * @param {string | undefined} reason 覆盖原因
  */
 function recordExecutorOverrideInternal(root, taskRelPath, reason) {
+  recordGateOverrideInternal(root, taskRelPath, GATES.EXECUTOR_MODEL_EFFORT, reason)
+}
+
+/**
+ * 记录指定 gate 的 force 豁免（R14：每个实际绕过的 gate 独立留痕；reason 必填非空）。
+ * stale_alignment 等非 executor_model_effort 门禁的 force 审计由适配层调用。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-gates.d.ts').GateValue} gate 被绕过的 gate
+ * @param {string} reason 覆盖原因（审计用）
+ * @returns {[Error | null]}
+ */
+export function recordGateOverride(root, taskRelPath, gate, reason) {
+  try {
+    recordGateOverrideInternal(root, taskRelPath, gate, reason)
+    return [null]
+  } catch (error) {
+    return [toError(error)]
+  }
+}
+
+/**
+ * 记录 gate 豁免（内部实现，失败抛错由外层转元组）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-gates.d.ts').GateValue} gate 被绕过的 gate
+ * @param {string | undefined} reason 覆盖原因
+ */
+function recordGateOverrideInternal(root, taskRelPath, gate, reason) {
+  if (!Object.values(GATES).includes(gate)) {
+    throw new Error(`${ERR_PREFIX}: invalid gate override: ${String(gate)}`)
+  }
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, taskRelPath)
-  task.overrides.push(makeOverride(GATES.EXECUTOR_MODEL_EFFORT, reason))
+  task.overrides.push(makeOverride(gate, reason))
   writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task))
 }
 
@@ -1069,16 +1135,33 @@ export async function archiveTask(root, params) {
 async function archiveTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, params.taskRelPath)
-  // 门禁先于任何写盘：无 check 凭据一律拒绝（不区分新旧任务）；
-  // force 豁免的 overrides 记录随归档写入移动后的 task.json。
-  if (params.force === true) {
-    task.overrides.push(makeOverride(GATES.ARCHIVE, params.reason))
+  // 门禁先于任何写盘：无 check 凭据一律拒绝（不区分新旧任务）；stale alignment
+  // 在 in_progress 任务上同样拒绝（R13）。force 豁免按实际绕过的 gate 逐项留痕，
+  // 记录随归档写入移动后的 task.json。
+  const forced = params.force === true
+  if (forced) {
+    // force 豁免（R14）：reason 必填非空；仅对确实会拦的 gate 留痕。
+    assertTaskForceReason(params.reason)
+    if (task.check === null) {
+      task.overrides.push(makeOverride(GATES.ARCHIVE, params.reason))
+    }
   } else if (task.check === null) {
     throw new Error(
       `${ERR_PREFIX}: archive gate failed: no recorded check in task.json ` +
-        '(run workloom_task_check after 2.2 passes, or pass force: true to bypass; ' +
+        '(run workloom_task_check after 2.2 passes, or pass force: true with a non-empty reason to bypass; ' +
         'the bypass is recorded in task.json overrides)',
     )
+  }
+  const staleMissing = evaluateStaleAlignmentGate(projectRoot, params.taskRelPath, task)
+  if (staleMissing.length > 0) {
+    if (forced) {
+      task.overrides.push(makeOverride(GATES.STALE_ALIGN, params.reason))
+    } else {
+      throw new Error(
+        `${ERR_PREFIX}: archive gate failed: ${staleMissing.join('; ')} ` +
+          '(pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)',
+      )
+    }
   }
   // 先查冲突再动手：避免改完状态后因冲突失败留下半完成态。
   const now = new Date()

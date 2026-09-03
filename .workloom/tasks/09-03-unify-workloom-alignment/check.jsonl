@@ -4,4 +4,5 @@
 {"file":".workloom/spec/repo/language/index.md","reason":"复核资产、运行时文案和注释语言"}
 {"file":".workloom/spec/repo/deployment/index.md","reason":"复核构建、同步与隔离 smoke 流程"}
 {"file":".workloom/spec/repo/terminology/index.md","reason":"复核术语替换无残留歧义"}
-{"file":".workloom/tasks/09-03-unify-workloom-alignment/research/01-alignment-refactor-impact.md","reason":"逐项核对研究识别的影响面、风险和测试缺口"}
+{"file":".workloom/tasks/09-03-unify-workloom-alignment/research/01-alignment-refactor-impact.md","reason":"复核首轮识别的影响面、风险和测试缺口"}
+{"file":".workloom/tasks/09-03-unify-workloom-alignment/research/02-adversarial-source-review.md","reason":"复核二次发现的反例、原子性、force、迁移与协议边界"}

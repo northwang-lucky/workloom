@@ -78,13 +78,16 @@ import {
   composeLocalDirectivesText,
   detectExecutorConflicts,
   ERR_PREFIX,
+  evaluateStaleAlignmentGate,
   EXECUTOR_KINDS,
   findWorkloomRoot,
+  GATES,
   loadConfig,
   PARAM_DESCRIPTIONS,
   readTask,
   recordExecutorDispatch,
   recordExecutorOverride,
+  recordGateOverride,
   resolveSubagentDefaults,
   resolveTaskRelPath,
   splitProviderModel,
@@ -421,6 +424,43 @@ async function executeTool(
     const [overrideErr] = recordExecutorOverride(root, taskRelPath, params.reason)
     if (overrideErr !== null) {
       console.warn(`${OVERRIDE_WARN_PREFIX} ${overrideErr}`)
+    }
+  }
+  // stale alignment 门禁（R13）：in_progress 且 alignment 凭据 stale 时拦截新派发
+  // 与续用（planning research 与旧 in_progress 空凭据任务不受此门影响）。阻断返回
+  // 提示文本而非抛错（模型可见可 force 重试）；force 放行按实际绕过的 gate 独立留
+  // 痕（stale_alignment override；与上方冲突 override 并存时同次调用写两条）。
+  const [staleTaskErr, staleTask] = readTask(root, taskRelPath)
+  if (staleTaskErr !== null || staleTask === null) {
+    console.warn(
+      `${OVERRIDE_WARN_PREFIX} ${staleTaskErr?.message ?? 'readTask returned no task'}`,
+    )
+  } else {
+    const staleMissing = evaluateStaleAlignmentGate(root, taskRelPath, staleTask)
+    if (staleMissing.length > 0 && params.force !== true) {
+      return {
+        kind: 'foreground',
+        runId: NO_CHILD_RUN_ID,
+        output: [
+          {
+            type: 'text',
+            text: `${staleMissing.join('; ')} ` +
+              '(pass force: true with a non-empty reason to bypass; the override is recorded in task.json overrides)',
+          },
+        ],
+      }
+    }
+    if (staleMissing.length > 0) {
+      assertForceReason(params.force, params.reason)
+      const [staleOverrideErr] = recordGateOverride(
+        root,
+        taskRelPath,
+        GATES.STALE_ALIGN,
+        params.reason ?? '',
+      )
+      if (staleOverrideErr !== null) {
+        console.warn(`${OVERRIDE_WARN_PREFIX} ${staleOverrideErr}`)
+      }
     }
   }
   // 工具面白名单：派发前校验 provider 的 toolFilter capability（缺失 fail loud，

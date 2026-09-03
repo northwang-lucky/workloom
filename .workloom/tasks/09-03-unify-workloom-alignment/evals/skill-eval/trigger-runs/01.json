@@ -1,0 +1,9 @@
+{
+  "id": 1,
+  "query": "create the task and then align the requirements before we write any design doc",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query asks to create a workloom task and then align its requirements before any design doc, which directly matches the workloom-alignment skill's scope: driving a workloom planning task through Phase 1.1 requirement alignment. Grilling, tdd, and workloom-update-spec do not fit this request."
+}

@@ -1,0 +1,9 @@
+{
+  "id": 5,
+  "query": "this task has a settings screen with dark mode — settle the UI requirements in alignment",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query refers to settling UI requirements 'in alignment' for a task with a settings screen and dark mode, which matches workloom-alignment's coverage of UI applicability decisions and requirement alignment inside a workloom planning task. It is not a generic standalone grilling request, nor a test-first (tdd) or spec-maintenance (workloom-update-spec) request."
+}

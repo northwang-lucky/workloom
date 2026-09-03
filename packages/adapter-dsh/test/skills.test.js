@@ -5,7 +5,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { parseSkillFrontmatter, registerStepsTool } from '../dist/skills.js'
+import { readFileSync } from 'node:fs'
+import { parseSkillFrontmatter, registerSkills, registerStepsTool } from '../dist/skills.js'
 
 test('正常解析：name/description/body（正文 trim，whenToUse 缺省）', () => {
   const doc = `---
@@ -128,4 +129,40 @@ test('workloom_step exec 缺失时视为深度 0：返回契约原文', () => {
   const value = execute({ stepId: '1.1' })
   const text = value.output[0].text
   assert.ok(text.startsWith('## 1.1 '), 'missing exec.agent must fall back to depth 0')
+})
+
+/** 注册 skills（读真实 assets）并返回捕获的 skill 名单（自有效清单契约）。 */
+function setupSkills() {
+  const registered = []
+  const ctx = { skills: { register: (def) => { registered.push(def); return () => {} } } }
+  registerSkills(ctx)
+  return registered.map((def) => def.name)
+}
+
+test('skill 清单契约：只注册 workloom-alignment/update-spec + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
+  const names = setupSkills()
+  assert.deepEqual(names.sort(), [
+    'grilling',
+    'tdd',
+    'workloom-alignment',
+    'workloom-update-spec',
+    'writing-for-agents',
+  ])
+  assert.ok(!names.includes('workloom-brainstorm'), '旧 brainstorm 不再注册')
+  assert.ok(!names.includes('workloom-ui-design'), '旧 ui-design 不再注册')
+})
+
+test('workloom-alignment 资产可解析：name/description/whenToUse + 收敛标记与 references 就位', () => {
+  const doc = readFileSync(
+    new URL('../../assets/skills/workloom-alignment/SKILL.md', import.meta.url),
+    'utf8',
+  )
+  const [err, parsed] = parseSkillFrontmatter(doc)
+  assert.equal(err, null)
+  assert.equal(parsed.name, 'workloom-alignment')
+  assert.match(parsed.description, /Phase 1\.1/)
+  assert.match(parsed.description, /workloom task/)
+  assert.ok(parsed.whenToUse !== undefined, 'whenToUse must be present')
+  assert.match(parsed.body, /<!-- workloom:open-nodes=pending\|none -->/)
+  assert.match(parsed.body, /workloom_task_align/)
 })

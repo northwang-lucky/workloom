@@ -46,7 +46,23 @@ export { initWorkloom } from './legacy/init.js'
 
 export { migrateLegacyTrellis } from './legacy/migrate.js'
 
+export {
+  computePrdHash,
+  findOpenNodeState,
+  normalizePrdEol,
+  evaluateAlignmentGate,
+  ALIGNMENT_MISSING,
+  ALIGNMENT_STALE,
+} from './legacy/alignment.js'
+
+export { writeFileAtomic } from './legacy/file-atomic.js'
+
 export { parseContract, WorkflowContractError } from './legacy/workflow-contract.js'
+
+export {
+  WORKFLOW_PROTOCOL_VERSION,
+  assertWorkflowProtocolVersion,
+} from './legacy/protocol.js'
 
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './legacy/breadcrumb.js'
 
@@ -65,6 +81,8 @@ export {
   readTask,
   runTaskHooks,
   recordExecutorOverride,
+  recordGateOverride,
+  recordAlignmentCredential,
   recordExecutorDispatch,
   settleExecutorDispatch,
 } from './legacy/task-store.js'
@@ -94,6 +112,20 @@ export { addSession, listJournals } from './legacy/journal.js'
 
 export { DEVELOPER_PATTERN, assertDeveloper } from './legacy/identity.js'
 
+export {
+  GATES,
+  GATE_TOOLS,
+  PRD_SECTIONS,
+  findMissingPrdTitle,
+  findUnfilledPrdSections,
+  countEffectiveJsonlRecords,
+  evaluateStartGate,
+  evaluateStaleAlignmentGate,
+  evaluateCheckLogGate,
+  evaluateFrontendDispatchGate,
+  makeOverride,
+} from './legacy/task-gates.js'
+
 export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-service.js'
 
 export { assembleSessionContext } from './service/session-context.js'
@@ -118,6 +150,8 @@ export {
   buildFinishGuidance,
   executeJournalEntry,
 } from './service/command-ops.js'
+
+export { executeAlignTask } from './service/alignment-service.js'
 
 export {
   requireWorkloomCwd,
@@ -158,7 +192,6 @@ export {
   buildSpawnBindingReceipt,
   TASK_ARCHIVE_NOTE,
   TASK_CREATE_NOTE,
-  GRILLING_PENDING_NOTE,
 } from './surface.js'
 
 export type { ExecutorInjectionStats } from './surface.js'
@@ -203,7 +236,7 @@ export type {
   TaskRecordWithPath,
   StartedTaskRecord,
   TaskCheckRecord,
-  TaskGrillingRecord,
+  TaskAlignmentRecord,
   TaskSummary,
   CreateTaskParams,
   CreateTaskResult,
@@ -211,12 +244,29 @@ export type {
   FinishTaskParams,
   ArchiveTaskParams,
   ListTasksParams,
+  CheckTaskParams,
+  AlignmentCredentialInput,
   DispatchRecord,
   DispatchRecordInput,
   DispatchStatus,
   DispatchModelSource,
   DispatchSettleInput,
 } from './legacy/task-store.d.ts'
+
+export type {
+  GateKey,
+  GateValue,
+  PrdSection,
+} from './legacy/task-gates.d.ts'
+
+export type { OpenNodeState } from './legacy/alignment.d.ts'
+
+export type {
+  ExecuteAlignTaskParams,
+  ExecuteAlignTaskResult,
+  AlignReviewResult,
+  AlignConfirmResult,
+} from './service/alignment-service.js'
 
 export type { SessionPointer } from './legacy/active-task.d.ts'
 

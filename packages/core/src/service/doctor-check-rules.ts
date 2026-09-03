@@ -24,6 +24,7 @@ import {
 import { loadConfig } from '../legacy/config.js'
 import type { DoctorIssue, TaskNode } from './doctor-types.js'
 import { makeIssue, pointerPath, taskJsonPath } from './doctor-tasks.js'
+import { OVERLAY_REL_PATH } from './workflow-service.js'
 
 /** 计划任务超期未 start 的判定窗口（24h）。 */
 const PLANNING_STALE_MS = 24 * 3600 * 1000
@@ -506,4 +507,41 @@ function messageOf(error: unknown): string {
 /** @param {unknown} error @returns {boolean} 是否文件不存在。 */
 function isEnoent(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT'
+}
+
+/** overlay 遗留旧 alignment 引用的正则（旧 skill 名与 Phase 1.1 子阶段引用）。 */
+const LEGACY_ALIGNMENT_REF_RE = /\b(workloom-brainstorm|workloom-ui-design|1\.1[abc])\b/g
+
+/**
+ * 检查 workflow overlay（.workloom/workflow.override.md）是否引用旧 alignment 资产
+ * （R19）：检出旧 skill 名与 Phase 1.1a/1.1b/1.1c 引用，给出人工迁移提示。不可自动
+ * 修复（doctor 绝不改写 overlay）；无 overlay / 无旧引用通过。
+ * @param root 项目根
+ * @returns 检查出的 issue 列表（无 overlay/无旧引用为空数组）
+ */
+export function checkWorkflowOverlay(root: string): DoctorIssue[] {
+  const path = insideWorkloom(root, OVERLAY_REL_PATH)
+  let text: string
+  try {
+    text = readFileSync(path, 'utf8')
+  } catch (error) {
+    if (isEnoent(error)) return []
+    throw error
+  }
+  const found = [...text.matchAll(LEGACY_ALIGNMENT_REF_RE)].map((match) => match[0])
+  if (found.length === 0) return []
+  const unique = [...new Set(found)].join(', ')
+  return [
+    makeIssue({
+      code: 'workflow-overlay',
+      title: 'Workflow overlay references legacy alignment assets',
+      severity: 'warn',
+      task: null,
+      message: `workflow overlay references legacy alignment assets: ${unique}`,
+      path: join(WORKLOOM_DIR, OVERLAY_REL_PATH),
+      fixable: false,
+      hint:
+        'Migrate by hand: rewrite the overlay guidance that references workloom-brainstorm / workloom-ui-design / Phase 1.1a-1.1c into the unified Phase 1.1 alignment driven by workloom-alignment (one design tree, workloom_task_align review/confirm); doctor never rewrites the overlay.',
+    }),
+  ]
 }

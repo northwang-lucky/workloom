@@ -26,6 +26,7 @@ import {
   EXECUTOR_PARAMS,
   recordExecutorDispatchEntry,
   recordForcedOverride,
+  recordForceOverrides,
   resolveConflictGate,
 } from '../src/executor.ts'
 import { buildChildPiArgs } from '../src/pi-args.ts'
@@ -589,6 +590,78 @@ test('research-scope 扩展：同名 write/edit 副本，域内成功、越界�
       ),
       /denied|outside/i,
     )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordForceOverrides: 冲突 + stale 同存 → 一次调用落两条 override（executor_model_effort + stale_alignment）', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordForceOverrides(root, taskRelPath, {
+      conflictForced: true,
+      staleMissing: true,
+      reason: 'user asked to bypass both gates',
+    })
+    const overrides = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).overrides
+    assert.deepEqual(
+      overrides.map((o: { gate: string }) => o.gate),
+      ['executor_model_effort', 'stale_alignment'],
+    )
+    assert.equal(overrides[1].tool, 'workloom_execute')
+    assert.equal(overrides[1].reason, 'user asked to bypass both gates')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordForceOverrides: 仅冲突绕过 → 只留 executor_model_effort', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordForceOverrides(root, taskRelPath, {
+      conflictForced: true,
+      staleMissing: false,
+      reason: 'conflict only',
+    })
+    const overrides = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).overrides
+    assert.deepEqual(
+      overrides.map((o: { gate: string }) => o.gate),
+      ['executor_model_effort'],
+    )
+    assert.equal(overrides[0].reason, 'conflict only')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordForceOverrides: 仅 stale 绕过 → 只留 stale_alignment；都不绕过 → 零写入', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordForceOverrides(root, taskRelPath, {
+      conflictForced: false,
+      staleMissing: true,
+      reason: 'stale only',
+    })
+    let overrides = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).overrides
+    assert.deepEqual(
+      overrides.map((o: { gate: string }) => o.gate),
+      ['stale_alignment'],
+    )
+    recordForceOverrides(root, taskRelPath, {
+      conflictForced: false,
+      staleMissing: false,
+      reason: 'no bypass',
+    })
+    overrides = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).overrides
+    assert.equal(overrides.length, 1, '无绕过时不追加 override')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

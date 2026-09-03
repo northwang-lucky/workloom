@@ -1,0 +1,102 @@
+[
+  {
+    "query": "create the task and then align the requirements before we write any design doc",
+    "should_trigger": true,
+    "rationale": "planning workloom task entering Phase 1.1"
+  },
+  {
+    "query": "new workloom task for the sync engine just landed; walk the alignment frontier now",
+    "should_trigger": true,
+    "rationale": "auto Phase 1.1 alignment on active planning task"
+  },
+  {
+    "query": "grill this plan round by round until the assumptions are gone",
+    "should_trigger": true,
+    "rationale": "grill phrasing inside active workloom planning task"
+  },
+  {
+    "query": "prd changed after confirm and start refuses; re-align focusing on what changed",
+    "should_trigger": true,
+    "rationale": "stale re-entry on workloom task"
+  },
+  {
+    "query": "this task has a settings screen with dark mode — settle the UI requirements in alignment",
+    "should_trigger": true,
+    "rationale": "UI applicability node inside workloom alignment"
+  },
+  {
+    "query": "we need tests first on this workloom task; confirm which seams are under test",
+    "should_trigger": true,
+    "rationale": "test-first applicability node in workloom alignment"
+  },
+  {
+    "query": "finish Phase 1.1: frontier looks empty, run review and confirm after I approve",
+    "should_trigger": true,
+    "rationale": "convergence protocol on workloom planning task"
+  },
+  {
+    "query": "pressure-test the acceptance criteria of this planning task before design.md",
+    "should_trigger": true,
+    "rationale": "design-tree pressure test in workloom planning"
+  },
+  {
+    "query": "standalone discussion: should I rename the product to X? play devil's advocate",
+    "should_trigger": false,
+    "rationale": "no workloom task; generic grilling territory"
+  },
+  {
+    "query": "grill my startup idea before I pitch it to investors",
+    "should_trigger": false,
+    "rationale": "non-workloom idea stress test"
+  },
+  {
+    "query": "review this pull request for correctness and naming",
+    "should_trigger": false,
+    "rationale": "code review, not requirement alignment"
+  },
+  {
+    "query": "write the mobile settings screen UI now",
+    "should_trigger": false,
+    "rationale": "implementation request outside alignment; no workloom planning task context"
+  },
+  {
+    "query": "brainstorm features for our tracker app with me",
+    "should_trigger": false,
+    "rationale": "generic product brainstorm, no workloom task lifecycle"
+  },
+  {
+    "query": "which design tokens should our new design system use?",
+    "should_trigger": false,
+    "rationale": "design-system fact question, not workloom alignment UI node"
+  },
+  {
+    "query": "implement this with tests: red-green loop for the api client",
+    "should_trigger": false,
+    "rationale": "execution request (tdd/implement), not requirement alignment"
+  },
+  {
+    "query": "triage this meego task list and estimate effort",
+    "should_trigger": false,
+    "rationale": "task-board triage outside workloom lifecycle"
+  },
+  {
+    "query": "write acceptance criteria for the login flow in our notion doc",
+    "should_trigger": false,
+    "rationale": "doc editing outside a workloom planning task"
+  },
+  {
+    "query": "can you explain what grilling skills do in general?",
+    "should_trigger": false,
+    "rationale": "meta question about skills, no task"
+  },
+  {
+    "query": "archive the finished workloom task and journal the session",
+    "should_trigger": false,
+    "rationale": "wrap-up lifecycle, alignment already done"
+  },
+  {
+    "query": "I'm in the middle of implementing and hit an ambiguous requirement: go ask the product owner directly",
+    "should_trigger": true,
+    "rationale": "ambiguity inside an active workloom task that must not be papered over during implementation — alignment boundary re-entry"
+  }
+]

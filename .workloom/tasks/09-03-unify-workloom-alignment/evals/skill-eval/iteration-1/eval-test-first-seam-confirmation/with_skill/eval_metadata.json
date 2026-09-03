@@ -1,0 +1,12 @@
+{
+  "eval_id": 2,
+  "eval_name": "test-first-seam-confirmation",
+  "prompt": "Aligning a workloom task for a payments retry service that clearly needs tests before implementation. Resolve the test-first node and close the loop.",
+  "assertions": [
+    "asks the test-first applicability question with the three options",
+    "consults the test-first reference and confirms the seams before prd.md finalization",
+    "records the confirmed seams in acceptance criteria",
+    "leaves the red-green method itself to the generic tdd skill in Phase 2.1"
+  ],
+  "config": "with_skill"
+}

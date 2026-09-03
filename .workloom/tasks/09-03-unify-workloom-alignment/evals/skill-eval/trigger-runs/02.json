@@ -1,0 +1,9 @@
+{
+  "id": 2,
+  "query": "new workloom task for the sync engine just landed; walk the alignment frontier now",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query explicitly references a workloom task and asks to walk the 'alignment frontier', which directly matches workloom-alignment's description of driving a workloom planning task through Phase 1.1 requirement alignment as a design tree with full-frontier rounds. It is not generic grilling (which is for non-workloom tasks), not test-first delivery (tdd), and not spec maintenance (workloom-update-spec)."
+}

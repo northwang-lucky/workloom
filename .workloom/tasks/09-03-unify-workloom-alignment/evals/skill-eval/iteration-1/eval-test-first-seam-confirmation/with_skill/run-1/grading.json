@@ -1,0 +1,31 @@
+{
+  "expectations": [
+    {
+      "text": "asks the test-first applicability question with the three options",
+      "passed": true,
+      "evidence": "We're walking the design tree in fixed order: goal/value, scope/non-goals, environment constraints, and observable acceptance are settled. This is a backend payments retry service, so the UI node does not apply; the remaining applicability node is test-first. "
+    },
+    {
+      "text": "consults the test-first reference and confirms the seams before prd.md finalization",
+      "passed": true,
+      "evidence": "- A. yes — seams join the alignment scope. **(Recommended)** This is money-moving behavior: idempotency, backoff timing, and retryable-vs-final classification are exactly where a silent regression costs real money. Test-first locks those behaviors before any i"
+    },
+    {
+      "text": "records the confirmed seams in acceptance criteria",
+      "passed": true,
+      "evidence": "1. Record the applicability choice and the confirmed seams in `prd.md`: the seams go into `## Acceptance Criteria` (they join the no-grey-areas gate and are required by Phase 2.1's test-first loop); the choice, its reasoning, and the rejected alternatives (B a"
+    },
+    {
+      "text": "leaves the red-green method itself to the generic tdd skill in Phase 2.1",
+      "passed": true,
+      "evidence": "Scope note: Phase 1.1 settles only *which* seams are under test. The red → green method itself is not alignment work; the implement executor loads the generic `tdd` skill in Phase 2.1 and works exactly the seams we record here, without re-litigating scope."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "observations": "Graded under the read-only behavior-simulation rubric: explicit and order-correct planned actions in review.md count as evidence; behaviors not mentioned are not inferred. Timing/tokens were not recorded by the runs and are intentionally omitted (see benchmark notes)."
+}

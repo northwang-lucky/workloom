@@ -3,7 +3,7 @@
   "name": "unify-workloom-alignment",
   "title": "统一 workloom alignment skill 与需求对齐门禁",
   "description": "以 workloom-alignment 统一 Phase 1.1 的需求探索、UI/TDD 适用性与 design-tree pressure-test，并重构 alignment 凭据、PRD hash 失效机制、门禁、迁移检查及双 runtime 注册。",
-  "status": "planning",
+  "status": "in_progress",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -22,14 +22,17 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-03T13:20:07.705Z",
+    "summary": "最终三轮独立复审完成，所有 P0/P1/P2 已闭环，Open issues 为 none。最终全量验证：pnpm lint、pnpm -r typecheck、pnpm -r build 通过；core 537/537、adapter-dsh 132/132、adapter-pi 87/87。Pi RPC 实际观察到 5 个目标 skill 且旧两个不存在；DSH 同步后当前 runtime context 已加载新 Alignment norms。行为 eval baseline 受 workloom 全局规则污染，判定为无效对照且不作为通过依据；trigger 描述分类仅作参考。"
+  },
   "grilling": {
     "required": true,
-    "passedAt": "2026-09-03T07:35:25.381Z",
-    "summary": "Final reconvergence after implementation research: full-PRD SHA-256 with CRLF/CR normalized to LF; language-neutral open-node marker; same-hash confirm is idempotent without timestamp refresh; stale_alignment is a distinct audited gate covering new and continuation executor dispatches; protocol version is checked at DSH/Pi startup with package semver build assertions; smoke uses isolated DSH headless and Pi sandbox only; workloom_task_align remains main-session-only. User accepted every recommendation."
+    "passedAt": "2026-09-03T11:23:18.762Z",
+    "summary": "Second adversarial source review resolved all late implementation branches: confirm uses synchronous temp-plus-rename atomic replacement; force requires a non-empty reason everywhere and records one override per actually bypassed gate; workflow frontmatter version is the fail-loud runtime protocol handshake while package semver is build-tested; evals live with the new skill and produce a static viewer; changed PRDs re-enter alignment with focused review plus full frontier recomputation; doctor rewrites may add alignment:null to repaired archives; stale executor gating applies only to aligned in-progress tasks, leaving planning research and legacy unaligned in-progress tasks usable. User accepted all recommendations."
   },
   "overrides": [],
-  "stage": "implement",
+  "stage": "check",
   "dispatches": [
     {
       "kind": "research",
@@ -37,6 +40,109 @@
       "title": "梳理 alignment 重构影响面",
       "status": "completed",
       "childId": "5ff318df-c1a8-48db-8127-f07f86ef6e0a"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-03T11:06:40.362Z",
+      "title": "独立复核 alignment 设计落点",
+      "status": "completed",
+      "childId": "ddfbbf8b-f0be-45d4-ad6f-277d4742a965",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T11:37:00.690Z",
+      "title": "实现统一 alignment 协议",
+      "status": "failed",
+      "childId": "ffc46e0d-2a71-4ac5-a01c-0c01b1c86ede",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "fallback",
+      "error": "the executor was stopped before it finished"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T11:38:20.854Z",
+      "title": "落实 alignment 核心切片",
+      "status": "failed",
+      "childId": "ffc46e0d-2a71-4ac5-a01c-0c01b1c86ede",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "spawn",
+      "error": "the executor was stopped before it finished"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T11:39:06.388Z",
+      "title": "恢复 alignment 核心实施",
+      "status": "failed",
+      "childId": "ffc46e0d-2a71-4ac5-a01c-0c01b1c86ede",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "spawn",
+      "error": "the executor was stopped before it finished"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T11:39:34.551Z",
+      "title": "重试 alignment 核心实施",
+      "status": "completed",
+      "childId": "e5bd4973-3b85-4ed6-ae40-9124ddd794b0",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T11:58:58.441Z",
+      "title": "完成 alignment 资产与协议",
+      "status": "completed",
+      "childId": "e5bd4973-3b85-4ed6-ae40-9124ddd794b0",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-03T12:25:17.557Z",
+      "title": "整理 alignment 评估产物",
+      "status": "completed",
+      "childId": "e5bd4973-3b85-4ed6-ae40-9124ddd794b0",
+      "model": "deepseek-official/deepseek-v4-flash",
+      "effort": "high",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T12:40:09.307Z",
+      "title": "独立复核 alignment 原子交付",
+      "status": "completed",
+      "childId": "cfffe301-1401-42c3-ae9f-ab7d676b1dfb",
+      "model": "ark-coding-plan/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T13:13:20.412Z",
+      "title": "复审 alignment 最终修复",
+      "status": "running",
+      "childId": "cfffe301-1401-42c3-ae9f-ab7d676b1dfb",
+      "model": "ark-coding-plan/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-03T13:16:57.312Z",
+      "title": "终审 strict force 与 runtime 注册",
+      "status": "completed",
+      "childId": "cfffe301-1401-42c3-ae9f-ab7d676b1dfb",
+      "model": "ark-coding-plan/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
     }
   ],
   "hooks": {

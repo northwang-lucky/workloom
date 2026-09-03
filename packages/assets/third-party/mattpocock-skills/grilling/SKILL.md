@@ -1,11 +1,11 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases. For grill-style requirement pressure-testing inside an active workloom planning task, use the workloom-alignment skill instead (Phase 1.1 design tree); this generic skill serves non-workloom tasks and standalone discussions.
 license: MIT
 source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
 ---
 
-> workloom: in workloom this skill is driven by Phase 1.1c — in the planning phase, run grilling after brainstorm, and do not finalize prd.md before grilling converges; the generic method body is unchanged.
+> workloom: grill-style requests inside an active workloom planning task route to the workloom-alignment skill (Phase 1.1 design tree); this generic skill stays for non-workloom tasks and standalone discussions, and the generic method body below is unchanged.
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 

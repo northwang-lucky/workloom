@@ -1,0 +1,9 @@
+{
+  "id": 10,
+  "query": "grill my startup idea before I pitch it to investors",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "grilling",
+  "match": true,
+  "reason": "The query is a standalone grill-style request about a startup idea with no active workloom planning task, so it falls under the generic grilling skill, which explicitly covers non-workloom tasks and standalone discussions. The workloom-alignment skill explicitly excludes generic standalone grilling of non-workloom ideas, so predicted_trigger is false."
+}

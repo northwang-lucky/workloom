@@ -1,17 +1,21 @@
 /**
  * task-gates 模块单测：prd placeholder 判定、jsonl 有效记录判定、
- * start/check/archive 门禁求值与 force 豁免记录（纯函数接缝）。
+ * start 门禁（含 alignment 分支）与 stale alignment 门禁求值（纯函数接缝）。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import {
   findMissingPrdTitle,
   findUnfilledPrdSections,
   countEffectiveJsonlRecords,
   evaluateFrontendDispatchGate,
-  evaluateGrillingGate,
+  evaluateStaleAlignmentGate,
 } from '../src/legacy/task-gates.js'
+import { computePrdHash } from '../src/legacy/alignment.js'
 
 /** 骨架 prd 原文（字面量独立于此模块常量，防同义反复）。 */
 const SKELETON_PRD = `## Goal
@@ -161,44 +165,86 @@ test('前端派发门禁：prd 缺失（null）且无派发 → 通过（缺失�
   assert.deepEqual(missing, [])
 })
 
-test('grilling 门禁：未判定（null）且 prd 无 UI Design 小节 → 放行（存量任务零阻塞）', () => {
-  const prd = `# Task\n\n## Requirements\n\n- no ui\n`
-  assert.deepEqual(evaluateGrillingGate(prd, null), [])
+/** 构造临时项目根（含 .workloom）与一个带 prd 的任务目录。 */
+function makeTaskDir(prdContent) {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-gates-'))
+  mkdirSync(join(root, '.workloom', 'tasks', 'x'), { recursive: true })
+  writeFileSync(join(root, '.workloom', 'tasks', 'x', 'prd.md'), prdContent)
+  return { root, rel: join('tasks', 'x') }
+}
+
+/** 一份已收敛的最小 prd（H1 + 四小节）。 */
+const FILLED_PRD = `# Ship the gate
+
+## Goal
+
+Do the thing.
+
+## Requirements
+
+- req
+
+## Acceptance Criteria
+
+- ac
+
+## Notes
+
+- note
+`
+
+test('stale alignment 门禁：in_progress + 凭据 hash 与当前 prd 一致 → 放行', () => {
+  const { root, rel } = makeTaskDir(FILLED_PRD)
+  try {
+    const hash = computePrdHash(FILLED_PRD)
+    const task = { status: 'in_progress', alignment: { passedAt: 'x', summary: 's', prdHash: hash } }
+    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, task), [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
-test('grilling 门禁：未判定（null）且 prd 含 UI Design 小节 → 拦截（指引记录 required=true）', () => {
-  const prd = `# Task\n\n## UI Design\n\n- pages and IA\n`
-  const missing = evaluateGrillingGate(prd, null)
-  assert.deepEqual(missing, [
-    'no grilling judgment recorded for a task with UI requirements (record the fixed grilling question answer (required=true) via workloom_task_check with phase=grilling)',
-  ])
+test('stale alignment 门禁：in_progress + hash 失配 → 拦截（文案指引重新确认）', () => {
+  const { root, rel } = makeTaskDir(FILLED_PRD)
+  try {
+    const task = {
+      status: 'in_progress',
+      alignment: { passedAt: 'x', summary: 's', prdHash: 'deadbeef' },
+    }
+    const missing = evaluateStaleAlignmentGate(root, rel, task)
+    assert.equal(missing.length, 1)
+    assert.match(missing[0], /alignment credential is stale/)
+    assert.match(missing[0], /workloom_task_align/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
-test('grilling 门禁：required=false 且无收敛 → 放行（答 no 不再骚扰）', () => {
-  const prd = `# Task\n\n## UI Design\n\n- pages and IA\n`
-  const grilling = { required: false, passedAt: null, summary: null }
-  assert.deepEqual(evaluateGrillingGate(prd, grilling), [])
+test('stale alignment 门禁：in_progress 无凭据（旧任务）与 planning/completed → 一律放行', () => {
+  const { root, rel } = makeTaskDir(FILLED_PRD)
+  try {
+    // 旧 in_progress 空凭据（R17：不追溯阻断）
+    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'in_progress', alignment: null }), [])
+    // planning（research 派发合法，start 门禁另行约束）与 completed
+    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'planning', alignment: null }), [])
+    const stale = { passedAt: 'x', summary: 's', prdHash: 'deadbeef' }
+    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'planning', alignment: stale }), [])
+    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'completed', alignment: stale }), [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
-test('grilling 门禁：required=true 且无 passedAt → 拦截（文案含下一步动作）', () => {
-  const prd = `# Task\n\n## Requirements\n\n- no ui\n`
-  const grilling = { required: true, passedAt: null, summary: null }
-  const missing = evaluateGrillingGate(prd, grilling)
-  assert.deepEqual(missing, [
-    'grilling required but no record (run the fixed grilling question, then record via workloom_task_check with phase=grilling)',
-  ])
-})
-
-test('grilling 门禁：required=true 且有 passedAt → 放行（收敛完成）', () => {
-  const prd = `# Task\n\n## Requirements\n\n- no ui\n`
-  const grilling = { required: true, passedAt: '2026-08-30T00:00:00Z', summary: 'converged' }
-  assert.deepEqual(evaluateGrillingGate(prd, grilling), [])
-})
-
-test('grilling 门禁：prd 缺失（null）时仅按 grilling 状态求值（required=true 无凭据仍拦截）', () => {
-  const grilling = { required: true, passedAt: null, summary: null }
-  assert.deepEqual(evaluateGrillingGate(null, grilling), [
-    'grilling required but no record (run the fixed grilling question, then record via workloom_task_check with phase=grilling)',
-  ])
-  assert.deepEqual(evaluateGrillingGate(null, null), [])
+test('stale alignment 门禁：prd 缺失时放行（缺失由其他门禁覆盖）', () => {
+  const { root, rel } = makeTaskDir(FILLED_PRD)
+  try {
+    rmSync(join(root, '.workloom', rel, 'prd.md'), { force: true })
+    const stale = { passedAt: 'x', summary: 's', prdHash: 'deadbeef' }
+    assert.deepEqual(
+      evaluateStaleAlignmentGate(root, rel, { status: 'in_progress', alignment: stale }),
+      [],
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

@@ -1,5 +1,5 @@
 /**
- * doctor 检查引擎的检查收集与报告组装（10 类检查 + collectChecks + buildReport）。
+ * doctor 检查引擎的检查收集与报告组装（11 类检查 + collectChecks + buildReport）。
  *
  * 设计意图：
  * - 全部检查只读，不写任何 `.workloom/` 文件；写入逻辑在 doctor-fixes.ts；
@@ -30,6 +30,7 @@ import {
   checkSpecRef,
   checkStageConsistency,
   checkTaskLifecycle,
+  checkWorkflowOverlay,
 } from './doctor-check-rules.js'
 import { checkLocalPrompts } from './doctor-local-prompts.js'
 import {
@@ -81,6 +82,7 @@ export function collectChecks(root: string): DoctorCheck[] {
   const local = checkLocalPrompts(projectRoot)
   pushIssues(issueMap, 'local-prompts', local.issues)
   infoMap.set('local-prompts', local.info)
+  pushIssues(issueMap, 'workflow-overlay', checkWorkflowOverlay(projectRoot))
   return CHECK_META.map((meta) => ({
     ...meta,
     issues: issueMap.get(meta.code) ?? [],

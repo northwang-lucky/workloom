@@ -1,6 +1,6 @@
 /**
- * 清空并重建本包 skills/ 目录：从 ../assets 递归拷贝 6 个 skill 目录
- * （自有 brainstorm/ui-design/update-spec + 三个 vendored mattpocock skills），
+ * 清空并重建本包 skills/ 目录：从 ../assets 递归拷贝 5 个 skill 目录
+ * （自有 alignment/update-spec + 三个 vendored mattpocock skills），
  * 连同目录内所有文件（SKILL.md / references / agents / 子文档）与
  * mattpocock 的 LICENSE。
  *
@@ -14,10 +14,11 @@ import { fileURLToPath } from 'node:url'
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKILLS_DIR = join(PACKAGE_ROOT, 'skills')
 
-/** 相对本包根的资源源目录（整目录递归拷贝）。 */
+/** 相对本包根的资源源目录（整目录递归拷贝）。
+ * 自有 workloom 侧只有 alignment（统一 Phase 1.1）与 update-spec；
+ * 旧 brainstorm/ui-design 目录不再同步，generic tdd/grilling/writing-for-agents 保留。 */
 const SKILL_SOURCES = [
-  '../assets/skills/workloom-brainstorm',
-  '../assets/skills/workloom-ui-design',
+  '../assets/skills/workloom-alignment',
   '../assets/skills/workloom-update-spec',
   '../assets/third-party/mattpocock-skills/tdd',
   '../assets/third-party/mattpocock-skills/grilling',

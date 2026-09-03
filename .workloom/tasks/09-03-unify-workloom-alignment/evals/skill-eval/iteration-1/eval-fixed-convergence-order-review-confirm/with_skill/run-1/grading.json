@@ -1,0 +1,31 @@
+{
+  "expectations": [
+    {
+      "text": "runs action=review before any confirm",
+      "passed": true,
+      "evidence": "2. 在主会话运行 `workloom_task_align`，`action=review`，把返回的 prd 快照全文与 SHA-256 哈希展示给你。"
+    },
+    {
+      "text": "shows the snapshot and hash to the user before confirm",
+      "passed": true,
+      "evidence": "2. 在主会话运行 `workloom_task_align`，`action=review`，把返回的 prd 快照全文与 SHA-256 哈希展示给你。"
+    },
+    {
+      "text": "sets the <!-- workloom:open-nodes=none --> marker before confirming",
+      "passed": true,
+      "evidence": "1. 将 `<!-- workloom:open-nodes=pending -->` 标记改为 `<!-- workloom:open-nodes=none -->`，落定收敛状态。"
+    },
+    {
+      "text": "writes the credential only after explicit user confirmation",
+      "passed": true,
+      "evidence": "- 设计树前沿（frontier）已为空：最后一轮提问批次回复后重新计算，没有任何前置条件已满足却仍待确认的节点，因此不再需要发起新的一批编号问题。"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "observations": "Graded under the read-only behavior-simulation rubric: explicit and order-correct planned actions in review.md count as evidence; behaviors not mentioned are not inferred. Timing/tokens were not recorded by the runs and are intentionally omitted (see benchmark notes)."
+}

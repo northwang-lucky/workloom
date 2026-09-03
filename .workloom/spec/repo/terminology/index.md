@@ -14,9 +14,9 @@ Shared vocabulary for this repository. Use these terms; avoid the listed alterna
 - workflow guidance: the natural-language guidance text per state; shipped defaults, overridable locally via overlay
 - workflow overlay: the optional project-level guidance override (`.workloom/workflow.override.md`) — changes only "how a step is done", never the state machine
 - workflow profile: an optional contract + guidance bundle, reserved for later; only the contract loader and overlay merger keep replaceable seams today
-- grilling: the Phase 1.1c design-tree questioning skill — frontier rounds with a recommended answer each, until no open assumptions remain
-- brainstorm: the Phase 1.1a requirement exploration skill — all open questions listed once per stage as one numbered batch, conclusions written into prd.md as you go
-- requirement alignment: the Phase 1 completion state — every requirement decidable, unambiguous, no open assumptions; the hard gate before document writing
+- workloom alignment: the single Phase 1.1 design tree — fixed root nodes, full-frontier rounds, recommended answers, incremental prd.md recording, and review → user confirmation → confirm; use `workloom-alignment` for the skill name
+- grilling: generic design-tree pressure-testing for non-workloom plans and standalone discussions; an active workloom planning task routes grill-style requests to workloom alignment
+- requirement alignment: the Phase 1.1 completion state — every requirement decidable, unambiguous, no open nodes, and the finalized prd.md hash confirmed; the hard gate before document writing
 - task: one task directory (task.json, prd/design/implement, research/, jsonl lists) — avoid "issue", "ticket"
 - spec: coding standards organized as `spec/<package>/<layer>/index.md`
 - spec index: the spec index path list injected at session start (the guidelines section of the session-context snapshot, filtered by configured packages)

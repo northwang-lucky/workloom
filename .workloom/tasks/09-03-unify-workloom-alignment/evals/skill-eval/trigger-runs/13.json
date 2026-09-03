@@ -1,0 +1,9 @@
+{
+  "id": 13,
+  "query": "brainstorm features for our tracker app with me",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "none",
+  "match": true,
+  "reason": "The query is a standalone feature brainstorming request with no active workloom planning task and no requirement-alignment or grill-style pressure-testing intent, so workloom-alignment should not trigger. It also does not match grilling (no grill trigger phrases), tdd, or workloom-update-spec, so no listed skill is appropriate."
+}

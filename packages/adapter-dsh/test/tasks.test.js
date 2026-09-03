@@ -55,22 +55,47 @@ test('create 工具 schema 含 parent（type string，描述引用 PARAM_DESCRIP
   assert.ok(!def.parameters.required.includes('parent'), 'parent must be optional')
 })
 
-test('check 工具 schema 含 phase（枚举 grilling/check、缺省 check、描述引用 PARAM_DESCRIPTIONS.phase）与 required', () => {
+test('check 工具 schema 不再含 phase/required（2.2 check 单一凭据）', () => {
   const { ctx, registered } = makeCtx()
   registerTaskTools(ctx)
   const def = registered.find((entry) => entry.name === 'workloom_task_check')
   assert.ok(def, 'check tool must be registered')
   const props = def.parameters.properties
-  assert.equal(props.phase.type, 'string')
-  assert.deepEqual(props.phase.enum, ['check', 'grilling'])
-  assert.equal(props.phase.default, 'check')
-  // 描述引用 core surface 常量（phase 短描述 + phaseGrilling 完整语义）
-  assert.ok(props.phase.description.includes(PARAM_DESCRIPTIONS.phase))
-  assert.ok(props.phase.description.includes(PARAM_DESCRIPTIONS.phaseGrilling))
-  assert.equal(props.required.type, 'boolean')
-  assert.equal(props.required.description, PARAM_DESCRIPTIONS.grillingRequired)
-  // summary 不再必填（phase=grilling 判定调用无 summary）
-  assert.ok(!def.parameters.required.includes('summary'), 'summary must be optional')
+  assert.ok(!('phase' in props), 'check tool must not declare phase')
+  assert.ok(!('required' in props), 'check tool must not declare required')
+  assert.equal(props.summary.description, PARAM_DESCRIPTIONS.summary)
+})
+
+test('align 工具 schema：action 必填枚举 review/confirm；expectedPrdHash/summary 描述引用 core 常量', () => {
+  const { ctx, registered } = makeCtx()
+  registerTaskTools(ctx)
+  const def = registered.find((entry) => entry.name === 'workloom_task_align')
+  assert.ok(def, 'align tool must be registered')
+  const props = def.parameters.properties
+  assert.deepEqual(props.action.enum, ['review', 'confirm'])
+  assert.ok(def.parameters.required.includes('action'), 'action must be required')
+  assert.equal(props.action.description, PARAM_DESCRIPTIONS.action)
+  assert.equal(props.expectedPrdHash.description, PARAM_DESCRIPTIONS.expectedPrdHash)
+  assert.equal(props.summary.description, PARAM_DESCRIPTIONS.alignmentSummary)
+})
+
+test('align 工具主会话限制：子代理（delegationDepth>0）调用被拒绝', async () => {
+  const { ctx, registered } = makeCtx()
+  registerTaskTools(ctx)
+  const def = registered.find((entry) => entry.name === 'workloom_task_align')
+  assert.ok(def, 'align tool must be registered')
+  const exec = {
+    agent: {
+      id: 'child-1',
+      options: { subagentDepth: 1 },
+      session: { header: { cwd: '/tmp', delegationDepth: 1 } },
+    },
+    signal: new AbortController().signal,
+  }
+  await assert.rejects(
+    () => def.execute({ action: 'review' }, exec),
+    /only be called from the main session/,
+  )
 })
 
 test('createTaskTool 透传 parent：子任务落盘 parent 字段且父 children 联动', async () => {

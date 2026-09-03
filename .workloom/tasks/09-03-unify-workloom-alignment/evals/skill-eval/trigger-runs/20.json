@@ -1,0 +1,9 @@
+{
+  "id": 20,
+  "query": "I'm in the middle of implementing and hit an ambiguous requirement: go ask the product owner directly",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query describes an ambiguous requirement surfacing during implementation and asking the agent to go clarify it with the requirement owner — this is exactly requirement alignment for an active workloom task, which the workloom-alignment description covers ('Use whenever an active workloom planning task needs requirements aligned ... confirming alignment'). grilling is for standalone/non-workloom pressure-testing, tdd and workloom-update-spec are unrelated, so workloom-alignment is the correct choice and matches the ground truth."
+}

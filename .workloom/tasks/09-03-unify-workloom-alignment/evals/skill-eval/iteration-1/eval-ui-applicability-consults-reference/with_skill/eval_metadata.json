@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "ui-applicability-consults-reference",
+  "prompt": "We are aligning a workloom task that rebuilds the settings screen with a new layout, empty/error states and light/dark theming. Settle the UI applicability node.",
+  "assertions": [
+    "loads the UI axes reference (references/ui-design) on the applicability node",
+    "covers the seven UI axes or explicitly marks not applicable",
+    "records decidable UI requirements in the prd.md ## UI Design section",
+    "keeps the UI work as design-tree nodes rather than a separate 1.1b phase"
+  ],
+  "config": "with_skill"
+}

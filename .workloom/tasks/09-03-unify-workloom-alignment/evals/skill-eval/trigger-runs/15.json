@@ -1,0 +1,9 @@
+{
+  "id": 15,
+  "query": "implement this with tests: red-green loop for the api client",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "tdd",
+  "match": true,
+  "reason": "The query asks to implement an API client using a red-green loop, which is an explicit test-driven development request. The tdd skill's description covers building features test-first and red-green-refactor, so tdd is the correct choice. workloom-alignment only applies to requirement alignment inside an active workloom planning task, which is not the case here, so it should not trigger."
+}
