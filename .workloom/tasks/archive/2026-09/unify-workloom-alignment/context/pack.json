@@ -1,0 +1,1541 @@
+{
+  "gitRev": "e674b6cb14f9758d153aba6f495a6c76ee70b2be",
+  "files": [
+    "09-03-unify-workloom-alignment/task.json",
+    "contract-asset.test.js",
+    "doctor-types.ts",
+    "dsh/profiles/web/package.json",
+    "executor.ts",
+    "index.ts",
+    "package-manager.js",
+    "package.json",
+    "packages/adapter-dsh/src/executor.ts",
+    "packages/adapter-dsh/src/skills.ts",
+    "packages/adapter-dsh/src/tasks.ts",
+    "packages/adapter-dsh/test/skills.test.js",
+    "packages/adapter-pi/.gitignore",
+    "packages/adapter-pi/scripts/sync-skills.mjs",
+    "packages/adapter-pi/src/executor.ts",
+    "packages/adapter-pi/src/tasks.ts",
+    "packages/assets/third-party/mattpocock-skills/grilling/SKILL.md",
+    "packages/assets/third-party/mattpocock-skills/tdd/SKILL.md",
+    "packages/assets/workflow/workflow.md",
+    "packages/core/src/legacy/task-gates.js",
+    "packages/core/src/legacy/task-store.d.ts",
+    "packages/core/src/legacy/task-store.js",
+    "packages/core/src/legacy/workflow-contract.js",
+    "packages/core/src/service/doctor-checks.ts",
+    "packages/core/src/service/doctor-types.ts",
+    "packages/core/src/surface.ts",
+    "packages/core/test/contract-asset.test.js",
+    "packages/core/test/doctor.test.js",
+    "packages/core/test/surface.test.js",
+    "packages/core/test/task-store.test.js",
+    "plugin.ts",
+    "skills.ts",
+    "surface.test.js",
+    "task-gates.test.js",
+    "task-ops.ts",
+    "task-store.js",
+    "tasks.test.ts",
+    "workflow-service.ts"
+  ],
+  "sections": [
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "结论速览：需要替换/删除/新增的入口清单",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/adapter-dsh/src/executor.ts",
+          "line": 393,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/adapter-dsh/src/skills.ts",
+          "line": 45,
+          "lineEnd": 52
+        },
+        {
+          "path": "packages/adapter-pi/scripts/sync-skills.mjs",
+          "line": 18,
+          "lineEnd": 25
+        },
+        {
+          "path": "packages/adapter-pi/src/executor.ts",
+          "line": 398,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/core/src/legacy/task-gates.js",
+          "line": 146,
+          "lineEnd": 160
+        },
+        {
+          "path": "packages/core/src/service/doctor-types.ts",
+          "line": 13,
+          "lineEnd": 23
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "`packages/assets/workflow/workflow.md`",
+          "text": "v19，Phase 1.1 含 brainstorm + 三个固定问题 + 1.1b/1.1c | 改写为单一 Alignment + design tree（版本 bump）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`packages/assets/skills/workloom-brainstorm/SKILL.md`",
+          "text": "独立 skill，描述引用 Phase 1.1a | 删除或并入 workloom-alignment（按 R1 移除注册）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`packages/assets/skills/workloom-ui-design/SKILL.md`",
+          "text": "独立 skill，描述引用 Phase 1.1b | 同上；七轴内容改为 alignment 的按需参考（R6）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`packages/adapter-dsh/src/skills.ts:45-52`",
+          "text": "`SKILL_ASSETS` 注册 6 个 skill | 换成 `skills/workloom-alignment/SKILL.md`；generic grilling/tdd 保留",
+          "anchors": [
+            {
+              "path": "packages/adapter-dsh/src/skills.ts",
+              "line": 45,
+              "lineEnd": 52
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`packages/adapter-pi/scripts/sync-skills.mjs:18-25`",
+          "text": "同步 6 个 skill 目录到包内 `skills/` | 换成 workloom-alignment（+update-spec + 3 vendored）",
+          "anchors": [
+            {
+              "path": "packages/adapter-pi/scripts/sync-skills.mjs",
+              "line": 18,
+              "lineEnd": 25
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`packages/core/src/legacy/task-gates.js:146-160`",
+          "text": "`evaluateGrillingGate` | 替换为 `evaluateAlignmentGate` + stale 门禁",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-gates.js",
+              "line": 146,
+              "lineEnd": 160
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`packages/core/src/legacy/task-store.js` 全文",
+          "text": "grilling 字段写路径（checkTask phase=grilling / grillingPending） | 替换 alignment 字段写路径",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`packages/core/src/surface.ts`",
+          "text": "`TASK_CREATE_NOTE`(213)/`GRILLING_PENDING_NOTE`(220)/`taskCheck` 描述(47,101-107) | 改写；新增 `workloom_task_align` 工具文案",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`packages/adapter-dsh/src/tasks.ts` / `packages/adapter-pi/src/tasks.ts`",
+          "text": "6 个任务工具 | 新增 `workloom_task_align` 注册",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`packages/adapter-dsh/src/executor.ts:393` / `packages/adapter-pi/src/executor.ts:398`",
+          "text": "`resolveTaskRelPath` 之后 | 插入 stale 阻断（R13）",
+          "anchors": [
+            {
+              "path": "packages/adapter-dsh/src/executor.ts",
+              "line": 393,
+              "lineEnd": null
+            },
+            {
+              "path": "packages/adapter-pi/src/executor.ts",
+              "line": 398,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`packages/core/src/service/doctor-types.ts:13-23` 等",
+          "text": "10 类检查 | 新增 overlay 旧引用检查（R18）",
+          "anchors": [
+            {
+              "path": "packages/core/src/service/doctor-types.ts",
+              "line": 13,
+              "lineEnd": 23
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：Phase 1.1 编排、固定问题与 skill 加载点全在文案层，无代码引用 skill 名",
+      "summary": "**Design-tree 方法体** 目前只存在于 vendored grilling 的通用正文（frontier 轮次、推荐答案、事实调查）：`packages/assets/third-party/mattpocock-skills/grilling/SKILL.md:10-32`；workloom 侧只加了一行 Phase 1.1c 块引用（:8）。R3/R4 要求把固定根节点族、frontier 批次、推荐答案、事实调查、技术节点边界、最终确认规则变成自有资产并做契约测试——即新 `workloom-alignment/SKILL.md` 或独立 design-tree 资产 + 资产契约测试（AC3）。",
+      "anchors": [
+        {
+          "path": "contract-asset.test.js",
+          "line": 39,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/assets/third-party/mattpocock-skills/grilling/SKILL.md",
+          "line": 10,
+          "lineEnd": 32
+        },
+        {
+          "path": "packages/assets/workflow/workflow.md",
+          "line": 2,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/assets/workflow/workflow.md",
+          "line": 28,
+          "lineEnd": 63
+        },
+        {
+          "path": "packages/assets/workflow/workflow.md",
+          "line": 129,
+          "lineEnd": 131
+        },
+        {
+          "path": "packages/assets/workflow/workflow.md",
+          "line": 161,
+          "lineEnd": 164
+        },
+        {
+          "path": "packages/core/src/legacy/workflow-contract.js",
+          "line": 37,
+          "lineEnd": 38
+        },
+        {
+          "path": "packages/core/test/contract-asset.test.js",
+          "line": 154,
+          "lineEnd": 211
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`packages/assets/workflow/workflow.md:2` 契约 front-matter `version: 19`（contract-asset.test.js:39 断言 `contract.version === 19`，bump 必须同步改测试）。",
+          "anchors": [
+            {
+              "path": "packages/assets/workflow/workflow.md",
+              "line": 2,
+              "lineEnd": null
+            },
+            {
+              "path": "contract-asset.test.js",
+              "line": 39,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`packages/assets/workflow/workflow.md:28-63` 是 Phase 1.1 全部编排原文：先加载 `workloom-brainstorm`（:30）、brainstorm → grilling 顺序、三个固定问题（test-first → UI → grilling，:39）、1.1b/1.1c 子阶段与 `phase=grilling, required=true` 记录指引（:54-61）。这些全是散文，解析器不消费 skill 名。",
+          "anchors": [
+            {
+              "path": "packages/assets/workflow/workflow.md",
+              "line": 28,
+              "lineEnd": 63
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "planning 面包屑把「load brainstorm + 固定问题 + grilling」整套指令写死：`packages/assets/workflow/workflow.md:129-131`；norms 另有一组 Grilling always-on 句：`packages/assets/workflow/workflow.md:161-164`。",
+          "anchors": [
+            {
+              "path": "packages/assets/workflow/workflow.md",
+              "line": 129,
+              "lineEnd": 131
+            },
+            {
+              "path": "packages/assets/workflow/workflow.md",
+              "line": 161,
+              "lineEnd": 164
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "契约只做结构解析（`#### X.X` 步骤 + `[workflow-state]` 块 + norms），skill 名不在解析面：`packages/core/src/legacy/workflow-contract.js:37-38,257-290`。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/workflow-contract.js",
+              "line": 37,
+              "lineEnd": 38
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "契约资产测试用逐字断言锁死 grilling 措辞：`packages/core/test/contract-asset.test.js:154-211`（grilling 固定问题、1.1b/1.1c、planning 面包屑、norms Grilling 句）、`:89-98`（UI 问题与 Phase 1.1b/1.1c 定位）、`:213-222`（步骤 id 列表 `['1.0','1.1',...]` 与 `no grey areas`）。R1/R2 后这些断言全部需要重写为新 alignment 语义。",
+          "anchors": [
+            {
+              "path": "packages/core/test/contract-asset.test.js",
+              "line": 154,
+              "lineEnd": 211
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：grilling/tdd 两个 vendored skill 里嵌有 workloom 阶段引用",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/assets/third-party/mattpocock-skills/grilling/SKILL.md",
+          "line": 8,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/assets/third-party/mattpocock-skills/tdd/SKILL.md",
+          "line": 22,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`packages/assets/third-party/mattpocock-skills/grilling/SKILL.md:8`：`> workloom: in workloom this skill is driven by Phase 1.1c ...`。R19 要求 generic grilling 的触发描述明确排除「active workloom planning task」场景，此块引用需改写（保留 generic 方法体）。",
+          "anchors": [
+            {
+              "path": "packages/assets/third-party/mattpocock-skills/grilling/SKILL.md",
+              "line": 8,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`packages/assets/third-party/mattpocock-skills/tdd/SKILL.md:22,30-31`：seam 确认挂在「Phase 1.1c grilling alignment」上；R6 要求改为 `workloom-alignment` 的按需参考，tdd 继续独立分发。",
+          "anchors": [
+            {
+              "path": "packages/assets/third-party/mattpocock-skills/tdd/SKILL.md",
+              "line": 22,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：task.json grilling 凭据全链路（替换对象）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/core/src/legacy/task-store.d.ts",
+          "line": 49,
+          "lineEnd": 56
+        },
+        {
+          "path": "packages/core/src/legacy/task-store.js",
+          "line": 219,
+          "lineEnd": 221
+        },
+        {
+          "path": "packages/core/src/legacy/task-store.js",
+          "line": 666,
+          "lineEnd": 674
+        },
+        {
+          "path": "packages/core/src/surface.ts",
+          "line": 219,
+          "lineEnd": 220
+        },
+        {
+          "path": "task-ops.ts",
+          "line": 196,
+          "lineEnd": 199
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "类型：`packages/core/src/legacy/task-store.d.ts:49-56` `TaskGrillingRecord{required,passedAt,summary}`；`TaskRecord.grilling`(:125)；`StartedTaskRecord.grillingPending/grillingNote`(:137-143)。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-store.d.ts",
+              "line": 49,
+              "lineEnd": 56
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "归一化：`packages/core/src/legacy/task-store.js:219-221` `grilling: parsed.grilling ?? null`（旧任务补 null 的门禁安全策，alignment 照抄）；新建任务写 null：`:342-343`。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-store.js",
+              "line": 219,
+              "lineEnd": 221
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "写路径（R9 整体替换）：`checkTask phase=grilling` 分支 `packages/core/src/legacy/task-store.js:666-674` → `recordGrillingCredential`(:722-777)，两次调用分离（判定 required / 收敛 summary）。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-store.js",
+              "line": 666,
+              "lineEnd": 674
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "软提醒：`startTaskInternal` 返回 `grillingPending = task.grilling === null`（:634-637）；`task-ops.ts:196-199` 据此附 `GRILLING_PENDING_NOTE`（`packages/core/src/surface.ts:219-220`）。R9 之后 grillingPending 语义整体消失。",
+          "anchors": [
+            {
+              "path": "task-ops.ts",
+              "line": 196,
+              "lineEnd": 199
+            },
+            {
+              "path": "packages/core/src/surface.ts",
+              "line": 219,
+              "lineEnd": 220
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：门禁函数与生命周期工具的现有形状（start/check/archive 改造基底）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/core/src/legacy/task-gates.js",
+          "line": 33,
+          "lineEnd": 39
+        },
+        {
+          "path": "packages/core/src/legacy/task-gates.js",
+          "line": 146,
+          "lineEnd": 160
+        },
+        {
+          "path": "packages/core/src/legacy/task-gates.js",
+          "line": 172,
+          "lineEnd": 195
+        },
+        {
+          "path": "packages/core/src/legacy/task-gates.js",
+          "line": 219,
+          "lineEnd": 226
+        },
+        {
+          "path": "packages/core/src/legacy/task-store.js",
+          "line": 604,
+          "lineEnd": 638
+        },
+        {
+          "path": "packages/core/src/legacy/task-store.js",
+          "line": 666,
+          "lineEnd": 708
+        },
+        {
+          "path": "packages/core/src/legacy/task-store.js",
+          "line": 1033,
+          "lineEnd": 1072
+        },
+        {
+          "path": "task-gates.test.js",
+          "line": 169,
+          "lineEnd": 203
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "门禁枚举 `GATES = {START, CHECK, ARCHIVE, EXECUTOR_MODEL_EFFORT}`：`packages/core/src/legacy/task-gates.js:33-39`；force 豁免统一 `makeOverride(gate, reason)`（:246-253）写 `task.json.overrides`。R14 的 start/stale force 绕过应复用此机制，且**绝不**写 alignment 凭据（凭据只能由 `workloom_task_align confirm` 写，R10/R14）。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-gates.js",
+              "line": 33,
+              "lineEnd": 39
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`evaluateStartGate`：`packages/core/src/legacy/task-gates.js:172-195`，prd 缺失/H1/placeholder + 两个 jsonl + grilling 门禁（:193）。grilling 分支替换为 alignment 门禁（planning 必须有 `alignment` 且 hash 与当前 prd 一致）。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-gates.js",
+              "line": 172,
+              "lineEnd": 195
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`evaluateGrillingGate`（替换对象）：`packages/core/src/legacy/task-gates.js:146-160`，读 `splitSectionBodies(prd)`（私有，:275-290）判 `UI_DESIGN_SECTION`（:78-79）。文案常量 `GRILLING_UI_MISSING/GRILLING_REQUIRED_MISSING`（:84-90）在 task-gates.test.js:169-203 被逐字断言。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-gates.js",
+              "line": 146,
+              "lineEnd": 160
+            },
+            {
+              "path": "task-gates.test.js",
+              "line": 169,
+              "lineEnd": 203
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "prd 校验可复用：`findMissingPrdTitle`(:98-104)、`findUnfilledPrdSections`(:112-122)、`countEffectiveJsonlRecords`(:131-133)——R11「PRD 结构错误/含占位符不得落凭据」直接复用这三个 + 新增开放节点扫描。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "start 消费点：`startTaskInternal` `packages/core/src/legacy/task-store.js:604-638`，force → `makeOverride(GATES.START, reason)`（:612-614），非 force → `evaluateStartGate`（:617）。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-store.js",
+              "line": 604,
+              "lineEnd": 638
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "check 消费点：`checkTaskInternal` `packages/core/src/legacy/task-store.js:666-708`；在写 `task.check` 前（:705）插入 stale 阻断（R13：in_progress 且 stale 时 check 被拒）。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-store.js",
+              "line": 666,
+              "lineEnd": 708
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "archive 消费点：`archiveTaskInternal` `packages/core/src/legacy/task-store.js:1033-1072`；check===null 拒绝（:1040-1046）。R13 stale 阻断加在 :1038 门禁区。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-store.js",
+              "line": 1033,
+              "lineEnd": 1072
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "前端派发门禁（保留参照）：`evaluateFrontendDispatchGate` `packages/core/src/legacy/task-gates.js:219-226`——「prd 小节 × 记录」的纯函数模式与 alignment stale 门禁同构，可作为新门禁函数的样板。UI Design 小节判定与 frontend 派发门禁本身**保留不动**（R6 只是 UI 七轴改由 alignment 按需参考；prd `## UI Design` 小节仍是 frontend 门禁依据）。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-gates.js",
+              "line": 219,
+              "lineEnd": 226
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：executor 派发链路上的 stale 拦截点（R13）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/adapter-dsh/src/executor.ts",
+          "line": 336,
+          "lineEnd": 565
+        },
+        {
+          "path": "packages/adapter-pi/src/executor.ts",
+          "line": 352,
+          "lineEnd": 468
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "DSH：`executeTool` `packages/adapter-dsh/src/executor.ts:336-565`。`resolveTaskRelPath`( :393) → 冲突门/force 覆盖记录(:390-399) → allow 清单( :405-411) → 组装/派发(:498-533) → `recordExecutorDispatch`(:536)。stale 阻断应插在 :393 之后、派发之前；force 绕过走 `recordExecutorOverride`(:396) 同款路径，仅加 override 不写 alignment。",
+          "anchors": [
+            {
+              "path": "packages/adapter-dsh/src/executor.ts",
+              "line": 336,
+              "lineEnd": 565
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "Pi：`executeTool` `packages/adapter-pi/src/executor.ts:352-468`。`resolveTaskRelPath`(:398) → 冲突门(:391-407) → 组装(:416-427) → `dispatchChildPi`(:431) → `recordExecutorDispatchEntry`(:445)。拦截点同位置（:407 之后）。",
+          "anchors": [
+            {
+              "path": "packages/adapter-pi/src/executor.ts",
+              "line": 352,
+              "lineEnd": 468
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "续用（continue_executor）同样要过拦截：DSH `:440-497` 的 followup 分支也在 `resolveTaskRelPath` 之后，应一并受 stale 门禁约束（R13「阻止新的 executor 派发」含续接派发，design 需确认口径）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：doctor 检查面与 overlay 读取现状（R18 落点）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/core/src/service/doctor-checks.ts",
+          "line": 3,
+          "lineEnd": 6
+        },
+        {
+          "path": "packages/core/src/service/doctor-checks.ts",
+          "line": 43,
+          "lineEnd": 89
+        },
+        {
+          "path": "packages/core/src/service/doctor-types.ts",
+          "line": 13,
+          "lineEnd": 23
+        },
+        {
+          "path": "packages/core/test/doctor.test.js",
+          "line": 100,
+          "lineEnd": 483
+        },
+        {
+          "path": "workflow-service.ts",
+          "line": 127,
+          "lineEnd": 134
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "10 类检查枚举 `DoctorIssueCode`：`packages/core/src/service/doctor-types.ts:13-23`；`CHECK_META`（:100-115）顺序即输出顺序，新增一类检查需两处同步。",
+          "anchors": [
+            {
+              "path": "packages/core/src/service/doctor-types.ts",
+              "line": 13,
+              "lineEnd": 23
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "收集器 `collectChecks`：`packages/core/src/service/doctor-checks.ts:43-89`，每类检查一个纯函数（`doctor-check-rules.ts`），新检查照此加函数 + pushIssues 一行。",
+          "anchors": [
+            {
+              "path": "packages/core/src/service/doctor-checks.ts",
+              "line": 43,
+              "lineEnd": 89
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "全部检查只读、不写盘（`packages/core/src/service/doctor-checks.ts:3-6`），修复在 `doctor-fixes.ts`。R18 要求「检出 overlay 中旧 skill 名和 Phase 1.1 子阶段引用，给出人工迁移提示，不自动改写」→ 新检查 `fixable: false`，只发 issue + hint，不进 --fix 修复器。",
+          "anchors": [
+            {
+              "path": "packages/core/src/service/doctor-checks.ts",
+              "line": 3,
+              "lineEnd": 6
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "overlay 路径与读取：`.workloom/workflow.override.md`，当前唯一消费者是 `workflow-service.ts:127-134`（`readOverlay`，文件缺失返回 null）。检查函数可复用该路径常量与读取方式（建议把 `OVERLAY_REL_PATH` 提升为共享常量）。",
+          "anchors": [
+            {
+              "path": "workflow-service.ts",
+              "line": 127,
+              "lineEnd": 134
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "现有 doctor 测试结构：`packages/core/test/doctor.test.js:100-483`（每类检查一组用例 + fix 用例 + 报告 schema 断言 :487）。新增检查需补：有旧引用 → issue；无 overlay / 无旧引用 → 通过；--fix 不修改 overlay。",
+          "anchors": [
+            {
+              "path": "packages/core/test/doctor.test.js",
+              "line": 100,
+              "lineEnd": 483
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：双 adapter 注册面与版本一致性现状（R2/R20）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "dsh/profiles/web/package.json",
+          "line": 7,
+          "lineEnd": null
+        },
+        {
+          "path": "index.ts",
+          "line": 21,
+          "lineEnd": null
+        },
+        {
+          "path": "package-manager.js",
+          "line": 67,
+          "lineEnd": null
+        },
+        {
+          "path": "package.json",
+          "line": 11,
+          "lineEnd": 15
+        },
+        {
+          "path": "packages/adapter-dsh/src/skills.ts",
+          "line": 45,
+          "lineEnd": 52
+        },
+        {
+          "path": "packages/adapter-dsh/src/tasks.ts",
+          "line": 60,
+          "lineEnd": 80
+        },
+        {
+          "path": "packages/adapter-dsh/test/skills.test.js",
+          "line": 10,
+          "lineEnd": 96
+        },
+        {
+          "path": "packages/adapter-pi/.gitignore",
+          "line": 1,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/adapter-pi/scripts/sync-skills.mjs",
+          "line": 18,
+          "lineEnd": 25
+        },
+        {
+          "path": "packages/adapter-pi/src/tasks.ts",
+          "line": 15,
+          "lineEnd": 28
+        },
+        {
+          "path": "packages/adapter-pi/src/tasks.ts",
+          "line": 95,
+          "lineEnd": 156
+        },
+        {
+          "path": "plugin.ts",
+          "line": 101,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "DSH skill 注册是显式清单 + 循环：`packages/adapter-dsh/src/skills.ts:45-52`（`SKILL_ASSETS` 6 项）与 `registerSkills`(:206-233)。**现状无任何测试断言这个清单内容**（grep 确认 registerSkills/SKILL_ASSETS 无测试引用；`packages/adapter-dsh/test/skills.test.js:10-96` 只测 `parseSkillFrontmatter` 与 workloom_step）。R2 后清单一换即可，但 AC2「只注册新 skill」建议补一条清单契约测试。",
+          "anchors": [
+            {
+              "path": "packages/adapter-dsh/src/skills.ts",
+              "line": 45,
+              "lineEnd": 52
+            },
+            {
+              "path": "packages/adapter-dsh/test/skills.test.js",
+              "line": 10,
+              "lineEnd": 96
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "Pi skill 分发走构建同步：`packages/adapter-pi/scripts/sync-skills.mjs:18-25`（`SKILL_SOURCES` 6 项），产物 `skills/` 目录（gitignore：`packages/adapter-pi/.gitignore:1`），`package.json:11-15` 把 `skills` 打进发布。Pi runtime 把包内资源按 package resources 加载（已验证 pi-coding-agent dist `package-manager.js:67` `RESOURCE_TYPES=[\"extensions\",\"skills\",\"prompts\",\"themes\"]`；本仓库无代码消费 Pi 的 skills，属于 Pi CLI 行为）。",
+          "anchors": [
+            {
+              "path": "packages/adapter-pi/scripts/sync-skills.mjs",
+              "line": 18,
+              "lineEnd": 25
+            },
+            {
+              "path": "packages/adapter-pi/.gitignore",
+              "line": 1,
+              "lineEnd": null
+            },
+            {
+              "path": "package.json",
+              "line": 11,
+              "lineEnd": 15
+            },
+            {
+              "path": "package-manager.js",
+              "line": 67,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "工具注册样板：DSH `packages/adapter-dsh/src/tasks.ts:60-80`（`tools.register` + schema），Pi `packages/adapter-pi/src/tasks.ts:95-156`（`pi.registerTool` + TypeBox）。新工具 `workloom_task_align` 在两处各加一条，schema 文案引 core surface 常量（`packages/adapter-pi/src/tasks.ts:15-28` 的导入模式）。",
+          "anchors": [
+            {
+              "path": "packages/adapter-dsh/src/tasks.ts",
+              "line": 60,
+              "lineEnd": 80
+            },
+            {
+              "path": "packages/adapter-pi/src/tasks.ts",
+              "line": 95,
+              "lineEnd": 156
+            },
+            {
+              "path": "packages/adapter-pi/src/tasks.ts",
+              "line": 15,
+              "lineEnd": 28
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "版本一致性（R20）：四个 package.json 版本全为 `0.1.0`（已验证）；workflow.md 另有内部 `version: 19`。**当前代码没有任何版本一致性校验机制**——R20 的「同版本发布、不一致明确报错」是全新机制，建议落点：core surface 暴露一个共享版本常量（或读包 version），DSH `plugin.ts:101 apply()` 与 Pi `index.ts:21` 工厂入口做一次启动校验并抛清晰错误；契约 test 断言新机制存在。design 需定版本号粒度（包版本 vs 契约版本）。",
+          "anchors": [
+            {
+              "path": "plugin.ts",
+              "line": 101,
+              "lineEnd": null
+            },
+            {
+              "path": "index.ts",
+              "line": 21,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**部署事实（影响 smoke test）**：当前 DSH web profile（GUI :3080）绑定的 adapter 指向**另一个 checkout**：`~/.dsh/profiles/web/package.json:7` `\"@workloom-ai/adapter-dsh\": \"file:/data00/home/wangyubo.1219/workbench/code-src/github/trellis-hotplug/packages/adapter-dsh\"`，与本仓库并非同源同版本（`trellis-hotplug/.../skills.ts` 与 `workloom/.../skills.ts` diff 不同）。因此 GUI 冒烟**不能**验证本仓库改动，必须另起 headless/独立 profile 或先改绑定向。",
+          "anchors": [
+            {
+              "path": "dsh/profiles/web/package.json",
+              "line": 7,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "已核实：存量任务数据与迁移边界（R17）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "09-03-unify-workloom-alignment/task.json",
+          "line": 26,
+          "lineEnd": 30
+        },
+        {
+          "path": "packages/core/src/legacy/task-store.js",
+          "line": 219,
+          "lineEnd": 221
+        },
+        {
+          "path": "packages/core/test/task-store.test.js",
+          "line": 1206,
+          "lineEnd": 1460
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "已归档任务：`.workloom/tasks/archive/2026-{08,09}/*/task.json` 全部带 `grilling: {required:true, passedAt, summary}` 记录（抽查 8 个全为 required:true）。R17「已归档旧任务保持原样」→ 迁移后 grilling 字段只是不再被消费的惰性数据，不落盘改写。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "存量 active：`.workloom/tasks/08-26-adapter-opencode/task.json` 与 `08-31-workloom/task.json` 均 `status=planning` 且无 grilling 字段（归一化后为 null）——正是「旧 planning 任务须重新 alignment」的样本：start 门禁将对 alignment===null 的 planning 硬拦，指引走 `workloom_task_align`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "本任务自身 `09-03-unify-workloom-alignment/task.json:26-30`：planning + 已有 grilling 凭据（required:true/passedAt）——实现完成后本任务自身 start 时需先完成 alignment confirm（也可作验收样例）。",
+          "anchors": [
+            {
+              "path": "09-03-unify-workloom-alignment/task.json",
+              "line": 26,
+              "lineEnd": 30
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "归一化兜底样板：`packages/core/src/legacy/task-store.js:219-221`（`grilling: parsed.grilling ?? null`）——新字段对齐补 `alignment: parsed.alignment ?? null`；「不追溯阻断」的判定口径建议：alignment===null 的 in_progress（旧任务）不阻断，alignment 存在且 stale 才阻断（与 R17「旧 in_progress 任务不追溯阻断」一致）。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-store.js",
+              "line": 219,
+              "lineEnd": 221
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`packages/core/test/task-store.test.js:1206-1460` 现有 grilling 归一化/判定/收敛/start 门禁一组用例，全部随语义替换改写（grep 已列出逐条：:1223-1460）。",
+          "anchors": [
+            {
+              "path": "packages/core/test/task-store.test.js",
+              "line": 1206,
+              "lineEnd": 1460
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "建议：PRD hash review/confirm 与 stale 门禁的 core 公共接口落点",
+      "summary": "（以下为建议方案，待 design 确认；依据是与现有 legacy/service 分层的一致性：纯函数进 legacy，编排进 service，投影进 adapter。）",
+      "anchors": [
+        {
+          "path": "packages/core/test/surface.test.js",
+          "line": 47,
+          "lineEnd": 53
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**新 legacy 模块或并入 task-gates**（纯函数）：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`computePrdHash(prdContent: string): string`——canonical 哈希（建议 sha256，输入为 prd.md 全文字节；注意 prd 含 `## Alignment Decisions` 小节，该小节在收敛过程中被增量写入，故哈希必须对**最终确认版**全文计算，design 需确认是否归一化行尾）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`evaluateAlignmentGate(status, alignment, prdContent?)`——planning 无凭据/凭据 stale → 缺失项；in_progress stale → 缺失项（供 executor/check/archive 复用）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`findOpenAlignmentNodes(prdContent): string[]`——扫描 `## Alignment Decisions` 中的开放节点标记（需与 alignment skill 约定书写格式，见阻塞项 2）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**新 service 模块 `service/alignment-service.ts`**（编排，仿 task-ops.ts：cwd 校验 → resolveTaskRelPath → 纯函数求值 → 写盘）：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`reviewAlignment(root, taskRelPath)` → `{prd, prdHash, alignment}`（只读，不落盘，R10 review 语义）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`confirmAlignment(root, taskRelPath, {expectedPrdHash, summary})` → 校验结构（H1/占位符/开放节点）→ 重算 hash 比对 → `writeTaskJson` 原子写 `alignment={passedAt, summary, prdHash}`（R11：hash 不一致/结构非法/占位符/开放节点 → 抛错不落盘；相同 hash 重复 confirm 幂等返回成功）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "凭据字段类型加在 `task-store.d.ts`：`TaskAlignmentRecord {passedAt: string; summary: string; prdHash: string}`；`TaskRecord.alignment: TaskAlignmentRecord | null` 替换 `grilling`。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**surface.ts 新增工具面**：`TOOL_NAMES.taskAlign = 'workloom_task_align'`、`TOOL_DESCRIPTIONS`、`TOOL_SNIPPETS`（Pi promptSnippet，`packages/core/test/surface.test.js:47-53` 强制 key 对齐）、`PARAM_DESCRIPTIONS`（action/expectedPrdHash/summary/taskPath）。`TASK_CREATE_NOTE`(:213) 与 `GRILLING_PENDING_NOTE`(:220) 改/删（R2「不再询问是否需要 grilling」、R9 替换语义）。",
+          "anchors": [
+            {
+              "path": "packages/core/test/surface.test.js",
+              "line": 47,
+              "lineEnd": 53
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**adapter 投影**：DSH `tasks.ts` 与 Pi `tasks.ts` 各注册 `workloom_task_align`（action=review/confirm 两个分支投影 core 服务）；executor.ts 两处 stale 拦截调用同一 core 门禁纯函数（详见拦截点清单）。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "建议：实施中的拦截点清单（R13/R14 全量落点）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "executor.ts",
+          "line": 393,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 395,
+          "lineEnd": 399
+        },
+        {
+          "path": "executor.ts",
+          "line": 407,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/core/src/legacy/task-gates.js",
+          "line": 84,
+          "lineEnd": 90
+        },
+        {
+          "path": "task-store.js",
+          "line": 617,
+          "lineEnd": null
+        },
+        {
+          "path": "task-store.js",
+          "line": 705,
+          "lineEnd": null
+        },
+        {
+          "path": "task-store.js",
+          "line": 1038,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "start（planning 无凭据 or stale）",
+          "text": "`task-store.js:617` `evaluateStartGate` 分支 | 缺失项含「需先 workloom_task_align confirm」指引 | 既有 `GATES.START` override（:612-614）",
+          "anchors": [
+            {
+              "path": "task-store.js",
+              "line": 617,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "executor 新派发/续用",
+          "text": "DSH `executor.ts:393` 后、Pi `executor.ts:407` 后 | in_progress + stale → 抛错/返回提示不派发 | 新增 stale override（建议 `GATES.STALE_ALIGN` 或复用 `START`，design 定）",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 393,
+              "lineEnd": null
+            },
+            {
+              "path": "executor.ts",
+              "line": 407,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "check",
+          "text": "`task-store.js:705` 写 `task.check` 前 | in_progress + stale → 拒绝 | 既有 `GATES.CHECK` force 分支（:686-688）",
+          "anchors": [
+            {
+              "path": "task-store.js",
+              "line": 705,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "archive",
+          "text": "`task-store.js:1038` 门禁区 | in_progress + stale → 拒绝 | 既有 `GATES.ARCHIVE` force 分支（:1038-1039）",
+          "anchors": [
+            {
+              "path": "task-store.js",
+              "line": 1038,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "状态回退",
+          "text": "无 | 不生效：stale 只阻止动作，不改 status（R13） | —",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "force 绕过统一「只留 override、不写 alignment 凭据」：现成样板是 executor 冲突 force（DSH `executor.ts:395-399` 只调 `recordExecutorOverride` 不写凭据）；`workloom_task_align confirm` 是唯一写 alignment 的入口（R10/R14）。",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 395,
+              "lineEnd": 399
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "门禁文案应给「下一步动作」指引（现 grilling 文案同款风格）：参考 `packages/core/src/legacy/task-gates.js:84-90`。",
+          "anchors": [
+            {
+              "path": "packages/core/src/legacy/task-gates.js",
+              "line": 84,
+              "lineEnd": 90
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "建议：doctor overlay 旧引用检查（R18）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "doctor-types.ts",
+          "line": 13,
+          "lineEnd": 23
+        },
+        {
+          "path": "workflow-service.ts",
+          "line": 127,
+          "lineEnd": 134
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "新增 `DoctorIssueCode` 如 `'workflow-overlay'`（`doctor-types.ts:13-23` 与 `CHECK_META` :100-115 两处）；检查函数放 `doctor-check-rules.ts`：",
+          "anchors": [
+            {
+              "path": "doctor-types.ts",
+              "line": 13,
+              "lineEnd": 23
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "读 `.workloom/workflow.override.md`（复用 `workflow-service.ts:127-134` 的路径与 ENOENT→null 语义）；",
+          "anchors": [
+            {
+              "path": "workflow-service.ts",
+              "line": 127,
+              "lineEnd": 134
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "匹配旧 skill 名 `workloom-brainstorm` / `workloom-ui-design` 与子阶段引用 `1.1a` / `1.1b` / `1.1c`（以及 workloom 语境下的 `grilling` 阶段词）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "issue 一律 `fixable: false`，hint 给出人工迁移建议（如「把 Phase 1.1b 小节改写为 alignment design tree 语义；skill 名改为 workloom-alignment」）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "不注册 fixer 到 `doctor-fixes.ts`（R18 禁止自动改写）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "顺带可选：新增 `task-alignment` 检查提示 legacy planning 任务缺 alignment（warn、不可修），与 start 门禁形成 doctor 侧可观测面。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "建议：真实 DSH/Pi smoke test 的可执行方式（AC10/11）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "dsh/profiles/web/package.json",
+          "line": 7,
+          "lineEnd": null
+        },
+        {
+          "path": "skills.ts",
+          "line": 206,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**DSH**：本机已装 `dsh` CLI（全局 bin）与 headless profile `~/.dsh/profiles/headless`（bundles 含 `@deepseek-ai/dsh-headless`，用法 `dsh --profile headless \"task text\"` 答一问即退）。步骤：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "在 headless profile 安装本仓库 adapter：`dsh plugin --profile headless add 文件路径/packages/adapter-dsh`（或手改 profile package.json bundles + reconcile）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "驱动 planning 会话，如 `dsh --profile headless \"用 workloom_task_create 建一个任务并进入 Phase 1.1 对齐\"`；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "断言：planning 面包屑指引加载 `workloom-alignment`、不再出现 brainstorm/UI/grilling 固定问题；会话工具清单含 `workloom_task_align`；generic grilling/tdd 不自动加载。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "注意：现有 Web GUI（:3080）绑定 trellis-hotplug checkout（`~/.dsh/profiles/web/package.json:7`），**不能**验证本仓库；GUI 若要用需先把该指向改到本仓库并 pnpm install。",
+          "anchors": [
+            {
+              "path": "dsh/profiles/web/package.json",
+              "line": 7,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**Pi**：本机 `/home/wangyubo.1219/.bun/bin/pi`（0.84.2）。步骤：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`cd packages/adapter-pi && pnpm build`（生成 `skills/`）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "沙箱目录 `pi install <repo>/packages/adapter-pi -l`（本地 scope）或放进 Pi settings 的 packages；再 `pi -p <非交互 planning prompt>`，或经 adapter 自身的 spawn child 机制派发；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "断言同上：planning 进入统一 alignment、`workloom-alignment` 出现在可用 skill 列表、无旧两个 workloom skill、不重复加载 generic grilling/tdd。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "冒烟前置：adapter-dsh 需 `pnpm build`（dist），adapter-pi 需 sync skills；两个 runtime 各跑一次（AC10/11）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**可观测性**：两 runtime 的 skill 加载差异——DSH 由 `registerSkills`（`skills.ts:206`）显式注册，可直接在冒烟日志断言；Pi 由 Pi CLI 按 package resources 加载，断言靠运行时工具/skill 清单输出（`pi list` / session 内 skill 查询）。",
+          "anchors": [
+            {
+              "path": "skills.ts",
+              "line": 206,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "建议：变更顺序（test-first，按行为切片，单任务原子交付不拆分）",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "tasks.test.ts",
+          "line": 82,
+          "lineEnd": 104
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "core 纯函数：`computePrdHash` / 开放节点扫描 / `evaluateAlignmentGate`（先写失败测试：task-gates.test.js 新增 alignment 用例组）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "core 类型与存储：`TaskAlignmentRecord`、`normalizeTaskRecord`/`buildTaskRecord` 加 `alignment`、删除 grilling 写路径（`checkTask phase=grilling`、`recordGrillingCredential`、`grillingPending`）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "core service：`alignment-service.ts`（review/confirm/原子写/幂等），task-ops 接 `workloom_task_align` 编排；surface 工具面文案。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "start/check/archive 门禁切换 + executor 拦截：task-gates → task-store → DSH/Pi executor.ts。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "资产：workflow.md v20（重点 1.1/planning breadcrumb/norms）+ 新建 `workloom-alignment/SKILL.md`（design tree 资产）+ 删除两个旧 skill + grilling/tdd 块引用改写。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "adapter 注册：DSH `skills.ts` 清单、Pi `sync-skills.mjs` + build；两 adapter tasks.ts 注册新工具。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "doctor：新增 overlay 检查（+可选 task-alignment 检查）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "测试全面刷新：contract-asset（v20 + alignment 措辞）、task-gates/task-store/task-ops/surface（grilling 用例替换）、doctor、DSH/Pi schema 测试（`tasks.test.ts:82-104` 的 phase 枚举断言改为新工具参数）、subtask-contract（grilling 多轮护栏句）。",
+          "anchors": [
+            {
+              "path": "tasks.test.ts",
+              "line": 82,
+              "lineEnd": 104
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "全量 `pnpm lint` / `pnpm -r typecheck` / `pnpm -r build` / core+双 adapter 测试；随后 DSH、Pi 各一次真实 smoke。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "风险清单",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/adapter-dsh/src/tasks.ts",
+          "line": 14,
+          "lineEnd": 26
+        },
+        {
+          "path": "surface.test.js",
+          "line": 47,
+          "lineEnd": 53
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**测试面大且分散**：grilling 措辞被逐字断言在 contract-asset（:154-211）、surface（:212-240）、task-store（:1223-1460）、task-ops（:236-288）、task-gates（:164-203）、subtask-contract（:42）；任何遗漏都会红。建议切 1 后立即跑一次全量测试确认红面。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**vendored skills 改写边界**：grilling/tdd 的上游正文原则上不动，只改 workloom 块引用（:8 / :22,30-31）；改错会污染第三方来源标注（license/source）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**PRD hash 自引用**：prd 含 `## Alignment Decisions`，alignment 本身会改写该节——确认时必须对「最终版全文」计算 hash，且确认后任何小节改动都使 stale（含用户后补需求，R12 预期行为）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**存量任务迁移误伤**：archive 与旧 in_progress 不得阻断（R17）；判定口径（alignment===null vs stale）必须区分，否则旧任务全部变红。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**双 adapter 文本漂移**：surface 常量是两 adapter 唯一文案源（`packages/adapter-dsh/src/tasks.ts:14-26` 与 Pi 同名导入），新工具文案只改 surface 一处；`TOOL_SNIPPETS` 键对齐测试（surface.test.js:47-53）是漏改探测器。",
+          "anchors": [
+            {
+              "path": "packages/adapter-dsh/src/tasks.ts",
+              "line": 14,
+              "lineEnd": 26
+            },
+            {
+              "path": "surface.test.js",
+              "line": 47,
+              "lineEnd": 53
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**smoke 环境错绑**：Web GUI 指向 trellis-hotplug，误用 GUI 冒烟会得出「改动无效」的假结论；headless profile 需要先装 adapter（涉及 pnpm reconcile）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**版本一致性机制全新**：无先例可抄，R20 的校验粒度（包版本 vs 契约版本 vs 新常量）与报错文案需 design 定稿，避免做成一次性补丁。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/01-alignment-refactor-impact.md",
+      "title": "阻塞项（需主会话转用户决策）",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "PRD hash 输入与算法：是否全文 sha256、是否归一化行尾、`## Alignment Decisions` 参与 hash 的确认（推荐参与——它是用户审阅内容的一部分）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "开放节点书写约定：`workloom-alignment` 在 `## Alignment Decisions` 用什么可机检格式声明「无开放节点」（建议：末行 `- 开放节点：无` 或 `- Open nodes: none`，校验按关键词＋在收敛确认时要求该行）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "幂等 confirm 语义：同 hash 重复 confirm 是刷新 passedAt 覆盖记录，还是保留原记录仅返回成功（建议前者，语义简单且审计时间戳连续）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "stale 阻断的 force 覆盖枚举：新增 `GATES.STALE_ALIGN`（'stale_align'）还是复用 `GATES.START`；以及继续派发是否受同样约束（建议都约束，R13 口径）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "R20 版本一致性实现位置与粒度：core 常量 vs 读各包 package.json；DSH apply 与 Pi 工厂启动校验是否够（还是每次工具调用校验）。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "smoke test 是否允许临时改动 `~/.dsh/profiles/web/package.json` 的 adapter 绑定（运行中的 GUI 会受影响）；若不允许，仅用 headless profile + pi 沙箱。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`workloom_task_align` 工具是否在 executor 子代理可用工具内（默认不在——allow 清单默认不含任务工具，见 executor-dispatch.ts 的 allow 求交逻辑）；R15 的 Phase 1.4 授权 start 仍走主会话。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    }
+  ],
+  "unverifiedCount": 54
+}

@@ -226,3 +226,9 @@
 - Commit: bc37fb2
 - Summary: 任务 09-03-executor-config-visibility 交付：三层配置执行器画像注入（四 kind + 来源层 + Last dispatch 行）、终态真实错误捕获落账（session/event 登记表）、续派模型治理（同传拒绝 + 派发记录绑定 + 诚实回执）、参数覆盖警示文案；check 两轮通过，Q8 冒烟三条全过（画像可见/错误落账/续派拒绝）。五阶段实现 + 复审修复共 9 笔提交。
 
+## 统一 workloom alignment skill 与需求对齐门禁
+
+- Time: 2026-09-03T13:22:46.688Z
+- Commit: 946c9b5
+- Summary: 完成单一 Phase 1.1 alignment、PRD hash 凭据与 stale/force 门禁、双 runtime protocol/skill 分发、迁移检查及全量验证；行为 eval 的 baseline 污染不作为验收依据。
+
