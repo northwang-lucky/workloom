@@ -208,3 +208,9 @@
 - Commit: 4704bc8
 - Summary: 任务 C 上下文注入优化全链路：五项优化（jsonl 纯指针、artifacts 按节提取、主会话先测后瘦——实测无可压对象交付测量结论、LSP 过滤、契约 v18 加载协议 + marker 回声）。体积 14.9KB→6.0KB（降约 60%，同任务同 kind receipt 口径）。插曲：首次 implement 执行器因 ④ 平台标签块不存在调 ask_user_question 被停——按新协议阻塞项回传用户决断（收窄为仅 LSP 过滤）后重派；事故促成任务 D（工具可见性治理 + 提问回传协议，planning 待启动）。遗留：部署需重启 dshweb 生效；marker 回声闭环待真实派发验证。
 
+## 任务 D：执行器工具可见性治理与提问回传协议
+
+- Time: 2026-09-03T05:20:53.719Z
+- Commit: 6bf7801
+- Summary: 三切片交付并归档：①配置系统换轨（json/js 三层合并、全局配置白名单、三层 prompts、requiresTools 移除、default_package 清除）②工具白名单机制（core 组装 + DSH toolFilter allow + research 守卫、Pi -t + 同名受限副本扩展）③协议层（纪律句/处置句/契约 19）。两轮审查闭环（3 P1 + 5 P2），测试 core 468 / dsh 106 / pi 75 全绿；部署产物已同步、垫片已删，待用户重启 dshweb 生效（回执新口径 `, K tools allowed`）。
+
