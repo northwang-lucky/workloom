@@ -41,6 +41,7 @@ import {
   detectExecutorConflicts,
   ERR_PREFIX,
   findWorkloomRoot,
+  buildNewDispatchBinding,
   loadConfig,
   PARAM_DESCRIPTIONS,
   recordExecutorDispatch,
@@ -441,9 +442,14 @@ async function executeTool(
     },
     ctx.signal,
   )
-  // 派发成功（dispatchChildPi 正常返回）：记录派发审计（+1 条 dispatches）。
+  // 派发成功（dispatchChildPi 正常返回）：记录派发审计（+1 条 dispatches），
+  // 含实际生效的 model/effort 绑定与来源（design §8.2，审计不分 runtime）。
   // 记录失败仅告警不阻塞结果（审计增强，不留痕不拖垮执行链路）。
-  recordExecutorDispatchEntry(root, taskRelPath, { kind: params.kind, title: params.title })
+  recordExecutorDispatchEntry(root, taskRelPath, {
+    kind: params.kind,
+    title: params.title,
+    ...buildNewDispatchBinding(params, effective, mainModel),
+  })
   // 注入统计（receipt 渲染用）：总字节取注入文本长度（KB 一位小数由 core 渲染），
   // 计数来自 buildExecutorPrompt stats——可见喂给 child pi 的上下文规模。
   // 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed；

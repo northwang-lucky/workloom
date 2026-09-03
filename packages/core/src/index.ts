@@ -26,6 +26,8 @@ export {
   loadConfig,
 } from './legacy/config.js'
 
+export { buildNewDispatchBinding, resolveDispatchModelSource } from './legacy/dispatch-binding.js'
+
 export {
   EFFORT_LEVELS,
   EXECUTOR_KINDS,
