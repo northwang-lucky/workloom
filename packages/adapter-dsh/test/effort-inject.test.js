@@ -44,12 +44,12 @@ function emitCreated(ctx, agent) {
   for (const cb of callbacks) cb({ agent })
 }
 
-/** 构造最小可工作的 workloom 项目根（含 config.yaml 与任务目录，供 executor 集成用）。 */
-function makeProject(configYaml) {
+/** 构造最小可工作的 workloom 项目根（含 config.json 与任务目录，供 executor 集成用）。 */
+function makeProject(configDoc = {}) {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-effort-'))
   const workloomDir = join(root, '.workloom')
   mkdirSync(workloomDir)
-  writeFileSync(join(workloomDir, 'config.yaml'), configYaml)
+  writeFileSync(join(workloomDir, 'config.json'), JSON.stringify(configDoc))
   const taskDir = join(workloomDir, 'tasks/test-task')
   mkdirSync(taskDir, { recursive: true })
   writeFileSync(
@@ -132,11 +132,7 @@ test('C. installModelSelection 依赖语义：无 effort 时清除 inherited rea
 })
 
 test('D. 集成：executor 派发带 effort → 子代理 agent/created 命中 → 安装选择器', async () => {
-  const root = makeProject(`
-subagents:
-  implement:
-    effort: max
-`)
+  const root = makeProject({ subagents: { implement: { effort: 'max' } } })
   try {
     const ctx = makeEventCtx()
     const registered = []

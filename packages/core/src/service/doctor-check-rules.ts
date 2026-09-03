@@ -440,21 +440,24 @@ export function checkSpecRef(root: string, nodes: TaskNode[]): DoctorIssue[] {
   return issues
 }
 
-/** 检查⑨：配置（.workloom/config.yaml 缺失/非法）。 */
+/** 检查⑨：配置（.workloom/config.json 或 config.js 缺失/非法）。 */
 export function checkConfig(root: string): DoctorIssue[] {
   const issues: DoctorIssue[] = []
-  const configPath = join(root, WORKLOOM_DIR, 'config.yaml')
-  if (!existsSync(configPath)) {
+  const workloomDir = join(root, WORKLOOM_DIR)
+  const hasConfig = ['config.json', 'config.js'].some((name) =>
+    existsSync(join(workloomDir, name)),
+  )
+  if (!hasConfig) {
     issues.push(
       makeIssue({
         code: 'config',
-        title: 'Missing config.yaml',
+        title: 'Missing config file',
         severity: 'warn',
         task: null,
-        message: 'config.yaml is missing; using built-in defaults.',
-        path: join(WORKLOOM_DIR, 'config.yaml'),
+        message: 'No .workloom/config.json or config.js; using built-in defaults.',
+        path: join(WORKLOOM_DIR, 'config.json'),
         fixable: false,
-        hint: 'Create .workloom/config.yaml to customize hooks, packages and subagents.',
+        hint: 'Create .workloom/config.json to customize hooks, packages and subagents.',
       }),
     )
   } else {
@@ -464,13 +467,13 @@ export function checkConfig(root: string): DoctorIssue[] {
       issues.push(
         makeIssue({
           code: 'config',
-          title: 'Invalid config.yaml',
+          title: 'Invalid config file',
           severity: 'error',
           task: null,
-          message: `config.yaml is invalid: ${messageOf(error)}`,
-          path: join(WORKLOOM_DIR, 'config.yaml'),
+          message: `config is invalid: ${messageOf(error)}`,
+          path: join(WORKLOOM_DIR, 'config.json'),
           fixable: false,
-          hint: 'Fix the YAML error in .workloom/config.yaml.',
+          hint: 'Fix the config error in .workloom/config.json or config.js.',
         }),
       )
     }

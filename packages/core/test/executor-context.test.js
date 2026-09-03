@@ -45,9 +45,9 @@ function writeRootFile(root, rel, content) {
   writeFileSync(abs, content)
 }
 
-/** 写 .workloom/config.yaml。 */
-function writeConfig(root, yaml) {
-  writeFileSync(join(root, '.workloom', 'config.yaml'), yaml)
+/** 写 .workloom/config.json（对象 → JSON）。 */
+function writeConfig(root, doc) {
+  writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify(doc))
 }
 
 /** 组装入参（kind 之外字段固定）。 */
@@ -171,10 +171,7 @@ test('S2 artifacts 提取：prd Requirements/Acceptance 全文保留、其余节
 test('jsonl 纯指针：指针行不受文件/总量预算影响（无截断、无索引降级）', () => {
   const root = makeProject()
   try {
-    writeConfig(
-      root,
-      ['context_injection:', '  max_file_bytes: 16', '  max_total_bytes: 1', ''].join('\n'),
-    )
+    writeConfig(root, { context_injection: { max_file_bytes: 16, max_total_bytes: 1 } })
     writeTaskFile(root, 'prd.md', '# PRD\n')
     writeTaskFile(root, 'design.md', '# D\n')
     writeTaskFile(root, 'implement.md', '# I\n')

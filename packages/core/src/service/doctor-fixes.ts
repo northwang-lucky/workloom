@@ -25,16 +25,13 @@ import { allIssues, canonicalRef, collectTasks, issueKey } from './doctor-tasks.
  * 应用全部确定性机械修复并度量：返回 fixed（修复前快照）与 post（修复后复核）。
  * @param root 项目根
  * @param fixableSnapshot 修复前 issue 中可修复项的快照
- * @param availableTools 当前可用工具名集合（透传复核的 local-prompts 条件判定，
- *   保证 fix 后报告与无 fix 报告口径一致；缺省 undefined 时不判定条件不满足）
  */
 export function applyFixesAndMeasure(
   root: string,
   fixableSnapshot: DoctorIssue[],
-  availableTools?: readonly string[],
 ): { fixed: DoctorIssue[]; post: DoctorCheck[] } {
   applyFixes(root)
-  const post = collectChecks(root, availableTools)
+  const post = collectChecks(root)
   const postKeys = new Set(allIssues(post).map(issueKey))
   const fixed = fixableSnapshot.filter((issue) => !postKeys.has(issueKey(issue)))
   return { fixed, post }

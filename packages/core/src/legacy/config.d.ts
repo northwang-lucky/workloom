@@ -18,7 +18,6 @@ export interface WorkloomConfig {
     afterArchive: string[]
   }
   packages: Record<string, { path: string; type?: string; git?: boolean }>
-  defaultPackage: string | null
   subagents: Record<string, SubagentConfigEntry>
   /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
   subagentProfiles: SubagentProfile[]
@@ -35,12 +34,25 @@ export interface SubagentProfile {
 }
 
 /**
+ * tools 字段（仅 subagent_profiles 内层支持）：在默认工具白名单上扩充 / 移除；
+ * 成员为工具名或 `*` 尾缀前缀模式（如 `lsp_*`，仅前缀匹配），空数组合法、重复去重。
+ */
+export interface SubagentTools {
+  /** 在默认白名单上额外补入的工具名（含前缀模式）。 */
+  includes: string[]
+  /** 从默认白名单上移除的工具名（含前缀模式）。 */
+  excludes: string[]
+}
+
+/**
  * subagents 配置条目：model 支持 string（所有 runtime 同值）或按 runtime 取值的
  * map（如 `{ dsh: 'a/x', pi: 'b/y' }`）；map 的 key 为 runtime 名，不白名单。
+ * tools 仅 subagent_profiles 内层条目携带（顶层 subagents 出现 tools 报错）。
  */
 export interface SubagentConfigEntry {
   model?: string | Record<string, string>
   effort?: string
+  tools?: SubagentTools
 }
 
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
@@ -76,10 +88,12 @@ export class WorkloomConfigError extends Error {
 }
 
 /**
- * 从项目根加载配置：config.yaml 起底，config.local.yaml 存在时深合并覆盖；
- * 两者均缺失时返回全默认。
+ * 从项目根加载配置（三层流水线：全局 $HOME/.workloom/config → 项目
+ * .workloom/config → 本地 .workloom/config.local）：对象层顶层 key 覆盖、
+ * 函数工厂逐层传递、全局层白名单校验、遗留 subagents WARNING。options.homeDir
+ * 可覆盖全局层基准目录（缺省 os.homedir()）。
  */
-export function loadConfig(root: string): WorkloomConfig
+export function loadConfig(root: string, options?: { homeDir?: string }): WorkloomConfig
 
 /**
  * 合并 executor 子代理默认 model/effort：参数优先，未出现回退 subagent_profiles

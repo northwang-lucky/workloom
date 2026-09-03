@@ -40,10 +40,7 @@ import {
 } from './doctor-tasks.js'
 
 /** 收集全部检查：无 .workloom 时只出 config issue，其余检查为空。 */
-export function collectChecks(
-  root: string,
-  availableTools?: readonly string[],
-): DoctorCheck[] {
+export function collectChecks(root: string): DoctorCheck[] {
   const found = findWorkloomRoot(root)
   if (found === null) {
     const configIssue = makeIssue({
@@ -81,7 +78,7 @@ export function collectChecks(
   pushIssues(issueMap, 'doc-completeness', checkDocCompleteness(projectRoot, nodes))
   pushIssues(issueMap, 'spec-ref', checkSpecRef(projectRoot, nodes))
   pushIssues(issueMap, 'config', checkConfig(projectRoot))
-  const local = checkLocalPrompts(projectRoot, availableTools)
+  const local = checkLocalPrompts(projectRoot)
   pushIssues(issueMap, 'local-prompts', local.issues)
   infoMap.set('local-prompts', local.info)
   return CHECK_META.map((meta) => ({

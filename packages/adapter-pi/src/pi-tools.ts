@@ -10,8 +10,8 @@
  * - 探测时机在事件处理器/工具执行时（ExtensionAPI 的 action 在加载期是
  *   throwing stub，工厂顶层直接调用会抛错，research 03）；
  * - 理论工具集 = child 真实可见工具集的静态投影：命中时内置 4 ∪ pi-lsp 2，
- *   用于 composeLocalDirectivesText 的 requiresTools 过滤（与 DSH 侧
- *   visibleNames − denyList 语义等价）；遗漏时零行为（不追加 -e、片段被过滤）。
+ *   供派发工具面（-t allow 交集）消费；requiresTools 片段过滤机制已移除，
+ *   本机片段三层注入不再依赖工具面（与 DSH 侧语义同步收敛）。
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'

@@ -1,0 +1,47 @@
+{
+  "session_commit_message": "chore: record journal",
+  "max_journal_lines": 2000,
+  "session_auto_commit": true,
+  "context_injection": {
+    "max_file_bytes": 32768,
+    "max_artifact_bytes": 65536,
+    "max_total_bytes": 131072
+  },
+  "prompt_injection": {
+    "skip_keyword": "no-workloom"
+  },
+  "hooks": {
+    "after_create": ["echo task created"],
+    "after_start": ["echo task started"],
+    "after_finish": ["echo task finished"],
+    "after_archive": ["echo task archived"]
+  },
+  "packages": {
+    "cli": { "path": "packages/cli" }
+  },
+  "subagents": {
+    "research": { "model": "deepseek-official/deepseek-v4-flash", "effort": "high" },
+    "implement": {
+      "model": { "dsh": "deepseek-official/deepseek-v4-flash", "pi": "deepseek/deepseek-v4-flash" },
+      "effort": "max"
+    },
+    "check": { "model": "kimi-coding/k3", "effort": "high" }
+  },
+  "subagent_profiles": [
+    {
+      "whenMain": "kimi-coding/k3",
+      "subagents": {
+        "research": { "model": "deepseek-v4-flash", "effort": "high" }
+      }
+    },
+    {
+      "subagents": {
+        "check": {
+          "model": "kimi-coding/k3",
+          "effort": "max",
+          "tools": { "includes": ["lsp_diagnostics", "lsp_*"], "excludes": ["web_fetch"] }
+        }
+      }
+    }
+  ]
+}

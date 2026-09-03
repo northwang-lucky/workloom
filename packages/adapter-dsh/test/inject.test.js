@@ -118,24 +118,15 @@ test('assembleSessionContextText：localDirectives 传参在 norms 后渲染小�
   }
 })
 
-test('renderSessionContext：主 agent 以 ctx.tools.schemas() 为可用集探测并透传', () => {
+test('renderSessionContext：本机片段（main 目标）注入 Local directives 小节', () => {
   const root = makeRoot()
   const dir = join(root, '.workloom', 'prompts.local')
   mkdirSync(dir, { recursive: true })
-  writeFileSync(
-    join(dir, 'main.md'),
-    '---\nrequiresTools: [lsp_diagnostics]\n---\nHard LSP rule.',
-  )
+  writeFileSync(join(dir, 'main.md'), 'Hard main rule.')
   try {
-    const ctxWithTool = { tools: { schemas: () => [{ name: 'lsp_diagnostics' }] } }
-    const injected = renderSessionContext(ctxWithTool, makeTarget(root))
-    assert.ok(injected.includes('Local directives:'), 'satisfied condition must inject the section')
-    assert.ok(injected.includes('Hard LSP rule.'), 'fragment text must be injected verbatim')
-    // 可用集不含声明工具：快照照常渲染但无小节（条件过滤，非错误）。
-    const ctxWithoutTool = { tools: { schemas: () => [] } }
-    const plain = renderSessionContext(ctxWithoutTool, makeTarget(root))
-    assert.ok(plain.includes('<workloom-session-context>'), 'snapshot must still render')
-    assert.ok(!plain.includes('Local directives:'), 'unsatisfied condition must not inject')
+    const injected = renderSessionContext(makeTarget(root))
+    assert.ok(injected.includes('Local directives:'), 'main fragment must inject the section')
+    assert.ok(injected.includes('Hard main rule.'), 'fragment text must be injected verbatim')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -145,11 +136,10 @@ test('renderSessionContext：本机片段组装失败只告警，快照照常注
   const root = makeRoot()
   const dir = join(root, '.workloom', 'prompts.local')
   mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, 'main.md'), '---\nrequiresTools: [unclosed\n---\nbody')
+  writeFileSync(join(dir, 'main.md'), '---\nfoo: [unclosed\n---\nbody')
   try {
     const warn = t.mock.method(console, 'warn', () => {})
-    const ctx = { tools: { schemas: () => [] } }
-    const text = renderSessionContext(ctx, makeTarget(root))
+    const text = renderSessionContext(makeTarget(root))
     assert.ok(text.includes('<workloom-session-context>'), '片段失败不阻塞会话快照')
     assert.ok(text.includes('Workflow: '), '快照内容完整，不是空串降级')
     assert.ok(!text.includes('Local directives:'), '组装失败时小节整体省略')

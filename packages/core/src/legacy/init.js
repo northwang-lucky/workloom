@@ -4,10 +4,10 @@
  * 设计意图：
  * - 幂等生成骨架：目录与文件缺失才创建，已有内容一律不覆盖（含 force 模式）；
  * - 数据布局对齐 core 约定：.workloom/{tasks,spec,workspace,.runtime/sessions}；
- * - config.yaml 为最小无注释占位（loadConfig 对空文件按全默认处理）；
- * - config.example.yaml 为唯一权威说明源：全注释带值示例，逐字段对齐
- *   config.js 的 DEFAULT_CONFIG，并说明 config.local.yaml 深合并语义
- *   与 subagents model map 缺 runtime key fail loud；
+ * - config.json 为最小占位（{}，loadConfig 按全默认处理）；config.example.json
+ *   为对象形态权威说明（有效 JSON，覆盖 DEFAULT_CONFIG 全部字段），
+ *   config.example.js 为工厂形态示例（带注释说明三层合并/白名单/工具字段）；
+ * - .gitignore 模板忽略 config.local.json / config.local.js（每机器本地覆盖）；
  * - 顺带检测旧 .trellis 目录并报告（迁移由后续实现点消费，本模块只报告）。
  * - 生成自包含的 .workloom/.gitignore：运行时状态忽略策略随骨架分发，
  *   接入方仓库无需在根 .gitignore 手工维护 workloom 内部布局规则。
@@ -27,8 +27,9 @@ const SUB_DIRS = Object.freeze(['tasks', 'spec', 'workspace', '.runtime/sessions
 
 /** 骨架文件名常量。 */
 const FILE_NAMES = Object.freeze({
-  config: 'config.yaml',
-  configExample: 'config.example.yaml',
+  config: 'config.json',
+  configExampleJson: 'config.example.json',
+  configExampleJs: 'config.example.js',
   developer: '.developer',
   gitignore: '.gitignore',
 })
@@ -47,7 +48,7 @@ const SPEC_README_TEMPLATE = [
   '',
   '## Scope',
   '',
-  '- `packages` in `.workloom/config.yaml` declares which packages get injected.',
+  '- `packages` in `.workloom/config.json` declares which packages get injected.',
   '  When it is empty, every `<package>/<layer>/index.md` is collected.',
   '',
   '## Minimal example',
@@ -66,108 +67,116 @@ const SPEC_README_TEMPLATE = [
   '',
 ].join('\n')
 
-/** config.yaml 模板：最小无注释占位（loadConfig 对空文件按全默认处理）。 */
-const CONFIG_TEMPLATE = ''
+/** config.json 模板：最小占位（{}，loadConfig 对空配置按全默认处理）。 */
+const CONFIG_TEMPLATE = '{}'
 
-/** config.example.yaml 模板：全注释带值示例（默认值形态），与 DEFAULT_CONFIG 逐字段对齐。 */
-const CONFIG_EXAMPLE_TEMPLATE = [
-  '# workloom configuration reference (EXAMPLE ONLY, not read by loadConfig).',
-  '',
-  '# loadConfig reads only .workloom/config.yaml plus the optional (gitignored)',
-  '# config.local.yaml. Copy the fields you need into config.yaml and uncomment',
-  '# them; use config.local.yaml for per-machine overrides only.',
-  '',
-  '# config.local.yaml deep-merges over config.yaml: maps merge recursively key',
-  '# by key, arrays and scalars replace whole values.',
-  '',
-  '# Every field below shows its default value; override only what you need.',
-  '',
-  '# Commit message used when the journal recorder commits.',
-  '# session_commit_message: "chore: record journal"',
-  '',
-  '# Maximum journal lines kept per session.',
-  '# max_journal_lines: 2000',
-  '',
-  '# Auto-commit the journal after each session.',
-  '# session_auto_commit: true',
-  '',
-  '# context_injection caps how much spec/research context is inlined per turn.',
-  '# context_injection:',
-  '#   max_file_bytes: 32768',
-  '#   max_artifact_bytes: 65536',
-  '#   max_total_bytes: 131072',
-  '',
-  '# prompt_injection.skip_keyword is the escape hatch: a user message containing',
-  '# this keyword skips breadcrumb injection for that turn.',
-  '# prompt_injection:',
-  '#   skip_keyword: "no-workloom"',
-  '',
-  '# hooks run shell commands with TASK_JSON_PATH pointing at the task.json file.',
-  '# hooks:',
-  '#   after_create:',
-  '#     - echo task created',
-  '#   after_start:',
-  '#     - echo task started',
-  '#   after_finish:',
-  '#     - echo task finished',
-  '#   after_archive:',
-  '#     - echo task archived',
-  '',
-  '# packages maps a package name to its repo-relative path (optional type/git).',
-  '# packages:',
-  '#   cli:',
-  '#     path: packages/cli',
-  '',
-  '# default_package names the default package declared in packages; omit for none.',
-  '# default_package: web',
-  '',
-  '# subagents.<kind> sets per-kind executor defaults (research/implement/check/frontend).',
-  '# model accepts either a single string (the same value on every runtime) or a',
-  '# per-runtime map with one entry per runtime key (dsh/pi, plus any future',
-  '# runtime — keys are not whitelisted). With a map, the current runtime key must',
-  '# exist; a missing key fails loudly with its field path instead of spawning',
-  '# the wrong model. effort (low/medium/high/xhigh/max) only takes effect on',
-  '# the Pi adapter (mapped to --thinking); the DSH adapter ignores this field.',
-  '# subagents:',
-  '#   research:',
-  '#     model: deepseek-official/deepseek-v4-flash',
-  '#     effort: high',
-  '#   implement:',
-  '#     model:',
-  '#       dsh: deepseek-official/deepseek-v4-flash',
-  '#       pi: deepseek/deepseek-v4-flash',
-  '#     effort: max',
-  '#   check:',
-  '#     model: kimi-coding/k3',
-  '#     effort: high',
-  '',
-  '# subagent_profiles tiers the per-kind defaults by the main session model.',
-  '# Entries match top-down; the first entry whose whenMain condition matches',
-  '# the main model wins. whenMain is a full "provider/model" string (matches',
-  '# on every runtime) or a per-runtime map (matched by the current runtime',
-  '# key; a missing key just skips the entry). An entry without whenMain is',
-  '# the fallback (at most one; duplicates fail loudly), and overlapping',
-  '# whenMain conditions also fail loudly at load time. Fields of the winning',
-  '# entry win over subagents.<kind>; each field merges independently (explicit',
-  '# tool args > subagent_profiles entry > subagents.<kind> > parent session).',
-  '# When subagent_profiles is absent or empty, only subagents is used; if the',
-  '# main model cannot be read, whenMain entries are skipped (fallback wins).',
-  '# subagent_profiles:',
-  '#   - whenMain: kimi-coding/k3',
-  '#     subagents:',
-  '#       research:',
-  '#         model: deepseek-v4-flash',
-  '#         effort: high',
-  '#   - whenMain:',
-  '#       dsh: deepseek-official/deepseek-v4-pro',
-  '#       pi: deepseek/deepseek-v4-pro',
-  '#     subagents:',
-  '#       implement:',
-  '#         effort: max',
-  '#   - subagents:',
-  '#       check:',
-  '#         model: kimi-coding/k3',
-  '',
+/** config.example.json 模板：对象形态权威说明（有效 JSON，覆盖 DEFAULT_CONFIG 全部字段）。 */
+const CONFIG_EXAMPLE_JSON_TEMPLATE = [
+  '{',
+  '  "session_commit_message": "chore: record journal",',
+  '  "max_journal_lines": 2000,',
+  '  "session_auto_commit": true,',
+  '  "context_injection": {',
+  '    "max_file_bytes": 32768,',
+  '    "max_artifact_bytes": 65536,',
+  '    "max_total_bytes": 131072',
+  '  },',
+  '  "prompt_injection": {',
+  '    "skip_keyword": "no-workloom"',
+  '  },',
+  '  "hooks": {',
+  '    "after_create": ["echo task created"],',
+  '    "after_start": ["echo task started"],',
+  '    "after_finish": ["echo task finished"],',
+  '    "after_archive": ["echo task archived"]',
+  '  },',
+  '  "packages": {',
+  '    "cli": { "path": "packages/cli" }',
+  '  },',
+  '  "subagents": {',
+  '    "research": { "model": "deepseek-official/deepseek-v4-flash", "effort": "high" },',
+  '    "implement": {',
+  '      "model": { "dsh": "deepseek-official/deepseek-v4-flash", "pi": "deepseek/deepseek-v4-flash" },',
+  '      "effort": "max"',
+  '    },',
+  '    "check": { "model": "kimi-coding/k3", "effort": "high" }',
+  '  },',
+  '  "subagent_profiles": [',
+  '    {',
+  '      "whenMain": "kimi-coding/k3",',
+  '      "subagents": {',
+  '        "research": { "model": "deepseek-v4-flash", "effort": "high" }',
+  '      }',
+  '    },',
+  '    {',
+  '      "subagents": {',
+  '        "check": {',
+  '          "model": "kimi-coding/k3",',
+  '          "effort": "max",',
+  '          "tools": { "includes": ["lsp_diagnostics", "lsp_*"], "excludes": ["web_fetch"] }',
+  '        }',
+  '      }',
+  '    }',
+  '  ]',
+  '}',
+].join('\n')
+
+/** config.example.js 模板：工厂形态示例（带注释说明三层合并/白名单/工具字段）。 */
+const CONFIG_EXAMPLE_JS_TEMPLATE = [
+  '/**',
+  ' * workloom configuration — factory form (EXAMPLE ONLY, not read by loadConfig).',
+  ' *',
+  ' * loadConfig merges three layers: global $HOME/.workloom/config.json|js →',
+  ' * project .workloom/config.json|js → local .workloom/config.local.json|js.',
+  ' * An object export is merged by top-level key ({...base, ...doc}); a factory',
+  ' * receives the merged lower layers (undefined for the global layer) and returns',
+  ' * this layer\'s final document (no further merging). Deep merge was removed.',
+  ' *',
+  ' * The global layer only consumes project-independent fields (subagent_profiles,',
+  ' * session_auto_commit, session_commit_message, max_journal_lines,',
+  ' * prompt_injection, context_injection); packages/hooks and other fields there',
+  ' * fail loudly. The legacy subagents field is still parsed with a deprecation',
+  ' * warning; prefer subagent_profiles. tools under a profile entry extends/',
+  ' * removes tool names (including lsp_* prefixes) from the default allow list.',
+  ' *',
+  ' * Copy what you need into config.json; use config.local.json|js for per-machine',
+  ' * overrides only. Use the factory form when a layer needs the lower layers\'',
+  ' * merged result to compute its own document.',
+  ' */',
+  'module.exports = (base) => ({',
+  '  ...base,',
+  '  session_commit_message: \'chore: record journal\',',
+  '  max_journal_lines: 2000,',
+  '  session_auto_commit: true,',
+  '  context_injection: {',
+  '    max_file_bytes: 32768,',
+  '    max_artifact_bytes: 65536,',
+  '    max_total_bytes: 131072,',
+  '  },',
+  '  prompt_injection: { skip_keyword: \'no-workloom\' },',
+  '  hooks: {',
+  '    after_create: [\'echo task created\'],',
+  '    after_start: [\'echo task started\'],',
+  '    after_finish: [\'echo task finished\'],',
+  '    after_archive: [\'echo task archived\'],',
+  '  },',
+  '  packages: { cli: { path: \'packages/cli\' } },',
+  '  subagent_profiles: [',
+  '    {',
+  '      whenMain: \'kimi-coding/k3\',',
+  '      subagents: { research: { model: \'deepseek-v4-flash\', effort: \'high\' } },',
+  '    },',
+  '    {',
+  '      subagents: {',
+  '        check: {',
+  '          model: \'kimi-coding/k3\',',
+  '          effort: \'max\',',
+  '          tools: { includes: [\'lsp_diagnostics\', \'lsp_*\'], excludes: [\'web_fetch\'] },',
+  '        },',
+  '      },',
+  '    },',
+  '  ],',
+  '})',
 ].join('\n')
 
 /** .gitignore 模板：忽略策略随 .workloom 自包含（全英文，写入用户项目）。 */
@@ -179,7 +188,11 @@ const GITIGNORE_TEMPLATE = [
   '.developer',
   '',
   '# Local config overrides (per-machine).',
-  'config.local.yaml',
+  'config.local.json',
+  'config.local.js',
+  '',
+  '# Local prompt extensions (per-machine discipline fragments).',
+  'prompts.local/',
   '',
 ].join('\n')
 
@@ -238,10 +251,15 @@ function initWorkloomInternal(root, params) {
     writeFileSync(configFile, CONFIG_TEMPLATE)
     created.push(join(WORKLOOM_DIR, FILE_NAMES.config))
   }
-  const configExampleFile = join(workloomDir, FILE_NAMES.configExample)
-  if (!existsSync(configExampleFile)) {
-    writeFileSync(configExampleFile, CONFIG_EXAMPLE_TEMPLATE)
-    created.push(join(WORKLOOM_DIR, FILE_NAMES.configExample))
+  const configExampleJson = join(workloomDir, FILE_NAMES.configExampleJson)
+  if (!existsSync(configExampleJson)) {
+    writeFileSync(configExampleJson, CONFIG_EXAMPLE_JSON_TEMPLATE)
+    created.push(join(WORKLOOM_DIR, FILE_NAMES.configExampleJson))
+  }
+  const configExampleJs = join(workloomDir, FILE_NAMES.configExampleJs)
+  if (!existsSync(configExampleJs)) {
+    writeFileSync(configExampleJs, CONFIG_EXAMPLE_JS_TEMPLATE)
+    created.push(join(WORKLOOM_DIR, FILE_NAMES.configExampleJs))
   }
   const developerFile = join(workloomDir, FILE_NAMES.developer)
   if (!existsSync(developerFile)) {

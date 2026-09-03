@@ -44,11 +44,11 @@ function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-pi-cmd-'))
 }
 
-/** 初始化最小 .workloom（tasks 目录 + 合法 config.yaml）。 */
+/** 初始化最小 .workloom（tasks 目录 + 合法 config.json）。 */
 function makeWorkloomRoot() {
   const root = makeRoot()
   mkdirSync(join(root, '.workloom', 'tasks'), { recursive: true })
-  writeFileSync(join(root, '.workloom', 'config.yaml'), 'session_auto_commit: false\n')
+  writeFileSync(join(root, '.workloom', 'config.json'), '{"session_auto_commit": false}')
   return root
 }
 

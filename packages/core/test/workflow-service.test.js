@@ -123,8 +123,8 @@ test('用户消息命中 skip 关键词时返回 null', async () => {
   const root = makeProject()
   try {
     writeFileSync(
-      join(root, '.workloom', 'config.yaml'),
-      'prompt_injection:\n  skip_keyword: stop-workloom\n',
+      join(root, '.workloom', 'config.json'),
+      JSON.stringify({ prompt_injection: { skip_keyword: 'stop-workloom' } }),
     )
     const [err, text] = await assembleBreadcrumb({
       root,

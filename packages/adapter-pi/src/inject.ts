@@ -73,9 +73,9 @@ function injectSessionContext(
     console.warn(`${CONTEXT_WARN_PREFIX} workflow contract asset is missing`)
     return
   }
-  // 契约文本从 assets 加载；本机片段在事件处理器内探测可用工具集后组装
-  // （工具面 = 主会话真实可见集全量），解析/组装失败只告警跳过，不阻塞会话。
-  const [localErr, localDirectives] = composeMainLocalDirectives(pi, root)
+  // 契约文本从 assets 加载；本机片段三层叠加组装（main 目标），解析/组装失败
+  // 只告警跳过，不阻塞会话。
+  const [localErr, localDirectives] = composeMainLocalDirectives(root)
   if (localErr !== null) {
     console.warn(`${CONTEXT_WARN_PREFIX} local directives: ${localErr.message}`)
   }
@@ -90,18 +90,13 @@ function injectSessionContext(
 }
 
 /**
- * 组装主会话本机片段文本（main 目标）：可用工具集 = pi.getActiveTools() 全量
- * （主会话无 denyList，工具面即真实可见集，与 DSH 主 agent 视图同义）。
- * 必须在事件处理器/工具执行期调用（扩展加载期 getActiveTools 是 throwing stub）。
- * @param pi Extension API
+ * 组装主会话本机片段文本（main 目标）：三层（全局 → 项目共享 → 项目本机）
+ * 叠加注入；requiresTools 机制已移除，无工具面过滤。
  * @param root 项目根
  * @returns [err, text]：失败时 err 为片段错误，text 为空串
  */
-export function composeMainLocalDirectives(
-  pi: ExtensionAPI,
-  root: string,
-): [Error | null, string] {
-  return composeLocalDirectivesText(root, 'main', pi.getActiveTools())
+export function composeMainLocalDirectives(root: string): [Error | null, string] {
+  return composeLocalDirectivesText(root, 'main')
 }
 
 /**

@@ -12,7 +12,7 @@
  *   不等待子进程退出；spawn 前已 aborted 直接抛（不发请求）；
  * - 不设 timeout（与 DSH 对齐）；child 用 --no-extensions，无 workloom_execute
  *   工具，天然禁止再派发；
- * - model/effort 未显式传入时回退到 .workloom/config.yaml 的 subagents 配置
+ * - model/effort 未显式传入时回退到 .workloom/config.json|js 的 subagents 配置
  *   （按 executor kind 取值，字段独立合并；model 支持 map 形式按 runtime 取值）；
  *   配置支持 subagent_profiles 按主会话当前模型（工具 ctx.model 的 provider/id）
  *   分档匹配，命中的条目优先于旧 subagents，经 --model / --thinking 透传；
@@ -59,7 +59,7 @@ import type {
 import { contextKeyOf } from './constants.ts'
 import { buildChildPiArgs } from './pi-args.ts'
 import { extractExecutorText, parsePiEventLine, type PiEventState } from './pi-events.ts'
-import { buildTheoreticalTools, hasLspCapability, PI_LSP_SOURCE } from './pi-tools.ts'
+import { hasLspCapability, PI_LSP_SOURCE } from './pi-tools.ts'
 
 /** 工具参数 TypeBox schema（与 DSH 的参数语义一致）。 */
 export const EXECUTOR_PARAMS = Type.Object({
@@ -276,10 +276,9 @@ export interface PiExecutorPromptResult {
 }
 
 /**
- * 组装 executor 首条 prompt（Pi 接线：探测 → 理论工具集 → 本机片段 → core
- * 组装）。探测在工具执行期进行（pi.getActiveTools 加载期是 throwing stub）；
- * 理论工具集命中时含 pi-lsp 两工具、requiresTools 片段注入，未命中时只有
- * 内置 4、片段被过滤（零行为）；本机片段组装失败 fail loud（本机片段是有意
+ * 组装 executor 首条 prompt（Pi 接线：探测 → 本机片段 → core 组装）。探测在工具
+ * 执行期进行（pi.getActiveTools 加载期是 throwing stub）；本机片段三层叠加注入
+ * （requiresTools 机制已移除，无工具面过滤）；组装失败 fail loud（本机片段是有意
  * 增强，静默失效最难排查），与 DSH executor 同口径。
  * @param pi Extension API（registerExecutorTool 持句柄，工具执行时传入）
  * @param params 组装入参
@@ -290,11 +289,9 @@ export function buildExecutorPromptWithPi(
   params: ExecutorPromptAssemblyParams,
 ): [Error | null, PiExecutorPromptResult | null] {
   const hasLsp = hasLspCapability(pi)
-  const theoreticalTools = buildTheoreticalTools(hasLsp)
   const [localErr, localDirectives] = composeLocalDirectivesText(
     params.root,
     params.kind,
-    theoreticalTools,
   )
   if (localErr !== null) return [localErr, null]
   const [promptErr, built] = buildExecutorPrompt({
@@ -377,8 +374,7 @@ async function executeTool(
     recordForcedOverride(root, taskRelPath, params.reason)
   }
   // 探测 → 组装一次完成（buildExecutorPromptWithPi 内部先 hasLspCapability
-  // 再以理论工具集组装本机片段）；结果同时驱动 -e 加载（命中时 child 携带
-  // pi-lsp，使 requiresTools: [lsp_diagnostics] 片段在 child 真正可用）。
+  // 再组装本机片段）；结果同时驱动 -e 加载（命中时 child 携带 pi-lsp）。
   const [promptErr, piBuilt] = buildExecutorPromptWithPi(pi, {
     root,
     taskRelPath,

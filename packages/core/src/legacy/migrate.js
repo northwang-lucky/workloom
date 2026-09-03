@@ -6,7 +6,8 @@
  *   migrated 记顶层区域、skipped 记冲突条目明细（均相对项目根）；
  * - config 迁移复用 config.js 的 DEFAULT_CONFIG 形状：解析旧 config.yaml，
  *   提取已知字段、改写 skip_keyword、丢弃未知字段（记入 droppedConfigFields）；
- *   仅当存在非默认值时覆盖新 config.yaml（全默认保持 init 模板不动）；
+ *   产物为 .workloom/config.json（JSON 格式，default_package 死字段不再读写）；
+ *   仅当存在非默认值时覆盖新 config.json（全默认保持 init 模板不动）；
  * - 旧 workflow.md 定制指引只做存档（.workloom/migrated/trellis-workflow.md），
  *   不自动改写，人工整理成 workflow.override.md；
  * - deleteLegacy=true 才删除旧目录（默认保留），删除目标同样做防逃逸校验；
@@ -23,7 +24,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import { parse as parseYaml } from 'yaml'
 
 import { DEFAULT_CONFIG } from './config.js'
 import {
@@ -37,8 +38,11 @@ import {
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom migrate'
 
-/** 旧 config.yaml 文件名。 */
-const CONFIG_FILE = 'config.yaml'
+/** 旧 .trellis 的 config 源文件名（仍为 YAML）。 */
+const LEGACY_CONFIG_FILE = 'config.yaml'
+
+/** 迁移产物 config 文件名（新格式 JSON）。 */
+const CONFIG_FILE = 'config.json'
 
 /** 旧 workflow.md 文件名（定制指引存档源）。 */
 const WORKFLOW_FILE = 'workflow.md'
@@ -55,14 +59,13 @@ const LEGACY_SKIP_KEYWORD = 'no-trellis'
 /** 迁移的顶层目录（相对旧 .trellis 根，目标为同名 .workloom 子目录）。 */
 const LEGACY_DIRS = Object.freeze(['tasks', 'workspace', 'spec'])
 
-/** 旧 config.yaml 的已知顶层字段（其余丢弃并记入 droppedConfigFields）。 */
+/** 旧 config.yaml 的已知顶层字段（其余丢弃并记入 droppedConfigFields；default_package 已删除）。 */
 const KNOWN_TOP_FIELDS = new Set([
   'session_commit_message',
   'max_journal_lines',
   'session_auto_commit',
   'hooks',
   'packages',
-  'default_package',
   'context_injection',
   'prompt_injection',
 ])
@@ -205,13 +208,14 @@ function toError(value) {
 
 /**
  * 迁移旧 config.yaml：提取已知字段、改写 skip_keyword、丢弃未知字段；
- * 仅当存在非默认值时覆盖新 config.yaml（全默认保持 init 模板不动）。
+ * 产物写入 .workloom/config.json（JSON）；仅当存在非默认值时覆盖新 config，
+ * 全默认保持 init 模板不动。
  * @param {string} legacyRoot 旧 .trellis 所在根
  * @param {string} projectRoot 项目根
  * @param {string[]} droppedConfigFields 被丢弃的未知字段名收集
  */
 function migrateConfig(legacyRoot, projectRoot, droppedConfigFields) {
-  const legacyConfigFile = join(legacyRoot, LEGACY_TRELLIS_DIR, CONFIG_FILE)
+  const legacyConfigFile = join(legacyRoot, LEGACY_TRELLIS_DIR, LEGACY_CONFIG_FILE)
   if (!existsSync(legacyConfigFile)) return
   const raw = readFileSync(legacyConfigFile, 'utf8')
   let doc
@@ -230,7 +234,7 @@ function migrateConfig(legacyRoot, projectRoot, droppedConfigFields) {
   }
   const mapped = collectNonDefault(mapKnownFields(doc, droppedConfigFields))
   if (Object.keys(mapped).length === 0) return
-  writeFileSync(join(projectRoot, WORKLOOM_DIR, CONFIG_FILE), stringifyYaml(mapped))
+  writeFileSync(join(projectRoot, WORKLOOM_DIR, CONFIG_FILE), JSON.stringify(mapped, null, 2))
 }
 
 /**
@@ -323,13 +327,6 @@ function mapKnownFields(doc, droppedConfigFields) {
       }
     }
   }
-  if (doc.default_package !== undefined) {
-    if (typeof doc.default_package === 'string') {
-      config.defaultPackage = doc.default_package
-    } else {
-      droppedConfigFields.push('default_package')
-    }
-  }
   return config
 }
 
@@ -409,9 +406,6 @@ function collectNonDefault(config) {
   }
   if (Object.keys(hooks).length > 0) doc.hooks = hooks
   if (Object.keys(config.packages).length > 0) doc.packages = config.packages
-  if (config.defaultPackage !== DEFAULT_CONFIG.defaultPackage) {
-    doc.default_package = config.defaultPackage
-  }
   return doc
 }
 
