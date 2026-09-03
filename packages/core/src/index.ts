@@ -34,6 +34,12 @@ export {
   buildExecutorPrompt,
 } from './legacy/executor-context.js'
 
+export {
+  NATIVE_TOOLS_DSH,
+  NATIVE_TOOLS_PI,
+  buildAllowList,
+} from './legacy/executor-tools.js'
+
 export { initWorkloom } from './legacy/init.js'
 
 export { migrateLegacyTrellis } from './legacy/migrate.js'
@@ -157,11 +163,17 @@ export type {
   WorkloomConfig,
   SubagentConfigEntry,
   SubagentProfile,
+  SubagentTools,
   SubagentDefaultSource,
   SubagentConfigSource,
   ResolveSubagentDefaultsResult,
   ExecutorConflict,
 } from './legacy/config.d.ts'
+
+export type {
+  AllowToolsConfig,
+  BuildAllowListParams,
+} from './legacy/executor-tools.d.ts'
 
 export type {
   BuildExecutorPromptParams,
