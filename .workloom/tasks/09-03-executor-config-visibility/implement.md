@@ -37,7 +37,19 @@
 5. 阶段门：`cd packages/adapter-dsh && node --test test/*.test.js` 全绿
    + typecheck。
 
-## §3 阶段三：描述警示 + 全量门（core surface + 一致性）
+## §3 阶段三：续派模型治理（adapter-dsh + core 派发记录，design §8）
+
+1. 红：`continue_executor` 与 `model`/`effort` 同传时拒绝派发（错误文案指明
+   换模型须新开派发；不产生任何登记/结算副作用；传相同值也拒）。
+2. 红：新派记录落实际生效 `model`/`effort`/`modelSource`；续派轮记录沿用
+   childId 首次绑定、`modelSource: spawn`；旧记录缺省读取不炸。
+3. 红：续派回执展示 spawn 绑定值（`(spawn binding)`），缺绑定显示
+   `(unrecorded spawn binding)`；新派回执 `(param)`/`(config: …)` 不变。
+4. 绿：按 design §8 实现（adapter-dsh executor 续派分支 + core task-store
+   派发记录字段扩展）。
+5. 阶段门：adapter-dsh 全量测试 + core 全量测试 + 双包 typecheck。
+
+## §4 阶段四：描述警示 + 接线 + 全量门（core surface + 一致性）
 
 1. 红：`surface` 相关测试（如有描述断言）或新增断言——model/effort 描述含
    覆盖警示句；双 adapter 工具 schema 快照核对共用单源。
@@ -50,5 +62,5 @@
 ## §4 报告要求
 
 每阶段汇报：改动文件清单、红绿证据（先失败后通过的测试名）、阶段门输出尾部、
-与 design 的偏差及原因。三阶段完成后汇总全量门结果与剩余风险（特别是 §8
+与 design 的偏差及原因。四阶段完成后汇总全量门结果与剩余风险（特别是 §9
 冒烟前不可验证项）。

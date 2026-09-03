@@ -34,6 +34,14 @@
 6. test-first：三条接缝先写失败测试——(a) 三层配置 → 执行器画像解析与来源层
    标注（core，含 provenance）；(b) 终态错误捕获与落账（adapter-dsh）；
    (c) 会话上下文注入文本组装（core，含画像节与派发行）。
+7. 续派模型治理（2026-09-03 用户追加，证据：fe 会话 turn 6 换模型续派被静默
+   忽略、回执谎报生效）：
+   7.1 `continue_executor` 与 `model`/`effort` 参数同传时 fail loud 拒绝，文案
+       指明续派不能重绑定模型、换模型须新开派发（DSH `followup` 无模型接缝）。
+   7.2 新派时刻把实际生效的 model/effort 及来源写入 `dispatches[]` 记录，
+       审计可查；续派轮沿用子会话原始绑定记录。
+   7.3 续派回执如实展示子会话派发时绑定的模型（`spawn binding`），不再回显
+       未生效的参数；`workloom_execute` 描述（R5）补一句"续派不能更换模型"。
 
 ## Acceptance Criteria
 
