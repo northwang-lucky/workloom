@@ -90,6 +90,13 @@
       "title": "冒烟第二轮：基集修复验证",
       "status": "completed",
       "childId": "2b19704f-9f40-42af-b500-aa1de320d619"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-03T06:41:55.419Z",
+      "title": "全局配置消费冒烟",
+      "status": "completed",
+      "childId": "68816ec7-c770-4df8-a499-007beedacac2"
     }
   ],
   "hooks": {
