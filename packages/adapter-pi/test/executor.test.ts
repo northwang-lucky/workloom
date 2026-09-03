@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import { Value } from 'typebox/value'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { buildExecutorReceipt, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
+import { buildExecutorReceipt, buildNewDispatchBinding, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import type { WorkloomConfig } from '@workloom-ai/core'
 
 import {
@@ -296,6 +296,52 @@ test('recordExecutorDispatchEntry: 写入 task.json dispatches 且 kind/title �
     assert.equal(record.kind, 'frontend')
     assert.equal(record.title, 'ui impl')
     assert.ok(!Number.isNaN(Date.parse(record.at)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('派发记录落绑定：配置命中时 dispatches 含 model/effort/modelSource（design §8.2）', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    // executeTool 记录路径同形：绑定由 core buildNewDispatchBinding 构造。
+    const binding = buildNewDispatchBinding(
+      {},
+      {
+        model: 'p/m',
+        effort: 'high',
+        sources: { model: 'fallback', effort: 'fallback' },
+        configSources: { model: 'fallback', effort: 'fallback' },
+      },
+      'main/model',
+    )
+    recordExecutorDispatchEntry(root, taskRelPath, { kind: 'implement', title: 'impl', ...binding })
+    const record = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).dispatches[0]
+    assert.equal(record.model, 'p/m')
+    assert.equal(record.effort, 'high')
+    assert.equal(record.modelSource, 'fallback')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('派发记录落绑定：inherit 且主模型可读时落主模型快照', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    const binding = buildNewDispatchBinding(
+      {},
+      { model: undefined, effort: undefined, sources: {}, configSources: {} },
+      'main/model',
+    )
+    recordExecutorDispatchEntry(root, taskRelPath, { kind: 'research', title: 'r', ...binding })
+    const record = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).dispatches[0]
+    assert.equal(record.model, 'main/model')
+    assert.equal(record.modelSource, 'inherit')
+    assert.ok(!('effort' in record))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

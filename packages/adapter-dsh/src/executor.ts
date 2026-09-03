@@ -74,6 +74,7 @@ import {
   assertForceReason,
   buildConflictNotice,
   buildExecutorPrompt,
+  buildNewDispatchBinding,
   composeLocalDirectivesText,
   detectExecutorConflicts,
   ERR_PREFIX,
@@ -109,7 +110,7 @@ import {
   locateContinueChildId,
   readSpawnBinding,
 } from './executor-continuation.js'
-import type { ResolvedDefaultsLike, TurnMeta } from './executor-continuation.js'
+import type { TurnMeta } from './executor-continuation.js'
 import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
 import { readMainModel } from './main-model.js'
 
@@ -607,30 +608,6 @@ async function executeTool(
 }
 
 /**
- * 新派轮记录落盘绑定（内部）：把本次解析后实际生效的 model/effort 与来源层写入
- * dispatch entry（design §8.2）。model/effort 未解析出（未配置）时不带字段。
- * @param params 工具参数（显式 model/effort 判定）
- * @param effective 解析后生效值（resolveSubagentDefaults 结果）
- * @param mainModel 主会话模型（inherit 时的绑定快照来源）
- * @returns dispatch entry 的绑定字段（modelSource 恒有值）
- */
-function buildNewDispatchBinding(
-  params: { model?: string; effort?: string },
-  effective: ResolvedDefaultsLike,
-  mainModel: string | undefined,
-): { model?: string; effort?: string; modelSource: DispatchModelSource } {
-  const modelSource = resolveDispatchModelSource(params, effective)
-  // inherit：无配置命中，子会话继承主会话模型——绑定值取主模型快照（可读时）；
-  // 其余来源：解析后的 model 即绑定值。
-  const model = effective.model ?? (modelSource === 'inherit' ? mainModel : undefined)
-  return {
-    ...(model !== undefined ? { model } : {}),
-    ...(effective.effort !== undefined ? { effort: effective.effort } : {}),
-    modelSource,
-  }
-}
-
-/**
  * 续派轮记录落盘绑定（内部）：沿用 childId 首次派发记录的绑定值，来源记 spawn。
  * 首次记录无绑定字段时只记来源（model/effort 缺省，审计仍可辨续派轮）。
  * @param binding 首次派发记录读取的绑定（可能 null）
@@ -644,25 +621,6 @@ function buildSpawnEntryBinding(
     ...(binding?.effort !== undefined ? { effort: binding.effort } : {}),
     modelSource: 'spawn',
   }
-}
-
-/**
- * 解析新派轮的 model 来源层（design §8.2，纯函数）：显式参数优先记为 param；
- * 否则按命中来源细分 whenMain/fallback/legacy；全部未命中记 inherit。
- * @param params 工具参数（显式 model 判定）
- * @param effective 解析后生效值（含 sources/configSources）
- * @returns 来源层标注（param/whenMain/fallback/legacy/inherit）
- */
-function resolveDispatchModelSource(
-  params: { model?: string },
-  effective: ResolvedDefaultsLike,
-): DispatchModelSource {
-  if (params.model !== undefined) return 'param'
-  const configSource = effective.configSources.model
-  if (configSource === 'whenMain' || configSource === 'fallback' || configSource === 'legacy') {
-    return configSource
-  }
-  return 'inherit'
 }
 
 /**
