@@ -1,0 +1,11 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"约束 service 层调 legacy 模块的分层与依赖方向"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"约束编码原则、test-first 接缝与验证命令"}
+{"file":".workloom/spec/repo/legacy-module/index.md","reason":"约束 legacy 纯 JS+JSDoc 模块（locate/active-task）的改动约定"}
+{"file":".workloom/spec/repo/language/index.md","reason":"约束源码注释与任务文档语言"}
+{"file":".workloom/spec/repo/commits/index.md","reason":"约束提交粒度与 message 格式"}
+{"file":".workloom/tasks/09-03-git-worktree/research/01-compat-facts.md","reason":"提供缺陷链、隔离语义与测试基建的一手核查事实"}
+{"file":"packages/core/src/service/task-ops.ts","reason":"唯一修复点：resolveTaskRelPath 跳过 findWorkloomRoot"}
+{"file":"packages/core/src/legacy/locate.js","reason":"复用的向上定位机制 findWorkloomRoot/findUpDir"}
+{"file":"packages/core/src/legacy/active-task.js","reason":"会话指针解析，root 约定为项目根不向上查找"}
+{"file":"packages/core/test/locate.test.js","reason":"现有定位测试风格参考"}
+{"file":"packages/core/test/task-store.test.js","reason":"现有临时目录测试基建风格参考"}
