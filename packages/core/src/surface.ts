@@ -234,6 +234,8 @@ export interface ExecutorInjectionStats {
   indexed: number
   /** 指针引用条数（jsonl 清单 + research 路径行；>0 时在 receipt 追加渲染）。 */
   pointed?: number
+  /** 实际下发 allow 工具数（K；定义时在 receipt 同行追加渲染 `, K tools allowed`）。 */
+  toolsAllowed?: number
 }
 
 /**
@@ -281,11 +283,15 @@ export function buildExecutorReceipt(params: {
     receipt += `, effort: ${effortLabel}${effortSrc}`
   }
   if (params.injection !== undefined) {
-    const { bytes, inlined, truncated, indexed, pointed } = params.injection
+    const { bytes, inlined, truncated, indexed, pointed, toolsAllowed } = params.injection
     receipt += `; injection: ${(bytes / 1024).toFixed(1)}KB, ${inlined} inlined, ${truncated} truncated, ${indexed} indexed`
     // 指针引用条数条件渲染（>0 时追加；纯 artifact 注入（如测试夹具）保持原 4 元组）。
     if (pointed !== undefined && pointed > 0) {
       receipt += `, ${pointed} pointed`
+    }
+    // 下发 allow 工具数条件渲染（与 inlined/pointed 同行追加，两 runtime 口径一致）。
+    if (toolsAllowed !== undefined) {
+      receipt += `, ${toolsAllowed} tools allowed`
     }
   }
   return receipt

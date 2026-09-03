@@ -76,6 +76,9 @@ export interface ResolveSubagentDefaultsResult {
   }
   /** configSources 为 whenMain 时的匹配值（receipt 展示用，如 kimi-coding/k3）。 */
   whenMainValue?: string
+  /** 命中 subagent_profiles 条目该 kind 的 tools 字段（includes/excludes；仅
+   *  profiles 层支持，legacy 层无 tools，未命中时 undefined）。 */
+  tools?: SubagentTools
 }
 
 /** 内置默认配置。 */

@@ -686,6 +686,9 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
         overrides.effort !== undefined ? 'param' : effort !== undefined ? 'config' : undefined,
     },
     configSources: { model: modelConfigSource, effort: effortConfigSource },
+    // tools 仅 subagent_profiles 层支持（legacy 层无 tools）：命中条目的该 kind
+    // tools 字段原样透出，未命中时为 undefined（调用方按 allow 清单组装消费）。
+    tools: profileLayer.tools,
     // whenMainValue 仅在字段实际来自 whenMain 条目时返回（receipt 展示用）。
     ...(matched?.whenMainValue !== undefined &&
     (modelConfigSource === 'whenMain' || effortConfigSource === 'whenMain')

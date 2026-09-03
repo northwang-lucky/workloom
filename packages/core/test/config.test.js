@@ -851,6 +851,7 @@ test('resolveSubagentDefaults：参数覆盖配置（字段独立合并）', () 
     effort: 'high',
     sources: { model: 'param', effort: 'config' },
     configSources: { model: undefined, effort: 'legacy' },
+    tools: undefined,
   })
   const byEffort = resolveSubagentDefaults(config, 'research', { effort: 'max' })
   assert.deepEqual(byEffort, {
@@ -858,6 +859,7 @@ test('resolveSubagentDefaults：参数覆盖配置（字段独立合并）', () 
     effort: 'max',
     sources: { model: 'config', effort: 'param' },
     configSources: { model: 'legacy', effort: undefined },
+    tools: undefined,
   })
 })
 
@@ -868,12 +870,14 @@ test('resolveSubagentDefaults：无参数回退配置；均无配置返回 undef
     effort: 'high',
     sources: { model: 'config', effort: 'config' },
     configSources: { model: 'legacy', effort: 'legacy' },
+    tools: undefined,
   })
   assert.deepEqual(resolveSubagentDefaults({ subagents: {} }, 'research', {}), {
     model: undefined,
     effort: undefined,
     sources: { model: undefined, effort: undefined },
     configSources: { model: undefined, effort: undefined },
+    tools: undefined,
   })
 })
 
@@ -917,6 +921,7 @@ test('resolveSubagentDefaults：whenMain string 两段归一化命中、裸 id �
     sources: { model: 'config', effort: 'config' },
     configSources: { model: 'whenMain', effort: 'whenMain' },
     whenMainValue: 'kimi-coding/k3',
+    tools: undefined,
   })
   const miss = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'k3')
   assert.equal(miss.model, 'legacy-m')
@@ -952,7 +957,29 @@ test('resolveSubagentDefaults：兜底条目优先、kind 级联、字段独立�
     effort: 'high',
     sources: { model: 'config', effort: 'config' },
     configSources: { model: 'fallback', effort: 'legacy' },
+    tools: undefined,
   })
+})
+
+test('resolveSubagentDefaults：tools 随命中 profile 条目该 kind 透出（legacy 层无 tools）', () => {
+  const config = {
+    subagents: { implement: { model: 'legacy-m' } },
+    subagentProfiles: [
+      {
+        whenMain: 'kimi-coding/k3',
+        subagents: {
+          implement: { model: 'profile-m', tools: { includes: ['lsp_*'], excludes: ['bash'] } },
+        },
+      },
+    ],
+  }
+  const hit = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3')
+  assert.deepEqual(hit.tools, { includes: ['lsp_*'], excludes: ['bash'] })
+  // 未命中 profile 条目（mainModel 不匹配）→ tools 为 undefined（legacy 层不支持 tools）。
+  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'other/x').tools, undefined)
+  // 命中条目但该 kind 未配 tools → undefined。
+  const noTools = { subagents: {}, subagentProfiles: [{ subagents: { research: { model: 'm' } } }] }
+  assert.equal(resolveSubagentDefaults(noTools, 'research', {}, 'dsh', 'kimi-coding/k3').tools, undefined)
 })
 
 test('resolveSubagentDefaults：profile 命中时 model map 缺当前 runtime key 抛错（带 profile 字段路径）', () => {
@@ -991,6 +1018,7 @@ test('resolveSubagentDefaults：显式参数覆盖 profile/map 配置（不触�
     effort: undefined,
     sources: { model: 'param', effort: undefined },
     configSources: { model: undefined, effort: undefined },
+    tools: undefined,
   })
 })
 
