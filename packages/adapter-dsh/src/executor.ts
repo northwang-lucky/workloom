@@ -44,13 +44,17 @@
  * - 冲突中断：显式 model 与 subagents 配置不一致时，无 force 直接返回
  *   buildConflictNotice 提示文本不派发；force: true 须带非空 reason 留痕（写入
  *   task.json overrides），放行后 receipt 追加 (forced) 标注便于审计；
- * - 工具面硬屏蔽（deny 清单组装与 toolFilter capability 校验）下沉到
- *   executor-dispatch.ts，与工具注册/执行编排分离；派发请求携带 toolFilter deny
- *   （workloom 9 工具全量 + DSH 原生委派候选与运行时可见工具名的交集），使
- *   executor 子代理的可见工具集与执行面同时剔除编排/委派工具（未知名字会使
- *   restrict fail，候选必须求交）；派发前校验 provider 的 toolFilter capability，
- *   缺失时 fail loud（不静默丢弃），startContinuable reject 的
- *   UNSUPPORTED_CAPABILITY 同样转为清晰英文错误兜底；
+ * - 工具面白名单（allow 清单组装与 toolFilter capability 校验）下沉到
+ *   executor-dispatch.ts，与工具注册/执行编排分离；派发请求携带 toolFilter allow
+ *   （原生候选 ± tools 配置，与运行时可见工具名集合求交，未知名在 core 静默
+ *   忽略），使 executor 子代理的可见工具集与执行面只含白名单内工具——编排/
+ *   交互/任务工具与 lsp_* 默认不入，经 subagent_profiles 的 tools.includes 补回；
+ *   派发前校验 provider 的 toolFilter capability，缺失时 fail loud（不静默丢弃），
+ *   startContinuable reject 的 UNSUPPORTED_CAPABILITY 同样转为清晰英文错误兜底；
+ *   回执注入统计同行追加 `, K tools allowed`（K = 实际下发 allow 集大小）；
+ * - research 写守卫（executor-guard.ts）：插件激活时注册一次，research 子代理的
+ *   write/edit 只允许落在其 cwd 的 .workloom/ 内（越界拒绝），派发成功时登记
+ *   子会话身份，重启后守卫按任务记录懒重建；
  * - 异常终止（continuable 无 run.result）：以会话事件面的 turn/end 终止原因为准——
  *   最后一个 turn/end 缺失或 reason.kind 非 completed（aborted/blocked/error/
  *   max-tokens/interrupted 等）即转工具错误（文本取 error 事件的结构化 message，
@@ -88,13 +92,14 @@ import {
 import { CONTEXT_KEY_PREFIX } from './constants.js'
 import {
   assertToolFilterCapability,
-  availableToolNames,
-  buildDenyList,
+  buildAllowFilter,
   hasLspTooling,
   SPAWN_PROVIDER,
   toCapabilityError,
 } from './executor-dispatch.js'
 import type { SpawnProviderLike } from './executor-dispatch.js'
+import { registerResearchChildId, registerResearchGuard } from './executor-guard.js'
+import type { ResearchExecutionLike } from './executor-guard.js'
 import {
   buildTurnReceiptText,
   collectExecutorTurn,
@@ -183,10 +188,11 @@ export interface MinimalAgent {
   }
 }
 
-/** tools 服务的最小接口（register + schemas 全局视图）。 */
+/** tools 服务的最小接口（register + schemas 全局视图 + guard 守卫注册）。 */
 interface ToolsService {
   register(definition: MinimalToolDefinition): () => void
   schemas(): readonly { name: string }[]
+  guard(guard: (execution: Readonly<ResearchExecutionLike>) => string | undefined): () => void
 }
 
 /** subagents 服务的最小接口（continuable 派发/续用/释放 + provider 查询）。 */
@@ -200,7 +206,7 @@ interface SubagentsService {
       parent: MinimalAgent
       agentOptions?: { provider?: string; model?: string; reasoningEffort?: ReasoningEffortId }
       maxDepth?: number
-      toolFilter?: { deny: string[] }
+      toolFilter?: { allow: string[] }
     }
     signal: AbortSignal
   }): Promise<{ childId: string }>
@@ -311,6 +317,8 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
     isConcurrencySafe: () => true,
     execute: (args, exec: unknown) => executeTool(ctx, args, exec as ToolExec),
   })
+  // research 写守卫：插件激活时注册一次（机制强制面：research 只能写 <cwd>/.workloom/）。
+  registerResearchGuard(ctx)
   // 派发终态回填通道：全局 subagent/end 监听按 childId 自动回填 dispatches 终态
   // （register 自绑定 fiber 生命周期，插件卸载自动清理）。
   registerDispatchSettlement(ctx)
@@ -389,15 +397,16 @@ async function executeTool(
       console.warn(`${OVERRIDE_WARN_PREFIX} ${overrideErr}`)
     }
   }
-  // 工具面硬屏蔽：派发前校验 provider 的 toolFilter capability（缺失 fail loud，
-  // 不静默丢弃）；deny 清单 = workloom 9 工具全量 + 委派候选与运行时可见工具名的
-  // 交集（未知名字会使 restrict fail，候选名必须求交，不得硬编码）。
+  // 工具面白名单：派发前校验 provider 的 toolFilter capability（缺失 fail loud，
+  // 不静默丢弃）；allow 清单 = 原生候选 ± tools 配置，与运行时可见工具名集合
+  // 求交（未知名在 core 静默忽略，不得硬编码；编排/交互/任务工具与 lsp_* 默认
+  // 不入，经 subagent_profiles 的 tools.includes 补回）。
   const provider = ctx.subagents.getProvider(SPAWN_PROVIDER)
   assertToolFilterCapability(provider)
-  const visibleNames = new Set(ctx.tools.schemas().map((schema) => schema.name))
-  const denyList = buildDenyList(visibleNames)
-  // LSP 工具面探测（切片 ④）：交付时过滤纪律段 LSP 句——无 LSP 工具时不注入。
-  const hasLsp = hasLspTooling(availableToolNames(visibleNames, denyList))
+  const visibleNames = ctx.tools.schemas().map((schema) => schema.name)
+  const allowFilter = buildAllowFilter(visibleNames, effective.tools)
+  // LSP 工具面探测：交付时过滤纪律段 LSP 句——allow 清单含 lsp_ 工具才注入。
+  const hasLsp = hasLspTooling(allowFilter.allow)
   // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
   // 一并传入，跨 provider 派发才不报 UNKNOWN_MODEL；裸 id 无 provider 按父 provider
   // 解析）；effort 原样 brand 进 reasoningEffort（同名直通），model 缺省时也能
@@ -458,7 +467,7 @@ async function executeTool(
         hasLsp,
       )
       sendText = built.text
-      injection = injectionStats(built)
+      injection = injectionStats(built, allowFilter.allow.length)
     } else {
       // 增量续接：只发主会话增量指令（params.prompt），不复述子会话已持有上下文。
       sendText = params.prompt
@@ -467,6 +476,7 @@ async function executeTool(
         inlined: 0,
         truncated: 0,
         indexed: 0,
+        toolsAllowed: allowFilter.allow.length,
       }
     }
     // followup 向同一 durable 会话投递下一指令（FIFO 由子代理 inbox 保证）；reject
@@ -496,7 +506,7 @@ async function executeTool(
       hasLsp,
     )
     sendText = built.text
-    injection = injectionStats(built)
+    injection = injectionStats(built, allowFilter.allow.length)
     try {
       const started = await ctx.subagents.startContinuable({
         provider: SPAWN_PROVIDER,
@@ -506,7 +516,7 @@ async function executeTool(
           parent,
           agentOptions,
           maxDepth: 1,
-          toolFilter: { deny: denyList },
+          toolFilter: { allow: allowFilter.allow },
         },
         signal: exec.signal,
       })
@@ -529,6 +539,10 @@ async function executeTool(
   }
   // 登记终态回填定位（subagent/end 按 childId 关联 dispatches 记录）。
   trackDispatchSettle(childId, root, taskRelPath)
+  // research 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
+  if (params.kind === 'research') {
+    registerResearchChildId(root, childId)
+  }
   // 前台显式开关：阻塞等结算（现状行为，含 (reused) 续用轮语义）；否则默认后台
   // 派发——返回子代理标识 + 完整 receipt（注入统计派发前已就绪），不等待结算。
   if (params.foreground === true) {
@@ -583,17 +597,20 @@ function buildFullInjection(
 /**
  * 从 buildExecutorPrompt 结果投影注入统计（receipt 渲染用）：总字节取注入文本长度
  * （KB 一位小数由 core 渲染），计数来自 stats——可见喂给子代理的上下文规模。
- * 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed。
+ * 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed；
+ * toolsAllowed 为实际下发 allow 工具数（K，receipt 同行追加渲染）。
  * @param built buildExecutorPrompt 结果
- * @returns 注入统计五元组
+ * @param toolsAllowed 实际下发 allow 工具数（可选）
+ * @returns 注入统计五元组 + toolsAllowed
  */
-function injectionStats(built: ExecutorPromptResult): ExecutorInjectionStats {
+function injectionStats(built: ExecutorPromptResult, toolsAllowed?: number): ExecutorInjectionStats {
   return {
     bytes: Buffer.byteLength(built.text, 'utf8'),
     inlined: built.stats.filesInlined,
     truncated: built.stats.truncated,
     indexed: 0,
     pointed: built.stats.filesPointed,
+    ...(toolsAllowed !== undefined ? { toolsAllowed } : {}),
   }
 }
 

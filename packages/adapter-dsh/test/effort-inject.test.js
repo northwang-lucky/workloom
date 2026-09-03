@@ -147,6 +147,9 @@ test('D. 集成：executor 派发带 effort → 子代理 agent/created 命中 �
       schemas() {
         return ['workloom_execute', 'workloom_step', 'write', 'edit'].map((name) => ({ name }))
       },
+      guard() {
+        return () => {}
+      },
     }
     ctx.subagents = {
       getProvider() {

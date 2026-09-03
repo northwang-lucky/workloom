@@ -30,6 +30,11 @@ export interface BuildChildPiArgsParams {
    * 官方 CLI 语义：显式 -e 路径不受扩展自动发现开关影响）。缺省不加载。
    */
   loadExtensions?: string[]
+  /**
+   * 最终下发的工具 allow 清单（core buildAllowList 结果 ∩ 理论工具集，逗号连接
+   * 经 `-t` 下发；空集 = 无任何工具可见，fail loud 拒绝派发，指明 kind）。
+   */
+  tools?: string[]
 }
 
 /**
@@ -52,6 +57,16 @@ export function buildChildPiArgs(params: BuildChildPiArgsParams): string[] {
   // 缺省不传时零行为，序列与旧版逐字一致）。
   for (const source of params.loadExtensions ?? []) {
     args.push('-e', source)
+  }
+  // 工具白名单下发：-t + 逗号连接（allow 清单已在 core 与理论工具集求交完成）。
+  // 空集 = 无任何工具可见（如 excludes 全移除），fail loud 拒绝派发（指明 kind）。
+  if (params.tools !== undefined) {
+    if (params.tools.length === 0) {
+      throw new Error(
+        `${ERR_PREFIX.executor}: no tools allowed for ${params.kind} dispatch; the effective tool allowlist is empty`,
+      )
+    }
+    args.push('-t', params.tools.join(','))
   }
   args.push('--append-system-prompt', definition.systemPrompt)
   if (params.effort !== undefined) {

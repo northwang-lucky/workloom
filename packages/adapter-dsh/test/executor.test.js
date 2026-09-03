@@ -9,16 +9,21 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
+import { NATIVE_TOOLS_DSH, PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
 import { registerExecutor } from '../dist/executor.js'
 import {
   assertToolFilterCapability,
-  availableToolNames,
-  buildDenyList,
+  buildAllowFilter,
   hasLspTooling,
   SPAWN_PROVIDER,
   toCapabilityError,
 } from '../dist/executor-dispatch.js'
+import {
+  createResearchGuardState,
+  rebuildResearchChildIds,
+  registerResearchChild,
+  researchWriteGuard,
+} from '../dist/executor-guard.js'
 
 /** DSH 原生委派类工具候选名（与实现的 deny 清单候选集一致；测试自给自足）。 */
 const NATIVE_DELEGATION_CANDIDATES = [
@@ -131,6 +136,7 @@ function makeCtx(overrides = {}) {
   const drainCalls = []
   const whenIdleCalls = []
   const listeners = []
+  const guardRegistrations = []
   const childAgents = new Map()
 
   /** 建/取 child agent（续用轮 followup 时复用同一 id 的会话，仅重绑 whenIdle）。 */
@@ -161,6 +167,11 @@ function makeCtx(overrides = {}) {
           ? [...Object.values(TOOL_NAMES), ...NATIVE_DELEGATION_CANDIDATES, 'write', 'edit']
           : overrides.visibleTools
       return names.map((name) => ({ name }))
+    },
+    // research write/edit 守卫注册面：捕获注册的守卫函数供用例直接调用断言。
+    guard(guardFn) {
+      guardRegistrations.push(guardFn)
+      return () => {}
     },
   }
 
@@ -224,6 +235,7 @@ function makeCtx(overrides = {}) {
     childAgents,
     whenIdleCalls,
     listeners,
+    guardRegistrations,
   }
 }
 
@@ -242,6 +254,7 @@ function setupExecutor(overrides = {}) {
     childAgents: made.childAgents,
     whenIdleCalls: made.whenIdleCalls,
     listeners: made.listeners,
+    guardRegistrations: made.guardRegistrations,
   }
 }
 
@@ -1164,10 +1177,10 @@ test('无冲突（归一化等价）：正常派发且无 (forced) 标注', asyn
   }
 })
 
-test('continuable 请求携带 toolFilter deny：9 workloom 名 + 可见委派候选交集，不可见候选不入 deny', async () => {
+test('continuable 请求携带 toolFilter allow：默认 = 原生候选 ∩ 可见集（未知名不入 allow）', async () => {
   const root = makeProject()
   try {
-    // 运行时可见工具集：9 个 workloom 工具全可见 + 部分委派候选可见 + 常规工具。
+    // 运行时可见工具集：workloom 工具 + 部分委派候选 + 常规工具 + lsp（默认不授）。
     const visible = [
       ...Object.values(TOOL_NAMES),
       'subagent',
@@ -1175,23 +1188,83 @@ test('continuable 请求携带 toolFilter deny：9 workloom 名 + 可见委派�
       'ralph',
       'write',
       'edit',
+      'lsp_diagnostics',
     ]
     const { execute, startCalls } = setupExecutor({ visibleTools: visible })
     const parent = makeAgent(root)
-    await execute(execArgs({ title: 'toolfilter test' }), {
+    await execute(execArgs({ title: 'toolfilter allow test' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    // deny = workloom 9 名全量 + 可见候选（subagent/subagent_with_model/ralph）；
-    // 不可见候选（subagent_fork 等）不得硬编码进 deny（未知名字会使 restrict fail）。
-    const expectedDeny = [...Object.values(TOOL_NAMES), 'subagent', 'subagent_with_model', 'ralph']
-    assert.deepEqual(startCalls[0].request.toolFilter, { deny: expectedDeny })
-    for (const name of NATIVE_DELEGATION_CANDIDATES) {
-      const visibleCandidate = visible.includes(name)
-      const denied = startCalls[0].request.toolFilter.deny.includes(name)
-      assert.equal(denied, visibleCandidate, `candidate ${name} must be denied only when visible`)
-    }
+    // allow = 原生候选 ∩ 可见集：只有 write/edit 可见且原生；workloom 工具/委派候选
+    // /lsp_* 不入 allow（默认白名单不授编排/交互/任务工具）。
+    const expectedAllow = [...NATIVE_TOOLS_DSH].filter((name) => visible.includes(name))
+    assert.deepEqual(expectedAllow, ['write', 'edit'])
+    assert.deepEqual(startCalls[0].request.toolFilter, { allow: expectedAllow })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('toolFilter allow：config tools.includes 补入 lsp_* 前缀模式（可见集求交）', async () => {
+  const root = makeProject({
+    subagent_profiles: [{ subagents: { implement: { tools: { includes: ['lsp_*'] } } } }],
+  })
+  try {
+    const visible = [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics', 'lsp_symbols']
+    const { execute, startCalls } = setupExecutor({ visibleTools: visible })
+    const parent = makeAgent(root)
+    await execute(execArgs({ title: 'toolfilter include lsp test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1)
+    assert.deepEqual(startCalls[0].request.toolFilter, {
+      allow: ['write', 'edit', 'lsp_diagnostics', 'lsp_symbols'],
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('toolFilter allow：config tools.excludes 移除原生工具；未知名静默忽略', async () => {
+  const root = makeProject({
+    subagent_profiles: [{ subagents: { implement: { tools: { excludes: ['bash', 'nonexistent'] } } } }],
+  })
+  try {
+    // 可见集含 bash（原生候选）与 write/edit。
+    const visible = [...Object.values(TOOL_NAMES), 'write', 'edit', 'bash']
+    const { execute, startCalls } = setupExecutor({ visibleTools: visible })
+    const parent = makeAgent(root)
+    await execute(execArgs({ title: 'toolfilter exclude test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1)
+    // bash 被 excludes 移除；未知名 nonexistent 静默忽略。
+    assert.deepEqual(startCalls[0].request.toolFilter, { allow: ['write', 'edit'] })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('receipt 行：新派发含 `, K tools allowed`（K = 实际下发 allow 集大小）', async () => {
+  const root = makeProject()
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'tools allowed receipt test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1)
+    // 默认可见集下 allow = ['write','edit']（仅这两个原生候选可见）。
+    assert.deepEqual(startCalls[0].request.toolFilter, { allow: ['write', 'edit'] })
+    assert.ok(
+      result.output[0].text.includes(', 2 tools allowed'),
+      'receipt must append ", K tools allowed" on the injection line',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1272,8 +1345,8 @@ test('startContinuable reject（UNSUPPORTED_CAPABILITY）：转清晰英文错�
   }
 })
 
-test('executor-dispatch 拆分面：deny 清单/capability 校验/错误兜底可直接导入且与工具路径一致', () => {
-  // 模块拆分 seam：工具路径经由本模块组装 deny 与校验 capability，直接断言导出面
+test('executor-dispatch 拆分面：allow 成形/capability 校验/错误兜底可直接导入且与工具路径一致', () => {
+  // 模块拆分 seam：工具路径经由本模块组装 allow 与校验 capability，直接断言导出面
   // 与行为，防止拆分后 executor.ts 静默内联回退。
   const visible = new Set([
     ...Object.values(TOOL_NAMES),
@@ -1282,12 +1355,17 @@ test('executor-dispatch 拆分面：deny 清单/capability 校验/错误兜底�
     'ralph',
     'write',
     'edit',
+    'lsp_diagnostics',
   ])
-  // deny = workloom 9 名全量 + 可见委派候选交集（不可见候选不入 deny）。
-  const deny = buildDenyList(visible)
-  assert.deepEqual(deny, [...Object.values(TOOL_NAMES), 'subagent', 'subagent_with_model', 'ralph'])
-  // 真实可见集 = 可见集 − deny（保持声明顺序）。
-  assert.deepEqual(availableToolNames(visible, deny), ['write', 'edit'])
+  // allow = 原生候选 ∩ 可见集（未知名/编排/任务工具不入 allow）。
+  const filter = buildAllowFilter(visible)
+  assert.deepEqual(filter, { allow: ['write', 'edit'] })
+  // 未知名/非原生名（含 lsp_* 未配置）不进入 allow。
+  assert.ok(!filter.allow.includes('subagent'))
+  assert.ok(!filter.allow.includes('lsp_diagnostics'))
+  // hasLspTooling 按 allow 集判定：含 lsp_ 前缀工具才具备 LSP 工具面。
+  assert.equal(hasLspTooling(filter.allow), false)
+  assert.equal(hasLspTooling(['write', 'edit', 'lsp_diagnostics']), true)
   // capability 缺失 / provider 未注册 / 畸形 provider 均 fail loud 且指名 spawn provider。
   assert.throws(
     () => assertToolFilterCapability(undefined),
@@ -1571,10 +1649,10 @@ test('S4 hasLspTooling：可见集含 lsp_ 前缀工具判定具备 LSP 工具�
   assert.equal(hasLspTooling(['lsp_symbols']), true, 'lsp_symbols alone counts')
 })
 
-test('S4 交付时过滤：可见集无 LSP 工具时首条 prompt 不含纪律段 LSP 句，含时保留', async () => {
+test('S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律段 LSP 句，含时保留', async () => {
   const root = makeProject()
   try {
-    // 无 LSP 工具（默认可见集）：纪律段剔除 LSP 基线句
+    // 无 LSP 工具（默认可见集 + 默认 allow）：纪律段剔除 LSP 基线句
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     await execute(execArgs({ title: 'lsp filter off test' }), {
@@ -1586,19 +1664,29 @@ test('S4 交付时过滤：可见集无 LSP 工具时首条 prompt 不含纪律�
       !noLspText.includes(LSP_BASELINE_SENTENCE),
       'dispatch without LSP tooling must drop the LSP discipline sentence',
     )
-    // 含 LSP 工具：纪律段保留 LSP 基线句
-    const { execute: execLsp, startCalls: lspCalls } = setupExecutor({
-      visibleTools: [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics'],
+    // 含 LSP 工具：需要 config tools.includes 把 lsp_* 补入 allow（默认白名单不授 lsp）。
+    const lspRoot = makeProject({
+      subagent_profiles: [{ subagents: { implement: { tools: { includes: ['lsp_*'] } } } }],
     })
-    await execLsp(execArgs({ title: 'lsp filter on test' }), {
-      agent: makeAgent(root),
-      signal: new AbortController().signal,
-    })
-    const lspText = lspCalls[0].request.prompt[0].text
-    assert.ok(
-      lspText.includes(LSP_BASELINE_SENTENCE),
-      'dispatch with LSP tooling must keep the LSP discipline sentence',
-    )
+    try {
+      const { execute: execLsp, startCalls: lspCalls } = setupExecutor({
+        visibleTools: [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics'],
+      })
+      await execLsp(execArgs({ title: 'lsp filter on test' }), {
+        agent: makeAgent(lspRoot),
+        signal: new AbortController().signal,
+      })
+      assert.deepEqual(lspCalls[0].request.toolFilter, {
+        allow: ['write', 'edit', 'lsp_diagnostics'],
+      })
+      const lspText = lspCalls[0].request.prompt[0].text
+      assert.ok(
+        lspText.includes(LSP_BASELINE_SENTENCE),
+        'dispatch with LSP tooling in the allow list must keep the LSP discipline sentence',
+      )
+    } finally {
+      rmSync(lspRoot, { recursive: true, force: true })
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1726,6 +1814,146 @@ test('s2-settle-ghost: 未知 childId 的 subagent/end 不落盘（no-op，不�
     emitSubagentEnd(setup, { runId: 'epoch-4', id: 'ghost-session', stopReason: 'error' })
     const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
     assert.equal(task.dispatches[0].status, 'running', 'unknown child must not be touched')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- research 写守卫（executor-guard.ts） ----------
+
+/** 构造最小可工作的项目根（仅含 .workloom 目录，守卫根解析用）。 */
+function makeGuardRoot() {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-guard-'))
+  mkdirSync(join(root, '.workloom'), { recursive: true })
+  return root
+}
+
+test('executor-guard：rebuildResearchChildIds 从任务 task.json dispatches 重建（排除 archive）', () => {
+  const root = makeGuardRoot()
+  try {
+    const tasksDir = join(root, '.workloom', 'tasks')
+    // 两个普通任务目录：含 research/implement 派发记录与缺 childId 的 research。
+    mkdirSync(join(tasksDir, 't1'), { recursive: true })
+    writeFileSync(
+      join(tasksDir, 't1', 'task.json'),
+      JSON.stringify({
+        dispatches: [
+          { kind: 'research', childId: 'res-1' },
+          { kind: 'implement', childId: 'impl-1' },
+          { kind: 'research' },
+        ],
+      }),
+    )
+    mkdirSync(join(tasksDir, 't2'), { recursive: true })
+    writeFileSync(
+      join(tasksDir, 't2', 'task.json'),
+      JSON.stringify({ dispatches: [{ kind: 'research', childId: 'res-2' }] }),
+    )
+    // archive 目录下的任务排除（不区分活跃/已结算，但归档不重建）。
+    mkdirSync(join(tasksDir, 'archive', '2026-09', 't3'), { recursive: true })
+    writeFileSync(
+      join(tasksDir, 'archive', '2026-09', 't3', 'task.json'),
+      JSON.stringify({ dispatches: [{ kind: 'research', childId: 'archived-res' }] }),
+    )
+    const ids = rebuildResearchChildIds(root)
+    assert.deepEqual([...ids].sort(), ['res-1', 'res-2'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executor-guard：researchWriteGuard 拒绝越界 write/edit、放行域内与非 research', () => {
+  const root = makeGuardRoot()
+  try {
+    const state = createResearchGuardState()
+    registerResearchChild(state, root, 'res-child')
+    const guard = researchWriteGuard(state)
+    const child = (name, filePath) => ({
+      name,
+      arguments: filePath !== undefined ? { file_path: filePath } : {},
+      agent: { id: 'res-child', session: { header: { cwd: root } } },
+    })
+    // 越界 write：拒绝（英文，含路径与允许域）。
+    const denied = guard(child('write', '/tmp/escape.txt'))
+    assert.ok(typeof denied === 'string', 'out-of-domain write must be denied')
+    assert.match(denied, /denied/i)
+    assert.match(denied, /\.workloom/)
+    assert.match(denied, /escape\.txt/)
+    // 越界 edit（相对路径逃逸）：同样拒绝。
+    assert.ok(typeof guard(child('edit', '../outside.md')) === 'string')
+    // 域内 write/edit：放行。
+    assert.equal(guard(child('write', '.workloom/tasks/a.md')), undefined)
+    assert.equal(guard(child('edit', '.workloom/config.json')), undefined)
+    // 非 write/edit 工具：放行。
+    assert.equal(guard(child('bash', undefined)), undefined)
+    // 非 research 子代理：放行。
+    assert.equal(
+      guard({
+        name: 'write',
+        arguments: { file_path: '/tmp/escape.txt' },
+        agent: { id: 'other', session: { header: { cwd: root } } },
+      }),
+      undefined,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executor-guard 接线：research 派发登记子会话 id，守卫拒绝越界 write、放行域内', async () => {
+  const root = makeProject()
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(
+      execArgs({ kind: 'research', foreground: false, title: 'guard integration test' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    // 插件激活时守卫注册一次（mock 捕获）。
+    assert.equal(setup.guardRegistrations.length, 1)
+    const guard = setup.guardRegistrations[0]
+    const researchChild = { id: 'child-1', session: { header: { cwd: root } } }
+    // research 子会话越界 write：拒绝（英文）。
+    const denied = guard({
+      name: 'write',
+      arguments: { file_path: '/tmp/escape.md' },
+      agent: researchChild,
+    })
+    assert.ok(typeof denied === 'string')
+    assert.match(denied, /denied/)
+    // research 子会话域内 write：放行。
+    assert.equal(
+      guard({
+        name: 'write',
+        arguments: { file_path: '.workloom/tasks/test-task/x.md' },
+        agent: researchChild,
+      }),
+      undefined,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executor-guard 接线：仅 research 派发登记（implement 派发不登记，越界 write 放行）', async () => {
+  const root = makeProject()
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ foreground: false, title: 'guard impl only test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const guard = setup.guardRegistrations[0]
+    assert.equal(
+      guard({
+        name: 'write',
+        arguments: { file_path: '/tmp/escape.md' },
+        agent: { id: 'child-1', session: { header: { cwd: root } } },
+      }),
+      undefined,
+      'non-research child must not be guarded',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
