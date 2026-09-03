@@ -283,18 +283,56 @@ export function buildExecutorReceipt(params: {
     receipt += `, effort: ${effortLabel}${effortSrc}`
   }
   if (params.injection !== undefined) {
-    const { bytes, inlined, truncated, indexed, pointed, toolsAllowed } = params.injection
-    receipt += `; injection: ${(bytes / 1024).toFixed(1)}KB, ${inlined} inlined, ${truncated} truncated, ${indexed} indexed`
-    // 指针引用条数条件渲染（>0 时追加；纯 artifact 注入（如测试夹具）保持原 4 元组）。
-    if (pointed !== undefined && pointed > 0) {
-      receipt += `, ${pointed} pointed`
-    }
-    // 下发 allow 工具数条件渲染（与 inlined/pointed 同行追加，两 runtime 口径一致）。
-    if (toolsAllowed !== undefined) {
-      receipt += `, ${toolsAllowed} tools allowed`
-    }
+    receipt += renderInjectionSegment(params.injection)
   }
   return receipt
+}
+
+/**
+ * 拼装续派轮回执（design §8.3，运行时文案英文）：展示子会话 spawn 时刻绑定值。
+ * 绑定有值时 model/effort 各标注 `(spawn binding)`（不再回显当前配置解析结果，
+ * 杜绝「续派换模型谎报生效」）；旧记录无绑定值时整段显示 `(unrecorded spawn
+ * binding)`。effort 仅在绑定记录到值时渲染（与 buildExecutorReceipt 的 effort
+ * 条件段同一口径）；injection 段复用同一渲染。供 adapter-dsh 续派轮调用
+ * （Pi 无 continuation，不消费）。
+ * @param params 绑定数据与注入统计
+ * @returns 续派轮回执文本行
+ */
+export function buildSpawnBindingReceipt(params: {
+  /** childId 首次派发记录落盘的绑定值；null = 记录缺绑定（旧记录无字段）。 */
+  binding: { model?: string; effort?: string } | null
+  injection?: ExecutorInjectionStats
+}): string {
+  const { binding, injection } = params
+  if (binding === null || binding.model === undefined || binding.model === '') {
+    // 旧记录无绑定值：标注 unrecorded，不猜测生效模型（无谎报空间）。
+    return `[workloom executor] model: (unrecorded spawn binding)${renderInjectionSegment(injection)}`
+  }
+  let receipt = `[workloom executor] model: ${binding.model} (spawn binding)`
+  if (binding.effort !== undefined && binding.effort !== '') {
+    receipt += `, effort: ${binding.effort} (spawn binding)`
+  }
+  return `${receipt}${renderInjectionSegment(injection)}`
+}
+
+/**
+ * 渲染注入统计段（内部）：同行追加 `; injection: <KB>KB, N inlined, T truncated,
+ * I indexed`，指针引用条数 >0 追加 `, P pointed`、allow 工具数存在时追加
+ * `, K tools allowed`。injection 未传时返回空串（向后兼容）。
+ * @param injection 注入统计（可选）
+ * @returns 追加的注入段文本（可为空串）
+ */
+function renderInjectionSegment(injection: ExecutorInjectionStats | undefined): string {
+  if (injection === undefined) return ''
+  const { bytes, inlined, truncated, indexed, pointed, toolsAllowed } = injection
+  let segment = `; injection: ${(bytes / 1024).toFixed(1)}KB, ${inlined} inlined, ${truncated} truncated, ${indexed} indexed`
+  if (pointed !== undefined && pointed > 0) {
+    segment += `, ${pointed} pointed`
+  }
+  if (toolsAllowed !== undefined) {
+    segment += `, ${toolsAllowed} tools allowed`
+  }
+  return segment
 }
 
 /**

@@ -67,6 +67,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
 import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core'
+import type { DispatchModelSource } from '@workloom-ai/core'
 
 import {
   assertEffort,
@@ -106,7 +107,9 @@ import {
   collectExecutorTurn,
   drainContinuableChild,
   locateContinueChildId,
+  readSpawnBinding,
 } from './executor-continuation.js'
+import type { ResolvedDefaultsLike, TurnMeta } from './executor-continuation.js'
 import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
 
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
@@ -128,6 +131,16 @@ const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record 
 
 /** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
+
+/**
+ * 续派重绑定拒绝文案（design §8.1，运行时文案英文）：continue_executor 与
+ * model/effort 同传一律 fail loud——子会话 model/effort 在派发时刻已绑定，
+ * DSH followup 无模型重绑接缝，静默丢弃会让回执谎报生效；换模型必须新开派发。
+ */
+const CONTINUE_REBIND_REJECT_TEXT =
+  'continue_executor cannot be combined with model/effort: the child session keeps the ' +
+  'model/effort bound at its original dispatch and followup has no rebinding seam. ' +
+  'To change the model or effort, dispatch a new executor without continue_executor.'
 
 /**
  * 上游 DSH 接续拒绝的错误片段（parent 严格校验：child.parentSession ≠ 当前会话，
@@ -356,6 +369,16 @@ async function executeTool(
     )
   }
   const root = found.root
+  // 续派治理（design §8.1）：continue_executor 与 model/effort 同传一律 fail loud
+  // （含传相同值）——子会话绑定在派发时刻烤死，续派轮传 model/effort 只会被静默
+  // 丢弃、回执谎报生效；拒绝发生在任何登记/结算副作用（recordExecutorDispatch/
+  // trackDispatchSettle/followup/startContinuable）之前。
+  if (
+    params.continue_executor !== undefined &&
+    (params.model !== undefined || params.effort !== undefined)
+  ) {
+    throw new Error(`${ERR_PREFIX.executor}: ${CONTINUE_REBIND_REJECT_TEXT}`)
+  }
   // 合并子代理默认值：工具参数优先，未出现回退到 subagent_profiles 命中条目
   // （按主会话当前模型匹配），再回退到 subagents 配置（字段独立合并）；
   // effort 同名直通：显式参数或配置的档位原样进入 effective.effort，派发前由
@@ -432,6 +455,9 @@ async function executeTool(
   // 即「executor 子代理禁止再派发 workloom_execute」。
   let childId: string
   let reused = false
+  // 续派轮的 spawn 绑定（design §8.3）：从 childId 首次派发记录读取的 model/effort，
+  // 续派记录沿用该值、回执如实展示；新派轮为 null（绑定在派发后由本函数落盘）。
+  let spawnBinding: { model?: string; effort?: string } | null = null
   // 本轮实际发送内容与其注入统计：新派发/续接 reinject 走全量 buildExecutorPrompt
   // 产物；续接默认只发主会话增量指令（不重注入全量上下文），注入统计如实反映
   // 实际发送内容（增量时内联/截断/索引为 0、KB 为增量体积）。
@@ -455,6 +481,8 @@ async function executeTool(
     }
     childId = located
     reused = true
+    // 读取首次派发记录落盘的绑定（读不到/旧记录缺字段返回 null → 回执 unrecorded）。
+    spawnBinding = readSpawnBinding(root, taskRelPath, childId)
     if (params.reinject === true) {
       // 显式 reinject：恢复全量上下文注入（压缩丢失的兜底），与现状行为一致。
       const [localErr, localDirectives] = composeLocalDirectivesText(
@@ -533,10 +561,15 @@ async function executeTool(
   }
   // 派发时刻初写 dispatches（status: running）：失败派发也留痕（缺口 A）；记录
   // 失败仅告警不阻塞派发。终态由 executor-settle 的 subagent/end 监听回填。
+  // 续派治理（design §8.2）：记录同时落实际生效的绑定——新派轮写本次解析后的
+  // model/effort 与来源层（param/whenMain/fallback/legacy/inherit），续派轮沿用
+  // childId 首次派发记录的绑定、modelSource 记 spawn（审计可查，回执据此展示）。
   const [dispatchErr] = recordExecutorDispatch(root, taskRelPath, {
     kind: params.kind,
     title: params.title,
     childId,
+    // 续派轮沿用 spawn 绑定（可能无绑定字段 → 不落）；新派轮落本次生效绑定。
+    ...(reused ? buildSpawnEntryBinding(spawnBinding) : buildNewDispatchBinding(params, effective, mainModel)),
   })
   if (dispatchErr !== null) {
     console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`)
@@ -549,9 +582,17 @@ async function executeTool(
   }
   // 前台显式开关：阻塞等结算（现状行为，含 (reused) 续用轮语义）；否则默认后台
   // 派发——返回子代理标识 + 完整 receipt（注入统计派发前已就绪），不等待结算。
+  const turnMeta: TurnMeta = {
+    forced,
+    reused,
+    injection,
+    // 续派轮传 spawn 绑定（可能为 undefined = 记录无绑定，回执渲染 unrecorded）；
+    // 新派轮不传（走现状 receipt，未绑定字段时仍显示 (param)/(config…) 现状）。
+    ...(reused ? { spawnBinding: spawnBinding ?? undefined } : {}),
+  }
   if (params.foreground === true) {
     try {
-      return await collectExecutorTurn(ctx, childId, { forced, reused, injection }, effective)
+      return await collectExecutorTurn(ctx, childId, turnMeta, effective)
     } finally {
       // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 followup 续用轮）。
       await drainContinuableChild(ctx, parent, childId)
@@ -560,8 +601,67 @@ async function executeTool(
   return {
     kind: 'background',
     childId,
-    receipt: buildTurnReceiptText({ forced, reused, injection }, effective),
+    receipt: buildTurnReceiptText(turnMeta, effective),
   }
+}
+
+/**
+ * 新派轮记录落盘绑定（内部）：把本次解析后实际生效的 model/effort 与来源层写入
+ * dispatch entry（design §8.2）。model/effort 未解析出（未配置）时不带字段。
+ * @param params 工具参数（显式 model/effort 判定）
+ * @param effective 解析后生效值（resolveSubagentDefaults 结果）
+ * @param mainModel 主会话模型（inherit 时的绑定快照来源）
+ * @returns dispatch entry 的绑定字段（modelSource 恒有值）
+ */
+function buildNewDispatchBinding(
+  params: { model?: string; effort?: string },
+  effective: ResolvedDefaultsLike,
+  mainModel: string | undefined,
+): { model?: string; effort?: string; modelSource: DispatchModelSource } {
+  const modelSource = resolveDispatchModelSource(params, effective)
+  // inherit：无配置命中，子会话继承主会话模型——绑定值取主模型快照（可读时）；
+  // 其余来源：解析后的 model 即绑定值。
+  const model = effective.model ?? (modelSource === 'inherit' ? mainModel : undefined)
+  return {
+    ...(model !== undefined ? { model } : {}),
+    ...(effective.effort !== undefined ? { effort: effective.effort } : {}),
+    modelSource,
+  }
+}
+
+/**
+ * 续派轮记录落盘绑定（内部）：沿用 childId 首次派发记录的绑定值，来源记 spawn。
+ * 首次记录无绑定字段时只记来源（model/effort 缺省，审计仍可辨续派轮）。
+ * @param binding 首次派发记录读取的绑定（可能 null）
+ * @returns dispatch entry 的绑定字段（modelSource 恒为 spawn）
+ */
+function buildSpawnEntryBinding(
+  binding: { model?: string; effort?: string } | null,
+): { model?: string; effort?: string; modelSource: DispatchModelSource } {
+  return {
+    ...(binding?.model !== undefined ? { model: binding.model } : {}),
+    ...(binding?.effort !== undefined ? { effort: binding.effort } : {}),
+    modelSource: 'spawn',
+  }
+}
+
+/**
+ * 解析新派轮的 model 来源层（design §8.2，纯函数）：显式参数优先记为 param；
+ * 否则按命中来源细分 whenMain/fallback/legacy；全部未命中记 inherit。
+ * @param params 工具参数（显式 model 判定）
+ * @param effective 解析后生效值（含 sources/configSources）
+ * @returns 来源层标注（param/whenMain/fallback/legacy/inherit）
+ */
+function resolveDispatchModelSource(
+  params: { model?: string },
+  effective: ResolvedDefaultsLike,
+): DispatchModelSource {
+  if (params.model !== undefined) return 'param'
+  const configSource = effective.configSources.model
+  if (configSource === 'whenMain' || configSource === 'fallback' || configSource === 'legacy') {
+    return configSource
+  }
+  return 'inherit'
 }
 
 /**

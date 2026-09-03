@@ -52,6 +52,7 @@ export {
   TaskStatus,
   TaskPriority,
   TaskStage,
+  DISPATCH_MODEL_SOURCES,
   slugify,
   createTask,
   startTask,
@@ -152,6 +153,7 @@ export {
   buildErrorRelayText,
   buildSuccessRelayText,
   buildExecutorReceipt,
+  buildSpawnBindingReceipt,
   TASK_ARCHIVE_NOTE,
   TASK_CREATE_NOTE,
   GRILLING_PENDING_NOTE,
@@ -210,6 +212,7 @@ export type {
   DispatchRecord,
   DispatchRecordInput,
   DispatchStatus,
+  DispatchModelSource,
   DispatchSettleInput,
 } from './legacy/task-store.d.ts'
 

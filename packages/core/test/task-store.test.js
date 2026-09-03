@@ -1624,3 +1624,111 @@ test('失败派发（初写后未结算）留痕可见：running 记录在 task.
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// ---------- 续派模型治理：派发记录绑定字段（design §8.2，阶段三） ----------
+
+test('recordExecutorDispatch 新派落绑定：model/effort/modelSource 写入 dispatches', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Binding' })
+    // 新派轮：写入解析后实际生效的 model/effort 与来源（legacy 配置命中）。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'binding new',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      effort: 'high',
+      modelSource: 'legacy',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].model, 'deepseek-official/deepseek-v4-flash')
+    assert.equal(saved.dispatches[0].effort, 'high')
+    assert.equal(saved.dispatches[0].modelSource, 'legacy')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 续派轮：modelSource 记 spawn、绑定沿用首次派发值', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Spawn Copy' })
+    // 首次派发：绑定值来自配置（modelSource: legacy）。
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'spawn',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      effort: 'high',
+      modelSource: 'legacy',
+    })
+    // 续派轮：复制首次派发记录的 model/effort，modelSource 记 spawn。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'followup',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      effort: 'high',
+      modelSource: 'spawn',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 2)
+    assert.equal(saved.dispatches[1].model, saved.dispatches[0].model)
+    assert.equal(saved.dispatches[1].effort, saved.dispatches[0].effort)
+    assert.equal(saved.dispatches[1].modelSource, 'spawn')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 绑定字段非法值 fail loud（不落盘）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Bad Binding' })
+    // modelSource 越出枚举值域：记录被拒，不产生 dispatches 条目。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'bad source',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      modelSource: 'env',
+    })
+    assert.ok(err instanceof Error)
+    assert.match(err.message, /invalid dispatch modelSource/)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 0)
+    // model 缺省读取为 undefined（旧记录不炸）。
+    const [legacyErr, legacyTask] = readTask(root, created.taskRelPath)
+    assert.equal(legacyErr, null)
+    assert.equal(legacyTask.dispatches.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：旧派发记录缺绑定字段读取为 undefined（不炸）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '09-03-legacy-binding-dispatch')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({
+        id: 'x',
+        name: 'legacy-binding-dispatch',
+        status: TaskStatus.PLANNING,
+        dispatches: [
+          { kind: 'implement', at: new Date().toISOString(), title: 'legacy', childId: 'child-9' },
+        ],
+      }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.dispatches[0].model, undefined)
+    assert.equal(task.dispatches[0].effort, undefined)
+    assert.equal(task.dispatches[0].modelSource, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

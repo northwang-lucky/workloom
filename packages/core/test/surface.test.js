@@ -9,6 +9,7 @@ import {
   ASSET_COMMAND_DOCTOR,
   buildErrorRelayText,
   buildExecutorReceipt,
+  buildSpawnBindingReceipt,
   buildSuccessRelayText,
   COMMAND_DESCRIPTIONS,
   COMMAND_NAMES,
@@ -238,4 +239,33 @@ test('TASK_CREATE_NOTE 含 Phase 1.1 行动指引（brainstorm → 固定问题 
 test('GRILLING_PENDING_NOTE 含补录指引（phase=grilling）', () => {
   assert.match(GRILLING_PENDING_NOTE, /phase=grilling/)
   assert.match(GRILLING_PENDING_NOTE, /workloom_task_check/)
+})
+
+// ---------- 续派模型治理：续派回执 spawn 绑定渲染（design §8.3，阶段三） ----------
+
+test('buildSpawnBindingReceipt 绑定有值：model/effort 展示绑定值并标注 (spawn binding)', () => {
+  const text = buildSpawnBindingReceipt({
+    binding: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' },
+  })
+  assert.equal(
+    text,
+    '[workloom executor] model: deepseek-official/deepseek-v4-flash (spawn binding), effort: high (spawn binding)',
+  )
+})
+
+test('buildSpawnBindingReceipt 绑定缺失：显示 (unrecorded spawn binding)，不再回显未生效参数', () => {
+  const text = buildSpawnBindingReceipt({ binding: null })
+  assert.equal(text, '[workloom executor] model: (unrecorded spawn binding)')
+})
+
+test('buildSpawnBindingReceipt 注入统计段同行追加（与新派回执同一渲染口径）', () => {
+  const text = buildSpawnBindingReceipt({
+    binding: { model: 'kimi-coding/k3' },
+    injection: { bytes: 18739, inlined: 7, truncated: 0, indexed: 0 },
+  })
+  assert.match(
+    text,
+    /^\[workloom executor\] model: kimi-coding\/k3 \(spawn binding\); injection: 18\.3KB, 7 inlined, 0 truncated, 0 indexed$/,
+    'spawn receipt must append the injection 4-tuple on the same line',
+  )
 })
