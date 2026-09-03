@@ -111,6 +111,7 @@ import {
 } from './executor-continuation.js'
 import type { ResolvedDefaultsLike, TurnMeta } from './executor-continuation.js'
 import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
+import { readMainModel } from './main-model.js'
 
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
 const KIND_LABELS = {
@@ -716,27 +717,6 @@ function injectionStats(built: ExecutorPromptResult, toolsAllowed?: number): Exe
     pointed: built.stats.filesPointed,
     ...(toolsAllowed !== undefined ? { toolsAllowed } : {}),
   }
-}
-
-/**
- * 读取主会话当前模型（"provider/model" 字符串）：取自会话日志最新
- * request/header 快照（反映运行中切模型）；provider/model 任一缺失或为空串时
- * 返回 undefined（视为取不到：subagent_profiles 的全部 whenMain 条目跳过，走
- * 兜底/旧 subagents，不 fail loud）。
- * @param parent 发起 agent（session.requestHeader 可选，旧宿主缺失时 undefined）
- * @returns 主模型标识或 undefined
- */
-function readMainModel(parent: MinimalAgent): string | undefined {
-  const header = parent.session.requestHeader?.()
-  const provider = header?.config?.provider
-  const model = header?.config?.model
-  // provider/model 缺失或为空串均按「无值」处理：空串拼出的 "/" 会在 core 的
-  // whenMain 匹配（splitProviderModel）时抛错，必须排除（设计口径：取不到
-  // 主模型时 whenMain 全部跳过，不 fail loud）。
-  if (provider === undefined || provider === '' || model === undefined || model === '') {
-    return undefined
-  }
-  return `${provider}/${model}`
 }
 
 /**

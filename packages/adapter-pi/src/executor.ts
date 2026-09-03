@@ -60,6 +60,7 @@ import type {
 } from '@workloom-ai/core'
 
 import { contextKeyOf } from './constants.ts'
+import { readMainModel } from './main-model.ts'
 import { buildChildPiArgs } from './pi-args.ts'
 import { extractExecutorText, parsePiEventLine, type PiEventState } from './pi-events.ts'
 import {
@@ -465,25 +466,6 @@ async function executeTool(
     content: [{ type: 'text', text: textWithReceipt }],
     details: { kind: 'foreground', runId: result.runId, status: 'completed' },
   }
-}
-
-/**
- * 读取主会话当前模型（"provider/model" 字符串）：取自工具上下文 ctx.model；
- * provider/id 任一缺失或为空串时返回 undefined（视为取不到：subagent_profiles
- * 的全部 whenMain 条目跳过，走兜底/旧 subagents，不 fail loud）。
- * @param ctx 工具执行上下文（model 为可选字段，旧宿主缺失时 undefined）
- * @returns 主模型标识或 undefined
- */
-function readMainModel(ctx: ExecutorContextLike): string | undefined {
-  const provider = ctx.model?.provider
-  const id = ctx.model?.id
-  // provider/id 缺失或为空串均按「无值」处理：空串拼出的 "/" 会在 core 的
-  // whenMain 匹配（splitProviderModel）时抛错，必须排除（设计口径：取不到
-  // 主模型时 whenMain 全部跳过，不 fail loud）。
-  if (provider === undefined || provider === '' || id === undefined || id === '') {
-    return undefined
-  }
-  return `${provider}/${id}`
 }
 
 /**

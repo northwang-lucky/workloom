@@ -29,6 +29,7 @@ import {
 import { loadWorkflowContractText } from '@workloom-ai/assets'
 
 import { contextKeyOf, SESSION_CONTEXT_CUSTOM_TYPE } from './constants.ts'
+import { readMainModel } from './main-model.ts'
 
 /** session-context 注入跳过告警前缀（运行时文案英文）。 */
 const CONTEXT_WARN_PREFIX = 'workloom: session context injection skipped:'
@@ -74,12 +75,19 @@ function injectSessionContext(
     return
   }
   // 契约文本从 assets 加载；本机片段三层叠加组装（main 目标），解析/组装失败
-  // 只告警跳过，不阻塞会话。
+  // 只告警跳过，不阻塞会话。主会话模型取 ExtensionContext.model 的 provider/id
+  // 投影（会话启动早期取不到时 undefined：画像走 main model unknown 分支，不造数据）。
   const [localErr, localDirectives] = composeMainLocalDirectives(root)
   if (localErr !== null) {
     console.warn(`${CONTEXT_WARN_PREFIX} local directives: ${localErr.message}`)
   }
-  const [err, text] = assembleSessionContextText(root, contextKey, contractText, localDirectives)
+  const [err, text] = assembleSessionContextText(
+    root,
+    contextKey,
+    contractText,
+    localDirectives,
+    readMainModel(ctx),
+  )
   if (err || text === null) {
     console.warn(
       `${CONTEXT_WARN_PREFIX} ${err?.message ?? 'session context assembly returned no text'}`,
@@ -107,6 +115,8 @@ export function composeMainLocalDirectives(root: string): [Error | null, string]
  * @param contextKey 会话 contextKey
  * @param contractText 契约全文
  * @param localDirectives 本机片段合成文本（主 agent 目标；空串/未传 = 不注入）
+ * @param mainModel 主会话模型（"provider/id"；取不到传 undefined，画像走
+ *   main model unknown 分支——whenMain 条目跳过、兜底正常解析，不 fail loud）
  * @returns [err, text]：成功时 text 为整块快照
  */
 export function assembleSessionContextText(
@@ -114,6 +124,7 @@ export function assembleSessionContextText(
   contextKey: string,
   contractText: string,
   localDirectives?: string,
+  mainModel?: string | null,
 ): [Error | null, string | null] {
   const [parseErr, contract] = parseContract(contractText)
   if (parseErr || contract === null) {
@@ -129,6 +140,7 @@ export function assembleSessionContextText(
     workflowSteps: contract.steps,
     norms: contract.norms,
     localDirectives,
+    mainModel,
   })
 }
 

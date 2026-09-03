@@ -31,6 +31,7 @@ import { registerCommands } from './commands.js'
 import { registerExecutor } from './executor.js'
 import type { ExecutorServices } from './executor.js'
 import { registerEffortInjection } from './effort-inject.js'
+import { readMainModel } from './main-model.js'
 import { registerSkills, registerStepsTool } from './skills.js'
 import type { SkillsServices, StepsToolServices } from './skills.js'
 import { registerTaskTools } from './tasks.js'
@@ -204,6 +205,9 @@ export function renderSessionContext(target: InjectionTarget): string {
  * 委派深度透传 core（缺省 0）：深度>0 时 norms 段整体替换为 executor 版。
  * localDirectives 为本机片段合成文本（缺省空串）：depth=0 时由 core 在 norms 后
  * 追加 Local directives 小节（depth>0 由 executor 首条 prompt 注入一次，不重复）。
+ * mainModel 由 target.agent 的 requestHeader 快照读取（design §6）：Executor
+ * profiles 节的 whenMain 条目按它匹配、首行标题展示；取不到时传 undefined（core
+ * 走 main model unknown 分支，whenMain 条目跳过，不 fail loud）。
  * @param target 注入目标（agent + 项目根）
  * @param contractText 契约全文
  * @param delegationDepth 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）
@@ -230,6 +234,7 @@ export function assembleSessionContextText(
     norms: contract.norms,
     delegationDepth,
     localDirectives,
+    mainModel: readMainModel(target.agent),
   })
   if (err) {
     console.warn(`${CONTEXT_WARN_PREFIX} ${err.message}`)

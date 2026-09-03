@@ -192,6 +192,73 @@ test('session_start 注入：快照含 Local directives 小节与 main/all 片�
   }
 })
 
+test('assembleSessionContextText: mainModel 传参 → 画像节首行带主模型（provider/id）', () => {
+  const root = makeRoot()
+  try {
+    const [err, text] = assembleSessionContextText(
+      root,
+      'pi_sess-1',
+      CONTRACT_WITH_NORMS,
+      undefined,
+      'kimi-coding/k3',
+    )
+    assert.equal(err, null)
+    assert.ok(text !== null)
+    assert.ok(
+      text.includes('Executor profiles (main model kimi-coding/k3):'),
+      '画像首行必须携带传入的主会话模型',
+    )
+    assert.ok(!text.includes('main model unknown'), '传入主模型必须替换 unknown 首行')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('session_start 注入：ExtensionContext 带 model 时画像首行透传主会话模型', () => {
+  const root = makeFragmentsRoot()
+  try {
+    const { pi, listeners, sent } = makeInjectingPi()
+    registerInjections(pi)
+    const handler = listeners.get('session_start')
+    assert.ok(handler !== undefined)
+    const ctx = {
+      ...makeSessionCtx(root),
+      model: { provider: 'kimi-coding', id: 'k3' },
+    }
+    handler({ reason: 'startup' }, ctx)
+    assert.equal(sent.length, 1)
+    const message = sent[0]
+    assert.ok(message !== undefined)
+    assert.ok(message.content.includes('<workloom-session-context>'))
+    assert.ok(
+      message.content.includes('Executor profiles (main model kimi-coding/k3):'),
+      '注入文本画像首行必须携带 ctx.model 的主会话模型',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('session_start 注入：ExtensionContext 无 model 时画像首行走 main model unknown 分支（不造数据）', () => {
+  const root = makeFragmentsRoot()
+  try {
+    const { pi, listeners, sent } = makeInjectingPi()
+    registerInjections(pi)
+    const handler = listeners.get('session_start')
+    assert.ok(handler !== undefined)
+    handler({ reason: 'startup' }, makeSessionCtx(root))
+    assert.equal(sent.length, 1)
+    const message = sent[0]
+    assert.ok(message !== undefined)
+    assert.ok(
+      message.content.includes('Executor profiles (main model unknown; whenMain entries skipped):'),
+      '取不到主会话模型时标注 unknown 且 whenMain 跳过（不 fail loud）',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('session_start 注入（片段组装失败）：只告警不阻塞，快照照常注入且无 Local directives 小节', () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-inject-bad-fragment-'))
   mkdirSync(join(root, '.workloom', 'prompts.local'), { recursive: true })
