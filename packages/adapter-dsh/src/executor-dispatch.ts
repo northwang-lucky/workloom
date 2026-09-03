@@ -42,7 +42,8 @@ export function hasLspTooling(allowNames: readonly string[]): boolean {
 /**
  * 组装 toolFilter allow 清单形状：core 按 runtime='dsh' 组装（原生候选 ±
  * tools 配置，与可见集求交），本模块投影为 `{ allow }`。
- * @param visibleNames 运行时可见工具名集合（ctx.tools.schemas() 全局视图投影）
+ * @param visibleNames 运行时可见工具名集合（父代理作用域视图投影——原生工具
+ *   挂在 agent-plane，无参全局视图枚举不到，不得作为求交源）
  * @param toolsConfig 该 kind 的 tools 配置（includes/excludes；缺省零行为）
  * @returns `{ allow }` 形状（allow 为空数组时派发前由 capability/工具面兜底拒绝）
  */

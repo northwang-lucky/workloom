@@ -137,6 +137,7 @@ function makeCtx(overrides = {}) {
   const whenIdleCalls = []
   const listeners = []
   const guardRegistrations = []
+  const schemasScopes = []
   const childAgents = new Map()
 
   /** 建/取 child agent（续用轮 followup 时复用同一 id 的会话，仅重绑 whenIdle）。 */
@@ -161,7 +162,10 @@ function makeCtx(overrides = {}) {
     },
     // 运行时可见工具名：默认 9 个 workloom 工具 + 全部委派候选 + 常规工具
     // （模拟真实宿主注册面）；用例可经 overrides.visibleTools 自定义。
-    schemas() {
+    // scope 入参记录到 schemasScopes：生产代码必须传父代理作用域（原生
+    // 工具挂 agent-plane，无参全局视图枚举不到）。
+    schemas(scope) {
+      schemasScopes.push(scope)
       const names =
         overrides.visibleTools === undefined
           ? [...Object.values(TOOL_NAMES), ...NATIVE_DELEGATION_CANDIDATES, 'write', 'edit']
@@ -236,6 +240,7 @@ function makeCtx(overrides = {}) {
     whenIdleCalls,
     listeners,
     guardRegistrations,
+    schemasScopes,
   }
 }
 
@@ -255,6 +260,7 @@ function setupExecutor(overrides = {}) {
     whenIdleCalls: made.whenIdleCalls,
     listeners: made.listeners,
     guardRegistrations: made.guardRegistrations,
+    schemasScopes: made.schemasScopes,
   }
 }
 
@@ -1190,13 +1196,17 @@ test('continuable 请求携带 toolFilter allow：默认 = 原生候选 ∩ 可�
       'edit',
       'lsp_diagnostics',
     ]
-    const { execute, startCalls } = setupExecutor({ visibleTools: visible })
+    const { execute, startCalls, schemasScopes } = setupExecutor({ visibleTools: visible })
     const parent = makeAgent(root)
     await execute(execArgs({ title: 'toolfilter allow test' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
+    // 可见集求交源必须是父代理作用域视图（回归断言：冒烟实证无参全局视图
+    // 枚举不到 agent-plane 原生工具，会把基集整个丢出 allow）。
+    assert.equal(schemasScopes.length, 1)
+    assert.equal(schemasScopes[0], parent)
     // allow = 原生候选 ∩ 可见集：只有 write/edit 可见且原生；workloom 工具/委派候选
     // /lsp_* 不入 allow（默认白名单不授编排/交互/任务工具）。
     const expectedAllow = [...NATIVE_TOOLS_DSH].filter((name) => visible.includes(name))
