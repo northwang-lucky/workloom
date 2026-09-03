@@ -1,0 +1,9 @@
+{
+  "id": 7,
+  "query": "finish Phase 1.1: frontier looks empty, run review and confirm after I approve",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query explicitly references Phase 1.1, mentions the design-tree frontier being empty, and asks to run review and confirm convergence pending user approval — this is exactly the workloom-alignment skill's scope (full-frontier rounds, fact checks, convergence confirmation for an active workloom planning task)."
+}

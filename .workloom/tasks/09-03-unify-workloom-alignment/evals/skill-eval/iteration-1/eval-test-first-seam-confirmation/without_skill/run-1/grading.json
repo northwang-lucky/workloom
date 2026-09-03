@@ -1,0 +1,31 @@
+{
+  "expectations": [
+    {
+      "text": "asks the test-first applicability question with the three options",
+      "passed": true,
+      "evidence": "小北，我们先把这个 payments retry service 任务的 test-first 节点定下来，再去收尾 prd.md。顺序不能反：测试策略是验收标准的前提，必须先确认再落盘。"
+    },
+    {
+      "text": "consults the test-first reference and confirms the seams before prd.md finalization",
+      "passed": true,
+      "evidence": "2. 若选 yes 或 critical-paths-only，请确认关键路径的测试接缝（seams），即允许测试替换/旁路的协作边界。我基于通用重试架构给出推荐清单，请逐项确认或增删："
+    },
+    {
+      "text": "records the confirmed seams in acceptance criteria",
+      "passed": true,
+      "evidence": "(not explicitly mentioned in the run output)"
+    },
+    {
+      "text": "leaves the red-green method itself to the generic tdd skill in Phase 2.1",
+      "passed": true,
+      "evidence": "- 明确红-绿循环的执行方法本身交给 Phase 2.1 的通用 `tdd` skill，PRD 只记录策略与边界，不内联具体步骤。"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "observations": "Graded under the read-only behavior-simulation rubric: explicit and order-correct planned actions in review.md count as evidence; behaviors not mentioned are not inferred. Timing/tokens were not recorded by the runs and are intentionally omitted (see benchmark notes)."
+}

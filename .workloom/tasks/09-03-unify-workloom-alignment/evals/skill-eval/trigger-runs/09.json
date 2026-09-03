@@ -1,0 +1,9 @@
+{
+  "id": 9,
+  "query": "standalone discussion: should I rename the product to X? play devil's advocate",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "grilling",
+  "match": true,
+  "reason": "The query is explicitly a standalone discussion outside any active workloom planning task, asking for devil's advocate pressure-testing of a product naming decision. The workloom-alignment description excludes standalone non-workloom grilling; the generic grilling skill explicitly covers standalone discussions and stress-testing the user's thinking, so it is the correct choice and workloom-alignment should not trigger."
+}

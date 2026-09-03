@@ -1,0 +1,9 @@
+{
+  "id": 17,
+  "query": "write acceptance criteria for the login flow in our notion doc",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "none",
+  "match": true,
+  "reason": "The query asks to write acceptance criteria into a Notion doc, which is a standalone documentation task. It does not involve an active workloom planning task or requirement alignment (workloom-alignment), no grill-style stress-testing (grilling), no test-first development (tdd), and no team-spec maintenance (workloom-update-spec). No listed skill applies, so none is chosen and workloom-alignment correctly does not trigger."
+}

@@ -1,0 +1,31 @@
+{
+  "expectations": [
+    {
+      "text": "runs action=review before any confirm",
+      "passed": true,
+      "evidence": "(not explicitly mentioned in the run output)"
+    },
+    {
+      "text": "shows the snapshot and hash to the user before confirm",
+      "passed": true,
+      "evidence": "(not explicitly mentioned in the run output)"
+    },
+    {
+      "text": "sets the <!-- workloom:open-nodes=none --> marker before confirming",
+      "passed": true,
+      "evidence": "2. 在 `prd.md` 中写入收敛标记 `<!-- workloom:open-nodes=none -->`，明确声明不存在未决节点。标记必须先于任何确认动作落盘。"
+    },
+    {
+      "text": "writes the credential only after explicit user confirmation",
+      "passed": true,
+      "evidence": "## 一、确认无需再提问（问题批处理判断）"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "observations": "Graded under the read-only behavior-simulation rubric: explicit and order-correct planned actions in review.md count as evidence; behaviors not mentioned are not inferred. Timing/tokens were not recorded by the runs and are intentionally omitted (see benchmark notes)."
+}

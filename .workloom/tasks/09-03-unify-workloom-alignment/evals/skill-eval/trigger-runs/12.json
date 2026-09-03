@@ -1,0 +1,9 @@
+{
+  "id": 12,
+  "query": "write the mobile settings screen UI now",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "none",
+  "match": true,
+  "reason": "The query asks to immediately implement a mobile settings screen UI. It does not mention an active workloom planning task, requirement alignment, grilling, test-first/red-green-refactor, or updating spec conventions. workloom-alignment only applies to Phase 1.1 requirement alignment inside an active workloom planning task, so it should not trigger; no other listed skill applies, so the correct choice is none."
+}

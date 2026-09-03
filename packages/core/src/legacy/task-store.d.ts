@@ -42,17 +42,16 @@ export interface TaskCheckRecord {
 }
 
 /**
- * grilling 凭据（workloom_task_check phase=grilling 写入 task.json.grilling）。
- * 判定调用落 required（用户回答固定问题后）；收敛调用落 passedAt + summary。
- * 无 grilling 字段 = 未判定（存量任务，start 放行 + grillingPending 软提醒）。
+ * alignment 凭据（workloom_task_align action=confirm 原子写入 task.json.alignment）。
+ * 无 alignment 字段 = 未对齐（planning 任务 start 前必须完成确认；旧任务读 null）。
  */
-export interface TaskGrillingRecord {
-  /** 固定 grilling 问题判定：yes=true / no=false（显式布尔）。 */
-  required: boolean
-  /** grilling 收敛时间（未收敛为 null）。 */
-  passedAt: string | null
-  /** grilling 收敛摘要（未收敛为 null）。 */
-  summary: string | null
+export interface TaskAlignmentRecord {
+  /** 用户明确确认时间（相同 hash 重复 confirm 幂等，不刷新）。 */
+  passedAt: string
+  /** 收敛摘要（覆盖节点、关键决策及确认结果，由 alignment skill 提供）。 */
+  summary: string
+  /** 确认时含 Alignment Decisions 的完整 PRD SHA-256（CRLF/CR 归一为 LF）。 */
+  prdHash: string
 }
 
 /** force 豁免留痕（task.json.overrides 元素）。 */
@@ -150,7 +149,8 @@ export interface TaskRecord {
   notes: string
   meta: Record<string, unknown>
   check: TaskCheckRecord | null
-  grilling: TaskGrillingRecord | null
+  /** Phase 1.1 alignment 凭据（确认后非空；旧 grilling 字段为惰性历史数据，不参与语义）。 */
+  alignment: TaskAlignmentRecord | null
   overrides: GateOverride[]
   /** 任务执行期阶段（implement | check）：派发时与 dispatches 同点写入，旧任务归一化默认 implement。 */
   stage: TaskStageValue
@@ -161,14 +161,8 @@ export interface TaskRecord {
 /** 附带 taskRelPath 的任务记录（readTask 返回）。 */
 export type TaskRecordWithPath = TaskRecord & { taskRelPath: string }
 
-/**
- * startTask 返回的任务记录：附 grillingPending（grilling 未判定提示，不落盘）。
- * grillingPending=true 时 task-ops 层附加 grillingNote 软提醒文案。
- */
-export type StartedTaskRecord = TaskRecordWithPath & {
-  grillingPending: boolean
-  grillingNote?: string
-}
+/** startTask 返回的任务记录（planning → in_progress，无软提醒字段；凭据语义在 alignment）。 */
+export type StartedTaskRecord = TaskRecordWithPath
 
 /** 任务摘要（listTasks 返回）。 */
 export interface TaskSummary {
@@ -209,18 +203,11 @@ export interface StartTaskParams {
 /** checkTask 参数。 */
 export interface CheckTaskParams {
   taskRelPath: string
-  /**
-   * 凭据阶段：check（缺省）记录 2.2 check 凭据；grilling 记录固定 grilling
-   * 问题判定/收敛凭据（允许 planning/in_progress，跳过 check.jsonl 门禁）。
-   */
-  phase?: 'check' | 'grilling'
-  /** grilling 判定（yes=true / no=false；phase=grilling 且无 summary 时必填显式布尔）。 */
-  required?: boolean
-  /** check 通过摘要 / grilling 收敛摘要（phase=check 必填非空；grilling 收敛调用必填）。 */
+  /** 2.2 check 通过摘要（必填非空）。 */
   summary?: string
-  /** 豁免 check 门禁（留痕 overrides；仅 phase=check 生效）。 */
+  /** 豁免 check 门禁（留痕 overrides；仅在实际绕过 gate 时记录）。 */
   force?: boolean
-  /** force 豁免原因（审计用）。 */
+  /** force 豁免原因（force=true 时必填非空，审计用）。 */
   reason?: string
 }
 
@@ -254,23 +241,48 @@ export function createTask(
   params: CreateTaskParams,
 ): Promise<[Error | null, CreateTaskResult | null]>
 
-/** 启动任务：planning → in_progress（返回记录附 grillingPending 提示）。 */
+/** 启动任务：planning → in_progress。 */
 export function startTask(
   root: string,
   params: StartTaskParams,
 ): Promise<[Error | null, StartedTaskRecord | null]>
 
-/** 记录任务凭据：phase=check 写 2.2 check 字段；phase=grilling 写 grilling 判定/收敛字段。 */
+/** 记录 2.2 check 通过凭据（task.json check 字段；stale alignment 在 force 外硬拦）。 */
 export function checkTask(
   root: string,
   params: CheckTaskParams,
 ): [Error | null, TaskRecordWithPath | null]
+
+/**
+ * 记录 alignment 凭据（workloom_task_align confirm 的窄写口，同步全链路）：
+ * 校验 summary/prdHash 非空与任务状态，通过同目录临时文件 + renameSync 原子写
+ * task.json.alignment；相同 prdHash 重复 confirm 幂等早退（不刷新 passedAt）。
+ */
+export function recordAlignmentCredential(
+  root: string,
+  taskRelPath: string,
+  entry: AlignmentCredentialInput,
+): [Error | null, TaskRecordWithPath | null]
+
+/** recordAlignmentCredential 入参（passedAt 由函数生成；summary/prdHash 由调用方校验后传入）。 */
+export type AlignmentCredentialInput = Pick<TaskAlignmentRecord, 'summary' | 'prdHash'>
 
 /** 记录 executor 参数覆盖（force 放行后调用）：向 overrides 追加 EXECUTOR_MODEL_EFFORT 条目。 */
 export function recordExecutorOverride(
   root: string,
   taskRelPath: string,
   reason?: string,
+): [Error | null]
+
+/**
+ * 记录指定 gate 的 force 豁免（R14：每个实际绕过的 gate 独立留痕；reason 必填非空）。
+ * 用于 stale_alignment 等非 executor_model_effort 门禁的 force 审计（适配层调用）。
+ */
+export function recordGateOverride(
+  root: string,
+  taskRelPath: string,
+  gate: import('./task-gates.d.ts').GateValue,
+  reason: string,
 ): [Error | null]
 
 /** 记录一次 executor 派发（初写，派发时刻调用）：向 dispatches 追加 { kind, at, title, childId?, status: 'running' }（at 自动生成）。 */

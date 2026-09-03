@@ -79,29 +79,27 @@ test('TASK_CREATE_PARAMS schema 含 parent 可选字符串（描述引用 PARAM_
   assert.ok(!def.parameters.required?.includes('parent'), 'parent must be optional')
 })
 
-test('TASK_CHECK_PARAMS schema 含 phase（枚举 grilling/check、缺省 check、描述引用 PARAM_DESCRIPTIONS.phase）与 required', () => {
+test('TASK_CHECK_PARAMS schema 不再含 phase/required（2.2 check 单一凭据）', () => {
   const { pi, registered } = makePi()
   registerTaskTools(pi)
   const def = registered.find((entry) => entry.name === 'workloom_task_check')
   assert.ok(def, 'check tool must be registered')
   const props = def.parameters.properties
-  const phase = props.phase as
-    { anyOf?: { const?: string }[]; default?: string; description?: string } | undefined
-  assert.ok(phase, 'phase param must be present')
-  assert.deepEqual(
-    phase.anyOf?.map((entry) => entry.const),
-    ['check', 'grilling'],
-  )
-  assert.equal(phase.default, 'check')
-  // 描述引用 core surface 常量（phase 短描述 + phaseGrilling 完整语义）
-  const phaseDesc = readDescription(props.phase)
-  assert.ok(phaseDesc !== undefined, 'phase description must be present')
-  assert.ok(phaseDesc.includes(PARAM_DESCRIPTIONS.phase))
-  assert.ok(phaseDesc.includes(PARAM_DESCRIPTIONS.phaseGrilling))
-  const requiredParam = props.required as { type?: string; description?: string } | undefined
-  assert.ok(requiredParam, 'required param must be present')
-  assert.equal(requiredParam.type, 'boolean')
-  assert.equal(readDescription(props.required), PARAM_DESCRIPTIONS.grillingRequired)
+  assert.ok(!('phase' in props), 'check tool must not declare phase')
+  assert.ok(!('required' in props), 'check tool must not declare required')
+  assert.equal(readDescription(props.summary), PARAM_DESCRIPTIONS.summary)
+})
+
+test('TASK_ALIGN tool：名称/参数 action 必填 review/confirm + expectedPrdHash/summary 描述', () => {
+  const { pi, registered } = makePi()
+  registerTaskTools(pi)
+  const def = registered.find((entry) => entry.name === 'workloom_task_align')
+  assert.ok(def, 'align tool must be registered')
+  assert.ok(def.parameters.required?.includes('action'), 'action must be required')
+  assert.ok('expectedPrdHash' in def.parameters.properties, 'expectedPrdHash param must exist')
+  assert.ok('summary' in def.parameters.properties, 'summary param must exist')
+  assert.equal(readDescription(def.parameters.properties.expectedPrdHash), PARAM_DESCRIPTIONS.expectedPrdHash)
+  assert.equal(readDescription(def.parameters.properties.summary), PARAM_DESCRIPTIONS.alignmentSummary)
 })
 
 test('executeCreate 转发 parent：子任务落盘 parent 字段且父 children 联动', async () => {

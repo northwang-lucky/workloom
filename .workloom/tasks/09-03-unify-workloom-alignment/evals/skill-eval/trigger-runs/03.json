@@ -1,0 +1,9 @@
+{
+  "id": 3,
+  "query": "grill this plan round by round until the assumptions are gone",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query asks for grill-style, round-by-round pressure-testing of a plan until assumptions are eliminated. Per the catalog, workloom-alignment explicitly covers grill-style / design-tree pressure-testing and iterative alignment rounds inside a workloom planning task, while the generic grilling skill is reserved for non-workloom standalone discussions. Routed to workloom-alignment."
+}

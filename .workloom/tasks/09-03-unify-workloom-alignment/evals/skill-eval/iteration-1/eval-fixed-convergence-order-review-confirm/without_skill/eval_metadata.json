@@ -1,0 +1,12 @@
+{
+  "eval_id": 4,
+  "eval_name": "fixed-convergence-order-review-confirm",
+  "prompt": "The frontier of the active workloom alignment is empty and prd.md is complete with the ## Alignment Decisions section. Take it through convergence.",
+  "assertions": [
+    "runs action=review before any confirm",
+    "shows the snapshot and hash to the user before confirm",
+    "sets the <!-- workloom:open-nodes=none --> marker before confirming",
+    "writes the credential only after explicit user confirmation"
+  ],
+  "config": "without_skill"
+}

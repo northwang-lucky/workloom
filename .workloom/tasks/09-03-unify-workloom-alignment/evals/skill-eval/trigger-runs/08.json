@@ -1,0 +1,9 @@
+{
+  "id": 8,
+  "query": "pressure-test the acceptance criteria of this planning task before design.md",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query asks to pressure-test acceptance criteria of an active workloom planning task (before design.md exists, i.e. still in Phase 1.1 requirement alignment). The workloom-alignment catalog entry explicitly covers grill-style/design-tree pressure-testing requests inside a workloom task, while the generic grilling skill is reserved for non-workloom standalone discussions. No TDD or spec-update intent is present, so workloom-alignment is the correct single choice."
+}

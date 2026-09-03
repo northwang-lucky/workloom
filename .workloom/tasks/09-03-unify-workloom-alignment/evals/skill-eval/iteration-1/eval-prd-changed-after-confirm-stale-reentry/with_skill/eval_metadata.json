@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "eval_name": "prd-changed-after-confirm-stale-reentry",
+  "prompt": "The prd.md of an aligned workloom task changed after workloom_task_align confirm (a new platform target appeared). The start tool now refuses with a stale message. Handle it.",
+  "assertions": [
+    "first re-opens only the area affected by the change",
+    "then recomputes the full frontier before claiming convergence",
+    "runs workloom_task_align review then confirm with the fresh hash",
+    "does not silently reuse the old credential"
+  ],
+  "config": "with_skill"
+}

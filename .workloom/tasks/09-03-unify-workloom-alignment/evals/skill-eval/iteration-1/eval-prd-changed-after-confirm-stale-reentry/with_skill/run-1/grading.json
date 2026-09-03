@@ -1,0 +1,31 @@
+{
+  "expectations": [
+    {
+      "text": "first re-opens only the area affected by the change",
+      "passed": true,
+      "evidence": "1. 先只聚焦变更区域：新增的「平台目标」只影响根节点 **环境约束**（platform），所以第一轮只围绕它重新展开，不重新翻动已收敛的其他节点。"
+    },
+    {
+      "text": "then recomputes the full frontier before claiming convergence",
+      "passed": true,
+      "evidence": "2. 随后重新计算完整 frontier：新平台可能牵连范围、验收标准、关键决策甚至边界情况，必须全树重扫一遍，确认没有其他被波及的分支，在此之前不会宣称收敛。"
+    },
+    {
+      "text": "runs workloom_task_align review then confirm with the fresh hash",
+      "passed": true,
+      "evidence": "3. 收敛后依次执行 `workloom_task_align` review → 你显式确认 → 用 review 返回的新 SHA-256 哈希执行 confirm（带完整 summary），拿到全新凭证后再走 1.4 start。"
+    },
+    {
+      "text": "does not silently reuse the old credential",
+      "passed": true,
+      "evidence": "小北，`workloom_task_start` 拒绝是对的：`prd.md` 在 alignment confirm 之后发生了变更，旧的确认凭证已经失效（stale），我不会直接沿用旧凭证强行启动。按照流程，需要重新进入 Phase 1.1 对齐，处理顺序如下："
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "observations": "Graded under the read-only behavior-simulation rubric: explicit and order-correct planned actions in review.md count as evidence; behaviors not mentioned are not inferred. Timing/tokens were not recorded by the runs and are intentionally omitted (see benchmark notes)."
+}

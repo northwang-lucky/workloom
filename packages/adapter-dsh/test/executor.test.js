@@ -2441,3 +2441,144 @@ test('续派回执：spawn 记录缺绑定 → 显示 (unrecorded spawn binding)
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('stale alignment 门禁：in_progress + 凭据 stale → 阻断派发（提示含 force 指引）', async () => {
+  const root = makeProject({})
+  // 置 in_progress 与 stale 凭据：task.json 凭据 hash 与当前 prd.md 不一致
+  writeFileSync(
+    join(root, '.workloom/tasks/test-task/task.json'),
+    JSON.stringify({
+      id: 'test-task',
+      name: 'test-task',
+      title: 'Test',
+      slug: 'test-task',
+      priority: 'P2',
+      status: 'in_progress',
+      alignment: { passedAt: '2026-09-01T00:00:00Z', summary: 'converged', prdHash: 'deadbeef' },
+    }),
+  )
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'stale blocked' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const text = result.output[0].text
+    assert.equal(startCalls.length, 0, 'stale 阻断不得派发')
+    assert.match(text, /alignment credential is stale/)
+    assert.match(text, /workloom_task_align/)
+    assert.ok(text.includes('force: true with a non-empty reason'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('stale 门禁 + 配置冲突同存：force 一次调用落双 override（executor_model_effort + stale_alignment）', async () => {
+  const root = makeProject({
+    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } },
+  })
+  writeFileSync(
+    join(root, '.workloom/tasks/test-task/task.json'),
+    JSON.stringify({
+      id: 'test-task',
+      name: 'test-task',
+      title: 'Test',
+      slug: 'test-task',
+      priority: 'P2',
+      status: 'in_progress',
+      alignment: { passedAt: '2026-09-01T00:00:00Z', summary: 'converged', prdHash: 'deadbeef' },
+    }),
+  )
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({
+        title: 'dual gate bypass',
+        model: 'deepseek-official/deepseek-v4-pro',
+        force: true,
+        reason: 'user asked to bypass both gates',
+      }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    const gates = task.overrides.map((o) => o.gate)
+    assert.deepEqual(gates, ['executor_model_effort', 'stale_alignment'])
+    assert.equal(task.overrides[1].tool, 'workloom_execute')
+    assert.equal(task.overrides[1].reason, 'user asked to bypass both gates')
+    assert.ok(result.output[0].text.endsWith('(forced)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('stale 门禁 force 单独放行：仅留 stale_alignment 一条 override', async () => {
+  const root = makeProject({})
+  writeFileSync(
+    join(root, '.workloom/tasks/test-task/task.json'),
+    JSON.stringify({
+      id: 'test-task',
+      name: 'test-task',
+      title: 'Test',
+      slug: 'test-task',
+      priority: 'P2',
+      status: 'in_progress',
+      alignment: { passedAt: '2026-09-01T00:00:00Z', summary: 'converged', prdHash: 'deadbeef' },
+    }),
+  )
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({ title: 'stale forced', force: true, reason: 'user asked to continue anyway' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 1)
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.overrides.length, 1)
+    assert.equal(task.overrides[0].gate, 'stale_alignment')
+    assert.ok(result.output[0].text.length > 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('stale 门禁 + force 缺 reason：拒绝（R14 空 reason 全拒，不留痕不派发）', async () => {
+  const root = makeProject({})
+  writeFileSync(
+    join(root, '.workloom/tasks/test-task/task.json'),
+    JSON.stringify({
+      id: 'test-task',
+      name: 'test-task',
+      title: 'Test',
+      slug: 'test-task',
+      priority: 'P2',
+      status: 'in_progress',
+      alignment: { passedAt: '2026-09-01T00:00:00Z', summary: 'converged', prdHash: 'deadbeef' },
+    }),
+  )
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await assert.rejects(
+      () => execute(execArgs({ title: 'stale forced no reason', force: true }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      /non-empty reason/,
+    )
+    assert.equal(startCalls.length, 0, '缺 reason 不得派发')
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.overrides, undefined, '缺 reason 不得留 override')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

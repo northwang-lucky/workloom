@@ -4,4 +4,5 @@
 {"file":".workloom/spec/repo/language/index.md","reason":"约束 agent-facing 资产、运行时文案和开发文档语言"}
 {"file":".workloom/spec/repo/deployment/index.md","reason":"约束构建产物同步及 DSH 部署验证"}
 {"file":".workloom/spec/repo/terminology/index.md","reason":"统一 alignment、workflow contract、runtime 等术语"}
-{"file":".workloom/tasks/09-03-unify-workloom-alignment/research/01-alignment-refactor-impact.md","reason":"提供入口、迁移、门禁、doctor、adapter、测试和 smoke 的源码事实"}
+{"file":".workloom/tasks/09-03-unify-workloom-alignment/research/01-alignment-refactor-impact.md","reason":"提供入口、迁移、门禁、doctor、adapter、测试和 smoke 的首轮源码事实"}
+{"file":".workloom/tasks/09-03-unify-workloom-alignment/research/02-adversarial-source-review.md","reason":"提供原子写、force 粒度、planning research 反例、协议和 eval 的二次核查结论"}

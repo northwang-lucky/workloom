@@ -21,9 +21,11 @@ import { CONTEXT_KEY_PREFIX, PLUGIN_NAME } from './constants.js'
 import {
   assembleBreadcrumbSync,
   assembleSessionContext,
+  assertWorkflowProtocolVersion,
   composeLocalDirectivesText,
   findWorkloomRoot,
   parseContract,
+  WorkflowContractError,
 } from '@workloom-ai/core'
 import { loadWorkflowContractText } from '@workloom-ai/assets'
 
@@ -96,10 +98,12 @@ export const inject = [
 
 /**
  * 插件入口：注册 session-context 与 breadcrumb 两个注入、三个 workloom slash
- * 命令、executor 工具、6 个 runtime skills 与步骤详情工具。
+ * 命令、executor 工具、5 个 runtime skills（含统一 alignment）与步骤详情工具。
  * @param ctx 插件作用域上下文
  */
 export function apply(ctx: Context): void {
+  // protocol 握手（R21）：任何注册副作用前解析资产契约并校验版本一致，不匹配 fail loud。
+  assertLoadedWorkflowProtocol()
   const service = systemPromptOf(ctx)
   service.context({
     name: CONTEXT_NAME,
@@ -268,4 +272,20 @@ function extractUserPrompt(agent: Agent): string | undefined {
   }
   if (parts.length === 0) return undefined
   return parts.join('\n')
+}
+
+/**
+ * 解析 assets 工作流契约并在激活前校验 protocol version（fail loud）。
+ * 契约资产缺失/解析失败同样视为致命（版本一致性不可证明时不注册任何东西）。
+ */
+function assertLoadedWorkflowProtocol(): void {
+  const text = loadWorkflowContractText()
+  if (text === null) {
+    throw new WorkflowContractError('asset', 'workflow contract asset is missing')
+  }
+  const [err, contract] = parseContract(text)
+  if (err !== null || contract === null) {
+    throw err ?? new WorkflowContractError('parse', 'workflow contract parse returned no contract')
+  }
+  assertWorkflowProtocolVersion(contract.version)
 }

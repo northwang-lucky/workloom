@@ -1,5 +1,5 @@
 ---
-version: 19
+version: 20
 states:
   - no_task
   - planning
@@ -27,40 +27,26 @@ Completion criteria: the task directory exists and `task.json` `status` is `plan
 
 #### 1.1 Align requirements
 
-First load the `workloom-brainstorm` skill and explore the requirements — what is wanted, what the constraints are, how acceptance will be judged. For tasks with design decisions, the sequence is brainstorm → grilling → prd finalized: load the grilling skill and grill the plan round by round using the design-tree method, giving a recommended answer per question. After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare "frontier empty" just because the user answered the current batch — claim convergence only when no open question remains. Tasks involving implementation work must ask the fixed test-first question (below).
+Every task enters Phase 1.1 alignment automatically at creation — there is no "do you need grilling?" question and no brainstorm/UI/grilling substages. Load the `workloom-alignment` skill (the only alignment skill this step loads) and drive one continuous design tree to convergence; generic `tdd` and `grilling` skills stay available for non-workloom use but are not part of the Phase 1.1 flow.
 
-Every question across the workflow — fixed questions and exploratory questions alike — follows these rules:
+The design tree uses a fixed root family that you walk in order and branch dynamically underneath: Goal and value → Scope and non-goals → Environment constraints → Observable acceptance → UI and test-first applicability → Key decisions → Edge cases, failure paths and alternatives → Convergence confirmation.
+
+Each round covers the full current frontier: every open node is asked once per round as one numbered batch (questioning rules below), and highly related questions are merged when answering one answers the other. Every decision node comes with a recommendation and its reasoning; the user picks per option and you record the outcome. Fact nodes are investigated by you in Phase 1.1 (file/web/LSP retrieval) only when a decision is blocked on them; deep implementation research stays in Phase 1.2. Only technical decisions that affect scope, acceptance, risk, external interfaces, or irreversible cost enter the alignment; purely internal choices are implementation details for the implement executor.
+
+Frontend UI presentation nodes consult the UI axes reference bundled with `workloom-alignment` (references/ui-design) and record decidable UI requirements in a `## UI Design` section of prd.md. Implementation tasks that need test-first delivery consult the test-first seam reference (references/test-first) and put the confirmed seams into prd.md acceptance criteria. Both references load only when their node applies.
+
+Write settled conclusions into prd.md incrementally as you go. Keep a `## Alignment Decisions` section that records key choices, rejected alternatives, open nodes, and a convergence summary, ending with the machine-checkable marker `<!-- workloom:open-nodes=pending|none -->`. Convergence means the marker reads `none`.
+
+Convergence order is fixed: 1) the frontier is empty (no open node remains), 2) finalize prd.md, 3) run `workloom_task_align` with action=review and show the user the snapshot and its hash, 4) the user explicitly confirms, 5) run action=confirm to write the alignment credential (the same-hash repeat is idempotent and does not refresh the timestamp). After confirm, any prd.md change makes the credential stale: re-enter alignment focused on the changed area, recompute the full frontier, and confirm again.
+
+Every question across the workflow — design-tree questions and exploratory questions alike — follows these rules:
 
 1. Ask in the user's language; you judge which language that is from how the user writes.
 2. Keep the options out of the question text: the question states only what is being asked, and the options follow as a separate numbered list.
 3. Never use an interactive question tool (ask_user_question and equivalents); pose questions as plain text output on any runtime.
 4. Never ask one question at a time: once per stage, list every open question identified so far as one numbered batch, and let the user answer them freely, in any order and any subset.
 
-The fixed questions run in flow order: the test-first question (implementation tasks) → the UI-design question (yes enters 1.1b) → the grilling question (after the UI question answers no, or after 1.1b completes; yes enters 1.1c).
-
-**The fixed test-first question:** does implementation require test-first delivery?
-Options:
-- A. yes: seams join the alignment scope.
-- B. no: conventional implementation.
-- C. critical paths only.
-
-For A/C, the confirmed seams go into prd.md acceptance criteria.
-
-**The fixed UI-design question:** Does this task involve frontend UI presentation?
-Options:
-- A. yes: UI design alignment joins the alignment scope (Phase 1.1b).
-- B. no.
-
-For A, after brainstorming, run Phase 1.1b UI design alignment with the `workloom-ui-design` skill: explore the UI axes (pages/components and information architecture, layout and navigation, visual style and design source, interactions and states, responsiveness, accessibility, observable acceptance points), record decidable UI requirements in a `## UI Design` section of prd.md, and require a UI design chapter in design.md when the task is complex. UI decisions then join grilling (Phase 1.1c) for the design-tree pressure test; all UI requirements face the same no-grey-areas gate.
-
-**The fixed grilling question:** does this task involve design-tree grilling?
-Options:
-- A. yes: grilling joins the alignment scope (Phase 1.1c).
-- B. no.
-
-Tasks whose UI-design question answered yes do not get this question — they go straight into Phase 1.1c grilling. For A: record the judgment with `workloom_task_check` (phase=grilling, required=true); after grilling converges, record passedAt + summary with a second call (phase=grilling, summary); the convergence conclusions go into prd.md acceptance criteria. For B: record required=false — the record distinguishes "answered no" from "never asked".
-
-Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, and the frontier holds no open assumptions.
+Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, the frontier holds no open assumptions, and the alignment credential in task.json matches the finalized prd.md.
 
 #### 1.2 Research (optional)
 
@@ -78,7 +64,7 @@ Once prd.md is finalized, a task involving implementation work asks the user whe
 Options:
 - A. author both.
 - B. author neither.
-On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while prd.md has no H1 title, any prd.md section is still the skeleton placeholder, or implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` (ideally with `reason`), and the bypass is recorded in task.json `overrides` for audit.
+On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while prd.md has no H1 title, any prd.md section is still the skeleton placeholder, or implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` with a non-empty `reason`, and the bypass is recorded in task.json `overrides` for audit.
 Before starting, run a scale self-check: judge precisely by the actual number of phases in prd.md/design.md/implement.md. When the work is large, recommend a candidate subtask list — for each candidate, its title, its scope, and the reason it is a separate deliverable. The user confirms the list; then create the subtasks one by one with `workloom_task_create`, each with `parent` set to the main task. Every subtask runs the full lifecycle (start → check → archive); the main task starts, checks, and archives only after every declared subtask is archived.
 Completion criteria: for a task involving implementation work, the design/implement question has been answered; `task.json` `status` is `in_progress`; and the user has confirmed the review.
 
@@ -88,7 +74,7 @@ Completion criteria: for a task involving implementation work, the design/implem
 
 Dispatch the implement executor with `workloom_execute` (model and effort per task configuration); the dispatcher injects context (spec, research, prd/design/implement). Always pass a semantic `title` with the dispatch (required by the schema) so repeated dispatches of the same task remain distinguishable in subagent sessions. Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives via the subagent notice. Pass `foreground: true` only when the main session must wait on the result, and use `continue_executor` only to append new work — never to collect a report. The subagent writes code, runs lint and typecheck, and must not git commit. Test-first tasks follow the tdd skill's red-green loop. Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
 
-For a task with frontend UI presentation (the UI-design fixed question answered yes), its frontend file implementation must go through a `workloom_execute` dispatch with `kind: frontend`; the logic and backend parts still go through the implement executor. The check tool refuses such a task unless a frontend dispatch has been recorded (see 2.2), so route UI work through a dedicated frontend dispatch instead of folding it into the implement dispatch.
+For a task whose alignment concluded frontend UI presentation applies (prd.md records a `## UI Design` section), its frontend file implementation must go through a `workloom_execute` dispatch with `kind: frontend`; the logic and backend parts still go through the implement executor. The check tool refuses such a task unless a frontend dispatch has been recorded (see 2.2), so route UI work through a dedicated frontend dispatch instead of folding it into the implement dispatch.
 Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned. When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
 
 Executor reports may end with blocking items: open questions the executor could not resolve alone. The main session batches every blocking item to the user for decisions in one round, records the decisions, and only then re-dispatches; never route the executor to the user directly.
@@ -107,7 +93,7 @@ The check executor fixes P2 findings itself — leaving one unfixed is a derelic
 
 The main session's dispatch prompt must carry the same fix-and-escalate semantics — "fix small findings (P2) yourself, escalate big ones (P0/P1)" — and must not write constraints like "read-only review", "report only", or "do not change code": as user-level instructions they override the injected discipline. It must not steer the severity classification either; classification is the check executor's standard duty. If a dispatch prompt conflicts with the executor discipline anyway, the executor follows the discipline and states the conflict in the first line of its report.
 
-While the task stage is `check`, the main session may fix issues directly, no fix dispatch needed; after fixing, re-dispatch the check executor for a full re-review. Before recording the pass with `workloom_task_check`, handle every remaining issue — fix it or record why not — and state the outcome in the summary. For a P0 finding the "record why not" path does not apply: the main session may only fix it or propose adjusting the acceptance baseline to the user, and only after the user confirms may it amend prd.md and re-dispatch the check executor against the new baseline. The tool writes `check.passedAt` + `check.summary` into task.json (it requires at least one real check.jsonl entry; `force: true` bypasses and is recorded). Any change after the pass is recorded requires a fresh check re-dispatch. For a task with a `## UI Design` section, it additionally refuses unless a `frontend` dispatch has been recorded.
+While the task stage is `check`, the main session may fix issues directly, no fix dispatch needed; after fixing, re-dispatch the check executor for a full re-review. Before recording the pass with `workloom_task_check`, handle every remaining issue — fix it or record why not — and state the outcome in the summary. For a P0 finding the "record why not" path does not apply: the main session may only fix it or propose adjusting the acceptance baseline to the user, and only after the user confirms may it amend prd.md and re-dispatch the check executor against the new baseline. The tool writes `check.passedAt` + `check.summary` into task.json (it requires at least one real check.jsonl entry; `force: true` with a non-empty `reason` bypasses the gate and is recorded). Any change after the pass is recorded requires a fresh check re-dispatch. For a task with a `## UI Design` section, it additionally refuses unless a `frontend` dispatch has been recorded.
 Completion criteria: no unresolved findings against spec, lint and typecheck all green, and `workloom_task_check` has recorded the pass. When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
 
 #### 2.3 Commit
@@ -119,7 +105,7 @@ Completion criteria: `git status` shows no dirty files belonging to this task.
 
 #### 3.1 Archive and record
 
-Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with `reason` for a recorded bypass. Before archiving the main task, confirm that every declared subtask is archived; if any is missing, state the reason and leave a trace (for example a note in the task record) so the gap is auditable.
+Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with a non-empty `reason` for a recorded bypass. Before archiving the main task, confirm that every declared subtask is archived; if any is missing, state the reason and leave a trace (for example a note in the task record) so the gap is auditable.
 Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires the `/workloom-finish` command (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
 
 [workflow-state:no_task]
@@ -127,7 +113,7 @@ No active task right now. When the user expresses a need, answer direct question
 [/workflow-state:no_task]
 
 [workflow-state:planning]
-The task is in planning. Act now, in order: load the workloom-brainstorm skill and explore requirements; then ask the fixed questions in flow order — test-first → UI → the fixed grilling question; for tasks with design decisions, run grilling (Phase 1.1c) after brainstorm and do not finalize prd.md before grilling converges. Then follow Phase 1: optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
+The task is in planning. Phase 1.1 alignment runs automatically: load the workloom-alignment skill and drive the design tree (full-frontier rounds, recommended answers per decision node, fact checks on demand) to convergence; write conclusions into prd.md as you go. Then run `workloom_task_align`: action=review → show the snapshot and hash to the user → user confirms → action=confirm. do not finalize prd.md before alignment converges, and do not start before the user confirmed the review. Then follow Phase 1: optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
@@ -158,10 +144,11 @@ Task decomposition (always-on):
 
 - When a task contains 3+ independently deliverable pieces, recommend splitting it; never create subtask tasks before the user confirms the candidate list and the split itself. A container task stays in planning; subtasks run their own full lifecycle; the container does the final acceptance and archives last.
 
-Grilling (always-on):
+Alignment (always-on):
 
-- After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare "frontier empty" just because the user answered the current batch — claim convergence only when no open question remains.
-- In the planning phase, run grilling after brainstorm; do not finalize prd.md before grilling converges.
+- Every task auto-enters Phase 1.1 alignment with the `workloom-alignment` skill only — never brainstorm/grilling/UI substages, and never the fixed grilling question.
+- After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare convergence just because the user answered the current batch — claim it only when no open node remains and the `<!-- workloom:open-nodes=none -->` marker is in place.
+- In the planning phase, do not finalize prd.md before alignment converges, and confirm the review with `workloom_task_align` (review → user confirmation → confirm) before the task starts.
 
 LSP (always-on):
 

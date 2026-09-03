@@ -21,6 +21,16 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
+test('契约 v20 的全部 force 路径都要求 non-empty reason', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  for (const stepId of ['1.4', '2.2', '3.1']) {
+    const body = contract.steps.find((step) => step.id === stepId).body
+    assert.match(body, /`force: true` with a non-empty `reason`/, `${stepId} 缺强制 reason`)
+  }
+  assert.doesNotMatch(readFileSync(assetPath, 'utf8'), /ideally with `reason`/)
+})
+
 /** 强制加载协议 + marker 回声纪律句（v19 契约 norms Dispatch 段，与 executor-context 纪律段逐字一致）。 */
 const INJECTION_PROTOCOL_DISCIPLINE =
   'Read the files in the injected pointer list before acting. ' +
@@ -36,7 +46,7 @@ const MAIN_SESSION_DISPOSAL_SENTENCE =
 test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 19)
+  assert.equal(contract.version, 20)
   assert.ok(
     contract.norms.includes(INJECTION_PROTOCOL_DISCIPLINE),
     'v19 契约 norms 必须含强制加载协议 + marker 回声纪律句',
@@ -46,7 +56,7 @@ test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatc
 test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决断，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 19)
+  assert.equal(contract.version, 20)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(MAIN_SESSION_DISPOSAL_SENTENCE),
@@ -57,7 +67,7 @@ test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决�
 test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 19)
+  assert.equal(contract.version, 20)
   assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
@@ -86,16 +96,20 @@ test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一�
   assert.ok(contract.norms.includes(dispatchException), 'norms 缺派发例外句')
 })
 
-test('契约 v17 含 UI 固定问题与 1.1b/1.1c 定位', () => {
+test('契约 v20 Phase 1.1 只加载 workloom-alignment：无 brainstorm/UI/grilling 子阶段与固定问题', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  const uiBody = contract.steps.find((step) => step.id === '1.1').body
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  assert.ok(alignBody.includes('workloom-alignment'), '1.1 正文缺 workloom-alignment 加载')
+  assert.ok(alignBody.includes('no "do you need grilling?" question'), '缺「不再问是否需要 grilling」明文')
   assert.ok(
-    uiBody.includes('Does this task involve frontend UI presentation?'),
-    '1.1 正文缺 UI 固定问题措辞',
+    alignBody.includes('no brainstorm/UI/grilling substages'),
+    '缺「无 brainstorm/UI/grilling 子阶段」明文',
   )
-  assert.ok(uiBody.includes('Phase 1.1b'), '1.1 正文缺 Phase 1.1b 定位')
-  assert.ok(uiBody.includes('Phase 1.1c'), '1.1 正文缺 Phase 1.1c 定位')
+  assert.ok(!alignBody.includes('workloom-brainstorm'), '1.1 不得加载 brainstorm')
+  assert.ok(!alignBody.includes('Phase 1.1b'), '1.1 不得含 1.1b 子阶段引用')
+  assert.ok(!alignBody.includes('Phase 1.1c'), '1.1 不得含 1.1c 子阶段引用')
+  assert.ok(!alignBody.includes('The fixed grilling question'), '1.1 不得含 grilling 固定问题')
 })
 
 test('契约 v17 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2）', () => {
@@ -151,63 +165,110 @@ test('契约 v17 锁定「推荐 → 用户确认 → 才创建」与 H1 门禁�
   assert.ok(reviewBody.includes('prd.md has no H1 title'), '1.4 正文缺 H1 门禁措辞')
 })
 
-test('契约 v17 含 grilling 固定问题（时序/选项/后果/UI yes 不问）', () => {
+test('契约 v20 1.1 含 design tree 固定根节点族、frontier 批次、推荐答案与事实调查规则', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  // 固定根节点族顺序（含 UI/test-first 适用性与收敛确认）
+  const nodeFamily = [
+    'Goal and value',
+    'Scope and non-goals',
+    'Environment constraints',
+    'Observable acceptance',
+    'UI and test-first applicability',
+    'Key decisions',
+    'Edge cases, failure paths and alternatives',
+    'Convergence confirmation',
+  ]
+  let cursor = -1
+  for (const node of nodeFamily) {
+    const at = alignBody.indexOf(node)
+    assert.ok(at > cursor, `1.1 固定根节点族顺序错乱或缺节点：${node}`)
+    cursor = at
+  }
+  // frontier 批次：每轮覆盖完整 frontier + 高度相关问题合并
+  assert.ok(alignBody.includes('full current frontier'), '缺「每轮覆盖完整 frontier」规则')
+  assert.ok(alignBody.includes('highly related questions are merged'), '缺「合并高度相关问题」规则')
+  // 决策节点给推荐与理由；事实节点由 Agent 调查（深度调研留在 1.2）
+  assert.ok(alignBody.includes('recommendation and its reasoning'), '缺「推荐答案 + 理由」规则')
+  assert.ok(alignBody.includes('Fact nodes are investigated by you'), '缺「事实节点由 Agent 调查」规则')
+  assert.ok(alignBody.includes('deep implementation research stays in Phase 1.2'), '缺 1.2 边界')
+})
+
+test('契约 v20 1.1 含技术决策边界、增量写入、开放节点标记与收敛顺序', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
   assert.ok(
-    alignBody.includes('does this task involve design-tree grilling?'),
-    '1.1 正文缺 grilling 固定问题措辞',
+    alignBody.includes('affect scope, acceptance, risk, external interfaces, or irreversible cost'),
+    '缺技术决策进入 alignment 的边界（范围/验收/风险/外部接口/不可逆成本）',
   )
+  assert.ok(alignBody.includes('## Alignment Decisions'), '缺 Alignment Decisions 小节约定')
   assert.ok(
-    alignBody.includes('A. yes: grilling joins the alignment scope (Phase 1.1c)'),
-    '缺 A 选项与 1.1c 定位',
+    alignBody.includes('<!-- workloom:open-nodes=pending|none -->'),
+    '缺开放节点可机检标记',
   )
-  assert.ok(alignBody.includes('- B. no.'), '缺 B 选项')
-  assert.ok(alignBody.includes('phase=grilling, required=true'), '缺 For A 判定记录指引')
-  assert.ok(alignBody.includes('passedAt + summary'), '缺收敛记录指引')
-  assert.ok(alignBody.includes('acceptance criteria'), '缺收敛结论入验收标准指引')
-  assert.ok(alignBody.includes('go straight into Phase 1.1c'), '缺「UI yes 不再问 grilling」的明文')
-  // 三个固定问题按流程时序编排：test-first → UI → grilling
-  const questionHeadings = [
-    'The fixed test-first question',
-    'The fixed UI-design question',
-    'The fixed grilling question',
+  // 收敛顺序：frontier 空 → finalize prd → review → 用户确认 → confirm
+  const order = [
+    'the frontier is empty',
+    'finalize prd.md',
+    'action=review',
+    'the user explicitly confirms',
+    'action=confirm',
   ]
   let cursor = -1
-  for (const heading of questionHeadings) {
-    const at = alignBody.indexOf(heading)
-    assert.ok(at > cursor, `1.1 固定问题时序错乱：${heading}`)
+  for (const item of order) {
+    const at = alignBody.indexOf(item)
+    assert.ok(at > cursor, `收敛顺序错乱或缺项：${item}`)
     cursor = at
   }
+  assert.ok(alignBody.includes('same-hash repeat is idempotent'), '缺同 hash 幂等说明')
+  // stale 重入：聚焦变化区域 + 重算完整 frontier
+  assert.ok(alignBody.includes('focused on the changed area'), '缺「聚焦变化区域」重入指引')
+  assert.ok(alignBody.includes('recompute the full frontier'), '缺「重算完整 frontier」重入指引')
 })
 
-test('契约 v17 planning 面包屑为行动指令式（brainstorm → grilling → 收敛前不 finalize prd）', () => {
+test('契约 v20 1.1 UI/test-first 分支为按需 references（不内联七轴与 seam 细则）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  assert.ok(alignBody.includes('references/ui-design'), '缺 UI 按需 reference 指引')
+  assert.ok(alignBody.includes('references/test-first'), '缺 test-first 按需 reference 指引')
+  assert.ok(alignBody.includes('## UI Design'), 'UI 分支仍落 prd 的 ## UI Design 小节')
+  assert.ok(alignBody.includes('Both references load only when their node applies'), '缺按需披露句')
+})
+
+test('契约 v20 planning 面包屑为行动指令式（自动进入 alignment → workloom_task_align 确认）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const crumb = contract.breadcrumbs.get('planning')
+  assert.ok(crumb.includes('load the workloom-alignment skill'), 'planning 缺 load alignment 指令')
+  assert.ok(!crumb.includes('workloom-brainstorm'), 'planning 不得再加载 brainstorm')
+  assert.ok(!crumb.includes('grilling question'), 'planning 不得含 grilling 固定问题')
   assert.ok(
-    crumb.includes('load the workloom-brainstorm skill'),
-    'planning 缺 load brainstorm 行动指令',
-  )
-  assert.ok(crumb.includes('fixed grilling question'), 'planning 缺固定 grilling 问题指令')
-  assert.ok(
-    crumb.includes('do not finalize prd.md before grilling converges'),
+    crumb.includes('do not finalize prd.md before alignment converges'),
     'planning 缺收敛前不 finalize prd 指令',
   )
+  assert.ok(crumb.includes('action=review'), 'planning 缺 review 步骤')
+  assert.ok(crumb.includes('action=confirm'), 'planning 缺 confirm 步骤')
 })
 
-test('契约 v17 norms Grilling 条目含补强句（planning 在 brainstorm 后 grilling，收敛前不 finalize prd）', () => {
+test('契约 v20 norms Alignment 条目含补强句（自动进入、frontier 重算、收敛前不 finalize prd）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   assert.ok(
-    contract.norms.includes('In the planning phase, run grilling after brainstorm'),
-    'norms 缺「planning 阶段在 brainstorm 之后运行 grilling」补强',
+    contract.norms.includes('auto-enters Phase 1.1 alignment with the `workloom-alignment` skill only'),
+    'norms 缺「自动进入统一 alignment」补强',
   )
   assert.ok(
-    contract.norms.includes('do not finalize prd.md before grilling converges'),
+    contract.norms.includes('recompute the design-tree frontier'),
+    'norms 缺 frontier 重算补强',
+  )
+  assert.ok(
+    contract.norms.includes('do not finalize prd.md before alignment converges'),
     'norms 缺「收敛前不得 finalize prd.md」补强',
   )
+  assert.ok(contract.norms.includes('workloom_task_align'), 'norms 缺 workloom_task_align 指引')
 })
 
 test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {

@@ -1,0 +1,9 @@
+{
+  "id": 14,
+  "query": "which design tokens should our new design system use?",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "none",
+  "match": true,
+  "reason": "The query is a standalone design-system discussion question about design tokens. There is no active workloom planning task needing Phase 1.1 requirement alignment, no grill trigger phrases or stress-testing request, no test-first/TDD intent, and no request to record team conventions. Therefore workloom-alignment should not trigger, and none of the other listed skills apply; the correct choice is 'none'."
+}

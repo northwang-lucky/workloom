@@ -1,0 +1,99 @@
+{
+  "skill_name": "workloom-alignment",
+  "description": "Phase 1.1 alignment eval: process-behavior cases (machine-checkable against the SKILL.md contract) plus a 20-item trigger / near-miss description set for triggering accuracy.",
+  "evals": [
+    {
+      "id": "align-auto-entry",
+      "name": "new-task-auto-enters-alignment",
+      "prompt": "I just ran workloom_task_create for 'add offline caching to the mobile client'. The task is in planning and the prd.md is still the skeleton. Take the alignment from here.",
+      "expected_output": "The skill starts the Phase 1.1 design tree from the Goal/value node, keeps each round to the full current frontier as one numbered batch with a recommendation per decision node, writes settled conclusions into prd.md incrementally, and never asks a 'do you need grilling?' question.",
+      "assertions": [
+        "opens from Goal and value without asking whether grilling is needed",
+        "lists the whole frontier in one round instead of one question at a time",
+        "gives a recommendation with reasoning for each decision node",
+        "never loads brainstorm/ui-design/grilling fixed questions"
+      ]
+    },
+    {
+      "id": "align-ui-branch",
+      "name": "ui-applicability-consults-reference",
+      "prompt": "We are aligning a workloom task that rebuilds the settings screen with a new layout, empty/error states and light/dark theming. Settle the UI applicability node.",
+      "expected_output": "The alignment marks frontend UI presentation as applicable, reads references/ui-design, walks the seven axes until decidable, and records a ## UI Design section in prd.md.",
+      "assertions": [
+        "loads the UI axes reference (references/ui-design) on the applicability node",
+        "covers the seven UI axes or explicitly marks not applicable",
+        "records decidable UI requirements in the prd.md ## UI Design section",
+        "keeps the UI work as design-tree nodes rather than a separate 1.1b phase"
+      ]
+    },
+    {
+      "id": "align-test-first-branch",
+      "name": "test-first-seam-confirmation",
+      "prompt": "Aligning a workloom task for a payments retry service that clearly needs tests before implementation. Resolve the test-first node and close the loop.",
+      "expected_output": "The alignment consults references/test-first, asks the applicability question (yes/no/critical paths only), confirms the seams with the user, and writes the confirmed seams into prd.md acceptance criteria.",
+      "assertions": [
+        "asks the test-first applicability question with the three options",
+        "consults the test-first reference and confirms the seams before prd.md finalization",
+        "records the confirmed seams in acceptance criteria",
+        "leaves the red-green method itself to the generic tdd skill in Phase 2.1"
+      ]
+    },
+    {
+      "id": "align-stale-reentry",
+      "name": "prd-changed-after-confirm-stale-reentry",
+      "prompt": "The prd.md of an aligned workloom task changed after workloom_task_align confirm (a new platform target appeared). The start tool now refuses with a stale message. Handle it.",
+      "expected_output": "The skill re-enters alignment focused on the changed area first, then recomputes the full frontier, and re-runs review → user confirmation → confirm so the credential matches again.",
+      "assertions": [
+        "first re-opens only the area affected by the change",
+        "then recomputes the full frontier before claiming convergence",
+        "runs workloom_task_align review then confirm with the fresh hash",
+        "does not silently reuse the old credential"
+      ]
+    },
+    {
+      "id": "align-convergence-order",
+      "name": "fixed-convergence-order-review-confirm",
+      "prompt": "The frontier of the active workloom alignment is empty and prd.md is complete with the ## Alignment Decisions section. Take it through convergence.",
+      "expected_output": "The alignment follows the fixed order: frontier empty → finalize prd → workloom_task_align action=review (snapshot + hash shown) → user explicitly confirms → action=confirm with expectedPrdHash and a summary; same-hash repeat is idempotent.",
+      "assertions": [
+        "runs action=review before any confirm",
+        "shows the snapshot and hash to the user before confirm",
+        "sets the <!-- workloom:open-nodes=none --> marker before confirming",
+        "writes the credential only after explicit user confirmation"
+      ]
+    },
+    {
+      "id": "align-grill-routing",
+      "name": "grill-request-inside-workloom-routes-here",
+      "prompt": "While in an active workloom planning task the user says: 'grill this requirement set before we write design.md'.",
+      "expected_output": "The request routes to workloom-alignment: design-tree rounds with recommendations inside the Phase 1.1 alignment, not to the generic grilling skill.",
+      "assertions": [
+        "treats the request as a design-tree round inside Phase 1.1",
+        "does not hand off to a separate generic grilling session",
+        "keeps the pressure test inside the same prd.md / Alignment Decisions record"
+      ]
+    }
+  ],
+  "trigger_evals": [
+    { "query": "create the task and then align the requirements before we write any design doc", "should_trigger": true, "rationale": "planning workloom task entering Phase 1.1" },
+    { "query": "new workloom task for the sync engine just landed; walk the alignment frontier now", "should_trigger": true, "rationale": "auto Phase 1.1 alignment on active planning task" },
+    { "query": "grill this plan round by round until the assumptions are gone", "should_trigger": true, "rationale": "grill phrasing inside active workloom planning task" },
+    { "query": "prd changed after confirm and start refuses; re-align focusing on what changed", "should_trigger": true, "rationale": "stale re-entry on workloom task" },
+    { "query": "this task has a settings screen with dark mode — settle the UI requirements in alignment", "should_trigger": true, "rationale": "UI applicability node inside workloom alignment" },
+    { "query": "we need tests first on this workloom task; confirm which seams are under test", "should_trigger": true, "rationale": "test-first applicability node in workloom alignment" },
+    { "query": "finish Phase 1.1: frontier looks empty, run review and confirm after I approve", "should_trigger": true, "rationale": "convergence protocol on workloom planning task" },
+    { "query": "pressure-test the acceptance criteria of this planning task before design.md", "should_trigger": true, "rationale": "design-tree pressure test in workloom planning" },
+    { "query": "standalone discussion: should I rename the product to X? play devil's advocate", "should_trigger": false, "rationale": "no workloom task; generic grilling territory" },
+    { "query": "grill my startup idea before I pitch it to investors", "should_trigger": false, "rationale": "non-workloom idea stress test" },
+    { "query": "review this pull request for correctness and naming", "should_trigger": false, "rationale": "code review, not requirement alignment" },
+    { "query": "write the mobile settings screen UI now", "should_trigger": false, "rationale": "implementation request outside alignment; no workloom planning task context" },
+    { "query": "brainstorm features for our tracker app with me", "should_trigger": false, "rationale": "generic product brainstorm, no workloom task lifecycle" },
+    { "query": "which design tokens should our new design system use?", "should_trigger": false, "rationale": "design-system fact question, not workloom alignment UI node" },
+    { "query": "implement this with tests: red-green loop for the api client", "should_trigger": false, "rationale": "execution request (tdd/implement), not requirement alignment" },
+    { "query": "triage this meego task list and estimate effort", "should_trigger": false, "rationale": "task-board triage outside workloom lifecycle" },
+    { "query": "write acceptance criteria for the login flow in our notion doc", "should_trigger": false, "rationale": "doc editing outside a workloom planning task" },
+    { "query": "can you explain what grilling skills do in general?", "should_trigger": false, "rationale": "meta question about skills, no task" },
+    { "query": "archive the finished workloom task and journal the session", "should_trigger": false, "rationale": "wrap-up lifecycle, alignment already done" },
+    { "query": "I'm in the middle of implementing and hit an ambiguous requirement: go ask the product owner directly", "should_trigger": true, "rationale": "ambiguity inside an active workloom task that must not be papered over during implementation — alignment boundary re-entry" }
+  ]
+}

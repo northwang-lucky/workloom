@@ -1,0 +1,9 @@
+{
+  "id": 4,
+  "query": "prd changed after confirm and start refuses; re-align focusing on what changed",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query describes confirming requirement alignment after prd.md changed inside a workloom planning task (start gate refuses), which the workloom-alignment description explicitly covers: 'confirming alignment after prd.md changed'. It is not standalone grilling, not test-first delivery, and not spec maintenance."
+}

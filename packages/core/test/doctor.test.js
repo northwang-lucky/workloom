@@ -1,5 +1,5 @@
 /**
- * doctor 模块单测：10 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
+ * doctor 模块单测：11 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
  *
  * 设计意图：
  * - 全部用临时项目根构造「病态」任务目录，断言 runDoctor 输出 issue 及 schema 字段；
@@ -493,6 +493,44 @@ test('fix：completed 无 check 不迁移（拒绝且入 manual）', () => {
   }
 })
 
+test('fix：写回旧归档任务补 alignment:null 且旧 grilling 原样保留（doctor 写回边界）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    // 旧归档父任务：带 grilling 历史字段、无 alignment（legacy 数据形态）
+    writeTask(root, 'legacy-archived', rec('legacy-archived', {
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      grilling: { required: true, passedAt: '2026-08-01T00:00:00Z', summary: 'old era' },
+    }), '2026-08')
+    // 活跃子任务指回该归档父任务：父 children 缺 back-ref → fix 会写回归档父任务
+    writeTask(root, 'legacy-child', rec('legacy-child', {
+      status: 'in_progress',
+      parent: 'tasks/legacy-archived',
+    }))
+    const [err, report] = runDoctor(root, { fix: true })
+    assert.equal(err, null)
+    const archived = readTaskJson(root, 'tasks/archive/2026-08/legacy-archived')
+    assert.ok(
+      archived.children.includes('tasks/legacy-child'),
+      'archived parent children replenished (write-back happened)',
+    )
+    // 写回补入新字段默认值 alignment: null；旧 grilling 原样保留（不迁移、不改写）
+    assert.equal(archived.alignment, null)
+    assert.deepEqual(archived.grilling, {
+      required: true,
+      passedAt: '2026-08-01T00:00:00Z',
+      summary: 'old era',
+    })
+    assert.ok(
+      report.fixed.some((i) => i.code === 'parent-child'),
+      'fixed records the repaired parent-child issue',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('报告 schema：checks/summary/fixed/manual 字段齐全且每类检查必出现', () => {
   const root = makeRoot()
   initWorkloom(root)
@@ -502,7 +540,7 @@ test('报告 schema：checks/summary/fixed/manual 字段齐全且每类检查必
     assert.equal(err, null)
     assert.ok(report)
     assert.ok(Array.isArray(report.checks))
-    assert.equal(report.checks.length, 10, 'all 10 checks always present')
+    assert.equal(report.checks.length, 11, 'all 11 checks always present')
     for (const check of report.checks) {
       for (const field of ['code', 'title', 'severity', 'issues', 'info']) {
         assert.ok(field in check, `check missing ${field}`)
@@ -690,6 +728,62 @@ test('fix 路径：local-prompts 加载状态在 fix 后保持不变（无工具
     assert.equal(check.issues.length, 1, 'front-matter error must survive the fix recheck')
     assert.equal(check.issues[0].severity, 'error')
     assert.deepEqual(check.info, [], 'bad fragment must not be listed as loaded')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check workflow-overlay：overlay 含旧 skill/阶段引用 → 不可修 issue + 准确迁移 hint；--fix 不改写 overlay', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  const overlay = join(root, '.workloom', 'workflow.override.md')
+  const overlayDoc = [
+    'The planning phase loads workloom-brainstorm, then the fixed question at 1.1b / 1.1c.',
+    'For UI tasks follow workloom-ui-design before finalizing prd.md.',
+  ].join('\n')
+  try {
+    writeFileSync(overlay, overlayDoc)
+    const [err, report] = runDoctor(root, { fix: false })
+    assert.equal(err, null)
+    const check = report.checks.find((c) => c.code === 'workflow-overlay')
+    assert.ok(check, 'workflow-overlay check must exist')
+    assert.equal(check.issues.length, 1)
+    const issue = check.issues[0]
+    assertIssueSchema(issue, 'workflow-overlay')
+    assert.equal(issue.task, null)
+    assert.equal(issue.fixable, false)
+    assert.match(issue.message, /workloom-brainstorm/)
+    assert.match(issue.message, /workloom-ui-design/)
+    assert.match(issue.message, /1\.1[abc]/)
+    assert.match(issue.hint, /workloom-alignment/)
+    assert.match(issue.hint, /never rewrites the overlay/)
+    assert.equal(issue.path, join('.workloom', 'workflow.override.md'))
+    // --fix 不修改 overlay（不可自动修复；内容原样）
+    const [, fixedReport] = runDoctor(root, { fix: true })
+    assert.ok(fixedReport)
+    assert.ok(fixedReport.checks.find((c) => c.code === 'workflow-overlay').issues.length >= 1)
+    assert.equal(readFileSync(overlay, 'utf8'), overlayDoc)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check workflow-overlay：无 overlay / overlay 无旧引用 → 通过（零 issue）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    const [err1, report1] = runDoctor(root, { fix: false })
+    assert.equal(err1, null)
+    const none1 = report1.checks.find((c) => c.code === 'workflow-overlay')
+    assert.equal(none1.issues.length, 0)
+    writeFileSync(
+      join(root, '.workloom', 'workflow.override.md'),
+      'Use workloom-alignment for Phase 1.1 alignment guidance.',
+    )
+    const [err2, report2] = runDoctor(root, { fix: false })
+    assert.equal(err2, null)
+    const none2 = report2.checks.find((c) => c.code === 'workflow-overlay')
+    assert.equal(none2.issues.length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

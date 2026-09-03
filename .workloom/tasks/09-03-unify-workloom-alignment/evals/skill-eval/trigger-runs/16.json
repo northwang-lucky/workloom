@@ -1,0 +1,9 @@
+{
+  "id": 16,
+  "query": "triage this meego task list and estimate effort",
+  "expected_trigger": false,
+  "predicted_trigger": false,
+  "chosen_skill": "none",
+  "match": true,
+  "reason": "The query asks to triage a Meego task list and estimate effort. This is not a workloom Phase 1.1 requirement-alignment request, not grill-style pressure-testing, not test-first development, and not a spec-maintenance request. None of the candidate skills (workloom-alignment, grilling, tdd, workloom-update-spec) matches; the Meego platform skill is outside the candidate catalog, so the correct choice is none."
+}

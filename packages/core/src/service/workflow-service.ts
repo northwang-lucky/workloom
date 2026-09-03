@@ -24,8 +24,8 @@ import type { TaskRecordWithPath } from '../legacy/task-store.d.ts'
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom workflow'
 
-/** overlay 文件相对 .workloom 的路径。 */
-const OVERLAY_REL_PATH = 'workflow.override.md'
+/** overlay 文件相对 .workloom 的路径（doctor overlay 检查等共享）。 */
+export const OVERLAY_REL_PATH = 'workflow.override.md'
 
 /** 契约状态常量（与 workflow.md front-matter states 对齐）。 */
 const CONTRACT_STATUS = Object.freeze({

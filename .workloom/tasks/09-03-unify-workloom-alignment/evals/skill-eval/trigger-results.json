@@ -1,0 +1,182 @@
+[
+  {
+    "id": 1,
+    "query": "create the task and then align the requirements before we write any design doc",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query asks to create a workloom task and then align its requirements before any design doc, which directly matches the workloom-alignment skill's scope: driving a workloom planning task through Phase 1.1 requirement alignment. Grilling, tdd, and workloom-update-spec do not fit this request."
+  },
+  {
+    "id": 2,
+    "query": "new workloom task for the sync engine just landed; walk the alignment frontier now",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query explicitly references a workloom task and asks to walk the 'alignment frontier', which directly matches workloom-alignment's description of driving a workloom planning task through Phase 1.1 requirement alignment as a design tree with full-frontier rounds. It is not generic grilling (which is for non-workloom tasks), not test-first delivery (tdd), and not spec maintenance (workloom-update-spec)."
+  },
+  {
+    "id": 3,
+    "query": "grill this plan round by round until the assumptions are gone",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query asks for grill-style, round-by-round pressure-testing of a plan until assumptions are eliminated. Per the catalog, workloom-alignment explicitly covers grill-style / design-tree pressure-testing and iterative alignment rounds inside a workloom planning task, while the generic grilling skill is reserved for non-workloom standalone discussions. Routed to workloom-alignment."
+  },
+  {
+    "id": 4,
+    "query": "prd changed after confirm and start refuses; re-align focusing on what changed",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query describes confirming requirement alignment after prd.md changed inside a workloom planning task (start gate refuses), which the workloom-alignment description explicitly covers: 'confirming alignment after prd.md changed'. It is not standalone grilling, not test-first delivery, and not spec maintenance."
+  },
+  {
+    "id": 5,
+    "query": "this task has a settings screen with dark mode — settle the UI requirements in alignment",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query refers to settling UI requirements 'in alignment' for a task with a settings screen and dark mode, which matches workloom-alignment's coverage of UI applicability decisions and requirement alignment inside a workloom planning task. It is not a generic standalone grilling request, nor a test-first (tdd) or spec-maintenance (workloom-update-spec) request."
+  },
+  {
+    "id": 6,
+    "query": "we need tests first on this workloom task; confirm which seams are under test",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query is about test-first applicability and test-coverage boundary decisions inside an active workloom task. The workloom-alignment description explicitly covers 'UI/test-first applicability decisions' within a workloom planning task, so it takes precedence. The generic tdd skill only applies when prd.md already mandates test-first delivery, which is not the case here — this is a requirement-alignment discussion, not direct TDD execution."
+  },
+  {
+    "id": 7,
+    "query": "finish Phase 1.1: frontier looks empty, run review and confirm after I approve",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query explicitly references Phase 1.1, mentions the design-tree frontier being empty, and asks to run review and confirm convergence pending user approval — this is exactly the workloom-alignment skill's scope (full-frontier rounds, fact checks, convergence confirmation for an active workloom planning task)."
+  },
+  {
+    "id": 8,
+    "query": "pressure-test the acceptance criteria of this planning task before design.md",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query asks to pressure-test acceptance criteria of an active workloom planning task (before design.md exists, i.e. still in Phase 1.1 requirement alignment). The workloom-alignment catalog entry explicitly covers grill-style/design-tree pressure-testing requests inside a workloom task, while the generic grilling skill is reserved for non-workloom standalone discussions. No TDD or spec-update intent is present, so workloom-alignment is the correct single choice."
+  },
+  {
+    "id": 9,
+    "query": "standalone discussion: should I rename the product to X? play devil's advocate",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "grilling",
+    "match": true,
+    "reason": "The query is explicitly a standalone discussion outside any active workloom planning task, asking for devil's advocate pressure-testing of a product naming decision. The workloom-alignment description excludes standalone non-workloom grilling; the generic grilling skill explicitly covers standalone discussions and stress-testing the user's thinking, so it is the correct choice and workloom-alignment should not trigger."
+  },
+  {
+    "id": 10,
+    "query": "grill my startup idea before I pitch it to investors",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "grilling",
+    "match": true,
+    "reason": "The query is a standalone grill-style request about a startup idea with no active workloom planning task, so it falls under the generic grilling skill, which explicitly covers non-workloom tasks and standalone discussions. The workloom-alignment skill explicitly excludes generic standalone grilling of non-workloom ideas, so predicted_trigger is false."
+  },
+  {
+    "id": 11,
+    "query": "review this pull request for correctness and naming",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "none",
+    "match": true,
+    "reason": "The query asks for a pull request review, which matches none of the candidate skills: it is not workloom requirement alignment (workloom-alignment), not stress-testing a plan or idea (grilling), not test-first development (tdd), and not updating team coding standards (workloom-update-spec). No listed skill is appropriate."
+  },
+  {
+    "id": 12,
+    "query": "write the mobile settings screen UI now",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "none",
+    "match": true,
+    "reason": "The query asks to immediately implement a mobile settings screen UI. It does not mention an active workloom planning task, requirement alignment, grilling, test-first/red-green-refactor, or updating spec conventions. workloom-alignment only applies to Phase 1.1 requirement alignment inside an active workloom planning task, so it should not trigger; no other listed skill applies, so the correct choice is none."
+  },
+  {
+    "id": 13,
+    "query": "brainstorm features for our tracker app with me",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "none",
+    "match": true,
+    "reason": "The query is a standalone feature brainstorming request with no active workloom planning task and no requirement-alignment or grill-style pressure-testing intent, so workloom-alignment should not trigger. It also does not match grilling (no grill trigger phrases), tdd, or workloom-update-spec, so no listed skill is appropriate."
+  },
+  {
+    "id": 14,
+    "query": "which design tokens should our new design system use?",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "none",
+    "match": true,
+    "reason": "The query is a standalone design-system discussion question about design tokens. There is no active workloom planning task needing Phase 1.1 requirement alignment, no grill trigger phrases or stress-testing request, no test-first/TDD intent, and no request to record team conventions. Therefore workloom-alignment should not trigger, and none of the other listed skills apply; the correct choice is 'none'."
+  },
+  {
+    "id": 15,
+    "query": "implement this with tests: red-green loop for the api client",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "tdd",
+    "match": true,
+    "reason": "The query asks to implement an API client using a red-green loop, which is an explicit test-driven development request. The tdd skill's description covers building features test-first and red-green-refactor, so tdd is the correct choice. workloom-alignment only applies to requirement alignment inside an active workloom planning task, which is not the case here, so it should not trigger."
+  },
+  {
+    "id": 16,
+    "query": "triage this meego task list and estimate effort",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "none",
+    "match": true,
+    "reason": "The query asks to triage a Meego task list and estimate effort. This is not a workloom Phase 1.1 requirement-alignment request, not grill-style pressure-testing, not test-first development, and not a spec-maintenance request. None of the candidate skills (workloom-alignment, grilling, tdd, workloom-update-spec) matches; the Meego platform skill is outside the candidate catalog, so the correct choice is none."
+  },
+  {
+    "id": 17,
+    "query": "write acceptance criteria for the login flow in our notion doc",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "none",
+    "match": true,
+    "reason": "The query asks to write acceptance criteria into a Notion doc, which is a standalone documentation task. It does not involve an active workloom planning task or requirement alignment (workloom-alignment), no grill-style stress-testing (grilling), no test-first development (tdd), and no team-spec maintenance (workloom-update-spec). No listed skill applies, so none is chosen and workloom-alignment correctly does not trigger."
+  },
+  {
+    "id": 18,
+    "query": "can you explain what grilling skills do in general?",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "grilling",
+    "match": true,
+    "reason": "The query is a standalone meta-question asking for a general explanation of grilling skills, not a requirement-alignment or design-tree pressure-testing request inside an active workloom planning task. Per the catalog, workloom-alignment explicitly excludes generic standalone grilling of non-workloom ideas, so it should not trigger; the generic grilling skill is the closest topical match."
+  },
+  {
+    "id": 19,
+    "query": "archive the finished workloom task and journal the session",
+    "expected_trigger": false,
+    "predicted_trigger": false,
+    "chosen_skill": "none",
+    "match": true,
+    "reason": "The query asks to archive a finished workloom task and journal the session (workflow step 3.1 housekeeping). workloom-alignment only covers Phase 1.1 requirement alignment, not archiving or journaling; grilling, tdd, and workloom-update-spec also do not match. No listed skill applies, so none is chosen."
+  },
+  {
+    "id": 20,
+    "query": "I'm in the middle of implementing and hit an ambiguous requirement: go ask the product owner directly",
+    "expected_trigger": true,
+    "predicted_trigger": true,
+    "chosen_skill": "workloom-alignment",
+    "match": true,
+    "reason": "The query describes an ambiguous requirement surfacing during implementation and asking the agent to go clarify it with the requirement owner — this is exactly requirement alignment for an active workloom task, which the workloom-alignment description covers ('Use whenever an active workloom planning task needs requirements aligned ... confirming alignment'). grilling is for standalone/non-workloom pressure-testing, tdd and workloom-update-spec are unrelated, so workloom-alignment is the correct choice and matches the ground truth."
+  }
+]

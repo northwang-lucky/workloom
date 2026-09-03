@@ -10,12 +10,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  computePrdHash,
+  executeAlignTask,
   executeArchiveTask,
   executeCheckTask,
   executeCreateTask,
   executeFinishTask,
   executeListTasks,
   executeStartTask,
+  readTask,
+  recordAlignmentCredential,
   requireWorkloomCwd,
   resolveTaskRelPath,
 } from '../dist/index.js'
@@ -37,6 +41,16 @@ function satisfyStartGate(root, taskRelPath) {
   )
   writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+}
+
+/** 记录 alignment 凭据（hash 取当前 prd.md；窄写口直落，模拟 confirm 后状态）。 */
+function alignTask(root, taskRelPath) {
+  const prd = readFileSync(join(root, '.workloom', taskRelPath, 'prd.md'), 'utf8')
+  const [err] = recordAlignmentCredential(root, taskRelPath, {
+    summary: 'frontier empty, all decisions settled',
+    prdHash: computePrdHash(prd),
+  })
+  assert.equal(err, null)
 }
 
 test('requireWorkloomCwd 空串抛错（消息含前缀）', () => {
@@ -105,8 +119,9 @@ test('create→start→check→finish→list→archive 全链（活跃任务 fal
     const [gateErr] = await executeStartTask(root, contextKey, {})
     assert.ok(gateErr)
     assert.match(gateErr.message, /start gate failed/)
-    // 填满 prd 与两个 jsonl 后放行。
+    // 填满 prd 与两个 jsonl、完成 alignment 后放行。
     satisfyStartGate(root, created.taskRelPath)
+    alignTask(root, created.taskRelPath)
     const [, started] = await executeStartTask(root, contextKey, {})
     assert.equal(started.taskRelPath, created.taskRelPath)
     assert.equal(started.status, 'in_progress')
@@ -233,64 +248,133 @@ test('executeCreateTask 返回 nextStepNote（Phase 1.1 行动指引）', async 
       typeof result.nextStepNote === 'string' && result.nextStepNote !== '',
       'nextStepNote must be a non-empty string',
     )
-    assert.match(result.nextStepNote, /fixed grilling question/)
-    assert.match(result.nextStepNote, /finalizing prd\.md/)
+    assert.match(result.nextStepNote, /workloom-alignment/)
+    assert.match(result.nextStepNote, /workloom_task_align/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('executeStartTask 返回记录附 grillingPending（未判定 true + 提示；required=false false）', async () => {
+test('executeStartTask 返回记录无 grillingPending/grillingNote（alignment 凭据语义）', async () => {
   const root = makeRoot()
   try {
-    // 未判定（无 UI 小节）：放行 + grillingPending=true + 提示文案
-    const [, created] = await executeCreateTask(root, 'dsh_gp', { title: 'Pending Start' })
+    const [, created] = await executeCreateTask(root, 'dsh_ap', { title: 'Align Start' })
     satisfyStartGate(root, created.taskRelPath)
-    const [, started] = await executeStartTask(root, 'dsh_gp', {})
-    assert.equal(started.grillingPending, true)
-    assert.ok(
-      typeof started.grillingNote === 'string' && started.grillingNote !== '',
-      'grillingPending=true 时必须附 grillingNote 提示',
-    )
-    // required=false：放行 + grillingPending=false，无提示
-    const [, created2] = await executeCreateTask(root, 'dsh_gp2', { title: 'No Grill Start' })
-    satisfyStartGate(root, created2.taskRelPath)
-    const [jErr] = await executeCheckTask(root, 'dsh_gp2', {
-      phase: 'grilling',
-      required: false,
-    })
-    assert.equal(jErr, null)
-    const [, started2] = await executeStartTask(root, 'dsh_gp2', {})
-    assert.equal(started2.grillingPending, false)
-    assert.equal(started2.grillingNote, undefined)
+    // 未 alignment：planning start 被拦（指引 workloom_task_align）
+    const [gateErr] = await executeStartTask(root, 'dsh_ap', {})
+    assert.ok(gateErr)
+    assert.match(gateErr.message, /alignment credential/)
+    alignTask(root, created.taskRelPath)
+    const [, started] = await executeStartTask(root, 'dsh_ap', {})
+    assert.equal(started.status, 'in_progress')
+    // 返回记录不再带 grilling 软提醒字段
+    assert.equal(started.grillingPending, undefined)
+    assert.equal(started.grillingNote, undefined)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('executeCheckTask 透传 phase=grilling（判定 → 收敛两次调用）', async () => {
+test('executeAlignTask review/confirm：校验失败零写入、hash 冲突拒绝、同 hash 幂等不刷新', async () => {
   const root = makeRoot()
   try {
-    const [, created] = await executeCreateTask(root, 'dsh_gc', { title: 'Grill Ops' })
-    const [err1, judged] = await executeCheckTask(root, 'dsh_gc', {
-      phase: 'grilling',
-      required: true,
+    const contextKey = 'dsh_align'
+    const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops' })
+    const taskDir = join(root, '.workloom', created.taskRelPath)
+    // 骨架 prd（占位符未填）→ confirm 拒绝且零写入
+    const [rej1] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      expectedPrdHash: 'x',
+      summary: 's',
     })
-    assert.equal(err1, null)
-    assert.equal(judged.grilling.required, true)
-    assert.equal(judged.grilling.passedAt, null)
-    const [err2, converged] = await executeCheckTask(root, 'dsh_gc', {
-      phase: 'grilling',
-      summary: 'frontier empty',
+    assert.ok(rej1)
+    assert.match(rej1.message, /sections still placeholder/)
+    const [, before] = readTask(root, created.taskRelPath)
+    assert.equal(before.alignment, null)
+    // confirm 缺 expectedPrdHash：显式拒绝（不落入 hash 失配的歧义文案）
+    const [noHashErr] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      summary: 's',
+    })
+    assert.ok(noHashErr)
+    assert.match(noHashErr.message, /expectedPrdHash is required/)
+    // 写入完整收敛 prd（含 Alignment Decisions + open-nodes=none）与 jsonl
+    const converged = `# Filled
+
+## Goal
+
+Do the thing.
+
+## Requirements
+
+- req
+
+## Acceptance Criteria
+
+- ac
+
+## Notes
+
+- note
+
+## Alignment Decisions
+
+- design tree converged
+
+<!-- workloom:open-nodes=none -->
+`
+    writeFileSync(join(taskDir, 'prd.md'), converged)
+    writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+    writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+    // review 只读：返回快照 + hash（零写盘）
+    const [revErr, review] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.equal(revErr, null)
+    assert.equal(review.prd, converged)
+    assert.equal(review.prdHash, computePrdHash(converged))
+    // 开放节点 pending → confirm 拒绝
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      converged.replace('workloom:open-nodes=none', 'workloom:open-nodes=pending'),
+    )
+    const [openErr] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      expectedPrdHash: computePrdHash(converged.replace('workloom:open-nodes=none', 'workloom:open-nodes=pending')),
+      summary: 's',
+    })
+    assert.ok(openErr)
+    assert.match(openErr.message, /open nodes are not none/)
+    writeFileSync(join(taskDir, 'prd.md'), converged)
+    // hash 冲突拒绝（expected 与当前 prd 不一致，零写入）
+    const [conflictErr] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      expectedPrdHash: 'deadbeef',
+      summary: 'converged',
+    })
+    assert.ok(conflictErr)
+    assert.match(conflictErr.message, /prd hash mismatch/)
+    // 正确 hash confirm 成功并落凭据
+    const [err2, confirmed] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      expectedPrdHash: review.prdHash,
+      summary: 'converged',
     })
     assert.equal(err2, null)
-    assert.equal(converged.grilling.summary, 'frontier empty')
-    assert.ok(!Number.isNaN(Date.parse(converged.grilling.passedAt)))
-    // planning 状态记录不触发任何 check 门禁（无需 jsonl/force）
-    const saved = JSON.parse(
-      readFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), 'utf8'),
-    )
-    assert.equal(saved.overrides.length, 0)
+    assert.equal(confirmed.idempotent, false)
+    assert.equal(confirmed.alignment.prdHash, review.prdHash)
+    const [, taskAfter] = readTask(root, created.taskRelPath)
+    assert.ok(taskAfter.alignment !== null)
+    const passedAt = taskAfter.alignment.passedAt
+    // 同 hash 重复 confirm 幂等：不刷新 passedAt、不覆盖 summary
+    const [err3, again] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      expectedPrdHash: review.prdHash,
+      summary: 'converged again',
+    })
+    assert.equal(err3, null)
+    assert.equal(again.idempotent, true)
+    const [, taskFinal] = readTask(root, created.taskRelPath)
+    assert.equal(taskFinal.alignment.passedAt, passedAt)
+    assert.equal(taskFinal.alignment.summary, 'converged')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

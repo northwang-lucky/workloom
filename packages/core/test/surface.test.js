@@ -15,7 +15,6 @@ import {
   COMMAND_NAMES,
   DOCTOR_FIX_FLAG,
   ERR_PREFIX,
-  GRILLING_PENDING_NOTE,
   PARAM_DESCRIPTIONS,
   TASK_CREATE_NOTE,
   TOOL_DESCRIPTIONS,
@@ -210,35 +209,31 @@ test('doctor 命令键对齐：COMMAND_NAMES.doctor / COMMAND_DESCRIPTIONS.docto
   assert.equal(DOCTOR_FIX_FLAG, '--fix', 'doctor fix flag must be --fix')
 })
 
-test('taskCheck 描述与 snippet 提及 phase 参数（check/grilling 双阶段凭据）', () => {
-  assert.match(TOOL_DESCRIPTIONS.taskCheck, /phase/, 'taskCheck description must mention phase')
-  assert.match(TOOL_SNIPPETS.taskCheck, /phase/, 'taskCheck snippet must mention phase')
+test('taskCheck 描述与 snippet 提及 2.2 check 凭据（不含 grilling 阶段）', () => {
+  assert.match(TOOL_DESCRIPTIONS.taskCheck, /2\.2 check pass/, 'taskCheck description must describe the check credential')
+  assert.ok(!TOOL_DESCRIPTIONS.taskCheck.includes('grilling'), 'taskCheck description must not mention grilling')
+  assert.ok(!TOOL_SNIPPETS.taskCheck.includes('grilling'), 'taskCheck snippet must not mention grilling')
 })
 
-test('PARAM_DESCRIPTIONS 新增 phase/phaseGrilling/grillingRequired 且非空（枚举值/缺省/含义）', () => {
-  for (const key of ['phase', 'phaseGrilling', 'grillingRequired']) {
-    const text = PARAM_DESCRIPTIONS[key]
-    assert.ok(typeof text === 'string' && text !== '', `${key} description must be non-empty`)
+test('taskAlign 工具：名称/描述/snippet/参数描述齐全且指向 review/confirm', () => {
+  assert.equal(TOOL_NAMES.taskAlign, 'workloom_task_align')
+  assert.match(TOOL_DESCRIPTIONS.taskAlign, /action=review/)
+  assert.match(TOOL_DESCRIPTIONS.taskAlign, /action=confirm/)
+  assert.match(TOOL_SNIPPETS.taskAlign, /workloom_task_align\(action/)
+  for (const key of ['action', 'expectedPrdHash', 'alignmentSummary']) {
+    assert.ok(
+      typeof PARAM_DESCRIPTIONS[key] === 'string' && PARAM_DESCRIPTIONS[key] !== '',
+      `${key} description must be non-empty`,
+    )
   }
-  assert.ok(
-    PARAM_DESCRIPTIONS.phase.includes('check') && PARAM_DESCRIPTIONS.phase.includes('grilling'),
-    'phase 描述必须含 check/grilling 两枚举值',
-  )
-  assert.ok(
-    PARAM_DESCRIPTIONS.grillingRequired.includes('required=true'),
-    'grillingRequired 描述必须说明 required=true 的语义',
-  )
+  assert.match(PARAM_DESCRIPTIONS.expectedPrdHash, /SHA-256/)
+  assert.match(PARAM_DESCRIPTIONS.alignmentSummary, /convergence summary/i)
 })
 
-test('TASK_CREATE_NOTE 含 Phase 1.1 行动指引（brainstorm → 固定问题 → finalize prd）', () => {
-  assert.match(TASK_CREATE_NOTE, /load workloom-brainstorm/)
-  assert.match(TASK_CREATE_NOTE, /fixed grilling question/)
-  assert.match(TASK_CREATE_NOTE, /finalizing prd\.md/)
-})
-
-test('GRILLING_PENDING_NOTE 含补录指引（phase=grilling）', () => {
-  assert.match(GRILLING_PENDING_NOTE, /phase=grilling/)
-  assert.match(GRILLING_PENDING_NOTE, /workloom_task_check/)
+test('TASK_CREATE_NOTE 含统一 alignment 行动指引（自动进入、design tree 收敛后确认，不再问 grilling）', () => {
+  assert.match(TASK_CREATE_NOTE, /workloom-alignment/)
+  assert.match(TASK_CREATE_NOTE, /workloom_task_align/)
+  assert.ok(!TASK_CREATE_NOTE.includes('grilling'), 'create note must not reference grilling')
 })
 
 // ---------- 续派模型治理：续派回执 spawn 绑定渲染（design §8.3，阶段三） ----------

@@ -10,9 +10,11 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
 
 import {
   ERR_PREFIX,
+  executeAlignTask,
   executeArchiveTask,
   executeCheckTask,
   executeCreateTask,
@@ -104,16 +106,7 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
     parameters: {
       type: 'object',
       properties: {
-        // phase 缺省 check：grilling 判定/收敛调用不需要 summary，故 summary 不再必填。
-        phase: {
-          type: 'string',
-          enum: ['check', 'grilling'],
-          default: 'check',
-          // 描述拼接 phaseGrilling：模型在 schema 中可见 grilling 判定/收敛两次调用的完整语义。
-          description: `${PARAM_DESCRIPTIONS.phase}. ${PARAM_DESCRIPTIONS.phaseGrilling}`,
-        },
         summary: { type: 'string', description: PARAM_DESCRIPTIONS.summary },
-        required: { type: 'boolean', description: PARAM_DESCRIPTIONS.grillingRequired },
         taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
         force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
         reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
@@ -124,6 +117,28 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
     output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
     isConcurrencySafe: () => true,
     execute: (args, exec) => checkTaskTool(args, exec),
+  })
+
+  tools.register({
+    name: TOOL_NAMES.taskAlign,
+    description: TOOL_DESCRIPTIONS.taskAlign,
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['review', 'confirm'], description: PARAM_DESCRIPTIONS.action },
+        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+        expectedPrdHash: {
+          type: 'string',
+          description: PARAM_DESCRIPTIONS.expectedPrdHash,
+        },
+        summary: { type: 'string', description: PARAM_DESCRIPTIONS.alignmentSummary },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+    isConcurrencySafe: () => true,
+    execute: (args, exec) => alignTaskTool(args, exec),
   })
 
   tools.register({
@@ -243,13 +258,11 @@ async function startTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   return { taskRelPath: task.taskRelPath, task }
 }
 
-/** check 工具：记录任务凭据（phase=check 写 2.2 check；phase=grilling 写判定/收敛）。 */
+/** check 工具：记录 2.2 check 通过凭据。 */
 async function checkTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, task] = await executeCheckTask(cwd, contextKeyOf(exec), {
-    phase: typed.phase === 'grilling' ? 'grilling' : undefined,
-    required: boolOf(typed, 'required'),
     summary: typeof typed.summary === 'string' ? typed.summary : undefined,
     taskPath: taskPathOf(typed),
     force: boolOf(typed, 'force'),
@@ -259,6 +272,38 @@ async function checkTaskTool(args: unknown, exec: unknown): Promise<unknown> {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: check returned no result`)
   }
   return { taskRelPath: task.taskRelPath, task }
+}
+
+/**
+ * align 工具：Phase 1.1 review/confirm（R10：只允许主会话调用——executor 等
+ * 子代理按 delegation depth 硬拒绝；Pi 子进程以 --no-extensions spawn 天然无此工具）。
+ */
+async function alignTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+  const typed = args as Record<string, unknown>
+  const agent = (exec as ToolExec).agent
+  if (agent !== undefined) {
+    // delegationDepthOf 需要完整 Agent 形状；工具执行上下文里 agent 为宿主对象，
+    // 经 unknown 双断言收窄（编译面），运行期宿主 agent 恒带 options/session。
+    const depth = delegationDepthOf(agent as unknown as Parameters<typeof delegationDepthOf>[0])
+    if (depth > 0) {
+      throw new Error(
+        `${ERR_PREFIX.taskTool}: workloom_task_align can only be called from the main session ` +
+          '(alignment confirm is a user decision)',
+      )
+    }
+  }
+  const cwd = cwdOf(exec)
+  const action = typed.action === 'confirm' ? 'confirm' : 'review'
+  const [err, result] = executeAlignTask(cwd, contextKeyOf(exec), {
+    action,
+    taskPath: taskPathOf(typed),
+    expectedPrdHash: stringOf(typed, 'expectedPrdHash'),
+    summary: typeof typed.summary === 'string' ? typed.summary : undefined,
+  })
+  if (err !== null || result === null) {
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: align returned no result`)
+  }
+  return result
 }
 
 /** finish 工具：清除会话活跃任务指针（状态不变）。 */

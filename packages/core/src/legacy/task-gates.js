@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { computePrdHash, evaluateAlignmentGate } from './alignment.js'
 import { insideWorkloom } from './locate.js'
 import { EXECUTOR_KINDS, parseJsonlEntries } from './executor-context.js'
 
@@ -36,6 +37,8 @@ export const GATES = Object.freeze({
   ARCHIVE: 'archive',
   // executor 参数与 subagents 配置冲突的 force 覆盖（override 审计门）。
   EXECUTOR_MODEL_EFFORT: 'executor_model_effort',
+  // alignment 凭据 stale 的 force 覆盖（in_progress 任务新派发/续用/check/archive 拦截门）。
+  STALE_ALIGN: 'stale_alignment',
 })
 
 /**
@@ -49,6 +52,8 @@ export const GATE_TOOLS = Object.freeze({
   archive: 'workloom_task_archive',
   // 与 surface.TOOL_NAMES.executor 一致（legacy 纯 JS 不可 import TS，按既有风格逐字重复）。
   executor_model_effort: 'workloom_execute',
+  // stale_alignment 由 workloom_execute 触发（新派发与续用共用，同 surface.TOOL_NAMES.executor）。
+  stale_alignment: 'workloom_execute',
 })
 
 /**
@@ -75,19 +80,14 @@ const PRD_TITLE_MISSING = 'prd.md missing H1 title'
 /** prd 一级标题行判定：`# ` 开头且 `# ` 之后有非空标题文本。 */
 const PRD_TITLE_LINE_RE = /^#\s+\S+/
 
-/** prd.md 中标识「涉及前端展示」的小节标题（与 1.1b 对齐记录一致）。 */
+/** prd.md 中标识「涉及前端展示」的小节标题（与 alignment 的 UI 适用性节点一致）。 */
 const UI_DESIGN_SECTION = 'UI Design'
 
 /** 前端派发门禁缺失项文案（涉及前端展示但无 frontend 派发，机制强制）。 */
 const FRONTEND_DISPATCH_MISSING = 'no frontend dispatch recorded for a task with UI requirements'
 
-/** grilling 门禁缺失项文案：涉及前端展示但未记录 grilling 判定（指引下一步动作）。 */
-const GRILLING_UI_MISSING =
-  'no grilling judgment recorded for a task with UI requirements (record the fixed grilling question answer (required=true) via workloom_task_check with phase=grilling)'
-
-/** grilling 门禁缺失项文案：判定需要 grilling 但无收敛凭据（指引下一步动作）。 */
-const GRILLING_REQUIRED_MISSING =
-  'grilling required but no record (run the fixed grilling question, then record via workloom_task_check with phase=grilling)'
+/** stale alignment 门禁只作用于 in_progress（旧任务与 planning 不在此门内）。 */
+const IN_PROGRESS_STATUS = 'in_progress'
 
 /**
  * 判定 prd.md 是否缺一级标题（H1）：跳过开头空行后，首个非空行必须
@@ -133,40 +133,31 @@ export function countEffectiveJsonlRecords(content, jsonlName) {
 }
 
 /**
- * 求值 grilling 门禁（纯函数，无 IO，只求值不读写）：按「task.json grilling
- * 状态 × prd 是否含 UI Design 小节」的门禁矩阵产出缺失项：
- * - grilling 未判定（null，含存量任务）且 prd 含 UI Design 小节 → 拦截（指引记录 required=true）；
- * - required=true 且无 passedAt → 拦截（判定后须收敛，指引下一步动作）；
- * - 其余（未判定且无 UI、required=false、required=true 且有 passedAt）→ 放行。
- * 门禁读 task.json grilling 机器凭据；prd 的「## Grilling」小节不参与门禁（复核材料）。
- * @param {string | null} prdContent prd.md 全文（缺失传 null）
- * @param {import('./task-store.d.ts').TaskGrillingRecord | null} grilling task.json grilling 字段
+ * 求值 stale alignment 门禁（含 IO，供 executor 派发/check/archive 复用）：
+ * 只对 in_progress 且有 alignment 凭据的任务判 stale——读取当前 prd.md 计算
+ * hash 与凭据快照比对，失配返回缺失项（R13：旧 in_progress 空凭据任务与
+ * planning research 不受此门影响）。prd 缺失返回空（缺失由其他门禁覆盖）。
+ * @param {string} root 项目根（必须已是 findWorkloomRoot 的结果）
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').TaskRecord} task 归一化后的任务记录（alignment 凭据）
  * @returns {string[]} 缺失项描述列表（空数组表示通过）
  */
-export function evaluateGrillingGate(prdContent, grilling) {
-  const missing = []
-  if (grilling === null) {
-    // 未判定：仅 UI 任务硬拦（UI 展示必有设计决策，必须显式判定）；
-    // 无 UI 小节放行（存量任务零阻塞，由 start 返回 grillingPending 软提醒）。
-    if (prdContent !== null && splitSectionBodies(prdContent).has(UI_DESIGN_SECTION)) {
-      missing.push(GRILLING_UI_MISSING)
-    }
-    return missing
-  }
-  if (grilling.required === true && typeof grilling.passedAt !== 'string') {
-    missing.push(GRILLING_REQUIRED_MISSING)
-  }
-  return missing
+export function evaluateStaleAlignmentGate(root, taskRelPath, task) {
+  if (task?.status !== IN_PROGRESS_STATUS) return []
+  if (task.alignment === null) return []
+  const prd = readIfExists(join(insideWorkloom(root, taskRelPath), GATE_FILES.prd))
+  if (prd === null) return []
+  return evaluateAlignmentGate(task.status, task.alignment, computePrdHash(prd))
 }
 
 /**
  * 求值 start 门禁：返回缺失项描述列表（空数组表示通过）。
  * prd.md 缺失/一级标题缺失/小节未填、implement.jsonl 与 check.jsonl 无有效记录、
- * grilling 门禁缺失项（见 evaluateGrillingGate）各占一项；
+ * alignment 门禁缺失项（planning 无凭据或凭据 hash 与当前 prd 不一致）各占一项；
  * jsonl 结构性坏行抛错（fail loud，不放行）。
  * @param {string} root 项目根（必须已是 findWorkloomRoot 的结果）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').TaskRecord} task 归一化后的任务记录（grilling 凭据）
+ * @param {import('./task-store.d.ts').TaskRecord} task 归一化后的任务记录（alignment 凭据）
  * @returns {string[]} 缺失项描述列表
  */
 export function evaluateStartGate(root, taskRelPath, task) {
@@ -184,13 +175,14 @@ export function evaluateStartGate(root, taskRelPath, task) {
     if (unfilled.length > 0) {
       missing.push(`${GATE_FILES.prd} sections still placeholder: ${unfilled.join(', ')}`)
     }
+    // alignment 门禁：planning 必须有凭据且 hash 与当前 prd 一致（旧 planning
+    // 任务须重新 alignment；确认后 prd 再变即 stale，均指向 workloom_task_align）。
+    missing.push(...evaluateAlignmentGate(task?.status ?? 'planning', task?.alignment ?? null, computePrdHash(prd)))
   }
   for (const name of [GATE_FILES.implementLog, GATE_FILES.checkLog]) {
     const item = evaluateJsonlGate(taskDir, name)
     if (item !== null) missing.push(item)
   }
-  // grilling 门禁：任务记录已由调用方（startTaskInternal）归一化读取，直接消费。
-  missing.push(...evaluateGrillingGate(prd, task?.grilling ?? null))
   return missing
 }
 

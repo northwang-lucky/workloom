@@ -1,0 +1,9 @@
+{
+  "id": 6,
+  "query": "we need tests first on this workloom task; confirm which seams are under test",
+  "expected_trigger": true,
+  "predicted_trigger": true,
+  "chosen_skill": "workloom-alignment",
+  "match": true,
+  "reason": "The query is about test-first applicability and test-coverage boundary decisions inside an active workloom task. The workloom-alignment description explicitly covers 'UI/test-first applicability decisions' within a workloom planning task, so it takes precedence. The generic tdd skill only applies when prd.md already mandates test-first delivery, which is not the case here — this is a requirement-alignment discussion, not direct TDD execution."
+}

@@ -1,0 +1,11 @@
+{
+  "eval_id": 5,
+  "eval_name": "grill-request-inside-workloom-routes-here",
+  "prompt": "While in an active workloom planning task the user says: 'grill this requirement set before we write design.md'.",
+  "assertions": [
+    "treats the request as a design-tree round inside Phase 1.1",
+    "does not hand off to a separate generic grilling session",
+    "keeps the pressure test inside the same prd.md / Alignment Decisions record"
+  ],
+  "config": "without_skill"
+}

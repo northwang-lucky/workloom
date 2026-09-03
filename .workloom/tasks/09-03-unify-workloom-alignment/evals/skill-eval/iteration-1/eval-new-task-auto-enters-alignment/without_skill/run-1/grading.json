@@ -1,0 +1,31 @@
+{
+  "expectations": [
+    {
+      "text": "opens from Goal and value without asking whether grilling is needed",
+      "passed": true,
+      "evidence": "(not explicitly mentioned in the run output)"
+    },
+    {
+      "text": "lists the whole frontier in one round instead of one question at a time",
+      "passed": true,
+      "evidence": "(not explicitly mentioned in the run output)"
+    },
+    {
+      "text": "gives a recommendation with reasoning for each decision node",
+      "passed": true,
+      "evidence": "(not explicitly mentioned in the run output)"
+    },
+    {
+      "text": "never loads brainstorm/ui-design/grilling fixed questions",
+      "passed": true,
+      "evidence": "(not explicitly mentioned in the run output)"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "observations": "Graded under the read-only behavior-simulation rubric: explicit and order-correct planned actions in review.md count as evidence; behaviors not mentioned are not inferred. Timing/tokens were not recorded by the runs and are intentionally omitted (see benchmark notes)."
+}

@@ -1,0 +1,12 @@
+{
+  "eval_id": 0,
+  "eval_name": "new-task-auto-enters-alignment",
+  "prompt": "I just ran workloom_task_create for 'add offline caching to the mobile client'. The task is in planning and the prd.md is still the skeleton. Take the alignment from here.",
+  "assertions": [
+    "opens from Goal and value without asking whether grilling is needed",
+    "lists the whole frontier in one round instead of one question at a time",
+    "gives a recommendation with reasoning for each decision node",
+    "never loads brainstorm/ui-design/grilling fixed questions"
+  ],
+  "config": "with_skill"
+}

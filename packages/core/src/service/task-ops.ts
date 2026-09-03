@@ -13,6 +13,7 @@
  */
 
 import { resolveActiveTask } from '../legacy/active-task.js'
+import { findWorkloomRoot } from '../legacy/locate.js'
 import {
   archiveTask,
   checkTask,
@@ -21,12 +22,7 @@ import {
   listTasks,
   startTask,
 } from '../legacy/task-store.js'
-import {
-  ERR_PREFIX,
-  GRILLING_PENDING_NOTE,
-  TASK_ARCHIVE_NOTE,
-  TASK_CREATE_NOTE,
-} from '../surface.js'
+import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE } from '../surface.js'
 
 import type {
   StartedTaskRecord,
@@ -53,7 +49,7 @@ export function requireWorkloomCwd(cwd: string): string {
 
 /**
  * 解析任务相对路径：显式 taskPath 优先，缺省取活跃任务（无则抛错）。
- * @param cwd 会话工作目录
+ * @param cwd 会话工作目录（项目根或其任意子目录）
  * @param contextKey 会话标识（adapter 组装）
  * @param taskPath 显式任务路径（可选）
  * @param errPrefix 「无活跃任务」错误消息的前缀（任务工具传 taskTool，
@@ -67,7 +63,14 @@ export function resolveTaskRelPath(
   errPrefix: string,
 ): string {
   if (typeof taskPath === 'string' && taskPath !== '') return taskPath
-  const [ptrErr, active] = resolveActiveTask(cwd, contextKey)
+  // 缺省取活跃任务：先向上定位 .workloom 根再读会话指针——深层子目录 cwd 下若把
+  // 原始 cwd 当根直接拼 <cwd>/.workloom/.runtime 会 ENOENT 而误报无活跃任务；
+  // active-task.js 约定 root 为项目根不做向上查找，此处复用 findWorkloomRoot 补齐。
+  const found = findWorkloomRoot(cwd)
+  if (found === null) {
+    throw new Error(`${errPrefix}: no .workloom directory found from cwd: ${cwd}`)
+  }
+  const [ptrErr, active] = resolveActiveTask(found.root, contextKey)
   if (ptrErr) throw ptrErr
   if (active === null) {
     throw new Error(`${errPrefix}: no active task and no taskPath given`)
@@ -151,9 +154,9 @@ export interface ExecuteStartTaskParams {
 }
 
 /**
- * start 工具编排：把任务从 planning 移到 in_progress（返回记录附 grillingPending
- * 提示，见 StartedTaskRecord）。
- * 默认硬阻断：prd 小节未填、jsonl 无有效记录、grilling 门禁未过时拒绝；force 豁免并留痕。
+ * start 工具编排：把任务从 planning 移到 in_progress。
+ * 默认硬阻断：prd 小节未填、jsonl 无有效记录、alignment 门禁未过（无凭据或
+ * 凭据 stale）时拒绝；force 豁免需非空 reason 并按实际绕过的 gate 留痕。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识（adapter 组装）
  * @param params 工具参数（taskPath 缺省取活跃任务）
@@ -176,7 +179,7 @@ export async function executeStartTask(
  * @param cwd 会话工作目录
  * @param contextKey 会话标识
  * @param params 工具参数
- * @returns 启动后的任务记录（附 grillingPending / grillingNote）
+ * @returns 启动后的任务记录
  */
 async function executeStartInternal(
   cwd: string,
@@ -190,32 +193,23 @@ async function executeStartInternal(
     contextKey,
     ...forceOverride(params),
   })
-  if (err || task === null) {
+  if (err !== null || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: start returned no result`)
-  }
-  if (task.grillingPending) {
-    // 未判定软提醒：附提示文案（不落盘），供模型建议补录判定。
-    task.grillingNote = GRILLING_PENDING_NOTE
   }
   return task
 }
 
-/** check 工具编排入参（phase 缺省 check；summary 在 phase=grilling 判定调用时可缺省）。 */
+/** check 工具编排入参（summary 为 2.2 通过摘要）。 */
 export interface ExecuteCheckTaskParams {
   taskPath?: string
-  /** 凭据阶段：check（缺省）或 grilling（判定/收敛）。 */
-  phase?: 'check' | 'grilling'
-  /** grilling 判定（yes=true / no=false；phase=grilling 时可用）。 */
-  required?: boolean
-  /** check 通过摘要 / grilling 收敛摘要。 */
+  /** 2.2 check 通过摘要。 */
   summary?: string
   force?: boolean
   reason?: string
 }
 
 /**
- * check 工具编排：记录任务凭据——phase=check 写 2.2 check 通过凭据；
- * phase=grilling 写固定 grilling 问题判定/收敛凭据（planning 阶段可用）。
+ * check 工具编排：记录 2.2 check 通过凭据（task.json check）。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识（adapter 组装）
  * @param params 工具参数（taskPath 缺省取活跃任务）
@@ -249,12 +243,10 @@ function executeCheckInternal(
   const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
   const [err, task] = checkTask(cwd, {
     taskRelPath,
-    ...(params.phase !== undefined ? { phase: params.phase } : {}),
-    ...(params.required !== undefined ? { required: params.required } : {}),
     ...(params.summary !== undefined ? { summary: params.summary } : {}),
     ...forceOverride(params),
   })
-  if (err || task === null) {
+  if (err !== null || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: check returned no result`)
   }
   return task
