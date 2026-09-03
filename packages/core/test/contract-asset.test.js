@@ -21,25 +21,43 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
   assert.deepEqual(contract.warnings, [])
 })
 
-/** 强制加载协议 + marker 回声纪律句（v18 契约 norms Dispatch 段，与 executor-context 纪律段逐字一致）。 */
+/** 强制加载协议 + marker 回声纪律句（v19 契约 norms Dispatch 段，与 executor-context 纪律段逐字一致）。 */
 const INJECTION_PROTOCOL_DISCIPLINE =
   'Read the files in the injected pointer list before acting. ' +
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
 
-test('契约 v18 含强制加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
+/** 主会话处置句（契约 2.1 末尾，覆盖 implement 与 check，逐字）。 */
+const MAIN_SESSION_DISPOSAL_SENTENCE =
+  'Executor reports may end with blocking items: open questions the executor ' +
+  'could not resolve alone. The main session batches every blocking item to ' +
+  'the user for decisions in one round, records the decisions, and only then ' +
+  're-dispatches; never route the executor to the user directly.'
+
+test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 18)
+  assert.equal(contract.version, 19)
   assert.ok(
     contract.norms.includes(INJECTION_PROTOCOL_DISCIPLINE),
-    'v18 契约 norms 必须含强制加载协议 + marker 回声纪律句',
+    'v19 契约 norms 必须含强制加载协议 + marker 回声纪律句',
+  )
+})
+
+test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决断，逐字）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.equal(contract.version, 19)
+  const implementBody = contract.steps.find((step) => step.id === '2.1').body
+  assert.ok(
+    implementBody.includes(MAIN_SESSION_DISPOSAL_SENTENCE),
+    '2.1 正文末尾必须含主会话处置句（逐字）',
   )
 })
 
 test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 18)
+  assert.equal(contract.version, 19)
   assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)

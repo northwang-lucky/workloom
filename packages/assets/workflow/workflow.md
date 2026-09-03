@@ -1,5 +1,5 @@
 ---
-version: 18
+version: 19
 states:
   - no_task
   - planning
@@ -90,6 +90,8 @@ Dispatch the implement executor with `workloom_execute` (model and effort per ta
 
 For a task with frontend UI presentation (the UI-design fixed question answered yes), its frontend file implementation must go through a `workloom_execute` dispatch with `kind: frontend`; the logic and backend parts still go through the implement executor. The check tool refuses such a task unless a frontend dispatch has been recorded (see 2.2), so route UI work through a dedicated frontend dispatch instead of folding it into the implement dispatch.
 Completion criteria: changes are done, lint and typecheck pass, and the fixed-format report (file list + verification results) is returned. When LSP tooling is available, treat it as the first choice for code work: read structure through LSP symbol outlines and call signatures; resolve members and arguments with completions; rename symbols through server-side rename and fix them with code actions instead of hand-searched edits; and include an LSP diagnostics check in the verification pass.
+
+Executor reports may end with blocking items: open questions the executor could not resolve alone. The main session batches every blocking item to the user for decisions in one round, records the decisions, and only then re-dispatches; never route the executor to the user directly.
 
 #### 2.2 Check
 

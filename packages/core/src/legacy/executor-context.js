@@ -179,6 +179,26 @@ const INJECTION_PROTOCOL_DISCIPLINE =
   'Read the files in the injected pointer list before acting. ' +
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
 
+/**
+ * 无用户通道纪律句（终极权威段共用部分，全 kind 生效，命令式、无弱化词）：
+ * 执行器没有用户通道——禁止交互式提问；无法自决的缺口必须停下、把每个开放问题
+ * 作为阻塞项写进最终报告回传主会话（主会话按契约 2.1 处置句成批交用户决断）。
+ */
+const NO_USER_CHANNEL_DISCIPLINE =
+  'You have no user channel: never ask the user questions and never call ' +
+  'interactive question tools (ask_user_question or equivalents). ' +
+  'When you hit a gap you cannot resolve yourself, stop working, write every open ' +
+  'question as a blocking item in your final report, and let the main session batch ' +
+  'them to the user for decisions.'
+
+/**
+ * research 写/编辑路径限制告知句（research 纪律段专属，机制强制的前置告知）：
+ * DSH 守卫与 Pi 同名副本扩展（均为同名覆盖）把 research 的 write/edit 限定在
+ * <cwd>/.workloom/ 内，越界拒绝。
+ */
+const RESEARCH_WRITE_SCOPE_DISCIPLINE =
+  'Your write/edit reach is confined to the .workloom/ directory: paths ' + 'outside it are denied.'
+
 /** 注入标记行前缀（行内 token 唯一标识一次派发注入，随指针清单注入）。 */
 const INJECTION_MARKER_PREFIX = 'Injection marker: '
 
@@ -207,6 +227,7 @@ export const EXECUTOR_CONTRACT_BY_KIND = Object.freeze({
 Ground every conclusion in the real source: read the actual files or data before claiming a fact, and cite file paths for each conclusion.
 Separate verified findings from suggestions, and mark anything unverified as such.
 ${LSP_RESEARCH_BASELINE_SENTENCE}
+${RESEARCH_WRITE_SCOPE_DISCIPLINE}
 
 Structure the report in research-facts blocks (see the research-facts spec and its template asset):
 - Use '##' section headings, each heading stating the section's takeaway in one sentence.
@@ -394,7 +415,8 @@ function buildInternal(params) {
   const leafRule = params.userPrompt.includes(LEAF_RULE_KEYWORD) ? '' : `${LEAF_EXECUTOR_RULE}\n\n`
   parts.push(
     `${EXECUTOR_CONTRACT_HEADING}\n${kindDirectiveHeading(params.kind)}\n` +
-      `${renderKindDiscipline(params.kind, params.hasLsp)}\n\n${leafRule}${AUTHORITY_DECLARATION}`,
+      `${renderKindDiscipline(params.kind, params.hasLsp)}\n\n` +
+      `${NO_USER_CHANNEL_DISCIPLINE}\n\n${leafRule}${AUTHORITY_DECLARATION}`,
   )
   return { text: parts.join('\n\n'), stats }
 }
