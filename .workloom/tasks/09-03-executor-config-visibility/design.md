@@ -81,7 +81,29 @@
 - 全量门：`pnpm lint`、`pnpm -r typecheck`、`pnpm -r build`、core/adapter-dsh
   全量测试、改动文件 `lsp_diagnostics`。
 
-## §8 风险与边界
+## §8 续派模型治理（PRD 需求 7，2026-09-03 用户追加）
+
+证据：cardx fe 会话 turn 6 传 `continue_executor + model` 续派，参数被静默
+丢弃、回执谎报 `(param)` 生效，子会话全程仍跑旧模型（子会话 request/header
+实证）。机制事实：DSH `followup` options 仅 `source`/`signal`，无模型重绑定
+接缝；子会话 provider/model 烤死于派发时刻的 descriptor。
+
+1. **fail loud**：`continue_executor` 与 `model`/`effort` 入参同传时，
+   `workloom_execute` 拒绝派发并返回清晰英文错误：续派不能重绑定模型/effort，
+   换模型请新开派发。一律拒绝（含传相同值）——避免模型养成"续派也带 model"
+   的惯性，杜绝回执谎言复发；拒绝发生在任何登记/结算副作用之前。
+2. **派发记录落实际生效值**：新派时刻把解析后的 `model`/`effort` 与
+   `modelSource`（param/whenMain/fallback/legacy/inherit）写入
+   `dispatches[]` 记录（core task-store 字段扩展，旧记录缺省读取为
+   undefined）；续派轮记录的 model/effort 沿用该 childId 首次派发记录的
+   绑定值，`modelSource` 记 `spawn`。
+3. **诚实回执**：续派回执的 model/effort 行展示子会话派发时绑定值
+   （`(spawn binding)`）；旧记录无绑定值时显示 `(unrecorded spawn binding)`，
+   不再回显任何未生效参数。新派回执维持现状（`(param)`/`(config: …)`）。
+4. **工具描述**：`PARAM_DESCRIPTIONS.continueExecutor`（或 model/effort）补
+   一句"续派不能更换模型/effort"（需求 7.3 与 R5 合并落）。
+
+## §9 风险与边界
 
 - `session/event` 若被 scope 过滤漏掉执行器子会话事件，单测不可见（mock 面），
   由 Q8 冒烟（故意失败派发）实证兜底；若实证失效，回退方案为结算时按
