@@ -232,3 +232,9 @@
 - Commit: 946c9b5
 - Summary: 完成单一 Phase 1.1 alignment、PRD hash 凭据与 stale/force 门禁、双 runtime protocol/skill 分发、迁移检查及全量验证；行为 eval 的 baseline 污染不作为验收依据。
 
+## git worktree 兼容性加固：cwd 定位修复 + 真实 worktree 集成测试
+
+- Time: 2026-09-03T13:30:43.581Z
+- Commit: c27d2fb
+- Summary: resolveTaskRelPath 接入 findWorkloomRoot 修复深层 cwd 误报无活跃任务（hunk 随并行提交 946c9b5 入库）；新增真实 git worktree 集成测试五场景（c27d2fb）；core 537/535+ 全绿；产物已 sync，dshweb 重启留给用户；演进方向结论（task start 建 worktree、同级目录、自动分支命名、元数据归属待重议）留档任务 prd。
+
