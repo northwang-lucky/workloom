@@ -14,10 +14,10 @@
  * - 子代理会话为 continuable：客户端 composer 可写、会话记录 mode=continuable、服务端
  *   接受 follow-up；主会话可经 continue_executor 参数显式续用同一会话跑多阶段——
  *   续用默认只发主会话增量指令（不重注入全量上下文），reinject: true 恢复全量注入；
- *   续用走 followup(parent, childId, content) 投递下一指令（投递前按 dispatches 记录做
- *   同 kind 校验，跨 kind 返回提示不投递；投递被上游 parent 严格校验拒绝时——fork 分身
- *   接续源会话派发的 executor 必然命中——转译为全新派发引导文案），等待与输出语义同
- *   新派发；
+ *   续用走 sendMessage(parent, childId, content, { signal }) 投递下一指令（投递前按
+ *   dispatches 记录做同 kind 校验，跨 kind 返回提示不投递；投递被上游 parent 严格校验
+ *   拒绝时——fork 分身接续源会话派发的 executor 必然命中——转译为全新派发引导文案），
+ *   等待与输出语义同新派发；
  * - 完成报告不二次发 receipt：DSH 结算时向父会话投递 subagent-settled notice（含收尾
  *   消息），主会话从通知直接获得报告；续接（continue_executor/send_message）只用于
  *   追加新工作，不为取报告而续接，不新增结果收集工具；
@@ -65,6 +65,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import type { SubagentSendMessageOptions, ContinuableStart, SubagentProvider } from '@deepseek-ai/dsh-subagent'
+import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
 
 import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core'
 import type { DispatchModelSource } from '@workloom-ai/core'
@@ -103,7 +105,6 @@ import {
   SPAWN_PROVIDER,
   toCapabilityError,
 } from './executor-dispatch.js'
-import type { SpawnProviderLike } from './executor-dispatch.js'
 import { registerResearchChildId, registerResearchGuard } from './executor-guard.js'
 import type { ResearchExecutionLike } from './executor-guard.js'
 import {
@@ -140,11 +141,11 @@ const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record 
 /**
  * 续派重绑定拒绝文案（design §8.1，运行时文案英文）：continue_executor 与
  * model/effort 同传一律 fail loud——子会话 model/effort 在派发时刻已绑定，
- * DSH followup 无模型重绑接缝，静默丢弃会让回执谎报生效；换模型必须新开派发。
+ * DSH sendMessage 无模型重绑接缝，静默丢弃会让回执谎报生效；换模型必须新开派发。
  */
 const CONTINUE_REBIND_REJECT_TEXT =
   'continue_executor cannot be combined with model/effort: the child session keeps the ' +
-  'model/effort bound at its original dispatch and followup has no rebinding seam. ' +
+  'model/effort bound at its original dispatch and sendMessage has no rebinding seam. ' +
   'To change the model or effort, dispatch a new executor without continue_executor.'
 
 /**
@@ -216,7 +217,7 @@ interface ToolsService {
 
 /** subagents 服务的最小接口（continuable 派发/续用/释放 + provider 查询）。 */
 interface SubagentsService {
-  getProvider(name: string): SpawnProviderLike | undefined
+  getProvider(name: string): SubagentProvider | undefined
   startContinuable(spec: {
     provider: string
     label: string
@@ -225,15 +226,15 @@ interface SubagentsService {
       parent: MinimalAgent
       agentOptions?: { provider?: string; model?: string; reasoningEffort?: ReasoningEffortId }
       maxDepth?: number
-      toolFilter?: { allow: string[] }
+      toolFilter?: ToolRestriction
     }
     signal: AbortSignal
-  }): Promise<{ childId: string }>
-  followup(
-    parent: MinimalAgent,
-    childId: string,
+  }): Promise<ContinuableStart>
+  sendMessage(
+    sender: MinimalAgent,
+    targetId: string,
     content: readonly TextBlockLike[],
-    options: { source: { kind: 'user' }; signal: AbortSignal },
+    options: SubagentSendMessageOptions,
   ): Promise<string>
   drainContinuableChildren(parent: MinimalAgent, childIds: readonly string[]): Promise<void>
 }
@@ -377,7 +378,7 @@ async function executeTool(
   // 续派治理（design §8.1）：continue_executor 与 model/effort 同传一律 fail loud
   // （含传相同值）——子会话绑定在派发时刻烤死，续派轮传 model/effort 只会被静默
   // 丢弃、回执谎报生效；拒绝发生在任何登记/结算副作用（recordExecutorDispatch/
-  // trackDispatchSettle/followup/startContinuable）之前。
+  // trackDispatchSettle/sendMessage/startContinuable）之前。
   if (
     params.continue_executor !== undefined &&
     (params.model !== undefined || params.effort !== undefined)
@@ -491,7 +492,7 @@ async function executeTool(
             : {}),
         }
   // 定位本轮 childId：续用（continue_executor）按 dispatches 记录做同 kind 校验后
-  // followup 投递下一指令；新派发走 startContinuable（continuable 会话，客户端
+  // sendMessage 投递下一指令；新派发走 startContinuable（continuable 会话，客户端
   // composer 可写）。maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理深度为 1，
   // 设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
   // 即「executor 子代理禁止再派发 workloom_execute」。
@@ -553,13 +554,12 @@ async function executeTool(
         toolsAllowed: allowFilter.allow.length,
       }
     }
-    // followup 向同一 durable 会话投递下一指令（FIFO 由子代理 inbox 保证）；reject
-    // 透传（fail loud）：父权限/UNAUTHORIZED/接入拒绝等由 DSH 错误信息表达；仅
-    // fork 分身的 parent 严格校验拒绝（belongs to another parent session）转译为
-    // 引导文案（见 translateForkContinueError，保留 isError 语义）。
+    // sendMessage 向同一 durable 会话投递下一指令（FIFO 由子代理 inbox 保证）；reject
+    // 透传（fail loud）：adjacency/权限校验等由 DSH 错误信息表达；仅 fork 分身的
+    // parent 严格校验拒绝（belongs to another parent session）转译为引导文案（见
+    // translateForkContinueError，保留 isError 语义）。
     try {
-      await ctx.subagents.followup(parent, childId, [{ type: 'text', text: sendText }], {
-        source: { kind: 'user' },
+      await ctx.subagents.sendMessage(parent, childId, [{ type: 'text', text: sendText }], {
         signal: exec.signal,
       })
     } catch (error) {
@@ -636,7 +636,7 @@ async function executeTool(
     try {
       return await collectExecutorTurn(ctx, childId, turnMeta, effective)
     } finally {
-      // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 followup 续用轮）。
+      // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 sendMessage 续用轮）。
       await drainContinuableChild(ctx, parent, childId)
     }
   }
@@ -779,13 +779,13 @@ function renderBackground(childId: string, receipt: string): string {
 }
 
 /**
- * 转译 continue 接续失败：followup reject 的 message 含 "belongs to another parent
+ * 转译 continue 接续失败：sendMessage reject 的 message 含 "belongs to another parent
  * session"（DSH parent 严格校验：child.parentSession ≠ 当前会话，fork 分身接续源
  * 会话派发的 executor 必然命中）时，转为引导文案（保持 isError 语义：仍抛错，
  * 只是文案带下一步动作指引）；其余错误原样透传。
  * 依赖注意：匹配的是上游 DSH 的错误文案（FORK_PARENT_ERROR_FRAGMENT），该文案
  * 变更会让转译退化为原样透传（fail loud 仍在，只是少了引导）。
- * @param error followup reject 的原始错误
+ * @param error sendMessage reject 的原始错误
  * @returns 转译或原样的错误
  */
 function translateForkContinueError(error: unknown): unknown {

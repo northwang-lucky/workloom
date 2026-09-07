@@ -1,5 +1,5 @@
 /**
- * executor 模块单测：continuable 派发（startContinuable）、续用（followup 同一会话）、
+ * executor 模块单测：continuable 派发（startContinuable）、续用（sendMessage 同一会话）、
  * turn/end 事件面异常终止、drain 释放与 receipt 行。
  * 测试依赖 dist（test 脚本先 build 再跑 node --test）。
  */
@@ -136,11 +136,14 @@ function makeChildWhenIdle(child, overrides, whenIdleCalls) {
   }
 }
 
-/** 构造模拟 ctx（捕获注册的工具、continuable 派发/续用/释放调用与 child agent 表）。 */
+/**
+ * 构造模拟 ctx（捕获注册的工具、continuable 派发/续用/释放调用与 child agent 表）。
+ * ctx.subagents 仅提供 sendMessage（DSH 0.1.2-rc.1 唯一续用接缝，无 followup）。
+ */
 function makeCtx(overrides = {}) {
   const registered = []
   const startCalls = []
-  const followupCalls = []
+  const sendMessageCalls = []
   const drainCalls = []
   const whenIdleCalls = []
   const listeners = []
@@ -148,7 +151,7 @@ function makeCtx(overrides = {}) {
   const schemasScopes = []
   const childAgents = new Map()
 
-  /** 建/取 child agent（续用轮 followup 时复用同一 id 的会话，仅重绑 whenIdle）。 */
+  /** 建/取 child agent（续用轮 sendMessage 时复用同一 id 的会话，仅重绑 whenIdle）。 */
   function ensureChild(childId, cwd) {
     let child = childAgents.get(childId)
     if (child === undefined) {
@@ -212,13 +215,13 @@ function makeCtx(overrides = {}) {
       ensureChild(childId, spec.request.parent.session.header.cwd)
       return { childId }
     },
-    // 续用：向同一 childId 会话投递下一指令（mock 断言同一 session id 收消息；
-    // 用例可经 overrides.followupReject 注入上游 reject，如 fork 的 parent 严格校验拒绝）。
-    async followup(parent, childId, content, options) {
-      followupCalls.push({ parent, childId, content, options })
-      if (overrides.followupReject !== undefined) throw overrides.followupReject
-      ensureChild(childId, parent.session.header.cwd)
-      return `msg-${followupCalls.length}`
+    // 续用：sendMessage（DSH 0.1.2-rc.1 唯一接缝）——sender 为 parent，options 仅含 signal。
+    // 用例可经 overrides.sendMessageReject 注入上游 reject（adjacency/权限校验）。
+    async sendMessage(sender, targetId, content, options) {
+      sendMessageCalls.push({ sender, targetId, content, options })
+      if (overrides.sendMessageReject !== undefined) throw overrides.sendMessageReject
+      ensureChild(targetId, sender.session.header.cwd)
+      return `msg-${sendMessageCalls.length}`
     },
     // 释放 resident Activation（会话保留可 cold-resume；失败由用例注入）。
     async drainContinuableChildren(parent, childIds) {
@@ -242,7 +245,7 @@ function makeCtx(overrides = {}) {
     ctx,
     registered,
     startCalls,
-    followupCalls,
+    sendMessageCalls,
     drainCalls,
     childAgents,
     whenIdleCalls,
@@ -262,7 +265,7 @@ function setupExecutor(overrides = {}) {
     execute: def.execute.bind(def),
     registered: made.registered,
     startCalls: made.startCalls,
-    followupCalls: made.followupCalls,
+    sendMessageCalls: made.sendMessageCalls,
     drainCalls: made.drainCalls,
     childAgents: made.childAgents,
     whenIdleCalls: made.whenIdleCalls,
@@ -388,10 +391,10 @@ test('s1: 派发走 startContinuable（非 one-shot start），返回 durable ch
   }
 })
 
-test('s2: 续用走 followup 进入同一会话（session id 不变；边界只取本轮事件）', async () => {
+test('s2: 续用走 sendMessage 进入同一会话（session id 不变；边界只取本轮事件）', async () => {
   const root = makeProject()
   try {
-    const { execute, followupCalls, drainCalls } = setupExecutor()
+    const { execute, sendMessageCalls, drainCalls } = setupExecutor()
     const parent = makeAgent(root)
     // 第一轮：新派发
     const first = await execute(execArgs({ prompt: 'round 1', title: 'reuse test' }), {
@@ -404,17 +407,119 @@ test('s2: 续用走 followup 进入同一会话（session id 不变；边界只�
       execArgs({ prompt: 'round 2', title: 'reuse test', continue_executor: 'latest' }),
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(followupCalls.length, 1)
-    // mock followup 断言同一 session id 收到下一指令（消息 FIFO 由 DSH inbox 保证）
-    assert.equal(followupCalls[0].childId, childId, 'followup must target the same session id')
-    assert.equal(followupCalls[0].parent, parent)
-    assert.equal(followupCalls[0].content.length, 1)
-    assert.equal(followupCalls[0].content[0].type, 'text')
-    assert.ok(followupCalls[0].content[0].text.includes('round 2'))
+    assert.equal(sendMessageCalls.length, 1)
+    // mock sendMessage 断言同一 session id 收到下一指令（消息 FIFO 由 DSH inbox 保证）
+    assert.equal(sendMessageCalls[0].targetId, childId, 'sendMessage must target the same session id')
+    assert.equal(sendMessageCalls[0].sender, parent)
+    assert.equal(sendMessageCalls[0].content.length, 1)
+    assert.equal(sendMessageCalls[0].content[0].type, 'text')
+    assert.ok(sendMessageCalls[0].content[0].text.includes('round 2'))
     // 续用轮结果：同一 runId（会话未变）+ 输出 + drain
     assert.equal(second.runId, childId, 'reused run must keep the same session id')
     assert.ok(second.output[0].text.includes('Mock executor output.'))
     assert.equal(drainCalls.length, 2, 'each turn drains once')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- sendMessage 新接缝（DSH 0.1.2-rc.1，PRD AC1/AC2） ----------
+
+test('s2-sendMessage: 续用走 sendMessage 进入同一会话（sender 为 parent、options 仅含 signal）', async () => {
+  const root = makeProject()
+  try {
+    // 红灯测试：mock ctx.subagents 仅提供 sendMessage、无 followup 方法（对接 DSH 0.1.2-rc.1 新接缝）。
+    const { execute, sendMessageCalls, drainCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    // 第一轮：新派发
+    const first = await execute(execArgs({ prompt: 'round 1', title: 'sendMessage reuse test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const childId = first.runId
+    // 第二轮：续用（'latest' → dispatches 中同 kind 最近一次的 childId）
+    const second = await execute(
+      execArgs({ prompt: 'round 2', title: 'sendMessage reuse test', continue_executor: 'latest' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    // AC1：续用路径调用 sendMessage 且参数形状正确
+    assert.equal(sendMessageCalls.length, 1, 'continue must call sendMessage exactly once')
+    // sender 为 parent agent
+    assert.equal(sendMessageCalls[0].sender, parent, 'sendMessage sender must be the parent agent')
+    // targetId 为 childId（同一 durable 会话）
+    assert.equal(sendMessageCalls[0].targetId, childId, 'sendMessage targetId must be the child session id')
+    // content 为文本块
+    assert.equal(sendMessageCalls[0].content.length, 1)
+    assert.equal(sendMessageCalls[0].content[0].type, 'text')
+    assert.ok(sendMessageCalls[0].content[0].text.includes('round 2'))
+    // options 仅含 signal（无 source 字段——新接缝不再传 source: { kind: 'user' }）
+    assert.deepEqual(Object.keys(sendMessageCalls[0].options), ['signal'], 'sendMessage options must only contain signal')
+    // 续用轮结果：同一 runId（会话未变）+ 输出 + drain
+    assert.equal(second.runId, childId, 'reused run must keep the same session id')
+    assert.ok(second.output[0].text.includes('Mock executor output.'))
+    assert.equal(drainCalls.length, 2, 'each turn drains once')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s2-sendMessage-fork: adjacency reject（belongs to another parent session）转译为引导文案且 isError', async () => {
+  const root = makeProject()
+  try {
+    // AC2：sendMessage 被 DSH parent 严格校验拒绝（fork 分身场景）→ 转译为引导文案。
+    const { execute, sendMessageCalls, drainCalls } = setupExecutor({
+      sendMessage: true,
+      sendMessageReject: new Error('executor child session belongs to another parent session'),
+    })
+    const parent = makeAgent(root)
+    // 第一轮：新派发（dispatches 记录 child-1，供续用定位）。
+    await execute(execArgs({ prompt: 'round 1', title: 'fork sendMessage test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 第二轮：continue_executor='latest' 定位到 child-1 后，sendMessage 被上游拒绝——
+    // 工具结果是 design §4.2 的引导文案且保持 isError 语义（抛错，由 DSH 转失败）。
+    await assert.rejects(
+      execute(
+        execArgs({ prompt: 'round 2', title: 'fork sendMessage test', continue_executor: 'latest' }),
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      /Cannot continue the recorded executor: it belongs to the session that dispatched it, not this one \(typically because the current session is a fork\)\. Dispatch a fresh executor instead, carrying the needed context in the prompt\./,
+    )
+    // 上游拒绝只发生一次（不重试）；拒绝轮未产生子代理运行，drain 仅第一轮一次。
+    assert.equal(sendMessageCalls.length, 1, 'sendMessage must be attempted exactly once')
+    assert.equal(drainCalls.length, 1, 'rejected sendMessage must not drain an extra turn')
+    // 拒绝轮不落 dispatches 记录：源会话的记录保持可续用，不被失败续用污染。
+    const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    assert.equal(task.dispatches.length, 1, 'rejected sendMessage must not record a dispatch')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('s2-sendMessage-passthrough: 非 fork 拒绝原样透传（不套引导文案）', async () => {
+  const root = makeProject()
+  try {
+    // 转译只认 parent 校验拒绝片段，其余接续失败必须原样抛出（fail loud 不加工）。
+    const upstream = new Error('executor child session is busy')
+    const { execute } = setupExecutor({ sendMessage: true, sendMessageReject: upstream })
+    const parent = makeAgent(root)
+    await execute(execArgs({ prompt: 'round 1', title: 'sendMessage passthrough test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    await assert.rejects(
+      execute(
+        execArgs({
+          prompt: 'round 2',
+          title: 'sendMessage passthrough test',
+          continue_executor: 'latest',
+        }),
+        { agent: parent, signal: new AbortController().signal },
+      ),
+      (error) => error === upstream,
+      'non-fork sendMessage rejection must propagate unchanged',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -625,7 +730,7 @@ test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数
 test('receipt 行：续用轮 reinject: true 恢复全量注入（统计同新派发口径）', async () => {
   const root = makeProject()
   try {
-    const { execute, followupCalls } = setupExecutor()
+    const { execute, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     // 第一轮：新派发；第二轮：续用（'latest'）+ reinject 全量重注入。
     await execute(execArgs({ prompt: 'round 1', title: 'reinject stats reuse test' }), {
@@ -641,9 +746,9 @@ test('receipt 行：续用轮 reinject: true 恢复全量注入（统计同新�
       }),
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(followupCalls.length, 1)
+    assert.equal(sendMessageCalls.length, 1)
     // reinject 续用注入字节口径 = 投递给同一会话的全量 prompt 文本长度。
-    const built = followupCalls[0].content[0].text
+    const built = sendMessageCalls[0].content[0].text
     assert.equal(typeof built, 'string')
     assert.ok(built.includes('Active task:'), 'reinject must restore the full prompt')
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
@@ -657,10 +762,10 @@ test('receipt 行：续用轮 reinject: true 恢复全量注入（统计同新�
   }
 })
 
-test('s3-inc: 续接默认只发增量指令（followup 内容 = 参数 prompt，不含全量注入），receipt 统计如实反映', async () => {
+test('s3-inc: 续接默认只发增量指令（sendMessage 内容 = 参数 prompt，不含全量注入），receipt 统计如实反映', async () => {
   const root = makeProject()
   try {
-    const { execute, followupCalls } = setupExecutor()
+    const { execute, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     await execute(execArgs({ prompt: 'round 1', title: 'incremental continue test' }), {
       agent: parent,
@@ -674,11 +779,11 @@ test('s3-inc: 续接默认只发增量指令（followup 内容 = 参数 prompt�
       }),
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(followupCalls.length, 1)
-    // 续接默认只发增量指令：followup 内容 = 参数 prompt，不复述全量上下文。
-    assert.equal(followupCalls[0].content[0].text, 'round 2 incremental only')
+    assert.equal(sendMessageCalls.length, 1)
+    // 续接默认只发增量指令：sendMessage 内容 = 参数 prompt，不复述全量上下文。
+    assert.equal(sendMessageCalls[0].content[0].text, 'round 2 incremental only')
     assert.ok(
-      !followupCalls[0].content[0].text.includes('Active task:'),
+      !sendMessageCalls[0].content[0].text.includes('Active task:'),
       'incremental continue must not re-inject the full prompt',
     )
     // receipt 注入统计如实反映实际发送内容：KB 为增量体积、内联/截断/索引为 0。
@@ -699,7 +804,7 @@ test('s3-inc: 续接默认只发增量指令（followup 内容 = 参数 prompt�
 test('s3-inc-bg: 后台续接同样只发增量指令且返回增量 receipt', async () => {
   const root = makeProject()
   try {
-    const { execute, followupCalls } = setupExecutor()
+    const { execute, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     await execute(execArgs({ prompt: 'round 1', title: 'incremental bg continue test' }), {
       agent: parent,
@@ -714,8 +819,8 @@ test('s3-inc-bg: 后台续接同样只发增量指令且返回增量 receipt', a
       }),
       { agent: parent, signal: new AbortController().signal },
     )
-    assert.equal(followupCalls.length, 1)
-    assert.equal(followupCalls[0].content[0].text, 'round 2 increment')
+    assert.equal(sendMessageCalls.length, 1)
+    assert.equal(sendMessageCalls[0].content[0].text, 'round 2 increment')
     assert.equal(second.kind, 'background')
     assert.equal(second.childId, 'child-1')
     const kb = (Buffer.byteLength('round 2 increment', 'utf8') / 1024).toFixed(1)
@@ -1415,10 +1520,10 @@ test('executor-dispatch 拆分面：allow 成形/capability 校验/错误兜底�
   assert.equal(toCapabilityError(other), other)
 })
 
-test('s4: 跨 kind 续用被拒（返回提示，不派发不 followup）', async () => {
+test('s4: 跨 kind 续用被拒（返回提示，不派发不 sendMessage）', async () => {
   const root = makeProject()
   try {
-    const { execute, startCalls, followupCalls } = setupExecutor()
+    const { execute, startCalls, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     // 两个 kind 的派发记录（child-1: implement、child-2: check）。
     await execute(execArgs({ title: 'impl round' }), {
@@ -1438,7 +1543,7 @@ test('s4: 跨 kind 续用被拒（返回提示，不派发不 followup）', asyn
     assert.ok(text.includes('cross-kind reuse rejected'), 'must return a clear reuse rejection')
     assert.ok(text.includes('check'), 'notice must name the recorded kind')
     assert.equal(startCalls.length, 2, 'no new dispatch for a rejected reuse')
-    assert.equal(followupCalls.length, 0, 'followup must not fire for a rejected reuse')
+    assert.equal(sendMessageCalls.length, 0, 'sendMessage must not fire for a rejected reuse')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1447,7 +1552,7 @@ test('s4: 跨 kind 续用被拒（返回提示，不派发不 followup）', asyn
 test('续用定位：无同 kind 记录（latest）返回明确提示不派发', async () => {
   const root = makeProject()
   try {
-    const { execute, startCalls, followupCalls } = setupExecutor()
+    const { execute, startCalls, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(execArgs({ kind: 'research', continue_executor: 'latest' }), {
       agent: parent,
@@ -1456,7 +1561,7 @@ test('续用定位：无同 kind 记录（latest）返回明确提示不派发',
     const text = result.output[0].text
     assert.ok(text.includes('no previous research executor dispatch'), 'must explain the miss')
     assert.equal(startCalls.length, 0)
-    assert.equal(followupCalls.length, 0)
+    assert.equal(sendMessageCalls.length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1471,7 +1576,7 @@ test('续用定位：旧记录缺 childId（latest）返回明确提示不报错
       { kind: 'implement', at: new Date().toISOString(), title: 'legacy dispatch' },
     ]
     writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task))
-    const { execute, startCalls, followupCalls } = setupExecutor()
+    const { execute, startCalls, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(execArgs({ continue_executor: 'latest' }), {
       agent: parent,
@@ -1480,7 +1585,7 @@ test('续用定位：旧记录缺 childId（latest）返回明确提示不报错
     const text = result.output[0].text
     assert.ok(text.includes('no previous implement executor dispatch'), 'must explain the miss')
     assert.equal(startCalls.length, 0)
-    assert.equal(followupCalls.length, 0)
+    assert.equal(sendMessageCalls.length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1489,7 +1594,7 @@ test('续用定位：旧记录缺 childId（latest）返回明确提示不报错
 test('续用定位：显式 childId 不在 dispatches 中返回明确提示不派发', async () => {
   const root = makeProject()
   try {
-    const { execute, startCalls, followupCalls } = setupExecutor()
+    const { execute, startCalls, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(execArgs({ continue_executor: 'session-unknown' }), {
       agent: parent,
@@ -1498,7 +1603,7 @@ test('续用定位：显式 childId 不在 dispatches 中返回明确提示不�
     const text = result.output[0].text
     assert.ok(text.includes('session-unknown'), 'notice must echo the requested id')
     assert.equal(startCalls.length, 0)
-    assert.equal(followupCalls.length, 0)
+    assert.equal(sendMessageCalls.length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1507,10 +1612,11 @@ test('续用定位：显式 childId 不在 dispatches 中返回明确提示不�
 test('续用被上游拒绝（belongs to another parent session，fork 场景）：返回引导文案且 isError', async () => {
   const root = makeProject()
   try {
-    // 模拟 fork 分身接续源会话派发的 executor：followup 被 DSH parent 严格校验拒绝
+    // 模拟 fork 分身接续源会话派发的 executor：sendMessage 被 DSH parent 严格校验拒绝
     // （research/current-state.md 的 session-35cb4f6a 实证）。
-    const { execute, followupCalls, drainCalls } = setupExecutor({
-      followupReject: new Error('executor child session belongs to another parent session'),
+    const { execute, sendMessageCalls, drainCalls } = setupExecutor({
+      sendMessage: true,
+      sendMessageReject: new Error('executor child session belongs to another parent session'),
     })
     const parent = makeAgent(root)
     // 第一轮：新派发（dispatches 记录 child-1，供续用定位）。
@@ -1518,7 +1624,7 @@ test('续用被上游拒绝（belongs to another parent session，fork 场景）
       agent: parent,
       signal: new AbortController().signal,
     })
-    // 第二轮：continue_executor='latest' 定位到 child-1 后，followup 被上游拒绝——
+    // 第二轮：continue_executor='latest' 定位到 child-1 后，sendMessage 被上游拒绝——
     // 工具结果是 design §4.2 的引导文案且保持 isError 语义（抛错，由 DSH 转失败）。
     await assert.rejects(
       execute(
@@ -1528,11 +1634,11 @@ test('续用被上游拒绝（belongs to another parent session，fork 场景）
       /Cannot continue the recorded executor: it belongs to the session that dispatched it, not this one \(typically because the current session is a fork\)\. Dispatch a fresh executor instead, carrying the needed context in the prompt\./,
     )
     // 上游拒绝只发生一次（不重试）；拒绝轮未产生子代理运行，drain 仅第一轮一次。
-    assert.equal(followupCalls.length, 1, 'followup must be attempted exactly once')
-    assert.equal(drainCalls.length, 1, 'rejected followup must not drain an extra turn')
+    assert.equal(sendMessageCalls.length, 1, 'sendMessage must be attempted exactly once')
+    assert.equal(drainCalls.length, 1, 'rejected sendMessage must not drain an extra turn')
     // 拒绝轮不落 dispatches 记录：源会话的记录保持可续用，不被失败续用污染。
     const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
-    assert.equal(task.dispatches.length, 1, 'rejected followup must not record a dispatch')
+    assert.equal(task.dispatches.length, 1, 'rejected sendMessage must not record a dispatch')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1543,7 +1649,7 @@ test('续用被上游以其他原因拒绝：原样透传上游错误（不套 f
   try {
     // 转译只认 parent 校验拒绝片段，其余接续失败必须原样抛出（fail loud 不加工）。
     const upstream = new Error('executor child session is busy')
-    const { execute } = setupExecutor({ followupReject: upstream })
+    const { execute } = setupExecutor({ sendMessage: true, sendMessageReject: upstream })
     const parent = makeAgent(root)
     await execute(execArgs({ prompt: 'round 1', title: 'continue passthrough test' }), {
       agent: parent,
@@ -1559,7 +1665,7 @@ test('续用被上游以其他原因拒绝：原样透传上游错误（不套 f
         { agent: parent, signal: new AbortController().signal },
       ),
       (error) => error === upstream,
-      'non-fork followup rejection must propagate unchanged',
+      'non-fork sendMessage rejection must propagate unchanged',
     )
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -2168,7 +2274,7 @@ test('续派 + model 同传：fail loud 拒绝（相同值也拒；无登记/结
     subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } },
   })
   try {
-    const { execute, startCalls, followupCalls } = setupExecutor()
+    const { execute, startCalls, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     // 新派一轮（dispatches 留 child-1 供续用定位）。
     await execute(execArgs({ foreground: false, title: 'spawn for reject test' }), {
@@ -2189,7 +2295,7 @@ test('续派 + model 同传：fail loud 拒绝（相同值也拒；无登记/结
       ),
       /cannot be combined with model\/effort/,
     )
-    assert.equal(followupCalls.length, 0, 'rejected continue must not followup')
+    assert.equal(sendMessageCalls.length, 0, 'rejected continue must not send a message')
     assert.equal(readDispatches(root).length, 1, 'rejected continue must not record a dispatch')
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -2199,7 +2305,7 @@ test('续派 + model 同传：fail loud 拒绝（相同值也拒；无登记/结
 test('续派 + effort 同传：fail loud 拒绝（不产生登记副作用）', async () => {
   const root = makeProject()
   try {
-    const { execute, followupCalls } = setupExecutor()
+    const { execute, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
     await assert.rejects(
       execute(
@@ -2208,7 +2314,7 @@ test('续派 + effort 同传：fail loud 拒绝（不产生登记副作用）', 
       ),
       /cannot be combined with model\/effort/,
     )
-    assert.equal(followupCalls.length, 0)
+    assert.equal(sendMessageCalls.length, 0)
     assert.equal(readDispatches(root).length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -2365,7 +2471,7 @@ test('续派轮记录沿用 childId 首次绑定：modelSource 记 spawn', async
     })
     // 第二轮：续派（dispatches[1] 沿用 childId 首次绑定的 model/effort，modelSource: spawn）。
     await execute(
-      execArgs({ foreground: false, title: 'followup round', continue_executor: 'latest' }),
+      execArgs({ foreground: false, title: 'sendMessage round', continue_executor: 'latest' }),
       { agent: parent, signal: new AbortController().signal },
     )
     const records = readDispatches(root)
@@ -2395,17 +2501,17 @@ test('续派回执：展示 spawn 绑定值 (spawn binding)；不再回显当前
     assert.ok(first.output[0].text.includes('(config: legacy)'))
     // 第二轮续派：回执展示 spawn 绑定（值来自首次派发记录），不再显示 (config…) 与 (reused) 外的来源。
     const second = await execute(
-      execArgs({ foreground: true, title: 'receipt followup round', continue_executor: 'latest' }),
+      execArgs({ foreground: true, title: 'receipt sendMessage round', continue_executor: 'latest' }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.ok(
       second.output[0].text.includes('deepseek-official/deepseek-v4-flash (spawn binding)'),
-      'followup receipt must show the spawn binding',
+      'sendMessage receipt must show the spawn binding',
     )
     assert.ok(second.output[0].text.includes('(reused)'), 'reused marker must stay')
     assert.ok(
       !second.output[0].text.includes('(config: legacy)'),
-      'followup receipt must not echo the current config source',
+      'sendMessage receipt must not echo the current config source',
     )
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -2425,12 +2531,12 @@ test('续派回执：spawn 记录缺绑定 → 显示 (unrecorded spawn binding)
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(
-      execArgs({ foreground: true, title: 'unrecorded binding followup', continue_executor: 'latest' }),
+      execArgs({ foreground: true, title: 'unrecorded binding sendMessage', continue_executor: 'latest' }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.ok(
       result.output[0].text.includes('(unrecorded spawn binding)'),
-      'followup receipt must say the spawn binding is unrecorded',
+      'sendMessage receipt must say the spawn binding is unrecorded',
     )
     // 续派轮记录本身 modelSource 仍记 spawn（值缺省不炸）。
     const records = readDispatches(root)

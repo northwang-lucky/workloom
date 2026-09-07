@@ -4,11 +4,11 @@
  *
  * 设计意图：
  * - 与 executor.ts（工具注册与执行编排）分离，聚焦 continuable 生命周期：
- *   startContinuable/followup 之后的「定位 → 等待 → 判定 → 输出 → drain」全部在此；
+ *   startContinuable/sendMessage 之后的「定位 → 等待 → 判定 → 输出 → drain」全部在此；
  * - 终止判定依赖会话事件面（continuable 无 run.result）：最后一个 turn/end 缺失或
  *   reason.kind 非 completed 即异常终止（fail loud，不附输出），避免把中止当成功消费；
- * - drain 释放 Activation 后会话持久化保留，后续 followup 可 cold-resume 再续用
- *   （@deepseek-ai/dsh-subagent followup 契约：absent Activation cold-resume）。
+ * - drain 释放 Activation 后会话持久化保留，后续 sendMessage 可 cold-resume 再续用
+ *   （@deepseek-ai/dsh-subagent sendMessage 契约：absent Activation cold-resume）。
  */
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { finalAssistantOutput } from '@deepseek-ai/dsh-subagent'
@@ -268,7 +268,7 @@ function buildAbnormalEndText(reason: TurnEndReasonLike | undefined): string {
 
 /**
  * 释放子代理 Activation（drain；失败仅告警，不阻塞结果返回：子代理已 idle）。
- * 会话持久化保留，后续 followup 可 cold-resume 再续用。
+ * 会话持久化保留，后续 sendMessage 可 cold-resume 再续用。
  * @param ctx 插件上下文（subagents 服务）
  * @param parent 发起 agent（drain 授权方）
  * @param childId 子代理 durable session id

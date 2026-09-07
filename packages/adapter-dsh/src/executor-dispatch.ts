@@ -15,16 +15,12 @@
  * - 派发前校验 provider 的 toolFilter capability，缺失时 fail loud（不静默丢弃），
  *   startContinuable reject 的 UNSUPPORTED_CAPABILITY 同样转为清晰英文错误兜底。
  */
+import type { SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import { ERR_PREFIX, buildAllowList } from '@workloom-ai/core'
 import type { AllowToolsConfig } from '@workloom-ai/core'
 
 /** spawn provider 名（DSH in-process 子代理提供方，continuable 能力齐备）。 */
 export const SPAWN_PROVIDER = 'spawn'
-
-/** spawn provider 的最小形状（capability 校验用）。 */
-export interface SpawnProviderLike {
-  capabilities: { toolFilter: boolean }
-}
 
 /** LSP 工具名前缀（DSH 宿主 LSP 工具统一 lsp_ 前缀命名，如 lsp_diagnostics/lsp_symbols）。 */
 const LSP_TOOL_PREFIX = 'lsp_'
@@ -61,7 +57,7 @@ export function buildAllowFilter(
  * provider 未注册（getProvider 返回 undefined）同样 fail loud：无法验证能力即不派发。
  * @param provider spawn provider（ctx.subagents.getProvider 的结果）
  */
-export function assertToolFilterCapability(provider: SpawnProviderLike | undefined): void {
+export function assertToolFilterCapability(provider: SubagentProvider | undefined): void {
   if (provider === undefined) {
     throw new Error(
       `${ERR_PREFIX.executor}: the subagent provider "${SPAWN_PROVIDER}" is not registered; ` +
