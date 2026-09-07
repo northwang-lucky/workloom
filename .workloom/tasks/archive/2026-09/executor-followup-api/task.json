@@ -1,0 +1,81 @@
+{
+  "id": "50e6209b-cef9-4321-914c-2e260443ebbc",
+  "name": "executor-followup-api",
+  "title": "fix(adapter-dsh): continue_executor 调用不存在的 ctx.subagents.followup，executor 续派整体失效",
+  "description": "adapter-dsh executor.ts 本地声明的 SubagentsService 接口含 followup 方法，但当前 DSH 运行时 SubagentService 无此方法（真实接缝为 sendMessage / 符号键 queueSubagentPrompt），导致 workloom_execute 带 continue_executor 续派时 100% 抛 ctx.subagents.followup is not a function。接口为手写本地声明、未消费 DSH 包类型，typecheck 无法拦截此类 API 漂移。修复方向（待 1.1 对齐）：接缝选型（sendMessage vs queueSubagentPrompt）、类型对齐让漂移可被编译/测试拦截、translateForkContinueError 周边文案同步。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-07T06:28:44.768Z",
+  "completedAt": "2026-09-07T08:14:12.393Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-07T08:13:30.244Z",
+    "summary": "全量复审 PASS（186ccc84）：P0 followup→sendMessage 迁移逐参核对正确（sender=parent、options 仅 signal），全仓 followup 调用绝迹；语义依赖结论经复核方亲自读码证实（receipt/settle/dispatches 四处均无 source 归因依赖）；import type 仅消费公开类型、无 internal 符号键、P2 窄投影未被顺手改动；P1 粒度纪律合规（messageId 零消费零持久化、assertToolFilterCapability 逻辑逐字未变）；红灯真实性经 stash 实证；adapter-dsh 135/135、core 543/543、typecheck/lint/build 全绿、dist 与 profile 副本 IN SYNC；复核方另修复 3 项 P2（死导出 SpawnProviderLike、恒真断言改守护新接缝、死夹具清理）。AC1–AC6 全过，无 open issues。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-07T07:34:33.955Z",
+    "summary": "覆盖节点：目标与价值（DSH 0.1.2-rc.1 升级移除 SubagentRuntime.followup 导致 continue_executor 全失效，恢复续派 + 2 项 P1 类型补齐 + 类型防漂）、范围与非目标（P2 窄投影、DSH 其余 9 项 P0、adapter-pi、旧会话 cold-resume 均排除）、环境约束（adapter-dsh TS、peerDeps 已 0.1.2-rc.1）、可观测验收 AC1–AC6（含 seam=executor continue 分支）、test-first 采用、关键决策（接缝选 sendMessage 拒绝 internal 符号键 queueSubagentPrompt；subagent 服务面 import type 消费 DSH 公开类型拒绝局部修补；P1 仅类型对齐不消费 messageId）、边界与失败路径（消息归因 AgentMessageSource 语义核实、adjacency reject 转译）。依据本任务两份审计研究（DSH 侧 10 项 P0 仅 followup 命中、adapter 侧 26 处消费点全核）。frontier 为空，open-nodes=none，用户已 review 并确认。",
+    "prdHash": "6d19949cc1c3fe5faf3d6841ad54a515a4900334e09d7085c079e48a8a733317"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-07T06:33:46.927Z",
+      "title": "DSH 0.1.1→0.1.2 插件 API 漂移审计",
+      "status": "completed",
+      "childId": "83c5587d-5140-49d7-87d3-42e9c27d0c8d",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-07T06:33:46.928Z",
+      "title": "adapter-dsh 消费面全量审计",
+      "status": "completed",
+      "childId": "21557b55-2e6e-453f-905d-936dce9864d3",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-07T07:38:03.868Z",
+      "title": "executor 续派 sendMessage 迁移 test-first 实现",
+      "status": "completed",
+      "childId": "659dd36d-cde5-417f-93c4-34cf2a783e86",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-07T07:59:16.741Z",
+      "title": "executor 续派迁移实现复核",
+      "status": "completed",
+      "childId": "186ccc84-d7e1-4084-ad32-d1084a8dffc5",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

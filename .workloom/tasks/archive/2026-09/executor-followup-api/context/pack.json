@@ -1,0 +1,2680 @@
+{
+  "gitRev": "e98b9d9076e24c2e2523b6b3ba33e9c62a8f6d40",
+  "files": [
+    "commands.ts",
+    "dsh-agent/index.d.ts",
+    "dsh-agent/model-selection.d.ts",
+    "dsh-agent/runtime-types.d.ts",
+    "dsh-commands/index.d.ts",
+    "dsh-commands/types.d.ts",
+    "dsh-llm/call-config.d.ts",
+    "dsh-llm/message.d.ts",
+    "dsh-llm/types.d.ts",
+    "dsh-session/index.d.ts",
+    "dsh-session/types.d.ts",
+    "dsh-skill/index.d.ts",
+    "dsh-subagent/assistant-output.d.ts",
+    "dsh-subagent/continuation.d.ts",
+    "dsh-subagent/depth.d.ts",
+    "dsh-subagent/index.d.ts",
+    "dsh-subagent/types.d.ts",
+    "dsh-system-prompt/index.d.ts",
+    "dsh-tools/index.d.ts",
+    "effort-inject.ts",
+    "executor-continuation.ts",
+    "executor-dispatch.ts",
+    "executor-guard.ts",
+    "executor-settle.ts",
+    "executor.ts",
+    "journal-tool.ts",
+    "main-model.ts",
+    "packages/subagent/subagent/src/continuation.ts",
+    "packages/subagent/subagent/src/index.ts",
+    "packages/subagent/subagent/src/internal.ts",
+    "plugin.ts",
+    "skills.ts",
+    "tasks.ts"
+  ],
+  "sections": [
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "adapter-dsh 对 DSH 运行时 API 消费面审计报告",
+      "summary": "审计范围：`packages/adapter-dsh/src/` 全部 13 个源文件，逐项与 0.1.2-rc.1 真实类型核对。",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "审计基准：`@deepseek-ai/dsh-agent@0.1.2-rc.1`、`@deepseek-ai/dsh-subagent@0.1.2-rc.1`、 `@deepseek-ai/dsh-tools@0.1.2-rc.1`、`@deepseek-ai/dsh-commands@0.1.2-rc.1`、 `@deepseek-ai/dsh-skill@0.1.2-rc.1`、`@deepseek-ai/dsh-system-prompt@0.1.2-rc.1`、 `@deepseek-ai/dsh-session@0.1.2-rc.1`、`@deepseek-ai/dsh-llm@0.1.2-rc.1`、`@deepseek-ai/cordis`。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "P0：运行即炸——`ctx.subagents.followup` 在运行时不存在，真实接缝是 `sendmove`",
+      "summary": "adapter 在 `executor.ts:218-239` 手写 `SubagentsService` 接口，声明 `followup` 方法并在",
+      "anchors": [
+        {
+          "path": "dsh-subagent/index.d.ts",
+          "line": 99,
+          "lineEnd": 311
+        },
+        {
+          "path": "dsh-subagent/index.d.ts",
+          "line": 133,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 218,
+          "lineEnd": 239
+        },
+        {
+          "path": "executor.ts",
+          "line": 561,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`executor.ts:561` 调用。但 0.1.2-rc.1 的 `SubagentRuntime`（`dsh-subagent/index.d.ts:99-311`） 没有 `followup` 方法——续投接缝是 `sendMessage(sender, targetId, content, options)` （`dsh-subagent/index.d.ts:133`）。",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 561,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-subagent/index.d.ts",
+              "line": 99,
+              "lineEnd": 311
+            },
+            {
+              "path": "dsh-subagent/index.d.ts",
+              "line": 133,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`executor.ts:561`（`ctx.subagents.followup(...)`）",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 561,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**真实形态**：`sendMessage(sender, targetId, content, options)` → `Promise<MessageId>`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：方法名、参数形状、返回值全不同",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**：P0——`continue_executor` 续用路径运行时必炸",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "ts",
+          "code": "// adapter 本地声明（executor.ts:232-237）——运行时不存在\ninterface SubagentsService {\n  followup(\n    parent: MinimalAgent,\n    childId: string,\n    content: readonly TextBlockLike[],\n    options: { source: { kind: 'user' }; signal: AbortSignal },\n  ): Promise<string>\n}\n"
+        },
+        {
+          "lang": "ts",
+          "code": "// 真实运行时（dsh-subagent/index.d.ts:133）\nsendMessage(sender: Agent, targetId: SessionId, content: ContentBlock[],\n  options: SubagentSendMessageOptions): Promise<MessageId>;\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "P1：行为偏差——`startContinuable` 返回类型与请求形状漂移",
+      "summary": "adapter 在 `executor.ts:220-231` 声明 `startContinuable` 返回 `Promise<{ childId: string }>`，",
+      "anchors": [
+        {
+          "path": "dsh-subagent/continuation.d.ts",
+          "line": 61,
+          "lineEnd": 79
+        },
+        {
+          "path": "dsh-subagent/continuation.d.ts",
+          "line": 81,
+          "lineEnd": 86
+        },
+        {
+          "path": "dsh-tools/index.d.ts",
+          "line": 475,
+          "lineEnd": 480
+        },
+        {
+          "path": "executor.ts",
+          "line": 220,
+          "lineEnd": 231
+        },
+        {
+          "path": "executor.ts",
+          "line": 585,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "但真实 `ContinuableStartSpec`（`dsh-subagent/continuation.d.ts:61-79`）的返回是 `Promise<ContinuableStart>` = `Promise<{ childId: SessionId; messageId: MessageId }>` （`dsh-subagent/continuation.d.ts:81-86`）。adapter 只用了 `childId`，`messageId` 被丢弃。",
+          "anchors": [
+            {
+              "path": "dsh-subagent/continuation.d.ts",
+              "line": 61,
+              "lineEnd": 79
+            },
+            {
+              "path": "dsh-subagent/continuation.d.ts",
+              "line": 81,
+              "lineEnd": 86
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "请求形状差异：adapter 的 `request.toolFilter?: { allow: string[] }` 与真实 `ToolRestriction`（`dsh-tools/index.d.ts:475-480`）不同——真实形态是 `{ allow?: readonly string[]; deny?: readonly string[] }`，多一个 `deny` 字段。 adapter 只传 `allow`，运行期兼容，但类型声明不完整。",
+          "anchors": [
+            {
+              "path": "dsh-tools/index.d.ts",
+              "line": 475,
+              "lineEnd": 480
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`executor.ts:585`（`ctx.subagents.startContinuable(...)`）",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 585,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**真实形态**：返回 `{ childId, messageId }`；`toolFilter` 为 `ToolRestriction`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：返回类型缺 `messageId`；`toolFilter` 形状窄化",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**：P1——当前只用 `childId` 不炸，但续用语义丢失 `messageId`，且类型不安全",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "ts",
+          "code": "// adapter 本地声明（executor.ts:220-231）\nstartContinuable(spec: {\n  provider: string\n  label: string\n  request: {\n    prompt: TextBlockLike[]\n    parent: MinimalAgent\n    agentOptions?: { provider?: string; model?: string; reasoningEffort?: ReasoningEffortId }\n    maxDepth?: number\n    toolFilter?: { allow: string[] }   // ← 真实为 ToolRestriction { allow?, deny? }\n  }\n  signal: AbortSignal\n}): Promise<{ childId: string }>       // ← 真实返回 { childId, messageId }\n"
+        },
+        {
+          "lang": "ts",
+          "code": "// 真实运行时（dsh-subagent/continuation.d.ts:61-79, 81-86）\ninterface ContinuableStartSpec {\n  provider: string\n  label: string\n  childId?: SessionId\n  request: Omit<SubagentStartRequest, 'label' | 'signal' | 'outputSchema'>\n  signal: AbortSignal\n}\ninterface ContinuableStart {\n  childId: SessionId\n  messageId: MessageId\n}\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "P1：行为偏差——`SubagentProvider.capabilities` 形状窄化",
+      "summary": "adapter 在 `executor-dispatch.ts:25-27` 声明 `SpawnProviderLike` 含",
+      "anchors": [
+        {
+          "path": "dsh-subagent/types.d.ts",
+          "line": 78,
+          "lineEnd": 84
+        },
+        {
+          "path": "executor-dispatch.ts",
+          "line": 25,
+          "lineEnd": 27
+        },
+        {
+          "path": "executor-dispatch.ts",
+          "line": 73,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`capabilities: { toolFilter: boolean }`。真实 `SubagentProvider.capabilities` 是 `SubagentCapabilities`（`dsh-subagent/types.d.ts:78-84`），含 5 个布尔字段： `agentOptions`、`outputSchema`、`depthLimit`、`toolFilter`、`persona`。",
+          "anchors": [
+            {
+              "path": "dsh-subagent/types.d.ts",
+              "line": 78,
+              "lineEnd": 84
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`executor-dispatch.ts:73`（`provider.capabilities?.toolFilter !== true`）",
+          "anchors": [
+            {
+              "path": "executor-dispatch.ts",
+              "line": 73,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**真实形态**：`SubagentCapabilities`（5 个布尔字段）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：本地声明只投影 `toolFilter`，其余 4 个能力未建模",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P1——`assertToolFilterCapability` 运行逻辑正确，但类型面不完整， 未来若校验其他能力会漏检",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "ts",
+          "code": "// adapter 本地声明（executor-dispatch.ts:25-27）\nexport interface SpawnProviderLike {\n  capabilities: { toolFilter: boolean }\n}\n"
+        },
+        {
+          "lang": "ts",
+          "code": "// 真实运行时（dsh-subagent/types.d.ts:78-84）\ninterface SubagentCapabilities {\n  readonly agentOptions: boolean\n  readonly outputSchema: boolean\n  readonly depthLimit: boolean\n  readonly toolFilter: boolean\n  readonly persona: boolean\n}\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "P2：类型不一致但运行可用——本地最小接口与真实类型的投影差异",
+      "summary": "以下消费点的 adapter 手写最小接口均为真实类型的结构子集，运行期兼容，",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "但类型声明不完整（投影窄化），存在未来误用风险。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`ToolsService.register/schemas/guard`（executor.ts:211-215, skills.ts:89-91, tasks.ts:39-50, journal-tool.ts:28-37）",
+      "summary": "adapter 的 `MinimalToolDefinition` 是真实 `ToolDefinition`（`dsh-tools/index.d.ts:106-172`）的子集；",
+      "anchors": [
+        {
+          "path": "dsh-tools/index.d.ts",
+          "line": 106,
+          "lineEnd": 172
+        },
+        {
+          "path": "dsh-tools/index.d.ts",
+          "line": 261,
+          "lineEnd": 266
+        },
+        {
+          "path": "dsh-tools/index.d.ts",
+          "line": 677,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-guard.ts",
+          "line": 36,
+          "lineEnd": 43
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`schemas` 返回 `readonly { name: string }[]` 而非完整的 `ToolSchema[]` （`dsh-tools/index.d.ts:677`）；`guard` 入参 `ResearchExecutionLike` （`executor-guard.ts:36-43`）是 `ToolExecution`（`dsh-tools/index.d.ts:261-266`）的窄化投影。",
+          "anchors": [
+            {
+              "path": "dsh-tools/index.d.ts",
+              "line": 677,
+              "lineEnd": null
+            },
+            {
+              "path": "executor-guard.ts",
+              "line": 36,
+              "lineEnd": 43
+            },
+            {
+              "path": "dsh-tools/index.d.ts",
+              "line": 261,
+              "lineEnd": 266
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：运行期兼容；类型面 `ToolDefinition` 含 `timeoutMs`/`presentCall`/`presentResult`/`finalizeContent` 等未建模",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "ts",
+          "code": "// adapter（executor.ts:211-215）\ninterface ToolsService {\n  register(definition: MinimalToolDefinition): () => void\n  schemas(scope?: object): readonly { name: string }[]\n  guard(guard: (execution: Readonly<ResearchExecutionLike>) => string | undefined): () => void\n}\n"
+        },
+        {
+          "lang": "ts",
+          "code": "// 真实运行时（dsh-tools/index.d.ts:106-172, 621, 677）\nregister(definition: ToolDefinition): () => void\nguard(guard: ToolGuard): () => void    // ToolGuard = (execution: Readonly<ToolExecution>) => string | undefined\nschemas(scope?: ScopeKey): ToolSchema[]\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`AgentsService.get`（executor.ts:242-244）",
+      "summary": "adapter 的 `AgentsService.get(id: string): MinimalAgent | undefined` 与真实",
+      "anchors": [
+        {
+          "path": "dsh-agent/index.d.ts",
+          "line": 344,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-agent/runtime-types.d.ts",
+          "line": 64,
+          "lineEnd": 136
+        },
+        {
+          "path": "executor-continuation.ts",
+          "line": 78,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 195,
+          "lineEnd": 208
+        },
+        {
+          "path": "executor.ts",
+          "line": 470,
+          "lineEnd": null
+        },
+        {
+          "path": "plugin.ts",
+          "line": 148,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`AgentRegistry.get(id: SessionId): Agent | undefined` （`dsh-agent/index.d.ts:344`）结构兼容。`MinimalAgent`（`executor.ts:195-208`）是 `Agent` （`dsh-agent/runtime-types.d.ts:64-136`）的手写投影，只声明 `id`/`whenIdle`/`session`。 真实 `Agent` 还有 `options`/`inbox`/`status`/`ctx`/`cancel`/`send`/`followup`/`steer`/`inject`/`runMaintenance`。",
+          "anchors": [
+            {
+              "path": "dsh-agent/index.d.ts",
+              "line": 344,
+              "lineEnd": null
+            },
+            {
+              "path": "executor.ts",
+              "line": 195,
+              "lineEnd": 208
+            },
+            {
+              "path": "dsh-agent/runtime-types.d.ts",
+              "line": 64,
+              "lineEnd": 136
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`plugin.ts:148`（`ctx.agents.currentInitiator()`）、`executor.ts:470` （`ctx.subagents.getProvider`）、`executor-continuation.ts:78`（`ctx.agents.get(childId)`）",
+          "anchors": [
+            {
+              "path": "plugin.ts",
+              "line": 148,
+              "lineEnd": null
+            },
+            {
+              "path": "executor.ts",
+              "line": 470,
+              "lineEnd": null
+            },
+            {
+              "path": "executor-continuation.ts",
+              "line": 78,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：`MinimalAgent` 投影过窄，但 adapter 只用了 `id`/`session`/`whenIdle`，运行期安全",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`SkillsService.register`（skills.ts:84-86）",
+      "summary": "adapter 的 `SkillsService.register(skill: SkillRegistration): () => void`",
+      "anchors": [
+        {
+          "path": "dsh-skill/index.d.ts",
+          "line": 81,
+          "lineEnd": 86
+        },
+        {
+          "path": "dsh-skill/index.d.ts",
+          "line": 259,
+          "lineEnd": null
+        },
+        {
+          "path": "skills.ts",
+          "line": 73,
+          "lineEnd": 81
+        },
+        {
+          "path": "skills.ts",
+          "line": 222,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "与真实 `SkillRegistry.register(skill: SkillRegistration): () => void` （`dsh-skill/index.d.ts:259`）完全兼容。adapter 的 `SkillRegistration` （`skills.ts:73-81`）与真实 `SkillRegistration`（`dsh-skill/index.d.ts:81-86`）字段一致。",
+          "anchors": [
+            {
+              "path": "dsh-skill/index.d.ts",
+              "line": 259,
+              "lineEnd": null
+            },
+            {
+              "path": "skills.ts",
+              "line": 73,
+              "lineEnd": 81
+            },
+            {
+              "path": "dsh-skill/index.d.ts",
+              "line": 81,
+              "lineEnd": 86
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`skills.ts:222`（`ctx.skills.register({...})`）",
+          "anchors": [
+            {
+              "path": "skills.ts",
+              "line": 222,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移，运行期与类型均兼容",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险，仅记录）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`SystemPromptService.section/context`（plugin.ts:67-78）",
+      "summary": "adapter 手写 `SystemPromptService` 含 `section(section: {...}): () => void`",
+      "anchors": [
+        {
+          "path": "dsh-system-prompt/index.d.ts",
+          "line": 225,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-system-prompt/index.d.ts",
+          "line": 244,
+          "lineEnd": null
+        },
+        {
+          "path": "plugin.ts",
+          "line": 108,
+          "lineEnd": 127
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "和 `context(context: {...}): () => void`。真实 `SystemPrompt.section(section: PromptSection): () => void` （`dsh-system-prompt/index.d.ts:225`）和 `SystemPrompt.context(context: PromptContext): () => void` （`dsh-system-prompt/index.d.ts:244`）的入参含 `complete?`（section）等额外字段， adapter 未用到，结构兼容。",
+          "anchors": [
+            {
+              "path": "dsh-system-prompt/index.d.ts",
+              "line": 225,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-system-prompt/index.d.ts",
+              "line": 244,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`plugin.ts:108-127`（`service.context({...})`、`service.section({...})`）",
+          "anchors": [
+            {
+              "path": "plugin.ts",
+              "line": 108,
+              "lineEnd": 127
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无运行漂移，类型投影略窄",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`installModelSelection` 调用（effort-inject.ts:41）",
+      "summary": "adapter 调用 `installModelSelection(payload.agent.ctx, { get current() {...}, set current(_next) {...}, assembled: undefined })`。",
+      "anchors": [
+        {
+          "path": "dsh-agent/model-selection.d.ts",
+          "line": 19,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-agent/model-selection.d.ts",
+          "line": 35,
+          "lineEnd": null
+        },
+        {
+          "path": "effort-inject.ts",
+          "line": 41,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "真实签名 `installModelSelection(agentCtx: Context, selection: ModelSelectionRef): () => void` （`dsh-agent/model-selection.d.ts:35`）。`ModelSelectionRef.current` 类型为 `ModelSelection | undefined`（`dsh-agent/model-selection.d.ts:19`）， adapter 用 getter 对象字面量传入，运行期兼容但类型面不严格匹配。",
+          "anchors": [
+            {
+              "path": "dsh-agent/model-selection.d.ts",
+              "line": 35,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-agent/model-selection.d.ts",
+              "line": 19,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`effort-inject.ts:41`",
+          "anchors": [
+            {
+              "path": "effort-inject.ts",
+              "line": 41,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：getter 对象 vs 静态属性，运行期兼容",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`createUserMessage` 调用（commands.ts:273）",
+      "summary": "adapter 调用 `createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'plugin', plugin: SOURCE_PLUGIN } })`。",
+      "anchors": [
+        {
+          "path": "commands.ts",
+          "line": 273,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-llm/message.d.ts",
+          "line": 98,
+          "lineEnd": 101
+        },
+        {
+          "path": "dsh-llm/message.d.ts",
+          "line": 171,
+          "lineEnd": 174
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "真实 `MessageSourceMap.plugin`（`dsh-llm/message.d.ts:98-101`）确为 `{ kind: 'plugin'; plugin: string } & ContextFormed`。 `createUserMessage` 签名（`dsh-llm/message.d.ts:171-174`）要求 `NewUserMessage`， 含 `content` + `source`，adapter 入参匹配。",
+          "anchors": [
+            {
+              "path": "dsh-llm/message.d.ts",
+              "line": 98,
+              "lineEnd": 101
+            },
+            {
+              "path": "dsh-llm/message.d.ts",
+              "line": 171,
+              "lineEnd": 174
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`commands.ts:273`",
+          "anchors": [
+            {
+              "path": "commands.ts",
+              "line": 273,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`turn/end` 错误载荷解码（executor-settle.ts:156-167）",
+      "summary": "adapter `extractTurnErrorText` 读取 `reason.error.message` 与 `reason.error.code`",
+      "anchors": [
+        {
+          "path": "dsh-llm/types.d.ts",
+          "line": 26,
+          "lineEnd": 37
+        },
+        {
+          "path": "dsh-session/types.d.ts",
+          "line": 178,
+          "lineEnd": 181
+        },
+        {
+          "path": "executor-settle.ts",
+          "line": 138,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-settle.ts",
+          "line": 162,
+          "lineEnd": 163
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "（`executor-settle.ts:162-163`）。真实 `TurnEndReasonMap.error` （`dsh-session/types.d.ts:178-181`）含 `error: LlmFailure`， `LlmFailure`（`dsh-llm/types.d.ts:26-37`）确含 `message: string` 与 `code: string`。",
+          "anchors": [
+            {
+              "path": "executor-settle.ts",
+              "line": 162,
+              "lineEnd": 163
+            },
+            {
+              "path": "dsh-session/types.d.ts",
+              "line": 178,
+              "lineEnd": 181
+            },
+            {
+              "path": "dsh-llm/types.d.ts",
+              "line": 26,
+              "lineEnd": 37
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`executor-settle.ts:138`（`extractTurnErrorText(reason)`）",
+          "anchors": [
+            {
+              "path": "executor-settle.ts",
+              "line": 138,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`subagent/end` 载荷（executor-settle.ts:48-51, 88）",
+      "summary": "adapter 的 `SubagentEndInfoLike` 含 `id: string` 与 `stopReason?: string`。",
+      "anchors": [
+        {
+          "path": "dsh-subagent/types.d.ts",
+          "line": 49,
+          "lineEnd": 66
+        },
+        {
+          "path": "executor-settle.ts",
+          "line": 88,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "真实 `SubagentRunEndInfo`（`dsh-subagent/types.d.ts:49-66`）含 `id: SessionId`、 `stopReason: SubagentResult['stopReason']` 以及 `runId`/`provider`/`local`/`lastAssistantMessage`。 adapter 只用 `id` 与 `stopReason`，结构兼容。",
+          "anchors": [
+            {
+              "path": "dsh-subagent/types.d.ts",
+              "line": 49,
+              "lineEnd": 66
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`executor-settle.ts:88`（`ctx.on('subagent/end', (info: SubagentEndInfoLike) => {...})`）",
+          "anchors": [
+            {
+              "path": "executor-settle.ts",
+              "line": 88,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：投影窄化，运行期兼容",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`agent/created` 载荷（effort-inject.ts:33）",
+      "summary": "adapter 监听 `(payload: { agent: Agent }) => {...}`。真实事件签名",
+      "anchors": [
+        {
+          "path": "dsh-agent/runtime-types.d.ts",
+          "line": 150,
+          "lineEnd": 152
+        },
+        {
+          "path": "effort-inject.ts",
+          "line": 33,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "（`dsh-agent/runtime-types.d.ts:150-152`）为 `'agent/created'(this: Scoped<Agent>, payload: { agent: Agent }): void`。 完全匹配。",
+          "anchors": [
+            {
+              "path": "dsh-agent/runtime-types.d.ts",
+              "line": 150,
+              "lineEnd": 152
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**消费点**：`effort-inject.ts:33`",
+          "anchors": [
+            {
+              "path": "effort-inject.ts",
+              "line": 33,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`delegationDepthOf` 调用（plugin.ts:172, skills.ts:281, tasks.ts:287）",
+      "summary": "adapter 调用 `delegationDepthOf(agent)`。真实签名 `delegationDepthOf(agent: Agent): number`",
+      "anchors": [
+        {
+          "path": "dsh-subagent/depth.d.ts",
+          "line": 25,
+          "lineEnd": null
+        },
+        {
+          "path": "tasks.ts",
+          "line": 287,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "（`dsh-subagent/depth.d.ts:25`）。`tasks.ts:287` 用 `agent as unknown as Parameters<typeof delegationDepthOf>[0]` 双断言桥接，运行期兼容。",
+          "anchors": [
+            {
+              "path": "dsh-subagent/depth.d.ts",
+              "line": 25,
+              "lineEnd": null
+            },
+            {
+              "path": "tasks.ts",
+              "line": 287,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无运行漂移，类型断言略绕",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`finalAssistantOutput` 调用（executor-continuation.ts:93）",
+      "summary": "adapter 调用 `finalAssistantOutput(events) ?? []`。真实签名",
+      "anchors": [
+        {
+          "path": "dsh-subagent/assistant-output.d.ts",
+          "line": 47,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`finalAssistantOutput(events: readonly SessionEvent[]): ContentBlock[] | undefined` （`dsh-subagent/assistant-output.d.ts:47`）。完全兼容。",
+          "anchors": [
+            {
+              "path": "dsh-subagent/assistant-output.d.ts",
+              "line": 47,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`ctx.on` 事件订阅（executor-settle.ts:87-88, effort-inject.ts:33）",
+      "summary": "adapter 用 `ctx.on('session/event', ...)` 与 `ctx.on('subagent/end', ...)`。",
+      "anchors": [
+        {
+          "path": "dsh-session/index.d.ts",
+          "line": 64,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-subagent/index.d.ts",
+          "line": 95,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "真实 `session/event`（`dsh-session/index.d.ts:64`）签名含 `(session: Session, event: SessionEvent)`； `subagent/end`（`dsh-subagent/index.d.ts:95`）签名含 `(this: Scoped<SubagentRuntime>, info: SubagentRunEndInfo): void`。 adapter 的 listener 参数类型兼容。",
+          "anchors": [
+            {
+              "path": "dsh-session/index.d.ts",
+              "line": 64,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-subagent/index.d.ts",
+              "line": 95,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无运行漂移",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`MinimalAgent.session.requestHeader` 投影（executor.ts:206, main-model.ts:18）",
+      "summary": "adapter 声明 `requestHeader?(): { config?: { provider?: string; model?: string } } | undefined`。",
+      "anchors": [
+        {
+          "path": "dsh-llm/call-config.d.ts",
+          "line": 16,
+          "lineEnd": 23
+        },
+        {
+          "path": "dsh-session/index.d.ts",
+          "line": 246,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-session/types.d.ts",
+          "line": 203,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "真实 `Session.requestHeader()`（`dsh-session/index.d.ts:246`）返回 `EpochHeader | undefined`， `EpochHeader.config` 是 `LlmCallConfig`（`dsh-session/types.d.ts:203`）， `LlmCallConfig`（`dsh-llm/call-config.d.ts:16-23`）含 `provider: string; model: string`， 与 adapter 投影一致。",
+          "anchors": [
+            {
+              "path": "dsh-session/index.d.ts",
+              "line": 246,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-session/types.d.ts",
+              "line": 203,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-llm/call-config.d.ts",
+              "line": 16,
+              "lineEnd": 23
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移，投影略窄（真实还有 `reasoningEffort`/`temperature`/`maxTokens`/`stop`）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`CommandInvocation` 消费（commands.ts:82, 272）",
+      "summary": "adapter 读取 `invocation.agent.session.header.cwd`（`commands.ts:82`）与",
+      "anchors": [
+        {
+          "path": "commands.ts",
+          "line": 82,
+          "lineEnd": null
+        },
+        {
+          "path": "commands.ts",
+          "line": 272,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-agent/runtime-types.d.ts",
+          "line": 69,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-agent/runtime-types.d.ts",
+          "line": 118,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-commands/index.d.ts",
+          "line": 20,
+          "lineEnd": null
+        },
+        {
+          "path": "dsh-session/types.d.ts",
+          "line": 59,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`invocation.agent.followup(...)`（`commands.ts:272`）。真实 `CommandInvocation.agent: Agent` （`dsh-commands/index.d.ts:20`），`Agent.session: Session`（`dsh-agent/runtime-types.d.ts:69`）， `Session.header: SessionHeader`（`dsh-session/types.d.ts:59`）含 `cwd?: string`。 `Agent.followup(message: UserMessage): void`（`dsh-agent/runtime-types.d.ts:118`）匹配。",
+          "anchors": [
+            {
+              "path": "commands.ts",
+              "line": 272,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-commands/index.d.ts",
+              "line": 20,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-agent/runtime-types.d.ts",
+              "line": 69,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-session/types.d.ts",
+              "line": 59,
+              "lineEnd": null
+            },
+            {
+              "path": "dsh-agent/runtime-types.d.ts",
+              "line": 118,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`ctx.commands.register`（commands.ts:52-73）",
+      "summary": "adapter 注册命令时传 `{ name, description, input: { hint }, handler }`。真实",
+      "anchors": [
+        {
+          "path": "dsh-commands/types.d.ts",
+          "line": 12,
+          "lineEnd": 23
+        },
+        {
+          "path": "dsh-commands/types.d.ts",
+          "line": 35,
+          "lineEnd": 50
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`CommandDefinition`（`dsh-commands/types.d.ts:35-50`）含 `name`/`description`/`input?: CommandInputDescriptor`/`handler`， `CommandInputDescriptor`（`dsh-commands/types.d.ts:12-23`）含 `hint: string`。完全兼容。",
+          "anchors": [
+            {
+              "path": "dsh-commands/types.d.ts",
+              "line": 35,
+              "lineEnd": 50
+            },
+            {
+              "path": "dsh-commands/types.d.ts",
+              "line": 12,
+              "lineEnd": 23
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：无漂移",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2（无风险）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "`TaskToolsServices.tools.register`（tasks.ts:39-50, journal-tool.ts:28-37）",
+      "summary": "adapter 的 `TaskToolsServices.tools.register` 接受含 `name`/`description`/`parameters`/`output`/`isConcurrencySafe`/`execute` 的定义。",
+      "anchors": [
+        {
+          "path": "dsh-tools/index.d.ts",
+          "line": 602,
+          "lineEnd": null
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "真实 `ToolRuntime.register(definition: ToolDefinition): () => void` （`dsh-tools/index.d.ts:602`）要求 `ToolDefinition`，adapter 传入的对象是结构子集， 运行期兼容。",
+          "anchors": [
+            {
+              "path": "dsh-tools/index.d.ts",
+              "line": 602,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "**漂移**：投影窄化（缺 `timeoutMs`/`presentCall`/`presentResult`/`finalizeContent`），运行期兼容",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**严重度**——P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "审计汇总表",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "commands.ts",
+          "line": 52,
+          "lineEnd": 73
+        },
+        {
+          "path": "commands.ts",
+          "line": 273,
+          "lineEnd": null
+        },
+        {
+          "path": "effort-inject.ts",
+          "line": 33,
+          "lineEnd": null
+        },
+        {
+          "path": "effort-inject.ts",
+          "line": 41,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-continuation.ts",
+          "line": 78,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-continuation.ts",
+          "line": 93,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-dispatch.ts",
+          "line": 73,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-guard.ts",
+          "line": 167,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-settle.ts",
+          "line": 88,
+          "lineEnd": null
+        },
+        {
+          "path": "executor-settle.ts",
+          "line": 138,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 277,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 470,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 475,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 561,
+          "lineEnd": null
+        },
+        {
+          "path": "executor.ts",
+          "line": 585,
+          "lineEnd": null
+        },
+        {
+          "path": "journal-tool.ts",
+          "line": 51,
+          "lineEnd": null
+        },
+        {
+          "path": "main-model.ts",
+          "line": 31,
+          "lineEnd": null
+        },
+        {
+          "path": "plugin.ts",
+          "line": 108,
+          "lineEnd": 127
+        },
+        {
+          "path": "plugin.ts",
+          "line": 148,
+          "lineEnd": null
+        },
+        {
+          "path": "plugin.ts",
+          "line": 172,
+          "lineEnd": null
+        },
+        {
+          "path": "skills.ts",
+          "line": 222,
+          "lineEnd": null
+        },
+        {
+          "path": "tasks.ts",
+          "line": 65,
+          "lineEnd": 193
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "`executor.ts:561`",
+          "text": "`ctx.subagents.followup(parent, childId, content, options)` | `sendMessage(sender, targetId, content, options)` — 无 `followup` 方法 | 是 | P0",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 561,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor.ts:585`",
+          "text": "`ctx.subagents.startContinuable(spec)` → `{ childId }` | 返回 `{ childId, messageId }`；`toolFilter` 为 `ToolRestriction { allow?, deny? }` | 是 | P1",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 585,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor-dispatch.ts:73`",
+          "text": "`provider.capabilities?.toolFilter !== true` | `SubagentCapabilities` 含 5 个布尔字段（`agentOptions`/`outputSchema`/`depthLimit`/`toolFilter`/`persona`） | 是 | P1",
+          "anchors": [
+            {
+              "path": "executor-dispatch.ts",
+              "line": 73,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor.ts:277`",
+          "text": "`tools.register(MinimalToolDefinition)` | `register(ToolDefinition)` — 真实含更多字段 | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 277,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor.ts:475`",
+          "text": "`ctx.tools.schemas(parent)` → `{ name }[]` | `schemas(scope?)` → `ToolSchema[]` | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 475,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor-guard.ts:167`",
+          "text": "`ctx.tools.guard(fn)` | `guard(ToolGuard)` — 入参 `ToolExecution` 比 `ResearchExecutionLike` 宽 | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "executor-guard.ts",
+              "line": 167,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor.ts:470`",
+          "text": "`ctx.subagents.getProvider(name)` → `SpawnProviderLike` | `getProvider(name)` → `SubagentProvider`（含 5 项 capabilities） | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "executor.ts",
+              "line": 470,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor-continuation.ts:78`",
+          "text": "`ctx.agents.get(childId)` → `MinimalAgent` | `get(id)` → `Agent`（含 `options`/`inbox`/`status`/`ctx` 等） | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "executor-continuation.ts",
+              "line": 78,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`plugin.ts:148`",
+          "text": "`ctx.agents.currentInitiator()` | `currentInitiator(): Agent \\ | undefined` | 否 | P2",
+          "anchors": [
+            {
+              "path": "plugin.ts",
+              "line": 148,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`effort-inject.ts:41`",
+          "text": "`installModelSelection(agent.ctx, { get current() {...} })` | `installModelSelection(agentCtx, selection: ModelSelectionRef)` — getter 对象 vs 静态属性 | 不严格 | P2",
+          "anchors": [
+            {
+              "path": "effort-inject.ts",
+              "line": 41,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`commands.ts:273`",
+          "text": "`createUserMessage({ content, source: { kind: 'plugin' } })` | `MessageSourceMap.plugin` 确为 `{ kind: 'plugin'; plugin: string }` | 否 | P2",
+          "anchors": [
+            {
+              "path": "commands.ts",
+              "line": 273,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor-settle.ts:138`",
+          "text": "`extractTurnErrorText(reason)` → `reason.error.message`/`code` | `LlmFailure` 含 `message`/`code` | 否 | P2",
+          "anchors": [
+            {
+              "path": "executor-settle.ts",
+              "line": 138,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor-settle.ts:88`",
+          "text": "`ctx.on('subagent/end', info => ...)` | `SubagentRunEndInfo` 含 `id`/`stopReason` 等 | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "executor-settle.ts",
+              "line": 88,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`effort-inject.ts:33`",
+          "text": "`ctx.on('agent/created', payload => ...)` | `{ agent: Agent }` | 否 | P2",
+          "anchors": [
+            {
+              "path": "effort-inject.ts",
+              "line": 33,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`plugin.ts:172`",
+          "text": "`delegationDepthOf(agent)` | `delegationDepthOf(agent: Agent): number` | 否 | P2",
+          "anchors": [
+            {
+              "path": "plugin.ts",
+              "line": 172,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`executor-continuation.ts:93`",
+          "text": "`finalAssistantOutput(events)` | `finalAssistantOutput(events): ContentBlock[] \\ | undefined` | 否 | P2",
+          "anchors": [
+            {
+              "path": "executor-continuation.ts",
+              "line": 93,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`skills.ts:222`",
+          "text": "`ctx.skills.register({ name, description, content, source, resourceBase })` | `register(SkillRegistration)` — 字段匹配 | 否 | P2",
+          "anchors": [
+            {
+              "path": "skills.ts",
+              "line": 222,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`plugin.ts:108-127`",
+          "text": "`service.context({...})` / `service.section({...})` | `SystemPrompt.context(section: PromptContext)` / `.section(section: PromptSection)` | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "plugin.ts",
+              "line": 108,
+              "lineEnd": 127
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`commands.ts:52-73`",
+          "text": "`ctx.commands.register({ name, description, input, handler })` | `CommandDefinition` — 字段匹配 | 否 | P2",
+          "anchors": [
+            {
+              "path": "commands.ts",
+              "line": 52,
+              "lineEnd": 73
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`tasks.ts:65-193`",
+          "text": "`tools.register({ name, description, parameters, output, isConcurrencySafe, execute })` | `register(ToolDefinition)` — 结构子集 | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "tasks.ts",
+              "line": 65,
+              "lineEnd": 193
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`journal-tool.ts:51`",
+          "text": "`tools.register({...})` | `register(ToolDefinition)` — 结构子集 | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "journal-tool.ts",
+              "line": 51,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": "`main-model.ts:31`",
+          "text": "`source.session.requestHeader?.()` → `{ config?: { provider?, model? } }` | `EpochHeader.config: LlmCallConfig` 含 `provider`/`model` | 窄化 | P2",
+          "anchors": [
+            {
+              "path": "main-model.ts",
+              "line": 31,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/adapter-dsh-api-consumption-audit.md",
+      "title": "方法论备注",
+      "summary": "审计穷尽路径：",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`grep` 全部 `ctx\\.` 使用（26 处）+ 全部 `import type` 自 `@deepseek-ai/` 的声明（约 40 处）；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "逐文件读取 adapter 源码 13 份 + 真实 `.d.ts` 约 25 份；",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "对所有手写最小接口（`SubagentsService`/`AgentsService`/`ToolsService`/`SkillsService`/ `SystemPromptService`/`SpawnProviderLike`/`MinimalAgent`/`MinimalToolDefinition`/ `ResearchExecutionLike`/`SubagentEndInfoLike`/`TurnEndReasonLike`/`MainModelSource`） 逐一与真实类型做结构性比对。",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "除已知的 `followup` 漂移外，另发现 2 项 P1（`startContinuable` 返回类型 + `SubagentProvider.capabilities` 窄化），其余均为 P2 投影窄化或完全兼容。",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "DSH 0.1.1-rc.2 → 0.1.2-rc.1 插件可消费 API 漂移审计",
+      "summary": "Research report for task `09-07-executor-followup-api`. The implementer consumes this file directly; every conclusion must be anchored.",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "<!-- injection-marker: mtqv7aihc72fo7iv -->",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`SubagentRuntime.followup()` 被 `sendMessage()` 完全替代，是本次区间最核心的 breaking change",
+      "summary": "",
+      "anchors": [
+        {
+          "path": "packages/subagent/subagent/src/continuation.ts",
+          "line": 512,
+          "lineEnd": 580
+        },
+        {
+          "path": "packages/subagent/subagent/src/index.ts",
+          "line": 187,
+          "lineEnd": null
+        },
+        {
+          "path": "packages/subagent/subagent/src/internal.ts",
+          "line": 38,
+          "lineEnd": 42
+        }
+      ],
+      "conclusions": [
+        {
+          "topic": "`subagent/subagent`",
+          "text": "`SubagentRuntime.followup(parent, childId, content, options: SubagentFollowupOptions)` | 存在，签名接收 `parent: Agent` + `SubagentFollowupOptions { source, signal }` | 移除，替换为 `sendMessage(sender, targetId, content, options: SubagentSendMessageOptions)` | `ec493c2db8` PR #3250 | P0 编译/运行即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/subagent`",
+          "text": "`SubagentRuntime.reportFrom(child, content, options: SubagentReportOptions)` | 存在 | 移除（逻辑并入 `sendMessage` 的双向投递路径） | `ec493c2db8` PR #3250 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/subagent`",
+          "text": "`SubagentRuntime.registerContinuableSetup(contribution: ContinuableSetupContribution)` | 存在 | 移除（`SubagentActivationSetupRegistry` 整体删除） | `ec493c2db8` PR #3250 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/subagent`",
+          "text": "`CoordinatorMessageSource` / `SubagentReportMessageSource` / `SubagentSettledMessageSource` | 三种 `MessageSource` kind | 仅保留 `SubagentSettledMessageSource`；新增 `AgentMessageSource { kind: 'agent-message' }` 统一承载 | `ec493c2db8` PR #3250 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/subagent`",
+          "text": "`SubagentFollowupOptions` / `SubagentReportOptions` / `SubagentReportDelivery` | 存在 | 移除，替换为 `SubagentSendMessageOptions { signal }` | `ec493c2db8` PR #3250 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/subagent`",
+          "text": "`ContinuableSetupContribution` | 从 `activation-setup-registry.ts` 导出 | 整个文件删除 | `ec493c2db8` PR #3250 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`SubagentRuntime` 的基类从 `Service` 改为 `TypertRemoteService`，所有远程方法需 `@Remote` 装饰器 — `packages/subagent/subagent/src/index.ts:187`",
+          "anchors": [
+            {
+              "path": "packages/subagent/subagent/src/index.ts",
+              "line": 187,
+              "lineEnd": null
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "`sendMessage` 支持双向投递：子→父、父→子，由 `sender` 参数决定方向 — `packages/subagent/subagent/src/continuation.ts:512-580`",
+          "anchors": [
+            {
+              "path": "packages/subagent/subagent/src/continuation.ts",
+              "line": 512,
+              "lineEnd": 580
+            }
+          ],
+          "verified": true
+        },
+        {
+          "topic": null,
+          "text": "新增符号键 `queueSubagentPrompt` 作为 host 协议投递的替代接缝，不对外暴露为公共方法 — `packages/subagent/subagent/src/internal.ts:38-42`",
+          "anchors": [
+            {
+              "path": "packages/subagent/subagent/src/internal.ts",
+              "line": 38,
+              "lineEnd": 42
+            }
+          ],
+          "verified": true
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "typescript",
+          "code": "// 0.1.2-rc.1 新签名\nasync sendMessage(\n  sender: Agent,\n  targetId: SessionId,\n  content: ContentBlock[],\n  options: SubagentSendMessageOptions,\n): Promise<MessageId>\n\ninterface SubagentSendMessageOptions {\n  readonly signal: AbortSignal\n}\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`CallId` 全面重命名为 `ToolCallId`，影响所有消费 tool-call 关联类型的插件",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`llm/llm`",
+          "text": "`CallId` / `CallId(id)` | 存在 | 重命名为 `ToolCallId` / `ToolCallId(id)` | `a789637db6` PR #2731 | P0 编译即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`ToolCallBlock.id` | `CallId` | `ToolCallId` | `a789637db6` PR #2731 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`ToolResultBlock.toolCallId` | `CallId` | `ToolCallId` | `a789637db6` PR #2731 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`StreamChunk` 中 `tool-call-delta.id` | `CallId` | `ToolCallId` | `a789637db6` PR #2731 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "`ToolExecutionInput.callId` / `rootCallId` | `CallId` | `ToolCallId` | `a789637db6` PR #2731 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "`ToolExecution.rootCallId` | `CallId` | `ToolCallId` | `a789637db6` PR #2731 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "`CodeDispatchLog.subCallId` | `CallId` | `ToolCallId`（同时类型本身重命名为 `PtcDispatchLog`） | `a789637db6` + `3ca9c7d489` PR #2731 + #3074 | P0",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "typescript",
+          "code": "// 0.1.1-rc.2\nexport type CallId = Branded<'CallId'>\nexport function CallId(id: string): CallId { return id as CallId }\n\n// 0.1.2-rc.1\nexport type ToolCallId = Branded<'ToolCallId'>\nexport function ToolCallId(id: string): ToolCallId { return brandString<ToolCallId>(id) }\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`code` 模式全面重命名为 `ptc`（PTC mode），影响工具呈现层配置与事件名",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`core/tools`",
+          "text": "`ToolPresentationMode` | `'native' \\ | 'code' \\ | 'both'` | `'native' \\ | 'ptc' \\ | 'both'` | `3ca9c7d489` PR #3074 | P0 编译即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "`Config.mode` | 接受 `'code'` | 接受 `'ptc'`（`'code'` 不再合法） | `3ca9c7d489` PR #3074 | P0 运行即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "`CodeDispatchLog` / `CodeDispatchEventData` / `CodeDispatchStartEventData` | 存在 | 重命名为 `PtcDispatchLog` / `PtcDispatchEventData` / `PtcDispatchStartEventData` | `3ca9c7d489` PR #3074 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "Cordis 事件 `'tools/code-dispatch-log'` | 存在 | 重命名为 `'tools/ptc-dispatch-log'` | `3ca9c7d489` PR #3074 | P0 运行即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "内部文件 `code-mode.ts` | 存在 | 重命名为 `ptc.ts` | `3ca9c7d489` PR #3074 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/tools`",
+          "text": "`COLLAPSE_SECTION_ORDER` / `CODE_ONLY_INSTRUCTION` / `SDK_SECTION_ORDER` | 存在 | 移除（改为动态 `systemPrompt.getSectionOrder()`） | `3ca9c7d489` PR #3074 | P1",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "typescript",
+          "code": "// 0.1.2-rc.1\nexport type ToolPresentationMode = 'native' | 'ptc' | 'both'\n\nstatic Config: z<Config> = z.object({\n  mode: z.union(['native', 'ptc', 'both'] as const).default('native'),\n})\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`LlmRuntime` 基类从 `Service` 改为 `TypertRemoteService`，部分方法需 `@Remote` 装饰器",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmRuntime` 基类 | `Service` | `TypertRemoteService` | `ec493c2db8` 系列 | P0 编译即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmRuntime.listProviders()` | 普通方法 | 添加 `@Remote` 装饰器 | 同上 | P1 行为变化",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmRuntime.listConfigurableProviders()` | 普通方法 | 添加 `@Remote` 装饰器 | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmRuntime.registerModelDiscovery()` | `discover(request)` | `discover(request, signal?)` 新增可选 `AbortSignal` 参数 | 同上 | P0 签名变化",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmRuntime.discoverModels()` | 无 `signal` 参数 | 新增 `signal?: AbortSignal` 参数 | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmRuntime.remoteDiscoverModels()` | 不存在 | 新增远程适配方法 | 同上 | P2 新增能力",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmRuntime.imageRequestPricing()` | 不存在 | 新增方法 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmAdapter.imageRequestPricing()` | 不存在 | 新增方法（默认返回 `undefined`） | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmImageRequestPricing` / `LlmImageRequestPrice` | 不存在 | 新增类型 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`LlmModelDiscoveryOperation` | 不存在 | 新增类型（从 `LlmModelDiscoveryRequest` 中拆出 `signal`） | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`TokenUsage.totalTokens` | 不存在 | 新增可选字段 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`export * from './never.ts'` | 存在 | 移除（`assertNever` 移至 `@deepseek-ai/dsh-util-values`） | 同上 | P0 编译即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`export { callConfigEquals, deepFreeze, ... }` | 导出 `deepFreeze` | 不再导出（移至 `@deepseek-ai/dsh-util-values`） | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "typescript",
+          "code": "// 0.1.2-rc.1\nexport class LlmRuntime extends TypertRemoteService {\n  @Remote\n  listProviders(): LlmProviderInfo[] { ... }\n\n  @Remote\n  listConfigurableProviders(): LlmConfigurableProvider[] { ... }\n}\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`Agent` 接口从 `runtime-types.ts` 拆出到 `types.ts`，`TypertLookupMap`/`TypertContextMap` 声明迁移",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`core/agent`",
+          "text": "`Agent` 接口定义位置 | `runtime-types.ts` 中完整定义 | `types.ts` 中定义核心字段，`runtime-types.ts` 中通过模块合并补充方法 | `ec493c2db8` 系列 | P0 编译即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent`",
+          "text": "`TypertLookupMap.agent` / `TypertContextMap.agent` | 在 `core/agent/src/index.ts` 中声明 | 迁移到 `core/agent/src/types.ts` | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent`",
+          "text": "`CreateAgentOptions.meta.seedLength` | `number` 类型 | 重命名为 `isSeeded: boolean` | `27bf1039db` | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent`",
+          "text": "`CreateAgentOptions.inheritedEventCount` | 不存在 | 新增 `SessionLogOffset` 类型字段 | `27bf1039db` | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent`",
+          "text": "`PreStepDecision.enter` | `{ kind: 'enter', messages }` | 新增可选 `startsRequestSeries?: true` 字段 | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent`",
+          "text": "`AgentOptions.reasoningEffort` | 不存在 | 新增 `ReasoningEffortId` 字段 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent`",
+          "text": "`AgentRegistry` Typert 注册 | 无 `identity` 回调 | 添加 `identity: candidate => candidate.agent?.id` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": [
+        {
+          "lang": "typescript",
+          "code": "// 0.1.1-rc.2\nexport interface Agent {\n  readonly id: SessionId\n  readonly options: AgentOptions\n  readonly session: Session\n  readonly inbox: Inbox\n  readonly status: AgentStatus\n  readonly ctx: Context\n  cancel(cause: AgentCancelCause, options?: CancelOptions): void\n  whenIdle(): Promise<void>\n  // ...\n}\n\n// 0.1.2-rc.1 — types.ts 中\nexport interface Agent {\n  readonly id: SessionId\n}\n// runtime-types.ts 中通过 declare module './types.ts' 合并方法\n"
+        }
+      ]
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`AgentLoop` 依赖注入与配置结构变化",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`core/agent-loop`",
+          "text": "`AgentLoop.inject` | `['agents', 'sessions', 'llm', 'tools', 'systemPrompt']` | 新增 `'sessionProjections'` | `27bf1039db` 系列 | P0 运行即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent-loop`",
+          "text": "`Config.agents` 中 `reasoningEffort` | 不存在 | 新增必填字段 `z.string().min(1)` | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent-loop`",
+          "text": "`AGENT_LOOP_SETTINGS_NAMESPACE` | `settingsNamespace('agent-loop')` 函数调用 | 字符串字面量 `'agent-loop'` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent-loop`",
+          "text": "`installSettingsSection` 调用 | 直接调用 `installSettingsSection(ctx, ...)` | 改为 `ctx.inject(['settings'], (settingsCtx) => settingsCtx.settings.installSection(...))` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent-loop`",
+          "text": "`turnBoundaryProjectionDefinition` | 不存在 | 新增 `ProjectionDefinition` 导出 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`core/agent-loop`",
+          "text": "`SessionId` 构造 | `SessionId(...)` 直接调用 | `brandString<SessionId>(...)` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`typert-protocol` 大量类型重命名与 Remote 装饰器签名扩展",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertLookupFailure` | 存在 | 移除 | `ec493c2db8` 系列 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`RemoteFailure` | `{ code, message, details }` | 改为 `RemoteError<Code>` 联合类型 | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`RemoteErrorDetailsMap` / `RemoteErrorCode` | 不存在 | 新增 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertClientContextBinder` | 存在 | 重命名为 `TypertClientContextAdapter` | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertHostContextProvider` | 存在 | 拆分为 `TypertContextAdapter` + `TypertHostContextAdapter` | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertForwardableEvent` | 仅支持 `void` 返回 | 新增 waterfall 模式支持 | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertForwardableEventEntry` | 不存在 | 新增 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertClientEventListener` | 不存在 | 新增（scoped listener 类型） | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertHostContextIdentity` | 不存在 | 新增 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`RemoteMethodMarker` | `{ method, exportName?, invocation }` | 新增 `mode?: 'stream'` 字段 | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`RemoteMethodOptions` | 不存在 | 新增 `{ mode: 'stream' }` | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`Remote()` 装饰器 | 仅接受 `string`（export name） | 接受 `string \\ | RemoteMethodOptions` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertClientRemote.$on()` | `listener: Events[Event]` | `listener: TypertClientEventListener<Event>` | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`TypertClientRemote.$dispatch()` | 存在 | 移除 | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`InvocationDescriptor` | 无 `mode` 字段 | 新增 `mode?: 'stream'` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "`RemoteError` / `remoteErrorOf` | 不存在 | 新增导出 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`typert/protocol`",
+          "text": "内部存储 `markers` WeakMap | 存在 | 改为 `REMOTE_METHOD_DESCRIPTOR` 字符串键 | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`send_message` 工具参数从 `subagent_id` 改为 `agent_id`，语义扩展为双向投递",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`subagent/tool-subagent-control`",
+          "text": "`send_message` 参数 | `subagent_id: string` | `agent_id: string` | `ec493c2db8` PR #3250 | P0 运行即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/tool-subagent-control`",
+          "text": "`send_message` 描述 | \"Send a message to a background subagent...\" | \"Send a message to a direct continuable child... If you are a resident continuable child, you may also target your direct parent.\" | 同上 | P1 行为变化",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/tool-subagent-control`",
+          "text": "内部实现 | `ctx.subagents.followup(parent, SessionId(subagent_id), ...)` | `ctx.subagents.sendMessage(sender, SessionId(agent_id), ...)` | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/tool-subagent-control`",
+          "text": "`CoordinatorMessageSource` 使用 | `{ kind: 'coordinator', form: 'relay', senderSessionId }` | 不再使用（由 `sendMessage` 内部派生 `AgentMessageSource`） | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`context/agent-instructions` 内部实现依赖 `sessionProjections`，不再直接读 `session.events`",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`context/agent-instructions`",
+          "text": "`inject` | 不存在 | 新增 `['sessionProjections']` | `27bf1039db` 系列 | P0 运行即炸",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`context/agent-instructions`",
+          "text": "`agent.session.events[seq]` 直接访问 | 存在 | 改为 `agent.session.eventAt(seq)` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`context/agent-instructions`",
+          "text": "`openSteps` WeakMap | 存在（手动追踪 step 状态） | 移除（改用 `turnBoundary` projection） | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`context/agent-instructions`",
+          "text": "`stepIsOpen()` 实现 | 遍历 `session.events` | 读取 `ctx.sessionProjections.stateOf(session, 'turnBoundary')` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`context/agent-instructions`",
+          "text": "`PreStepDecision` 返回 | `{ kind: 'enter', messages: entered }` | `{ ...decision, messages: entered }`（保留其他字段） | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`context/session-reference` 新增 `projectedTitle` 方法，`listSessions` 返回值新增 `sameWorkspace` 字段",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`context/session-reference`",
+          "text": "`projectedTitle()` | 不存在 | 新增私有方法 | `27bf1039db` 系列 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`context/session-reference`",
+          "text": "`listSessions()` 返回 | 无 `sameWorkspace` | 新增 `sameWorkspace: boolean` | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`context/session-reference`",
+          "text": "`PreStepDecision` 返回 | `{ kind: 'enter', messages }` | `{ ...decision, messages }` | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`context/session-reference`",
+          "text": "`SessionTitleObservationResult` 导入 | 从 `dsh-session-query` 导入 | 移除（不再直接读 title snapshots） | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`host/plugin-inventory` 新增 `AgentPresetPluginGroup` 与 `PresetPluginEnablement` 类型",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`host/plugin-inventory`",
+          "text": "`PluginInventorySnapshot.agentPresets` | 不存在 | 新增可选字段 | `ec493c2db8` 系列 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`host/plugin-inventory`",
+          "text": "`AgentPresetPluginGroup` / `AgentPresetPluginRow` / `PresetPluginEnablement` | 不存在 | 新增类型 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`tool-subagent` 新增 `modelSelectionSettings` 配置与 `reasoningEffort` 参数",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`subagent/tool-subagent`",
+          "text": "`Config.modelSelectionSettings` | 不存在 | 新增 `boolean` 字段 | `ec493c2db8` 系列 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/tool-subagent`",
+          "text": "`Config.agentOptions.reasoningEffort` | 不存在 | 新增 `ReasoningEffortId` 字段 | 同上 | P2",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/tool-subagent`",
+          "text": "`inject` | `['tools', 'subagents', 'systemPrompt']` | 新增 `'sessionProjections'` | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`subagent/tool-subagent`",
+          "text": "`SUBAGENT_SECTION_ORDER` | `116.5` | 移除（改为动态） | 同上 | P1",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "`llm/llm` 导出面收缩：`never.ts` 删除、`deepFreeze` 迁移",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": "`llm/llm`",
+          "text": "`export * from './never.ts'` | 存在 | 移除 | `ec493c2db8` 系列 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`assertNever` 导出 | 从 `dsh-llm` 导出 | 改从 `@deepseek-ai/dsh-util-values` 导入 | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`deepFreeze` 导出 | 从 `dsh-llm` 导出 | 移除（改从 `@deepseek-ai/dsh-util-values` 导入） | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`snapshotJsonValue` 导入 | 从 `@deepseek-ai/dsh-session` 导入 | 改从 `@deepseek-ai/dsh-util-values` 导入 | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": "`llm/llm`",
+          "text": "`JsonValue` 导入 | 从 `@deepseek-ai/dsh-session` 导入 | 改从 `@deepseek-ai/dsh-util-values` 导入 | 同上 | P0",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "总结：按严重度排序的 breaking changes",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "**P0 编译/运行即炸**：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`SubagentRuntime.followup()` → `sendMessage()` — `packages/subagent/subagent/src/index.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`CallId` → `ToolCallId` — `packages/llm/llm/src/brand.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`code` mode → `ptc` — `packages/core/tools/src/index.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`Agent` 接口拆分 — `packages/core/agent/src/types.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`LlmRuntime` 基类变更 — `packages/llm/llm/src/index.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`typert-protocol` 大量类型重命名 — `packages/typert/protocol/src/types.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`send_message` 参数 `subagent_id` → `agent_id` — `packages/subagent/tool-subagent-control/src/index.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`assertNever`/`deepFreeze`/`snapshotJsonValue`/`JsonValue` 迁移 — `packages/llm/llm/src/`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`CoordinatorMessageSource`/`SubagentReportMessageSource` 移除 — `packages/subagent/subagent/src/continuation.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`context/agent-instructions` 新增 `sessionProjections` 依赖 — `packages/context/agent-instructions/src/index.ts`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**P1 行为变化**：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`PreStepDecision.enter` 新增 `startsRequestSeries` 字段",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`AgentLoop` 配置结构变化（`reasoningEffort` 必填）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`installSettingsSection` 调用方式变化",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`Remote()` 装饰器签名扩展",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`TypertClientRemote.$on()` 签名变化",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "**P2 新增能力可关注**：",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`LlmImageRequestPricing` / `imageRequestPricing()`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`turnBoundaryProjectionDefinition`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`AgentPresetPluginGroup` / `AgentPresetPluginRow`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`modelSelectionSettings` 配置",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`RemoteError` / `remoteErrorOf`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`TypertForwardableEventEntry` / `TypertClientEventListener`",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`WorkspaceController`（全新 API）",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`bundle/sdk-minimal`（全新 profile）",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    },
+    {
+      "sourceFile": "research/dsh-0.1.1-to-0.1.2-plugin-api-drift.md",
+      "title": "待确认事项",
+      "summary": "",
+      "anchors": [],
+      "conclusions": [
+        {
+          "topic": null,
+          "text": "`packages/session/` 有 220 文件变更但 `packages/session/session/src/` 无 diff — 确认 session 核心类型未变，变更主要在新子包（`session-turn-outline` 等）— unverified",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`packages/host/webserver` 有 130 文件变更 — 未深入审计其公共 API 面 — unverified",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`packages/bundle/web-app` 有 invariant 删除 — 未审计其对插件消费者的影响 — unverified",
+          "anchors": [],
+          "verified": false
+        },
+        {
+          "topic": null,
+          "text": "`packages/api/session-controller` 和 `packages/api/workspace-controller` 为全新包 — 未完整审计其 Remote 接口 — unverified",
+          "anchors": [],
+          "verified": false
+        }
+      ],
+      "excerpts": []
+    }
+  ],
+  "unverifiedCount": 164
+}
