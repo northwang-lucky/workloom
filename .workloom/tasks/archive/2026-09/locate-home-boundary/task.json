@@ -1,0 +1,84 @@
+{
+  "id": "5ea76fd0-1ba8-454b-be4c-8483457719e8",
+  "name": "locate-home-boundary",
+  "title": "fix(locate): 向上查找命中家目录即停，禁止把全局 ~/.workloom 识别为项目资产目录",
+  "description": "findWorkloomRoot/detectLegacyTrellis 向上查找无边界，cwd 位于无 .workloom 的项目时会把全局层 ~/.workloom 误判为项目资产目录（家目录被当成项目根）。修复：向上查找命中家目录（realpath 归一后）即停，家目录永不为项目根；detectLegacyTrellis 同口径。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-07T05:48:49.001Z",
+  "completedAt": "2026-09-07T07:16:43.748Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-07T07:15:06.321Z",
+    "summary": "二轮全量复审 PASS（新会话 171ca43e）：PRD R1–R6 与 AC1–AC6 逐条独立核查通过（含真机端到端验证：本机 homedir() 返回 symlink 路径，缺省 options 下原始 bug 场景确认修复）；locate.d.ts 与 locate.js 导出面机械核对一致（5 导出 + LocateOptions）；独立重跑 core 543/543、adapter-dsh 132/132、adapter-pi 87/87、typecheck/build/lint 全绿；dist 产物与 DSH profile 副本逐字节一致；测试 seam 纪律合规；复审方另修复 1 项 P2（d.ts 注释失实）。无 open issues。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-07T05:53:16.745Z",
+    "summary": "覆盖节点：目标与价值（修复向上查找误把全局 ~/.workloom 识别为项目资产目录）、范围与非目标（不改 adapter / 全局层位置 / home 之上命中策略）、环境约束（legacy 纯 JS + JSDoc）、可观测验收 AC1–AC6、test-first 适用性（采用，seam=findWorkloomRoot/detectLegacyTrellis，测试落 locate.test.js）、关键决策（命中家目录即停且家目录永不为项目根；detectLegacyTrellis 同口径；新增可选 options.homeDir 注入，拒绝直连真实 HOME 与导出内部 helper）、边界与失败路径（symlink 归一、cwd==home、realpath 失败降级留给实现）。frontier 为空，open-nodes=none，用户已 review 并确认（pass）。",
+    "prdHash": "05223e570c4e8b3bf61686b8678b1fa650bcd47527f515602cca78e6effffa74"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-07T06:02:45.314Z",
+      "title": "locate 家目录边界 test-first 实现",
+      "status": "completed",
+      "childId": "c63fb9fc-4038-43a6-9d87-ea8965452829",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-07T06:06:21.568Z",
+      "title": "locate 家目录边界实现复核",
+      "status": "completed",
+      "childId": "01e82915-01a1-4805-91d0-355b8cbc198c",
+      "model": "ark-coding-plan/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-07T06:19:39.600Z",
+      "title": "locate 家目录边界二轮复审",
+      "status": "failed",
+      "childId": "676c340f-26b7-48d3-83b7-6949814e7fdd",
+      "model": "ark-coding-plan/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback",
+      "error": "OpenAI API error (429): {\"code\":\"ServerOverloaded\",\"message\":\"The service is currently unable to handle additional requests due to server overload. Please retry later. Request id: 0217887628874503ea4f…"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-07T07:04:20.480Z",
+      "title": "locate 家目录边界二轮复审（新会话）",
+      "status": "completed",
+      "childId": "171ca43e-e271-4cf4-8b5d-c314f2859c29",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

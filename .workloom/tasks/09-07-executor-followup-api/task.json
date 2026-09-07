@@ -1,0 +1,55 @@
+{
+  "id": "50e6209b-cef9-4321-914c-2e260443ebbc",
+  "name": "executor-followup-api",
+  "title": "fix(adapter-dsh): continue_executor 调用不存在的 ctx.subagents.followup，executor 续派整体失效",
+  "description": "adapter-dsh executor.ts 本地声明的 SubagentsService 接口含 followup 方法，但当前 DSH 运行时 SubagentService 无此方法（真实接缝为 sendMessage / 符号键 queueSubagentPrompt），导致 workloom_execute 带 continue_executor 续派时 100% 抛 ctx.subagents.followup is not a function。接口为手写本地声明、未消费 DSH 包类型，typecheck 无法拦截此类 API 漂移。修复方向（待 1.1 对齐）：接缝选型（sendMessage vs queueSubagentPrompt）、类型对齐让漂移可被编译/测试拦截、translateForkContinueError 周边文案同步。",
+  "status": "planning",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-07T06:28:44.768Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": null,
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-07T06:33:46.927Z",
+      "title": "DSH 0.1.1→0.1.2 插件 API 漂移审计",
+      "status": "completed",
+      "childId": "83c5587d-5140-49d7-87d3-42e9c27d0c8d",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-07T06:33:46.928Z",
+      "title": "adapter-dsh 消费面全量审计",
+      "status": "completed",
+      "childId": "21557b55-2e6e-453f-905d-936dce9864d3",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
