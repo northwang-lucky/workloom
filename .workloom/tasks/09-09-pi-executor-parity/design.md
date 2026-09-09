@@ -51,6 +51,7 @@ graph LR
 - rebind 拒绝：`continue_executor` 与 model/effort 同传 → 返回拒绝文案（共享常量），不派发。
 - 投递路径三分支：child 存活且 idle → RPC `prompt`（增量指令；`reinject: true` 时重发 buildExecutorPrompt 全量）；child 存活且 streaming → RPC `steer`（R3，当前回合工具执行完、下次 LLM 调用前送达）；child 不存活 → `pi --session <id> --mode rpc …` 重启续接（参数面同新派，`--name` 保持原标题）后发 `prompt`。
 - 续用轮留痕：dispatches 追加一条（kind/title/childId 同前，绑定字段按 DSH spawnBinding 语义标注首派值）；settle/回投链路复用。
+- settle 多轮口径（真机缺陷 6 修订，2026-09-09）：mid-run steering 使同 childId 并存多条 running，而一次 run 只有一个 agent_end；core settleExecutorDispatch 的「最近一条 running」语义（DSH 串行轮次前提）不再充分——Pi 侧 settle 改为循环回填该 childId 的全部 running 条目（agent_end = 该 run 全部注入工作完成），core 不动。
 
 ## 4. 数据与存储口径
 
