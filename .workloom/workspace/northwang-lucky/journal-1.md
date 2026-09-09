@@ -250,3 +250,9 @@
 - Commit: 1f5604d
 - Summary: pi-executor-parity 容器任务全程闭环：pi-web subagent 调研（v0.9.0 内建实现 vs nicobailon pi-subagents 差异矩阵，workloom 零依赖结论）引出 Pi/DSH parity 对照（P1–P8），用户定方向 C 全量对齐；架构 R（RPC 常驻 child + 会话落盘 .workloom/sessions/pi）经 M1/M2 交付，tmux 真机战役抓出 8 个单测盲区缺陷（stdio/失败留痕/modelSource/settle 注销/cleanupOrphans 误杀/settle 多轮歧义/取消终态/spawn 竞速）全部修复复验，26 项真机清单全 PASS；M3 拆 ST-A/B/C 三子任务闭环（文案统一 P4/P5 消灭、ADR-0006 修订、存储治理三件套）；容器 check 两轮 Open issues none，三端 545/135/158 全绿，deployment 已同步（dshweb 重启归用户）。遗留：DSH settle 循环回填 + executor.ts 拆分立新任务；packages-scan 挂起待答。
 
+## DSH settle 循环回填与 executor 拆分任务闭环
+
+- Time: 2026-09-09T14:47:06.313Z
+- Commit: 2f81424
+- Summary: dsh-executor-settle-split 全程闭环：settle 循环回填对齐 Pi 语义 + executor.ts 拆分至 <600 行，check 全绿归档；skill-packages-scan 完成 1.1 对齐与 1.3 上下文配置并启动。
+
