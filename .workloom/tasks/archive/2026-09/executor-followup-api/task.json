@@ -70,6 +70,16 @@
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
       "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-07T08:28:08.541Z",
+      "title": "续派链路端到端探活",
+      "status": "completed",
+      "childId": "186ccc84-d7e1-4084-ad32-d1084a8dffc5",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
     }
   ],
   "hooks": {
