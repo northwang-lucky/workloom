@@ -35,10 +35,19 @@
       "kind": "implement",
       "at": "2026-09-09T06:59:43.029Z",
       "title": "M1 RPC transport 与后台派发",
-      "status": "running",
+      "status": "completed",
       "childId": "d52a13b4-7a85-4929-8aa8-fb0606d7f168",
       "model": "longcat/LongCat-2.0",
       "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T07:49:17.454Z",
+      "title": "M1 收尾：shutdown 接线与 executor 拆分",
+      "status": "completed",
+      "childId": "d52a13b4-7a85-4929-8aa8-fb0606d7f168",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "spawn"
     }
   ],
   "hooks": {
