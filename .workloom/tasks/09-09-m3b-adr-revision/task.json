@@ -35,7 +35,7 @@
       "kind": "implement",
       "at": "2026-09-09T11:36:16.344Z",
       "title": "ST-B ADR 修订半成品审计与文档回写",
-      "status": "running",
+      "status": "completed",
       "childId": "68b9b37e-e495-4340-9ec3-a6a670369576",
       "model": "longcat/LongCat-2.0",
       "modelSource": "fallback"
