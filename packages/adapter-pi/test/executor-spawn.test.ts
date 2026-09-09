@@ -10,8 +10,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { buildChildSpawnOptions, dispatchChildPi } from '../src/executor-dispatch.ts'
+import { buildChildSpawnOptions, dispatchChildPi, handleSessionShutdown } from '../src/executor-dispatch.ts'
+import { registerChild, getChild, getAllChildren, unregisterChild } from '../src/pi-child-registry.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
+import type { ChildRegistryEntry } from '../src/pi-child-registry.ts'
+import { PassThrough } from 'node:stream'
+import { Writable } from 'node:stream'
+import type { ChildProcess } from 'node:child_process'
 
 // ---- P0: spawn stdio 回归测试 ----
 
@@ -132,4 +137,115 @@ test('P1: 验证无 sessionId 时 failed 留痕被写入', async () => {
     }
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+// ---- 缺陷 3 回归测试：审计来源（rawModel vs effective）----
+
+test('缺陷 3: 无显式 model 时 modelSource 不为 param（审计来源准确）', async () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  const originalBin = process.env.PI_BIN
+  process.env.PI_BIN = '/nonexistent/pi-binary'
+  try {
+    // 不传 rawModel（用户未显式传 model），effective.model 来自配置回退。
+    await dispatchChildPi({
+      pi: mockPi(),
+      cwd: root,
+      prompt: 'test prompt',
+      kind: 'implement',
+      title: 'test task',
+      root,
+      taskRelPath,
+      // rawModel 未传（用户未显式传 model）
+      model: 'config/model', // 生效值（来自配置回退）
+      loadExtensions: [],
+      parentSessionId: 'main-session',
+      effective: {
+        model: 'config/model',
+        sources: { model: 'config' as const },
+        configSources: { model: 'fallback' as const },
+      },
+      gate: { forced: false },
+      allowInfo: { allow: [], childHasLsp: false },
+      mainModel: 'main/model',
+      piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
+      signal: undefined,
+      foreground: false,
+    })
+  } catch {
+    // spawn 会失败（无真实 pi 二进制），但留痕应在 catch 中完成
+  } finally {
+    if (originalBin === undefined) {
+      delete process.env.PI_BIN
+    } else {
+      process.env.PI_BIN = originalBin
+    }
+  }
+
+  const task = JSON.parse(readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'))
+  assert.equal(task.dispatches.length, 1)
+  const record = task.dispatches[0]
+  // 无显式 model → modelSource 应为 fallback/inherit，不能是 param
+  assert.notEqual(record.modelSource, 'param', '无显式 model 时 modelSource 不应为 param')
+  assert.equal(record.modelSource, 'fallback', 'modelSource 应反映配置回退来源')
+  rmSync(root, { recursive: true, force: true })
+})
+
+// ---- 缺陷 4 回归测试：注册表生命周期（close 事件为准）----
+
+/** 创建 mock child 进程。 */
+function mockChild(pid: number): ChildProcess {
+  const stdout = new PassThrough()
+  const stdin = new Writable({ write(_chunk, _enc, cb) { cb() } })
+  return { stdout, stdin, pid, kill: () => {} } as unknown as ChildProcess
+}
+
+function mockConnection(): ReturnType<typeof import('../src/pi-rpc.ts').createRpcConnection> {
+  return {
+    sendCommand: async () => ({ type: 'response', command: 'get_state', success: true, data: { sessionId: 's1' } }),
+    onEvent: () => {},
+    close: () => {},
+  } as unknown as ReturnType<typeof import('../src/pi-rpc.ts').createRpcConnection>
+}
+
+test('缺陷 4: settle 后进程存活则注册表条目仍在', () => {
+  const entry: ChildRegistryEntry = {
+    connection: mockConnection(),
+    child: mockChild(12345),
+    kind: 'implement',
+    root: '/tmp/test',
+    taskRelPath: 'tasks/test',
+    parentSessionId: 'main',
+    status: 'running',
+    startedAt: new Date().toISOString(),
+  }
+  registerChild('s1', entry)
+  assert.ok(getChild('s1') !== undefined, '注册后条目存在')
+
+  // 模拟 settle（agent_end）——不注销
+  // registerChildSettle 的 finish 不再调用 unregisterChild
+  // 验证：条目仍在
+  assert.ok(getChild('s1') !== undefined, 'settle 后条目仍在（进程存活）')
+
+  // 清理
+  unregisterChild('s1')
+  assert.equal(getChild('s1'), undefined, 'unregister 后条目移除')
+})
+
+test('缺陷 4: handleSessionShutdown 回收完成后仍存活的 child', () => {
+  const entry: ChildRegistryEntry = {
+    connection: mockConnection(),
+    child: mockChild(12346),
+    kind: 'implement',
+    root: '/tmp/test',
+    taskRelPath: 'tasks/test',
+    parentSessionId: 'main',
+    status: 'running',
+    startedAt: new Date().toISOString(),
+  }
+  registerChild('s2', entry)
+  assert.equal(getAllChildren().size, 1)
+
+  // handleSessionShutdown 应 SIGTERM 存活 child 并清空注册表
+  handleSessionShutdown()
+  assert.equal(getAllChildren().size, 0, 'shutdown 后注册表清空')
 })

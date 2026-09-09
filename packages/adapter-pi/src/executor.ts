@@ -476,6 +476,8 @@ async function executeTool(
     }
   }
   // 派发（委托 executor-dispatch.ts）。
+  // rawModel/rawEffort = 用户显式传入的原始参数（审计来源判定）；
+  // model/effort = 生效值（spawn --model/--thinking 用）。
   const foreground = params.foreground === true
   const result = await dispatchChildPi({
     pi,
@@ -485,6 +487,8 @@ async function executeTool(
     title: params.title,
     root,
     taskRelPath,
+    rawModel: params.model,
+    rawEffort: params.effort,
     model: effective.model,
     effort: effective.effort,
     tools: allowInfo.allow,

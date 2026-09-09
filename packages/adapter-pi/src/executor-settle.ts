@@ -39,7 +39,7 @@ const ERROR_TRUNCATION_SUFFIX = '…'
 export const EXECUTOR_REPORT_CUSTOM_TYPE = 'workloom-executor-report'
 
 /** 主会话结束时的失败摘要（R6 孤儿回收联动）。 */
-const HOST_SESSION_ENDED_TEXT = 'host session ended'
+export const HOST_SESSION_ENDED_TEXT = 'host session ended'
 
 /** settle 结果（成功终文或失败摘要）。 */
 export interface SettleResult {
@@ -75,7 +75,9 @@ export function registerChildSettle(
     const stderrParts: string[] = []
     let settled = false
 
-    /** 完成结算（内部）：回填 + 回投 + 清理注册表（幂等，只执行一次）。 */
+    /** 完成结算（内部）：回填 + 回投（幂等，只执行一次）。
+     * 注意：不在此处 unregisterChild——RPC child 是常驻进程，注册表条目移除以
+     * child 进程 close 事件为准（design R2：存活续用直接向同一进程发 prompt）。 */
     const finish = (result: SettleResult): void => {
       if (settled) return
       settled = true
@@ -92,8 +94,6 @@ export function registerChildSettle(
       if (!foreground) {
         reportCompletion(pi, entry, result)
       }
-      // 清理注册表（child 退出即移除条目）。
-      unregisterChild(sessionId)
       resolve(result)
     }
 
@@ -113,51 +113,35 @@ export function registerChildSettle(
       stderrParts.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'))
     })
 
-    // child 异常退出（close/error）→ failed。
+    // child 异常退出（error）→ failed。
     child.on('error', (error) => {
       finish({
         status: 'failed',
         error: limitErrorLine(error.message),
       })
     })
+    // child 进程 close → 清理注册表（内存 + registry.json 同步）。
+    // 不变式：注册表条目移除以 child 进程 close 事件为准——RPC child 是常驻进程，
+    // agent_end 后进程仍存活（等待续用），只有 close 时才真正退出。
     child.on('close', (code, signalCode) => {
       // agent_end 已结算时跳过（正常退出路径）。
-      if (settled) return
-      const stderrTail = stderrParts.join('').slice(-STDERR_TAIL_LIMIT)
-      const status = code !== null ? `code ${code}` : `signal ${signalCode ?? 'unknown'}`
-      const head = `child pi exited with ${status}`
-      finish({
-        status: 'failed',
-        error: limitErrorLine(stderrTail === '' ? head : `${head}: ${stderrTail}`),
-      })
+      if (!settled) {
+        const stderrTail = stderrParts.join('').slice(-STDERR_TAIL_LIMIT)
+        const status = code !== null ? `code ${code}` : `signal ${signalCode ?? 'unknown'}`
+        const head = `child pi exited with ${status}`
+        finish({
+          status: 'failed',
+          error: limitErrorLine(stderrTail === '' ? head : `${head}: ${stderrTail}`),
+        })
+      }
+      // 无论是否已结算，close 时均清理注册表。
+      unregisterChild(sessionId)
     })
   })
 }
 
-/**
- * 主会话结束联动（R6）：回填指定 child 为 failed（摘要注明 host session ended）。
- * @param entry child 注册表条目
- * @param sessionId child 会话 id（= childId）
- */
-export function settleHostSessionEnded(entry: ChildRegistryEntry, sessionId: string): void {
-  const [settleErr] = settleExecutorDispatch(entry.root, entry.taskRelPath, {
-    childId: sessionId,
-    status: 'failed',
-    error: HOST_SESSION_ENDED_TEXT,
-  })
-  if (settleErr !== null) {
-    console.warn(`${SETTLE_WARN_PREFIX} ${settleErr}`)
-  }
-  unregisterChild(sessionId)
-}
 
-/**
- * 回投完成报告给主会话（内部）：终文 + receipt 尾行（简化版，仅标注完成）。
- * 回投失败仅 WARNING，不阻塞结算。
- * @param pi Extension API
- * @param entry child 注册表条目
- * @param result settle 结果
- */
+/** 回投完成报告给主会话（内部）：终文 + receipt 尾行（简化版，仅标注完成）。 */
 function reportCompletion(pi: ExtensionAPI, entry: ChildRegistryEntry, result: SettleResult): void {
   const summary =
     result.status === 'completed'

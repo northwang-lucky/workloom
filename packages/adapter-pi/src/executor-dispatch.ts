@@ -18,6 +18,7 @@ import {
   buildNewDispatchBinding,
   ERR_PREFIX,
   recordExecutorDispatch,
+  settleExecutorDispatch,
 } from '@workloom-ai/core'
 import type { DispatchRecordInput, ExecutorInjectionStats } from '@workloom-ai/core'
 
@@ -37,7 +38,7 @@ import {
   unregisterChild,
   type ChildRegistryEntry,
 } from './pi-child-registry.ts'
-import { registerChildSettle, settleHostSessionEnded } from './executor-settle.ts'
+import { registerChildSettle, HOST_SESSION_ENDED_TEXT } from './executor-settle.ts'
 
 /** 取消时向 child pi 发送的终止信号。 */
 const KILL_SIGNAL = 'SIGTERM'
@@ -71,7 +72,16 @@ interface DispatchChildPiParams {
   title: string
   root: string
   taskRelPath: string
+  /**
+   * 原始工具参数（用户显式传入，仅用于审计绑定来源判定）。
+   * buildNewDispatchBinding 靠它区分 param vs config/default 来源；
+   * 未显式传时 undefined → 来源记 config/fallback/inherit。
+   */
+  rawModel?: string
+  rawEffort?: string
+  /** 生效 model（用于 spawn --model 参数）。 */
   model?: string
+  /** 生效 effort（用于 spawn --thinking 参数）。 */
   effort?: string
   tools?: string[]
   loadExtensions: string[]
@@ -110,6 +120,8 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     title,
     root,
     taskRelPath,
+    rawModel,
+    rawEffort,
     model,
     effort,
     tools,
@@ -173,12 +185,13 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     }
     registerChild(sessionId, entry)
     // 派发时刻初写 dispatches（status: running + childId + 绑定）。
+    // 绑定字段使用原始工具参数（rawModel/rawEffort）以正确判定 param vs config 来源。
     recordDispatch(root, taskRelPath, {
       kind,
       title,
       childId: sessionId,
       ...buildNewDispatchBinding(
-        { model, effort } as Static<typeof EXECUTOR_PARAMS>,
+        { model: rawModel, effort: rawEffort } as Static<typeof EXECUTOR_PARAMS>,
         effective,
         mainModel,
       ),
@@ -194,7 +207,7 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
       kind,
       title,
       ...(sessionId !== undefined && sessionId !== '' ? { childId: sessionId } : {}),
-      ...buildNewDispatchBinding({ model, effort } as Static<typeof EXECUTOR_PARAMS>, effective, mainModel),
+      ...buildNewDispatchBinding({ model: rawModel, effort: rawEffort } as Static<typeof EXECUTOR_PARAMS>, effective, mainModel),
       status: 'failed',
       error: message,
     })
@@ -370,10 +383,21 @@ function recordDispatch(root: string, taskRelPath: string, entry: DispatchRecord
 }
 
 /** 主会话结束联动（R6）：导出供 index.ts 的 session_shutdown 监听调用。
- * 先回填全部 running child 为 failed（摘要 host session ended），再 SIGTERM。 */
+ * 先回填全部 running child 为 failed（摘要 host session ended），再 SIGTERM 仍存活的
+ * 进程并清空注册表。不变式：注册表条目移除以 child 进程 close 事件为准，shutdown
+ * 路径上先 settle（不注销）→ SIGTERM 存活进程 → 清空注册表。 */
 export function handleSessionShutdown(): void {
+  // 1. 回填全部 running child 为 failed（不注销——注册表仍持有进程引用供 SIGTERM）。
   for (const [sessionId, entry] of getAllChildren()) {
-    settleHostSessionEnded(entry, sessionId)
+    const [settleErr] = settleExecutorDispatch(entry.root, entry.taskRelPath, {
+      childId: sessionId,
+      status: 'failed',
+      error: HOST_SESSION_ENDED_TEXT,
+    })
+    if (settleErr !== null) {
+      console.warn(`${DISPATCH_WARN_PREFIX} ${settleErr}`)
+    }
   }
+  // 2. SIGTERM 全部存活 child 并清空注册表（sigtermAllAlive 内部 clear）。
   sigtermAllAlive()
 }
