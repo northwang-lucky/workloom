@@ -20,5 +20,8 @@
     "third-party",
     "index.js",
     "index.d.ts"
-  ]
+  ],
+  "scripts": {
+    "test": "node --test skills/workloom-packages-scan/scripts/scan-packages.test.js skills/workloom-packages-scan/scripts/scan-packages-git.test.js"
+  }
 }
