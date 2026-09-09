@@ -23,7 +23,11 @@
   "notes": "",
   "meta": {},
   "check": null,
-  "alignment": null,
+  "alignment": {
+    "passedAt": "2026-09-09T06:22:51.501Z",
+    "summary": "两轮对齐收敛（2026-09-09）：第 1 轮确认方向 C 全量对齐与 8 项决策（架构 R = RPC 常驻 child、报告回投 workloom-executor-report、孤儿回收 SIGTERM 联动、留痕与 DSH 完全同口径、描述层/norms 完成时一次统一、单任务 M1→M2→M3 里程碑、验收 = 真机 pi TUI 清单 + 单测 + 双端回归）；第 2 轮确认 sessions 布局 A（.workloom/sessions/pi/，runtime 命名空间，gitignore，归档清理）。UI 不适用、test-first 不强制。覆盖节点：目标/范围/环境约束（pi 0.84.2 已具备 rpc/session/name 能力、RPC 严格 \\n 分帧）/验收/关键决策/边界路径。用户已确认 review 快照；confirm 前唯一改动为 Requirements 标题归一化（门禁要求精确标题），内容与确认版逐字一致。",
+    "prdHash": "e438e4d778357e30e8661abcd211fc01ecf31e3907bb350ce6c2e6f8836dc9a4"
+  },
   "overrides": [],
   "stage": "implement",
   "dispatches": [],
