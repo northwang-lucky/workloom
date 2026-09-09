@@ -249,8 +249,10 @@ const REGISTRY_WARN_PREFIX = 'workloom pi-child-registry: WARNING:'
 
 /**
  * 归档清理（R1）：按 childId 删除 `.workloom/sessions/pi/` 下关联的 pi 会话文件。
- * 对账逻辑：列出 sessions 目录全部文件，命中 childId 为前缀（`<childId>.` 或等于
- * childId）的文件删除；未命中的保留；删除失败仅 WARNING 不抛错（不阻塞归档）。
+ * 对账逻辑：列出 sessions 目录全部文件，命中三种形态之一即删除——等于 childId、
+ * 以 `<childId>.` 为前缀、或以 `_<childId>.jsonl` 为后缀（pi 真实落盘名为
+ * `<时间戳>_<sessionId>.jsonl`，时间戳段形如 2026-09-09T09-05-18-150Z 不含
+ * 下划线，后缀匹配精确）；未命中的保留；删除失败仅 WARNING 不抛错（不阻塞归档）。
  * @param root 项目根
  * @param childIds 被归档任务 dispatches 中的 childId 列表
  */
@@ -266,8 +268,10 @@ export function cleanupSessionFiles(root: string, childIds: string[]): void {
     return
   }
   for (const childId of childIds) {
-    // 匹配以 childId 为前缀的文件（如 <childId>.json / <childId>.jsonl），精确匹配 childId 本身。
-    const matches = files.filter((f) => f === childId || f.startsWith(`${childId}.`))
+    // 命中三形态：精确等于 childId / 前缀 `<childId>.` / 后缀 `_<childId>.jsonl`（pi 真实落盘名）。
+    const matches = files.filter(
+      (f) => f === childId || f.startsWith(`${childId}.`) || f.endsWith(`_${childId}.jsonl`),
+    )
     for (const file of matches) {
       try {
         rmSync(join(dir, file), { force: true })

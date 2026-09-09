@@ -228,6 +228,24 @@ test('cleanupSessionFiles: 命中 childId 前缀的文件被删除', () => {
   }
 })
 
+test('cleanupSessionFiles: pi 真实落盘名 <时间戳>_<sessionId>.jsonl 按后缀命中删除', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    // 真实文件名形态（真机实证：时间戳段形如 2026-09-09T09-05-18-150Z，不含下划线，后缀匹配精确）。
+    const realName = '2026-09-09T12-00-00-000Z_01a0856a-1946-7e7b-ac56-8e663af2d257.jsonl'
+    const otherReal = '2026-09-09T12-05-00-000Z_ffff856a-0000-0000-0000-000000000000.jsonl'
+    writeFileSync(join(dir, realName), 'line1\n')
+    writeFileSync(join(dir, otherReal), 'line1\n')
+    cleanupSessionFiles(root, ['01a0856a-1946-7e7b-ac56-8e663af2d257'])
+    assert.ok(!existsSync(join(dir, realName)), '真实落盘名应被后缀匹配删除')
+    assert.ok(existsSync(join(dir, otherReal)), '其他会话文件应保留')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('cleanupSessionFiles: 精确匹配 childId（无扩展名）的文件被删除', () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
   try {
