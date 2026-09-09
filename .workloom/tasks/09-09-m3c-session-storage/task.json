@@ -35,7 +35,7 @@
       "kind": "implement",
       "at": "2026-09-09T11:57:35.797Z",
       "title": "ST-C 存储治理三件套实现",
-      "status": "running",
+      "status": "completed",
       "childId": "f99c3386-ce30-42c1-8c36-91afa52a67a4",
       "model": "longcat/LongCat-2.0",
       "modelSource": "fallback"
