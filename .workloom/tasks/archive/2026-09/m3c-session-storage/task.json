@@ -3,7 +3,7 @@
   "name": "m3c-session-storage",
   "title": "M3c child 会话存储治理（归档清理 + gitignore 守护 + shutdown 清表）",
   "description": "容器 pi-executor-parity 的 M3 剩余范围拆分 ST-C（用户 2026-09-09 确认拆分，串行于 ST-B 后）：child 会话存储治理三件套——1) transcript 归档清理：adapter-pi 在归档命令路径按 task.json dispatches 的 childId 对账清理 .workloom/sessions/pi/ 关联会话文件（清理失败仅 WARNING 不阻塞归档；core 归档流程不感知 runtime 文件，薄投影原则）；2) .workloom/sessions gitignore 守护：核实 workloom init 的 gitignore 模板，有则同步加入，无模板机制则目录创建时落自守护 .gitignore；3) P3 打磨（M1-9 真机观察项）：handleSessionShutdown 的 sigtermAllAlive 后把 registry.json 持久化为空表，与重启 cleanupOrphans 构成完整双层防线。含单测。",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P2",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-09-09T11:15:57.178Z",
-  "completedAt": null,
+  "completedAt": "2026-09-09T12:42:46.648Z",
   "parent": "tasks/09-09-pi-executor-parity",
   "children": [],
   "subtasks": [],
@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-09T12:42:41.354Z",
+    "summary": "check executor（glm-5.3-flash/max）首轮审查 commit 1a1e8b4+00f17be：R2 模板分支选择合理、R3 shutdown 清表闭环、薄投影成立；发现 P1（cleanupSessionFiles 前缀匹配对 pi 真实落盘名 <时间戳>_<sessionId>.jsonl 永不命中，单测因合成文件名假绿）+ 3 项 P2（存量项目 gitignore 模板 if-exists-skip 暴露 transcript、persistEmptyRegistry 抛错风险、缺失败分支单测）并自修 P2（ensureSessionsDir 自守护 .gitignore 等，ac89733）。P1 由主会话 check 阶段直修（后缀匹配 + 真实文件名红绿测试，17bccc4）；另修正容器 verify-m3.md 的 ST-A 段验收方向反写与第 6 项文件名口径（11a3452）。全量复审（同 check 会话续派）：P1 消真（时间戳段无下划线、endsWith 精确性论证 + UUID 形态不可达）、P2 提交完整、verify-m3 修正无新失真、三端复跑 151/544/135 全绿双运行器——复审通过，Open issues: none。另定性 implement 报告的「30 个预存失败」为误报（双运行器复跑零失败）。R1–R4 全部闭环。"
+  },
   "alignment": {
     "passedAt": "2026-09-09T11:19:55.489Z",
     "summary": "范围/验收由用户在容器会话确认拆分（2026-09-09）并本轮确认 review 快照：transcript 归档清理（adapter 层对账）、gitignore 守护（implement 按核实自决分支）、shutdown 清空落盘 registry（P3）+ 单测；全新 implement 会话，串行于 ST-B 后，无开放节点。",
@@ -54,7 +57,7 @@
       "kind": "check",
       "at": "2026-09-09T12:37:49.764Z",
       "title": "ST-C 全量复审（P1 直修后）",
-      "status": "running",
+      "status": "completed",
       "childId": "7f39de28-8384-4a04-9567-4aa44ca5a5d8",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
