@@ -26,7 +26,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-09T13:44:27.452Z",
+    "summary": "容器级最终 check（glm-5.3-flash/max）两轮完成：首轮全量审查判定 prd R1–R8 对照 HEAD 源码逐条成立、parity P1–P8 全部消灭、三份真机清单（verify-m1 十项/m2 七项/m3 九项）全 PASS 且认证快照链闭合（4d0bd8d→dbe7e67）、非目标四项零违反、deployment 逐字节一致；首轮产出 5 组 P2 加固（拒绝文案上移 core、continuation 失败治理、running 残留防护、registry 身份校验、杂项）与 2 项 P1（settle 双报告竞态、RPC pending 永挂）。主会话 check 阶段直修 2 项 P1 + 复跑发现的缺陷 8（waitForChildSpawn stdin 竞速），与 P2 批次合并提交 6024836（新增 7 个回归测试）。全量复审：三项直修消真、P2 批次完整、此前结论全部维持、三端 545/135/158 复跑全绿、LSP 零诊断——复审通过，Open issues: none。遗留挂账（记录不修原因）：adapter-dsh/src/executor.ts 787 行超 600 行线，系先于本任务的存量问题且与容器「DSH 仅文案统一」范围约束冲突，ST-A check 已建议另立重构任务，排期待用户决策（默认继续挂账，后续 check 轮会重复上报）。"
+  },
   "alignment": {
     "passedAt": "2026-09-09T06:22:51.501Z",
     "summary": "两轮对齐收敛（2026-09-09）：第 1 轮确认方向 C 全量对齐与 8 项决策（架构 R = RPC 常驻 child、报告回投 workloom-executor-report、孤儿回收 SIGTERM 联动、留痕与 DSH 完全同口径、描述层/norms 完成时一次统一、单任务 M1→M2→M3 里程碑、验收 = 真机 pi TUI 清单 + 单测 + 双端回归）；第 2 轮确认 sessions 布局 A（.workloom/sessions/pi/，runtime 命名空间，gitignore，归档清理）。UI 不适用、test-first 不强制。覆盖节点：目标/范围/环境约束（pi 0.84.2 已具备 rpc/session/name 能力、RPC 严格 \\n 分帧）/验收/关键决策/边界路径。用户已确认 review 快照；confirm 前唯一改动为 Requirements 标题归一化（门禁要求精确标题），内容与确认版逐字一致。",
@@ -140,7 +143,7 @@
       "kind": "check",
       "at": "2026-09-09T13:40:21.852Z",
       "title": "容器全量复审（P1/缺陷 8 直修后）",
-      "status": "running",
+      "status": "completed",
       "childId": "34661cf4-6fc0-41f0-81dd-a63c4f103744",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
