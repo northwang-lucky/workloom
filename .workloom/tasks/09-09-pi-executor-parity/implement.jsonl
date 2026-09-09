@@ -1,1 +1,7 @@
 {"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": "docs/research/pi-dsh-executor-parity.md", "reason": "事实基线与决策记录：P1–P8 差异清单、pi 0.84.2 CLI 能力（rpc/session/session-dir/name）、RPC 严格 \\n 分帧约束、架构 R 定型与 S 否决理由"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层与依赖规则：改动横跨 adapter-pi/core surface/assets 契约/adapter-dsh，新增 RPC 客户端与 executor-settle 的归属层必须合规"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify 命令：RPC 分帧客户端、进程表、settle 监听均为新代码，验收含 lint/typecheck/test 全绿"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "中英文分工：新增运行时文案（拒绝提示/WARNING/receipt）必须英文，源码注释中文"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "core/assets/adapter-dsh 改动需按部署纪律同步构建产物（dist 重建）"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "术语表：dispatch/settle/childId/receipt 等双端共用术语保持一致口径"}
