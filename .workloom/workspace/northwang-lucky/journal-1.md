@@ -238,3 +238,9 @@
 - Commit: c27d2fb
 - Summary: resolveTaskRelPath 接入 findWorkloomRoot 修复深层 cwd 误报无活跃任务（hunk 随并行提交 946c9b5 入库）；新增真实 git worktree 集成测试五场景（c27d2fb）；core 537/535+ 全绿；产物已 sync，dshweb 重启留给用户；演进方向结论（task start 建 worktree、同级目录、自动分支命名、元数据归属待重议）留档任务 prd。
 
+## locate 家目录边界 + executor 续派 sendMessage 迁移
+
+- Time: 2026-09-09T06:52:11.106Z
+- Commit: 85f02cd
+- Summary: 修复两个 DSH 0.1.2 升级暴露的缺陷并全量归档：locate 向上查找增加家目录边界（d271131，禁止把全局 ~/.workloom 误识别为项目资产目录）；executor 续派从已移除的 subagents.followup 迁移到 sendMessage 公共接缝、subagent 服务面改 import type 消费 DSH 公开类型（85f02cd，continue_executor 端到端实测恢复）。两任务各经对齐→实现→复审闭环，归档于 tasks/archive/2026-09/。
+
