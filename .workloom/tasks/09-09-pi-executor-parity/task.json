@@ -84,6 +84,15 @@
       "childId": "d52a13b4-7a85-4929-8aa8-fb0606d7f168",
       "model": "longcat/LongCat-2.0",
       "modelSource": "spawn"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T09:41:20.020Z",
+      "title": "修复缺陷 5：cleanupOrphans 误杀存活 child",
+      "status": "running",
+      "childId": "d52a13b4-7a85-4929-8aa8-fb0606d7f168",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "spawn"
     }
   ],
   "hooks": {
