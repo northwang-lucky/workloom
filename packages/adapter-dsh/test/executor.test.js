@@ -2688,3 +2688,82 @@ test('stale 门禁 + force 缺 reason：拒绝（R14 空 reason 全拒，不留�
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// ---------- 循环 settle 回归（对齐 Pi 缺陷 6 修复 f5080a6） ----------
+
+test('循环 settle：同 childId 两条 running 一次 end 全部回填 completed', async () => {
+  const root = makeProject()
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    // 第一轮：新派发，创建第一条 running 记录并注册 childId → pendingByChildId
+    await setup.execute(execArgs({ prompt: 'round 1', title: 'loop settle completed' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const task1 = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task1.dispatches.length, 1)
+    assert.equal(task1.dispatches[0].status, 'running')
+    const childId = task1.dispatches[0].childId
+    // 手动注入第二条 running 记录（模拟 steering 续用追加的同 childId 第二条）
+    task1.dispatches.push({
+      kind: 'implement',
+      title: 'steer round',
+      childId,
+      status: 'running',
+      at: new Date().toISOString(),
+    })
+    writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task1))
+    // 触发 subagent/end：一次 end 应循环 settle 全部 running 条目
+    emitSubagentEnd(setup, { id: childId, stopReason: 'completed' })
+    const task2 = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task2.dispatches.length, 2)
+    assert.ok(
+      task2.dispatches.every((d) => d.status === 'completed'),
+      'all dispatches must be settled to completed',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('循环 settle：同 childId 两条 running 一次 end 全部回填 failed', async () => {
+  const root = makeProject()
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(execArgs({ prompt: 'round 1', title: 'loop settle failed' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    const task1 = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    const childId = task1.dispatches[0].childId
+    // 手动注入第二条 running 记录
+    task1.dispatches.push({
+      kind: 'implement',
+      title: 'steer round',
+      childId,
+      status: 'running',
+      at: new Date().toISOString(),
+    })
+    writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task1))
+    // 触发 subagent/end（error 终态）：一次 end 应循环 settle 全部 running 条目为 failed
+    emitSubagentEnd(setup, { id: childId, stopReason: 'error' })
+    const task2 = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task2.dispatches.length, 2)
+    assert.ok(
+      task2.dispatches.every((d) => d.status === 'failed'),
+      'all dispatches must be settled to failed',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

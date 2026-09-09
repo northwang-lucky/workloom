@@ -26,7 +26,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 
-import { ERR_PREFIX, settleExecutorDispatch } from '@workloom-ai/core'
+import { ERR_PREFIX, readTask, settleExecutorDispatch } from '@workloom-ai/core'
 import type { DispatchStatus } from '@workloom-ai/core'
 
 /** 回填失败告警前缀（记录失败只告警，不阻塞事件流）。 */
@@ -37,6 +37,9 @@ const SETTLE_FALLBACK_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: no capture
 
 /** 事件捕获异常告警前缀（监听异常只告警，不冒泡事件流）。 */
 const CAPTURE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to capture turn/end error:`
+
+/** 循环 settle 上限（防御死循环，与 Pi 侧缺陷 6 修复 f5080a6 同口径：一次 end = 该 child 全部轮次完成）。 */
+const SETTLE_MAX_ROUNDS = 16
 
 /** 真实错误写入 dispatches 的单行上限（超长截断并追加 …，行展示可读）。 */
 const ERROR_LINE_MAX = 200
@@ -97,12 +100,23 @@ export function registerDispatchSettlement(ctx: Context): () => void {
         // 登记缺失/提取失败：回退泛化文案并记一条 WARNING，不阻塞结算。
         console.warn(`${SETTLE_FALLBACK_WARN_PREFIX} ${info.id}; settled with the generic summary`)
       }
-      const [err] = settleExecutorDispatch(pending.root, pending.taskRelPath, {
-        childId: info.id,
-        ...settleTerminal(info.stopReason, capturedError),
-      })
-      if (err !== null) {
-        console.warn(`${SETTLE_WARN_PREFIX} ${err}`)
+      const terminal = settleTerminal(info.stopReason, capturedError)
+      // 循环 settle：同 childId 可能有多条 running 条目（steering 续用追加第二条），
+      // core settleExecutorDispatch 每次只回填最近一条 running；需循环直到该 childId
+      // 无 running 条目为止（一次 end 事件 = 该 child 全部注入轮次工作完成）。
+      // 防御：循环上限 16 次 + 每轮 error 时 WARNING 并停止，杜绝死循环。
+      for (let round = 0; round < SETTLE_MAX_ROUNDS; round++) {
+        const [settleErr] = settleExecutorDispatch(pending.root, pending.taskRelPath, {
+          childId: info.id,
+          ...terminal,
+        })
+        if (settleErr !== null) {
+          console.warn(`${SETTLE_WARN_PREFIX} ${settleErr}`)
+          break
+        }
+        if (!hasRunningDispatch(pending.root, pending.taskRelPath, info.id)) {
+          break
+        }
       }
     } catch (error) {
       console.warn(`${SETTLE_WARN_PREFIX} ${String(error)}`)
@@ -221,4 +235,27 @@ function limitErrorLine(errorText: string): string {
   const oneLine = errorText.replace(/\s+/g, ' ').trim()
   if (oneLine.length <= ERROR_LINE_MAX) return oneLine
   return `${oneLine.slice(0, ERROR_LINE_MAX)}${ERROR_TRUNCATION_SUFFIX}`
+}
+
+/**
+ * 检查指定 childId 是否仍有 running 的 dispatch 条目（循环 settle 用）。
+ * 同 childId 可能有多条 running（steering 续用追加），需全部结算。
+ * 读取失败返回 false（视为无 running，停止循环）。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param childId 子代理会话 id
+ * @returns 仍有 running 条目时 true
+ */
+function hasRunningDispatch(root: string, taskRelPath: string, childId: string): boolean {
+  const [taskErr, task] = readTask(root, taskRelPath)
+  if (taskErr !== null || task === null) return false
+  const dispatches = task.dispatches
+  if (!Array.isArray(dispatches)) return false
+  for (let i = dispatches.length - 1; i >= 0; i--) {
+    const record = dispatches[i]
+    if (record === undefined || record === null || typeof record !== 'object') continue
+    if (record.childId !== childId) continue
+    if (record.status === 'running') return true
+  }
+  return false
 }
