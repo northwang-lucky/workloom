@@ -3,7 +3,7 @@
   "name": "m3b-adr-revision",
   "title": "M3b ADR-0006 修订与调研文档回写",
   "description": "容器 pi-executor-parity 的 M3 剩余范围拆分 ST-B（用户 2026-09-09 确认拆分，串行于 ST-A 后）：审计盘上 ADR 修订半成品（adapter-pi agent-definitions.ts/executor.ts 头注释、docs/research/pi-dsh-executor-parity.md §4 修订记录行）并补齐——修订记录含动因（parity P1–P8）/保持（fresh prompt 与 --no-extensions 零再派发）/否决（架构 S 与 pi-web 原生 transport）三要素；复核 docs/research/pi-web-subagent-support.md §5 PI_BIN 表述在 RPC 常驻架构下的准确性并最小更新。纯文档+注释改动。",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P2",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-09-09T11:15:46.966Z",
-  "completedAt": null,
+  "completedAt": "2026-09-09T11:56:38.434Z",
   "parent": "tasks/09-09-pi-executor-parity",
   "children": [],
   "subtasks": [],
@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-09T11:56:34.285Z",
+    "summary": "check executor（glm-5.3-flash/max）首轮审查 commit 047c49e 通过（R1–R4 逐项核对：三要素齐备且三处一致、parity §4 修订行与 verify-m1/m2 及 git log 对账、pi-web §5 PI_BIN 复核结论与两处 spawn 入口一致、锚点/语言/typecheck 全过；prd R2 的 G1–G8 编号略去属正确偏差——无在盘记载，避免失效引用）。首轮 2 项 P2（修订行漏 af286de、§5/§6 spawn 归属陈旧）由 check 修复；2 项 P1（pi-web 文档 §4.1 旧 transport 现在时描述、§4.2 失效论据 --no-session）由主会话 check 阶段直修，随 cf0e11c 提交。按纪律续派同一 check 会话全量复审 cf0e11c：P1 修复消真（与 parity §4 口径及 pi-args 实参三方对齐）、P2 提交后仍正确、验收项重跑全过——复审通过，Open issues: none。无遗留问题。"
+  },
   "alignment": {
     "passedAt": "2026-09-09T11:19:55.488Z",
     "summary": "范围/验收由用户在容器会话确认拆分（2026-09-09）并本轮确认 review 快照：ADR-0006 修订三要素、parity §4 修订行、pi-web §5 PI_BIN 复核；纯文档+注释，全新 implement 会话，串行于 ST-A 后，无开放节点。",
@@ -54,7 +57,7 @@
       "kind": "check",
       "at": "2026-09-09T11:55:17.389Z",
       "title": "ST-B 全量复审（P1 直修后）",
-      "status": "running",
+      "status": "completed",
       "childId": "86406362-69d9-4503-bd8c-ea22c4ea7382",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
