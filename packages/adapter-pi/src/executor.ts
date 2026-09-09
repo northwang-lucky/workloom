@@ -8,7 +8,8 @@
  * - 保持的设计初衷：① fresh prompt 保证 fresh context（首派全量内联语义不变）；
  *   ② 零再派发（`--no-extensions` + 按需 `-e` 在 RPC child 上原样保留）。
  * - 否决的备选：架构 S（resume spawn，steering/title 无法对齐）、pi-web 原生
- *   transport（见 docs/research/pi-web-subagent-support.md）。
+ *   transport（见 docs/research/pi-web-subagent-support.md §4.2）；全量对齐
+ *   决策与缺陷账本见 docs/research/pi-dsh-executor-parity.md §4。
  *
  * 设计意图：
  * - 按 kind 用 core 的 buildExecutorPrompt 组装上下文，spawn RPC child pi 派发；

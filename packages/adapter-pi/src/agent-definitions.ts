@@ -1,13 +1,22 @@
 /**
  * adapter-pi 的 executor agent 定义数据（EXECUTOR_AGENT_DEFINITIONS）。
  *
- * 设计意图（ADR-0006 修订）：
+ * 设计意图（ADR-0006 修订，2026-09-09）：transport 从「`--mode json` spawn
+ * 用后即弃」演进为「`--mode rpc` 常驻 child + 会话落盘」（架构 R）。
+ * - 动因：parity P1–P8 全量对齐（续用/后台/steering/留痕/title/孤儿回收），
+ *   见 docs/research/pi-dsh-executor-parity.md §4。
+ * - 保持的设计初衷：① fresh prompt 保证 fresh context（首派全量内联语义不变）；
+ *   ② 零再派发（`--no-extensions` + 按需 `-e` 在 RPC child 上原样保留）。
+ * - 否决的备选：架构 S（resume spawn，steering/title 无法对齐）、pi-web 原生
+ *   transport（见 docs/research/pi-web-subagent-support.md §4.2）。
  * - 本文件只含纯数据与本地类型（ExecutorAgentDefinition），供 node:test
  *   直接单测；角色说明经 --append-system-prompt 注入 child pi（pi-args）；
  * - pi-subagents 目录协议字段（systemPromptMode/inheritProjectContext/
  *   maxSubagentDepth）与 thinking 概念随文件式注册一并废弃：「不继承项目
- *   上下文」由 --no-session --no-extensions + fresh prompt 保证，「禁止
- *   再派发」由 child 无 workloom_execute 工具（--no-extensions）保证；
+ *   上下文」由 --no-extensions + fresh prompt 保证，「禁止再派发」由 child
+ *   无 workloom_execute 工具（--no-extensions）保证；
+ * - 会话落盘（`--session-dir`）替代 `--no-session`，支持续用（`--session <id>`）
+ *   与 steering（`steer` 命令）；`--name "[<KindLabel>] <title>"` 语义化标题；
  * - 四个 executor kind 的 description/systemPrompt 文案自写（英文）：research/implement
  *   与废弃前逐字一致，check 随执行器纪律演进（P0/P1/P2 分级修复语义，见 core 纪律段）；
  *   frontend 以「UI 小节为基线、七轴落地、前端验证、后端接口缺失 mock 标注」四要素
