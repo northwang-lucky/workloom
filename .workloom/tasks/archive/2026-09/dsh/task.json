@@ -1,0 +1,120 @@
+{
+  "id": "c4181a83-79fe-4de2-a37c-b4b41df41c80",
+  "name": "dsh",
+  "title": "DSH 并发闸真机冒烟（一次性）",
+  "description": "一次性真机验证任务：验证 DSH 派发入口并发容量闸（默认 2 达限拒绝 + 终态释放恢复）。验证完直接 force 归档不留噪音。",
+  "status": "completed",
+  "priority": "P3",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-09T23:30:54.752Z",
+  "completedAt": "2026-09-09T23:36:41.069Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-09-09T23:32:41.178Z",
+    "summary": "一次性 DSH 并发闸冒烟：两场景（达限拒+释放恢复）即全部范围，无开放节点；启动授权=用户\"我已重启\"对上一轮\"要不要实弹验 DSH 闸\"提议的回应，跳过 check/confirm 仪式，force 归档。",
+    "prdHash": "d904f42eb797bb25165192d1ea2867638eb560ba8151729799caaaca57d6b33c"
+  },
+  "overrides": [
+    {
+      "gate": "start",
+      "tool": "workloom_task_start",
+      "at": "2026-09-09T23:32:45.413Z",
+      "reason": "一次性真机冒烟任务：无代码交付、不配置 jsonl、不走 implement/check 流程，仅作为并发派发的留痕载体"
+    },
+    {
+      "gate": "archive",
+      "tool": "workloom_task_archive",
+      "at": "2026-09-09T23:36:41.069Z",
+      "reason": "一次性冒烟任务：两场景实测证据已贴附 prd（场景 1 at capacity (2/2) 拒绝+零留痕；场景 2 释放恢复），按 prd 预定决议跳过 check 凭据直接归档"
+    },
+    {
+      "gate": "stale_alignment",
+      "tool": "workloom_execute",
+      "at": "2026-09-09T23:36:41.069Z",
+      "reason": "一次性冒烟任务：两场景实测证据已贴附 prd（场景 1 at capacity (2/2) 拒绝+零留痕；场景 2 释放恢复），按 prd 预定决议跳过 check 凭据直接归档"
+    }
+  ],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-09T23:33:24.667Z",
+      "title": "DSH 冒烟 D2（在途占槽）",
+      "status": "failed",
+      "childId": "456162c0-07b7-4b57-b67a-e23bad941390",
+      "model": "longcat/LongCat-2.0",
+      "effort": "low",
+      "modelSource": "fallback",
+      "error": "provider \"longcat\" model \"LongCat-2.0\" does not support reasoning effort \"low\" (UNSUPPORTED_REASONING_EFFORT)"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-09T23:33:24.733Z",
+      "title": "DSH 冒烟 D1（在途占槽）",
+      "status": "failed",
+      "childId": "12d970f1-c503-4aab-8b78-3bd492e50be0",
+      "model": "longcat/LongCat-2.0",
+      "effort": "low",
+      "modelSource": "fallback",
+      "error": "provider \"longcat\" model \"LongCat-2.0\" does not support reasoning effort \"low\" (UNSUPPORTED_REASONING_EFFORT)"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-09T23:33:31.972Z",
+      "title": "DSH 冒烟 D3（预期被拒）",
+      "status": "failed",
+      "childId": "45c8da99-886f-420c-8854-8810e49510a9",
+      "model": "longcat/LongCat-2.0",
+      "effort": "low",
+      "modelSource": "fallback",
+      "error": "provider \"longcat\" model \"LongCat-2.0\" does not support reasoning effort \"low\" (UNSUPPORTED_REASONING_EFFORT)"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-09T23:34:28.933Z",
+      "title": "DSH 冒烟 E1（在途占槽）",
+      "status": "completed",
+      "childId": "7b93b3ed-bdc1-4e7d-b198-c4e39a42ac36",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-09T23:34:29.003Z",
+      "title": "DSH 冒烟 E2（在途占槽）",
+      "status": "completed",
+      "childId": "747ad3eb-ad10-4702-84cf-3961471204c2",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "research",
+      "at": "2026-09-09T23:36:17.522Z",
+      "title": "DSH 冒烟 E4（释放后恢复）",
+      "status": "running",
+      "childId": "7899a7b4-c2fb-475f-80b8-288c816b149a",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
