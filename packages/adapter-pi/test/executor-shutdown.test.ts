@@ -18,6 +18,7 @@ import {
   registerChild,
   getChild,
   getAllChildren,
+  unregisterChild,
   type ChildRegistryEntry,
 } from '../src/pi-child-registry.ts'
 import { handleSessionShutdown } from '../src/executor-dispatch.ts'
@@ -176,6 +177,75 @@ test('缺陷 6: failed 路径同 childId 多条 running 全部变 failed', () =>
       assert.equal(d.status, 'failed', '同 childId 所有 running 条目应全部结算为 failed')
     }
   } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---- 缺陷 7 回归测试：取消终态 ----
+
+test('缺陷 7: signal abort 后条目 failed + 摘要，随后 agent_end 不改写', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 't1', childId: 's7' })
+
+    const entry = makeEntry('s7', root, 77777)
+    registerChild('s7', entry)
+    const controller = new AbortController()
+    const conn = entry.connection as unknown as { _triggerEvent: (event: Record<string, unknown>) => void }
+    registerChildSettle(
+      { sendMessage: () => {}, on: () => {} } as unknown as import('@earendil-works/pi-coding-agent').ExtensionAPI,
+      entry.connection,
+      entry,
+      's7',
+      false,
+      controller.signal,
+    )
+
+    // 触发 abort（取消路径）。
+    controller.abort()
+
+    // 验证：条目 failed + 摘要。
+    let task = JSON.parse(readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'))
+    assert.equal(task.dispatches[0].status, 'failed')
+    assert.equal(task.dispatches[0].error, 'dispatch aborted by main session')
+
+    // 随后到达的 agent_end 不应改写终态。
+    conn._triggerEvent({ type: 'agent_end' })
+    task = JSON.parse(readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'))
+    assert.equal(task.dispatches[0].status, 'failed', 'agent_end 不应改写取消终态')
+    assert.equal(task.dispatches[0].error, 'dispatch aborted by main session')
+  } finally {
+    unregisterChild('s7')
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('缺陷 7: 未取消时 agent_end 正常 completed 不被误标', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 't1', childId: 's8' })
+
+    const entry = makeEntry('s8', root, 88888)
+    registerChild('s8', entry)
+    const controller = new AbortController()
+    const conn = entry.connection as unknown as { _triggerEvent: (event: Record<string, unknown>) => void }
+    registerChildSettle(
+      { sendMessage: () => {}, on: () => {} } as unknown as import('@earendil-works/pi-coding-agent').ExtensionAPI,
+      entry.connection,
+      entry,
+      's8',
+      false,
+      controller.signal,
+    )
+
+    // 不取消，直接 agent_end。
+    conn._triggerEvent({ type: 'agent_end' })
+
+    // 验证：正常 completed。
+    const task = JSON.parse(readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'))
+    assert.equal(task.dispatches[0].status, 'completed', '未取消时 agent_end 应正常 completed')
+  } finally {
+    unregisterChild('s8')
     rmSync(root, { recursive: true, force: true })
   }
 })

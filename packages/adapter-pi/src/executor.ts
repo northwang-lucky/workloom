@@ -467,6 +467,7 @@ async function executeTool(
       childId,
       incrementalPrompt: params.prompt,
       reinject,
+      signal: ctx.signal,
     })
     return {
       content: [{ type: 'text', text: result.text }],

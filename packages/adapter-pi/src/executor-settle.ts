@@ -60,6 +60,7 @@ export interface SettleResult {
  * @param entry child 注册表条目
  * @param sessionId child 会话 id（= childId，用于 dispatches 回填关联）
  * @param foreground 是否前台派发（true = 不回投报告）
+ * @param signal 取消信号（abort 时优先以 failed 结算，覆盖 agent_end 的 completed）
  * @returns settle 结果 Promise（前台用于 await，后台 fire-and-forget）
  */
 export function registerChildSettle(
@@ -68,6 +69,7 @@ export function registerChildSettle(
   entry: ChildRegistryEntry,
   sessionId: string,
   foreground: boolean,
+  signal?: AbortSignal,
 ): Promise<SettleResult> {
   return new Promise<SettleResult>((resolve) => {
     const child = entry.child
@@ -108,6 +110,23 @@ export function registerChildSettle(
         reportCompletion(pi, entry, result)
       }
       resolve(result)
+    }
+
+    // 取消路径抢占（缺陷 7）：signal.aborted 时立即以 failed 结算，覆盖 agent_end 的 completed。
+    // Pi 对被 abort 的 run 同样发 agent_end，原逻辑一律当 completed → 终态失真。
+    // 取消结算后 settled 标志阻止随后到达的 agent_end 改写终态。
+    if (signal !== undefined) {
+      const onAbort = (): void => {
+        finish({
+          status: 'failed',
+          error: 'dispatch aborted by main session',
+        })
+      }
+      if (signal.aborted) {
+        onAbort()
+      } else {
+        signal.addEventListener('abort', onAbort, { once: true })
+      }
     }
 
     // 注册事件回调：逐事件 apply（复用 pi-events 的 applyEvent 语义）。

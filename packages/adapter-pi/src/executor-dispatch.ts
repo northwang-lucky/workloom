@@ -242,7 +242,7 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
   // 后台：立即返回 { childId, receipt }，settle 异步回填 + 回投。
   const entry = getChild(sessionId!)
   if (entry !== undefined) {
-    registerChildSettle(pi, connection, entry, sessionId!, false)
+    registerChildSettle(pi, connection, entry, sessionId!, false, signal)
   }
   const text = buildBackgroundText({
     childId: sessionId!,
@@ -297,7 +297,7 @@ async function dispatchForeground(params: DispatchForegroundParams): Promise<Dis
   signal?.addEventListener('abort', onAbort!, { once: true })
   try {
     const settleResult = await Promise.race([
-      registerChildSettle(pi, connection, entry, sessionId, true),
+      registerChildSettle(pi, connection, entry, sessionId, true, signal),
       abortPromise,
     ])
     if (settleResult.status === 'failed') {

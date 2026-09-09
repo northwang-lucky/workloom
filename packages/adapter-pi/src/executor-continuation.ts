@@ -170,6 +170,8 @@ export interface ContinueExecutorParams {
   childId: string
   incrementalPrompt: string
   reinject: boolean
+  /** 取消信号（abort 时优先以 failed 结算） */
+  signal?: AbortSignal
 }
 
 /**
@@ -197,6 +199,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     childId,
     incrementalPrompt,
     reinject,
+    signal,
   } = params
 
   const existingEntry = getChild(childId)
@@ -232,7 +235,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     })
 
     // 注册 settle 监听（复用）
-    registerChildSettle(pi, connection, existingEntry, childId, false)
+    registerChildSettle(pi, connection, existingEntry, childId, false, signal)
 
     const text = buildBackgroundText({ childId, effective, gate, allowInfo, piBuilt })
     return { text, childId }
@@ -284,7 +287,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
   await connection.sendCommand({ type: 'prompt', message })
 
   // 注册 settle 监听
-  registerChildSettle(pi, connection, entry, resumedSessionId, false)
+  registerChildSettle(pi, connection, entry, resumedSessionId, false, signal)
 
   const text = buildBackgroundText({ childId: resumedSessionId, effective, gate, allowInfo, piBuilt })
   return { text, childId: resumedSessionId }
