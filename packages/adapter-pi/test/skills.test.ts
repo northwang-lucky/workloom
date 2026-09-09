@@ -1,6 +1,6 @@
 /**
  * adapter-pi skills 分发契约：build（sync-skills.mjs）产物目录只含
- * workloom-alignment/update-spec + 三个 vendored generic skills，
+ * workloom-alignment/update-spec/packages-scan + 三个 vendored generic skills，
  * 不再有旧 brainstorm/ui-design。测试依赖 build（test 前先 pnpm build）。
  */
 import { test } from 'node:test'
@@ -17,7 +17,7 @@ test('package manifest 显式注册 skills 目录', () => {
   assert.deepEqual(manifest.pi.skills, ['./skills'])
 })
 
-test('skills 产物清单：只含 alignment/update-spec + 三个 vendored generic skills', () => {
+test('skills 产物清单：只含 alignment/update-spec/packages-scan + 三个 vendored generic skills', () => {
   const entries = readdirSync(skillsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -26,6 +26,7 @@ test('skills 产物清单：只含 alignment/update-spec + 三个 vendored gener
     'grilling',
     'tdd',
     'workloom-alignment',
+    'workloom-packages-scan',
     'workloom-update-spec',
     'writing-for-agents',
   ])
