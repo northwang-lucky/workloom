@@ -1,29 +1,31 @@
 /**
  * adapter-pi 的 executor 工具（workloom_execute）：把 workloom 任务上下文
- * 组装成子代理首条 prompt，spawn 独立 child pi 前台派发（不依赖
- * pi-subagents，见 ADR-0006）。
+ * 组装成子代理首条 prompt，spawn RPC 常驻 child pi 派发（架构 R，见 design）。
  *
  * 设计意图：
- * - 按 kind（research/implement/check/frontend）用 core 的 buildExecutorPrompt 组装
- *   上下文，spawn child pi（--mode json，参数组装见 pi-args）派发；
- * - stdout 逐行 JSONL 解析（pi-events 纯函数），收集 assistant 的 text 块，
- *   agent_end 判定完成；stderr 只留尾部（上限 4KB）供错误报告；
- * - ctx.signal aborted 时 kill('SIGTERM') 并以 AbortError 立即结束工具，
- *   不等待子进程退出；spawn 前已 aborted 直接抛（不发请求）；
+ * - 按 kind 用 core 的 buildExecutorPrompt 组装上下文，spawn RPC child pi 派发；
+ * - 默认后台派发（R1）：prompt 命令接受后立即返回 childId + receipt；
+ *   完成报告经 customType `workloom-executor-report` 回投主会话；
+ * - foreground: true 走前台阻塞链路，等 agent_end 直接返回终文（不回投）；
+ * - 派发留痕（R4）：派发时刻写 dispatches（running + childId + 绑定）；
+ *   settle 监听回填 completed/failed + 一行错误摘要；
+ * - 子会话标题（R5）：child 以 `--name "[<KindLabel>] <title>"` 启动；
+ * - 会话存储与孤儿回收（R6）：child 会话落 `<root>/.workloom/sessions/pi/`，
+ *   主会话结束联动 SIGTERM 全部存活 child 并把未完成派发回填 failed；
+ * - ctx.signal aborted 时发 `abort` 命令 + SIGTERM，settle 回填 failed；
  * - 不设 timeout（与 DSH 对齐）；child 用 --no-extensions，无 workloom_execute
- *   工具，天然禁止再派发；
- * - model/effort 未显式传入时回退到 .workloom/config.json|js 的 subagents 配置
- *   （按 executor kind 取值，字段独立合并；model 支持 map 形式按 runtime 取值）；
- *   配置支持 subagent_profiles 按主会话当前模型（工具 ctx.model 的 provider/id）
- *   分档匹配，命中的条目优先于旧 subagents，经 --model / --thinking 透传；
+ *   工具，天然禁止再派发（零再派发保证）；
+ * - model/effort 未显式传入时回退到 subagents 配置（按 executor kind 取值）；
  *   返回文本尾部追加 receipt 行（生效 model/effort 及来源，可观测性）；
  * - 显式 model/effort 与 subagents 配置冲突时中断派发并返回提示文本（不派发）；
  *   force: true + reason 放行，覆盖记录写 task.json overrides、receipt 来源标注
  *   追加 (forced)（审计留痕，与 adapter-dsh 同口径）。
+ *
+ * 模块边界：本文件负责工具注册、上下文组装、冲突门、receipt 渲染；
+ * 派发时序（spawn → get_state → prompt → settle）在 executor-dispatch.ts。
  */
 
-import { spawn, type ChildProcess } from 'node:child_process'
-import { createInterface } from 'node:readline'
+import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
@@ -42,7 +44,6 @@ import {
   ERR_PREFIX,
   evaluateStaleAlignmentGate,
   findWorkloomRoot,
-  buildNewDispatchBinding,
   GATES,
   loadConfig,
   PARAM_DESCRIPTIONS,
@@ -66,8 +67,8 @@ import type {
 
 import { contextKeyOf } from './constants.ts'
 import { readMainModel } from './main-model.ts'
-import { buildChildPiArgs } from './pi-args.ts'
-import { extractExecutorText, parsePiEventLine, type PiEventState } from './pi-events.ts'
+import { cleanupOrphans, sessionsDir } from './pi-child-registry.ts'
+import { dispatchChildPi } from './executor-dispatch.ts'
 import {
   buildTheoreticalTools,
   hasLspCapability,
@@ -81,19 +82,14 @@ export const EXECUTOR_PARAMS = Type.Object({
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPathExecutor })),
   model: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.model })),
   effort: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.effort })),
-  // 语义标题必填（schema 拦截缺失/空白），仅 DSH 子会话生效：child pi 是 --no-session
-  // 进程、无标题概念，接收但不消费。
+  // 语义标题必填（schema 拦截缺失/空白），Pi 子会话经 --name 生效。
   title: Type.String({ minLength: 1, description: PARAM_DESCRIPTIONS.titleExecutor }),
   prompt: Type.String({ description: PARAM_DESCRIPTIONS.prompt }),
   force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.forceExecutor })),
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reasonExecutor })),
+  // 前台阻塞开关（默认 false = 后台派发；true = 阻塞等 agent_end 终文）。
+  foreground: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.foregroundExecutor })),
 })
-
-/** stderr 尾部摘要上限（错误报告用，超限截断）。 */
-const STDERR_TAIL_LIMIT = 4096
-
-/** 取消时向 child pi 发送的终止信号。 */
-const KILL_SIGNAL = 'SIGTERM'
 
 /** 当前 runtime 名（subagents.model map 形式的取值 key，与 core 的 runtime 参数对齐）。 */
 const PI_RUNTIME = 'pi'
@@ -105,9 +101,6 @@ const RESEARCH_SCOPE_EXTENSION = fileURLToPath(
 
 /** force 覆盖记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
 const RECORD_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record forced override:`
-
-/** 派发审计记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
-const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
 /** 来源标注追加 forced 标记的匹配模式（param/config/default 及 config 的 whenMain/fallback/legacy 细分）。 */
 const FORCED_SOURCE_PATTERN = / \((param|config|default)(?:: [^)]*)?\)/g
@@ -125,10 +118,6 @@ export interface AppendExecutorReceiptOptions {
 /**
  * 在子代理输出文本尾部追加 executor receipt 行（可观测性）。
  * 空输出时只返回 receipt 行本身。
- * @param text 子代理原始输出文本
- * @param effective resolveSubagentDefaults 的返回值（含 sources 与配置来源细分）
- * @param options force 放行与注入统计（force 放行时来源标注追加 (forced) 标记）
- * @returns 带 receipt 的完整文本
  */
 export function appendExecutorReceipt(
   text: string,
@@ -156,8 +145,6 @@ export function appendExecutorReceipt(
     injection: options.injection,
   })
   if (options.forced === true) {
-    // 来源标注追加 (forced)：覆盖事实与来源（含 whenMain/fallback/legacy 细分）
-    // 并存，审计一眼可辨（替换函数保留括号内原有内容）。
     receipt = receipt.replace(FORCED_SOURCE_PATTERN, (match) => match.replace(')', ', forced)'))
   }
   return text === '' ? receipt : `${text}\n\n${receipt}`
@@ -165,18 +152,12 @@ export function appendExecutorReceipt(
 
 /** 冲突门判定结果：notice 非空表示中断派发；forced 表示 force 放行。 */
 export interface ConflictGateResult {
-  /** 中断提示文本（含配置值/传入值与 force+reason 用法）。 */
   notice?: string
-  /** 是否 force 放行（调用方须记录覆盖并标注 receipt）。 */
   forced: boolean
 }
 
 /**
  * 冲突门（纯函数）：显式 model/effort 与 subagents 配置冲突时判定放行路径。
- * 配置侧生效值按合并链解析（subagent_profiles 命中条目 > 旧 subagents，按
- * 主会话模型匹配）。无冲突 → { forced: false }（现状路径）；冲突且未 force →
- * { notice }（不派发）；冲突且 force → 校验 reason（缺失抛错 fail loud）并
- * 放行。覆盖记录是副作用，由调用方在拿到 taskRelPath 后执行。
  */
 export function resolveConflictGate(
   config: WorkloomConfig,
@@ -206,10 +187,7 @@ export function resolveConflictGate(
 
 /**
  * 记录 force 放行的覆盖（副作用）：写入 task.json overrides；失败只 WARNING
- * 不阻塞派发（留痕是审计增强，不该拖垮执行链路）。
- * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param reason 覆盖原因（force 放行时必填，此处仅透传）
+ * 不阻塞派发。
  */
 export function recordForcedOverride(
   root: string,
@@ -223,20 +201,7 @@ export function recordForcedOverride(
 }
 
 /**
- * 记录一次 executor 派发成功（副作用）：写入 task.json dispatches；失败只 WARNING
- * 不阻塞派发（与 recordForcedOverride 同口径，审计增强不该拖垮执行链路）。
- * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param entry 派发条目（kind/title，at 由 core 生成）
- */
-
-/**
  * 记录一次派发调用实际绕过的全部 gate 覆盖（R14：每个实际绕过的 gate 独立留痕）。
- * 冲突放行落 executor_model_effort，stale 放行落 stale_alignment——同时绕过时一次
- * 调用落两条；都不绕过时零写入。记录失败只 WARNING，不阻塞派发。
- * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param input 绕过判定（conflictForced/staleMissing + reason）
  */
 export function recordForceOverrides(
   root: string,
@@ -254,17 +219,6 @@ export function recordForceOverrides(
   }
 }
 
-export function recordExecutorDispatchEntry(
-  root: string,
-  taskRelPath: string,
-  entry: DispatchRecordInput,
-): void {
-  const [recordErr] = recordExecutorDispatch(root, taskRelPath, entry)
-  if (recordErr !== null) {
-    console.warn(`${DISPATCH_WARN_PREFIX} ${recordErr}`)
-  }
-}
-
 /**
  * 注册 workloom_execute 工具。
  * @param pi Extension API
@@ -276,13 +230,29 @@ export function registerExecutorTool(pi: ExtensionAPI): void {
     description: TOOL_DESCRIPTIONS.executor,
     promptSnippet: TOOL_SNIPPETS.executor,
     parameters: EXECUTOR_PARAMS,
-    // 工具级 signal 与 ctx.signal 同源（工具执行期间 agent 处于 streaming），
-    // 按 spec 统一走 ctx.signal 的 abort 通道；pi 句柄传入执行路径供
-    // 能力探测（getActiveTools 在工具执行期可安全调用）。
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeTool(pi, params, ctx)
     },
   })
+}
+
+/** 派发审计记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
+const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
+
+/**
+ * 记录一次 executor 派发（副作用）：写入 task.json dispatches；失败只 WARNING
+ * 不阻塞派发（与 recordForcedOverride 同口径，审计增强不该拖垮执行链路）。
+ * 派发时序已下沉到 executor-dispatch.ts，本函数保留供测试与 dispatch 模块共用。
+ */
+export function recordExecutorDispatchEntry(
+  root: string,
+  taskRelPath: string,
+  entry: DispatchRecordInput,
+): void {
+  const [recordErr] = recordExecutorDispatch(root, taskRelPath, entry)
+  if (recordErr !== null) {
+    console.warn(`${DISPATCH_WARN_PREFIX} ${recordErr}`)
+  }
 }
 
 /** 工具执行上下文最小形状（读 cwd/会话 id/取消信号/当前模型）。 */
@@ -290,17 +260,7 @@ interface ExecutorContextLike {
   cwd: string
   sessionManager: { getSessionId(): string }
   signal?: AbortSignal
-  /**
-   * 当前会话模型（主模型来源；Pi ExtensionAPI 工具 ctx 的窄化形状，
-   * 不引入 @earendil-works/pi-ai 的运行时类型依赖）。
-   */
   model?: { provider?: string; id?: string }
-}
-
-/** 派发结果（最终文本 + 子进程 pid 作为 runId）。 */
-interface DispatchResult {
-  text: string
-  runId: string
 }
 
 /** buildExecutorPromptWithPi 入参（executor 首条 prompt 组装所需上下文）。 */
@@ -313,35 +273,22 @@ export interface ExecutorPromptAssemblyParams {
 
 /** buildExecutorPromptWithPi 结果（组装与工具面探测共用一次 hasLsp 结论）。 */
 export interface PiExecutorPromptResult {
-  /** 本次组装的 LSP 结论（= 入参 hasLsp 透传，调用方与 -e 接线保持一致）。 */
   hasLsp: boolean
-  /** core 组装结果（text + stats）。 */
   result: ExecutorPromptResult
 }
 
 /**
- * 组装 executor 首条 prompt（Pi 接线：本机片段 → core 组装）。hasLsp 由调用方
- * 按 allow 清单推导（buildPiToolAllow 的 childHasLsp）传入，保证纪律段 LSP 句与
- * child 实际工具面一致；本机片段三层叠加注入（requiresTools 机制已移除，无工具面
- * 过滤）；组装失败 fail loud（本机片段是有意增强，静默失效最难排查），与 DSH
- * executor 同口径。
- * @param params 组装入参
- * @param hasLsp child 是否实际具备 LSP 工具（allow 清单推导）
- * @returns [err, result]：与 core buildExecutorPrompt 同形，result 附带 hasLsp
+ * 组装 executor 首条 prompt（Pi 接线：本机片段 → core 组装）。
  */
 export function buildExecutorPromptWithPi(
   params: ExecutorPromptAssemblyParams,
   hasLsp: boolean,
 ): [Error | null, PiExecutorPromptResult | null] {
-  const [localErr, localDirectives] = composeLocalDirectivesText(
-    params.root,
-    params.kind,
-  )
+  const [localErr, localDirectives] = composeLocalDirectivesText(params.root, params.kind)
   if (localErr !== null) return [localErr, null]
   const [promptErr, built] = buildExecutorPrompt({
     ...params,
     localDirectives,
-    // 交付时过滤：无 LSP 工具时不注入纪律段 LSP 句（与 DSH 侧按 allow 集同口径）。
     hasLsp,
   })
   if (promptErr || built === null) {
@@ -354,12 +301,7 @@ export function buildExecutorPromptWithPi(
 }
 
 /**
- * 组装 Pi 的最终 allow 清单与 child LSP 结论（纯函数，可单测）：理论工具集
- * = 内置 4 ∪ （父会话命中 pi-lsp 时）pi-lsp 2，core buildAllowList 在理论可见集上
- * 求交（includes/excludes 前缀模式）；childHasLsp = allow 含任一 pi-lsp 工具。
- * @param toolsConfig 该 kind 的 tools 配置（includes/excludes；缺省零行为）
- * @param parentHasLsp 父会话是否探测到 pi-lsp（hasLspCapability 结论）
- * @returns allow 清单 + childHasLsp（驱动 -e pi-lsp 与纪律段 LSP 句）
+ * 组装 Pi 的最终 allow 清单与 child LSP 结论（纯函数，可单测）。
  */
 export function buildPiToolAllow(
   toolsConfig: SubagentTools | undefined,
@@ -374,11 +316,7 @@ export function buildPiToolAllow(
 }
 
 /**
- * 前台派发 executor 子代理并返回其输出文本。
- * @param pi Extension API（持句柄供能力探测，工具执行期传入）
- * @param params 工具参数（TypeBox 已校验）
- * @param ctx 工具执行上下文（cwd/会话 id/取消信号）
- * @returns AgentToolResult（content 文本 + details 运行信息）
+ * 工具执行入口。
  */
 async function executeTool(
   pi: ExtensionAPI,
@@ -398,27 +336,23 @@ async function executeTool(
     )
   }
   const root = found.root
-  // 合并子代理默认值：工具参数优先，未出现回退到 subagent_profiles 命中条目
-  // （按主会话当前模型匹配），再回退到 subagents 配置（字段独立合并）。
-  // runtime=PI_RUNTIME 使 model 的 map 形式按 pi 取值（core 负责解析与缺 key 报错）。
+  // 孤儿回收（R6）：按 root 清理残留进程表。
+  cleanupOrphans(root)
+  // 初始化会话存储目录。
+  mkdirSync(sessionsDir(root), { recursive: true })
+  // 合并子代理默认值。
   const config = loadConfig(root)
   const mainModel = readMainModel(ctx)
   const effective = resolveSubagentDefaults(
     config,
     params.kind,
-    {
-      model: params.model,
-      effort: params.effort,
-    },
+    { model: params.model, effort: params.effort },
     PI_RUNTIME,
     mainModel,
   )
-  // effort/kind 非法值 fail loud（core 校验），与 DSH 语义一致。
   assertEffort(effective.effort)
   assertKind(params.kind)
-  // 冲突门：显式参数与配置（按主模型合并后的生效值）不一致且未 force 时中断
-  // 派发（返回提示文本，模型可附 force+reason 重试）；force 放行在拿到
-  // taskRelPath 后记录覆盖。
+  // 冲突门。
   const gate = resolveConflictGate(config, params, mainModel)
   if (gate.notice !== undefined) {
     return {
@@ -432,10 +366,7 @@ async function executeTool(
     params.taskPath,
     ERR_PREFIX.executor,
   )
-  // stale alignment 门禁（R13）：in_progress 且 alignment 凭据 stale 时拦截派发
-  // （planning research 与旧 in_progress 空凭据任务不受此门影响）。阻断返回提示
-  // 文本（模型可附 force+reason 重试）；force 放行按实际绕过的 gate 独立留痕
-  // （stale_alignment override；与冲突 override 并存时同次调用写两条）。
+  // stale alignment 门禁（R13）。
   const [staleTaskErr, staleTask] = readTask(root, taskRelPath)
   let staleMissing: string[] = []
   if (staleTaskErr !== null || staleTask === null) {
@@ -460,21 +391,15 @@ async function executeTool(
       assertForceReason(params.force, params.reason)
     }
   }
-  // 冲突与 stale 的覆盖记录统一收口（同次调用可落多条）：每个实际绕过的 gate
-  // 独立留痕；即使 stale task 读取失败，已实际绕过的冲突 gate 仍必须被审计。
   recordForceOverrides(root, taskRelPath, {
     conflictForced: gate.forced,
     staleMissing: staleMissing.length > 0,
     reason: params.reason ?? '',
   })
-  // 工具面白名单链路：父会话探测 → 理论可见集 → core 组装 allow（± tools 配置）→
-  // childHasLsp（allow 含 pi-lsp 工具才具备）。hasLsp 探测在工具执行期进行
-  // （pi.getActiveTools 加载期是 throwing stub）。
+  // 工具面白名单链路。
   const parentHasLsp = hasLspCapability(pi)
   const allowInfo = buildPiToolAllow(effective.tools, parentHasLsp)
-  // 组装 → 派发一次完成：hasLsp 用 allow 推导的 childHasLsp（纪律段 LSP 句与
-  // child 实际工具面一致）；-e 按需：pi-lsp 仅当 allow 含其工具时加载，research
-  // 额外加载随包的 write/edit 范围限定扩展。
+  // 组装 prompt。
   const [promptErr, piBuilt] = buildExecutorPromptWithPi(
     {
       root,
@@ -490,169 +415,45 @@ async function executeTool(
   const loadExtensions: string[] = []
   if (allowInfo.childHasLsp) loadExtensions.push(PI_LSP_SOURCE)
   if (params.kind === 'research') loadExtensions.push(RESEARCH_SCOPE_EXTENSION)
-  const result = await dispatchChildPi(
-    {
-      cwd,
-      prompt: piBuilt.result.text,
-      kind: params.kind,
-      model: effective.model,
-      effort: effective.effort,
-      tools: allowInfo.allow,
-      loadExtensions,
-    },
-    ctx.signal,
-  )
-  // 派发成功（dispatchChildPi 正常返回）：记录派发审计（+1 条 dispatches），
-  // 含实际生效的 model/effort 绑定与来源（design §8.2，审计不分 runtime）。
-  // 记录失败仅告警不阻塞结果（审计增强，不留痕不拖垮执行链路）。
-  recordExecutorDispatchEntry(root, taskRelPath, {
+  // 派发（委托 executor-dispatch.ts）。
+  const foreground = params.foreground === true
+  const result = await dispatchChildPi({
+    pi,
+    cwd,
+    prompt: piBuilt.result.text,
     kind: params.kind,
     title: params.title,
-    ...buildNewDispatchBinding(params, effective, mainModel),
+    root,
+    taskRelPath,
+    model: effective.model,
+    effort: effective.effort,
+    tools: allowInfo.allow,
+    loadExtensions,
+    parentSessionId: ctx.sessionManager.getSessionId(),
+    effective,
+    gate,
+    allowInfo,
+    mainModel,
+    piBuilt,
+    signal: ctx.signal,
+    foreground,
   })
-  // 注入统计（receipt 渲染用）：总字节取注入文本长度（KB 一位小数由 core 渲染），
-  // 计数来自 buildExecutorPrompt stats——可见喂给 child pi 的上下文规模。
-  // 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed；
-  // toolsAllowed = 实际下发 allow 工具数（K，receipt 同行追加）。
-  const injection: ExecutorInjectionStats = {
-    bytes: Buffer.byteLength(piBuilt.result.text, 'utf8'),
-    inlined: piBuilt.result.stats.filesInlined,
-    truncated: piBuilt.result.stats.truncated,
-    indexed: 0,
-    pointed: piBuilt.result.stats.filesPointed,
-    toolsAllowed: allowInfo.allow.length,
+  if (result.kind === 'background') {
+    return {
+      content: [{ type: 'text', text: result.text }],
+      details: { kind: 'background', childId: result.childId, status: 'running' },
+    }
   }
-  // 尾部追加 receipt 行：生效 model/effort 及来源（force 放行时标注 (forced)）
-  // 与注入统计（KB 一位小数 + 内联/截断/索引计数，同行追加）。
-  const textWithReceipt = appendExecutorReceipt(result.text, effective, {
-    forced: gate.forced,
-    injection,
-  })
   return {
-    content: [{ type: 'text', text: textWithReceipt }],
-    details: { kind: 'foreground', runId: result.runId, status: 'completed' },
+    content: [{ type: 'text', text: result.text }],
+    details: { kind: 'foreground', status: 'completed' },
   }
 }
 
-/**
- * spawn child pi 并等待其 JSONL 事件流完成，提取最终文本。
- * @param params 派发参数（prompt 为 buildExecutorPrompt 产物；loadExtensions
- *   为能力命中时显式加载的扩展源，缺省不加载）
- * @param signal 取消信号（可选）
- * @returns 派发结果
- */
-async function dispatchChildPi(
-  params: {
-    cwd: string
-    prompt: string
-    kind: string
-    model?: string
-    effort?: string
-    tools?: string[]
-    loadExtensions?: string[]
-  },
-  signal: AbortSignal | undefined,
-): Promise<DispatchResult> {
-  if (signal?.aborted === true) {
-    throw new Error(`${ERR_PREFIX.executor}: executor dispatch aborted before start`)
-  }
-  // params 含多余的 cwd 字段，TS 结构类型允许整体传入（buildChildPiArgs 只消费其声明字段）。
-  const args = buildChildPiArgs(params)
-  // PI_BIN 便于测试/自定位 pi 路径；默认取 PATH 上的 pi。
-  const child = spawn(process.env.PI_BIN ?? 'pi', args, {
-    cwd: params.cwd,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  return await waitForChildOutput(child, signal)
-}
-
-/**
- * 等待子进程结束并解析其输出：stdout 逐行喂解析器，stderr 只留尾部；
- * child close（stdio 全部关闭）后按 done 判定成功/失败；signal aborted
- * 时 kill('SIGTERM') 并以 AbortError 立即结束（不等待 exit）。
- * @param child 已 spawn 的 child pi
- * @param signal 取消信号（可选）
- * @returns 派发结果
- */
-function waitForChildOutput(
-  child: ChildProcess,
-  signal: AbortSignal | undefined,
-): Promise<DispatchResult> {
-  return new Promise((resolve, reject) => {
-    const state: PiEventState = { textParts: [], done: false }
-    const stderrParts: string[] = []
-    let settled = false
-    const settle = (finish: () => void): void => {
-      if (settled) return
-      settled = true
-      signal?.removeEventListener('abort', onAbort)
-      finish()
-    }
-    const onAbort = () => {
-      child.kill(KILL_SIGNAL)
-      settle(() => reject(abortError()))
-    }
-    signal?.addEventListener('abort', onAbort, { once: true })
-    // stdio 明确为 pipe，null 分支仅为类型收窄（防御）。
-    const stdout = child.stdout
-    const stderr = child.stderr
-    if (stdout === null || stderr === null) {
-      child.kill(KILL_SIGNAL)
-      settle(() =>
-        reject(new Error(`${ERR_PREFIX.executor}: child pi stdio pipes are unavailable`)),
-      )
-      return
-    }
-    stderr.on('data', (chunk: Buffer | string) => {
-      stderrParts.push(typeof chunk === 'string' ? chunk : chunk.toString('utf8'))
-    })
-    // 'line' 逐行同步回调；close（stdio 关闭）时全部行已喂完，state 完整。
-    createInterface({ input: stdout }).on('line', (line) => parsePiEventLine(line, state))
-    child.on('error', (error) => {
-      settle(() =>
-        reject(
-          new Error(`${ERR_PREFIX.executor}: failed to spawn child pi: ${error.message}`, {
-            cause: error,
-          }),
-        ),
-      )
-    })
-    child.on('close', (code, signalCode) => {
-      const runId = String(child.pid ?? 0)
-      if (state.done) {
-        settle(() => resolve({ text: extractExecutorText(state.textParts), runId }))
-      } else {
-        settle(() => reject(exitError(code, signalCode, stderrParts.join(''))))
-      }
-    })
-  })
-}
-
-/**
- * 组装「child pi 异常退出」错误：退出状态 + stderr 尾部摘要（无 stderr 时
- * 省略摘要）。
- * @param code 退出码（null 表示被信号终止）
- * @param signalCode 终止信号（可能为 null）
- * @param stderrTail stderr 全文（join 后截尾）
- * @returns 错误对象
- */
-function exitError(
-  code: number | null,
-  signalCode: NodeJS.Signals | null,
-  stderrTail: string,
-): Error {
-  const status = code !== null ? `code ${code}` : `signal ${signalCode ?? 'unknown'}`
-  const head = `${ERR_PREFIX.executor}: child pi exited with ${status}`
-  const tail = stderrTail.slice(-STDERR_TAIL_LIMIT)
-  return new Error(tail === '' ? head : `${head}: ${tail}`)
-}
-
-/**
- * 组装取消错误（AbortError 命名，工具管线按 name 识别取消）。
- * @returns 取消错误
- */
-function abortError(): Error {
-  const error = new Error(`${ERR_PREFIX.executor}: executor dispatch aborted`)
-  error.name = 'AbortError'
-  return error
+// 导出供测试使用。
+export const __test = {
+  appendExecutorReceipt,
+  resolveConflictGate,
+  buildExecutorPromptWithPi,
+  buildPiToolAllow,
 }

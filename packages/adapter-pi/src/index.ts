@@ -15,6 +15,7 @@ import { loadWorkflowContractText } from '@workloom-ai/assets'
 
 import { registerCommands } from './commands.ts'
 import { registerExecutorTool } from './executor.ts'
+import { handleSessionShutdown } from './executor-dispatch.ts'
 import { registerInjections } from './inject.ts'
 import { registerJournalTool } from './journal-tool.ts'
 import { registerStepsTool } from './skills-tool.ts'
@@ -34,6 +35,10 @@ export default function workloomExtension(pi: ExtensionAPI): void {
   registerStepsTool(pi)
   registerJournalTool(pi)
   registerInjections(pi)
+  // 孤儿回收（R6）：主会话结束联动 SIGTERM 全部存活 child + 回填 failed。
+  pi.on('session_shutdown', () => {
+    handleSessionShutdown()
+  })
 }
 
 /**

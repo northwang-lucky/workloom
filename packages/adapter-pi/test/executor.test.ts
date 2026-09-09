@@ -525,7 +525,7 @@ test('buildPiToolAllow: excludes 全移除 → allow 空（dispatch 空交集前
   assert.equal(empty.childHasLsp, false)
   // 空集经 buildChildPiArgs fail loud（指明 kind）。
   assert.throws(
-    () => buildChildPiArgs({ prompt: 'p', kind: 'research', tools: empty.allow }),
+    () => buildChildPiArgs({ kind: 'research', root: '/tmp/test', title: 't', tools: empty.allow }),
     /research/,
   )
 })
@@ -534,14 +534,15 @@ test('接线：childHasLsp 驱动 PI_LSP_SOURCE 的 -e 按需加载（allow 含 
   // 未配置 includes：allow 无 lsp → 不加载 pi-lsp。
   const miss = buildPiToolAllow(undefined, true)
   assert.equal(miss.childHasLsp, false)
-  const missArgs = buildChildPiArgs({ prompt: 'p', kind: 'implement', tools: miss.allow })
+  const missArgs = buildChildPiArgs({ kind: 'implement', root: '/tmp/test', title: 't', tools: miss.allow })
   assert.ok(!missArgs.includes('npm:@narumitw/pi-lsp'))
   // 配置 includes lsp_*：allow 含 lsp → 加载 pi-lsp。
   const hit = buildPiToolAllow({ includes: ['lsp_*'] }, true)
   assert.equal(hit.childHasLsp, true)
   const hitArgs = buildChildPiArgs({
-    prompt: 'p',
     kind: 'implement',
+    root: '/tmp/test',
+    title: 't',
     tools: hit.allow,
     loadExtensions: hit.childHasLsp ? [PI_LSP_SOURCE] : undefined,
   })

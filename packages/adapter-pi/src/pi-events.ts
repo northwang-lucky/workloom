@@ -30,6 +30,16 @@ export interface PiEventState {
 export function parsePiEventLine(line: string, state: PiEventState): void {
   const event = parseEventLine(line)
   if (event === null) return
+  applyEvent(event, state)
+}
+
+/**
+ * 应用已解析的事件对象到状态（RPC 连接使用：事件已由 pi-rpc 解析为对象，
+ * 无需再次 JSON.parse）。message_end 收集 assistant text，agent_end 标记终止。
+ * @param event 已解析的事件对象
+ * @param state 累计状态（原地更新）
+ */
+export function applyEvent(event: Record<string, unknown>, state: PiEventState): void {
   if (event.type === 'message_end') {
     collectAssistantText(event, state)
   } else if (event.type === 'agent_end') {

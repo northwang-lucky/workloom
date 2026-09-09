@@ -1,9 +1,11 @@
 /**
  * adapter-pi 的 child pi 命令行参数组装（纯函数，可单测）。
  *
- * 设计意图：
- * - 固定序列 --mode json -p <prompt> --no-session --no-extensions 是派发
- *   面基线：json 逐行事件流、不落会话盘、无扩展（天然禁止再派发）；
+ * 设计意图（M1 RPC 常驻改造）：
+ * - 固定序列 --mode rpc --session-dir <root>/.workloom/sessions/pi --no-extensions
+ *   --name "[<KindLabel>] <title>" 是 RPC 派发面基线：rpc 常驻子进程 JSON 协议、
+ *   会话落专用目录（不污染用户会话列表）、无扩展（天然禁止再派发）、标题语义化；
+ * - prompt 不再经 -p 下发（改经 RPC `prompt` 命令），故 -p 从 args 移除；
  * - 角色说明经 --append-system-prompt 直接作为参数值注入（几百字符级，
  *   命令行可承载，不落临时文件）；kind 无定义 fail loud（ERR_PREFIX.executor）；
  * - effort/model 可选稀疏追加：effort 与 --thinking 同名直通（调用方已
@@ -15,12 +17,25 @@ import { ERR_PREFIX } from '@workloom-ai/core'
 
 import { EXECUTOR_AGENT_DEFINITIONS } from './agent-definitions.ts'
 
+/** executor kind → 子会话标题展示标签（枚举，禁 Magic String；口径与 DSH 相同）。 */
+const KIND_LABELS = {
+  research: 'Research',
+  implement: 'Implement',
+  check: 'Check',
+  frontend: 'Frontend',
+} as const
+
+/** KIND_LABELS 的键类型。 */
+type KindLabelKey = keyof typeof KIND_LABELS
+
 /** buildChildPiArgs 入参（executor 工具参数中与 child pi 派发相关的投影）。 */
 export interface BuildChildPiArgsParams {
-  /** 任务全文（buildExecutorPrompt 的产物）。 */
-  prompt: string
-  /** executor 类型（research/implement/check/frontend，取角色说明用）。 */
+  /** executor 类型（research/implement/check/frontend，取角色说明 + 标题标签用）。 */
   kind: string
+  /** 项目根（--session-dir 用）。 */
+  root: string
+  /** 语义标题（--name 的标题部分，schema 必填非空）。 */
+  title: string
   /** 显式模型 id（可选）。 */
   model?: string
   /** effort 档位（可选，同名映射为 --thinking）。 */
@@ -38,7 +53,7 @@ export interface BuildChildPiArgsParams {
 }
 
 /**
- * 组装 child pi 派发参数：固定序列 + --append-system-prompt 角色说明，
+ * 组装 child pi 派发参数：RPC 固定序列 + --append-system-prompt 角色说明，
  * 再按需追加 --thinking/--model。
  * @param params 入参
  * @returns child pi 命令行参数（不含 cwd，cwd 由 spawn options 承载）
@@ -52,9 +67,19 @@ export function buildChildPiArgs(params: BuildChildPiArgsParams): string[] {
   if (definition.systemPrompt.trim() === '') {
     throw new Error(`${ERR_PREFIX.executor}: empty system prompt for kind ${params.kind}`)
   }
-  const args = ['--mode', 'json', '-p', params.prompt, '--no-session', '--no-extensions']
+  const kindLabel = KIND_LABELS[params.kind as KindLabelKey] ?? params.kind
+  // RPC 常驻形态：--mode rpc + --session-dir 隔离 + --name 语义化标题。
+  const args = [
+    '--mode',
+    'rpc',
+    '--session-dir',
+    `${params.root}/.workloom/sessions/pi`,
+    '--no-extensions',
+    '--name',
+    `[${kindLabel}] ${params.title}`,
+  ]
   // 扩展显式加载：-e 对紧跟 --no-extensions（只关自动发现，不挡显式路径；
-  // 缺省不传时零行为，序列与旧版逐字一致）。
+  // 缺省不传时零行为）。
   for (const source of params.loadExtensions ?? []) {
     args.push('-e', source)
   }
