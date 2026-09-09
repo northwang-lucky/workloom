@@ -29,7 +29,7 @@
     "prdHash": "45efa629fe31ae52620590f06bc71d24ed8834cff733bffb08bdefef4cf12759"
   },
   "overrides": [],
-  "stage": "implement",
+  "stage": "check",
   "dispatches": [
     {
       "kind": "implement",
@@ -38,6 +38,16 @@
       "status": "completed",
       "childId": "68b9b37e-e495-4340-9ec3-a6a670369576",
       "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-09T11:43:24.460Z",
+      "title": "ST-B ADR 修订交付审查",
+      "status": "running",
+      "childId": "86406362-69d9-4503-bd8c-ea22c4ea7382",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
       "modelSource": "fallback"
     }
   ],
