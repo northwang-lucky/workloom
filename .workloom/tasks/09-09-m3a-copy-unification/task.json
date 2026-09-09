@@ -1,0 +1,50 @@
+{
+  "id": "c9d9e2ee-e1f1-433d-a032-6f46c0c2a1b3",
+  "name": "m3a-copy-unification",
+  "title": "M3a 文案统一收尾与三端回归（P4/P5 消灭 + dist 重建）",
+  "description": "容器 pi-executor-parity 的 M3 剩余范围拆分 ST-A（用户 2026-09-09 确认拆分）：审计主工作区盘上 M3 半成品（core surface 共享常量/titleExecutor 尾注、assets workflow norms 中性化、adapter-dsh 与 adapter-pi 的常量 import 切换），补齐缺口，三端 test/typecheck/lint/build 全绿，adapter-dsh dist 重建。交付即 parity P4/P5 消灭。半成品不预提交，随本子任务收尾一并提交（容器主会话执行）。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-09T11:15:03.503Z",
+  "completedAt": null,
+  "parent": "tasks/09-09-pi-executor-parity",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-09-09T11:19:55.488Z",
+    "summary": "范围/验收/执行形态由用户在容器会话确认拆分（2026-09-09，1A/2A/3A）并本轮确认 review 快照：半成品审计收尾、rebind 文案上移 core、titleExecutor 尾注删除、norms 中性化、三端回归 + dist 重建；全新 implement 会话执行，无开放节点。",
+    "prdHash": "73412a4b604cb594bf0d15e4eb552783d67a50b9ec9323abe635c3bd119750b7"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-09T11:21:03.358Z",
+      "title": "ST-A 文案统一半成品审计与收尾",
+      "status": "running",
+      "childId": "434cc0d3-bfad-4b5a-a3ad-9a42e436fc17",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

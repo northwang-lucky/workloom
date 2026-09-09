@@ -1,0 +1,40 @@
+{
+  "id": "aff728a8-fe52-48cf-977c-15029fa7b755",
+  "name": "m3c-session-storage",
+  "title": "M3c child 会话存储治理（归档清理 + gitignore 守护 + shutdown 清表）",
+  "description": "容器 pi-executor-parity 的 M3 剩余范围拆分 ST-C（用户 2026-09-09 确认拆分，串行于 ST-B 后）：child 会话存储治理三件套——1) transcript 归档清理：adapter-pi 在归档命令路径按 task.json dispatches 的 childId 对账清理 .workloom/sessions/pi/ 关联会话文件（清理失败仅 WARNING 不阻塞归档；core 归档流程不感知 runtime 文件，薄投影原则）；2) .workloom/sessions gitignore 守护：核实 workloom init 的 gitignore 模板，有则同步加入，无模板机制则目录创建时落自守护 .gitignore；3) P3 打磨（M1-9 真机观察项）：handleSessionShutdown 的 sigtermAllAlive 后把 registry.json 持久化为空表，与重启 cleanupOrphans 构成完整双层防线。含单测。",
+  "status": "planning",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-09T11:15:57.178Z",
+  "completedAt": null,
+  "parent": "tasks/09-09-pi-executor-parity",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-09-09T11:19:55.489Z",
+    "summary": "范围/验收由用户在容器会话确认拆分（2026-09-09）并本轮确认 review 快照：transcript 归档清理（adapter 层对账）、gitignore 守护（implement 按核实自决分支）、shutdown 清空落盘 registry（P3）+ 单测；全新 implement 会话，串行于 ST-B 后，无开放节点。",
+    "prdHash": "600ebdaa897cdc646989bb913cdbd45900170bb5892b1706498ec3d0f5cf456f"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

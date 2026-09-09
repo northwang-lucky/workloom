@@ -1,0 +1,5 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": "docs/research/pi-dsh-executor-parity.md", "reason": "修订记录三要素（动因/保持/否决）齐备性审查"}
+{"file": "docs/research/pi-web-subagent-support.md", "reason": "§5 复核结论与交叉引用正确性审查"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "文档语言分工审查"}
+{"file": ".workloom/spec/repo/research-facts/index.md", "reason": "research 文档格式约定审查"}

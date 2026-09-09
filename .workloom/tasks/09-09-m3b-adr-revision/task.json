@@ -1,0 +1,40 @@
+{
+  "id": "4a69390c-65f0-4cf8-a9a2-257f265fa9c9",
+  "name": "m3b-adr-revision",
+  "title": "M3b ADR-0006 修订与调研文档回写",
+  "description": "容器 pi-executor-parity 的 M3 剩余范围拆分 ST-B（用户 2026-09-09 确认拆分，串行于 ST-A 后）：审计盘上 ADR 修订半成品（adapter-pi agent-definitions.ts/executor.ts 头注释、docs/research/pi-dsh-executor-parity.md §4 修订记录行）并补齐——修订记录含动因（parity P1–P8）/保持（fresh prompt 与 --no-extensions 零再派发）/否决（架构 S 与 pi-web 原生 transport）三要素；复核 docs/research/pi-web-subagent-support.md §5 PI_BIN 表述在 RPC 常驻架构下的准确性并最小更新。纯文档+注释改动。",
+  "status": "planning",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-09T11:15:46.966Z",
+  "completedAt": null,
+  "parent": "tasks/09-09-pi-executor-parity",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-09-09T11:19:55.488Z",
+    "summary": "范围/验收由用户在容器会话确认拆分（2026-09-09）并本轮确认 review 快照：ADR-0006 修订三要素、parity §4 修订行、pi-web §5 PI_BIN 复核；纯文档+注释，全新 implement 会话，串行于 ST-A 后，无开放节点。",
+    "prdHash": "45efa629fe31ae52620590f06bc71d24ed8834cff733bffb08bdefef4cf12759"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": "docs/research/pi-dsh-executor-parity.md", "reason": "修订记录行的落点与事实基线（§4 决策与缺陷账本）"}
+{"file": "docs/research/pi-web-subagent-support.md", "reason": "§5 PI_BIN 表述复核对象；§4.2 否决依据交叉引用"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "开发文档中文、注释中文的分工"}
+{"file": ".workloom/spec/repo/research-facts/index.md", "reason": "research 文档结构化块与锚点格式约定"}

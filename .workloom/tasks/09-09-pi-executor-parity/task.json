@@ -13,7 +13,11 @@
   "createdAt": "2026-09-09T06:06:11.529Z",
   "completedAt": null,
   "parent": null,
-  "children": [],
+  "children": [
+    "tasks/09-09-m3a-copy-unification",
+    "tasks/09-09-m3b-adr-revision",
+    "tasks/09-09-m3c-session-storage"
+  ],
   "subtasks": [],
   "scope": "",
   "commit": "",
@@ -116,10 +120,11 @@
       "kind": "implement",
       "at": "2026-09-09T10:32:00.593Z",
       "title": "M3 文案统一、ADR 修订与归档清理",
-      "status": "running",
+      "status": "failed",
       "childId": "d52a13b4-7a85-4929-8aa8-fb0606d7f168",
       "model": "longcat/LongCat-2.0",
-      "modelSource": "spawn"
+      "modelSource": "spawn",
+      "error": "the executor ran out of tokens before it finished"
     }
   ],
   "hooks": {

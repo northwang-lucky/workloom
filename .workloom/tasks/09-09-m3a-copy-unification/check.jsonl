@@ -1,0 +1,6 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": "docs/research/pi-dsh-executor-parity.md", "reason": "核对 P4/P5 是否真正消灭：两 adapter 描述逐字相同、norms 无 runtime 绑定残留"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "文案语言分工审查"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "常量单一来源与 verify 全绿审查"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "dist 重建产物与源码一致性审查"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "容器主会话提交切分审查"}
