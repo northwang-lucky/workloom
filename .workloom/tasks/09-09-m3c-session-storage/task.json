@@ -49,6 +49,16 @@
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
       "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-09T12:37:49.764Z",
+      "title": "ST-C 全量复审（P1 直修后）",
+      "status": "running",
+      "childId": "7f39de28-8384-4a04-9567-4aa44ca5a5d8",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
     }
   ],
   "hooks": {
