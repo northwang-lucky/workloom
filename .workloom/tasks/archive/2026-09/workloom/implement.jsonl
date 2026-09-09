@@ -1,0 +1,6 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "config.js 与 executor 相关 core 模块均为 legacy 纯 JS + JSDoc，配置解析与判定函数按此约定扩展"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "判定纯函数归 core、取数与入口闸归 adapter 的分层与依赖方向"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "枚举/守卫/600 行线与 verify 命令"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "at capacity 回执为运行时文案须英文，注释中文"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "core/adapter-dsh dist 重建与 rsync 纪律"}

@@ -262,3 +262,9 @@
 - Commit: fe0ef8a
 - Summary: skill-packages-scan 全程闭环：新增 workloom-packages-scan skill（扫描脚本+27 单测+SKILL.md）并接入 DSH/Pi 双端分发；含两段阵亡教训后的分段派发与两轮 check；三 commit 落地，rsync 完成，dshweb 重启留用户。
 
+## workloom 子代理并发派遣上限交付
+
+- Time: 2026-09-09T19:13:17.816Z
+- Commit: d0e8a46
+- Summary: 并发派遣上限任务闭环：core 判定纯函数+双层配置（默认 2）、DSH/Pi 入口闸；真机揪出并修复 spawn 竞态与 idle 占槽两个 P1 并发缺陷，Pi 真机两场景 PASS；三 commit 落地已 rsync，dshweb 重启留用户。
+

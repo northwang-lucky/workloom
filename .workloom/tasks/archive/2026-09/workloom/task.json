@@ -1,0 +1,127 @@
+{
+  "id": "4ef7dd97-63a2-44db-a8cf-d06b78ef69be",
+  "name": "workloom",
+  "title": "配置 workloom 子代理并发派遣上限",
+  "description": "将 workloom 子代理的并发派遣改为可配置限制，默认只能并发派遣 2 个",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-08-31T06:45:07.037Z",
+  "completedAt": "2026-09-09T19:13:17.814Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-09T19:12:45.936Z",
+    "summary": "两轮复审+P1 集中修复+续复审全过，Open issues 清零（余 1 项非阻塞 P2：DSH native 投影即时可见假设，方向保守且有观察预案，不改码）。核对：9 项决策（含默认 2 裁决）逐条符合；Pi 状态机 starting/running/idle 迁移与续用/close/shutdown/循环 settle 交互闭环；DSH native activity=running 口径与 idle 语义对等并经源码证据链证实 in-flight 释放无缝（materializeTracked 同步登记、live 即 running、childId 锁全程持有）。真机 R5 两场景 PASS（达限拒 at capacity (2/2) + idle 释放后恢复）。独立复跑 core 576/dsh 144/pi 187(bun 新脚本)/assets 27 全绿 + typecheck/lint/build 干净；rsync 已同步且 profile 与本地 diff 一致；dshweb 重启归用户。"
+  },
+  "grilling": null,
+  "overrides": [],
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-09T16:39:44.257Z",
+      "title": "并发上限第一段：core 配置与判定函数",
+      "status": "completed",
+      "childId": "35502a4e-6997-4d9b-a21a-5f75cc1b8626",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T16:50:37.399Z",
+      "title": "并发上限第二段：DSH 派发入口闸",
+      "status": "completed",
+      "childId": "5cec284d-9fc6-497b-9e9f-4fb1ff8f0504",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T16:50:37.399Z",
+      "title": "并发上限第三段：Pi 派发入口闸",
+      "status": "completed",
+      "childId": "8867a811-1b35-4cd5-8093-80af2a26b7e4",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T17:21:43.803Z",
+      "title": "core 收尾：配置模板同步 executor 字段",
+      "status": "completed",
+      "childId": "35502a4e-6997-4d9b-a21a-5f75cc1b8626",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T17:29:28.574Z",
+      "title": "修复 Pi 容量闸 spawn 竞态",
+      "status": "completed",
+      "childId": "8867a811-1b35-4cd5-8093-80af2a26b7e4",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T17:53:52.458Z",
+      "title": "竞态二修：provisional 登记移到 await 之前",
+      "status": "completed",
+      "childId": "8867a811-1b35-4cd5-8093-80af2a26b7e4",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T18:07:56.438Z",
+      "title": "三修：settle 后 idle 释放槽位",
+      "status": "completed",
+      "childId": "8867a811-1b35-4cd5-8093-80af2a26b7e4",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-09T18:23:02.419Z",
+      "title": "并发上限全量复审",
+      "status": "completed",
+      "childId": "f1c87569-6068-45e3-a285-73f75d247d71",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T18:50:14.845Z",
+      "title": "三个 P1 集中修复（DSH 竞态/脚本/续用分支）",
+      "status": "completed",
+      "childId": "a6b86b07-8c0a-4291-98e4-3da02e6d5d9d",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "alignment": {
+    "passedAt": "2026-09-09T16:39:31.726Z",
+    "summary": "第 3 轮补充节点：全局默认 2（用户裁决 B，对齐建任务原意），kind 层默认不限、显式 0 不限；Goal/R1/R4/验收/决策留痕同步修订。用户确认 prdHash fa65dc26 为实施基线。",
+    "prdHash": "fa65dc265c3323a7bfd94b97a3ddf1228a03c94e21fe9732259f766237bbed69"
+  },
+  "stage": "implement"
+}
