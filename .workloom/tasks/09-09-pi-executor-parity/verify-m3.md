@@ -5,14 +5,17 @@ M3 里程碑（session 存储治理三件套：归档清理 + gitignore 守护 +
 
 ## 验证项
 
-### ST-A. 工具描述无 DSH-only 残留
+### ST-A. 工具描述两端统一
 
-- [ ] **1. workloom_execute 描述无 continue_executor/continuable 承诺**
-  主会话读取 `workloom_execute` 工具描述，确认不含 `continue_executor`、`continuable`、
-  `reinject` 等 DSH-only 参数承诺（Pi schema 无此参数，模型照描述传参会被拒）。
+- [ ] **1. workloom_execute 描述两端逐字相同且 Pi schema 兑现**
+  主会话读取 `workloom_execute` 工具描述，确认与 DSH 端逐字相同（含
+  `continue_executor`/`reinject`/`foreground` 语义），且 Pi 的 EXECUTOR_PARAMS
+  实际支持这三个参数（照描述传参不被 schema 拒绝）；`title` 描述无
+  "only effective on the DSH adapter" 残留。
 
-- [ ] **2. 子会话工具描述无 DSH-only 残留**
-  派发一个 child pi，检查 child 可见的工具描述中无 DSH-only 机制名词。
+- [ ] **2. norms Dispatch 段无 DSH 机制绑定名词**
+  主会话 session-context 的 norms Dispatch 段无 "subagent notice" 类
+  DSH 专属机制名词（改为 runtime 中性表述），纪律语义完整。
 
 ### ST-B. 一次后台派发冒烟
 
@@ -32,7 +35,8 @@ M3 里程碑（session 存储治理三件套：归档清理 + gitignore 守护 +
 - [ ] **6. 归档后 transcript 删除**
   主会话完成一个任务（create → start → check → archive），归档命令返回成功后：
   检查 `.workloom/sessions/pi/` 目录，被归档任务 dispatches 中 childId 关联的会话文件
-  （`<childId>.json` / `<childId>.jsonl` 等）应被删除；未关联的文件保留。
+  （pi 真实落盘名 `<时间戳>_<childId>.jsonl`，如 `2026-09-09T12-00-00-000Z_01a0….jsonl`）
+  应被删除；未关联的文件保留。
 
 - [ ] **7. 归档清理失败不阻塞归档**
   人为制造清理异常（如删除 sessions 目录权限），归档命令仍应返回成功
