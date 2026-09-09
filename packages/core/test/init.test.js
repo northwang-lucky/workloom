@@ -78,13 +78,14 @@ test('未命中时生成完整骨架', () => {
   }
 })
 
-test('.gitignore 模板含 .runtime/、.developer 与 config.local.json/config.local.js 忽略条目', () => {
+test('.gitignore 模板含 .runtime/、sessions/、.developer 与 config.local.json/config.local.js 忽略条目', () => {
   const root = makeRoot()
   try {
     const [err] = initWorkloom(root)
     assert.equal(err, null)
     const content = readFileSync(join(root, '.workloom', '.gitignore'), 'utf8')
     assert.ok(content.includes('.runtime/'), 'missing .runtime/ entry')
+    assert.ok(content.includes('sessions/'), 'missing sessions/ entry')
     assert.ok(content.includes('.developer'), 'missing .developer entry')
     assert.ok(content.includes('config.local.json'), 'missing config.local.json entry')
     assert.ok(content.includes('config.local.js'), 'missing config.local.js entry')
