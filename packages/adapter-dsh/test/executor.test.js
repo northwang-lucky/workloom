@@ -207,12 +207,23 @@ function makeCtx(overrides = {}) {
         inheritsParentContext: true,
       }
     },
+    // 会话级 running 枚举（DSH 原生 listChildren 接缝）：用例可经 overrides.listChildren
+    // 注入 mock 返回值（SubagentListEntry 形状：kind/activity/id/label）；默认空集合。
+    async listChildren() {
+      if (overrides.listChildren !== undefined) return overrides.listChildren()
+      return []
+    },
     // continuable 派发：resolve 即返回 durable childId，child 会话注册进 agents 表。
+    // 用例可经 overrides.startContinuableDelay 注入延迟（Promise），模拟 startContinuable
+    // 挂起期间 in-flight 竞态窗口（并发闸测试依赖此时序）。
     async startContinuable(spec) {
       if (overrides.startReject !== undefined) throw overrides.startReject
       startCalls.push(spec)
       const childId = `child-${startCalls.length}`
       ensureChild(childId, spec.request.parent.session.header.cwd)
+      if (overrides.startContinuableDelay !== undefined) {
+        await overrides.startContinuableDelay
+      }
       return { childId }
     },
     // 续用：sendMessage（DSH 0.1.2-rc.1 唯一接缝）——sender 为 parent，options 仅含 signal。
@@ -2763,6 +2774,226 @@ test('循环 settle：同 childId 两条 running 一次 end 全部回填 failed'
       task2.dispatches.every((d) => d.status === 'failed'),
       'all dispatches must be settled to failed',
     )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- 并发容量闸（R3 派发入口闸） ----------
+
+/** 构造 listChildren 返回的 running 子代理条目（SubagentListEntry 最小形状）。 */
+function makeRunningChild(childId, kindLabel) {
+  return { kind: 'child', id: childId, activity: 'running', mode: 'continuable', label: `[${kindLabel}] t` }
+}
+
+/**
+ * 在 task.json 预写 running dispatches（供 collectRunningExecutors 读取 childId→kind 映射），
+ * 并返回各 childId 对应的 kindLabel 文案（构造 listChildren mock 用）。
+ */
+function seedRunningDispatches(root, entries) {
+  const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+  task.dispatches = entries.map(({ childId, kind }) => ({
+    kind,
+    childId,
+    title: 'seed',
+    status: 'running',
+    at: new Date().toISOString(),
+  }))
+  writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task))
+}
+
+test('capacity: 全局达限拒绝（2 running / limit 2）并返回 at capacity 回执文案', async () => {
+  const root = makeProject()
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement' },
+      { childId: 'child-b', kind: 'research' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listChildren: async () => [
+        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-b', 'Research'),
+      ],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'capacity global reject test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 拒绝：不 spawn、不写 dispatches、返回 at capacity 文案（全局闸 2/2）。
+    assert.equal(startCalls.length, 0, 'at capacity must not spawn')
+    assert.match(result.output[0].text, /at capacity \(2\/2\)/)
+    const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    assert.equal(task.dispatches.length, 2, 'rejected dispatch must not append a new record')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('capacity: 全局显式 0 = 不限（多 running 仍放行）', async () => {
+  const root = makeProject({ executor: { max_concurrent: 0 } })
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement' },
+      { childId: 'child-b', kind: 'research' },
+      { childId: 'child-c', kind: 'check' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listChildren: async () => [
+        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-b', 'Research'),
+        makeRunningChild('child-c', 'Check'),
+      ],
+    })
+    const parent = makeAgent(root)
+    await execute(execArgs({ title: 'capacity unlimited test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1, 'global limit 0 must allow dispatch')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('capacity: kind 闸达限拒绝（kind 2/2）并返回 kind 层回执文案', async () => {
+  const root = makeProject({
+    executor: { max_concurrent: 0 },
+    subagent_profiles: [
+      { subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', max_concurrent: 2 } } },
+    ],
+  })
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement' },
+      { childId: 'child-b', kind: 'implement' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listChildren: async () => [
+        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-b', 'Implement'),
+      ],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'capacity kind reject test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 0, 'kind at capacity must not spawn')
+    assert.match(result.output[0].text, /implement kind at capacity \(2\/2\), global 2\/0/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('capacity: 续用不误占槽（排除目标 childId 后未达限 → 放行）', async () => {
+  const root = makeProject()
+  try {
+    // 1 个 running（即续用目标 child-a），全局上限 2；排除后 running=0 → 放行。
+    seedRunningDispatches(root, [{ childId: 'child-a', kind: 'implement' }])
+    const { execute, sendMessageCalls } = setupExecutor({
+      listChildren: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    await execute(
+      execArgs({ title: 'capacity continue no double count test', continue_executor: 'child-a' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(sendMessageCalls.length, 1, 'continue must not be blocked by its own slot')
+    assert.equal(sendMessageCalls[0].targetId, 'child-a')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('capacity: 续用目标之外达限 → 续用被拒（排除目标后其余 2/2）', async () => {
+  const root = makeProject()
+  try {
+    // child-a 为续用目标（需在 dispatches 中定位成功），child-b/child-c 为其他 running。
+    // 全局上限 2；排除 child-a 后 running 集合 = [child-b, child-c] = 2 → 达限拒绝。
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement' },
+      { childId: 'child-b', kind: 'implement' },
+      { childId: 'child-c', kind: 'research' },
+    ])
+    const { execute, sendMessageCalls } = setupExecutor({
+      listChildren: async () => [
+        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-b', 'Implement'),
+        makeRunningChild('child-c', 'Research'),
+      ],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({ title: 'capacity continue blocked test', continue_executor: 'child-a' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(sendMessageCalls.length, 0, 'continue must be blocked when others at capacity')
+    assert.match(result.output[0].text, /at capacity \(2\/2\)/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('capacity: 配置解析报错（executor.max_concurrent 为负）', async () => {
+  const root = makeProject({ executor: { max_concurrent: -1 } })
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs({ title: 'capacity config error test' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      /workloom config: executor.max_concurrent: must be a non-negative integer \(0 means unlimited\)/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- 并发闸异步窗口（in-flight 竞态防治，P1-3） ----------
+
+test('capacity: 并发闸异步窗口——mock listChildren 恒空 + 延迟 startContinuable，两连发第二笔必须 at capacity', async () => {
+  // 时序核心：DSH 同轮可并行多工具调用，第一笔闸放行后 startContinuable 尚未返回
+  // （child 未进 native 视野），若无 in-flight 结构，第二笔会看到空 running 集合而过闸。
+  // 修复后：第一笔同步登记 in-flight → 第二笔取数 = native(空) ∪ in-flight(1) → 达限拒绝。
+  const { clearInFlightDispatches } = await import('../dist/executor-capacity.js')
+  clearInFlightDispatches()
+  const root = makeProject({ executor: { max_concurrent: 1 } })
+  try {
+    // 延迟 startContinuable：用一个外部可控的 Promise，测试在适当时机释放。
+    let releaseFirstStartContinuable
+    const firstStartContinuableDelay = new Promise((resolve) => {
+      releaseFirstStartContinuable = resolve
+    })
+    const { execute } = setupExecutor({
+      listChildren: async () => [],
+      startContinuableDelay: firstStartContinuableDelay,
+    })
+    const parent = makeAgent(root)
+    const signal = new AbortController().signal
+
+    // 启动第一笔派发（不 await）：通过闸 → 同步登记 in-flight → await startContinuable（挂起）。
+    const firstPromise = execute(execArgs({ title: 'first concurrent dispatch' }), {
+      agent: parent,
+      signal,
+    })
+
+    // 等待第一笔执行到 await 点（in-flight 已同步登记，startContinuable 尚未返回）。
+    await new Promise((r) => setTimeout(r, 20))
+
+    // 第二笔派发：in-flight 集合已有第一笔 → 全局 1/1 达限 → 必须被拒绝。
+    const secondResult = await execute(execArgs({ title: 'second concurrent dispatch' }), {
+      agent: parent,
+      signal,
+    })
+    assert.equal(secondResult.runId, '', '第二笔应被闸拒绝，未派发子代理')
+    assert.match(secondResult.output[0].text, /at capacity \(1\/1\)/, '第二笔回执应标明撞全局闸 1/1')
+
+    // 释放第一笔的 startContinuable 锁，让它完成（child 进 native 视野，移除 in-flight）。
+    releaseFirstStartContinuable()
+    await firstPromise
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

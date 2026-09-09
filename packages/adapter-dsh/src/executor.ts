@@ -61,17 +61,23 @@
  *   缺失用终止原因兜底），不附输出文本（避免把中止当成功消费）；仅前台链路判定；
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：前台输出追加
  *   (reused) 于续用轮；后台 receipt 与前台同一渲染，使配置来源/复用一眼可辨。
+ * - 并发容量闸（executor-capacity.ts）：新派发与续用入口均先取本主会话 running 集合
+ *   （DSH 原生 listChildren(parentId)，会话级，不跨会话），结合 dispatches 记录 +
+ *   label 解析补全 childId→kind 映射，调用 core 的 evaluateExecutorCapacity 判定；
+ *   续用路径先把目标 childId 从 running 集合排除（其槽不重复计）；拒绝时返回英文
+ *   at capacity 回执文案（注明撞限层级与计数），不写 dispatches、不 spawn，主会话稍后
+ *   自行重试；不引入队列与 pending 态。
  *
  * 模块边界：本文件负责工具注册（registerExecutor）与执行编排（executeTool）；
  * 参数 schema 装配在 executor-schema.ts，prompt 组装在 executor-injection.ts，
  * receipt 渲染在 executor-receipt.ts，continuable 会话操作在 executor-continuation.ts，
  * 终态回填在 executor-settle.ts，工具面白名单在 executor-dispatch.ts，research 守卫在
- * executor-guard.ts。
+ * executor-guard.ts，并发容量闸在 executor-capacity.ts。
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import type { SubagentSendMessageOptions, ContinuableStart, SubagentProvider } from '@deepseek-ai/dsh-subagent'
+import type { SubagentSendMessageOptions, ContinuableStart, SubagentProvider, SubagentListEntry } from '@deepseek-ai/dsh-subagent'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
 
 import type { ExecutorInjectionStats } from '@workloom-ai/core'
@@ -110,6 +116,13 @@ import {
   SPAWN_PROVIDER,
   toCapabilityError,
 } from './executor-dispatch.js'
+import {
+  collectRunningExecutors,
+  evaluateCapacityGate,
+  generateDispatchSeq,
+  registerInFlightDispatch,
+  releaseInFlightDispatch,
+} from './executor-capacity.js'
 import { registerResearchChildId, registerResearchGuard } from './executor-guard.js'
 import type { ResearchExecutionLike } from './executor-guard.js'
 import {
@@ -197,9 +210,11 @@ interface ToolsService {
   guard(guard: (execution: Readonly<ResearchExecutionLike>) => string | undefined): () => void
 }
 
-/** subagents 服务的最小接口（continuable 派发/续用/释放 + provider 查询）。 */
+/** subagents 服务的最小接口（continuable 派发/续用/释放 + provider 查询 + 会话级 running 枚举）。 */
 interface SubagentsService {
   getProvider(name: string): SubagentProvider | undefined
+  /** 枚举本主会话在途子代理（DSH 原生，会话级 running 集合的正规通道）。 */
+  listChildren(parentId: string, signal?: AbortSignal): Promise<SubagentListEntry[]>
   startContinuable(spec: {
     provider: string
     label: string
@@ -437,6 +452,29 @@ async function executeTool(
   // 实际发送内容（增量时内联/截断/索引为 0、KB 为增量体积）。
   let sendText: string
   let injection: ExecutorInjectionStats
+  /**
+   * 派发入口并发容量闸（新派发与续用共用）：取本会话 running 集合调用 core 判定。
+   * 拒绝时返回 at capacity 回执文案（外层据此返回文本、不写 dispatches、不 spawn）；
+   * 放行返回 null。续用路径传入 excludeChildId，把目标 child 从 running 集合排除
+   * （其已有 running 槽不重复计）。
+   * @param excludeChildId 续用目标 childId（新派发不传）
+   */
+  async function runCapacityGate(excludeChildId?: string): Promise<string | null> {
+    const running = await collectRunningExecutors(
+      ctx.subagents,
+      parent!,
+      exec.signal,
+      root,
+      taskRelPath,
+      excludeChildId,
+    )
+    return evaluateCapacityGate(
+      running,
+      params.kind,
+      config.executor.maxConcurrent,
+      effective.maxConcurrent,
+    )
+  }
   if (params.continue_executor !== undefined) {
     // 定位失败返回明确提示（不报错）：旧记录缺 childId / 无同 kind 记录 / 跨 kind /
     // 记录不存在，均不派发（fail loud 的「提示面」变体，避免静默续用错会话）。
@@ -455,6 +493,20 @@ async function executeTool(
     }
     childId = located
     reused = true
+    // 并发容量闸（续用）：先把目标 childId 从 running 集合排除（其已有 running 槽不重复计），
+    // 再取本会话 running 集合判定；拒绝时返回 at capacity 文本，不投递、不写 dispatches。
+    const continueCapacity = await runCapacityGate(childId)
+    if (continueCapacity !== null) {
+      return {
+        kind: 'foreground',
+        runId: NO_CHILD_RUN_ID,
+        output: [{ type: 'text', text: continueCapacity }],
+      }
+    }
+    // 续用闸放行后同步登记 in-flight 条目（占槽），关闭并行工具调用的异步窗口竞态；
+    // sendMessage 投递成功后移除本地项（child 已在 native 视野）。
+    const continueSeq = generateDispatchSeq()
+    registerInFlightDispatch(continueSeq, params.kind)
     // 读取首次派发记录落盘的绑定（读不到/旧记录缺字段返回 null → 回执 unrecorded）。
     spawnBinding = readSpawnBinding(root, taskRelPath, childId)
     if (params.reinject === true) {
@@ -493,7 +545,11 @@ async function executeTool(
       await ctx.subagents.sendMessage(parent, childId, [{ type: 'text', text: sendText }], {
         signal: exec.signal,
       })
+      // 投递成功：child 已在 native 视野，移除 in-flight 本地项。
+      releaseInFlightDispatch(continueSeq)
     } catch (error) {
+      // 投递失败：释放 in-flight 槽位，不留永久占位。
+      releaseInFlightDispatch(continueSeq)
       throw translateForkContinueError(error)
     }
   } else {
@@ -512,6 +568,20 @@ async function executeTool(
     )
     sendText = built.text
     injection = injectionStats(built, allowFilter.allow.length)
+    // 并发容量闸（新派发）：取本会话 running 集合判定；拒绝时返回 at capacity 文本，
+    // 不 spawn、不写 dispatches。
+    const dispatchCapacity = await runCapacityGate()
+    if (dispatchCapacity !== null) {
+      return {
+        kind: 'foreground',
+        runId: NO_CHILD_RUN_ID,
+        output: [{ type: 'text', text: dispatchCapacity }],
+      }
+    }
+    // 闸放行后同步登记 in-flight 条目（占槽），关闭并行工具调用的异步窗口竞态；
+    // startContinuable 成功返回后 child 已进 native 视野→移除本地项；失败/异常路径同样移除。
+    const dispatchSeq = generateDispatchSeq()
+    registerInFlightDispatch(dispatchSeq, params.kind)
     try {
       const started = await ctx.subagents.startContinuable({
         provider: SPAWN_PROVIDER,
@@ -526,7 +596,11 @@ async function executeTool(
         signal: exec.signal,
       })
       childId = started.childId
+      // child 已进 native 视野，移除 in-flight 本地项（native 记录接管计数）。
+      releaseInFlightDispatch(dispatchSeq)
     } catch (error) {
+      // startContinuable 失败/异常：释放 in-flight 槽位，不留永久占位。
+      releaseInFlightDispatch(dispatchSeq)
       // startContinuable reject 的 capability 错误兜底（如 provider 未注册/缺能力）
       // 转清晰英文错误。
       throw toCapabilityError(error)

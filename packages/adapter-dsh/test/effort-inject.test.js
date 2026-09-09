@@ -197,6 +197,9 @@ test('D. 集成：executor 派发带 effort → 子代理 agent/created 命中 �
       async followup() {
         throw new Error('integration test never follows up')
       },
+      async listChildren() {
+        return []
+      },
       async drainContinuableChildren() {},
     }
     ctx.agents = { get: (id) => childAgents.get(id) }
