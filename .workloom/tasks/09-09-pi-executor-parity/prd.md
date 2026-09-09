@@ -21,27 +21,22 @@
 
 - 整改方向 = C 全量对齐（含 P8 steering 与 P7 title），独立任务与 skill-packages-scan 并行（用户 2026-09-09 确认）。
 - parity 对照沉淀为 `docs/research/pi-dsh-executor-parity.md`（已落盘）。
+- 架构 = **R（RPC 常驻 child）**：每派发 spawn `pi --mode rpc --session-dir <专用> --name [<KindLabel>] <title>`；后台 = prompt 命令接受即返回（childId = pi 会话 id），settle = 监听 `agent_end` 事件回投报告；续用 = 同 child 再发 prompt（存活时）或 `--session <id>` 重启；steering = `steer` 命令。RPC 客户端自写严格 `\n` 分行（Node `readline` 不合规，官方明示）。`--no-extensions` 与按需 `-e` 保留（零再派发根基不动）。架构 S（resume spawn）否决：无法交付 P8。（用户 2026-09-09 确认推荐）
+- child 会话存储：项目内 `.workloom/sessions/`、gitignore；transcript 随任务归档清理（审计摘要由 dispatches/jsonl 承载）。该目录仅 Pi 侧写入（DSH 子会话由宿主自有存储管理）；层级布局（是否 `.workloom/sessions/pi/` runtime 命名空间）见开放节点 R2-1。（存储位置/清理已确认，命名分支待定）
+- 报告回投：新 customType `workloom-executor-report`、`display: true`；回投失败仅 WARNING（与 DSH notice 降级同口径）。（用户 2026-09-09 确认推荐）
+- 孤儿回收：主会话结束联动 SIGTERM 全部存活 child，未完成派发回填 failed（摘要注明 host session ended）；pi 重启不收养孤儿，启动时清理残留进程表。（用户 2026-09-09 确认推荐）
+- 留痕口径：与 DSH 完全同口径——childId = pi 会话 id、派发时刻写 dispatches(running)、settle 回填终态、spawn/prompt 失败也留痕 failed；Pi 侧 settle 模块命名 executor-settle（同名同职责）。（用户 2026-09-09 确认推荐）
+- 描述层统一时机：任务完成时一次统一（Pi 参数面补齐 continue_executor/foreground/reinject 后，core TOOL_DESCRIPTIONS/TOOL_SNIPPETS/norms 恢复「两 adapter 逐字相同」，title 的 DSH-only 标注删除）；任务期间不做过渡文案。（用户 2026-09-09 确认推荐）
+- 任务拆分：单任务，design/implement 按 M1（RPC transport + 后台 + settle/留痕 + title）→ M2（续用 continue/reinject/steering）→ M3（描述层/norms 统一 + ADR-0006 修订）里程碑推进，不拆子任务。（用户 2026-09-09 确认推荐）
+- 验收口径：真机 pi TUI 清单（后台派发→报告回投→continue_executor 续用→reinject→steering→取消→失败留痕→title 可见）+ 单测（RPC 分帧客户端、settle 回填、续用同 kind 校验、孤儿清理）+ DSH 回归（文案统一后 DSH 工具面不变形）；真机结果记录进 task 目录。（用户 2026-09-09 确认推荐）
 
-### 开放节点（第 1 轮 frontier，均附推荐）
+### 开放节点（第 2 轮 frontier）
 
-1. **架构选择 R vs S**（影响范围/验收/不可逆成本的核心决策）：
-   - R = RPC 常驻 child（`pi --mode rpc --session-dir <专用> --name <title>`）：P1–P8 全部可对齐（steering 走 `steer` 命令）；代价是 child 生命周期管理（存活表、settle 监听、孤儿回收）+ 自写严格分行的 RPC 客户端。
-   - S = resume spawn（去掉 `--no-session`，续用 = `pi --session <id> --mode json -p <增量>`）：改动小，title 可对齐（--name 在 -p 模式可用），但 **P8 steering 无法交付**。
-   - 推荐：R——方向 C 的目标就是全量对齐，S 缺一角；且后台派发本来就需要 child 存活表与 settle 机制，R 一次建齐。
-2. **child 会话存储与清理**：专用 session-dir 放哪、是否 gitignore、何时清理？
-   - 推荐：`<root>/.workloom/sessions/`（项目内、gitignore），transcript 随任务归档时清理（dispatches/jsonl 已承载审计摘要，全量 transcript 无长期保留价值）。
-3. **报告回投语义**：customType 命名、display 与否、主会话已不存在时的行为？
-   - 推荐：新 customType `workloom-executor-report`、`display: true`（用户可见报告到达）；回投失败仅 WARNING（与 DSH notice 失败降级同口径）。
-4. **孤儿回收**：主会话退出/重载/崩溃时常驻 child 的处置？
-   - 推荐：主会话结束联动 SIGTERM 全部存活 child，未完成派发的 dispatches 回填 failed（摘要注明 host session ended）；跨 pi 进程重启不收养孤儿（启动时清理残留进程表文件）。
-5. **留痕对齐细节**：childId 用 pi 会话 id；spawn/prompt 失败也写 failed 留痕——确认与 DSH 完全同口径（含 modelSource 字段语义）？
-   - 推荐：完全同口径，settle 等价模块命名 executor-settle（与 DSH 同名同职责，降低双端维护心智）。
-6. **描述层统一时机**：TOOL_DESCRIPTIONS/norms 的 runtime 漂移（P4/P5）在任务完成时一次统一（Pi 参数面补齐后恢复「两 adapter 逐字相同」，title 的 DSH-only 标注删除），任务期间不做过渡文案？
-   - 推荐：一次统一，不做过渡——任务周期内漂移维持现状，可接受。
-7. **任务拆分**：交付块 ≥3（M1 RPC transport + 后台 + settle/留痕 + title；M2 续用 continue/reinject/steering；M3 描述层/norms 统一 + ADR-0006 修订）——单任务分里程碑还是拆子任务？
-   - 推荐：单任务、design/implement 按 M1→M2→M3 里程碑推进——三个里程碑强耦合于同一批文件（executor/pi-args/pi-events/core surface），拆分反而制造合并冲突。
-8. **验收口径**：真机 pi TUI 验证清单（后台派发→报告回投→continue_executor 续用→reinject→steering→取消→失败留痕→title 可见）+ 单测（RPC 分帧客户端、settle 回填、续用同 kind 校验、孤儿清理）+ DSH 侧回归（描述文案统一后 DSH 工具面不变形）？
-   - 推荐：按此清单，真机部分沿用 repo 既有「真机验证」惯例记录进 task 目录。
+R2-1. **sessions 目录布局**（由用户问题「sessions 是 pi 专用吗」引出；已确认仅 Pi 侧写入，剩命名分支）：
+   - A. runtime 命名空间 `.workloom/sessions/pi/`——语义自解释，未来第三 runtime（如 opencode spike）直接加兄弟目录，归档清理对整棵 `sessions/` 生效。
+   - B. 平铺 `.workloom/sessions/` + 文件名 runtime 前缀——少一层目录，混放后清理/排查靠文件名约定。
+   - C. 顶层 `.workloom/pi-sessions/`——最直白，但 runtime 写死在顶层名，新 runtime 需再加顶层目录。
+   - 推荐：A。
 
 <!-- workloom:open-nodes=pending -->
 
