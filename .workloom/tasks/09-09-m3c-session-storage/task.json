@@ -44,7 +44,7 @@
       "kind": "check",
       "at": "2026-09-09T12:16:08.345Z",
       "title": "ST-C 存储治理交付审查",
-      "status": "running",
+      "status": "completed",
       "childId": "7f39de28-8384-4a04-9567-4aa44ca5a5d8",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
