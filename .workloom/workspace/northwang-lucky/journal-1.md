@@ -268,3 +268,9 @@
 - Commit: d0e8a46
 - Summary: 并发派遣上限任务闭环：core 判定纯函数+双层配置（默认 2）、DSH/Pi 入口闸；真机揪出并修复 spawn 竞态与 idle 占槽两个 P1 并发缺陷，Pi 真机两场景 PASS；三 commit 落地已 rsync，dshweb 重启留用户。
 
+## DSH 并发闸真机冒烟闭环
+
+- Time: 2026-09-09T23:39:38.196Z
+- Commit: 8287677
+- Summary: dshweb 重启生效验证：新 skill 进目录；DSH 并发闸真机冒烟两场景 PASS（E3 at capacity (2/2) 零留痕、E4 释放恢复），一次性任务归档。
+

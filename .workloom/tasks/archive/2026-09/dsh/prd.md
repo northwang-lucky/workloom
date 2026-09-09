@@ -30,3 +30,4 @@
 - 场景 2 PASS：E1-DONE/E2-DONE 终态回报后，E4 正常派发（child 7899a7b4，回执 model/effort/injection 完整）。顺带证实 in-flight 释放与 native 接管无缝（check 报告 P2 open issue 关闭）。
 - 插曲：首轮 D1-D3 因主会话误传 `effort: low`（LongCat 不支持）三连 UNSUPPORTED_REASONING_EFFORT 失败，属操作失误非产品缺陷；失败留痕正常（failed + 错误透传），不占槽行为由第二轮反证。
 - 结论：DSH 侧并发容量闸真机行为与 prd 决策一致，一次性冒烟通过，force 归档。
+- 归档时序说明：E4 派发回执即为场景 2 证据（放行成功）；其终态回报（E4-RECOVERED）晚于归档移动，settle 回填按派发时旧路径未命中、仅 WARNING（循环 settle 防御路径生效），dispatches 中 E4 定格归档瞬间的 running，实际完成以主会话收到的报告为准。
