@@ -42,7 +42,7 @@ function mockChild(pid: number): ChildProcess {
 }
 
 /** 创建 registry 条目。 */
-function makeEntry(sessionId: string, root: string, pid: number): ChildRegistryEntry {
+function makeEntry(root: string, pid: number): ChildRegistryEntry {
   return {
     connection: mockConnection(),
     child: mockChild(pid),
@@ -58,7 +58,7 @@ function makeEntry(sessionId: string, root: string, pid: number): ChildRegistryE
 test('registerChild: 登记后可通过 getChild 获取', () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
   try {
-    const entry = makeEntry('s1', root, 12345)
+    const entry = makeEntry(root, 12345)
     registerChild('s1', entry)
     const got = getChild('s1')
     assert.ok(got !== undefined)
@@ -74,7 +74,7 @@ test('registerChild: 登记后可通过 getChild 获取', () => {
 test('unregisterChild: 移除后 getChild 返回 undefined', () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
   try {
-    const entry = makeEntry('s2', root, 12346)
+    const entry = makeEntry(root, 12346)
     registerChild('s2', entry)
     assert.ok(getChild('s2') !== undefined)
     unregisterChild('s2')
@@ -87,8 +87,8 @@ test('unregisterChild: 移除后 getChild 返回 undefined', () => {
 test('getAllChildren: 返回全部存活 child', () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
   try {
-    registerChild('s3', makeEntry('s3', root, 12347))
-    registerChild('s4', makeEntry('s4', root, 12348))
+    registerChild('s3', makeEntry(root, 12347))
+    registerChild('s4', makeEntry(root, 12348))
     const all = getAllChildren()
     assert.equal(all.size, 2)
     assert.ok(all.has('s3'))
@@ -103,7 +103,7 @@ test('getAllChildren: 返回全部存活 child', () => {
 test('落盘进程表: registerChild 后 registry.json 写入条目', () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
   try {
-    registerChild('s5', makeEntry('s5', root, 12349))
+    registerChild('s5', makeEntry(root, 12349))
     const path = registryPath(root)
     const parsed = JSON.parse(readFileSync(path, 'utf8'))
     assert.ok(Array.isArray(parsed.entries))
@@ -119,7 +119,7 @@ test('落盘进程表: registerChild 后 registry.json 写入条目', () => {
 test('落盘进程表: unregisterChild 后 registry.json 移除条目', () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
   try {
-    registerChild('s6', makeEntry('s6', root, 12350))
+    registerChild('s6', makeEntry(root, 12350))
     unregisterChild('s6')
     const path = registryPath(root)
     const parsed = JSON.parse(readFileSync(path, 'utf8'))
@@ -276,6 +276,29 @@ test('cleanupSessionFiles: 目录不存在时不报错', () => {
   }
 })
 
+test('cleanupSessionFiles: 删除失败仅 WARNING 不抛错（不阻塞归档）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  // 捕获 console.warn，验证失败走 WARNING 且不向归档路径抛错（R4 要求的失败分支）。
+  const warnings: string[] = []
+  const originalWarn = console.warn
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.map(String).join(' '))
+  }
+  try {
+    const dir = sessionsDir(root)
+    // 用与 childId 同名的目录制造 rmSync 失败（ERR_FS_EISDIR，权限无关、运行器无关）。
+    mkdirSync(join(dir, 'stub-id'), { recursive: true })
+    assert.doesNotThrow(() => cleanupSessionFiles(root, ['stub-id']))
+    assert.ok(
+      warnings.some((w) => w.includes('failed to remove session file')),
+      '删除失败应输出 WARNING',
+    )
+  } finally {
+    console.warn = originalWarn
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 // ---- persistEmptyRegistry（R3 shutdown 清表） ----
 
 test('persistEmptyRegistry: 写入空表覆盖既有条目', () => {
@@ -291,6 +314,21 @@ test('persistEmptyRegistry: 写入空表覆盖既有条目', () => {
     persistEmptyRegistry(root)
     const parsed = JSON.parse(readFileSync(registryPath(root), 'utf8'))
     assert.equal(parsed.entries.length, 0, 'persistEmptyRegistry 后应为空表')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('persistEmptyRegistry: 首次落盘同写自守护 .gitignore（存量项目兜底）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    // 目录尚不存在时直接调用：应建目录 + 落自守护 .gitignore（R2 兜底分支）。
+    persistEmptyRegistry(root)
+    const guard = join(sessionsDir(root), '.gitignore')
+    assert.ok(existsSync(guard), '应落自守护 .gitignore')
+    assert.equal(readFileSync(guard, 'utf8'), '*\n', '自守护 .gitignore 应忽略本目录全部产物')
+    // 幂等：已存在时不重复写、不报错。
+    assert.doesNotThrow(() => persistEmptyRegistry(root))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

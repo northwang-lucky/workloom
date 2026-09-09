@@ -50,7 +50,7 @@ function mockChild(pid: number): ChildProcess {
   return Object.assign(emitter, { stdout, stdin, stderr, pid, kill: () => {} }) as unknown as ChildProcess
 }
 
-function makeEntry(sessionId: string, root: string, pid: number): ChildRegistryEntry {
+function makeEntry(root: string, pid: number): ChildRegistryEntry {
   return {
     connection: mockConnection(),
     child: mockChild(pid),
@@ -80,8 +80,8 @@ test('handleSessionShutdown: 回填全部 running child 为 failed + 清理注�
   const { root, taskRelPath } = makeTaskRoot()
   try {
     // 登记两个 child。
-    registerChild('s1', makeEntry('s1', root, 11111))
-    registerChild('s2', makeEntry('s2', root, 22222))
+    registerChild('s1', makeEntry(root, 11111))
+    registerChild('s2', makeEntry(root, 22222))
     assert.equal(getAllChildren().size, 2)
 
     // 先写 running 记录（模拟派发时刻）。
@@ -125,7 +125,7 @@ test('缺陷 6: 同 childId 两条 running 经一次 settle 全部变 completed'
     recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 'steer', childId: 's1' })
 
     // 注册 settle（模拟 agent_end）。
-    const entry = makeEntry('s1', root, 11111)
+    const entry = makeEntry(root, 11111)
     registerChild('s1', entry)
     const conn = entry.connection as unknown as { _triggerEvent: (event: Record<string, unknown>) => void }
     registerChildSettle(
@@ -158,7 +158,7 @@ test('缺陷 6: failed 路径同 childId 多条 running 全部变 failed', () =>
     recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 'steer', childId: 's2' })
 
     // 注册 settle + 触发 close（failed 路径）。
-    const entry = makeEntry('s2', root, 22222)
+    const entry = makeEntry(root, 22222)
     registerChild('s2', entry)
     registerChildSettle(
       { sendMessage: () => {}, on: () => {} } as unknown as import('@earendil-works/pi-coding-agent').ExtensionAPI,
@@ -189,7 +189,7 @@ test('缺陷 7: signal abort 后条目 failed + 摘要，随后 agent_end 不改
   try {
     recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 't1', childId: 's7' })
 
-    const entry = makeEntry('s7', root, 77777)
+    const entry = makeEntry(root, 77777)
     registerChild('s7', entry)
     const controller = new AbortController()
     const conn = entry.connection as unknown as { _triggerEvent: (event: Record<string, unknown>) => void }
@@ -226,7 +226,7 @@ test('缺陷 7: 未取消时 agent_end 正常 completed 不被误标', () => {
   try {
     recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 't1', childId: 's8' })
 
-    const entry = makeEntry('s8', root, 88888)
+    const entry = makeEntry(root, 88888)
     registerChild('s8', entry)
     const controller = new AbortController()
     const conn = entry.connection as unknown as { _triggerEvent: (event: Record<string, unknown>) => void }
@@ -259,8 +259,8 @@ test('handleSessionShutdown: sigtermAllAlive 后 registry.json 持久化为空�
     // 清理可能残留的全局 child（测试隔离：先 shutdown 清空历史残留）。
     handleSessionShutdown()
     // 登记两个 child（写入非空注册表）。
-    registerChild('r1', makeEntry('r1', root, 33333))
-    registerChild('r2', makeEntry('r2', root, 44444))
+    registerChild('r1', makeEntry(root, 33333))
+    registerChild('r2', makeEntry(root, 44444))
     // 确认注册表包含 r1、r2。
     const before = JSON.parse(readFileSync(registryPath(root), 'utf8'))
     const beforeIds = before.entries.map((e: { sessionId: string }) => e.sessionId).sort()

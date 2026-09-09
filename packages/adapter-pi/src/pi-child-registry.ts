@@ -11,9 +11,8 @@
  *   未完成派发由 settle 回填 failed（摘要注明 host session ended）。
  */
 
-import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
-import { mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { ChildProcess } from 'node:child_process'
 
 import { writeFileAtomic } from '@workloom-ai/core'
@@ -78,6 +77,27 @@ export function sessionsDir(root: string): string {
  */
 export function registryPath(root: string): string {
   return join(sessionsDir(root), 'registry.json')
+}
+
+/** 自守护 .gitignore 文件名（sessions/pi 目录内）。 */
+const SESSIONS_GUARD_FILE = '.gitignore'
+
+/** 自守护 .gitignore 内容：忽略本目录全部运行时产物（含自身）。 */
+const SESSIONS_GUARD_CONTENT = '*\n'
+
+/**
+ * 确保会话存储目录存在并落自守护 .gitignore（R2 兜底）：
+ * init 模板条目只守护新 init 的项目，存量项目（.workloom/.gitignore 无 sessions/）
+ * 依赖目录内自守护 .gitignore 保持 child 会话产物不入库。
+ * @param root 项目根
+ * @returns 会话存储目录绝对路径
+ */
+export function ensureSessionsDir(root: string): string {
+  const dir = sessionsDir(root)
+  mkdirSync(dir, { recursive: true })
+  const guard = join(dir, SESSIONS_GUARD_FILE)
+  if (!existsSync(guard)) writeFileSync(guard, SESSIONS_GUARD_CONTENT)
+  return dir
 }
 
 /**
@@ -153,7 +173,7 @@ function persistRegistry(root: string): void {
     })
   }
   const path = registryPath(root)
-  mkdirSync(dirname(path), { recursive: true })
+  ensureSessionsDir(root)
   writeFileAtomic(path, JSON.stringify({ entries }, null, 2))
 }
 
@@ -184,7 +204,7 @@ export function cleanupOrphans(root: string): void {
   }
   // 写回存活条目（原子写）。
   const path = registryPath(root)
-  mkdirSync(dirname(path), { recursive: true })
+  ensureSessionsDir(root)
   writeFileAtomic(path, JSON.stringify({ entries: surviving }, null, 2))
 }
 
@@ -264,10 +284,15 @@ export function cleanupSessionFiles(root: string, childIds: string[]): void {
  * 持久化空落盘进程表（R3）：把 registry.json 写为空表。
  * 供 shutdown 路径调用——sigtermAllAlive 清空进程内表后，落盘表同步清空，
  * 与重启 cleanupOrphans 构成双层防线。
+ * 落盘失败仅 WARNING 不抛错：session_shutdown 监听路径上异常不能中断宿主关闭流程
+ *（与归档清理 R1「失败仅 WARNING」同一纪律）。
  * @param root 项目根
  */
 export function persistEmptyRegistry(root: string): void {
-  const path = registryPath(root)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileAtomic(path, JSON.stringify({ entries: [] }, null, 2))
+  try {
+    ensureSessionsDir(root)
+    writeFileAtomic(registryPath(root), JSON.stringify({ entries: [] }, null, 2))
+  } catch (error) {
+    console.warn(`${REGISTRY_WARN_PREFIX} failed to persist empty registry: ${String(error)}`)
+  }
 }

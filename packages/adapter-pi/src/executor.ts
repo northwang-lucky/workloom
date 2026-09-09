@@ -35,7 +35,6 @@
  * 派发时序（spawn → get_state → prompt → settle）在 executor-dispatch.ts。
  */
 
-import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
@@ -78,7 +77,7 @@ import type {
 
 import { contextKeyOf } from './constants.ts'
 import { readMainModel } from './main-model.ts'
-import { sessionsDir } from './pi-child-registry.ts'
+import { ensureSessionsDir } from './pi-child-registry.ts'
 import { dispatchChildPi } from './executor-dispatch.ts'
 import {
   continueExecutor,
@@ -355,8 +354,8 @@ async function executeTool(
     )
   }
   const root = found.root
-  // 初始化会话存储目录。
-  mkdirSync(sessionsDir(root), { recursive: true })
+  // 初始化会话存储目录（含自守护 .gitignore：存量项目无 init 模板条目也能保持会话产物不入库）。
+  ensureSessionsDir(root)
   // 合并子代理默认值。
   const config = loadConfig(root)
   const mainModel = readMainModel(ctx)
