@@ -61,6 +61,12 @@
  *   缺失用终止原因兜底），不附输出文本（避免把中止当成功消费）；仅前台链路判定；
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：前台输出追加
  *   (reused) 于续用轮；后台 receipt 与前台同一渲染，使配置来源/复用一眼可辨。
+ *
+ * 模块边界：本文件负责工具注册（registerExecutor）与执行编排（executeTool）；
+ * 参数 schema 装配在 executor-schema.ts，prompt 组装在 executor-injection.ts，
+ * receipt 渲染在 executor-receipt.ts，continuable 会话操作在 executor-continuation.ts，
+ * 终态回填在 executor-settle.ts，工具面白名单在 executor-dispatch.ts，research 守卫在
+ * executor-guard.ts。
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -68,14 +74,12 @@ import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SubagentSendMessageOptions, ContinuableStart, SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
 
-import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core'
-import type { DispatchModelSource } from '@workloom-ai/core'
+import type { ExecutorInjectionStats } from '@workloom-ai/core'
 
 import {
   assertEffort,
   assertForceReason,
   buildConflictNotice,
-  buildExecutorPrompt,
   buildNewDispatchBinding,
   composeLocalDirectivesText,
   CONTINUE_REBIND_REJECT_TEXT,
@@ -118,17 +122,17 @@ import {
 import type { TurnMeta } from './executor-continuation.js'
 import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
 import { readMainModel } from './main-model.js'
-
-/** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
-const KIND_LABELS = {
-  research: 'Research',
-  implement: 'Implement',
-  check: 'Check',
-  frontend: 'Frontend',
-} as const
-
-/** KIND_LABELS 的键类型（assertKind 已保证 kind 合法，此处仅防御缺键）。 */
-type KindLabelKey = keyof typeof KIND_LABELS
+import { buildExecutorSchema } from './executor-schema.js'
+import {
+  buildChildLabel,
+  buildFullInjection,
+  injectionStats,
+} from './executor-injection.js'
+import {
+  buildSpawnEntryBinding,
+  renderOutput,
+  translateForkContinueError,
+} from './executor-receipt.js'
 
 /** 冲突中断/续用拒绝返回值的 runId（未派发子代理，无 run id 可用）。 */
 const NO_CHILD_RUN_ID = ''
@@ -139,21 +143,8 @@ const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record 
 /** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
-/**
- * 上游 DSH 接续拒绝的错误片段（parent 严格校验：child.parentSession ≠ 当前会话，
- * fork 分身接续源会话派发的 executor 必然命中）。依赖注意：匹配的是上游错误文案，
- * 该文案变更会让转译退化为原样透传（fail loud 仍在，只是少了引导）。
- */
-const FORK_PARENT_ERROR_FRAGMENT = 'belongs to another parent session'
-
-/** fork 接续失败转译的引导文案（design §4.2：提示全新派发并携带所需上下文）。 */
-const FORK_CONTINUE_GUIDANCE =
-  'Cannot continue the recorded executor: it belongs to the session that dispatched it, not this one ' +
-  '(typically because the current session is a fork). Dispatch a fresh executor instead, carrying the ' +
-  'needed context in the prompt.'
-
 /** 纯文本块最小形状（render 与返回值共用）。 */
-interface TextBlockLike {
+export interface TextBlockLike {
   type: 'text'
   text: string
 }
@@ -269,58 +260,7 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
   tools.register({
     name: TOOL_NAMES.executor,
     description: TOOL_DESCRIPTIONS.executor,
-    parameters: {
-      type: 'object',
-      properties: {
-        kind: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.kind,
-        },
-        taskPath: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.taskPathExecutor,
-        },
-        model: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.model,
-        },
-        effort: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.effort,
-        },
-        force: {
-          type: 'boolean',
-          description: PARAM_DESCRIPTIONS.forceExecutor,
-        },
-        reason: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.reasonExecutor,
-        },
-        title: {
-          type: 'string',
-          minLength: 1,
-          description: PARAM_DESCRIPTIONS.titleExecutor,
-        },
-        prompt: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.prompt,
-        },
-        continue_executor: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.continueExecutor,
-        },
-        foreground: {
-          type: 'boolean',
-          description: PARAM_DESCRIPTIONS.foregroundExecutor,
-        },
-        reinject: {
-          type: 'boolean',
-          description: PARAM_DESCRIPTIONS.reinjectExecutor,
-        },
-      },
-      required: ['kind', 'prompt', 'title'],
-      additionalProperties: false,
-    },
+    parameters: buildExecutorSchema(PARAM_DESCRIPTIONS),
     output: {
       schema: { type: 'object' },
       render: (_args, value) => [renderOutput(value)],
@@ -636,152 +576,4 @@ async function executeTool(
     childId,
     receipt: buildTurnReceiptText(turnMeta, effective),
   }
-}
-
-/**
- * 续派轮记录落盘绑定（内部）：沿用 childId 首次派发记录的绑定值，来源记 spawn。
- * 首次记录无绑定字段时只记来源（model/effort 缺省，审计仍可辨续派轮）。
- * @param binding 首次派发记录读取的绑定（可能 null）
- * @returns dispatch entry 的绑定字段（modelSource 恒为 spawn）
- */
-function buildSpawnEntryBinding(
-  binding: { model?: string; effort?: string } | null,
-): { model?: string; effort?: string; modelSource: DispatchModelSource } {
-  return {
-    ...(binding?.model !== undefined ? { model: binding.model } : {}),
-    ...(binding?.effort !== undefined ? { effort: binding.effort } : {}),
-    modelSource: 'spawn',
-  }
-}
-
-/**
- * 组装全量注入 prompt（新派发/reinject 续接共用）：本机片段已由调用方探测，此处
- * 调用 core buildExecutorPrompt；组装失败 fail loud。hasLsp 由调用方按可见工具集
- * 探测（交付时过滤纪律段 LSP 句，切片 ④）。
- * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型
- * @param userPrompt 用户任务正文
- * @param localDirectives 本机片段合成文本（已探测可用工具集）
- * @param hasLsp 目标环境是否具备 LSP 工具面
- * @returns 组装结果（text + stats）
- */
-function buildFullInjection(
-  root: string,
-  taskRelPath: string,
-  kind: string,
-  userPrompt: string,
-  localDirectives: string,
-  hasLsp: boolean,
-): ExecutorPromptResult {
-  const [promptErr, built] = buildExecutorPrompt({
-    root,
-    taskRelPath,
-    kind,
-    userPrompt,
-    localDirectives,
-    hasLsp,
-  })
-  if (promptErr !== null || built === null) {
-    throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)
-  }
-  return built
-}
-
-/**
- * 从 buildExecutorPrompt 结果投影注入统计（receipt 渲染用）：总字节取注入文本长度
- * （KB 一位小数由 core 渲染），计数来自 stats——可见喂给子代理的上下文规模。
- * 指针模式无预算索引降级（indexed 恒 0）；jsonl/research 指针行计入 pointed；
- * toolsAllowed 为实际下发 allow 工具数（K，receipt 同行追加渲染）。
- * @param built buildExecutorPrompt 结果
- * @param toolsAllowed 实际下发 allow 工具数（可选）
- * @returns 注入统计五元组 + toolsAllowed
- */
-function injectionStats(built: ExecutorPromptResult, toolsAllowed?: number): ExecutorInjectionStats {
-  return {
-    bytes: Buffer.byteLength(built.text, 'utf8'),
-    inlined: built.stats.filesInlined,
-    truncated: built.stats.truncated,
-    indexed: 0,
-    pointed: built.stats.filesPointed,
-    ...(toolsAllowed !== undefined ? { toolsAllowed } : {}),
-  }
-}
-
-/**
- * 组装子会话标题：`[<KindLabel>] <title>`（title 为语义部分、不含前缀；缺省回退
- * task title，仍缺失/空白时整体回退 `workloom-<kind>`；标题仅供展示，不因任务
- * 元数据异常阻塞派发）。
- * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型（research/implement/check/frontend）
- * @param title 模型传入的语义标题（schema 必填非空；可选类型仅作纯函数防御回退）
- * @returns 子会话标题
- */
-function buildChildLabel(root: string, taskRelPath: string, kind: string, title?: string): string {
-  const kindLabel = KIND_LABELS[kind as KindLabelKey]
-  const semantic = title?.trim()
-  if (kindLabel === undefined) {
-    return `workloom-${kind}`
-  }
-  if (semantic !== undefined && semantic !== '') {
-    return `[${kindLabel}] ${semantic}`
-  }
-  const [taskErr, task] = readTask(root, taskRelPath)
-  const taskTitle = task?.title
-  if (taskErr !== null || taskTitle === undefined || taskTitle.trim() === '') {
-    return `workloom-${kind}`
-  }
-  return `[${kindLabel}] ${taskTitle}`
-}
-
-/**
- * 从 canonical 值投影模型可见文本（纯函数）：前台取 output 首块文本；后台拼
- * childId + receipt 为可读文本（子代理标识 + 完整 receipt，指引等待完成通知）。
- * @param value canonical 结果
- * @returns 文本块
- */
-function renderOutput(value: unknown): TextBlockLike {
-  const result = value as {
-    kind?: string
-    output?: readonly { text?: string }[]
-    childId?: string
-    receipt?: string
-  }
-  if (result.kind === 'background') {
-    return { type: 'text', text: renderBackground(result.childId ?? '', result.receipt ?? '') }
-  }
-  const text = result.output?.[0]?.text ?? ''
-  return { type: 'text', text }
-}
-
-/**
- * 拼装后台派发的模型可见文本：子代理标识 + 后台语义指引 + receipt（主会话据此
- * 继续其他工作，完成报告由 subagent-settled 通知送达）。
- * @param childId 子代理 durable session id
- * @param receipt 完整 receipt 文本（model/effort + 注入四元组）
- * @returns 后台派发文本
- */
-function renderBackground(childId: string, receipt: string): string {
-  return (
-    `Dispatched in background; child session: ${childId}. Continue with other work; ` +
-    `the completion report arrives via the subagent notice.\n\n${receipt}`
-  )
-}
-
-/**
- * 转译 continue 接续失败：sendMessage reject 的 message 含 "belongs to another parent
- * session"（DSH parent 严格校验：child.parentSession ≠ 当前会话，fork 分身接续源
- * 会话派发的 executor 必然命中）时，转为引导文案（保持 isError 语义：仍抛错，
- * 只是文案带下一步动作指引）；其余错误原样透传。
- * 依赖注意：匹配的是上游 DSH 的错误文案（FORK_PARENT_ERROR_FRAGMENT），该文案
- * 变更会让转译退化为原样透传（fail loud 仍在，只是少了引导）。
- * @param error sendMessage reject 的原始错误
- * @returns 转译或原样的错误
- */
-function translateForkContinueError(error: unknown): unknown {
-  if (error instanceof Error && error.message.includes(FORK_PARENT_ERROR_FRAGMENT)) {
-    return new Error(FORK_CONTINUE_GUIDANCE, { cause: error })
-  }
-  return error
 }
