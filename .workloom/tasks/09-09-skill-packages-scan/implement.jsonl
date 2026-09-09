@@ -1,1 +1,7 @@
 {"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": "packages/assets/skills/workloom-alignment/SKILL.md", "reason": "assets 现有 skill 的 frontmatter 与 description 写法参照（本 skill 为 model-invoked，格式对齐现有中间表示）"}
+{"file": ".workloom/config.json", "reason": "packages 字段的参照写法（basename key + repo 根条目），验收时扫描结果与此对齐"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "assets 与 adapter 的分层依赖规则：skill 注册链路（skills.ts / sync-skills.mjs）归属"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则、常量枚举与 verify 命令"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "SKILL.md 文案与注释的中英文分工"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "adapter-dsh dist 重建与 rsync 同步纪律（skills.ts 改动后必做）"}

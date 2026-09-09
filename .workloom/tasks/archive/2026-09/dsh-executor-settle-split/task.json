@@ -1,0 +1,63 @@
+{
+  "id": "4c6f7e9f-1ec6-4714-ab18-c5200e957d1c",
+  "name": "dsh-executor-settle-split",
+  "title": "DSH executor settle 循环回填对齐与 executor.ts 拆分",
+  "description": "用户 2026-09-09 确认合并两项 DSH 侧遗留（决策 2B + 3 并入）：1) DSH settle 循环回填对齐——adapter-dsh executor-settle 对同 childId 多条 running 只回填最近一条（core settleExecutorDispatch last-match 语义），steering/催办合并轮次会残留永久 running 条目（pi-executor-parity 容器 task.json 08:30 轮实证）；Pi 侧已修为循环 settle（缺陷 6，f5080a6），DSH 侧对齐同款语义。2) adapter-dsh/src/executor.ts 787 行超 code-style 600 行线（ST-A check P1 挂账），仿 adapter-pi 模式按职责拆分（guard/dispatch/settle/continuation 等），行为零变化。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-09T13:49:28.675Z",
+  "completedAt": "2026-09-09T14:46:33.344Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-09T14:45:40.228Z",
+    "summary": "全量复审通过，Open issues none。核对点：R1 循环 settle 与 Pi f5080a6 逐点对齐（上限 16/error 即停/hasRunningDispatch 防御逐行一致，core 零改动）；R2 纯搬移成立（787→579 行 + 三模块，executeTool 编排层与 HEAD 逐字一致，schema 逐字段一致，导出面仅 TextBlockLike 因拆分必要新增导出），全部 adapter-dsh 源文件 <600 行（最大 579）；R3 两条回归用例为真实链路非伪断言（HEAD 语义下必失败）；语言/术语纪律通过。check 自修 2 处 P2（injection 死代码 re-export、receipt 悬空 JSDoc）并复验；独立复跑 core 545/dsh 137/pi 158 + typecheck/lint/build 全绿；补执行 rsync 三包同步（implement 漏同步的 9 个新模块产物已就位），dshweb 重启留用户。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-09T14:14:54.803Z",
+    "summary": "无开放节点收敛。范围：容器遗留两项挂账并入单任务——R1 DSH settle 循环回填对齐 Pi 语义（同 childId 多条 running 一次 end 全回填，循环上限 16、每轮 error 即 WARNING 停止；core last-match 不动，循环归 adapter 层）+ R2 executor.ts（787 行）仿 adapter-pi 边界拆分至 <600 行纯搬移零行为变化；R3 回归用例 + R4 三端验证与 dist 同步。用户 2026-09-09 确认 prdHash 5e723f3a 并选择立即启动派发。",
+    "prdHash": "5e723f3a8565c158517e6915320e63785ac31e9ca8df3a9459f47c0d698773f1"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-09T14:16:12.867Z",
+      "title": "DSH settle 循环回填与 executor.ts 拆分实现",
+      "status": "completed",
+      "childId": "f54a5e9d-28c7-4a5f-ac96-a89c7a6104fb",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-09T14:37:18.771Z",
+      "title": "settle 循环与 executor 拆分复审",
+      "status": "completed",
+      "childId": "9ee4c5db-46be-4a27-8378-5266b5adaade",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

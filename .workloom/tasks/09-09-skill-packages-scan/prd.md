@@ -12,36 +12,36 @@
 
 ## Alignment Decisions
 
-（对齐进行中：第 1 轮问题已列出，等待用户回答；结论将逐条记录于此。）
+第 1 轮 8 个决策节点，用户 2026-09-09 答复「全按推荐」，逐条锁定：
 
-### 开放节点（第 1 轮 frontier，均已附主会话推荐）
+- skill 形态：脚本 + 提示词组合。确定性扫描（pnpm-workspace.yaml / package.json workspaces / lerna / nx / turbo / go.work / Cargo workspace / .gitmodules / 嵌套 .git）归脚本，候选呈现与确认交互归 SKILL.md。
+- 写入策略：先输出候选清单、用户确认后再写；已有 packages 非空时增量合并，冲突条目仅提示不覆盖。
+- `git`/`type` 口径：`git: true` 仅标 submodule 与嵌套 git 仓库；`type` 标来源类型（workspace/submodule/nested-git），与 `git` 互补。
+- 命名约定：目录 basename 做 key，scoped 包去 org 前缀取包名尾部，重名以相对路径消歧；默认追加 `repo: { path: "." }` 根条目，用户可去掉。
+- 分发范围：DSH 与 Pi 两个 adapter 都接入（skill runtime 无关，只操作文件系统与 config.json）。
+- 触发方式：model-invoked，靠 description 自动触发。
+- 扫描深度：workspace 清单文件驱动（清单路径直接采信）；嵌套 git 仅扫清单未覆盖的一级子目录 + .gitmodules；排除 node_modules / dist / vendor / 隐藏目录。
+- 验收口径：脚本配 node:test 单测（各生态 fixture 目录），skill 文档层走真仓人工验证。
 
-1. **skill 形态**：纯 SKILL.md 提示词引导 agent 用 bash/glob 扫描，还是捆绑确定性扫描脚本（如 `scripts/scan-packages.mjs`，识别 pnpm-workspace.yaml / package.json workspaces / lerna / nx / turbo / go.work / Cargo workspace / .gitmodules / 嵌套 .git）？
-   - 推荐：脚本 + 提示词组合——扫描是重复性机械工作，脚本保证各生态识别的确定性，提示词负责候选清单的呈现与确认交互。
-2. **写入策略**：扫描后直接改写 `.workloom/config.json`，还是先输出候选清单等用户确认再写？已有 packages 非空时是增量合并还是仅提示？
-   - 推荐：先确认后写入（符合 workloom 确认文化）；已有非空时增量合并、冲突条目仅提示不覆盖。
-3. **`git` 与 `type` 取值口径**：`git: true` 标 submodule 与嵌套 git 仓库；`type` 无现存消费者，标什么——生态类型（npm/go/cargo…）、来源类型（workspace/submodule/nested-git），还是不填？
-   - 推荐：`git: true` 仅标 submodule/嵌套 git；`type` 标来源类型（workspace/submodule/nested-git），语义与 `git` 互补且对 spec 组织有指导意义。
-4. **包名 key 命名约定**：目录 basename？scoped 包（`@org/pkg`）取 `pkg`？是否追加根条目 `repo: { path: "." }`？
-   - 推荐：目录 basename，scoped 包去 org 前缀取包名尾部，重名时以相对路径消歧；默认追加 `repo` 根条目（与 workloom 自身配置一致），用户可去掉。
-5. **分发范围**：DSH 与 Pi 两个 adapter 都接入，还是只接其一？
-   - 推荐：两个都接——skill 本身 runtime 无关，只操作文件系统与 config.json。
-6. **触发方式**：model-invoked（带 description 自动触发，如用户说"帮我扫一下包/初始化 workloom 配置"）还是 user-invoked（`disable-model-invocation: true`，只能手动点名）？
-   - 推荐：model-invoked——"新引入 workloom 后配置 packages"是用户会用自然语言表达的诉求，需要 agent 自主发现。
-7. **扫描深度与排除规则**：嵌套 git 仓库识别到什么深度？node_modules/dist/vendor 等目录如何排除？
-   - 推荐：workspace 清单文件驱动为主（清单声明的路径直接采信）；嵌套 git 仅扫 workspace 清单未覆盖的一级子目录 + .gitmodules；排除 node_modules、dist、vendor、隐藏目录。
-8. **验收口径**：以 workloom 本仓（pnpm monorepo）+ 一个含 submodule 的样例仓做验证，产出 config.json diff 供人工确认即算通过？还是需要 node:test 单测覆盖脚本？
-   - 推荐：脚本配 node:test 单测（各生态 fixture 目录），skill 文档层走人工验证。
+已否决备选：纯提示词无脚本（各生态识别不确定性）、直接改写 config.json（绕过确认文化）、type 标生态类型（与 git 语义重叠）、全深度递归扫嵌套 git（成本与误报）、仅接单 adapter、user-invoked（自然语言诉求需 agent 自主发现）、纯人工验证无单测。
 
-<!-- workloom:open-nodes=pending -->
+收敛摘要：frontier 无开放节点，Requirements 与 Acceptance Criteria 已按上述决策落定。
+
+<!-- workloom:open-nodes=none -->
 
 ## Requirements
 
-（待对齐收敛后填写。）
+- R1 扫描脚本：skill 目录内捆绑确定性扫描脚本，识别 pnpm-workspace.yaml、package.json workspaces、lerna、nx、turbo、go.work、Cargo workspace、.gitmodules、嵌套 .git；workspace 清单声明的路径直接采信，嵌套 git 仅探测清单未覆盖的一级子目录 + .gitmodules；排除 node_modules / dist / vendor / 隐藏目录。输出候选清单 `name → { path, type?, git? }`（key 命名与 type/git 口径按 Alignment Decisions）。
+- R2 SKILL.md（model-invoked，含 description 自动触发）：流程 = 运行扫描 → 呈现候选清单 → 用户确认 → 写入 `.workloom/config.json`；已有 packages 非空时增量合并，冲突条目仅提示不覆盖；默认追加 `repo: { path: "." }` 根条目并说明可去掉。
+- R3 双端分发接入：`packages/adapter-dsh/src/skills.ts` SKILL_PATHS 注册；`packages/adapter-pi/scripts/sync-skills.mjs` SKILL_SOURCES 同步（含脚本资产，Pi 侧可直接执行）；按 repo/deployment 重建 dist。
+- R4 单测与回归：扫描脚本配 node:test 单测，各生态用 fixture 目录覆盖；三端 test / typecheck / lint / build 全绿。
 
 ## Acceptance Criteria
 
-（待对齐收敛后填写。）
+- workloom 本仓（pnpm monorepo）人工验证：扫描产出的候选与现有 `.workloom/config.json` packages 一致（core / assets / adapter-dsh / adapter-pi + repo 根条目）。
+- 含 submodule 与嵌套 git 的样例仓验证：`git: true` 与 `type` 标注正确；已有非空 packages 时增量合并且冲突仅提示不覆盖。
+- 脚本 node:test 单测全部通过；三端测试基线（core 545+ / dsh 135+ / pi 158+）全绿，typecheck / lint 干净。
+- skill 在 DSH 与 Pi 双端可被发现并加载（SKILL_PATHS / SKILL_SOURCES 注册生效，dist 时间戳晚于源码并完成 rsync 同步）。
 
 ## Notes
 

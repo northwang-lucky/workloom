@@ -3,7 +3,7 @@
   "name": "skill-packages-scan",
   "title": "新增 skill workloom-packages-scan：旧项目引入 workloom 后的包扫描与 config.json packages 自动填写",
   "description": "新增 runtime 无关的 workloom-packages-scan skill：扫描旧项目结构（各类 monorepo / git submodule / 纯 git 嵌套项目），生成候选包清单并帮助用户填写 .workloom/config.json 的 packages 字段；接入 assets 中间表示与 adapter-dsh / adapter-pi 两条分发链。",
-  "status": "planning",
+  "status": "in_progress",
   "priority": "P2",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -23,7 +23,11 @@
   "notes": "",
   "meta": {},
   "check": null,
-  "alignment": null,
+  "alignment": {
+    "passedAt": "2026-09-09T14:17:35.636Z",
+    "summary": "第 1 轮 8 节点全部按推荐锁定（脚本+提示词组合、先确认后增量合并写入、git 标 submodule/嵌套 git 且 type 标来源类型、basename 命名+repo 根条目、双 adapter 分发、model-invoked、清单驱动扫描深度、脚本单测+真仓人工验证）；frontier 收敛无开放节点，用户 2026-09-09 确认 prdHash 428e55f8 并选择继续推进。",
+    "prdHash": "428e55f861593fe4ff1b7aa3a28ba6cd06cb1596d581999d7cee241ddb7a8a65"
+  },
   "overrides": [],
   "stage": "implement",
   "dispatches": [],
