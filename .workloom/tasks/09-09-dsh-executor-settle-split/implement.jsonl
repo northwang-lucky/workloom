@@ -1,1 +1,6 @@
 {"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": "docs/research/pi-dsh-executor-parity.md", "reason": "缺陷 6（settle 多轮歧义）事实基线与 Pi 侧修复口径，本任务 DSH 对齐的依据"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "拆分后模块的分层归属与薄投影边界"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "600 行拆分线、guard 优先、常量枚举等编码原则与 verify 命令"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "注释中文、运行时文案英文分工"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "adapter-dsh dist 重建与 rsync 同步纪律"}

@@ -1,1 +1,8 @@
 {"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": "docs/research/pi-dsh-executor-parity.md", "reason": "循环 settle 语义与 Pi 侧口径一致性核对"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "拆分模块边界与依赖方向审查"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "行数线、纯搬移零行为变化的 diff 审查标准"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "文案语言分工审查"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "dist 重建与同步纪律审查"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "settle 修复与拆分两 commit 的切分审查"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "settle/dispatch/executor 术语口径一致性"}
