@@ -44,7 +44,7 @@
       "kind": "check",
       "at": "2026-09-09T11:43:24.460Z",
       "title": "ST-B ADR 修订交付审查",
-      "status": "running",
+      "status": "completed",
       "childId": "86406362-69d9-4503-bd8c-ea22c4ea7382",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
