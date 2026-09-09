@@ -135,6 +135,16 @@
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
       "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-09T13:40:21.852Z",
+      "title": "容器全量复审（P1/缺陷 8 直修后）",
+      "status": "running",
+      "childId": "34661cf4-6fc0-41f0-81dd-a63c4f103744",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
     }
   ],
   "hooks": {
