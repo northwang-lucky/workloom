@@ -9,6 +9,7 @@ Coding principles for this repository.
 - params: more than 3 parameters become an options object
 - errors: error returns use a named tuple with `err` first; more than 1 non-error return becomes a result object
 - guards: guard clauses first, error paths before happy paths; no `else` after `return`
+- concurrency: no await gap between a gate check and the guarded action; slot occupancy follows resource semantics, not entity lifecycle — see concurrency.md
 - types: type imports always use `import type {}`; no `@ts-ignore`/`@ts-expect-error` except for broken third-party types
 - private: functions unused outside their module stay private
 - verify: eslint clean (no error/warning, no disables), tsc clean for changed TS, tests green — see verify.md
