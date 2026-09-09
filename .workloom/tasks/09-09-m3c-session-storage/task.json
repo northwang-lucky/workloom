@@ -29,7 +29,7 @@
     "prdHash": "600ebdaa897cdc646989bb913cdbd45900170bb5892b1706498ec3d0f5cf456f"
   },
   "overrides": [],
-  "stage": "implement",
+  "stage": "check",
   "dispatches": [
     {
       "kind": "implement",
@@ -38,6 +38,16 @@
       "status": "completed",
       "childId": "f99c3386-ce30-42c1-8c36-91afa52a67a4",
       "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-09T12:16:08.345Z",
+      "title": "ST-C 存储治理交付审查",
+      "status": "running",
+      "childId": "7f39de28-8384-4a04-9567-4aa44ca5a5d8",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
       "modelSource": "fallback"
     }
   ],
