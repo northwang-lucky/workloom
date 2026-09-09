@@ -38,10 +38,14 @@ export interface ChildRegistryEntry {
   status: 'running' | 'settling'
   /** 派发时间（ISO 字符串） */
   startedAt: string
+  /** 扩展宿主 pi 进程 pid（owner 存活 = child 有主，cleanup 跳过）。registerChild 自动填充。 */
+  ownerPid?: number
 }
 
-/** 落盘进程表条目（pid + sessionId + startedAt）。 */
+/** 落盘进程表条目（ownerPid + pid + sessionId + startedAt）。 */
 interface PersistedEntry {
+  /** 扩展宿主 pi 进程 pid（owner 存活 = child 有主，cleanup 跳过）。旧格式条目无此字段视为孤儿可回收。 */
+  ownerPid?: number
   /** 子进程 pid */
   pid: number
   /** 会话 id（= childId） */
@@ -78,10 +82,12 @@ export function registryPath(root: string): string {
 
 /**
  * 登记一个 child 进程（派发时刻调用）：写入进程内表 + 落盘进程表。
+ * ownerPid 自动取当前扩展宿主 pi 进程 pid。
  * @param sessionId 会话 id（= childId）
- * @param entry child 信息
+ * @param entry child 信息（ownerPid 自动填充）
  */
 export function registerChild(sessionId: string, entry: ChildRegistryEntry): void {
+  if (entry.ownerPid === undefined) entry.ownerPid = process.pid
   children.set(sessionId, entry)
   persistRegistry(rootOf(entry.root))
 }
@@ -140,6 +146,7 @@ function persistRegistry(root: string): void {
   const entries: PersistedEntry[] = []
   for (const [sessionId, entry] of children) {
     entries.push({
+      ownerPid: entry.ownerPid,
       pid: entry.child.pid ?? 0,
       sessionId,
       startedAt: entry.startedAt,
@@ -151,26 +158,47 @@ function persistRegistry(root: string): void {
 }
 
 /**
- * 孤儿回收（R6）：扩展加载时调用——读落盘进程表，残留条目对应的 pid 若存活
- * 则 SIGTERM（不收养），随后清空文件。
+ * 孤儿回收（R6）：扩展加载时调用——读落盘进程表，只回收「ownerPid 已死」的条目
+ *（owner 进程存活 = child 有主，跳过不杀；ownerPid 死亡 = 崩溃残留孤儿，
+ * SIGTERM child pid + 移除条目）。无 ownerPid 的旧格式条目视为孤儿可回收。
  * @param root 项目根
  */
 export function cleanupOrphans(root: string): void {
   const entries = loadPersisted(root)
   if (entries.length === 0) return
+  const surviving: PersistedEntry[] = []
   for (const entry of entries) {
-    if (entry.pid <= 0) continue
-    // pid 存活 → SIGTERM（不收养孤儿，只清理残留进程表）。
-    try {
-      process.kill(entry.pid, 'SIGTERM')
-    } catch {
-      // pid 已退出（ESRCH）→ 跳过
+    // ownerPid 存活 → child 有主，保留条目（不 SIGTERM）。
+    if (entry.ownerPid !== undefined && isPidAlive(entry.ownerPid)) {
+      surviving.push(entry)
+      continue
+    }
+    // ownerPid 已死或无 ownerPid（旧格式）→ 孤儿，SIGTERM child pid。
+    if (entry.pid > 0) {
+      try {
+        process.kill(entry.pid, 'SIGTERM')
+      } catch {
+        // pid 已退出（ESRCH）→ 跳过
+      }
     }
   }
-  // 清空落盘进程表（原子写空表）。
+  // 写回存活条目（原子写）。
   const path = registryPath(root)
   mkdirSync(dirname(path), { recursive: true })
-  writeFileAtomic(path, JSON.stringify({ entries: [] }, null, 2))
+  writeFileAtomic(path, JSON.stringify({ entries: surviving }, null, 2))
+}
+
+/** 判定 pid 是否存活（process.kill(pid, 0)：ESRCH = 死，其他 = 活）。 */
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ESRCH') return false
+    // EPERM 等视为活（进程存在但无权限）
+    return true
+  }
 }
 
 /**

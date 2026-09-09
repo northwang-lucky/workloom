@@ -29,6 +29,7 @@ import {
 import { loadWorkflowContractText } from '@workloom-ai/assets'
 
 import { contextKeyOf, SESSION_CONTEXT_CUSTOM_TYPE } from './constants.ts'
+import { cleanupOrphans } from './pi-child-registry.ts'
 import { readMainModel } from './main-model.ts'
 
 /** session-context 注入跳过告警前缀（运行时文案英文）。 */
@@ -68,6 +69,9 @@ function injectSessionContext(
   if (!INJECT_REASONS.has(event.reason)) return
   const root = resolveProjectRoot(ctx)
   if (root === null) return
+  // 孤儿回收（R6）：扩展加载/首次会话建立时调用一次。只回收 ownerPid 已死的条目
+  // （owner 存活 = child 有主，跳过）；findWorkloomRoot 失败静默跳过（注入是增强不是门禁）。
+  cleanupOrphans(root)
   const contextKey = contextKeyOf(ctx.sessionManager.getSessionId())
   const contractText = loadWorkflowContractText()
   if (contractText === null) {

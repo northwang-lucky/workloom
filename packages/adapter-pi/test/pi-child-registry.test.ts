@@ -146,3 +146,63 @@ test('cleanupOrphans: 清理残留落盘进程表（pid 不存在时不报错）
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// ---- ownerPid 守卫回归测试 ----
+
+test('cleanupOrphans: ownerPid 存活时条目保留（不误杀）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    // 写入 ownerPid = 当前进程 pid（存活）的条目。
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      registryPath(root),
+      JSON.stringify({ entries: [{ ownerPid: process.pid, pid: 99999, sessionId: 'alive', startedAt: '2024-01-01T00:00:00Z' }] }),
+    )
+    cleanupOrphans(root)
+    // ownerPid 存活 → 条目保留。
+    const parsed = JSON.parse(readFileSync(registryPath(root), 'utf8'))
+    assert.equal(parsed.entries.length, 1, 'ownerPid 存活时条目应保留')
+    assert.equal(parsed.entries[0].sessionId, 'alive')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanupOrphans: ownerPid 已死时条目被回收', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    // 写入 ownerPid = 99999（不存在）的条目。
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      registryPath(root),
+      JSON.stringify({ entries: [{ ownerPid: 99999, pid: 88888, sessionId: 'dead-owner', startedAt: '2024-01-01T00:00:00Z' }] }),
+    )
+    cleanupOrphans(root)
+    // ownerPid 已死 → 条目被回收。
+    const parsed = JSON.parse(readFileSync(registryPath(root), 'utf8'))
+    assert.equal(parsed.entries.length, 0, 'ownerPid 已死时条目应被回收')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanupOrphans: 无 ownerPid 旧格式条目被回收（向后兼容）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    // 写入无 ownerPid 的旧格式条目。
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      registryPath(root),
+      JSON.stringify({ entries: [{ pid: 77777, sessionId: 'old-format', startedAt: '2024-01-01T00:00:00Z' }] }),
+    )
+    cleanupOrphans(root)
+    // 无 ownerPid → 视为孤儿，条目被回收。
+    const parsed = JSON.parse(readFileSync(registryPath(root), 'utf8'))
+    assert.equal(parsed.entries.length, 0, '无 ownerPid 旧格式条目应被回收')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

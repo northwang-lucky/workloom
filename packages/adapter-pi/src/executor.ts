@@ -67,7 +67,7 @@ import type {
 
 import { contextKeyOf } from './constants.ts'
 import { readMainModel } from './main-model.ts'
-import { cleanupOrphans, sessionsDir } from './pi-child-registry.ts'
+import { sessionsDir } from './pi-child-registry.ts'
 import { dispatchChildPi } from './executor-dispatch.ts'
 import {
   CONTINUE_REBIND_REJECT_TEXT,
@@ -345,8 +345,6 @@ async function executeTool(
     )
   }
   const root = found.root
-  // 孤儿回收（R6）：按 root 清理残留进程表。
-  cleanupOrphans(root)
   // 初始化会话存储目录。
   mkdirSync(sessionsDir(root), { recursive: true })
   // 合并子代理默认值。
