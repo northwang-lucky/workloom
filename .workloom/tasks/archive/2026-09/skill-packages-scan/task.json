@@ -1,0 +1,91 @@
+{
+  "id": "32aad908-7266-4232-a2f1-0e57e71dff1d",
+  "name": "skill-packages-scan",
+  "title": "新增 skill workloom-packages-scan：旧项目引入 workloom 后的包扫描与 config.json packages 自动填写",
+  "description": "新增 runtime 无关的 workloom-packages-scan skill：扫描旧项目结构（各类 monorepo / git submodule / 纯 git 嵌套项目），生成候选包清单并帮助用户填写 .workloom/config.json 的 packages 字段；接入 assets 中间表示与 adapter-dsh / adapter-pi 两条分发链。",
+  "status": "completed",
+  "priority": "P2",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-09T05:17:29.527Z",
+  "completedAt": "2026-09-09T16:09:37.583Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-09T16:09:04.661Z",
+    "summary": "两轮全量复审后通过，Open issues none。核对：8 项 Alignment Decisions 全部落定且产出一致；glob 展开两 P2 缺陷（packages/** 零候选、@org scope 假候选）修复并复验（workspace glob 按 package.json 包根过滤、** 递归排除规则生效、go/Cargo/nx 语义边界正确）；首轮 check 的 6 类自修无回退；测试文件超 600 行已按 P2 拆分（主 519 行 + git 3 例独立 + test-helpers）；排除名单枚举抽 fs-utils.mjs 单一事实源；Pi 分发副本 diff -r 逐字节一致且新鲜。独立复跑：core 545 / dsh 137 / pi 158 / assets 27 全绿，typecheck/lint/build 干净，本仓扫描与 config.json 一致。profile rsync 归主会话执行。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-09T14:17:35.636Z",
+    "summary": "第 1 轮 8 节点全部按推荐锁定（脚本+提示词组合、先确认后增量合并写入、git 标 submodule/嵌套 git 且 type 标来源类型、basename 命名+repo 根条目、双 adapter 分发、model-invoked、清单驱动扫描深度、脚本单测+真仓人工验证）；frontier 收敛无开放节点，用户 2026-09-09 确认 prdHash 428e55f8 并选择继续推进。",
+    "prdHash": "428e55f861593fe4ff1b7aa3a28ba6cd06cb1596d581999d7cee241ddb7a8a65"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-09T14:47:06.396Z",
+      "title": "workloom-packages-scan skill 实现",
+      "status": "failed",
+      "childId": "b604ff6e-4c76-4baf-9b16-dba2427aa8aa",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback",
+      "error": "the executor ran out of tokens before it finished"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T15:08:11.496Z",
+      "title": "packages-scan 第一段：扫描脚本与单测",
+      "status": "completed",
+      "childId": "06fe988e-8e5d-4cd0-927f-47afd7a79d74",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T15:16:29.545Z",
+      "title": "packages-scan 第二段：SKILL.md 与双端分发",
+      "status": "completed",
+      "childId": "4614de0b-ee47-4897-b5cf-57860ee8b761",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-09T15:27:42.966Z",
+      "title": "packages-scan skill 全量复审",
+      "status": "completed",
+      "childId": "158577fa-9e5f-4d9e-bac2-6c464c1d8918",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-09T15:51:48.041Z",
+      "title": "glob 展开语义两处 P2 收尾",
+      "status": "running",
+      "childId": "06fe988e-8e5d-4cd0-927f-47afd7a79d74",
+      "model": "longcat/LongCat-2.0",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

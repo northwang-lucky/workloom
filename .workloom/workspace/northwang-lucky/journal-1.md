@@ -256,3 +256,9 @@
 - Commit: 2f81424
 - Summary: dsh-executor-settle-split 全程闭环：settle 循环回填对齐 Pi 语义 + executor.ts 拆分至 <600 行，check 全绿归档；skill-packages-scan 完成 1.1 对齐与 1.3 上下文配置并启动。
 
+## workloom-packages-scan skill 交付闭环
+
+- Time: 2026-09-09T16:09:37.585Z
+- Commit: fe0ef8a
+- Summary: skill-packages-scan 全程闭环：新增 workloom-packages-scan skill（扫描脚本+27 单测+SKILL.md）并接入 DSH/Pi 双端分发；含两段阵亡教训后的分段派发与两轮 check；三 commit 落地，rsync 完成，dshweb 重启留用户。
+
