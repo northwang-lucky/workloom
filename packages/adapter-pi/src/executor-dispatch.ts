@@ -41,8 +41,8 @@ import {
 } from './pi-child-registry.ts'
 import { registerChildSettle, HOST_SESSION_ENDED_TEXT } from './executor-settle.ts'
 
-/** 取消时向 child pi 发送的终止信号。 */
-const KILL_SIGNAL = 'SIGTERM'
+/** 取消时向 child pi 发送的终止信号（派发与续用重启两条链路共用）。 */
+export const KILL_SIGNAL = 'SIGTERM'
 
 /** 派发审计记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
 const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
@@ -106,6 +106,26 @@ interface DispatchChildPiParams {
 }
 
 /**
+ * 等待 child 进程完成 spawn（纯时序，可单测）：spawn 同步返回后，失败（如 ENOENT）
+ * 经 'error' 事件异步抛出——包装为 Promise 使其可被调用方 try/catch 捕获（design R4：
+ * spawn 失败也留痕 fail loud）；'error' 监听器同时防住无监听时的 uncaught exception。
+ * 兜底判定用 child.pid（'spawn' 事件已错过的迟到调用场景：成功时 pid 同步已赋值，
+ * 失败时为 undefined）；不得用 stdin 存在判定——stdio pipe 在 spawn() 返回时即创建，
+ * ENOENT 失败路径下同样非空，会导致提前 resolve、首条命令写入与 'error' 事件竞速
+ *（EPIPE/ENOENT 不确定，缺陷 8）。
+ * @param child 已 spawn 的 child 进程
+ */
+export function waitForChildSpawn(child: ChildProcess): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    child.once('error', (err) => reject(err))
+    child.once('spawn', () => resolve())
+    if (child.pid !== undefined) {
+      resolve()
+    }
+  })
+}
+
+/**
  * spawn RPC child pi 并派发：get_state 取 sessionId → 登记 → recordDispatch →
  * prompt 命令 → 默认后台立即返回 { childId, receipt }；foreground 等 settle 终文。
  */
@@ -151,18 +171,14 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
   let sessionId: string | undefined
   let child: ReturnType<typeof spawn> | undefined
   let connection: ReturnType<typeof createRpcConnection> | undefined
+  // running 留痕已写过标志：prompt 阶段失败时改走 settle 回填，避免残留永久 running 条目。
+  let dispatchedRunning = false
   try {
     // spawn RPC child。spawn 失败（如 ENOENT）在 bun/Node 上通过 'error' 事件
-    // 异步抛出——包装为 Promise 以被 try/catch 捕获（design R4：spawn 失败也留痕）。
+    // 异步抛出——waitForChildSpawn 包装为 Promise 以被 try/catch 捕获（design R4：
+    // spawn 失败也留痕）。
     child = spawn(process.env.PI_BIN ?? 'pi', args, buildChildSpawnOptions(cwd))
-    await new Promise<void>((resolve, reject) => {
-      child!.once('error', (err) => reject(err))
-      child!.once('spawn', () => resolve())
-      // 已 spawn 成功（同步）时 'spawn' 事件可能已错过，用 stdin 存在判定。
-      if (child!.stdin !== null && !child!.stdin.destroyed) {
-        resolve()
-      }
-    })
+    await waitForChildSpawn(child)
     // 创建 RPC 连接（严格 \n 分帧）。
     connection = createRpcConnection(child)
     // get_state 取 sessionId（= childId）。
@@ -197,21 +213,33 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
         mainModel,
       ),
     })
+    dispatchedRunning = true
     // 发送 prompt 命令。
     await connection.sendCommand({ type: 'prompt', message: prompt })
   } catch (error) {
     // spawn/get_state/prompt 失败：留痕 failed（无 sessionId 时 childId 缺省）+ fail loud。
-    // design R4：失败派发也留痕——即使 get_state 失败/spawn 即失败（sessionId 未取到），
-    // 仍写一条 status=failed 记录（kind/title/绑定齐全，childId 缺省）。
+    // design R4：失败派发也留痕——running 已写过时直接回填该条目为 failed（防残留
+    // 永久 running）；未写过时追加一条 status=failed 记录（kind/title/绑定齐全）。
     const message = error instanceof Error ? error.message : String(error)
-    recordDispatch(root, taskRelPath, {
-      kind,
-      title,
-      ...(sessionId !== undefined && sessionId !== '' ? { childId: sessionId } : {}),
-      ...buildNewDispatchBinding({ model: rawModel, effort: rawEffort } as Static<typeof EXECUTOR_PARAMS>, effective, mainModel),
-      status: 'failed',
-      error: message,
-    })
+    if (dispatchedRunning && sessionId !== undefined && sessionId !== '') {
+      const [settleErr] = settleExecutorDispatch(root, taskRelPath, {
+        childId: sessionId,
+        status: 'failed',
+        error: message,
+      })
+      if (settleErr !== null) {
+        console.warn(`${DISPATCH_WARN_PREFIX} ${settleErr}`)
+      }
+    } else {
+      recordDispatch(root, taskRelPath, {
+        kind,
+        title,
+        ...(sessionId !== undefined && sessionId !== '' ? { childId: sessionId } : {}),
+        ...buildNewDispatchBinding({ model: rawModel, effort: rawEffort } as Static<typeof EXECUTOR_PARAMS>, effective, mainModel),
+        status: 'failed',
+        error: message,
+      })
+    }
     if (sessionId !== undefined && sessionId !== '') {
       unregisterChild(sessionId)
     }

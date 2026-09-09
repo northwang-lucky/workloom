@@ -351,3 +351,37 @@ test('persistEmptyRegistry: 首次落盘同写自守护 .gitignore（存量项�
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// ---- unregisterChild 身份校验（续用重启同 id 覆盖后的迟到 close 竞态） ----
+
+test('unregisterChild: expected 引用不符时不删除（旧 close 迟到不得误删新条目）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    const oldEntry = makeEntry(root, 22001)
+    registerChild('s-dup', oldEntry)
+    // 续用重启：同 sessionId 覆盖登记（新条目引用）。
+    const newEntry = makeEntry(root, 22002)
+    registerChild('s-dup', newEntry)
+    // 旧进程 close 迟到：携带旧引用注销——新条目必须保留。
+    unregisterChild('s-dup', oldEntry)
+    const kept = getChild('s-dup')
+    assert.ok(kept !== undefined, '身份不符时新条目保留')
+    assert.equal(kept?.child.pid, 22002)
+    // 新进程 close：携带新引用注销——正常移除。
+    unregisterChild('s-dup', newEntry)
+    assert.equal(getChild('s-dup'), undefined, '身份相符时正常移除')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('unregisterChild: 不传 expected 时无条件删除（向后兼容）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    registerChild('s-any', makeEntry(root, 22003))
+    unregisterChild('s-any')
+    assert.equal(getChild('s-any'), undefined, '无身份校验时直接移除')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

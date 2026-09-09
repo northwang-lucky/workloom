@@ -41,6 +41,13 @@ export const EXECUTOR_REPORT_CUSTOM_TYPE = 'workloom-executor-report'
 /** 主会话结束时的失败摘要（R6 孤儿回收联动）。 */
 export const HOST_SESSION_ENDED_TEXT = 'host session ended'
 
+/**
+ * 活跃 settle 登记表（按 sessionId → supersede 句柄）：同会话再注册（续用轮）时
+ * 把旧 settle 置为已结算并移除其 abort 监听——旧 settle 的事件回调已被单槽
+ * onEvent 覆盖、永不再 finish，残留监听会造成第二次回投（容器 check P1）。
+ */
+const activeSettles = new Map<string, () => void>()
+
 /** settle 结果（成功终文或失败摘要）。 */
 export interface SettleResult {
   /** 终态 */
@@ -76,6 +83,7 @@ export function registerChildSettle(
     const state: PiEventState = { textParts: [], done: false }
     const stderrParts: string[] = []
     let settled = false
+    let onAbort: (() => void) | undefined
 
     /** 完成结算（内部）：循环回填 + 回投（幂等，只执行一次）。
      * 注意：不在此处 unregisterChild——RPC child 是常驻进程，注册表条目移除以
@@ -88,6 +96,10 @@ export function registerChildSettle(
     const finish = (result: SettleResult): void => {
       if (settled) return
       settled = true
+      // 本 settle 已终态：撤销 active 登记（仅当登记仍指向自己，避免误删后继轮）。
+      if (activeSettles.get(sessionId) === disposeActive) {
+        activeSettles.delete(sessionId)
+      }
       const SETTLE_MAX_ROUNDS = 16
       for (let round = 0; round < SETTLE_MAX_ROUNDS; round++) {
         // 回填 dispatches（失败只 WARNING，不阻塞结算）。
@@ -112,11 +124,22 @@ export function registerChildSettle(
       resolve(result)
     }
 
+    // supersede 同 sessionId 的旧 settle（续用轮再注册）：置旧侧 settled 并摘除其
+    // abort 监听，杜绝「一次 run 两条报告」（容器 check P1）。
+    activeSettles.get(sessionId)?.()
+    const disposeActive = (): void => {
+      settled = true
+      if (onAbort !== undefined && signal !== undefined) {
+        signal.removeEventListener('abort', onAbort)
+      }
+    }
+    activeSettles.set(sessionId, disposeActive)
+
     // 取消路径抢占（缺陷 7）：signal.aborted 时立即以 failed 结算，覆盖 agent_end 的 completed。
     // Pi 对被 abort 的 run 同样发 agent_end，原逻辑一律当 completed → 终态失真。
     // 取消结算后 settled 标志阻止随后到达的 agent_end 改写终态。
     if (signal !== undefined) {
-      const onAbort = (): void => {
+      onAbort = (): void => {
         finish({
           status: 'failed',
           error: 'dispatch aborted by main session',
@@ -155,6 +178,8 @@ export function registerChildSettle(
     // child 进程 close → 清理注册表（内存 + registry.json 同步）。
     // 不变式：注册表条目移除以 child 进程 close 事件为准——RPC child 是常驻进程，
     // agent_end 后进程仍存活（等待续用），只有 close 时才真正退出。
+    // 传 entry 做身份校验：续用重启以同 sessionId 覆盖登记后，旧进程迟到的 close
+    // 不得误删新条目。
     child.on('close', (code, signalCode) => {
       // agent_end 已结算时跳过（正常退出路径）。
       if (!settled) {
@@ -166,8 +191,8 @@ export function registerChildSettle(
           error: limitErrorLine(stderrTail === '' ? head : `${head}: ${stderrTail}`),
         })
       }
-      // 无论是否已结算，close 时均清理注册表。
-      unregisterChild(sessionId)
+      // 无论是否已结算，close 时均清理注册表（仅限本 settle 对应的登记条目）。
+      unregisterChild(sessionId, entry)
     })
   })
 }

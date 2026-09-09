@@ -175,14 +175,33 @@ export function createRpcConnection(child: ChildProcess, onEvent?: RpcEventCallb
     buffer = ''
   }
 
+  /** 连接终结（内部）：停止读取、拒绝全部 pending——显式 close 与 child 进程退出共用。 */
+  const shutdown = (message: string): void => {
+    if (closed) return
+    closed = true
+    stdout.off('data', onData)
+    stdout.off('end', onEnd)
+    for (const [, entry] of pending) {
+      entry.reject(new Error(`${ERR_PREFIX.executor}: ${message}`))
+    }
+    pending.clear()
+  }
+
   stdout.on('data', onData)
   stdout.on('end', onEnd)
+  // 进程退出即连接终结（design §2.1）：get_state/prompt/steer 飞行中崩溃/被杀时
+  // pending 立即落定 fail loud，防工具调用永久挂起（容器 check P1）。
+  child.once('close', () => shutdown('child pi process exited'))
 
   return {
     sendCommand(cmd) {
       const id = nextId++
       const command = { ...cmd, id }
       return new Promise<RpcResponse>((resolve, reject) => {
+        if (closed) {
+          reject(new Error(`${ERR_PREFIX.executor}: RPC connection closed`))
+          return
+        }
         pending.set(id, { resolve, reject })
         const stdin = child.stdin
         if (stdin === null || stdin.destroyed) {
@@ -204,15 +223,7 @@ export function createRpcConnection(child: ChildProcess, onEvent?: RpcEventCallb
       callback = cb
     },
     close() {
-      if (closed) return
-      closed = true
-      stdout.off('data', onData)
-      stdout.off('end', onEnd)
-      // 拒绝所有 pending 请求（进程退出或连接关闭时清理）。
-      for (const [, entry] of pending) {
-        entry.reject(new Error(`${ERR_PREFIX.executor}: RPC connection closed`))
-      }
-      pending.clear()
+      shutdown('RPC connection closed')
     },
   }
 }

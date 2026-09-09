@@ -280,3 +280,42 @@ test('handleSessionShutdown: sigtermAllAlive 后 registry.json 持久化为空�
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// ---- 容器 check P1 回归：续用二次注册 supersede 旧 settle（一次 run 一条报告） ----
+
+test('supersede: 同 sessionId 二次注册后旧 settle 不再产生第二条报告', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 'first', childId: 'sup1' })
+    const entry = makeEntry(root, 91111)
+    registerChild('sup1', entry)
+    let reports = 0
+    const pi = {
+      sendMessage: () => {
+        reports++
+      },
+      on: () => {},
+    } as unknown as import('@earendil-works/pi-coding-agent').ExtensionAPI
+    const conn = entry.connection as unknown as { _triggerEvent: (event: Record<string, unknown>) => void }
+    // 首派后台注册（旧 settle）。
+    registerChildSettle(pi, entry.connection, entry, 'sup1', false)
+    // steering 续用：同 connection/sessionId 二次注册（新 settle 应 supersede 旧的）。
+    recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 'steer', childId: 'sup1' })
+    registerChildSettle(pi, entry.connection, entry, 'sup1', false)
+    // run 结束：agent_end 只触发新 settle（单槽 onEvent 已被覆盖）。
+    conn._triggerEvent({ type: 'agent_end' })
+    assert.equal(reports, 1, 'agent_end 应只回投一条报告')
+    // 旧 settle 的 close 监听不再产生第二条报告（superseded 后 settled 已置位）。
+    entry.child.emit('close', 0, null)
+    assert.equal(reports, 1, 'child close 后旧 settle 不得再回投（一次 run 一条报告）')
+    // 两条 running 均经新 settle 循环回填。
+    const task = JSON.parse(readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'))
+    assert.equal(task.dispatches.length, 2)
+    for (const d of task.dispatches) {
+      assert.equal(d.status, 'completed')
+    }
+  } finally {
+    unregisterChild('sup1')
+    rmSync(root, { recursive: true, force: true })
+  }
+})

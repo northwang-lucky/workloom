@@ -14,8 +14,12 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { finalAssistantOutput } from '@deepseek-ai/dsh-subagent'
 
 import {
+  buildContinueNoChildIdText,
+  buildContinueNoDispatchText,
+  buildCrossKindReuseRejectText,
   buildExecutorReceipt,
   buildSpawnBindingReceipt,
+  CONTINUE_EXECUTOR_LATEST,
   EMPTY_OUTPUT_TEXT,
   ERR_PREFIX,
   readTask,
@@ -27,9 +31,6 @@ import type {
 } from '@workloom-ai/core'
 
 import type { MinimalAgent } from './executor.js'
-
-/** 续用定位入参 `continue_executor` 的 'latest' 魔法值（复用 dispatches 同 kind 最近一次）。 */
-const REUSE_LATEST = 'latest'
 
 /** 释放子代理 Activation 失败告警前缀（运行时文案英文；释放失败不阻塞结果返回）。 */
 const DRAIN_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to release continuable child:`
@@ -200,32 +201,22 @@ export function locateContinueChildId(
     ]
   }
   const dispatches: readonly DispatchRecord[] = task.dispatches ?? []
-  if (input === REUSE_LATEST) {
+  if (input === CONTINUE_EXECUTOR_LATEST) {
     for (let i = dispatches.length - 1; i >= 0; i--) {
       const entry = dispatches[i]
       if (entry === undefined) continue
       if (entry.kind !== kind) continue
       if (entry.childId !== undefined && entry.childId !== '') return [null, entry.childId]
     }
-    return [
-      `${ERR_PREFIX.executor}: no previous ${kind} executor dispatch with a recorded child id ` +
-        `was found for this task; dispatch a new executor or pass the exact childId of a previous ` +
-        `${kind} dispatch`,
-      '',
-    ]
+    return [`${ERR_PREFIX.executor}: ${buildContinueNoDispatchText(kind)}`, '']
   }
   const match = dispatches.find((entry) => entry.childId === input)
   if (match === undefined) {
-    return [
-      `${ERR_PREFIX.executor}: no dispatch record with childId "${input}" was found for this task; ` +
-        `pass "${REUSE_LATEST}" or the childId of a previous ${kind} dispatch`,
-      '',
-    ]
+    return [`${ERR_PREFIX.executor}: ${buildContinueNoChildIdText(input, kind)}`, '']
   }
   if (match.kind !== kind) {
     return [
-      `${ERR_PREFIX.executor}: cross-kind reuse rejected: session "${input}" belongs to a ` +
-        `${match.kind} dispatch, but this call is kind ${kind}; reuse is limited to the same kind`,
+      `${ERR_PREFIX.executor}: ${buildCrossKindReuseRejectText(input, match.kind, kind)}`,
       '',
     ]
   }

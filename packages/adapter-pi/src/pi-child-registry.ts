@@ -109,18 +109,22 @@ export function ensureSessionsDir(root: string): string {
 export function registerChild(sessionId: string, entry: ChildRegistryEntry): void {
   if (entry.ownerPid === undefined) entry.ownerPid = process.pid
   children.set(sessionId, entry)
-  persistRegistry(rootOf(entry.root))
+  persistRegistry(entry.root)
 }
 
 /**
  * 移除一个 child 进程（child 退出时调用）：从进程内表 + 落盘进程表删除。
  * @param sessionId 会话 id（= childId）
+ * @param expected 期望移除的条目引用（可选身份校验）：传入时仅当当前登记条目
+ *   与之同引用才删除——防住「续用重启以同 sessionId 覆盖登记后，旧进程 close
+ *   事件迟到误删新条目」的竞态。
  */
-export function unregisterChild(sessionId: string): void {
+export function unregisterChild(sessionId: string, expected?: ChildRegistryEntry): void {
   const entry = children.get(sessionId)
   if (entry === undefined) return
+  if (expected !== undefined && entry !== expected) return
   children.delete(sessionId)
-  persistRegistry(rootOf(entry.root))
+  persistRegistry(entry.root)
 }
 
 /**
@@ -226,7 +230,7 @@ function isPidAlive(pid: number): boolean {
  * 未完成派发由 settle 回填 failed（摘要注明 host session ended）。
  */
 export function sigtermAllAlive(): void {
-  for (const [sessionId, entry] of children) {
+  for (const entry of children.values()) {
     const pid = entry.child.pid
     if (pid === undefined) continue
     try {
@@ -234,14 +238,8 @@ export function sigtermAllAlive(): void {
     } catch {
       // pid 已退出 → 跳过
     }
-    void sessionId
   }
   children.clear()
-}
-
-/** 从 entry 的 root 字段取项目根（防御：entry 已含 root）。 */
-function rootOf(root: string): string {
-  return root
 }
 
 /** 注册表 WARNING 前缀（运行时文案英文）。 */

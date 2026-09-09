@@ -5,13 +5,15 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 
 import { CONTINUE_REBIND_REJECT_TEXT } from '@workloom-ai/core'
 
 import {
+  continueExecutor,
   locateContinueChildId,
   readSpawnBinding,
 } from '../src/executor-continuation.ts'
@@ -184,4 +186,49 @@ test('buildChildPiArgs: 无 sessionParam 时不出现 --session（新派）', ()
   })
   assert.equal(args.includes('--session'), false)
   assert.deepEqual(args.slice(0, 2), ['--mode', 'rpc'])
+})
+
+// ---- continueExecutor 分支 3：重启续接失败留痕（R4 纪律，与首派同口径） ----
+
+test('continueExecutor: 重启续接 spawn 失败 → dispatches 留痕 failed + fail loud', async () => {
+  const { root, taskRelPath } = makeTaskRoot([
+    { kind: 'research', title: 'first', childId: 's-old' },
+  ])
+  const originalBin = process.env.PI_BIN
+  process.env.PI_BIN = '/nonexistent/pi-for-continuation-test'
+  try {
+    await assert.rejects(
+      continueExecutor({
+        pi: { sendMessage: () => {}, on: () => {} } as unknown as ExtensionAPI,
+        kind: 'research',
+        title: 'again',
+        root,
+        taskRelPath,
+        loadExtensions: [],
+        parentSessionId: 'main',
+        effective: { sources: {} },
+        gate: { forced: false },
+        allowInfo: { allow: ['read'], childHasLsp: false },
+        piBuilt: {
+          hasLsp: false,
+          result: { text: 'full', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } },
+        },
+        childId: 's-old',
+        incrementalPrompt: 'more work',
+        reinject: false,
+      }),
+      /ENOENT/,
+    )
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ) as { dispatches: Array<{ status?: string; childId?: string; kind?: string; error?: string }> }
+    const failed = task.dispatches.find((d) => d.status === 'failed')
+    assert.ok(failed !== undefined, 'failed 条目已留痕')
+    assert.equal(failed.childId, 's-old')
+    assert.equal(failed.kind, 'research')
+    assert.match(String(failed.error), /ENOENT/)
+  } finally {
+    process.env.PI_BIN = originalBin
+    rmSync(root, { recursive: true, force: true })
+  }
 })

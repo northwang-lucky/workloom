@@ -16,6 +16,7 @@
 import { ERR_PREFIX } from '@workloom-ai/core'
 
 import { EXECUTOR_AGENT_DEFINITIONS } from './agent-definitions.ts'
+import { sessionsDir } from './pi-child-registry.ts'
 
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String；口径与 DSH 相同）。 */
 const KIND_LABELS = {
@@ -81,7 +82,7 @@ export function buildChildPiArgs(params: BuildChildPiArgsParams): string[] {
   }
   args.push(
     '--session-dir',
-    `${params.root}/.workloom/sessions/pi`,
+    sessionsDir(params.root),
     '--no-extensions',
     '--name',
     `[${kindLabel}] ${params.title}`,

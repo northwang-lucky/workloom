@@ -19,24 +19,29 @@
  */
 
 import {
+  buildContinueNoChildIdText,
+  buildContinueNoDispatchText,
+  buildCrossKindReuseRejectText,
+  CONTINUE_EXECUTOR_LATEST,
   ERR_PREFIX,
   readTask,
   recordExecutorDispatch,
+  settleExecutorDispatch,
 } from '@workloom-ai/core'
 import type { DispatchRecord, DispatchModelSource, ExecutorInjectionStats } from '@workloom-ai/core'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
+import { spawn, type ChildProcess } from 'node:child_process'
 
 import { getChild, registerChild, type ChildRegistryEntry } from './pi-child-registry.ts'
-import { createRpcConnection } from './pi-rpc.ts'
+import { createRpcConnection, type RpcConnection } from './pi-rpc.ts'
 import { buildChildPiArgs } from './pi-args.ts'
-import { spawn } from 'node:child_process'
 import { registerChildSettle } from './executor-settle.ts'
-import { buildChildSpawnOptions } from './executor-dispatch.ts'
+import { buildChildSpawnOptions, KILL_SIGNAL, waitForChildSpawn } from './executor-dispatch.ts'
 import type { ConflictGateResult, PiExecutorPromptResult } from './executor.ts'
 import { appendExecutorReceipt } from './executor.ts'
 
-/** 续用定位入参 continue_executor 的 'latest' 魔法值（复用 dispatches 同 kind 最近一次）。 */
-const REUSE_LATEST = 'latest'
+/** 续用链路告警前缀（留痕失败只 WARNING，不阻塞续用主流程）。 */
+const CONTINUATION_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record continuation dispatch:`
 
 /**
  * 定位续用 childId（dispatches 记录，同 kind 边界）：'latest' 取同 kind 最近一条的
@@ -63,32 +68,22 @@ export function locateContinueChildId(
     ]
   }
   const dispatches: readonly DispatchRecord[] = task.dispatches ?? []
-  if (input === REUSE_LATEST) {
+  if (input === CONTINUE_EXECUTOR_LATEST) {
     for (let i = dispatches.length - 1; i >= 0; i--) {
       const entry = dispatches[i]
       if (entry === undefined) continue
       if (entry.kind !== kind) continue
       if (entry.childId !== undefined && entry.childId !== '') return [null, entry.childId]
     }
-    return [
-      `${ERR_PREFIX.executor}: no previous ${kind} executor dispatch with a recorded child id ` +
-        `was found for this task; dispatch a new executor or pass the exact childId of a previous ` +
-        `${kind} dispatch`,
-      '',
-    ]
+    return [`${ERR_PREFIX.executor}: ${buildContinueNoDispatchText(kind)}`, '']
   }
   const match = dispatches.find((entry) => entry.childId === input)
   if (match === undefined) {
-    return [
-      `${ERR_PREFIX.executor}: no dispatch record with childId "${input}" was found for this task; ` +
-        `pass "${REUSE_LATEST}" or the childId of a previous ${kind} dispatch`,
-      '',
-    ]
+    return [`${ERR_PREFIX.executor}: ${buildContinueNoChildIdText(input, kind)}`, '']
   }
   if (match.kind !== kind) {
     return [
-      `${ERR_PREFIX.executor}: cross-kind reuse rejected: session "${input}" belongs to a ` +
-        `${match.kind} dispatch, but this call is kind ${kind}; reuse is limited to the same kind`,
+      `${ERR_PREFIX.executor}: ${buildCrossKindReuseRejectText(input, match.kind, kind)}`,
       '',
     ]
   }
@@ -239,45 +234,83 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     tools,
     sessionParam: childId,
   })
-  const child = spawn(process.env.PI_BIN ?? 'pi', args, buildChildSpawnOptions(root))
-  const connection = createRpcConnection(child)
-
-  // 重启后 get_state 确认 sessionId 一致
-  const stateResponse = await connection.sendCommand({ type: 'get_state' })
-  const resumedSessionId = typeof stateResponse.data?.sessionId === 'string'
-    ? stateResponse.data.sessionId
-    : childId
-
-  const entry: ChildRegistryEntry = {
-    connection,
-    child,
-    kind,
-    root,
-    taskRelPath,
-    parentSessionId,
-    status: 'running',
-    startedAt: new Date().toISOString(),
+  // 分支 3 失败治理（与 dispatchChildPi 同口径）：spawn/get_state/prompt 失败 →
+  // 留痕 failed（R4 纪律；running 已写则 settle 回填防残留）+ 清理连接与进程 +
+  // fail loud。waitForChildSpawn 的 error 监听同时防住 spawn ENOENT 的
+  // uncaught exception（无监听时 Node 会崩宿主进程）。
+  let child: ChildProcess | undefined
+  let connection: RpcConnection | undefined
+  let resumedSessionId = childId
+  let dispatchedRunning = false
+  try {
+    child = spawn(process.env.PI_BIN ?? 'pi', args, buildChildSpawnOptions(root))
+    await waitForChildSpawn(child)
+    connection = createRpcConnection(child)
+    // 重启后 get_state 取会话 id（--session 续接应与 childId 一致；异常时以返回值为准）。
+    const stateResponse = await connection.sendCommand({ type: 'get_state' })
+    resumedSessionId = typeof stateResponse.data?.sessionId === 'string'
+      ? stateResponse.data.sessionId
+      : childId
+    const entry: ChildRegistryEntry = {
+      connection,
+      child,
+      kind,
+      root,
+      taskRelPath,
+      parentSessionId,
+      status: 'running',
+      startedAt: new Date().toISOString(),
+    }
+    registerChild(resumedSessionId, entry)
+    // 续用轮留痕（先于 prompt 投递，与首派留痕时机同口径）。
+    const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
+    recordContinuationDispatch(root, taskRelPath, {
+      kind,
+      title,
+      childId: resumedSessionId,
+      spawnBinding,
+    })
+    dispatchedRunning = true
+    // 发送 prompt（增量或全量）
+    const message = reinject ? piBuilt.result.text : incrementalPrompt
+    await connection.sendCommand({ type: 'prompt', message })
+    // 注册 settle 监听
+    registerChildSettle(pi, connection, entry, resumedSessionId, false, signal)
+    const text = buildBackgroundText({ childId: resumedSessionId, effective, gate, allowInfo, piBuilt })
+    return { text, childId: resumedSessionId }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (dispatchedRunning) {
+      // running 已写：settle 回填该条目为 failed（防残留永久 running）。
+      const [settleErr] = settleExecutorDispatch(root, taskRelPath, {
+        childId: resumedSessionId,
+        status: 'failed',
+        error: message,
+      })
+      if (settleErr !== null) {
+        console.warn(`${CONTINUATION_WARN_PREFIX} ${settleErr}`)
+      }
+    } else {
+      // 从未写过 running：追加一条 failed（绑定字段沿用首派值，与续用轮留痕同形态）。
+      const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
+      const [recordErr] = recordExecutorDispatch(root, taskRelPath, {
+        kind,
+        title,
+        childId,
+        ...(spawnBinding?.model !== undefined ? { model: spawnBinding.model } : {}),
+        ...(spawnBinding?.effort !== undefined ? { effort: spawnBinding.effort } : {}),
+        modelSource: 'spawn' as DispatchModelSource,
+        status: 'failed',
+        error: message,
+      })
+      if (recordErr !== null) {
+        console.warn(`${CONTINUATION_WARN_PREFIX} ${recordErr}`)
+      }
+    }
+    connection?.close()
+    child?.kill(KILL_SIGNAL)
+    throw error instanceof Error ? error : new Error(`${ERR_PREFIX.executor}: ${String(error)}`)
   }
-  registerChild(resumedSessionId, entry)
-
-  // 续用轮留痕
-  const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
-  recordContinuationDispatch(root, taskRelPath, {
-    kind,
-    title,
-    childId: resumedSessionId,
-    spawnBinding,
-  })
-
-  // 发送 prompt（增量或全量）
-  const message = reinject ? piBuilt.result.text : incrementalPrompt
-  await connection.sendCommand({ type: 'prompt', message })
-
-  // 注册 settle 监听
-  registerChildSettle(pi, connection, entry, resumedSessionId, false, signal)
-
-  const text = buildBackgroundText({ childId: resumedSessionId, effective, gate, allowInfo, piBuilt })
-  return { text, childId: resumedSessionId }
 }
 
 /** 续用轮留痕入参。 */
@@ -307,7 +340,7 @@ function recordContinuationDispatch(
     modelSource: 'spawn' as DispatchModelSource,
   })
   if (recordErr !== null) {
-    console.warn(`${ERR_PREFIX.executor}: WARNING: failed to record continuation dispatch: ${recordErr}`)
+    console.warn(`${CONTINUATION_WARN_PREFIX} ${recordErr}`)
   }
 }
 

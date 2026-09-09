@@ -161,6 +161,38 @@ export const CONTINUE_REBIND_REJECT_TEXT =
   'model/effort bound at its original dispatch and sendMessage has no rebinding seam. ' +
   'To change the model or effort, dispatch a new executor without continue_executor.'
 
+/** continue_executor 的 latest 魔法值（两 adapter 共享，取同 kind 最近一条派发的 childId）。 */
+export const CONTINUE_EXECUTOR_LATEST = 'latest'
+
+/**
+ * 续用拒绝文案（两 adapter 共享 builder，消除双份维护；与 CONTINUE_REBIND_REJECT_TEXT
+ * 同属 continue_executor 拒绝面，逐字一致由共享实现保证）。
+ */
+
+/** latest 无同 kind 记录时的提示文案。 */
+export function buildContinueNoDispatchText(kind: string): string {
+  return (
+    `no previous ${kind} executor dispatch with a recorded child id was found for this task; ` +
+    `dispatch a new executor or pass the exact childId of a previous ${kind} dispatch`
+  )
+}
+
+/** 显式 childId 无派发记录时的提示文案。 */
+export function buildContinueNoChildIdText(input: string, kind: string): string {
+  return (
+    `no dispatch record with childId "${input}" was found for this task; ` +
+    `pass "${CONTINUE_EXECUTOR_LATEST}" or the childId of a previous ${kind} dispatch`
+  )
+}
+
+/** 跨 kind 续用的拒绝文案。 */
+export function buildCrossKindReuseRejectText(input: string, matchKind: string, kind: string): string {
+  return (
+    `cross-kind reuse rejected: session "${input}" belongs to a ${matchKind} dispatch, ` +
+    `but this call is kind ${kind}; reuse is limited to the same kind`
+  )
+}
+
 /** purge 模式标志：rawInput 以该前缀开头时，迁移后直接删除旧 .trellis 目录。 */
 export const PURGE_FLAG = '--purge'
 

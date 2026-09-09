@@ -52,7 +52,7 @@ M3 里程碑（session 存储治理三件套：归档清理 + gitignore 守护 +
 
 ## 环境要求
 
-- pi 0.85.x+（支持 `--mode rpc`、`--session`、`steer` 命令）
+- pi 0.84.2+（支持 `--mode rpc`、`--session`、`steer` 命令）
 - 项目已 `workloom init`（含 `.workloom/` 目录）
 - `PI_BIN` 环境变量指向 pi 可执行文件（或 pi 在 PATH 上）
 

@@ -7,12 +7,16 @@ import assert from 'node:assert/strict'
 
 import {
   ASSET_COMMAND_DOCTOR,
+  buildContinueNoChildIdText,
+  buildContinueNoDispatchText,
+  buildCrossKindReuseRejectText,
   buildErrorRelayText,
   buildExecutorReceipt,
   buildSpawnBindingReceipt,
   buildSuccessRelayText,
   COMMAND_DESCRIPTIONS,
   COMMAND_NAMES,
+  CONTINUE_EXECUTOR_LATEST,
   DOCTOR_FIX_FLAG,
   ERR_PREFIX,
   PARAM_DESCRIPTIONS,
@@ -304,4 +308,25 @@ test('PARAM_DESCRIPTIONS.continueExecutor 描述含续派不可换模型警示�
     /(start|dispatch) a new dispatch/,
     'continueExecutor 描述必须指引换模型须新开派发',
   )
+})
+
+test('续用拒绝文案 builder：输出与两 adapter 既有文案逐字一致（防漂移锚点）', () => {
+  // 以下三段文案是 adapter-dsh 与 adapter-pi 的共享实现（原双份内联上移），
+  // 任何一侧文案变化都必须先改这里——逐字锚点即「两端一致」的机器可验形式。
+  assert.equal(
+    buildContinueNoDispatchText('implement'),
+    'no previous implement executor dispatch with a recorded child id was found for this task; ' +
+      'dispatch a new executor or pass the exact childId of a previous implement dispatch',
+  )
+  assert.equal(
+    buildContinueNoChildIdText('abc', 'research'),
+    'no dispatch record with childId "abc" was found for this task; ' +
+      'pass "latest" or the childId of a previous research dispatch',
+  )
+  assert.equal(
+    buildCrossKindReuseRejectText('abc', 'research', 'implement'),
+    'cross-kind reuse rejected: session "abc" belongs to a research dispatch, ' +
+      'but this call is kind implement; reuse is limited to the same kind',
+  )
+  assert.equal(CONTINUE_EXECUTOR_LATEST, 'latest')
 })

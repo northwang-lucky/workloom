@@ -103,8 +103,9 @@ test('parseRpcLine: success:false 响应识别', () => {
 // ---- createRpcConnection 集成测试 ----
 
 import { Writable } from 'node:stream'
+import { EventEmitter } from 'node:events'
 
-/** 创建模拟 child 进程（PassThrough 替代 stdout，立即消费 writable 替代 stdin）。 */
+/** 创建模拟 child 进程（EventEmitter 基座 + PassThrough stdout + 立即消费 stdin）。 */
 function mockChild(): { child: ChildProcess; stdout: PassThrough; stdin: Writable } {
   const stdout = new PassThrough()
   // 立即消费 writable：write 回调立即触发（模拟 pi 进程消费 stdin）。
@@ -113,9 +114,23 @@ function mockChild(): { child: ChildProcess; stdout: PassThrough; stdin: Writabl
       callback()
     },
   })
-  const child = { stdout, stdin } as unknown as ChildProcess
+  // EventEmitter 基座：createRpcConnection 注册 child.once('close')（进程退出即连接终结）。
+  const child = Object.assign(new EventEmitter(), { stdout, stdin }) as unknown as ChildProcess
   return { child, stdout, stdin }
 }
+
+test('createRpcConnection: child 进程 close → pending reject 且后续 sendCommand fail loud', async () => {
+  const { child } = mockChild()
+  const conn = createRpcConnection(child)
+  // 飞行中的命令：无响应到达。
+  const pending = conn.sendCommand({ type: 'get_state' })
+  const rejection = assert.rejects(pending, /child pi process exited/)
+  // 进程退出（崩溃/被杀）→ pending 立即落定，工具调用不挂起（容器 check P1）。
+  ;(child as unknown as EventEmitter).emit('close', 1, null)
+  await rejection
+  // 连接已终结：后续命令立即 fail loud。
+  await assert.rejects(conn.sendCommand({ type: 'prompt', message: 'x' }), /RPC connection closed/)
+})
 
 test('createRpcConnection: response 按 id 关联', async () => {
   const { child, stdout } = mockChild()

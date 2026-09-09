@@ -130,7 +130,7 @@
       "kind": "check",
       "at": "2026-09-09T12:58:42.824Z",
       "title": "容器最终全量审查",
-      "status": "running",
+      "status": "completed",
       "childId": "34661cf4-6fc0-41f0-81dd-a63c4f103744",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",

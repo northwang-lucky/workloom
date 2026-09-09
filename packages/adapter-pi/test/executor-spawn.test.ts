@@ -10,12 +10,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { buildChildSpawnOptions, dispatchChildPi, handleSessionShutdown } from '../src/executor-dispatch.ts'
+import { buildChildSpawnOptions, dispatchChildPi, handleSessionShutdown, waitForChildSpawn } from '../src/executor-dispatch.ts'
 import { registerChild, getChild, getAllChildren, unregisterChild } from '../src/pi-child-registry.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import type { ChildRegistryEntry } from '../src/pi-child-registry.ts'
 import { PassThrough } from 'node:stream'
 import { Writable } from 'node:stream'
+import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
 
 // ---- P0: spawn stdio 回归测试 ----
@@ -32,6 +33,27 @@ test('P0: buildChildSpawnOptions 返回纯值（无副作用）', () => {
   const b = buildChildSpawnOptions('/tmp/a')
   assert.deepEqual(a, b)
   assert.notEqual(a.stdio, b.stdio) // 不同引用
+})
+
+// ---- 缺陷 8 回归测试：waitForChildSpawn 确定性（不与首条命令写入竞速） ----
+
+test('缺陷 8: waitForChildSpawn 对 ENOENT 确定性 reject（stdin 存在不提前 resolve）', async () => {
+  // 旧兜底用 stdin 存在判定：stdio pipe 在 spawn() 返回时即创建，ENOENT 失败路径下
+  // 同样非空 → 提前 resolve → 首条命令写入与 error 事件竞速（EPIPE/ENOENT 不确定）。
+  const emitter = new EventEmitter()
+  const stdin = new Writable({ write(_chunk, _enc, cb) { cb() } })
+  const child = Object.assign(emitter, { stdin, spawned: false }) as unknown as ChildProcess
+  const promise = waitForChildSpawn(child)
+  process.nextTick(() => {
+    emitter.emit('error', Object.assign(new Error('spawn pi ENOENT'), { code: 'ENOENT' }))
+  })
+  await assert.rejects(promise, /ENOENT/)
+})
+
+test('缺陷 8: waitForChildSpawn 对已 spawn 成功（迟到调用）立即 resolve', async () => {
+  const emitter = new EventEmitter()
+  const child = Object.assign(emitter, { spawned: true, pid: 4242 }) as unknown as ChildProcess
+  await waitForChildSpawn(child)
 })
 
 // ---- P1: 无 sessionId 失败留痕回归测试 ----
