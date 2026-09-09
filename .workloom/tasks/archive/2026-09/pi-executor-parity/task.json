@@ -3,7 +3,7 @@
   "name": "pi-executor-parity",
   "title": "Pi 侧 executor 对齐 DSH：后台派发 + 续用链路 + 描述层债务修复（ADR-0006 修订）",
   "description": "方向 C（用户 2026-09-09 确认）：Pi 侧 executor 派发面与 DSH 全量对齐——后台派发 + 完成通知、continue_executor/reinject 续用、mid-run steering、派发留痕时机、子会话标题消费，并消除描述层/norms 的 runtime 漂移；继承 ADR-0006 两条设计初衷（fresh prompt、child 零再派发）并完成 ADR 修订。事实与候选架构 R/S 见 docs/research/pi-dsh-executor-parity.md §4。",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-09-09T06:06:11.529Z",
-  "completedAt": null,
+  "completedAt": "2026-09-09T13:49:18.001Z",
   "parent": null,
   "children": [
     "tasks/09-09-m3a-copy-unification",
