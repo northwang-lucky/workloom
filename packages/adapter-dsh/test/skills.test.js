@@ -139,12 +139,13 @@ function setupSkills() {
   return registered.map((def) => def.name)
 }
 
-test('skill 清单契约：只注册 workloom-alignment/update-spec + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
+test('skill 清单契约：只注册 workloom-alignment/update-spec/packages-scan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
   const names = setupSkills()
   assert.deepEqual(names.sort(), [
     'grilling',
     'tdd',
     'workloom-alignment',
+    'workloom-packages-scan',
     'workloom-update-spec',
     'writing-for-agents',
   ])
