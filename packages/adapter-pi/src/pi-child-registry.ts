@@ -11,7 +11,7 @@
  *   未完成派发由 settle 回填 failed（摘要注明 host session ended）。
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { ChildProcess } from 'node:child_process'
@@ -222,4 +222,52 @@ export function sigtermAllAlive(): void {
 /** 从 entry 的 root 字段取项目根（防御：entry 已含 root）。 */
 function rootOf(root: string): string {
   return root
+}
+
+/** 注册表 WARNING 前缀（运行时文案英文）。 */
+const REGISTRY_WARN_PREFIX = 'workloom pi-child-registry: WARNING:'
+
+/**
+ * 归档清理（R1）：按 childId 删除 `.workloom/sessions/pi/` 下关联的 pi 会话文件。
+ * 对账逻辑：列出 sessions 目录全部文件，命中 childId 为前缀（`<childId>.` 或等于
+ * childId）的文件删除；未命中的保留；删除失败仅 WARNING 不抛错（不阻塞归档）。
+ * @param root 项目根
+ * @param childIds 被归档任务 dispatches 中的 childId 列表
+ */
+export function cleanupSessionFiles(root: string, childIds: string[]): void {
+  if (childIds.length === 0) return
+  const dir = sessionsDir(root)
+  if (!existsSync(dir)) return
+  let files: string[]
+  try {
+    files = readdirSync(dir)
+  } catch (error) {
+    console.warn(`${REGISTRY_WARN_PREFIX} failed to list session files: ${String(error)}`)
+    return
+  }
+  for (const childId of childIds) {
+    // 匹配以 childId 为前缀的文件（如 <childId>.json / <childId>.jsonl），精确匹配 childId 本身。
+    const matches = files.filter((f) => f === childId || f.startsWith(`${childId}.`))
+    for (const file of matches) {
+      try {
+        rmSync(join(dir, file), { force: true })
+      } catch (error) {
+        console.warn(
+          `${REGISTRY_WARN_PREFIX} failed to remove session file ${file}: ${String(error)}`,
+        )
+      }
+    }
+  }
+}
+
+/**
+ * 持久化空落盘进程表（R3）：把 registry.json 写为空表。
+ * 供 shutdown 路径调用——sigtermAllAlive 清空进程内表后，落盘表同步清空，
+ * 与重启 cleanupOrphans 构成双层防线。
+ * @param root 项目根
+ */
+export function persistEmptyRegistry(root: string): void {
+  const path = registryPath(root)
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileAtomic(path, JSON.stringify({ entries: [] }, null, 2))
 }

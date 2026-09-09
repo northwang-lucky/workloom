@@ -19,6 +19,7 @@ import {
   getChild,
   getAllChildren,
   unregisterChild,
+  registryPath,
   type ChildRegistryEntry,
 } from '../src/pi-child-registry.ts'
 import { handleSessionShutdown } from '../src/executor-dispatch.ts'
@@ -246,6 +247,36 @@ test('缺陷 7: 未取消时 agent_end 正常 completed 不被误标', () => {
     assert.equal(task.dispatches[0].status, 'completed', '未取消时 agent_end 应正常 completed')
   } finally {
     unregisterChild('s8')
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---- R3: shutdown 后落盘注册表为空表 ----
+
+test('handleSessionShutdown: sigtermAllAlive 后 registry.json 持久化为空表', () => {
+  const { root } = makeTaskRoot()
+  try {
+    // 清理可能残留的全局 child（测试隔离：先 shutdown 清空历史残留）。
+    handleSessionShutdown()
+    // 登记两个 child（写入非空注册表）。
+    registerChild('r1', makeEntry('r1', root, 33333))
+    registerChild('r2', makeEntry('r2', root, 44444))
+    // 确认注册表包含 r1、r2。
+    const before = JSON.parse(readFileSync(registryPath(root), 'utf8'))
+    const beforeIds = before.entries.map((e: { sessionId: string }) => e.sessionId).sort()
+    assert.deepEqual(beforeIds, ['r1', 'r2'], 'shutdown 前注册表应含 r1、r2')
+
+    // 触发主会话结束联动。
+    handleSessionShutdown()
+
+    // 进程内表应被清空。
+    assert.equal(getAllChildren().size, 0)
+    // 落盘注册表应为空表（R3 双层防线：shutdown 即时清空落盘）。
+    const after = JSON.parse(readFileSync(registryPath(root), 'utf8'))
+    assert.equal(after.entries.length, 0, 'shutdown 后落盘注册表应为空表')
+  } finally {
+    unregisterChild('r1')
+    unregisterChild('r2')
     rmSync(root, { recursive: true, force: true })
   }
 })

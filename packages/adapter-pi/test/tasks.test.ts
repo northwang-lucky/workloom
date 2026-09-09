@@ -12,7 +12,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 
 import { createTask, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 
-import { registerTaskTools } from '../src/tasks.ts'
+import { registerTaskTools, extractChildIds } from '../src/tasks.ts'
 
 /** TypeBox v1 的返回类型不含 schema options（description 仅运行时保留），显式收窄读取。 */
 function readDescription(schema: unknown): string | undefined {
@@ -124,4 +124,25 @@ test('executeCreate 转发 parent：子任务落盘 parent 字段且父 children
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+// ---- R1: extractChildIds 对账 ----
+
+test('extractChildIds: 提取非空 childId，过滤 undefined/空串', () => {
+  const dispatches = [
+    { childId: 'abc123' },
+    { childId: undefined },
+    { childId: '' },
+    { childId: 'def456' },
+  ]
+  const result = extractChildIds(dispatches)
+  assert.deepEqual(result, ['abc123', 'def456'])
+})
+
+test('extractChildIds: undefined 输入返回空数组', () => {
+  assert.deepEqual(extractChildIds(undefined), [])
+})
+
+test('extractChildIds: 全空 childId 返回空数组', () => {
+  assert.deepEqual(extractChildIds([{ childId: '' }, { childId: undefined }]), [])
 })

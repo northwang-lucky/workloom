@@ -28,6 +28,7 @@ import {
   TOOL_SNIPPETS,
 } from '@workloom-ai/core'
 
+import { cleanupSessionFiles } from './pi-child-registry.ts'
 import { contextKeyOf } from './constants.ts'
 
 /** create 工具参数 schema。 */
@@ -288,7 +289,29 @@ async function executeArchive(
   )
   if (err !== null || result === null)
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`)
+  // R1: 归档清理——按 dispatches 的 childId 对账，删除关联 pi 会话文件。
+  // 薄投影原则：core 归档流程不感知 runtime 文件，清理挂在 adapter-pi 侧。
+  const childIds = extractChildIds(result.task.dispatches)
+  if (childIds.length > 0) {
+    cleanupSessionFiles(cwd, childIds)
+  }
   return resultOf(result)
+}
+
+/**
+ * 从 dispatches 中提取非空 childId 列表（纯函数，可单测）。
+ * @param dispatches 派发记录数组（可能 undefined）
+ * @returns 非空 childId 列表
+ */
+export function extractChildIds(dispatches: Array<{ childId?: string }> | undefined): string[] {
+  if (dispatches === undefined) return []
+  const ids: string[] = []
+  for (const d of dispatches) {
+    if (typeof d.childId === 'string' && d.childId !== '') {
+      ids.push(d.childId)
+    }
+  }
+  return ids
 }
 
 /** list 工具：列出任务摘要（可选 status 过滤）。 */

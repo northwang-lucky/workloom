@@ -4,7 +4,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -17,6 +17,8 @@ import {
   getChild,
   getAllChildren,
   cleanupOrphans,
+  cleanupSessionFiles,
+  persistEmptyRegistry,
   sessionsDir,
   registryPath,
   type ChildRegistryEntry,
@@ -202,6 +204,93 @@ test('cleanupOrphans: 无 ownerPid 旧格式条目被回收（向后兼容）', 
     // 无 ownerPid → 视为孤儿，条目被回收。
     const parsed = JSON.parse(readFileSync(registryPath(root), 'utf8'))
     assert.equal(parsed.entries.length, 0, '无 ownerPid 旧格式条目应被回收')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---- cleanupSessionFiles（R1 归档清理对账） ----
+
+test('cleanupSessionFiles: 命中 childId 前缀的文件被删除', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'abc123.json'), '{"sessionId":"abc123"}')
+    writeFileSync(join(dir, 'abc123.jsonl'), 'line1\n')
+    writeFileSync(join(dir, 'other.json'), '{"sessionId":"other"}')
+    cleanupSessionFiles(root, ['abc123'])
+    assert.ok(!existsSync(join(dir, 'abc123.json')), 'abc123.json 应被删除')
+    assert.ok(!existsSync(join(dir, 'abc123.jsonl')), 'abc123.jsonl 应被删除')
+    assert.ok(existsSync(join(dir, 'other.json')), '未命中的 other.json 应保留')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanupSessionFiles: 精确匹配 childId（无扩展名）的文件被删除', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'exact-id'), 'data')
+    cleanupSessionFiles(root, ['exact-id'])
+    assert.ok(!existsSync(join(dir, 'exact-id')), '精确匹配的 exact-id 应被删除')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanupSessionFiles: 未命中的文件保留（不误删）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'keep.json'), 'keep')
+    cleanupSessionFiles(root, ['nonexistent'])
+    assert.ok(existsSync(join(dir, 'keep.json')), '未命中的 keep.json 应保留')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanupSessionFiles: 空 childId 列表不操作', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'file.json'), 'data')
+    cleanupSessionFiles(root, [])
+    assert.ok(existsSync(join(dir, 'file.json')), '空列表时文件应保留')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanupSessionFiles: 目录不存在时不报错', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    assert.doesNotThrow(() => cleanupSessionFiles(root, ['abc']))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---- persistEmptyRegistry（R3 shutdown 清表） ----
+
+test('persistEmptyRegistry: 写入空表覆盖既有条目', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-registry-'))
+  try {
+    // 先写入非空注册表。
+    const dir = sessionsDir(root)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      registryPath(root),
+      JSON.stringify({ entries: [{ ownerPid: 1, pid: 2, sessionId: 'x', startedAt: '2024-01-01T00:00:00Z' }] }),
+    )
+    persistEmptyRegistry(root)
+    const parsed = JSON.parse(readFileSync(registryPath(root), 'utf8'))
+    assert.equal(parsed.entries.length, 0, 'persistEmptyRegistry 后应为空表')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

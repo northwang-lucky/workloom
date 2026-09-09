@@ -36,6 +36,7 @@ import {
   registerChild,
   sigtermAllAlive,
   unregisterChild,
+  persistEmptyRegistry,
   type ChildRegistryEntry,
 } from './pi-child-registry.ts'
 import { registerChildSettle, HOST_SESSION_ENDED_TEXT } from './executor-settle.ts'
@@ -384,11 +385,15 @@ function recordDispatch(root: string, taskRelPath: string, entry: DispatchRecord
 
 /** 主会话结束联动（R6）：导出供 index.ts 的 session_shutdown 监听调用。
  * 先回填全部 running child 为 failed（摘要 host session ended），再 SIGTERM 仍存活的
- * 进程并清空注册表。不变式：注册表条目移除以 child 进程 close 事件为准，shutdown
- * 路径上先 settle（不注销）→ SIGTERM 存活进程 → 清空注册表。 */
+ * 进程并清空注册表，最后把落盘进程表持久化为空表（R3 双层防线：shutdown 即时清空
+ * 落盘，与重启 cleanupOrphans 互补）。不变式：注册表条目移除以 child 进程 close 事件
+ * 为准，shutdown 路径上先 settle（不注销）→ SIGTERM 存活进程 → 清空注册表 → 落盘空表。 */
 export function handleSessionShutdown(): void {
+  // 收集所有 root（sigtermAllAlive 清空进程内表后需按 root 持久化空表）。
+  const roots: string[] = []
   // 1. 回填全部 running child 为 failed（不注销——注册表仍持有进程引用供 SIGTERM）。
   for (const [sessionId, entry] of getAllChildren()) {
+    if (!roots.includes(entry.root)) roots.push(entry.root)
     const [settleErr] = settleExecutorDispatch(entry.root, entry.taskRelPath, {
       childId: sessionId,
       status: 'failed',
@@ -400,4 +405,8 @@ export function handleSessionShutdown(): void {
   }
   // 2. SIGTERM 全部存活 child 并清空注册表（sigtermAllAlive 内部 clear）。
   sigtermAllAlive()
+  // 3. 落盘进程表持久化为空表（R3：shutdown 即时清空落盘，消除残留）。
+  for (const root of roots) {
+    persistEmptyRegistry(root)
+  }
 }
