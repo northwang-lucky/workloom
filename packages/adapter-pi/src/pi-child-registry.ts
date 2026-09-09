@@ -21,8 +21,8 @@ import type { RpcConnection } from './pi-rpc.ts'
 
 /** child 进程在注册表中的信息（进程内表值）。 */
 export interface ChildRegistryEntry {
-  /** RPC 连接 */
-  connection: RpcConnection
+  /** RPC 连接（provisional 阶段尚未建立，optional）。 */
+  connection?: RpcConnection
   /** 子进程句柄 */
   child: ChildProcess
   /** executor 类型（research/implement/check/frontend） */
@@ -33,8 +33,13 @@ export interface ChildRegistryEntry {
   taskRelPath: string
   /** 主会话 id（回投报告用） */
   parentSessionId: string
-  /** 运行状态 */
-  status: 'running' | 'settling'
+  /**
+   * 运行状态：
+   * - starting = 槽位已预留（provisional），child 尚未就绪（计槽）；
+   * - running = 在途执行中（计槽）；
+   * - idle = 完工常驻（已 settle 成功，进程存活待续用，不计槽）。
+   */
+  status: 'starting' | 'running' | 'idle'
   /** 派发时间（ISO 字符串） */
   startedAt: string
   /** 扩展宿主 pi 进程 pid（owner 存活 = child 有主，cleanup 跳过）。registerChild 自动填充。 */
@@ -112,6 +117,65 @@ export function registerChild(sessionId: string, entry: ChildRegistryEntry): voi
   persistRegistry(entry.root)
 }
 
+/** provisional 槽位自增序号（同毫秒内区分多个预留）。 */
+let provisionalCounter = 0
+
+/**
+ * 生成唯一 provisional 槽位 id（同 pid + 时间戳 + 序号，避开与真实 sessionId 碰撞）。
+ * @returns provisional id（"prov-<pid>-<timestamp>-<counter>"）
+ */
+export function generateProvisionalId(): string {
+  return `prov-${process.pid}-${Date.now()}-${++provisionalCounter}`
+}
+
+/**
+ * 预留一个 provisional 槽位（容量闸放行后、spawn 成功时立即调用）：
+ * 以 temp id 写入 starting 条目，使 readRunningFromRegistry 立即计槽，
+ * 关闭并发派发的竞态窗口。ownerPid 自动取当前进程 pid。
+ * @param provisionalId 预留槽位 id（generateProvisionalId 生成）
+ * @param entry child 信息（status 会被强制为 'starting'）
+ */
+export function registerProvisionalEntry(provisionalId: string, entry: ChildRegistryEntry): void {
+  if (entry.ownerPid === undefined) entry.ownerPid = process.pid
+  children.set(provisionalId, { ...entry, status: 'starting' })
+  persistRegistry(entry.root)
+}
+
+/**
+ * 将 provisional 槽位提升为真实 sessionId（get_state 拿到 sessionId 后调用）：
+ * 原子删除 temp key、写入真实 sessionId 条目（status 转为 'running' 并建立连接）。
+ * 若 provisional 已被释放（不存在），则退化为普通 registerChild。
+ * @param provisionalId 预留槽位 id
+ * @param sessionId 真实 child sessionId（get_state 返回）
+ * @param connection RPC 连接
+ */
+export function promoteProvisionalEntry(
+  provisionalId: string,
+  sessionId: string,
+  connection: RpcConnection,
+): void {
+  const provisional = children.get(provisionalId)
+  if (provisional === undefined) {
+    // provisional 已被释放（失败路径先行移除），退化为不操作——调用方应已处理。
+    return
+  }
+  children.delete(provisionalId)
+  children.set(sessionId, { ...provisional, connection, status: 'running' })
+  persistRegistry(provisional.root)
+}
+
+/**
+ * 释放 provisional 槽位（所有失败路径调用）：从进程内表 + 落盘进程表删除 temp 条目，
+ * 不留永久占位。
+ * @param provisionalId 预留槽位 id
+ */
+export function releaseProvisionalEntry(provisionalId: string): void {
+  const entry = children.get(provisionalId)
+  if (entry === undefined) return
+  children.delete(provisionalId)
+  persistRegistry(entry.root)
+}
+
 /**
  * 移除一个 child 进程（child 退出时调用）：从进程内表 + 落盘进程表删除。
  * @param sessionId 会话 id（= childId）
@@ -124,6 +188,21 @@ export function unregisterChild(sessionId: string, expected?: ChildRegistryEntry
   if (entry === undefined) return
   if (expected !== undefined && entry !== expected) return
   children.delete(sessionId)
+  persistRegistry(entry.root)
+}
+
+/**
+ * 更新注册表条目的状态（mutate + 落盘）。
+ * - settle 成功后置 idle（完工常驻，不计槽）；
+ * - 续用 idle child 时置回 running（重新占槽）。
+ * 未找到条目时静默返回（可能已 unregister）。
+ * @param sessionId 会话 id（= childId）
+ * @param status 新状态
+ */
+export function updateChildStatus(sessionId: string, status: ChildRegistryEntry['status']): void {
+  const entry = children.get(sessionId)
+  if (entry === undefined) return
+  entry.status = status
   persistRegistry(entry.root)
 }
 

@@ -18,7 +18,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 
 import { applyEvent, extractExecutorText, type PiEventState } from './pi-events.ts'
 import type { RpcConnection } from './pi-rpc.ts'
-import { unregisterChild, type ChildRegistryEntry } from './pi-child-registry.ts'
+import { unregisterChild, updateChildStatus, type ChildRegistryEntry } from './pi-child-registry.ts'
 
 /** 回投失败告警前缀（回投失败只 WARNING，不阻塞结算）。 */
 const REPORT_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to report executor completion:`
@@ -92,7 +92,9 @@ export function registerChildSettle(
      * 循环 settle：同 childId 可能有多条 running 条目（steering 续用追加第二条），
      * core settleExecutorDispatch 每次只回填最近一条 running；需循环直到该 childId
      * 无 running 条目为止（agent_end 语义 = 该 run 全部注入工作完成，所有轮次同获终态）。
-     * 防御：循环上限 16 次 + 每轮 error 时 WARNING 并停止，杜绝死循环。 */
+     * 防御：循环上限 16 次 + 每轮 error 时 WARNING 并停止，杜绝死循环。
+     *
+     * 成功后置 idle：完工常驻，不占并发槽（readRunningFromRegistry 不计 idle）。 */
     const finish = (result: SettleResult): void => {
       if (settled) return
       settled = true
@@ -120,6 +122,11 @@ export function registerChildSettle(
       // 回投报告（仅后台派发；前台由工具返回值直接交付，避免双份）。
       if (!foreground) {
         reportCompletion(pi, entry, result)
+      }
+      // 成功完工后置 idle：常驻待续用，不占并发槽。failed 条目保持 running（异常占用）。
+      // updateChildStatus 同步内存 + 落盘。
+      if (result.status === 'completed') {
+        updateChildStatus(sessionId, 'idle')
       }
       resolve(result)
     }
@@ -181,7 +188,10 @@ export function registerChildSettle(
     // 传 entry 做身份校验：续用重启以同 sessionId 覆盖登记后，旧进程迟到的 close
     // 不得误删新条目。
     child.on('close', (code, signalCode) => {
-      // agent_end 已结算时跳过（正常退出路径）。
+      // 已结算（settled = true）时跳过 failed 留痕——包含两种合法完工路径：
+      // 1. agent_end 成功 → finish 已置 idle（已完成，不写 failed）；
+      // 2. child 异常退出但已被 error 事件 → finish 置 failed（已留痕）。
+      // idle child 正常退出（code 0 / signal SIGTERM）时不写 failed 留痕，避免误计缺陷。
       if (!settled) {
         const stderrTail = stderrParts.join('').slice(-STDERR_TAIL_LIMIT)
         const status = code !== null ? `code ${code}` : `signal ${signalCode ?? 'unknown'}`

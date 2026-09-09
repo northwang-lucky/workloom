@@ -16,7 +16,7 @@
   "scripts": {
     "build": "node scripts/sync-skills.mjs",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "node --test 'test/*.test.ts'"
+    "test": "bun test test/*.test.ts"
   },
   "pi": {
     "extensions": [

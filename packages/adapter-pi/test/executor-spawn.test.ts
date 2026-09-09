@@ -99,6 +99,8 @@ test('P1: spawn 失败（sessionId 未取到）时仍写 failed 留痕', async (
       piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
       signal: undefined,
       foreground: false,
+      globalLimit: 0,
+      kindLimit: undefined,
     })
   } catch (error) {
     threw = true
@@ -139,6 +141,8 @@ test('P1: 验证无 sessionId 时 failed 留痕被写入', async () => {
       piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
       signal: undefined,
       foreground: false,
+      globalLimit: 0,
+      kindLimit: undefined,
     })
     assert.fail('should have thrown')
   } catch {
@@ -192,6 +196,8 @@ test('缺陷 3: 无显式 model 时 modelSource 不为 param（审计来源准�
       piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
       signal: undefined,
       foreground: false,
+      globalLimit: 0,
+      kindLimit: undefined,
     })
   } catch {
     // spawn 会失败（无真实 pi 二进制），但留痕应在 catch 中完成

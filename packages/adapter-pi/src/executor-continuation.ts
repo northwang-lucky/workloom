@@ -24,6 +24,7 @@ import {
   buildCrossKindReuseRejectText,
   CONTINUE_EXECUTOR_LATEST,
   ERR_PREFIX,
+  formatAtCapacityReceipt,
   readTask,
   recordExecutorDispatch,
   settleExecutorDispatch,
@@ -32,7 +33,15 @@ import type { DispatchRecord, DispatchModelSource, ExecutorInjectionStats } from
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { spawn, type ChildProcess } from 'node:child_process'
 
-import { getChild, registerChild, type ChildRegistryEntry } from './pi-child-registry.ts'
+import { checkExecutorCapacity } from './executor-capacity-gate.ts'
+import {
+  getChild,
+  registerProvisionalEntry,
+  promoteProvisionalEntry,
+  releaseProvisionalEntry,
+  generateProvisionalId,
+  updateChildStatus,
+} from './pi-child-registry.ts'
 import { createRpcConnection, type RpcConnection } from './pi-rpc.ts'
 import { buildChildPiArgs } from './pi-args.ts'
 import { registerChildSettle } from './executor-settle.ts'
@@ -154,6 +163,10 @@ export interface ContinueExecutorParams {
   reinject: boolean
   /** 取消信号（abort 时优先以 failed 结算） */
   signal?: AbortSignal
+  /** 全局 executor 并发上限（0 = 不限）。 */
+  globalLimit: number
+  /** 当前 kind 的并发上限（undefined = 不限）。 */
+  kindLimit?: number
 }
 
 /**
@@ -182,45 +195,69 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     incrementalPrompt,
     reinject,
     signal,
+    globalLimit,
+    kindLimit,
   } = params
+
+  // 并发容量闸（续用前）：排除目标 childId 后判定，避免自占槽误拒。
+  const capacity = checkExecutorCapacity(kind, globalLimit, kindLimit, childId)
+  if (!capacity.allow) {
+    throw new Error(formatAtCapacityReceipt(kind, capacity))
+  }
 
   const existingEntry = getChild(childId)
 
-  // 分支 1 & 2：child 存活 → 直接向同一进程发 prompt/steer
-  if (existingEntry !== undefined) {
+  // 分支 1 & 2：child 存活（有连接）→ 直接向同一进程发 prompt/steer。
+  // connection 存在即表示已 promote（starting 阶段无 connection，走分支 3 重启）。
+  if (existingEntry !== undefined && existingEntry.connection !== undefined) {
     const connection = existingEntry.connection
+    // idle 续用→置回 running：重新占槽（闸判定已排除自身 childId，此处置回与闸无竞态）。
+    let flippedFromIdle = false
+    if (existingEntry.status === 'idle') {
+      updateChildStatus(childId, 'running')
+      flippedFromIdle = true
+    }
     // 查询当前 streaming 状态
     let isStreaming = false
+    let getStateFailed = false
     try {
       const stateResponse = await connection.sendCommand({ type: 'get_state' })
       isStreaming = typeof stateResponse.data?.isStreaming === 'boolean' && stateResponse.data.isStreaming
     } catch {
-      // get_state 失败视为不存活，走重启分支
+      // get_state 失败视为不存活，走重启分支（分支 3）；回滚 idle→running 翻转，
+      // 避免探测失败（进程可能已死且 close 未及触发）留下陈旧 running 条目长期占槽。
+      if (flippedFromIdle) {
+        updateChildStatus(childId, 'idle')
+      }
+      getStateFailed = true
     }
 
-    if (isStreaming) {
-      // 分支 2：streaming → steer（R3，当前回合工具执行完、下次 LLM 调用前送达）
-      await connection.sendCommand({ type: 'steer', message: incrementalPrompt })
-    } else {
-      // 分支 1：idle → prompt（增量；reinject:true 时重发全量）
-      const message = reinject ? piBuilt.result.text : incrementalPrompt
-      await connection.sendCommand({ type: 'prompt', message })
+    // 探测失败显式 fall through 到分支 3 重启（不向死连接发 prompt/steer）。
+    if (!getStateFailed) {
+      if (isStreaming) {
+        // 分支 2：streaming → steer（R3，当前回合工具执行完、下次 LLM 调用前送达）
+        await connection.sendCommand({ type: 'steer', message: incrementalPrompt })
+      } else {
+        // 分支 1：idle → prompt（增量；reinject:true 时重发全量）
+        const message = reinject ? piBuilt.result.text : incrementalPrompt
+        await connection.sendCommand({ type: 'prompt', message })
+      }
+
+      // 续用轮留痕：dispatches 追加条目（spawn 绑定）
+      const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
+      recordContinuationDispatch(root, taskRelPath, {
+        kind,
+        title,
+        childId,
+        spawnBinding,
+      })
+
+      // 注册 settle 监听（复用）
+      registerChildSettle(pi, connection, existingEntry, childId, false, signal)
+
+      const text = buildBackgroundText({ childId, effective, gate, allowInfo, piBuilt })
+      return { text, childId }
     }
-
-    // 续用轮留痕：dispatches 追加条目（spawn 绑定）
-    const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
-    recordContinuationDispatch(root, taskRelPath, {
-      kind,
-      title,
-      childId,
-      spawnBinding,
-    })
-
-    // 注册 settle 监听（复用）
-    registerChildSettle(pi, connection, existingEntry, childId, false, signal)
-
-    const text = buildBackgroundText({ childId, effective, gate, allowInfo, piBuilt })
-    return { text, childId }
   }
 
   // 分支 3：child 不存活 → `--session <id>` 重启续接
@@ -242,8 +279,22 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
   let connection: RpcConnection | undefined
   let resumedSessionId = childId
   let dispatchedRunning = false
+  // provisional 槽位 id：spawn 成功后立即预留，关闭并发派发的竞态窗口。
+  let provisionalId: string | undefined
   try {
     child = spawn(process.env.PI_BIN ?? 'pi', args, buildChildSpawnOptions(root))
+    // 立即预留 provisional 槽位（spawn 同步返回后、await 之前）：闸判定→登记全程
+    // 同步无 await，彻底关闭并发派发的竞态窗口。
+    provisionalId = generateProvisionalId()
+    registerProvisionalEntry(provisionalId, {
+      child,
+      kind,
+      root,
+      taskRelPath,
+      parentSessionId,
+      status: 'starting',
+      startedAt: new Date().toISOString(),
+    })
     await waitForChildSpawn(child)
     connection = createRpcConnection(child)
     // 重启后 get_state 取会话 id（--session 续接应与 childId 一致；异常时以返回值为准）。
@@ -251,17 +302,9 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     resumedSessionId = typeof stateResponse.data?.sessionId === 'string'
       ? stateResponse.data.sessionId
       : childId
-    const entry: ChildRegistryEntry = {
-      connection,
-      child,
-      kind,
-      root,
-      taskRelPath,
-      parentSessionId,
-      status: 'running',
-      startedAt: new Date().toISOString(),
-    }
-    registerChild(resumedSessionId, entry)
+    // 将 provisional 槽位提升为真实 sessionId。
+    promoteProvisionalEntry(provisionalId, resumedSessionId, connection)
+    provisionalId = undefined
     // 续用轮留痕（先于 prompt 投递，与首派留痕时机同口径）。
     const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
     recordContinuationDispatch(root, taskRelPath, {
@@ -275,10 +318,15 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     const message = reinject ? piBuilt.result.text : incrementalPrompt
     await connection.sendCommand({ type: 'prompt', message })
     // 注册 settle 监听
-    registerChildSettle(pi, connection, entry, resumedSessionId, false, signal)
+    const promotedEntry = getChild(resumedSessionId)!
+    registerChildSettle(pi, connection, promotedEntry, resumedSessionId, false, signal)
     const text = buildBackgroundText({ childId: resumedSessionId, effective, gate, allowInfo, piBuilt })
     return { text, childId: resumedSessionId }
   } catch (error) {
+    // 释放 provisional 槽位（如未提升）：所有失败路径必须释放，不留永久占位。
+    if (provisionalId !== undefined) {
+      releaseProvisionalEntry(provisionalId)
+    }
     const message = error instanceof Error ? error.message : String(error)
     if (dispatchedRunning) {
       // running 已写：settle 回填该条目为 failed（防残留永久 running）。

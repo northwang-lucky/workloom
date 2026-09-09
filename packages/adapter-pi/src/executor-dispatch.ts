@@ -17,10 +17,13 @@ import type { Static } from 'typebox'
 import {
   buildNewDispatchBinding,
   ERR_PREFIX,
+  formatAtCapacityReceipt,
   recordExecutorDispatch,
   settleExecutorDispatch,
 } from '@workloom-ai/core'
 import type { DispatchRecordInput, ExecutorInjectionStats } from '@workloom-ai/core'
+
+import { checkExecutorCapacity } from './executor-capacity-gate.ts'
 
 import {
   EXECUTOR_PARAMS,
@@ -33,11 +36,13 @@ import { createRpcConnection } from './pi-rpc.ts'
 import {
   getChild,
   getAllChildren,
-  registerChild,
+  registerProvisionalEntry,
+  promoteProvisionalEntry,
+  releaseProvisionalEntry,
+  generateProvisionalId,
   sigtermAllAlive,
   unregisterChild,
   persistEmptyRegistry,
-  type ChildRegistryEntry,
 } from './pi-child-registry.ts'
 import { registerChildSettle, HOST_SESSION_ENDED_TEXT } from './executor-settle.ts'
 
@@ -103,6 +108,10 @@ interface DispatchChildPiParams {
   piBuilt: PiExecutorPromptResult
   signal: AbortSignal | undefined
   foreground: boolean
+  /** 全局 executor 并发上限（0 = 不限）。 */
+  globalLimit: number
+  /** 当前 kind 的并发上限（undefined = 不限）。 */
+  kindLimit?: number
 }
 
 /**
@@ -132,6 +141,11 @@ export function waitForChildSpawn(child: ChildProcess): Promise<void> {
 export async function dispatchChildPi(params: DispatchChildPiParams): Promise<DispatchResult> {
   if (params.signal?.aborted === true) {
     throw new Error(`${ERR_PREFIX.executor}: executor dispatch aborted before start`)
+  }
+  // 并发容量闸（spawn 前）：达限即拒绝，不写 dispatches、不 spawn child。
+  const capacity = checkExecutorCapacity(params.kind, params.globalLimit, params.kindLimit)
+  if (!capacity.allow) {
+    throw new Error(formatAtCapacityReceipt(params.kind, capacity))
   }
   const {
     pi,
@@ -173,11 +187,26 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
   let connection: ReturnType<typeof createRpcConnection> | undefined
   // running 留痕已写过标志：prompt 阶段失败时改走 settle 回填，避免残留永久 running 条目。
   let dispatchedRunning = false
+  // provisional 槽位 id：spawn 成功后立即预留，关闭并发派发的竞态窗口。
+  let provisionalId: string | undefined
   try {
     // spawn RPC child。spawn 失败（如 ENOENT）在 bun/Node 上通过 'error' 事件
     // 异步抛出——waitForChildSpawn 包装为 Promise 以被 try/catch 捕获（design R4：
     // spawn 失败也留痕）。
     child = spawn(process.env.PI_BIN ?? 'pi', args, buildChildSpawnOptions(cwd))
+    // 立即预留 provisional 槽位（spawn 同步返回后、await 之前）：闸判定→登记全程
+    // 同步无 await，彻底关闭并发派发全部放行的竞态窗口。spawn 异步失败
+    //（ENOENT 等）走 catch → releaseProvisionalEntry 释放，不留永久占位。
+    provisionalId = generateProvisionalId()
+    registerProvisionalEntry(provisionalId, {
+      child,
+      kind,
+      root,
+      taskRelPath,
+      parentSessionId,
+      status: 'starting',
+      startedAt: new Date().toISOString(),
+    })
     await waitForChildSpawn(child)
     // 创建 RPC 连接（严格 \n 分帧）。
     connection = createRpcConnection(child)
@@ -189,18 +218,9 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     if (sessionId === undefined || sessionId === '') {
       throw new Error(`${ERR_PREFIX.executor}: failed to get session id from child pi`)
     }
-    // 登记 child 注册表。
-    const entry: ChildRegistryEntry = {
-      connection,
-      child,
-      kind,
-      root,
-      taskRelPath,
-      parentSessionId,
-      status: 'running',
-      startedAt: new Date().toISOString(),
-    }
-    registerChild(sessionId, entry)
+    // 将 provisional 槽位提升为真实 sessionId（原子替换 temp key → sessionId）。
+    promoteProvisionalEntry(provisionalId, sessionId, connection)
+    provisionalId = undefined  // 已提升，不再需要释放
     // 派发时刻初写 dispatches（status: running + childId + 绑定）。
     // 绑定字段使用原始工具参数（rawModel/rawEffort）以正确判定 param vs config 来源。
     recordDispatch(root, taskRelPath, {
@@ -217,7 +237,11 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     // 发送 prompt 命令。
     await connection.sendCommand({ type: 'prompt', message: prompt })
   } catch (error) {
-    // spawn/get_state/prompt 失败：留痕 failed（无 sessionId 时 childId 缺省）+ fail loud。
+    // spawn/get_state/prompt 失败：释放 provisional 槽位（如未提升）+ 留痕 failed + fail loud。
+    // 释放 provisional：所有失败路径必须释放，不留永久占位。
+    if (provisionalId !== undefined) {
+      releaseProvisionalEntry(provisionalId)
+    }
     // design R4：失败派发也留痕——running 已写过时直接回填该条目为 failed（防残留
     // 永久 running）；未写过时追加一条 status=failed 记录（kind/title/绑定齐全）。
     const message = error instanceof Error ? error.message : String(error)
@@ -422,6 +446,9 @@ export function handleSessionShutdown(): void {
   // 1. 回填全部 running child 为 failed（不注销——注册表仍持有进程引用供 SIGTERM）。
   for (const [sessionId, entry] of getAllChildren()) {
     if (!roots.includes(entry.root)) roots.push(entry.root)
+    // idle 条目已完工（dispatches 已 completed），shutdown 不写 failed 留痕；
+    // sigtermAllAlive() 后续统一 SIGTERM 全部存活进程（含 idle）。
+    if (entry.status === 'idle') continue
     const [settleErr] = settleExecutorDispatch(entry.root, entry.taskRelPath, {
       childId: sessionId,
       status: 'failed',

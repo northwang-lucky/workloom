@@ -368,6 +368,10 @@ async function executeTool(
   )
   assertEffort(effective.effort)
   assertKind(params.kind)
+  // 并发容量闸上限：全局（缺省 2、0 不限）+ kind 层（undefined 不限；
+  // effective 已透出命中 profile 条目的 maxConcurrent，无需二次 resolve）。
+  const globalLimit = config.executor.maxConcurrent
+  const kindLimit = effective.maxConcurrent
   // 冲突门。
   const gate = resolveConflictGate(config, params, mainModel)
   if (gate.notice !== undefined) {
@@ -477,6 +481,8 @@ async function executeTool(
       incrementalPrompt: params.prompt,
       reinject,
       signal: ctx.signal,
+      globalLimit,
+      kindLimit,
     })
     return {
       content: [{ type: 'text', text: result.text }],
@@ -509,6 +515,8 @@ async function executeTool(
     piBuilt,
     signal: ctx.signal,
     foreground,
+    globalLimit,
+    kindLimit,
   })
   if (result.kind === 'background') {
     return {
