@@ -44,6 +44,9 @@ export const DEFAULT_CONFIG = {
     afterFinish: [],
     afterArchive: [],
   },
+  executor: {
+    maxConcurrent: 2,
+  },
   packages: {},
   subagents: {},
   subagentProfiles: [],
@@ -66,6 +69,7 @@ const GLOBAL_ALLOWED_TOP_FIELDS = new Set([
   'max_journal_lines',
   'prompt_injection',
   'context_injection',
+  'executor',
 ])
 
 /** 全局层禁止出现的项目级字段（报专属错误）。 */
@@ -387,6 +391,15 @@ function mergeWithDefaults(doc) {
   if (doc.subagent_profiles !== undefined) {
     config.subagentProfiles = parseSubagentProfiles(doc.subagent_profiles)
   }
+  if (doc.executor !== undefined) {
+    const exec = requireMap('executor', doc.executor)
+    if (exec.max_concurrent !== undefined) {
+      config.executor.maxConcurrent = requireNonNegativeInt(
+        'executor.max_concurrent',
+        exec.max_concurrent,
+      )
+    }
+  }
   return config
 }
 
@@ -421,19 +434,21 @@ function parsePackages(value) {
 function parseSubagents(value) {
   return parseSubagentsEntries('subagents', requireMap('subagents', value), {
     allowTools: false,
+    allowMaxConcurrent: false,
   })
 }
 
 /**
  * 校验 subagents 条目映射（解析核心，前缀可参数化：旧 subagents 字段与
  * subagent_profiles 内层复用同一套 entry 校验）。条目内未知字段 fail loud
- * （两层一致）；tools 字段仅 subagent_profiles 层支持（allowTools 开关）。
+ * （两层一致）；tools 与 max_concurrent 字段仅 subagent_profiles 层支持
+ * （allowTools / allowMaxConcurrent 开关，legacy 层出现即报错）。
  * @param {string} prefix 字段路径前缀（subagents 或 subagent_profiles[i].subagents）
  * @param {Record<string, unknown>} map 条目映射
- * @param {{allowTools: boolean}} options 是否允许 tools 字段
+ * @param {{allowTools: boolean, allowMaxConcurrent: boolean}} options 层间字段开关
  * @returns {Record<string, import('./config.d.ts').SubagentConfigEntry>}
  */
-function parseSubagentsEntries(prefix, map, { allowTools }) {
+function parseSubagentsEntries(prefix, map, { allowTools, allowMaxConcurrent }) {
   /** @type {Record<string, import('./config.d.ts').SubagentConfigEntry>} */
   const result = {}
   for (const [name, entry] of Object.entries(map)) {
@@ -445,10 +460,17 @@ function parseSubagentsEntries(prefix, map, { allowTools }) {
           'is only supported under subagent_profiles',
         )
       }
-      if (key !== 'model' && key !== 'effort' && key !== 'tools') {
+      if (key === 'max_concurrent' && !allowMaxConcurrent) {
+        throw new WorkloomConfigError(
+          `${prefix}.${name}.max_concurrent`,
+          'is only supported under subagent_profiles',
+        )
+      }
+      if (key !== 'model' && key !== 'effort' && key !== 'tools' && key !== 'max_concurrent') {
         throw new WorkloomConfigError(
           `${prefix}.${name}.${key}`,
-          `unknown field (allowed: model, effort${allowTools ? ', tools' : ''})`,
+          // allowed 清单按层条件化：tools / max_concurrent 仅 profiles 层合法。
+          `unknown field (allowed: model, effort${allowMaxConcurrent ? ', max_concurrent' : ''}${allowTools ? ', tools' : ''})`,
         )
       }
     }
@@ -462,6 +484,12 @@ function parseSubagentsEntries(prefix, map, { allowTools }) {
     }
     if (spec.tools !== undefined) {
       parsed.tools = parseTools(`${prefix}.${name}.tools`, spec.tools)
+    }
+    if (spec.max_concurrent !== undefined) {
+      parsed.maxConcurrent = requireNonNegativeInt(
+        `${prefix}.${name}.max_concurrent`,
+        spec.max_concurrent,
+      )
     }
     result[name] = parsed
   }
@@ -551,6 +579,7 @@ function parseSubagentProfiles(value) {
     const subs = requireMap(`subagent_profiles[${i}].subagents`, entry.subagents ?? {})
     parsed.subagents = parseSubagentsEntries(`subagent_profiles[${i}].subagents`, subs, {
       allowTools: true,
+      allowMaxConcurrent: true,
     })
     result.push(parsed)
   }
@@ -734,6 +763,8 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
     effort = legacyLayer.effort
     effortConfigSource = 'legacy'
   }
+  // kind 层并发上限：仅 subagent_profiles 命中条目携带（legacy 层不支持），未命中 / 未配置 = undefined。
+  const maxConcurrent = profileLayer.maxConcurrent
   return {
     model,
     effort,
@@ -746,6 +777,9 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
     // tools 仅 subagent_profiles 层支持（legacy 层无 tools）：命中条目的该 kind
     // tools 字段原样透出，未命中时为 undefined（调用方按 allow 清单组装消费）。
     tools: profileLayer.tools,
+    // maxConcurrent：命中 profile 条目该 kind 的 max_concurrent 原样透出
+    // （undefined = 该层不限；0 = 不限；> 0 = 该 kind 上限）。
+    maxConcurrent,
     // whenMainValue 仅在字段实际来自 whenMain 条目时返回（receipt 展示用）。
     ...(matched?.whenMainValue !== undefined &&
     (modelConfigSource === 'whenMain' || effortConfigSource === 'whenMain')

@@ -814,6 +814,8 @@ test('whenMain 条件重叠抛错（string/string、string/map、map/map）', ()
 })
 
 test('未知字段容错忽略（旧平台字段与 executor.gate 残留不报错）', () => {
+  // 处置：executor 现已纳入 schema（maxConcurrent 默认 2），executor.gate 作为未知子字段
+  // 仍容错忽略；断言调整为校验 executor.maxConcurrent 默认值 + gate 子字段不残留。
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
@@ -823,8 +825,8 @@ test('未知字段容错忽略（旧平台字段与 executor.gate 残留不报�
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config, DEFAULT_CONFIG)
-    assert.equal('executor' in config, false)
+    assert.equal(config.executor.maxConcurrent, 2)
+    assert.equal('gate' in config.executor, false)
   } finally {
     cleanup(root, home)
   }
@@ -852,6 +854,7 @@ test('resolveSubagentDefaults：参数覆盖配置（字段独立合并）', () 
     sources: { model: 'param', effort: 'config' },
     configSources: { model: undefined, effort: 'legacy' },
     tools: undefined,
+    maxConcurrent: undefined,
   })
   const byEffort = resolveSubagentDefaults(config, 'research', { effort: 'max' })
   assert.deepEqual(byEffort, {
@@ -860,6 +863,7 @@ test('resolveSubagentDefaults：参数覆盖配置（字段独立合并）', () 
     sources: { model: 'config', effort: 'param' },
     configSources: { model: 'legacy', effort: undefined },
     tools: undefined,
+    maxConcurrent: undefined,
   })
 })
 
@@ -871,6 +875,7 @@ test('resolveSubagentDefaults：无参数回退配置；均无配置返回 undef
     sources: { model: 'config', effort: 'config' },
     configSources: { model: 'legacy', effort: 'legacy' },
     tools: undefined,
+    maxConcurrent: undefined,
   })
   assert.deepEqual(resolveSubagentDefaults({ subagents: {} }, 'research', {}), {
     model: undefined,
@@ -878,6 +883,7 @@ test('resolveSubagentDefaults：无参数回退配置；均无配置返回 undef
     sources: { model: undefined, effort: undefined },
     configSources: { model: undefined, effort: undefined },
     tools: undefined,
+    maxConcurrent: undefined,
   })
 })
 
@@ -922,6 +928,7 @@ test('resolveSubagentDefaults：whenMain string 两段归一化命中、裸 id �
     configSources: { model: 'whenMain', effort: 'whenMain' },
     whenMainValue: 'kimi-coding/k3',
     tools: undefined,
+    maxConcurrent: undefined,
   })
   const miss = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'k3')
   assert.equal(miss.model, 'legacy-m')
@@ -958,6 +965,7 @@ test('resolveSubagentDefaults：兜底条目优先、kind 级联、字段独立�
     sources: { model: 'config', effort: 'config' },
     configSources: { model: 'fallback', effort: 'legacy' },
     tools: undefined,
+    maxConcurrent: undefined,
   })
 })
 
@@ -1019,6 +1027,7 @@ test('resolveSubagentDefaults：显式参数覆盖 profile/map 配置（不触�
     sources: { model: 'param', effort: undefined },
     configSources: { model: undefined, effort: undefined },
     tools: undefined,
+    maxConcurrent: undefined,
   })
 })
 
@@ -1206,6 +1215,216 @@ test('provenance：legacy subagents 单独跟踪来源（global 层放行 + 独�
     assert.equal(config.subagentsSource, 'global')
     assert.equal(config.subagentProfilesSource, undefined)
     assert.deepEqual(config.subagents, { research: { model: 'g-r' } })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+// ---------- executor 并发闸配置解析（R1） ----------
+
+test('executor 缺省默认 max_concurrent = 2（开箱防失控）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.executor.maxConcurrent, 2)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('executor.max_concurrent 显式 0 = 不限', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { executor: { max_concurrent: 0 } })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.executor.maxConcurrent, 0)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('executor.max_concurrent 自定义值', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { executor: { max_concurrent: 5 } })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.executor.maxConcurrent, 5)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('executor.max_concurrent 负数 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { executor: { max_concurrent: -1 } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'executor.max_concurrent'
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('executor.max_concurrent 非整数 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { executor: { max_concurrent: 1.5 } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'executor.max_concurrent'
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('executor.max_concurrent 字符串 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { executor: { max_concurrent: 'two' } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'executor.max_concurrent'
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('executor 本地覆盖层覆盖项目层', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { executor: { max_concurrent: 3 } })
+  writeProjectFile(root, 'config.local.json', { executor: { max_concurrent: 1 } })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.executor.maxConcurrent, 1)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('executor 全局层可配置（白名单放行）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeHomeFile(home, 'config.json', { executor: { max_concurrent: 4 } })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.executor.maxConcurrent, 4)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('subagent_profiles 条目含 max_concurrent', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [
+      { subagents: { implement: { model: 'p', max_concurrent: 3 } } },
+    ],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfiles[0].subagents.implement.maxConcurrent, 3)
+    // resolveSubagentDefaults 透出 maxConcurrent
+    const resolved = resolveSubagentDefaults(config, 'implement', {})
+    assert.equal(resolved.maxConcurrent, 3)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('subagent_profiles 条目 max_concurrent = 0 = 不限', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [
+      { subagents: { research: { max_concurrent: 0 } } },
+    ],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    const resolved = resolveSubagentDefaults(config, 'research', {})
+    assert.equal(resolved.maxConcurrent, 0)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('subagent_profiles 条目 max_concurrent 负数 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [
+      { subagents: { implement: { max_concurrent: -2 } } },
+    ],
+  })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return (
+        err instanceof WorkloomConfigError &&
+        err.field === 'subagent_profiles[0].subagents.implement.max_concurrent'
+      )
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('subagent_profiles 条目 max_concurrent 非整数 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [
+      { subagents: { check: { max_concurrent: 2.7 } } },
+    ],
+  })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return (
+        err instanceof WorkloomConfigError &&
+        err.field === 'subagent_profiles[0].subagents.check.max_concurrent'
+      )
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('resolveSubagentDefaults：未配置 max_concurrent 时返回 undefined', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    const resolved = resolveSubagentDefaults(config, 'implement', {})
+    assert.equal(resolved.maxConcurrent, undefined)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('legacy subagents 层 max_concurrent → WorkloomConfigError（仅 profiles 层支持）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagents: { implement: { max_concurrent: 2 } },
+  })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return (
+        err instanceof WorkloomConfigError &&
+        err.field === 'subagents.implement.max_concurrent'
+      )
+    })
   } finally {
     cleanup(root, home)
   }

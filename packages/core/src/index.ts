@@ -42,6 +42,17 @@ export {
   buildAllowList,
 } from './legacy/executor-tools.js'
 
+export {
+  evaluateExecutorCapacity,
+  formatAtCapacityReceipt,
+} from './legacy/executor-capacity.js'
+
+export type {
+  RunningExecutorRecord,
+  CapacityCheckParams,
+  CapacityResult,
+} from './legacy/executor-capacity.d.ts'
+
 export { initWorkloom } from './legacy/init.js'
 
 export { migrateLegacyTrellis } from './legacy/migrate.js'

@@ -168,6 +168,7 @@ test('config.example.json 覆盖 DEFAULT_CONFIG 全部字段键（含 tools，�
       DEFAULT_CONFIG.contextInjection.maxTotalBytes,
     )
     assert.equal(doc.prompt_injection.skip_keyword, DEFAULT_CONFIG.promptInjection.skipKeyword)
+    assert.equal(doc.executor.max_concurrent, DEFAULT_CONFIG.executor.maxConcurrent)
     assert.equal(doc.packages.cli.path, 'packages/cli')
     // tools 字段在 subagent_profiles 内层展示（includes/excludes 带 lsp_* 前缀模式）。
     const checkEntry = doc.subagent_profiles.find((p) => p.subagents.check !== undefined)

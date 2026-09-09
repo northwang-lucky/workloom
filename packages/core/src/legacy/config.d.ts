@@ -19,6 +19,10 @@ export interface WorkloomConfig {
   }
   packages: Record<string, { path: string; type?: string; git?: boolean }>
   subagents: Record<string, SubagentConfigEntry>
+  /** 全局 executor 并发闸：max_concurrent 为全局上限（0 = 不限，缺省 = 2，开箱防失控）。 */
+  executor: {
+    maxConcurrent: number
+  }
   /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
   subagentProfiles: SubagentProfile[]
   /**
@@ -63,6 +67,11 @@ export interface SubagentConfigEntry {
   model?: string | Record<string, string>
   effort?: string
   tools?: SubagentTools
+  /**
+   * 该 kind 的并发上限（0 = 不限；undefined = 该层不限，仅全局层闸生效）。
+   * 仅 subagent_profiles 内层条目携带。
+   */
+  maxConcurrent?: number
 }
 
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
@@ -89,6 +98,11 @@ export interface ResolveSubagentDefaultsResult {
   /** 命中 subagent_profiles 条目该 kind 的 tools 字段（includes/excludes；仅
    *  profiles 层支持，legacy 层无 tools，未命中时 undefined）。 */
   tools?: SubagentTools
+  /**
+   * 命中 subagent_profiles 条目该 kind 的并发上限（undefined = 该层不限，仅全局闸生效；
+   * 0 = 不限；> 0 = 该 kind 上限）。
+   */
+  maxConcurrent?: number
 }
 
 /** 内置默认配置。 */
