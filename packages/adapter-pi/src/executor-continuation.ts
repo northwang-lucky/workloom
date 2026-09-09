@@ -38,16 +38,6 @@ import { appendExecutorReceipt } from './executor.ts'
 /** 续用定位入参 continue_executor 的 'latest' 魔法值（复用 dispatches 同 kind 最近一次）。 */
 const REUSE_LATEST = 'latest'
 
-/**
- * 续派重绑定拒绝文案（本地常量，M3 迁 core 共享常量）。
- * 与 DSH executor.ts 的 CONTINUE_REBIND_REJECT_TEXT 逐字一致。
- * TODO(M3): 上移为 core 共享常量，DSH/Pi 两 adapter 同 import 消除双份维护。
- */
-const CONTINUE_REBIND_REJECT_TEXT =
-  'continue_executor cannot be combined with model/effort: the child session keeps the ' +
-  'model/effort bound at its original dispatch and sendMessage has no rebinding seam. ' +
-  'To change the model or effort, dispatch a new executor without continue_executor.'
-
 /** 取消时向 child pi 发送的终止信号。 */
 const KILL_SIGNAL = 'SIGTERM'
 
@@ -372,4 +362,4 @@ function buildInjectionStats(built: PiExecutorPromptResult, toolsAllowed: number
 }
 
 /** 导出拒绝文案供 executor.ts 复用（rebind 拒绝）。 */
-export { CONTINUE_REBIND_REJECT_TEXT, KILL_SIGNAL }
+export { KILL_SIGNAL }

@@ -78,6 +78,7 @@ import {
   buildExecutorPrompt,
   buildNewDispatchBinding,
   composeLocalDirectivesText,
+  CONTINUE_REBIND_REJECT_TEXT,
   detectExecutorConflicts,
   ERR_PREFIX,
   evaluateStaleAlignmentGate,
@@ -137,16 +138,6 @@ const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record 
 
 /** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
-
-/**
- * 续派重绑定拒绝文案（design §8.1，运行时文案英文）：continue_executor 与
- * model/effort 同传一律 fail loud——子会话 model/effort 在派发时刻已绑定，
- * DSH sendMessage 无模型重绑接缝，静默丢弃会让回执谎报生效；换模型必须新开派发。
- */
-const CONTINUE_REBIND_REJECT_TEXT =
-  'continue_executor cannot be combined with model/effort: the child session keeps the ' +
-  'model/effort bound at its original dispatch and sendMessage has no rebinding seam. ' +
-  'To change the model or effort, dispatch a new executor without continue_executor.'
 
 /**
  * 上游 DSH 接续拒绝的错误片段（parent 严格校验：child.parentSession ≠ 当前会话，

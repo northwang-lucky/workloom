@@ -2,6 +2,14 @@
  * adapter-pi 的 executor 工具（workloom_execute）：把 workloom 任务上下文
  * 组装成子代理首条 prompt，spawn RPC 常驻 child pi 派发（架构 R，见 design）。
  *
+ * ADR-0006 修订（2026-09-09）：transport 从「`--mode json` spawn 用后即弃」
+ * 演进为「`--mode rpc` 常驻 child + 会话落盘」。
+ * - 动因：parity P1–P8 全量对齐（续用/后台/steering/留痕/title/孤儿回收）。
+ * - 保持的设计初衷：① fresh prompt 保证 fresh context（首派全量内联语义不变）；
+ *   ② 零再派发（`--no-extensions` + 按需 `-e` 在 RPC child 上原样保留）。
+ * - 否决的备选：架构 S（resume spawn，steering/title 无法对齐）、pi-web 原生
+ *   transport（见 docs/research/pi-web-subagent-support.md）。
+ *
  * 设计意图：
  * - 按 kind 用 core 的 buildExecutorPrompt 组装上下文，spawn RPC child pi 派发；
  * - 默认后台派发（R1）：prompt 命令接受后立即返回 childId + receipt；
@@ -12,7 +20,8 @@
  * - 子会话标题（R5）：child 以 `--name "[<KindLabel>] <title>"` 启动；
  * - 会话存储与孤儿回收（R6）：child 会话落 `<root>/.workloom/sessions/pi/`，
  *   主会话结束联动 SIGTERM 全部存活 child 并把未完成派发回填 failed；
- * - ctx.signal aborted 时发 `abort` 命令 + SIGTERM，settle 回填 failed；
+ * - ctx.signal aborted 时发 `abort` 命令 + SIGTERM，settle 以 failed 结算（摘要
+ *   dispatch aborted by main session），幂等标志阻止随后 agent_end 改写终态；
  * - 不设 timeout（与 DSH 对齐）；child 用 --no-extensions，无 workloom_execute
  *   工具，天然禁止再派发（零再派发保证）；
  * - model/effort 未显式传入时回退到 subagents 配置（按 executor kind 取值）；
@@ -40,6 +49,7 @@ import {
   buildExecutorPrompt,
   buildExecutorReceipt,
   composeLocalDirectivesText,
+  CONTINUE_REBIND_REJECT_TEXT,
   detectExecutorConflicts,
   ERR_PREFIX,
   evaluateStaleAlignmentGate,
@@ -70,7 +80,6 @@ import { readMainModel } from './main-model.ts'
 import { sessionsDir } from './pi-child-registry.ts'
 import { dispatchChildPi } from './executor-dispatch.ts'
 import {
-  CONTINUE_REBIND_REJECT_TEXT,
   continueExecutor,
   locateContinueChildId,
 } from './executor-continuation.ts'

@@ -35,7 +35,7 @@
       "kind": "implement",
       "at": "2026-09-09T11:21:03.358Z",
       "title": "ST-A 文案统一半成品审计与收尾",
-      "status": "running",
+      "status": "completed",
       "childId": "434cc0d3-bfad-4b5a-a3ad-9a42e436fc17",
       "model": "longcat/LongCat-2.0",
       "modelSource": "fallback"

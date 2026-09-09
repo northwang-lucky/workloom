@@ -564,14 +564,14 @@ test('契约 v17 §2.1/§2.2 含后台流程叙述（派发即返回→继续其
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(
-      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives via the subagent notice',
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives asynchronously in the main session',
     ),
     '2.1 正文缺后台流程叙述',
   )
   const checkBody = contract.steps.find((step) => step.id === '2.2').body
   assert.ok(
     checkBody.includes(
-      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives via the subagent notice',
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives asynchronously in the main session',
     ),
     '2.2 正文缺后台流程叙述',
   )

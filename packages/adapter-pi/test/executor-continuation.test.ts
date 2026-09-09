@@ -9,10 +9,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { CONTINUE_REBIND_REJECT_TEXT } from '@workloom-ai/core'
+
 import {
   locateContinueChildId,
   readSpawnBinding,
-  CONTINUE_REBIND_REJECT_TEXT,
 } from '../src/executor-continuation.ts'
 import { buildChildPiArgs } from '../src/pi-args.ts'
 

@@ -116,9 +116,9 @@ export const PARAM_DESCRIPTIONS = {
     'Override a conflicting executor model/effort config; requires a non-empty reason (recorded in task.json overrides)',
   /** executor 工具的 reason 参数（force 为 true 时必填）。 */
   reasonExecutor: 'Required non-empty reason when force is true (recorded for audit)',
-  /** executor 工具的 title 参数（schema 必填非空；子会话语义标题，前缀由 executor 组装，仅 DSH 生效）。 */
+  /** executor 工具的 title 参数（schema 必填非空；子会话语义标题，前缀由 executor 组装）。 */
   titleExecutor:
-    'Required semantic part of the child session title; the executor assembles it as [<KindLabel>] <title>; only effective on the DSH adapter',
+    'Required semantic part of the child session title; the executor assembles it as [<KindLabel>] <title>',
   kind: 'Executor role: research, implement, check, or frontend',
   model:
     'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to the matching subagent_profiles entry (by main session model), then subagents.<kind>.model, then the parent session model. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor model',
@@ -150,6 +150,16 @@ export const ERR_PREFIX = {
 
 /** executor 子代理无文本输出时的返回提示（运行时文案英文）。 */
 export const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.'
+
+/**
+ * 续派重绑定拒绝文案（两 adapter 共享常量，消除双份维护）。
+ * continue_executor 与 model/effort 同传一律 fail loud——子会话 model/effort 在派发时刻已绑定，
+ * sendMessage 无模型重绑接缝，静默丢弃会让回执谎报生效；换模型必须新开派发。
+ */
+export const CONTINUE_REBIND_REJECT_TEXT =
+  'continue_executor cannot be combined with model/effort: the child session keeps the ' +
+  'model/effort bound at its original dispatch and sendMessage has no rebinding seam. ' +
+  'To change the model or effort, dispatch a new executor without continue_executor.'
 
 /** purge 模式标志：rawInput 以该前缀开头时，迁移后直接删除旧 .trellis 目录。 */
 export const PURGE_FLAG = '--purge'
