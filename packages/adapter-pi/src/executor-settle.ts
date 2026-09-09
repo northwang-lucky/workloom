@@ -13,7 +13,7 @@
  *   ERR_PREFIX.executor）。前台派发不回投（工具返回值即报告，避免双份）。
  */
 
-import { ERR_PREFIX, settleExecutorDispatch } from '@workloom-ai/core'
+import { ERR_PREFIX, readTask, settleExecutorDispatch } from '@workloom-ai/core'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 
 import { applyEvent, extractExecutorText, type PiEventState } from './pi-events.ts'
@@ -75,20 +75,33 @@ export function registerChildSettle(
     const stderrParts: string[] = []
     let settled = false
 
-    /** 完成结算（内部）：回填 + 回投（幂等，只执行一次）。
+    /** 完成结算（内部）：循环回填 + 回投（幂等，只执行一次）。
      * 注意：不在此处 unregisterChild——RPC child 是常驻进程，注册表条目移除以
-     * child 进程 close 事件为准（design R2：存活续用直接向同一进程发 prompt）。 */
+     * child 进程 close 事件为准（design R2：存活续用直接向同一进程发 prompt）。
+     *
+     * 循环 settle：同 childId 可能有多条 running 条目（steering 续用追加第二条），
+     * core settleExecutorDispatch 每次只回填最近一条 running；需循环直到该 childId
+     * 无 running 条目为止（agent_end 语义 = 该 run 全部注入工作完成，所有轮次同获终态）。
+     * 防御：循环上限 16 次 + 每轮 error 时 WARNING 并停止，杜绝死循环。 */
     const finish = (result: SettleResult): void => {
       if (settled) return
       settled = true
-      // 回填 dispatches（失败只 WARNING，不阻塞结算）。
-      const [settleErr] = settleExecutorDispatch(entry.root, entry.taskRelPath, {
-        childId: sessionId,
-        status: result.status,
-        error: result.error,
-      })
-      if (settleErr !== null) {
-        console.warn(`${SETTLE_WARN_PREFIX} ${settleErr}`)
+      const SETTLE_MAX_ROUNDS = 16
+      for (let round = 0; round < SETTLE_MAX_ROUNDS; round++) {
+        // 回填 dispatches（失败只 WARNING，不阻塞结算）。
+        const [settleErr] = settleExecutorDispatch(entry.root, entry.taskRelPath, {
+          childId: sessionId,
+          status: result.status,
+          error: result.error,
+        })
+        if (settleErr !== null) {
+          console.warn(`${SETTLE_WARN_PREFIX} ${settleErr}`)
+          break // 出错停止，避免死循环
+        }
+        // 检查该 childId 是否仍有 running 条目，无则全部已结算。
+        if (!hasRunningDispatch(entry.root, entry.taskRelPath, sessionId)) {
+          break
+        }
       }
       // 回投报告（仅后台派发；前台由工具返回值直接交付，避免双份）。
       if (!foreground) {
@@ -171,4 +184,27 @@ function limitErrorLine(errorText: string): string {
   const oneLine = errorText.replace(/\s+/g, ' ').trim()
   if (oneLine.length <= ERROR_LINE_MAX) return oneLine
   return `${oneLine.slice(0, ERROR_LINE_MAX)}${ERROR_TRUNCATION_SUFFIX}`
+}
+
+/**
+ * 检查指定 childId 是否仍有 running 的 dispatch 条目（内部）。
+ * 用于循环 settle：同 childId 可能有多条 running（steering 续用追加），
+ * 需全部结算。读取失败返回 false（视为无 running，停止循环）。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param childId 子代理会话 id
+ * @returns 仍有 running 条目时 true
+ */
+function hasRunningDispatch(root: string, taskRelPath: string, childId: string): boolean {
+  const [taskErr, task] = readTask(root, taskRelPath)
+  if (taskErr !== null || task === null) return false
+  const dispatches = task.dispatches
+  if (!Array.isArray(dispatches)) return false
+  for (let i = dispatches.length - 1; i >= 0; i--) {
+    const record = dispatches[i]
+    if (record === undefined || record === null || typeof record !== 'object') continue
+    if (record.childId !== childId) continue
+    if (record.status === 'running') return true
+  }
+  return false
 }
