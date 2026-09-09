@@ -70,6 +70,11 @@ import { readMainModel } from './main-model.ts'
 import { cleanupOrphans, sessionsDir } from './pi-child-registry.ts'
 import { dispatchChildPi } from './executor-dispatch.ts'
 import {
+  CONTINUE_REBIND_REJECT_TEXT,
+  continueExecutor,
+  locateContinueChildId,
+} from './executor-continuation.ts'
+import {
   buildTheoreticalTools,
   hasLspCapability,
   hasLspTools,
@@ -89,6 +94,10 @@ export const EXECUTOR_PARAMS = Type.Object({
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reasonExecutor })),
   // 前台阻塞开关（默认 false = 后台派发；true = 阻塞等 agent_end 终文）。
   foreground: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.foregroundExecutor })),
+  // 续用同一 executor 会话（M2）：'latest' 或显式 childId；跨 kind 拒绝。
+  continue_executor: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.continueExecutor })),
+  // 续接全量重注入开关（M2 默认关：续接只发增量指令；true = 恢复全量上下文注入）。
+  reinject: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.reinjectExecutor })),
 })
 
 /** 当前 runtime 名（subagents.model map 形式的取值 key，与 core 的 runtime 参数对齐）。 */
@@ -396,6 +405,17 @@ async function executeTool(
     staleMissing: staleMissing.length > 0,
     reason: params.reason ?? '',
   })
+  // 续用治理（design §8.1）：continue_executor 与 model/effort 同传一律 fail loud
+  // ——子会话 model/effort 在派发时刻已绑定，续用无重绑接缝，静默丢弃会让回执谎报生效。
+  if (
+    params.continue_executor !== undefined &&
+    (params.model !== undefined || params.effort !== undefined)
+  ) {
+    return {
+      content: [{ type: 'text', text: `${ERR_PREFIX.executor}: ${CONTINUE_REBIND_REJECT_TEXT}` }],
+      details: { kind: 'rebind', status: 'blocked' },
+    }
+  }
   // 工具面白名单链路。
   const parentHasLsp = hasLspCapability(pi)
   const allowInfo = buildPiToolAllow(effective.tools, parentHasLsp)
@@ -415,6 +435,46 @@ async function executeTool(
   const loadExtensions: string[] = []
   if (allowInfo.childHasLsp) loadExtensions.push(PI_LSP_SOURCE)
   if (params.kind === 'research') loadExtensions.push(RESEARCH_SCOPE_EXTENSION)
+  // 续用（M2 continue_executor）：定位 → 三分支投递（存活 idle→prompt；存活
+  // streaming→steer；不存活→--session 重启续接后 prompt）。
+  if (params.continue_executor !== undefined) {
+    const [locateErr, childId] = locateContinueChildId(
+      root,
+      taskRelPath,
+      params.kind,
+      params.continue_executor,
+    )
+    if (locateErr !== null) {
+      return {
+        content: [{ type: 'text', text: locateErr }],
+        details: { kind: 'continue', status: 'blocked' },
+      }
+    }
+    const reinject = params.reinject === true
+    const result = await continueExecutor({
+      pi,
+      kind: params.kind,
+      title: params.title,
+      root,
+      taskRelPath,
+      model: effective.model,
+      effort: effective.effort,
+      tools: allowInfo.allow,
+      loadExtensions,
+      parentSessionId: ctx.sessionManager.getSessionId(),
+      effective,
+      gate,
+      allowInfo,
+      piBuilt,
+      childId,
+      incrementalPrompt: params.prompt,
+      reinject,
+    })
+    return {
+      content: [{ type: 'text', text: result.text }],
+      details: { kind: 'background', childId: result.childId, status: 'running' },
+    }
+  }
   // 派发（委托 executor-dispatch.ts）。
   const foreground = params.foreground === true
   const result = await dispatchChildPi({

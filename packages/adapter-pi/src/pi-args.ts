@@ -50,6 +50,11 @@ export interface BuildChildPiArgsParams {
    * 经 `-t` 下发；空集 = 无任何工具可见，fail loud 拒绝派发，指明 kind）。
    */
   tools?: string[]
+  /**
+   * 续用重启时的会话 id（可选）：传入时在 `--mode rpc` 后插入 `--session <id>`
+   * 以续接既有会话（M2 continue_executor 不存活分支）。缺省不传（新派）。
+   */
+  sessionParam?: string
 }
 
 /**
@@ -69,15 +74,18 @@ export function buildChildPiArgs(params: BuildChildPiArgsParams): string[] {
   }
   const kindLabel = KIND_LABELS[params.kind as KindLabelKey] ?? params.kind
   // RPC 常驻形态：--mode rpc + --session-dir 隔离 + --name 语义化标题。
-  const args = [
-    '--mode',
-    'rpc',
+  // 续用重启（M2）时追加 --session <id> 以续接既有会话。
+  const args: string[] = ['--mode', 'rpc']
+  if (params.sessionParam !== undefined) {
+    args.push('--session', params.sessionParam)
+  }
+  args.push(
     '--session-dir',
     `${params.root}/.workloom/sessions/pi`,
     '--no-extensions',
     '--name',
     `[${kindLabel}] ${params.title}`,
-  ]
+  )
   // 扩展显式加载：-e 对紧跟 --no-extensions（只关自动发现，不挡显式路径；
   // 缺省不传时零行为）。
   for (const source of params.loadExtensions ?? []) {
