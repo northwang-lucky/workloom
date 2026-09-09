@@ -53,7 +53,7 @@
       "kind": "implement",
       "at": "2026-09-09T08:07:38.597Z",
       "title": "M2 续用链路与 steering",
-      "status": "running",
+      "status": "completed",
       "childId": "d52a13b4-7a85-4929-8aa8-fb0606d7f168",
       "model": "longcat/LongCat-2.0",
       "modelSource": "spawn"
