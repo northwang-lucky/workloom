@@ -44,7 +44,8 @@ M1 里程碑（RPC transport + 后台派发 + settle/留痕 + title + 孤儿回�
 
 - [ ] **10. registry.json 落盘/移除**
   派发时刻 registry.json 写入条目（pid + sessionId + startedAt）；
-  child 退出（settle 或孤儿回收）后条目移除。
+  条目移除以 child **进程 close 事件**为准（RPC child 常驻，settle 完成后
+  进程仍存活、条目必须保留；主会话结束 SIGTERM 或进程自然退出才移除）。
 
 ## 环境要求
 
