@@ -44,7 +44,7 @@
       "kind": "check",
       "at": "2026-09-09T11:26:34.059Z",
       "title": "ST-A 文案统一交付审查",
-      "status": "running",
+      "status": "completed",
       "childId": "1050bd8e-1f93-4b3e-9df2-fb2280e9f439",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
