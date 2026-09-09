@@ -1596,6 +1596,27 @@ test('recordExecutorDispatch 初写：派发记录含 status running，stage 更
   }
 })
 
+test('recordExecutorDispatch 失败留痕：显式 status=failed + error 直接写入终态', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Failed' })
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'failed dispatch',
+      status: 'failed',
+      error: 'spawn ENOENT: binary not found',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1)
+    assert.equal(saved.dispatches[0].status, 'failed', '显式 status=failed 应直接写入')
+    assert.equal(saved.dispatches[0].error, 'spawn ENOENT: binary not found')
+    assert.equal(saved.dispatches[0].childId, undefined, '无 childId 时缺省')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('settleExecutorDispatch 回填 completed/failed：只改 status/error，不动 stage、不重复计数', async () => {
   const root = makeRoot()
   try {

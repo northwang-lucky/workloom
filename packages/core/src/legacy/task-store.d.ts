@@ -107,11 +107,12 @@ export interface DispatchRecord {
   modelSource?: DispatchModelSource
 }
 
-/** recordExecutorDispatch 入参（at 由函数生成；绑定字段可选，续派轮传 spawn 语义值）。 */
+/** recordExecutorDispatch 入参（at 由函数生成；绑定字段可选，续派轮传 spawn 语义值；
+ *  status 可选，默认 'running'，失败派发留痕时传 'failed' + error）。 */
 export type DispatchRecordInput = Pick<
   DispatchRecord,
-  'kind' | 'title' | 'childId' | 'model' | 'effort' | 'modelSource'
->
+  'kind' | 'title' | 'childId' | 'model' | 'effort' | 'modelSource' | 'status'
+> & { error?: string }
 
 /** settleExecutorDispatch 回填入参（只改 status/error，不动 stage、不新增记录）。 */
 export interface DispatchSettleInput {

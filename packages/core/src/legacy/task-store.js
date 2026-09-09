@@ -998,10 +998,11 @@ export const DISPATCH_MODEL_SOURCES = Object.freeze({
 const DISPATCH_MODEL_SOURCE_SET = new Set(Object.values(DISPATCH_MODEL_SOURCES))
 
 /**
- * 组装派发审计记录（内部）：补 at（ISO 时间）与 status: 'running'，并校验
+ * 组装派发审计记录（内部）：补 at（ISO 时间）与 status（默认 'running'），并校验
  * kind/title/childId/绑定字段（防御，fail loud）。绑定字段（model/effort/
  * modelSource）可选：新派轮由 adapter 传解析后生效值；续派轮传 spawn 语义值；
- * 不传时记录不带绑定字段（旧记录读取 undefined，不迁移）。
+ * 不传时记录不带绑定字段（旧记录读取 undefined，不迁移）。status 可选，默认
+ * 'running'；失败派发留痕时传 'failed' + error（spawn/get_state/prompt 失败路径）。
  * @param {import('./task-store.d.ts').DispatchRecordInput} entry 输入
  * @returns {import('./task-store.d.ts').DispatchRecord}
  */
@@ -1026,6 +1027,19 @@ function buildDispatchRecord(entry) {
       throw new Error(`${ERR_PREFIX}: dispatch entry childId must be a non-empty string when provided`)
     }
   }
+  // status 可选：提供时必须为 running/completed/failed 之一（终态不回退到 running）。
+  if (entry.status !== undefined) {
+    if (entry.status !== 'running' && entry.status !== 'completed' && entry.status !== 'failed') {
+      throw new Error(
+        `${ERR_PREFIX}: invalid dispatch status: ${String(entry.status)} ` +
+          `(must be running/completed/failed)`,
+      )
+    }
+  }
+  // error 可选：提供时须为非空 string（仅 status=failed 时有意义）。
+  if (entry.error !== undefined && (typeof entry.error !== 'string' || entry.error.trim() === '')) {
+    throw new Error(`${ERR_PREFIX}: dispatch entry error must be a non-empty string when provided`)
+  }
   // 绑定字段可选：model/effort 提供时须为非空 string（空值拒绝，审计不可留空）；
   // modelSource 提供时必须在枚举值域内（新派来源 + spawn），防止脏数据进审计面。
   if (entry.model !== undefined && (typeof entry.model !== 'string' || entry.model.trim() === '')) {
@@ -1045,12 +1059,13 @@ function buildDispatchRecord(entry) {
     kind: entry.kind,
     at: new Date().toISOString(),
     title: entry.title,
-    // 派发初写即记 running：终态由 settleExecutorDispatch 回填，失败派发也留痕。
-    status: 'running',
+    // status 默认 running；失败派发留痕时显式传 'failed' + error。
+    status: entry.status ?? 'running',
     ...(entry.childId !== undefined ? { childId: entry.childId } : {}),
     ...(entry.model !== undefined ? { model: entry.model } : {}),
     ...(entry.effort !== undefined ? { effort: entry.effort } : {}),
     ...(entry.modelSource !== undefined ? { modelSource: entry.modelSource } : {}),
+    ...(entry.error !== undefined ? { error: entry.error } : {}),
   }
   return record
 }
