@@ -244,3 +244,9 @@
 - Commit: 85f02cd
 - Summary: 修复两个 DSH 0.1.2 升级暴露的缺陷并全量归档：locate 向上查找增加家目录边界（d271131，禁止把全局 ~/.workloom 误识别为项目资产目录）；executor 续派从已移除的 subagents.followup 迁移到 sendMessage 公共接缝、subagent 服务面改 import type 消费 DSH 公开类型（85f02cd，continue_executor 端到端实测恢复）。两任务各经对齐→实现→复审闭环，归档于 tasks/archive/2026-09/。
 
+## pi-executor-parity 全程：调研→对齐→M1/M2/M3→真机战役→容器归档
+
+- Time: 2026-09-09T13:50:45.264Z
+- Commit: 1f5604d
+- Summary: pi-executor-parity 容器任务全程闭环：pi-web subagent 调研（v0.9.0 内建实现 vs nicobailon pi-subagents 差异矩阵，workloom 零依赖结论）引出 Pi/DSH parity 对照（P1–P8），用户定方向 C 全量对齐；架构 R（RPC 常驻 child + 会话落盘 .workloom/sessions/pi）经 M1/M2 交付，tmux 真机战役抓出 8 个单测盲区缺陷（stdio/失败留痕/modelSource/settle 注销/cleanupOrphans 误杀/settle 多轮歧义/取消终态/spawn 竞速）全部修复复验，26 项真机清单全 PASS；M3 拆 ST-A/B/C 三子任务闭环（文案统一 P4/P5 消灭、ADR-0006 修订、存储治理三件套）；容器 check 两轮 Open issues none，三端 545/135/158 全绿，deployment 已同步（dshweb 重启归用户）。遗留：DSH settle 循环回填 + executor.ts 拆分立新任务；packages-scan 挂起待答。
+
