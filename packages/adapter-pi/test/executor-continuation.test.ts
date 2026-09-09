@@ -153,7 +153,7 @@ test('readSpawnBinding: 无匹配 childId 返回 null', () => {
 
 // ---- CONTINUE_REBIND_REJECT_TEXT ----
 
-test('CONTINUE_REBIND_REJECT_TEXT: 与 DSH 逐字一致', () => {
+test('CONTINUE_REBIND_REJECT_TEXT: 共享拒绝文案关键片段', () => {
   assert.match(CONTINUE_REBIND_REJECT_TEXT, /continue_executor cannot be combined with model\/effort/)
   assert.match(CONTINUE_REBIND_REJECT_TEXT, /sendMessage has no rebinding seam/)
   assert.match(CONTINUE_REBIND_REJECT_TEXT, /dispatch a new executor without continue_executor/)

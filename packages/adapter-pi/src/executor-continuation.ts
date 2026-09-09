@@ -38,9 +38,6 @@ import { appendExecutorReceipt } from './executor.ts'
 /** 续用定位入参 continue_executor 的 'latest' 魔法值（复用 dispatches 同 kind 最近一次）。 */
 const REUSE_LATEST = 'latest'
 
-/** 取消时向 child pi 发送的终止信号。 */
-const KILL_SIGNAL = 'SIGTERM'
-
 /**
  * 定位续用 childId（dispatches 记录，同 kind 边界）：'latest' 取同 kind 最近一条的
  * childId；显式 id 必须在 dispatches 中存在且 kind 一致，否则拒绝（跨 kind / 无记录
@@ -360,6 +357,3 @@ function buildInjectionStats(built: PiExecutorPromptResult, toolsAllowed: number
     toolsAllowed,
   }
 }
-
-/** 导出拒绝文案供 executor.ts 复用（rebind 拒绝）。 */
-export { KILL_SIGNAL }
