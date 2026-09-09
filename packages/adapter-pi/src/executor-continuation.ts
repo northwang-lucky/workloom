@@ -31,6 +31,7 @@ import { createRpcConnection } from './pi-rpc.ts'
 import { buildChildPiArgs } from './pi-args.ts'
 import { spawn } from 'node:child_process'
 import { registerChildSettle } from './executor-settle.ts'
+import { buildChildSpawnOptions } from './executor-dispatch.ts'
 import type { ConflictGateResult, PiExecutorPromptResult } from './executor.ts'
 import { appendExecutorReceipt } from './executor.ts'
 
@@ -248,10 +249,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     tools,
     sessionParam: childId,
   })
-  const child = spawn(process.env.PI_BIN ?? 'pi', args, {
-    cwd: root,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const child = spawn(process.env.PI_BIN ?? 'pi', args, buildChildSpawnOptions(root))
   const connection = createRpcConnection(child)
 
   // 重启后 get_state 确认 sessionId 一致

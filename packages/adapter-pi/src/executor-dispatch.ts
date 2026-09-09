@@ -18,7 +18,6 @@ import {
   buildNewDispatchBinding,
   ERR_PREFIX,
   recordExecutorDispatch,
-  settleExecutorDispatch,
 } from '@workloom-ai/core'
 import type { DispatchRecordInput, ExecutorInjectionStats } from '@workloom-ai/core'
 
@@ -45,6 +44,18 @@ const KILL_SIGNAL = 'SIGTERM'
 
 /** 派发审计记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
 const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
+
+/**
+ * 组装 child pi 的 spawn options（纯函数，可单测）。
+ * RPC 模式 stdin 是命令通道（sendCommand 写 JSON 命令），必须为 'pipe'；
+ * stdout/stderr 分别为事件流与错误摘要。child 存活期间 stdin 保持打开，
+ * SIGTERM/close 路径上由 child.kill/connection.close 销毁。
+ * @param cwd 工作目录
+ * @returns spawn options
+ */
+export function buildChildSpawnOptions(cwd: string): { cwd: string; stdio: ['pipe', 'pipe', 'pipe'] } {
+  return { cwd, stdio: ['pipe', 'pipe', 'pipe'] }
+}
 
 /** 派发结果（后台：childId + receipt 文本；前台：终文）。 */
 export type DispatchResult =
@@ -122,15 +133,25 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     loadExtensions,
     tools,
   })
-  // spawn RPC child。
-  const child = spawn(process.env.PI_BIN ?? 'pi', args, {
-    cwd,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  // 创建 RPC 连接（严格 \n 分帧）。
-  const connection = createRpcConnection(child)
+  // spawn RPC child + 创建连接均放入 try 块——spawn 同步抛错（如 ENOENT）必须被
+  // catch 捕获以留痕 failed + fail loud（design R4：spawn/get_state/prompt 失败也留痕）。
   let sessionId: string | undefined
+  let child: ReturnType<typeof spawn> | undefined
+  let connection: ReturnType<typeof createRpcConnection> | undefined
   try {
+    // spawn RPC child。spawn 失败（如 ENOENT）在 bun/Node 上通过 'error' 事件
+    // 异步抛出——包装为 Promise 以被 try/catch 捕获（design R4：spawn 失败也留痕）。
+    child = spawn(process.env.PI_BIN ?? 'pi', args, buildChildSpawnOptions(cwd))
+    await new Promise<void>((resolve, reject) => {
+      child!.once('error', (err) => reject(err))
+      child!.once('spawn', () => resolve())
+      // 已 spawn 成功（同步）时 'spawn' 事件可能已错过，用 stdin 存在判定。
+      if (child!.stdin !== null && !child!.stdin.destroyed) {
+        resolve()
+      }
+    })
+    // 创建 RPC 连接（严格 \n 分帧）。
+    connection = createRpcConnection(child)
     // get_state 取 sessionId（= childId）。
     const stateResponse = await connection.sendCommand({ type: 'get_state' })
     sessionId = typeof stateResponse.data?.sessionId === 'string'
@@ -165,27 +186,27 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     // 发送 prompt 命令。
     await connection.sendCommand({ type: 'prompt', message: prompt })
   } catch (error) {
-    // spawn/get_state/prompt 失败：留痕 failed + fail loud。
+    // spawn/get_state/prompt 失败：留痕 failed（无 sessionId 时 childId 缺省）+ fail loud。
+    // design R4：失败派发也留痕——即使 get_state 失败/spawn 即失败（sessionId 未取到），
+    // 仍写一条 status=failed 记录（kind/title/绑定齐全，childId 缺省）。
     const message = error instanceof Error ? error.message : String(error)
+    recordDispatch(root, taskRelPath, {
+      kind,
+      title,
+      ...(sessionId !== undefined && sessionId !== '' ? { childId: sessionId } : {}),
+      ...buildNewDispatchBinding({ model, effort } as Static<typeof EXECUTOR_PARAMS>, effective, mainModel),
+      status: 'failed',
+      error: message,
+    })
     if (sessionId !== undefined && sessionId !== '') {
-      recordDispatch(root, taskRelPath, {
-        kind,
-        title,
-        childId: sessionId,
-        ...buildNewDispatchBinding({ model, effort } as Static<typeof EXECUTOR_PARAMS>, effective, mainModel),
-      })
-      const [settleErr] = settleExecutorDispatch(root, taskRelPath, {
-        childId: sessionId,
-        status: 'failed',
-        error: message,
-      })
-      if (settleErr !== null) {
-        console.warn(`${DISPATCH_WARN_PREFIX} ${settleErr}`)
-      }
       unregisterChild(sessionId)
     }
-    connection.close()
-    child.kill(KILL_SIGNAL)
+    if (connection !== undefined) {
+      connection.close()
+    }
+    if (child !== undefined) {
+      child.kill(KILL_SIGNAL)
+    }
     throw error instanceof Error
       ? error
       : new Error(`${ERR_PREFIX.executor}: ${String(error)}`)
