@@ -3,7 +3,7 @@
   "name": "m3a-copy-unification",
   "title": "M3a 文案统一收尾与三端回归（P4/P5 消灭 + dist 重建）",
   "description": "容器 pi-executor-parity 的 M3 剩余范围拆分 ST-A（用户 2026-09-09 确认拆分）：审计主工作区盘上 M3 半成品（core surface 共享常量/titleExecutor 尾注、assets workflow norms 中性化、adapter-dsh 与 adapter-pi 的常量 import 切换），补齐缺口，三端 test/typecheck/lint/build 全绿，adapter-dsh dist 重建。交付即 parity P4/P5 消灭。半成品不预提交，随本子任务收尾一并提交（容器主会话执行）。",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P1",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -11,7 +11,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-09-09T11:15:03.503Z",
-  "completedAt": null,
+  "completedAt": "2026-09-09T11:35:01.064Z",
   "parent": "tasks/09-09-pi-executor-parity",
   "children": [],
   "subtasks": [],
@@ -22,7 +22,10 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
+  "check": {
+    "passedAt": "2026-09-09T11:34:49.545Z",
+    "summary": "check executor（glm-5.3-flash/max）对 commit 5868100 全量审查通过：prd R1–R6 逐项核对（半成品审计修正完备、rebind 文案 core 单一来源且与 DSH 历史版本逐字一致、titleExecutor 尾注删除、norms 三处中性化语义未变形、三端回归 544/135/138 全绿、dist 重建晚于全部源码 mtime）；DSH receipt \"subagent notice\" 与 Pi \"executor report\" 属 runtime 专属回执文本未被误改。2 项 P2（KILL_SIGNAL 死导出+失真注释、测试名对齐）已修复并复跑回归全绿，主会话独立复核后提交 cc2646e。剩余 1 项 P1 记录不修原因：adapter-dsh/src/executor.ts 787 行超 600 行线系先于本任务存在的遗留（父提交已 796 行，本 commit 净 -9 行），拆分与本任务「只动文案/契约措辞」范围约束冲突——处置建议为另立重构子任务（仿 adapter-pi 四模块拆分），待用户决策。"
+  },
   "alignment": {
     "passedAt": "2026-09-09T11:19:55.488Z",
     "summary": "范围/验收/执行形态由用户在容器会话确认拆分（2026-09-09，1A/2A/3A）并本轮确认 review 快照：半成品审计收尾、rebind 文案上移 core、titleExecutor 尾注删除、norms 中性化、三端回归 + dist 重建；全新 implement 会话执行，无开放节点。",
