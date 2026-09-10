@@ -193,8 +193,11 @@ export interface MinimalAgent {
   whenIdle(): Promise<void>
   session: {
     header: { cwd?: string }
-    /** 会话事件日志（SessionEvent 最小契约，输出边界与终止判定用）。 */
-    events: readonly SessionEvent[]
+    /**
+     * 会话事件快照（SessionEvent 最小契约，输出边界与终止判定用）。DSH
+     * 0.1.2-rc.1 起 Session 不再暴露 events 属性，事件日志经 snapshotEvents() 读取。
+     */
+    snapshotEvents(): readonly SessionEvent[]
     /**
      * 会话日志最新 request/header 快照（主模型来源；只声明 config 投影，不依赖
      * dsh-session 的完整 LlmCallConfig 类型）。

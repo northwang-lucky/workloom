@@ -158,7 +158,8 @@ function makeCtx(overrides = {}) {
       const events = overrides.childSeedEvents ? [...overrides.childSeedEvents] : []
       child = {
         id: childId,
-        session: { header: { cwd }, events },
+        // 模拟 DSH 0.1.2-rc.1 Session 形状：事件日志只经 snapshotEvents() 快照暴露。
+        session: { header: { cwd }, events, snapshotEvents: () => events },
       }
       childAgents.set(childId, child)
     }

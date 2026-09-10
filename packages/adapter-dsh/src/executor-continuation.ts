@@ -80,10 +80,11 @@ export async function collectExecutorTurn(
   if (child === undefined) {
     throw new Error(`${ERR_PREFIX.executor}: child agent ${childId} is not resolvable`)
   }
-  // 输出边界：只取本轮自身产出的事件（排除 seed/父历史种子与上一轮事件前缀）。
-  const boundary = child.session.events.length
+  // 输出边界：只取本轮自身产出的事件（排除 seed/父历史种子与上一轮事件前缀）；
+  // DSH 0.1.2-rc.1 起 Session 无 events 属性，事件日志经 snapshotEvents() 快照读取。
+  const boundary = child.session.snapshotEvents().length
   await child.whenIdle()
-  const events: EventSlice = child.session.events.slice(boundary)
+  const events: EventSlice = child.session.snapshotEvents().slice(boundary)
   // 异常终止：最后一个 turn/end 缺失或 reason.kind 非 completed（aborted/blocked/
   // error/max-tokens/interrupted 等）即转工具错误，不附输出文本（避免把中止/失败
   // 当成功消费）；错误文本取 error 事件的结构化 message，缺失用终止原因兜底文案。
