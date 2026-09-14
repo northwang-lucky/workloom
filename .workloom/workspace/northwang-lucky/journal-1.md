@@ -274,3 +274,9 @@
 - Commit: 8287677
 - Summary: dshweb 重启生效验证：新 skill 进目录；DSH 并发闸真机冒烟两场景 PASS（E3 at capacity (2/2) 零留痕、E4 释放恢复），一次性任务归档。
 
+## 移除 workloom executor foreground 参数支持
+
+- Time: 2026-09-14T14:06:58.663Z
+- Commit: efc8d5d6980474d4a697f6fd4ddccdd932b46519
+- Summary: 删除 workloom_execute 的 foreground 公开参数与 DSH/Pi 前台阻塞链路，统一后台派发和异步报告；更新 workflow 契约、测试与 Pi 真机验证。
+
