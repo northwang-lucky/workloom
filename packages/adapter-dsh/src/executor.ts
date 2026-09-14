@@ -5,12 +5,9 @@
  * - 暴露一个模型可见工具 workloom_execute：按 kind（research/implement/check/frontend）用
  *   core 的 buildExecutorPrompt 组装上下文，经 ctx.subagents.startContinuable（spawn，
  *   in-process）派发 continuable 子代理；
- * - 默认后台派发：startContinuable 接受初始 prompt 后立即返回
+ * - 派发只有后台语义：startContinuable 接受初始 prompt 后立即返回
  *   { kind: 'background', childId, receipt }——receipt（生效 model/effort + 注入四元组）
- *   在派发启动前已就绪，不等待 turn 结算、不阻塞主会话；显式传 foreground: true 才走
- *   前台阻塞链路（startContinuable resolve 拿到 durable childId 后 agents.get 解析会话，
- *   记录事件边界，whenIdle 等回合结束，finalAssistantOutput 取本轮输出，最后
- *   drainContinuableChildren 释放 Activation）；四类 kind 统一；
+ *   在派发启动前已就绪，不等待 turn 结算、不阻塞主会话；四类 kind 统一；
  * - 子代理会话为 continuable：客户端 composer 可写、会话记录 mode=continuable、服务端
  *   接受 follow-up；主会话可经 continue_executor 参数显式续用同一会话跑多阶段——
  *   续用默认只发主会话增量指令（不重注入全量上下文），reinject: true 恢复全量注入；
@@ -24,10 +21,9 @@
  * - 派发留痕：派发时刻即写 task.json dispatches（status: running），终态由
  *   executor-settle 的 subagent/end 全局监听按 childId 自动回填 completed/failed
  *   + 一行错误摘要，主会话不参与；失败派发（初写后未结算）也留痕可见；
- * - 工具依赖的 tools/subagents/agents 服务按注册面做局部结构化声明（参考 plugin.ts 的
+ * - 工具依赖的 tools/subagents 服务按注册面做局部结构化声明（参考 plugin.ts 的
  *   SystemPromptService 做法），运行时由宿主注入；
- * - 子代理释放失败（drain）只 WARNING 不阻塞结果返回；其余故障 fail loud（抛错由
- *   DSH 工具管线转失败结果）；
+ * - 其余故障 fail loud（抛错由 DSH 工具管线转失败结果）；
  * - model 未显式传入时回退到 .workloom/config.json|js 的 subagents 配置（按 executor
  *   kind 取值，字段独立合并）；配置支持 subagent_profiles 按主会话当前模型
  *   （requestHeader 快照的 provider/model）分档匹配，命中的条目优先于旧
@@ -55,12 +51,8 @@
  * - research 写守卫（executor-guard.ts）：插件激活时注册一次，research 子代理的
  *   write/edit 只允许落在其 cwd 的 .workloom/ 内（越界拒绝），派发成功时登记
  *   子会话身份，重启后守卫按任务记录懒重建；
- * - 异常终止（continuable 无 run.result）：以会话事件面的 turn/end 终止原因为准——
- *   最后一个 turn/end 缺失或 reason.kind 非 completed（aborted/blocked/error/
- *   max-tokens/interrupted 等）即转工具错误（文本取 error 事件的结构化 message，
- *   缺失用终止原因兜底），不附输出文本（避免把中止当成功消费）；仅前台链路判定；
- * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：前台输出追加
- *   (reused) 于续用轮；后台 receipt 与前台同一渲染，使配置来源/复用一眼可辨。
+ * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：后台 receipt
+ *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨。
  * - 并发容量闸（executor-capacity.ts）：新派发与续用入口均先取本主会话 running 集合
  *   （DSH 原生 listChildren(parentId)，会话级，不跨会话），结合 dispatches 记录 +
  *   label 解析补全 childId→kind 映射，调用 core 的 evaluateExecutorCapacity 判定；
@@ -75,7 +67,6 @@
  * executor-guard.ts，并发容量闸在 executor-capacity.ts。
  */
 import type { Context } from '@deepseek-ai/cordis'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SubagentSendMessageOptions, ContinuableStart, SubagentProvider, SubagentListEntry } from '@deepseek-ai/dsh-subagent'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
@@ -127,8 +118,6 @@ import { registerResearchChildId, registerResearchGuard } from './executor-guard
 import type { ResearchExecutionLike } from './executor-guard.js'
 import {
   buildTurnReceiptText,
-  collectExecutorTurn,
-  drainContinuableChild,
   locateContinueChildId,
   readSpawnBinding,
 } from './executor-continuation.js'
@@ -146,9 +135,6 @@ import {
   renderOutput,
   translateForkContinueError,
 } from './executor-receipt.js'
-
-/** 冲突中断/续用拒绝返回值的 runId（未派发子代理，无 run id 可用）。 */
-const NO_CHILD_RUN_ID = ''
 
 /** 覆盖审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor override:`
@@ -174,8 +160,6 @@ interface ExecutorArgs {
   prompt: string
   /** 续用参数（schema key 与模型面一致：continue_executor）。 */
   continue_executor?: string
-  /** 前台阻塞开关（默认 false = 后台派发，返回即带 receipt；true = 阻塞等结算）。 */
-  foreground?: boolean
   /** 续接全量重注入开关（默认关：续接只发增量指令；true = 恢复全量上下文注入）。 */
   reinject?: boolean
 }
@@ -187,17 +171,11 @@ interface ToolExec {
   signal: AbortSignal
 }
 
-/** 发起 agent 的最小形状（continuable 派发需读 cwd/事件与最近请求头）。 */
+/** 发起 agent 的最小形状（continuable 派发需读 cwd 与最近请求头）。 */
 export interface MinimalAgent {
   id: string
-  whenIdle(): Promise<void>
   session: {
     header: { cwd?: string }
-    /**
-     * 会话事件快照（SessionEvent 最小契约，输出边界与终止判定用）。DSH
-     * 0.1.2-rc.1 起 Session 不再暴露 events 属性，事件日志经 snapshotEvents() 读取。
-     */
-    snapshotEvents(): readonly SessionEvent[]
     /**
      * 会话日志最新 request/header 快照（主模型来源；只声明 config 投影，不依赖
      * dsh-session 的完整 LlmCallConfig 类型）。
@@ -236,12 +214,6 @@ interface SubagentsService {
     content: readonly TextBlockLike[],
     options: SubagentSendMessageOptions,
   ): Promise<string>
-  drainContinuableChildren(parent: MinimalAgent, childIds: readonly string[]): Promise<void>
-}
-
-/** agents 服务的最小接口（按 id 取 continuable 子代理会话）。 */
-interface AgentsService {
-  get(id: string): MinimalAgent | undefined
 }
 
 /** 工具定义的最小形状（与 DSH 工具注册面兼容的子集）。 */
@@ -261,17 +233,16 @@ interface MinimalToolDefinition {
 export interface ExecutorServices {
   tools: ToolsService
   subagents: SubagentsService
-  agents: AgentsService
 }
 
-/** 工具成功返回的 canonical 值形状（前台：runId + 输出；后台：childId + receipt）。 */
+/** 工具成功返回的 canonical 值形状（后台派发：childId + receipt；提示面：输出文本）。 */
 type ExecutorValue =
-  | { kind: 'foreground'; runId: string; output: TextBlockLike[] }
   | { kind: 'background'; childId: string; receipt: string }
+  | { kind: 'notice'; output: TextBlockLike[] }
 
 /**
  * 注册 workloom_execute 工具（register 自绑定 fiber 生命周期，插件卸载自动注销）。
- * @param ctx 插件上下文（tools/subagents/agents 由宿主注入）
+ * @param ctx 插件上下文（tools/subagents 由宿主注入）
  */
 export function registerExecutor(ctx: Context & ExecutorServices): void {
   const { tools } = ctx
@@ -295,11 +266,11 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
 
 /* ---- 下文分段追加：executeTool 与辅助函数 ---- */
 /**
- * 前台派发（或续用）executor 子代理并返回其输出。
- * @param ctx 插件上下文（含 subagents/agents 服务）
+ * 后台派发（或续用）executor 子代理并立即返回 childId + receipt。
+ * @param ctx 插件上下文（含 subagents 服务）
  * @param args 工具参数
  * @param exec 工具执行上下文（发起 agent 与取消信号）
- * @returns canonical 结果 {kind, runId, output}
+ * @returns canonical 结果（background 派发或 notice 提示面）
  */
 async function executeTool(
   ctx: Context & ExecutorServices,
@@ -360,8 +331,7 @@ async function executeTool(
   )
   if (conflicts.length > 0 && params.force !== true) {
     return {
-      kind: 'foreground',
-      runId: NO_CHILD_RUN_ID,
+      kind: 'notice',
       output: [{ type: 'text', text: buildConflictNotice(params.kind, conflicts) }],
     }
   }
@@ -389,8 +359,7 @@ async function executeTool(
     const staleMissing = evaluateStaleAlignmentGate(root, taskRelPath, staleTask)
     if (staleMissing.length > 0 && params.force !== true) {
       return {
-        kind: 'foreground',
-        runId: NO_CHILD_RUN_ID,
+        kind: 'notice',
         output: [
           {
             type: 'text',
@@ -489,8 +458,7 @@ async function executeTool(
     )
     if (locateErr !== null) {
       return {
-        kind: 'foreground',
-        runId: NO_CHILD_RUN_ID,
+        kind: 'notice',
         output: [{ type: 'text', text: locateErr }],
       }
     }
@@ -501,8 +469,7 @@ async function executeTool(
     const continueCapacity = await runCapacityGate(childId)
     if (continueCapacity !== null) {
       return {
-        kind: 'foreground',
-        runId: NO_CHILD_RUN_ID,
+        kind: 'notice',
         output: [{ type: 'text', text: continueCapacity }],
       }
     }
@@ -576,8 +543,7 @@ async function executeTool(
     const dispatchCapacity = await runCapacityGate()
     if (dispatchCapacity !== null) {
       return {
-        kind: 'foreground',
-        runId: NO_CHILD_RUN_ID,
+        kind: 'notice',
         output: [{ type: 'text', text: dispatchCapacity }],
       }
     }
@@ -630,8 +596,8 @@ async function executeTool(
   if (params.kind === EXECUTOR_KINDS.research) {
     registerResearchChildId(root, childId)
   }
-  // 前台显式开关：阻塞等结算（现状行为，含 (reused) 续用轮语义）；否则默认后台
-  // 派发——返回子代理标识 + 完整 receipt（注入统计派发前已就绪），不等待结算。
+  // 派发只有后台语义：返回子代理标识 + 完整 receipt（注入统计派发前已就绪），
+  // 不等待 turn 结算；完成报告由 subagent-settled 通知异步送达。
   const turnMeta: TurnMeta = {
     forced,
     reused,
@@ -639,14 +605,6 @@ async function executeTool(
     // 续派轮传 spawn 绑定（可能为 undefined = 记录无绑定，回执渲染 unrecorded）；
     // 新派轮不传（走现状 receipt，未绑定字段时仍显示 (param)/(config…) 现状）。
     ...(reused ? { spawnBinding: spawnBinding ?? undefined } : {}),
-  }
-  if (params.foreground === true) {
-    try {
-      return await collectExecutorTurn(ctx, childId, turnMeta, effective)
-    } finally {
-      // 先释放子代理 Activation（失败仅告警）：成功失败均释放（覆盖 sendMessage 续用轮）。
-      await drainContinuableChild(ctx, parent, childId)
-    }
   }
   return {
     kind: 'background',

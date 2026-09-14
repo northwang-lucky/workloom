@@ -310,6 +310,20 @@ test('PARAM_DESCRIPTIONS.continueExecutor 描述含续派不可换模型警示�
   )
 })
 
+test('PARAM_DESCRIPTIONS 不含 executor foreground 参数描述（派发只保留后台语义）', () => {
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(PARAM_DESCRIPTIONS, 'foregroundExecutor'),
+    false,
+    'foregroundExecutor 描述必须随前台链路一并删除',
+  )
+  for (const [key, text] of Object.entries(PARAM_DESCRIPTIONS)) {
+    assert.ok(
+      !/\bforeground\b/.test(text),
+      `参数描述 ${key} 不得再提及 foreground`,
+    )
+  }
+})
+
 test('续用拒绝文案 builder：输出与两 adapter 既有文案逐字一致（防漂移锚点）', () => {
   // 以下三段文案是 adapter-dsh 与 adapter-pi 的共享实现（原双份内联上移），
   // 任何一侧文案变化都必须先改这里——逐字锚点即「两端一致」的机器可验形式。

@@ -143,7 +143,6 @@ test('D. 集成：executor 派发带 effort → 子代理 agent/created 命中 �
     const ctx = makeEventCtx()
     const registered = []
     const startCalls = []
-    const childAgents = new Map()
     let installedChildCtx = null
     ctx.tools = {
       register(def) {
@@ -176,24 +175,6 @@ test('D. 集成：executor 派发带 effort → 子代理 agent/created 命中 �
           makeAgent({ ...(spec.request.agentOptions ?? {}), subagentDepth: 1 }, childCtx),
         )
         const childId = 'child-d-1'
-        // 模拟 DSH 0.1.2-rc.1 Session 形状：事件日志只经 snapshotEvents() 快照暴露。
-        const childEvents = []
-        childAgents.set(childId, {
-          id: childId,
-          session: {
-            header: { cwd: spec.request.parent.session.header.cwd },
-            events: childEvents,
-            snapshotEvents: () => childEvents,
-          },
-          async whenIdle() {
-            childEvents.push({ type: 'turn/start', data: { turn: 1 } })
-            childEvents.push({
-              type: 'assistant/message',
-              data: { message: { content: [{ type: 'text', text: 'done' }] } },
-            })
-            childEvents.push({ type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
-          },
-        })
         return { childId }
       },
       async followup() {
@@ -202,9 +183,7 @@ test('D. 集成：executor 派发带 effort → 子代理 agent/created 命中 �
       async listChildren() {
         return []
       },
-      async drainContinuableChildren() {},
     }
-    ctx.agents = { get: (id) => childAgents.get(id) }
     registerExecutor(ctx)
     registerEffortInjection(ctx)
     const def = registered[0]

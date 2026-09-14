@@ -1,0 +1,73 @@
+{
+  "id": "c2991b1f-4899-4fea-9454-f65439fe7218",
+  "name": "remove-workloom-executor-foreground",
+  "title": "移除 workloom executor foreground 参数支持",
+  "description": "删除 workloom_execute / workloom_executor 的 foreground 参数，从此不再支持前台调用。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-14T12:49:06.126Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-14T14:04:40.542Z",
+    "summary": "2.2 check 通过：check executor 完整复核 Open issues 为 none；主会话独立复跑 pnpm lint、pnpm -r typecheck、pnpm -r build、core/adapter-dsh/adapter-pi 全量测试均通过；LSP diagnostics 除 adapter-dsh executor.ts 既存 Buffer 环境误报外无新增诊断；adapter-pi 真机清单五项 PASS，含宿主 schema 拒绝 foreground、后台 receipt、异步 executor-report、continue_executor 同 childId 续用。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-14T12:54:12.235Z",
+    "summary": "覆盖 Goal and value、Scope and non-goals、Environment constraints、Observable acceptance、UI/test-first applicability、Key decisions、Edge cases/failure paths；关键决策为删除 foreground 公开参数、显式传入由 schema fail-loud、完全删除 executor 专属前台链路、不清理历史研究文档；用户已确认 review 版本。",
+    "prdHash": "4704306d27546aead9a1625d500a434e074e6b5d1c5b391cb0f9a7f81217fb37"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-14T12:59:21.725Z",
+      "title": "删除 executor foreground 参数",
+      "status": "completed",
+      "childId": "da0f0150-2141-4798-8bea-46a4e54f6c83",
+      "model": "deepseek-official/deepseek-flash",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-14T13:09:45.823Z",
+      "title": "复核 foreground 删除实现",
+      "status": "completed",
+      "childId": "7406c760-5a4b-4b97-b2b9-3e2457193297",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-14T13:46:08.507Z",
+      "title": "复核 Pi 真机证据与最终状态",
+      "status": "completed",
+      "childId": "7406c760-5a4b-4b97-b2b9-3e2457193297",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

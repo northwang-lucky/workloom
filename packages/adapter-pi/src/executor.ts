@@ -15,7 +15,6 @@
  * - 按 kind 用 core 的 buildExecutorPrompt 组装上下文，spawn RPC child pi 派发；
  * - 默认后台派发（R1）：prompt 命令接受后立即返回 childId + receipt；
  *   完成报告经 customType `workloom-executor-report` 回投主会话；
- * - foreground: true 走前台阻塞链路，等 agent_end 直接返回终文（不回投）；
  * - 派发留痕（R4）：派发时刻写 dispatches（running + childId + 绑定）；
  *   settle 监听回填 completed/failed + 一行错误摘要；
  * - 子会话标题（R5）：child 以 `--name "[<KindLabel>] <title>"` 启动；
@@ -90,7 +89,7 @@ import {
   PI_LSP_SOURCE,
 } from './pi-tools.ts'
 
-/** 工具参数 TypeBox schema（与 DSH 的参数语义一致）。 */
+/** 工具参数 TypeBox schema（与 DSH 的参数语义一致；派发只有后台语义）。 */
 export const EXECUTOR_PARAMS = Type.Object({
   kind: Type.String({ description: PARAM_DESCRIPTIONS.kind }),
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPathExecutor })),
@@ -101,13 +100,11 @@ export const EXECUTOR_PARAMS = Type.Object({
   prompt: Type.String({ description: PARAM_DESCRIPTIONS.prompt }),
   force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.forceExecutor })),
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reasonExecutor })),
-  // 前台阻塞开关（默认 false = 后台派发；true = 阻塞等 agent_end 终文）。
-  foreground: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.foregroundExecutor })),
   // 续用同一 executor 会话（M2）：'latest' 或显式 childId；跨 kind 拒绝。
   continue_executor: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.continueExecutor })),
   // 续接全量重注入开关（M2 默认关：续接只发增量指令；true = 恢复全量上下文注入）。
   reinject: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.reinjectExecutor })),
-})
+}, { additionalProperties: false })
 
 /** 当前 runtime 名（subagents.model map 形式的取值 key，与 core 的 runtime 参数对齐）。 */
 const PI_RUNTIME = 'pi'
@@ -492,7 +489,6 @@ async function executeTool(
   // 派发（委托 executor-dispatch.ts）。
   // rawModel/rawEffort = 用户显式传入的原始参数（审计来源判定）；
   // model/effort = 生效值（spawn --model/--thinking 用）。
-  const foreground = params.foreground === true
   const result = await dispatchChildPi({
     pi,
     cwd,
@@ -514,19 +510,13 @@ async function executeTool(
     mainModel,
     piBuilt,
     signal: ctx.signal,
-    foreground,
     globalLimit,
     kindLimit,
   })
-  if (result.kind === 'background') {
-    return {
-      content: [{ type: 'text', text: result.text }],
-      details: { kind: 'background', childId: result.childId, status: 'running' },
-    }
-  }
+  // 派发只保留后台语义：立即返回 childId + receipt，完成报告异步回投。
   return {
     content: [{ type: 'text', text: result.text }],
-    details: { kind: 'foreground', status: 'completed' },
+    details: { kind: 'background', childId: result.childId, status: 'running' },
   }
 }
 

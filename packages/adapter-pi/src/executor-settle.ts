@@ -10,7 +10,7 @@
  * - 回投（R1）：settle 成功路径把「终文 + receipt 尾行」经
  *   pi.sendMessage({ customType: 'workloom-executor-report', content, display: true })
  *   投递给登记的 parentSessionId 主会话；回投失败仅 WARNING（前缀沿用
- *   ERR_PREFIX.executor）。前台派发不回投（工具返回值即报告，避免双份）。
+ *   ERR_PREFIX.executor）。派发只有后台语义，每次结算都回投报告。
  */
 
 import { ERR_PREFIX, readTask, settleExecutorDispatch } from '@workloom-ai/core'
@@ -60,22 +60,19 @@ export interface SettleResult {
 
 /**
  * 注册一个 child 的终态监听（executor.ts 派发后调用）：agent_end → 成功，
- * close/error → 异常。settle 完成后回填 dispatches + 回投报告（后台）。
- * 返回 Promise 在前台派发时用于阻塞等待终文。
+ * close/error → 异常。settle 完成后回填 dispatches + 回投完成报告。
  * @param pi Extension API（回投报告用）
  * @param connection RPC 连接
  * @param entry child 注册表条目
  * @param sessionId child 会话 id（= childId，用于 dispatches 回填关联）
- * @param foreground 是否前台派发（true = 不回投报告）
  * @param signal 取消信号（abort 时优先以 failed 结算，覆盖 agent_end 的 completed）
- * @returns settle 结果 Promise（前台用于 await，后台 fire-and-forget）
+ * @returns settle 结果 Promise（后台 fire-and-forget）
  */
 export function registerChildSettle(
   pi: ExtensionAPI,
   connection: RpcConnection,
   entry: ChildRegistryEntry,
   sessionId: string,
-  foreground: boolean,
   signal?: AbortSignal,
 ): Promise<SettleResult> {
   return new Promise<SettleResult>((resolve) => {
@@ -119,10 +116,8 @@ export function registerChildSettle(
           break
         }
       }
-      // 回投报告（仅后台派发；前台由工具返回值直接交付，避免双份）。
-      if (!foreground) {
-        reportCompletion(pi, entry, result)
-      }
+      // 回投完成报告（派发只有后台语义，工具返回值不是报告；报告统一由此投递）。
+      reportCompletion(pi, entry, result)
       // 成功完工后置 idle：常驻待续用，不占并发槽。failed 条目保持 running（异常占用）。
       // updateChildStatus 同步内存 + 落盘。
       if (result.status === 'completed') {

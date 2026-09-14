@@ -113,7 +113,6 @@ function makeDispatchParams(root: string, taskRelPath: string, kind: string) {
     allowInfo: { allow: [], childHasLsp: false },
     piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
     signal: undefined,
-    foreground: false,
     globalLimit: 1,
     kindLimit: undefined,
   }

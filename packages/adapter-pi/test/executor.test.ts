@@ -170,6 +170,22 @@ test('EXECUTOR_PARAMS: title 必填（缺失/空白被拒，正常值通过）',
   // title 不进入 child pi 派发投影（dispatchChildPi 入参不含该字段，typecheck 保证）。
 })
 
+test('EXECUTOR_PARAMS: 参数面不含 foreground（未知参数被 schema 拒绝，不静默忽略）', () => {
+  const properties: Record<string, unknown> = EXECUTOR_PARAMS.properties
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(properties, 'foreground'),
+    false,
+    'foreground 必须随前台链路从参数面删除',
+  )
+  const base = { kind: 'implement', prompt: 'implement the task', title: 'fix login bug' }
+  assert.ok(Value.Check(EXECUTOR_PARAMS, base), 'baseline args must pass')
+  assert.equal(
+    Value.Check(EXECUTOR_PARAMS, { ...base, foreground: true }),
+    false,
+    'foreground 必须作为未知参数被拒（additionalProperties: false）',
+  )
+})
+
 test('resolveConflictGate: 冲突且未 force → 返回中断提示且不放行', () => {
   const config = makeConfig({
     implement: { model: 'deepseek/deepseek-v4-flash', effort: 'high' },

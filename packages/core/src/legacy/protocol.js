@@ -10,7 +10,7 @@
  */
 
 /** 期望的 workflow contract（protocol）版本。 */
-export const WORKFLOW_PROTOCOL_VERSION = 20
+export const WORKFLOW_PROTOCOL_VERSION = 21
 
 /** 版本不匹配错误前缀（运行时文案英文）。 */
 const VERSION_MISMATCH_PREFIX = 'workloom protocol: workflow contract version mismatch'

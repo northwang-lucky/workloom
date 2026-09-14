@@ -10,7 +10,8 @@ import type { PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 
 /**
  * 装配 executor 工具参数 schema（纯函数）：属性面与 PARAM_DESCRIPTIONS 描述引用
- * 一一对应，required 约束 kind/prompt/title 必填。
+ * 一一对应，required 约束 kind/prompt/title 必填；additionalProperties: false 使
+ * 未知参数（如已删除的 foreground）被拒而不是静默忽略。
  * @param desc PARAM_DESCRIPTIONS（core 提供的参数描述常量）
  * @returns 参数 schema（与 DSH 工具注册面兼容）
  */
@@ -54,10 +55,6 @@ export function buildExecutorSchema(desc: typeof PARAM_DESCRIPTIONS) {
       continue_executor: {
         type: 'string',
         description: desc.continueExecutor,
-      },
-      foreground: {
-        type: 'boolean',
-        description: desc.foregroundExecutor,
       },
       reinject: {
         type: 'boolean',

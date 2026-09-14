@@ -253,7 +253,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
       })
 
       // 注册 settle 监听（复用）
-      registerChildSettle(pi, connection, existingEntry, childId, false, signal)
+      registerChildSettle(pi, connection, existingEntry, childId, signal)
 
       const text = buildBackgroundText({ childId, effective, gate, allowInfo, piBuilt })
       return { text, childId }
@@ -319,7 +319,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     await connection.sendCommand({ type: 'prompt', message })
     // 注册 settle 监听
     const promotedEntry = getChild(resumedSessionId)!
-    registerChildSettle(pi, connection, promotedEntry, resumedSessionId, false, signal)
+    registerChildSettle(pi, connection, promotedEntry, resumedSessionId, signal)
     const text = buildBackgroundText({ childId: resumedSessionId, effective, gate, allowInfo, piBuilt })
     return { text, childId: resumedSessionId }
   } catch (error) {

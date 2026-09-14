@@ -1,10 +1,10 @@
 /**
  * adapter-pi 的 executor 派发时序（从 executor.ts 拆出，单一职责：spawn RPC
- * child → get_state → recordDispatch → prompt → 后台返回 / 前台等待 settle）。
+ * child → get_state → recordDispatch → prompt → 后台返回）。
  *
  * 设计意图：
- * - 把派发时序（dispatchChildPi / dispatchForeground / buildBackgroundText）从
- *   executor.ts 的工具注册与上下文组装中分离，使两模块各自高内聚；
+ * - 把派发时序（dispatchChildPi / buildBackgroundText）从 executor.ts 的
+ *   工具注册与上下文组装中分离，使两模块各自高内聚；
  * - 主会话结束联动（handleSessionShutdown）：先回填全部 running child 为 failed
  *   （摘要 host session ended），再 SIGTERM 清空注册表。
  */
@@ -64,10 +64,11 @@ export function buildChildSpawnOptions(cwd: string): { cwd: string; stdio: ['pip
   return { cwd, stdio: ['pipe', 'pipe', 'pipe'] }
 }
 
-/** 派发结果（后台：childId + receipt 文本；前台：终文）。 */
-export type DispatchResult =
-  | { kind: 'background'; childId: string; text: string }
-  | { kind: 'foreground'; text: string }
+/** 派发结果（后台：childId + receipt 文本）。 */
+export interface DispatchResult {
+  childId: string
+  text: string
+}
 
 /** dispatchChildPi 入参（派发所需全部上下文）。 */
 interface DispatchChildPiParams {
@@ -107,7 +108,6 @@ interface DispatchChildPiParams {
   mainModel?: string
   piBuilt: PiExecutorPromptResult
   signal: AbortSignal | undefined
-  foreground: boolean
   /** 全局 executor 并发上限（0 = 不限）。 */
   globalLimit: number
   /** 当前 kind 的并发上限（undefined = 不限）。 */
@@ -136,7 +136,7 @@ export function waitForChildSpawn(child: ChildProcess): Promise<void> {
 
 /**
  * spawn RPC child pi 并派发：get_state 取 sessionId → 登记 → recordDispatch →
- * prompt 命令 → 默认后台立即返回 { childId, receipt }；foreground 等 settle 终文。
+ * prompt 命令 → 后台立即返回 { childId, receipt }。
  */
 export async function dispatchChildPi(params: DispatchChildPiParams): Promise<DispatchResult> {
   if (params.signal?.aborted === true) {
@@ -168,7 +168,6 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     mainModel,
     piBuilt,
     signal,
-    foreground,
   } = params
   // 组装 RPC 参数（--mode rpc，无 -p）。
   const args = buildChildPiArgs({
@@ -277,25 +276,11 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
       ? error
       : new Error(`${ERR_PREFIX.executor}: ${String(error)}`)
   }
-  // 注册 settle 监听（agent_end → completed，close/error → failed）。
-  if (foreground) {
-    // 前台：阻塞等 settle 终文。
-    return await dispatchForeground({
-      pi,
-      connection,
-      child,
-      sessionId: sessionId!,
-      effective,
-      gate,
-      allowInfo,
-      piBuilt,
-      signal,
-    })
-  }
-  // 后台：立即返回 { childId, receipt }，settle 异步回填 + 回投。
+  // 注册 settle 监听（agent_end → completed，close/error → failed）并立即返回
+  // { childId, receipt }：settle 异步回填 + 回投完成报告。
   const entry = getChild(sessionId!)
   if (entry !== undefined) {
-    registerChildSettle(pi, connection, entry, sessionId!, false, signal)
+    registerChildSettle(pi, connection, entry, sessionId!, signal)
   }
   const text = buildBackgroundText({
     childId: sessionId!,
@@ -304,69 +289,7 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     allowInfo,
     piBuilt,
   })
-  return { kind: 'background', childId: sessionId!, text }
-}
-
-/** dispatchForeground 入参。 */
-interface DispatchForegroundParams {
-  pi: ExtensionAPI
-  connection: ReturnType<typeof createRpcConnection>
-  child: ChildProcess
-  sessionId: string
-  effective: {
-    model?: string
-    effort?: string
-    sources: { model?: 'param' | 'config'; effort?: 'param' | 'config' }
-    configSources?: {
-      model?: 'whenMain' | 'fallback' | 'legacy'
-      effort?: 'whenMain' | 'fallback' | 'legacy'
-    }
-    whenMainValue?: string
-  }
-  gate: ConflictGateResult
-  allowInfo: { allow: string[]; childHasLsp: boolean }
-  piBuilt: PiExecutorPromptResult
-  signal: AbortSignal | undefined
-}
-
-/**
- * 前台派发：阻塞等 settle 终文（不回投，工具返回值即报告）。
- */
-async function dispatchForeground(params: DispatchForegroundParams): Promise<DispatchResult> {
-  const { pi, connection, child, sessionId, effective, gate, allowInfo, piBuilt, signal } = params
-  const entry = getChild(sessionId)
-  if (entry === undefined) {
-    throw new Error(`${ERR_PREFIX.executor}: child ${sessionId} not found in registry`)
-  }
-  // abort 处理：发 abort 命令 + SIGTERM。
-  let onAbort: (() => void) | undefined
-  const abortPromise = new Promise<never>((_, reject) => {
-    onAbort = () => {
-      connection.sendCommand({ type: 'abort' }).catch(() => {})
-      child.kill(KILL_SIGNAL)
-      reject(abortError())
-    }
-  })
-  signal?.addEventListener('abort', onAbort!, { once: true })
-  try {
-    const settleResult = await Promise.race([
-      registerChildSettle(pi, connection, entry, sessionId, true, signal),
-      abortPromise,
-    ])
-    if (settleResult.status === 'failed') {
-      throw new Error(`${ERR_PREFIX.executor}: ${settleResult.error ?? 'executor failed'}`)
-    }
-    // 终文 + receipt 尾行。
-    const text = appendExecutorReceipt(settleResult.text ?? '', effective, {
-      forced: gate.forced,
-      injection: buildInjectionStats(piBuilt, allowInfo.allow.length),
-    })
-    return { kind: 'foreground', text }
-  } finally {
-    if (onAbort !== undefined) {
-      signal?.removeEventListener('abort', onAbort)
-    }
-  }
+  return { childId: sessionId!, text }
 }
 
 /** buildBackgroundText 入参。 */
@@ -414,15 +337,6 @@ function buildInjectionStats(built: PiExecutorPromptResult, toolsAllowed: number
     pointed: built.result.stats.filesPointed,
     toolsAllowed,
   }
-}
-
-/**
- * 组装取消错误（AbortError 命名，工具管线按 name 识别取消）。
- */
-function abortError(): Error {
-  const error = new Error(`${ERR_PREFIX.executor}: executor dispatch aborted`)
-  error.name = 'AbortError'
-  return error
 }
 
 /**

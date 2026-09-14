@@ -98,7 +98,6 @@ test('P1: spawn 失败（sessionId 未取到）时仍写 failed 留痕', async (
       allowInfo: { allow: [], childHasLsp: false },
       piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
       signal: undefined,
-      foreground: false,
       globalLimit: 0,
       kindLimit: undefined,
     })
@@ -140,7 +139,6 @@ test('P1: 验证无 sessionId 时 failed 留痕被写入', async () => {
       allowInfo: { allow: [], childHasLsp: false },
       piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
       signal: undefined,
-      foreground: false,
       globalLimit: 0,
       kindLimit: undefined,
     })
@@ -195,7 +193,6 @@ test('缺陷 3: 无显式 model 时 modelSource 不为 param（审计来源准�
       mainModel: 'main/model',
       piBuilt: { hasLsp: false, result: { text: 'test', stats: { filesInlined: 0, truncated: 0, filesPointed: 0 } } },
       signal: undefined,
-      foreground: false,
       globalLimit: 0,
       kindLimit: undefined,
     })

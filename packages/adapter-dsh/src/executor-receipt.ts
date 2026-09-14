@@ -26,8 +26,9 @@ const FORK_CONTINUE_GUIDANCE =
   'needed context in the prompt.'
 
 /**
- * 从 canonical 值投影模型可见文本（纯函数）：前台取 output 首块文本；后台拼
- * childId + receipt 为可读文本（子代理标识 + 完整 receipt，指引等待完成通知）。
+ * 从 canonical 值投影模型可见文本（纯函数）：后台派发拼 childId + receipt 为
+ * 可读文本（子代理标识 + 完整 receipt，指引等待完成通知）；提示面取 output
+ * 首块文本（冲突中断/续用拒绝/容量拒绝等未派发路径）。
  * @param value canonical 结果
  * @returns 文本块
  */

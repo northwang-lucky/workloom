@@ -128,9 +128,6 @@ export const PARAM_DESCRIPTIONS = {
   /** executor 工具的 continue_executor 参数（续用同一 continuable 会话；同 kind 边界）。 */
   continueExecutor:
     'Reuse the same continuable executor session instead of dispatching a new one: pass "latest" to reuse the most recent same-kind dispatch of this task, or pass the recorded childId (session id) of a previous same-kind dispatch; cross-kind reuse is rejected. A continuation cannot rebind the executor model/effort bound at its original dispatch: to change the model or effort, start a new dispatch instead',
-  /** executor 工具的 foreground 参数（默认后台派发；true 才前台阻塞）。 */
-  foregroundExecutor:
-    'Run the dispatch in the foreground and block the main session until the executor turn settles; the default is background, which returns the child session id and the receipt immediately',
   /** executor 工具的 reinject 参数（续接全量重注入开关；默认关）。 */
   reinjectExecutor:
     'Continue by re-injecting the full task context into the existing session instead of sending only the incremental instruction; off by default, use only when context was lost to compaction',

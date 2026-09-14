@@ -133,7 +133,6 @@ test('缺陷 6: 同 childId 两条 running 经一次 settle 全部变 completed'
       entry.connection!,
       entry,
       's1',
-      false,
     )
 
     // 触发 settle（agent_end 事件）。
@@ -165,7 +164,6 @@ test('缺陷 6: failed 路径同 childId 多条 running 全部变 failed', () =>
       entry.connection!,
       entry,
       's2',
-      false,
     )
 
     // 触发 close（failed 路径）。
@@ -198,7 +196,6 @@ test('缺陷 7: signal abort 后条目 failed + 摘要，随后 agent_end 不改
       entry.connection!,
       entry,
       's7',
-      false,
       controller.signal,
     )
 
@@ -235,7 +232,6 @@ test('缺陷 7: 未取消时 agent_end 正常 completed 不被误标', () => {
       entry.connection!,
       entry,
       's8',
-      false,
       controller.signal,
     )
 
@@ -298,10 +294,10 @@ test('supersede: 同 sessionId 二次注册后旧 settle 不再产生第二条�
     } as unknown as import('@earendil-works/pi-coding-agent').ExtensionAPI
     const conn = entry.connection! as unknown as { _triggerEvent: (event: Record<string, unknown>) => void }
     // 首派后台注册（旧 settle）。
-    registerChildSettle(pi, entry.connection!, entry, 'sup1', false)
+    registerChildSettle(pi, entry.connection!, entry, 'sup1')
     // steering 续用：同 connection/sessionId 二次注册（新 settle 应 supersede 旧的）。
     recordExecutorDispatch(root, taskRelPath, { kind: 'implement', title: 'steer', childId: 'sup1' })
-    registerChildSettle(pi, entry.connection!, entry, 'sup1', false)
+    registerChildSettle(pi, entry.connection!, entry, 'sup1')
     // run 结束：agent_end 只触发新 settle（单槽 onEvent 已被覆盖）。
     conn._triggerEvent({ type: 'agent_end' })
     assert.equal(reports, 1, 'agent_end 应只回投一条报告')

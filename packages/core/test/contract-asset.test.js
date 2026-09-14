@@ -46,7 +46,7 @@ const MAIN_SESSION_DISPOSAL_SENTENCE =
 test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 20)
+  assert.equal(contract.version, 21)
   assert.ok(
     contract.norms.includes(INJECTION_PROTOCOL_DISCIPLINE),
     'v19 契约 norms 必须含强制加载协议 + marker 回声纪律句',
@@ -56,7 +56,7 @@ test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatc
 test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决断，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 20)
+  assert.equal(contract.version, 21)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(MAIN_SESSION_DISPOSAL_SENTENCE),
@@ -67,7 +67,7 @@ test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决�
 test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 20)
+  assert.equal(contract.version, 21)
   assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
@@ -545,9 +545,14 @@ test('契约 v17 norms Dispatch 段含后台默认说明与「不复述」句（
   assert.equal(err, null)
   assert.ok(
     contract.norms.includes(
-      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately and does not block the main session; pass `foreground: true` only when the main session must wait on the result.',
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately and does not block the main session.',
     ),
     'norms Dispatch 缺后台默认说明句',
+  )
+  // 派发面只剩后台语义：norms 不得再指导前台阻塞（foreground 参数已删除）。
+  assert.ok(
+    !contract.norms.includes('foreground'),
+    'norms Dispatch 不得再指导前台阻塞派发',
   )
   // 「不复述」句：派发/续接 prompt 不复述子会话已持有的上下文（纪律对象是主会话）。
   assert.ok(
@@ -575,6 +580,9 @@ test('契约 v17 §2.1/§2.2 含后台流程叙述（派发即返回→继续其
     ),
     '2.2 正文缺后台流程叙述',
   )
+  // 派发面只剩后台语义：2.1/2.2 正文不得再指导前台阻塞（foreground 参数已删除）。
+  assert.ok(!implementBody.includes('foreground'), '2.1 正文不得再指导前台阻塞派发')
+  assert.ok(!checkBody.includes('foreground'), '2.2 正文不得再指导前台阻塞派发')
 })
 
 test('契约 v17 norms Dispatch 段含「续接只追加新工作、不取报告」句', () => {

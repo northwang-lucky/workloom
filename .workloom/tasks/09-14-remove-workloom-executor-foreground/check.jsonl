@@ -1,0 +1,5 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"复核 core/assets/adapters 分层和共享常量边界"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"复核 TypeScript、测试和验证纪律"}
+{"file":".workloom/spec/repo/language/index.md","reason":"复核运行时文案与开发文档语言分工"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"复核 workloom 生命周期与 executor 派发纪律"}
+{"file":".workloom/spec/adapter-pi/verify/index.md","reason":"复核 Pi executor 行为改动的真机验证要求"}
