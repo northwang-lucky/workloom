@@ -15,7 +15,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { computePrdHash, evaluateAlignmentGate } from './alignment.js'
+import {
+  computePrdHash,
+  evaluateAlignmentGate,
+  findOpenNodeState,
+  OPEN_NODE_MARKER,
+} from './alignment.js'
 import { insideWorkloom } from './locate.js'
 import { EXECUTOR_KINDS, parseJsonlEntries } from './executor-context.js'
 
@@ -74,8 +79,48 @@ export const PRD_SECTIONS = Object.freeze([
 /** prd 小节标题行前缀（`## ` 切分只消费二级标题，H1 行不影响小节解析）。 */
 const SECTION_HEADING_PREFIX = '## '
 
-/** prd 一级标题缺失项的缺失文案（start 门禁缺失项列表用）。 */
+/**
+ * prd 结构问题 code（冻结值域，消费方禁止散落字符串字面量）。
+ * @type {Readonly<{
+ *   PRD_MISSING: 'prd_missing',
+ *   PRD_TITLE_MISSING: 'prd_title_missing',
+ *   PRD_SECTION_MISSING: 'prd_section_missing',
+ *   PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder',
+ *   PRD_OPEN_NODES_MISSING: 'prd_open_nodes_missing',
+ *   PRD_OPEN_NODES_NOT_NONE: 'prd_open_nodes_not_none',
+ * }>}
+ */
+export const PRD_STRUCTURE_CODES = Object.freeze({
+  PRD_MISSING: 'prd_missing',
+  PRD_TITLE_MISSING: 'prd_title_missing',
+  PRD_SECTION_MISSING: 'prd_section_missing',
+  PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder',
+  PRD_OPEN_NODES_MISSING: 'prd_open_nodes_missing',
+  PRD_OPEN_NODES_NOT_NONE: 'prd_open_nodes_not_none',
+})
+
+/** prd 文件缺失文案（start 门禁、review 诊断、confirm 拦截共用同一句）。 */
+export const PRD_MISSING = 'prd.md is missing'
+
+/** prd 一级标题缺失文案（start 门禁缺失项与结构诊断共用）。 */
 const PRD_TITLE_MISSING = 'prd.md missing H1 title'
+
+/** open-nodes marker 缺失文案（未声明标记不得视为已收敛）。 */
+const PRD_OPEN_NODES_MISSING = 'prd.md open-nodes marker is missing'
+
+/**
+ * 非 none 的 open-nodes 状态诊断文案（marker 状态作为参数）。
+ * @param {string} markerState 扫描到的 marker 状态
+ * @returns {string} 诊断文案
+ */
+const prdOpenNodesNotNone = (markerState) =>
+  `prd.md open nodes are not converged (marker state: "${markerState}")`
+
+/** 小节标题缺失的原因短语（与 PRD_SECTION_MISSING code 对应）。 */
+const SECTION_MISSING_REASON = 'is missing'
+
+/** 小节正文仍为骨架 placeholder 的原因短语（与 PRD_SECTION_PLACEHOLDER code 对应）。 */
+const SECTION_PLACEHOLDER_REASON = 'is still a placeholder'
 
 /** prd 一级标题行判定：`# ` 开头且 `# ` 之后有非空标题文本。 */
 const PRD_TITLE_LINE_RE = /^#\s+\S+/
@@ -104,21 +149,78 @@ export function findMissingPrdTitle(prdContent) {
 }
 
 /**
- * 找出仍为 placeholder 的 prd 小节标题列表（逐小节判定）。
- * 小节正文 trim 后与骨架 placeholder 完全一致、或小节整体缺失，均判未填。
+ * 检查 prd.md 的结构与内容门禁，一次性返回全部问题（review/confirm/start/doctor 共用）。
+ *
+ * 设计意图：把「当前 prd 内容能否通过 confirm」的判断收敛为单一纯函数，
+ * 调用方只消费结构化 issue，不再各自复制 PRD 解析规则。
+ * 顺序固定：H1 → PRD_SECTIONS 顺序的四个小节 → open-nodes marker。
+ * @param {string | null} prdContent prd.md 全文（缺失传 null）
+ * @returns {import('./task-gates.d.ts').PrdStructureIssue[]} 结构问题列表（空数组表示通过）
+ */
+export function inspectPrdStructure(prdContent) {
+  if (prdContent === null) {
+    return [{ code: PRD_STRUCTURE_CODES.PRD_MISSING, message: PRD_MISSING }]
+  }
+  const issues = []
+  if (findMissingPrdTitle(prdContent) !== null) {
+    issues.push({ code: PRD_STRUCTURE_CODES.PRD_TITLE_MISSING, message: PRD_TITLE_MISSING })
+  }
+  const bodies = splitSectionBodies(prdContent)
+  for (const section of PRD_SECTIONS) {
+    const body = bodies.get(section.heading)
+    if (body === undefined) {
+      issues.push(makeSectionIssue(PRD_STRUCTURE_CODES.PRD_SECTION_MISSING, section.heading))
+      continue
+    }
+    if (body === section.placeholder) {
+      issues.push(makeSectionIssue(PRD_STRUCTURE_CODES.PRD_SECTION_PLACEHOLDER, section.heading))
+    }
+  }
+  const openNodeState = findOpenNodeState(prdContent)
+  if (openNodeState === null) {
+    issues.push({
+      code: PRD_STRUCTURE_CODES.PRD_OPEN_NODES_MISSING,
+      message: PRD_OPEN_NODES_MISSING,
+    })
+  } else if (openNodeState !== OPEN_NODE_MARKER.NONE) {
+    issues.push({
+      code: PRD_STRUCTURE_CODES.PRD_OPEN_NODES_NOT_NONE,
+      message: prdOpenNodesNotNone(openNodeState),
+    })
+  }
+  return issues
+}
+
+/**
+ * 找出未填的 prd 小节标题列表（缺失与 placeholder 均视为未填）。
+ * 兼容包装：从分类结果中只投影两类 section issue，保持旧调用方需要的字符串数组语义。
  * @param {string} prdContent prd.md 全文
  * @returns {string[]} 未填小节标题列表（空数组表示全部填写）
  */
 export function findUnfilledPrdSections(prdContent) {
-  const bodies = splitSectionBodies(prdContent)
   const unfilled = []
-  for (const section of PRD_SECTIONS) {
-    const body = bodies.get(section.heading)
-    if (body === undefined || body === section.placeholder) {
-      unfilled.push(section.heading)
+  for (const issue of inspectPrdStructure(prdContent)) {
+    if (
+      (issue.code === PRD_STRUCTURE_CODES.PRD_SECTION_MISSING ||
+        issue.code === PRD_STRUCTURE_CODES.PRD_SECTION_PLACEHOLDER) &&
+      issue.section !== undefined
+    ) {
+      unfilled.push(issue.section)
     }
   }
   return unfilled
+}
+
+/**
+ * 组装一条小节 issue（内部）：文案区分「标题缺失」与「正文仍为 placeholder」。
+ * @param {import('./task-gates.d.ts').PrdSectionIssueCode} code 小节问题 code
+ * @param {string} heading 小节标题
+ * @returns {import('./task-gates.d.ts').PrdStructureIssue}
+ */
+function makeSectionIssue(code, heading) {
+  const reason =
+    code === PRD_STRUCTURE_CODES.PRD_SECTION_MISSING ? SECTION_MISSING_REASON : SECTION_PLACEHOLDER_REASON
+  return { code, message: `prd.md section "${heading}" ${reason}`, section: heading }
 }
 
 /**
@@ -165,16 +267,10 @@ export function evaluateStartGate(root, taskRelPath, task) {
   const missing = []
   const prd = readIfExists(join(taskDir, GATE_FILES.prd))
   if (prd === null) {
-    missing.push(`${GATE_FILES.prd} is missing`)
+    missing.push(PRD_MISSING)
   } else {
-    const titleMissing = findMissingPrdTitle(prd)
-    if (titleMissing !== null) {
-      missing.push(titleMissing)
-    }
-    const unfilled = findUnfilledPrdSections(prd)
-    if (unfilled.length > 0) {
-      missing.push(`${GATE_FILES.prd} sections still placeholder: ${unfilled.join(', ')}`)
-    }
+    // prd 内容门禁与 review/confirm 共用分类器：一次列出 H1/小节/marker 的全部问题。
+    missing.push(...inspectPrdStructure(prd).map((issue) => issue.message))
     // alignment 门禁：planning 必须有凭据且 hash 与当前 prd 一致（旧 planning
     // 任务须重新 alignment；确认后 prd 再变即 stale，均指向 workloom_task_align）。
     missing.push(...evaluateAlignmentGate(task?.status ?? 'planning', task?.alignment ?? null, computePrdHash(prd)))

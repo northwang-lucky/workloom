@@ -320,6 +320,42 @@ test('check doc-completeness：prd 缺 H1/占位符、jsonl 无有效记录', ()
   }
 })
 
+test('check doc-completeness：缺小节与 placeholder 小节分别生成独立 issue 与 hint', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    writeTask(root, 'doc-sections', rec('doc-sections', { status: 'in_progress' }))
+    writeFileSync(
+      join(root, '.workloom', 'tasks', 'doc-sections', 'prd.md'),
+      '# Title\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
+    )
+    writeFileSync(
+      join(root, '.workloom', 'tasks', 'doc-sections', 'implement.jsonl'),
+      '{"file": "AGENTS.md", "reason": "spec"}\n',
+    )
+    writeFileSync(
+      join(root, '.workloom', 'tasks', 'doc-sections', 'check.jsonl'),
+      '{"file": "AGENTS.md", "reason": "spec"}\n',
+    )
+    const [err, report] = runDoctor(root, { fix: false })
+    assert.equal(err, null)
+    const dc = report.checks.find((c) => c.code === 'doc-completeness')
+    const missingIssue = dc.issues.find((i) => i.message.includes('section "Notes" is missing'))
+    const placeholderIssue = dc.issues.find((i) =>
+      i.message.includes('section "Requirements" is still a placeholder'),
+    )
+    assert.ok(missingIssue, 'missing section reported as its own issue')
+    assert.ok(placeholderIssue, 'placeholder section reported as its own issue')
+    assert.match(missingIssue.hint, /Notes/)
+    assert.match(placeholderIssue.hint, /Requirements/)
+    // open-nodes marker 不属于普通文档完整性检查（属 Phase 1.1 alignment readiness）
+    assert.ok(!dc.issues.some((i) => i.message.includes('open-nodes')), 'marker must not be a doc issue')
+    for (const issue of dc.issues) assertIssueSchema(issue, 'doc-completeness')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('check spec-ref：jsonl 引用的文件不存在', () => {
   const root = makeRoot()
   initWorkloom(root)

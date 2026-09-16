@@ -18,9 +18,10 @@ import type { JsonlEntry } from '../legacy/executor-context.d.ts'
 import { listPointers } from '../legacy/active-task.js'
 import {
   countEffectiveJsonlRecords,
-  findMissingPrdTitle,
-  findUnfilledPrdSections,
+  inspectPrdStructure,
+  PRD_STRUCTURE_CODES,
 } from '../legacy/task-gates.js'
+import type { PrdStructureIssue } from '../legacy/task-gates.d.ts'
 import { loadConfig } from '../legacy/config.js'
 import type { DoctorIssue, TaskNode } from './doctor-types.js'
 import { makeIssue, pointerPath, taskJsonPath } from './doctor-tasks.js'
@@ -297,11 +298,54 @@ export function checkActivePointer(root: string, byName: Map<string, TaskNode>):
   return issues
 }
 
-/** 检查⑦：文档完整性（prd 占位符/H1、jsonl 有效记录）。 */
+/**
+ * 把一条 PRD 结构 issue 投影为 doctor 文档完整性 issue（内部）。
+ * 只投影文档类 code（缺 H1、缺小节、placeholder 小节）；open-nodes 属 alignment
+ * 就绪诊断，不混入普通文档检查，返回 null 表示不生成 doctor issue。
+ * @param issue PRD 结构 issue
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param prdPath prd.md 展示路径
+ * @returns doctor issue 或 null（不投影）
+ */
+function toDocIssue(
+  issue: PrdStructureIssue,
+  taskRelPath: string,
+  prdPath: string,
+): DoctorIssue | null {
+  if (issue.code === PRD_STRUCTURE_CODES.PRD_TITLE_MISSING) {
+    return makeIssue({
+      code: 'doc-completeness',
+      title: 'prd.md missing H1',
+      severity: 'warn',
+      task: taskRelPath,
+      message: `prd.md is missing an H1 title (${issue.message}).`,
+      path: prdPath,
+      fixable: false,
+      hint: 'Start prd.md with a "# Task title" H1 line.',
+    })
+  }
+  if (issue.section === undefined) return null
+  const isMissing = issue.code === PRD_STRUCTURE_CODES.PRD_SECTION_MISSING
+  return makeIssue({
+    code: 'doc-completeness',
+    title: isMissing ? `prd.md missing ${issue.section} section` : `prd.md ${issue.section} placeholder`,
+    severity: 'warn',
+    task: taskRelPath,
+    message: `${issue.message}.`,
+    path: prdPath,
+    fixable: false,
+    hint: isMissing
+      ? `Add the "## ${issue.section}" section to prd.md.`
+      : `Fill in the "## ${issue.section}" section of prd.md.`,
+  })
+}
+
+/** 检查⑦：文档完整性（prd 结构/H1、jsonl 有效记录）。 */
 export function checkDocCompleteness(root: string, nodes: TaskNode[]): DoctorIssue[] {
   const issues: DoctorIssue[] = []
   for (const node of nodes) {
     const taskDir = insideWorkloom(root, node.relPath)
+    const prdPath = join(WORKLOOM_DIR, node.relPath, 'prd.md')
     const prd = readIfExists(join(taskDir, 'prd.md'))
     if (prd === null) {
       issues.push(
@@ -311,41 +355,17 @@ export function checkDocCompleteness(root: string, nodes: TaskNode[]): DoctorIss
           severity: 'warn',
           task: node.relPath,
           message: 'prd.md is missing.',
-          path: join(WORKLOOM_DIR, node.relPath, 'prd.md'),
+          path: prdPath,
           fixable: false,
           hint: 'Write prd.md with Goal, Requirements, Acceptance Criteria and Notes sections.',
         }),
       )
     } else {
-      const titleMissing = findMissingPrdTitle(prd)
-      if (titleMissing !== null) {
-        issues.push(
-          makeIssue({
-            code: 'doc-completeness',
-            title: 'prd.md missing H1',
-            severity: 'warn',
-            task: node.relPath,
-            message: `prd.md is missing an H1 title (${titleMissing}).`,
-            path: join(WORKLOOM_DIR, node.relPath, 'prd.md'),
-            fixable: false,
-            hint: 'Start prd.md with a "# Task title" H1 line.',
-          }),
-        )
-      }
-      const unfilled = findUnfilledPrdSections(prd)
-      if (unfilled.length > 0) {
-        issues.push(
-          makeIssue({
-            code: 'doc-completeness',
-            title: 'prd.md placeholder sections',
-            severity: 'warn',
-            task: node.relPath,
-            message: `prd.md sections still placeholder: ${unfilled.join(', ')}.`,
-            path: join(WORKLOOM_DIR, node.relPath, 'prd.md'),
-            fixable: false,
-            hint: `Fill in the following sections: ${unfilled.join(', ')}.`,
-          }),
-        )
+      // 文档结构问题与 review/confirm/start 共用同一分类器；open-nodes marker 属
+      // Phase 1.1 alignment readiness，不作为普通文档完整性告警（避免历史任务噪音）。
+      for (const issue of inspectPrdStructure(prd)) {
+        const docIssue = toDocIssue(issue, node.relPath, prdPath)
+        if (docIssue !== null) issues.push(docIssue)
       }
     }
     if (node.record.status === TaskStatus.PLANNING) continue

@@ -1,6 +1,6 @@
 {
   "skill_name": "workloom-alignment",
-  "description": "Phase 1.1 alignment eval: process-behavior cases (machine-checkable against the SKILL.md contract) plus a 20-item trigger / near-miss description set for triggering accuracy.",
+  "description": "Phase 1.1 alignment eval: process-behavior cases (machine-checkable against the SKILL.md contract, including review content-blocker gating) plus a 20-item trigger / near-miss description set for triggering accuracy.",
   "evals": [
     {
       "id": "align-auto-entry",
@@ -54,12 +54,26 @@
       "id": "align-convergence-order",
       "name": "fixed-convergence-order-review-confirm",
       "prompt": "The frontier of the active workloom alignment is empty and prd.md is complete with the ## Alignment Decisions section. Take it through convergence.",
-      "expected_output": "The alignment follows the fixed order: frontier empty → finalize prd → workloom_task_align action=review (snapshot + hash shown) → user explicitly confirms → action=confirm with expectedPrdHash and a summary; same-hash repeat is idempotent.",
+      "expected_output": "The alignment follows the fixed order: frontier empty → finalize prd → workloom_task_align action=review → require readyToConfirm true (snapshot + hash shown only then) → user explicitly confirms → action=confirm with expectedPrdHash and a summary; same-hash repeat is idempotent.",
       "assertions": [
         "runs action=review before any confirm",
-        "shows the snapshot and hash to the user before confirm",
+        "checks readyToConfirm on the review result before involving the user",
+        "shows the snapshot and hash to the user only once readyToConfirm is true",
         "sets the <!-- workloom:open-nodes=none --> marker before confirming",
         "writes the credential only after explicit user confirmation"
+      ]
+    },
+    {
+      "id": "align-review-blockers",
+      "name": "review-content-blockers-block-user-confirmation",
+      "prompt": "The active workloom alignment looks converged, so you run workloom_task_align action=review. The result is readyToConfirm false with structureIssues showing prd.md section \"Notes\" is missing. Go get the user's confirmation of the snapshot and hash.",
+      "expected_output": "The review is treated as a hard stop: the missing ## Notes section is a content blocker, so the Agent adds the section (or fills it when the blocker says the section is still a placeholder), re-runs workloom_task_align action=review, and shows the snapshot and hash to the user only once readyToConfirm is true.",
+      "assertions": [
+        "does not ask the user to confirm the snapshot or hash while readyToConfirm is false",
+        "fixes the reported content blocker in prd.md instead of jumping to action=confirm",
+        "distinguishes a missing section from a section that is still a placeholder",
+        "re-runs action=review after the fix and checks readyToConfirm again",
+        "keeps the missing expectedPrdHash and summary out of the content blocker list"
       ]
     },
     {

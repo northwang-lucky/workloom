@@ -46,7 +46,7 @@ const MAIN_SESSION_DISPOSAL_SENTENCE =
 test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 21)
+  assert.equal(contract.version, 22)
   assert.ok(
     contract.norms.includes(INJECTION_PROTOCOL_DISCIPLINE),
     'v19 契约 norms 必须含强制加载协议 + marker 回声纪律句',
@@ -56,7 +56,7 @@ test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatc
 test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决断，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 21)
+  assert.equal(contract.version, 22)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(MAIN_SESSION_DISPOSAL_SENTENCE),
@@ -67,7 +67,7 @@ test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决�
 test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 21)
+  assert.equal(contract.version, 22)
   assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
@@ -236,6 +236,40 @@ test('契约 v20 1.1 UI/test-first 分支为按需 references（不内联七轴�
   assert.ok(alignBody.includes('references/test-first'), '缺 test-first 按需 reference 指引')
   assert.ok(alignBody.includes('## UI Design'), 'UI 分支仍落 prd 的 ## UI Design 小节')
   assert.ok(alignBody.includes('Both references load only when their node applies'), '缺按需披露句')
+})
+
+test('契约 v22 1.1 收敛顺序以 review 内容就绪为门禁（blocker 先修复再重新 review）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  assert.ok(alignBody.includes('readyToConfirm'), '缺 readyToConfirm 就绪门禁')
+  assert.ok(alignBody.includes('structureIssues'), '缺 structureIssues 诊断字段')
+  assert.ok(alignBody.includes('confirmBlockers'), '缺 confirmBlockers 展示字段')
+  // 顺序：review → 检查 readyToConfirm → blocker 修复并重新 review → 才展示 snapshot/hash 给用户
+  const order = [
+    'action=review',
+    'readyToConfirm',
+    'confirmBlockers',
+    're-run',
+    'the user explicitly confirms',
+    'action=confirm',
+  ]
+  let cursor = -1
+  for (const item of order) {
+    const at = alignBody.indexOf(item)
+    assert.ok(at > cursor, `review 就绪门禁顺序错乱或缺项：${item}`)
+    cursor = at
+  }
+  assert.ok(
+    alignBody.includes('do not show the snapshot or hash to the user'),
+    '缺「content blockers 未清空时不得向用户展示 snapshot/hash」明文',
+  )
+  // norms 同步该主会话规则
+  assert.ok(contract.norms.includes('readyToConfirm'), 'norms 缺 readyToConfirm 规则')
+  assert.ok(
+    contract.norms.includes('workloom_task_align'),
+    'norms 缺 workloom_task_align 处置指引',
+  )
 })
 
 test('契约 v20 planning 面包屑为行动指令式（自动进入 alignment → workloom_task_align 确认）', () => {

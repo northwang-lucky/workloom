@@ -127,8 +127,10 @@ export {
   GATES,
   GATE_TOOLS,
   PRD_SECTIONS,
+  PRD_STRUCTURE_CODES,
   findMissingPrdTitle,
   findUnfilledPrdSections,
+  inspectPrdStructure,
   countEffectiveJsonlRecords,
   evaluateStartGate,
   evaluateStaleAlignmentGate,
@@ -273,6 +275,8 @@ export type {
   GateKey,
   GateValue,
   PrdSection,
+  PrdStructureCode,
+  PrdStructureIssue,
 } from './legacy/task-gates.d.ts'
 
 export type { OpenNodeState } from './legacy/alignment.d.ts'

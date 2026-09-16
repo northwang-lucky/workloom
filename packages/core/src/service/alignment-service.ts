@@ -3,10 +3,12 @@
  * TypeScript）。review/confirm 两步协议与 PRD 校验的「服务编排」。
  *
  * 设计意图：
- * - review 只读：返回当前 prd 快照、其 hash 与现有 alignment 凭据（零写盘）；
- * - confirm 同步全链路：结构校验（H1/占位符）→ 开放节点必须 none → 重算 hash
- *   与 expectedPrdHash 比对 → 只经 task-store 的 recordAlignmentCredential 窄写口
- *   原子落盘（同 hash 幂等，不刷新 passedAt）；任一步失败零写入；
+ * - review 只读：返回当前 prd 快照、其 hash、开放节点状态、内容结构诊断与现有
+ *   alignment 凭据（零写盘）；不完整的草稿照样可读，就绪与否由 readyToConfirm 表达；
+ * - confirm 同步全链路：内容 blocker（复用 task-gates 的 PRD 结构分类器）聚合拒绝
+ *   → 重算 hash 与 expectedPrdHash 比对 → 只经 task-store 的
+ *   recordAlignmentCredential 窄写口原子落盘（同 hash 幂等，不刷新 passedAt）；
+ *   任一步失败零写入；
  * - cwd/root/task 解析与 task-ops 同款（requireWorkloomCwd + resolveTaskRelPath +
  *   findWorkloomRoot），adapter 只负责投影返回与主会话限制。
  */
@@ -14,8 +16,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { computePrdHash, findOpenNodeState, OPEN_NODE_MARKER } from '../legacy/alignment.js'
-import { findMissingPrdTitle, findUnfilledPrdSections } from '../legacy/task-gates.js'
+import { computePrdHash, findOpenNodeState } from '../legacy/alignment.js'
+import { inspectPrdStructure, PRD_MISSING } from '../legacy/task-gates.js'
 import { findWorkloomRoot, insideWorkloom } from '../legacy/locate.js'
 import { readTask, recordAlignmentCredential } from '../legacy/task-store.js'
 import { ERR_PREFIX } from '../surface.js'
@@ -23,11 +25,17 @@ import { requireWorkloomCwd, resolveTaskRelPath } from './task-ops.js'
 
 import type { TaskAlignmentRecord, TaskRecordWithPath, TaskStatusValue } from '../legacy/task-store.d.ts'
 import type { OpenNodeState } from '../legacy/alignment.d.ts'
+import type { PrdStructureIssue } from '../legacy/task-gates.d.ts'
 
 /** task 目录内 prd 文件名（与 task-store 数据布局一致）。 */
 const PRD_FILE = 'prd.md'
 
-/** review 成功结果：prd 快照 + hash + 开放节点状态 + 现有凭据（零写盘）。 */
+/** confirm 聚合内容 blocker 的消息标题（失败仍只抛一个 Error）。 */
+const CONTENT_BLOCKERS_PREFIX = 'prd.md content blockers:'
+
+/**
+ * review 成功结果：prd 快照 + hash + 开放节点状态 + 内容就绪诊断 + 现有凭据（零写盘）。
+ */
 export interface AlignReviewResult {
   action: 'review'
   taskRelPath: string
@@ -35,6 +43,12 @@ export interface AlignReviewResult {
   prd: string | null
   prdHash: string | null
   openNodeState: OpenNodeState | null
+  /** 当前 prd 内容的结构问题（顺序固定：H1 → 骨架小节 → open nodes）。 */
+  structureIssues: PrdStructureIssue[]
+  /** structureIssues 的英文文案投影，供主会话直接展示。 */
+  confirmBlockers: string[]
+  /** 严格等价于 structureIssues 为空：只表达内容级 confirm 前置条件。 */
+  readyToConfirm: boolean
   alignment: TaskAlignmentRecord | null
 }
 
@@ -109,7 +123,7 @@ function executeAlignInternal(
 
 /**
  * review 编排：读 prd（缺失返回 null 不报错——模型据此判断还没写 prd），
- * 计算当前 hash 与开放节点状态，附现有凭据；零写盘。
+ * 计算当前 hash 与开放节点状态，附内容结构诊断与现有凭据；零写盘。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param task 归一化后的任务记录
@@ -123,6 +137,8 @@ function reviewAlign(
   const prd = readPrd(root, taskRelPath)
   const prdHash = prd === null ? null : computePrdHash(prd)
   const openNodeState = prd === null ? null : findOpenNodeState(prd)
+  // 内容级 confirm 就绪诊断与 confirm/start 共用同一分类器（不复制 PRD 解析规则）。
+  const structureIssues = inspectPrdStructure(prd)
   return {
     action: 'review',
     taskRelPath,
@@ -130,13 +146,16 @@ function reviewAlign(
     prd,
     prdHash,
     openNodeState,
+    structureIssues,
+    confirmBlockers: structureIssues.map((issue) => issue.message),
+    readyToConfirm: structureIssues.length === 0,
     alignment: task.alignment,
   }
 }
 
 /**
  * confirm 编排：前置校验全部通过才写凭据（失败零写入）。
- * 校验顺序固定：prd 存在 → 结构（H1/占位符）→ 开放节点 none → 重算 hash 与
+ * 校验顺序固定：expectedPrdHash 必填 → prd 内容 blocker（分类器聚合）→ 重算 hash 与
  * expectedPrdHash 一致 → summary 非空 → recordAlignmentCredential 原子窄写口。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
@@ -157,25 +176,16 @@ function confirmAlign(
         '(run action=review to obtain the current prd hash first)',
     )
   }
-  const prd = readPrdOrThrow(root, taskRelPath)
-  const titleMissing = findMissingPrdTitle(prd)
-  if (titleMissing !== null) {
-    throw new Error(
-      `${ERR_PREFIX.taskTool}: confirm rejected: ${titleMissing} (fix prd.md first)`,
-    )
+  const prd = readPrd(root, taskRelPath)
+  if (prd === null) {
+    throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_MISSING}`)
   }
-  const unfilled = findUnfilledPrdSections(prd)
-  if (unfilled.length > 0) {
+  // 内容 blocker 一次取全（H1 → 骨架小节 → open nodes），仍只抛一个 Error。
+  const blockers = inspectPrdStructure(prd).map((issue) => issue.message)
+  if (blockers.length > 0) {
     throw new Error(
-      `${ERR_PREFIX.taskTool}: confirm rejected: prd.md sections still placeholder: ${unfilled.join(', ')}`,
-    )
-  }
-  const openNodeState = findOpenNodeState(prd)
-  if (openNodeState !== OPEN_NODE_MARKER.NONE) {
-    throw new Error(
-      `${ERR_PREFIX.taskTool}: confirm rejected: open nodes are not none ` +
-        `(marker state: ${String(openNodeState)}); converge Phase 1.1 and set ` +
-        '`<!-- workloom:open-nodes=none -->` before confirming',
+      `${ERR_PREFIX.taskTool}: confirm rejected: ${CONTENT_BLOCKERS_PREFIX}\n` +
+        blockers.map((blocker) => `- ${blocker}`).join('\n'),
     )
   }
   const prdHash = computePrdHash(prd)
@@ -234,20 +244,6 @@ function readPrd(root: string, taskRelPath: string): string | null {
     if (isEnoent(error)) return null
     throw error
   }
-}
-
-/**
- * 读取任务 prd.md 全文（缺失抛错——confirm 必须先有可校验的 prd）。
- * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径
- * @returns prd.md 全文
- */
-function readPrdOrThrow(root: string, taskRelPath: string): string {
-  const prd = readPrd(root, taskRelPath)
-  if (prd === null) {
-    throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: prd.md is missing`)
-  }
-  return prd
 }
 
 /** @param error 错误 @returns 是否文件不存在 */

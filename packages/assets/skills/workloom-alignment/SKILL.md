@@ -56,9 +56,13 @@ The order is fixed:
 
 1. The frontier is empty — no open node remains.
 2. Finalize `prd.md` (all skeleton sections filled, decisions recorded).
-3. Run `workloom_task_align` with `action=review`; show the user the returned prd snapshot and its SHA-256 hash.
-4. The user explicitly confirms the reviewed version.
-5. Run `workloom_task_align` with `action=confirm`, passing `expectedPrdHash` from the review and a non-empty `summary` of the alignment (nodes covered, key decisions, confirmation result). The same-hash repeat is idempotent and does not refresh the timestamp.
+3. Run `workloom_task_align` with `action=review`. It returns the prd snapshot, its SHA-256 hash, the open-node state, `structureIssues`, `confirmBlockers` and `readyToConfirm`.
+4. **Check `readyToConfirm` before involving the user.** While it is `false`, the current `prd.md` has content blockers — a missing `prd.md`, a missing H1, a missing skeleton section (for example `## Notes`), a section still holding its placeholder text, or a missing / non-`none` open-nodes marker. Fix every entry of `structureIssues` / `confirmBlockers` in `prd.md`, then re-run `action=review`. Do not show the snapshot or its hash to the user and do not request a confirmation while any content blocker remains.
+5. Only with `readyToConfirm` true, show the user the snapshot, its hash and the empty blocker list.
+6. The user explicitly confirms the reviewed version.
+7. Run `workloom_task_align` with `action=confirm`, passing `expectedPrdHash` from the review and a non-empty `summary` of the alignment (nodes covered, key decisions, confirmation result). The same-hash repeat is idempotent and does not refresh the timestamp.
+
+`readyToConfirm` covers prd content only: the missing `expectedPrdHash` and `summary` are confirm call parameters, and a stale credential or task status is a separate gate — neither belongs to the review's content diagnostics.
 
 `workloom_task_align` runs only in the main session — alignment confirmation is a user decision, never a subagent one. If prd.md changes after a confirm, the credential becomes stale: re-enter alignment, focus on the changed area first, then recompute the full frontier and confirm again.
 

@@ -100,6 +100,12 @@ test('TASK_ALIGN tool：名称/参数 action 必填 review/confirm + expectedPrd
   assert.ok('summary' in def.parameters.properties, 'summary param must exist')
   assert.equal(readDescription(def.parameters.properties.expectedPrdHash), PARAM_DESCRIPTIONS.expectedPrdHash)
   assert.equal(readDescription(def.parameters.properties.summary), PARAM_DESCRIPTIONS.alignmentSummary)
+  // review 诊断契约：调用方须知道 review 返回结构问题、content blockers 与 ready 状态
+  const actionDescription = readDescription(def.parameters.properties.action)
+  assert.ok(actionDescription, 'action description must be present')
+  assert.match(actionDescription, /structural issues/)
+  assert.match(actionDescription, /content blockers/)
+  assert.match(actionDescription, /readyToConfirm/)
 })
 
 test('executeCreate 转发 parent：子任务落盘 parent 字段且父 children 联动', async () => {

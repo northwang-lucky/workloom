@@ -1,5 +1,5 @@
 ---
-version: 21
+version: 22
 states:
   - no_task
   - planning
@@ -37,7 +37,7 @@ Frontend UI presentation nodes consult the UI axes reference bundled with `workl
 
 Write settled conclusions into prd.md incrementally as you go. Keep a `## Alignment Decisions` section that records key choices, rejected alternatives, open nodes, and a convergence summary, ending with the machine-checkable marker `<!-- workloom:open-nodes=pending|none -->`. Convergence means the marker reads `none`.
 
-Convergence order is fixed: 1) the frontier is empty (no open node remains), 2) finalize prd.md, 3) run `workloom_task_align` with action=review and show the user the snapshot and its hash, 4) the user explicitly confirms, 5) run action=confirm to write the alignment credential (the same-hash repeat is idempotent and does not refresh the timestamp). After confirm, any prd.md change makes the credential stale: re-enter alignment focused on the changed area, recompute the full frontier, and confirm again.
+Convergence order is fixed: 1) the frontier is empty (no open node remains), 2) finalize prd.md, 3) run `workloom_task_align` with action=review, 4) read the review result: `readyToConfirm` must be `true` for the current prd.md — while it is false the review's `structureIssues` / `confirmBlockers` (missing prd.md, missing H1, a missing skeleton section such as `## Notes`, a section still on its placeholder, or a missing/non-`none` open-nodes marker) are content blockers you must fix in prd.md before re-running action=review; do not show the snapshot or hash to the user and never ask for confirmation while content blockers remain, 5) at `readyToConfirm` true, show the user the snapshot, its hash and the empty blocker list, 6) the user explicitly confirms, 7) run action=confirm to write the alignment credential (the same-hash repeat is idempotent and does not refresh the timestamp). The missing `expectedPrdHash` and `summary` are call parameters, not review content diagnostics. After confirm, any prd.md change makes the credential stale: re-enter alignment focused on the changed area, recompute the full frontier, and confirm again.
 
 Every question across the workflow — design-tree questions and exploratory questions alike — follows these rules:
 
@@ -113,7 +113,7 @@ No active task right now. When the user expresses a need, answer direct question
 [/workflow-state:no_task]
 
 [workflow-state:planning]
-The task is in planning. Phase 1.1 alignment runs automatically: load the workloom-alignment skill and drive the design tree (full-frontier rounds, recommended answers per decision node, fact checks on demand) to convergence; write conclusions into prd.md as you go. Then run `workloom_task_align`: action=review → show the snapshot and hash to the user → user confirms → action=confirm. do not finalize prd.md before alignment converges, and do not start before the user confirmed the review. Then follow Phase 1: optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
+The task is in planning. Phase 1.1 alignment runs automatically: load the workloom-alignment skill and drive the design tree (full-frontier rounds, recommended answers per decision node, fact checks on demand) to convergence; write conclusions into prd.md as you go. Then run `workloom_task_align`: action=review → require `readyToConfirm` true (fix every `confirmBlockers` entry and re-run review while it is false, without showing the snapshot or hash) → show the snapshot and hash to the user → user confirms → action=confirm. do not finalize prd.md before alignment converges, and do not start before the user confirmed the review. Then follow Phase 1: optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
@@ -149,6 +149,7 @@ Alignment (always-on):
 - Every task auto-enters Phase 1.1 alignment with the `workloom-alignment` skill only — never brainstorm/grilling/UI substages, and never the fixed grilling question.
 - After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare convergence just because the user answered the current batch — claim it only when no open node remains and the `<!-- workloom:open-nodes=none -->` marker is in place.
 - In the planning phase, do not finalize prd.md before alignment converges, and confirm the review with `workloom_task_align` (review → user confirmation → confirm) before the task starts.
+- Treat a review with `readyToConfirm` false as a hard stop for user confirmation: fix every `structureIssues` / `confirmBlockers` entry in prd.md first (missing section, unfilled placeholder section, missing H1, missing or non-`none` open-nodes marker), then re-run `workloom_task_align` action=review; only a review with `readyToConfirm` true may be shown to the user for the explicit confirmation.
 
 LSP (always-on):
 

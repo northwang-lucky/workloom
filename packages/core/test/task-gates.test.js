@@ -9,8 +9,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  PRD_STRUCTURE_CODES,
   findMissingPrdTitle,
   findUnfilledPrdSections,
+  inspectPrdStructure,
   countEffectiveJsonlRecords,
   evaluateFrontendDispatchGate,
   evaluateStaleAlignmentGate,
@@ -112,6 +114,130 @@ Ship the gate.
     'Requirements',
     'Acceptance Criteria',
     'Notes',
+  ])
+})
+
+/** 完整可确认 prd（H1 + 四小节实填 + 收敛 marker；对齐服务级验收样本的形状）。 */
+const CONVERGED_PRD = `# Ship the gate
+
+## Goal
+
+Ship the gate.
+
+## Requirements
+
+- hard block by default
+
+## Acceptance Criteria
+
+- start refuses on placeholder prd
+
+## Notes
+
+- force is recorded
+
+## Alignment Decisions
+
+- design tree converged
+
+<!-- workloom:open-nodes=none -->
+`
+
+test('inspectPrdStructure：prd 缺失只报 prd_missing', () => {
+  assert.deepEqual(inspectPrdStructure(null), [
+    { code: PRD_STRUCTURE_CODES.PRD_MISSING, message: 'prd.md is missing' },
+  ])
+})
+
+test('inspectPrdStructure：完整收敛 prd 无结构问题', () => {
+  assert.deepEqual(inspectPrdStructure(CONVERGED_PRD), [])
+})
+
+test('inspectPrdStructure：缺 H1 报 prd_title_missing', () => {
+  const prd = CONVERGED_PRD.replace('# Ship the gate\n\n', '')
+  const issues = inspectPrdStructure(prd)
+  assert.deepEqual(issues, [
+    { code: PRD_STRUCTURE_CODES.PRD_TITLE_MISSING, message: 'prd.md missing H1 title' },
+  ])
+})
+
+test('inspectPrdStructure：小节整体缺失报 prd_section_missing（区别于 placeholder）', () => {
+  const prd = CONVERGED_PRD.replace('## Notes\n\n- force is recorded\n\n', '')
+  assert.deepEqual(inspectPrdStructure(prd), [
+    {
+      code: PRD_STRUCTURE_CODES.PRD_SECTION_MISSING,
+      message: 'prd.md section "Notes" is missing',
+      section: 'Notes',
+    },
+  ])
+})
+
+test('inspectPrdStructure：`## Note` 单数别名不兼容，按 Notes missing 处理', () => {
+  const prd = CONVERGED_PRD.replace('## Notes', '## Note')
+  assert.deepEqual(inspectPrdStructure(prd), [
+    {
+      code: PRD_STRUCTURE_CODES.PRD_SECTION_MISSING,
+      message: 'prd.md section "Notes" is missing',
+      section: 'Notes',
+    },
+  ])
+})
+
+test('inspectPrdStructure：小节存在但正文仍为 placeholder 报 prd_section_placeholder', () => {
+  const prd = CONVERGED_PRD.replace('- force is recorded', '(placeholder: add notes and constraints)')
+  assert.deepEqual(inspectPrdStructure(prd), [
+    {
+      code: PRD_STRUCTURE_CODES.PRD_SECTION_PLACEHOLDER,
+      message: 'prd.md section "Notes" is still a placeholder',
+      section: 'Notes',
+    },
+  ])
+})
+
+test('inspectPrdStructure：marker 缺失与非 none 状态分别报不同 code', () => {
+  const noMarker = CONVERGED_PRD.replace('<!-- workloom:open-nodes=none -->\n', '')
+  assert.deepEqual(inspectPrdStructure(noMarker), [
+    {
+      code: PRD_STRUCTURE_CODES.PRD_OPEN_NODES_MISSING,
+      message: 'prd.md open-nodes marker is missing',
+    },
+  ])
+  const pending = CONVERGED_PRD.replace('open-nodes=none', 'open-nodes=pending')
+  assert.deepEqual(inspectPrdStructure(pending), [
+    {
+      code: PRD_STRUCTURE_CODES.PRD_OPEN_NODES_NOT_NONE,
+      message: 'prd.md open nodes are not converged (marker state: "pending")',
+    },
+  ])
+})
+
+test('inspectPrdStructure：多问题一次返回且顺序固定（H1 → 骨架小节 → open nodes）', () => {
+  const prd = `## Requirements
+
+(placeholder: list the functional requirements)
+
+## Acceptance Criteria
+
+- ac
+
+## Notes
+
+- note
+
+<!-- workloom:open-nodes=pending -->
+`
+  assert.deepEqual(inspectPrdStructure(prd), [
+    { code: 'prd_title_missing', message: 'prd.md missing H1 title' },
+    { code: 'prd_section_missing', message: 'prd.md section "Goal" is missing', section: 'Goal' },
+    {
+      code: 'prd_section_placeholder',
+      message: 'prd.md section "Requirements" is still a placeholder',
+      section: 'Requirements',
+    },
+    {
+      code: 'prd_open_nodes_not_none',
+      message: 'prd.md open nodes are not converged (marker state: "pending")',
+    },
   ])
 })
 

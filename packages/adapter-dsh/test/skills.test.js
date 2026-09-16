@@ -166,4 +166,23 @@ test('workloom-alignment 资产可解析：name/description/whenToUse + 收敛�
   assert.ok(parsed.whenToUse !== undefined, 'whenToUse must be present')
   assert.match(parsed.body, /<!-- workloom:open-nodes=pending\|none -->/)
   assert.match(parsed.body, /workloom_task_align/)
+  // review 内容就绪门禁：blocker 未清空不得请求用户确认
+  assert.match(parsed.body, /readyToConfirm/)
+  assert.match(parsed.body, /confirmBlockers|structureIssues/)
+})
+
+test('workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review）', () => {
+  const evals = JSON.parse(
+    readFileSync(
+      new URL('../../assets/skills/workloom-alignment/evals/evals.json', import.meta.url),
+      'utf8',
+    ),
+  )
+  assert.equal(evals.skill_name, 'workloom-alignment')
+  assert.ok(evals.evals.length > 0, 'process-behavior cases must exist')
+  const blockerCase = evals.evals.find((entry) => entry.id === 'align-review-blockers')
+  assert.ok(blockerCase, 'review blocker case must exist')
+  const text = JSON.stringify(blockerCase)
+  assert.match(text, /readyToConfirm/)
+  assert.match(text, /Notes/)
 })

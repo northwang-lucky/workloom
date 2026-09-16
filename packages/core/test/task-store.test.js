@@ -571,11 +571,14 @@ test('hooks 仅含部分事件时补齐其余空数组', async () => {
   }
 })
 
-/** 填满 prd 四小节（脱离 placeholder，首行带 H1）。 */
+/**
+ * 填满 prd 四小节（脱离 placeholder，首行带 H1，并带收敛 marker：
+ * start 与 review/confirm 共用同一结构分类器，marker 也是放行条件）。
+ */
 function writeFilledPrd(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'prd.md'),
-    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
   )
 }
 
@@ -697,6 +700,41 @@ test('start 门禁：prd 无一级标题（H1）被拒绝，补上后放行', as
   }
 })
 
+test('start 门禁：缺小节与 placeholder 小节文案不同，且一次列出全部 prd 内容问题', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated Sections' })
+    const taskDir = join(root, '.workloom', created.taskRelPath)
+    // 缺 H1 + 缺 Notes 标题 + Requirements 仍为 placeholder + marker 仍 pending
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
+    )
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err)
+    assert.match(err.message, /prd\.md missing H1 title/)
+    assert.match(err.message, /prd\.md section "Notes" is missing/)
+    assert.match(err.message, /prd\.md section "Requirements" is still a placeholder/)
+    assert.match(err.message, /prd\.md open nodes are not converged \(marker state: "pending"\)/)
+    // 区分 missing 与 placeholder：Requirements 不得报 missing，Notes 不得报 placeholder
+    assert.doesNotMatch(err.message, /section "Requirements" is missing/)
+    assert.doesNotMatch(err.message, /section "Notes" is still a placeholder/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // marker 缺失同样拦截
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+    )
+    const [markerErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(markerErr)
+    assert.match(markerErr.message, /prd\.md open-nodes marker is missing/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('start 门禁：planning 无 alignment 凭据被拦截，confirm 后放行', async () => {
   const root = makeRoot()
   try {
@@ -729,7 +767,7 @@ test('start 门禁：凭据 stale（prd 变化）被拦截，重新 confirm 后�
     // prd 在 confirm 后被用户修改 → 凭据 hash 失配（stale）
     writeFileSync(
       join(root, '.workloom', created.taskRelPath, 'prd.md'),
-      '# Filled\n\n## Goal\n\nChanged requirement.\n\n## Requirements\n\n- req2\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+      '# Filled\n\n## Goal\n\nChanged requirement.\n\n## Requirements\n\n- req2\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
     )
     const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
     assert.ok(err1)
@@ -902,7 +940,7 @@ test('archive 门禁：force 放行，overrides 写入归档后的 task.json', a
 function writeUiPrd(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'prd.md'),
-    '# UI Task\n\n## Goal\n\nDo the UI.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n## UI Design\n\n- pages and IA\n',
+    '# UI Task\n\n## Goal\n\nDo the UI.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n## UI Design\n\n- pages and IA\n\n<!-- workloom:open-nodes=none -->\n',
   )
 }
 

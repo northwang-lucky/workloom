@@ -99,9 +99,9 @@ export const PARAM_DESCRIPTIONS = {
   status: 'Filter: planning/in_progress/completed',
   /** check 工具的 summary 参数（2.2 通过摘要）。 */
   summary: 'Summary of the passed check (what was verified)',
-  /** align 工具的参数：动作（review 只读 / confirm 写入凭据）。 */
+  /** align 工具的参数：动作（review 只读诊断 / confirm 写入凭据）。 */
   action:
-    'Alignment action: review returns the current prd snapshot and its SHA-256 hash without writing; confirm validates the expectedPrdHash and writes the alignment credential',
+    'Alignment action: review returns the current prd snapshot, its SHA-256 hash, structural issues, content blockers and the readyToConfirm flag without writing; confirm validates the expectedPrdHash and writes the alignment credential',
   /** align 工具 confirm 的预期 hash 参数（调用方须先经 review 取得当前值）。 */
   expectedPrdHash:
     'SHA-256 of the prd.md the user reviewed (CRLF/CR normalized to LF); confirm writes only when the current prd still hashes to this value',

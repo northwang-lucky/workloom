@@ -32,12 +32,15 @@ function makeRoot() {
   return root
 }
 
-/** 满足 start 门禁：填 prd（含 H1）四小节 + 两个 jsonl 各一条有效记录。 */
+/**
+ * 满足 start 门禁：填 prd（含 H1）四小节 + 收敛 marker + 两个 jsonl 各一条有效记录。
+ * start 与 review/confirm 共用同一结构分类器，因此 marker 也是放行条件之一。
+ */
 function satisfyStartGate(root, taskRelPath) {
   const taskDir = join(root, '.workloom', taskRelPath)
   writeFileSync(
     join(taskDir, 'prd.md'),
-    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
   )
   writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
@@ -275,31 +278,8 @@ test('executeStartTask 返回记录无 grillingPending/grillingNote（alignment 
   }
 })
 
-test('executeAlignTask review/confirm：校验失败零写入、hash 冲突拒绝、同 hash 幂等不刷新', async () => {
-  const root = makeRoot()
-  try {
-    const contextKey = 'dsh_align'
-    const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops' })
-    const taskDir = join(root, '.workloom', created.taskRelPath)
-    // 骨架 prd（占位符未填）→ confirm 拒绝且零写入
-    const [rej1] = executeAlignTask(root, contextKey, {
-      action: 'confirm',
-      expectedPrdHash: 'x',
-      summary: 's',
-    })
-    assert.ok(rej1)
-    assert.match(rej1.message, /sections still placeholder/)
-    const [, before] = readTask(root, created.taskRelPath)
-    assert.equal(before.alignment, null)
-    // confirm 缺 expectedPrdHash：显式拒绝（不落入 hash 失配的歧义文案）
-    const [noHashErr] = executeAlignTask(root, contextKey, {
-      action: 'confirm',
-      summary: 's',
-    })
-    assert.ok(noHashErr)
-    assert.match(noHashErr.message, /expectedPrdHash is required/)
-    // 写入完整收敛 prd（含 Alignment Decisions + open-nodes=none）与 jsonl
-    const converged = `# Filled
+/** 完整可确认 prd（H1 + 四小节实填 + 收敛 marker，含 Alignment Decisions）。 */
+const CONVERGED_ALIGN_PRD = `# Filled
 
 ## Goal
 
@@ -323,6 +303,209 @@ Do the thing.
 
 <!-- workloom:open-nodes=none -->
 `
+
+/** 创建任务并写入指定 prd 内容，返回 prd.md 绝对路径（骨架 prd 由 create 生成）。 */
+async function makeAlignTask(root, contextKey, prdContent) {
+  const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops' })
+  const prdPath = join(root, '.workloom', created.taskRelPath, 'prd.md')
+  if (prdContent !== null) writeFileSync(prdPath, prdContent)
+  return { taskRelPath: created.taskRelPath, prdPath }
+}
+
+test('align review：prd 文件缺失仍成功返回快照字段，并报 prd_missing blocker', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_review_missing'
+    const { prdPath, taskRelPath } = await makeAlignTask(root, contextKey, null)
+    rmSync(prdPath, { force: true })
+    const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.equal(err, null)
+    assert.equal(review.action, 'review')
+    assert.equal(review.taskRelPath, taskRelPath)
+    assert.equal(review.status, 'planning')
+    assert.equal(review.prd, null)
+    assert.equal(review.prdHash, null)
+    assert.equal(review.openNodeState, null)
+    assert.deepEqual(review.structureIssues, [
+      { code: 'prd_missing', message: 'prd.md is missing' },
+    ])
+    assert.deepEqual(review.confirmBlockers, ['prd.md is missing'])
+    assert.equal(review.readyToConfirm, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align review：缺 ## Notes 标题报 section missing（不误报 placeholder）', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_review_section'
+    const missingNotes = CONVERGED_ALIGN_PRD.replace('## Notes\n\n- note\n\n', '')
+    const { prdPath } = await makeAlignTask(root, contextKey, missingNotes)
+    const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.equal(err, null)
+    // review 只读：仍返回快照与 hash
+    assert.equal(review.prd, missingNotes)
+    assert.equal(review.prdHash, computePrdHash(readFileSync(prdPath, 'utf8')))
+    assert.equal(review.openNodeState, 'none')
+    assert.deepEqual(review.structureIssues, [
+      {
+        code: 'prd_section_missing',
+        message: 'prd.md section "Notes" is missing',
+        section: 'Notes',
+      },
+    ])
+    assert.ok(!review.structureIssues.some((issue) => issue.message.includes('placeholder')))
+    assert.deepEqual(review.confirmBlockers, ['prd.md section "Notes" is missing'])
+    assert.equal(review.readyToConfirm, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align review：## Notes 保留但正文仍为 placeholder → placeholder blocker', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_review_placeholder'
+    const notesPlaceholder = CONVERGED_ALIGN_PRD.replace(
+      '- note',
+      '(placeholder: add notes and constraints)',
+    )
+    await makeAlignTask(root, contextKey, notesPlaceholder)
+    const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.equal(err, null)
+    assert.deepEqual(review.structureIssues, [
+      {
+        code: 'prd_section_placeholder',
+        message: 'prd.md section "Notes" is still a placeholder',
+        section: 'Notes',
+      },
+    ])
+    assert.equal(review.readyToConfirm, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align review：H1 缺失与 open-nodes 非 none 各自返回可机器消费的 code', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_review_multi'
+    const noTitle = CONVERGED_ALIGN_PRD.replace('# Filled\n\n', '')
+    await makeAlignTask(root, contextKey, noTitle)
+    const [, noTitleReview] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.deepEqual(noTitleReview.structureIssues, [
+      { code: 'prd_title_missing', message: 'prd.md missing H1 title' },
+    ])
+    const pending = CONVERGED_ALIGN_PRD.replace('open-nodes=none', 'open-nodes=pending')
+    writeFileSync(join(root, '.workloom', noTitleReview.taskRelPath, 'prd.md'), pending)
+    const [, pendingReview] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.equal(pendingReview.openNodeState, 'pending')
+    assert.deepEqual(pendingReview.structureIssues, [
+      {
+        code: 'prd_open_nodes_not_none',
+        message: 'prd.md open nodes are not converged (marker state: "pending")',
+      },
+    ])
+    const noMarker = CONVERGED_ALIGN_PRD.replace('<!-- workloom:open-nodes=none -->\n', '')
+    writeFileSync(join(root, '.workloom', noTitleReview.taskRelPath, 'prd.md'), noMarker)
+    const [, noMarkerReview] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.equal(noMarkerReview.openNodeState, null)
+    assert.deepEqual(noMarkerReview.structureIssues, [
+      { code: 'prd_open_nodes_missing', message: 'prd.md open-nodes marker is missing' },
+    ])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align review：内容完整的 prd → 无结构问题且 readyToConfirm', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_review_ready'
+    const { prdPath } = await makeAlignTask(root, contextKey, CONVERGED_ALIGN_PRD)
+    // 未 alignment 不影响内容级就绪判定
+    const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.equal(err, null)
+    assert.deepEqual(review.structureIssues, [])
+    assert.deepEqual(review.confirmBlockers, [])
+    assert.equal(review.readyToConfirm, true)
+    assert.equal(review.prdHash, computePrdHash(readFileSync(prdPath, 'utf8')))
+    assert.equal(review.openNodeState, 'none')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align confirm：多个内容问题只抛一个 Error，消息按固定顺序聚合全部 blocker', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_confirm_multi'
+    const broken = `## Requirements
+
+(placeholder: list the functional requirements)
+
+## Acceptance Criteria
+
+- ac
+
+## Notes
+
+- note
+
+<!-- workloom:open-nodes=pending -->
+`
+    const { taskRelPath } = await makeAlignTask(root, contextKey, broken)
+    const [err] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      expectedPrdHash: computePrdHash(broken),
+      summary: 's',
+    })
+    assert.ok(err)
+    assert.match(err.message, /confirm rejected: prd\.md content blockers:/)
+    assert.deepEqual(
+      err.message.split('\n').filter((line) => line.startsWith('- ')),
+      [
+        '- prd.md missing H1 title',
+        '- prd.md section "Goal" is missing',
+        '- prd.md section "Requirements" is still a placeholder',
+        '- prd.md open nodes are not converged (marker state: "pending")',
+      ],
+    )
+    // 失败零写入
+    const [, after] = readTask(root, taskRelPath)
+    assert.equal(after.alignment, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align review/confirm：校验失败零写入、hash 冲突拒绝、同 hash 幂等不刷新', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_align'
+    const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops' })
+    const taskDir = join(root, '.workloom', created.taskRelPath)
+    // 骨架 prd（占位符未填）→ confirm 拒绝且零写入（文案区分 missing 与 placeholder）
+    const [rej1] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      expectedPrdHash: 'x',
+      summary: 's',
+    })
+    assert.ok(rej1)
+    assert.match(rej1.message, /content blockers/)
+    assert.match(rej1.message, /section "Notes" is still a placeholder/)
+    const [, before] = readTask(root, created.taskRelPath)
+    assert.equal(before.alignment, null)
+    // confirm 缺 expectedPrdHash：显式拒绝（不落入 hash 失配的歧义文案）
+    const [noHashErr] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      summary: 's',
+    })
+    assert.ok(noHashErr)
+    assert.match(noHashErr.message, /expectedPrdHash is required/)
+    // 写入完整收敛 prd（含 Alignment Decisions + open-nodes=none）与 jsonl
+    const converged = CONVERGED_ALIGN_PRD
     writeFileSync(join(taskDir, 'prd.md'), converged)
     writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
     writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
@@ -342,7 +525,7 @@ Do the thing.
       summary: 's',
     })
     assert.ok(openErr)
-    assert.match(openErr.message, /open nodes are not none/)
+    assert.match(openErr.message, /open nodes are not converged/)
     writeFileSync(join(taskDir, 'prd.md'), converged)
     // hash 冲突拒绝（expected 与当前 prd 不一致，零写入）
     const [conflictErr] = executeAlignTask(root, contextKey, {

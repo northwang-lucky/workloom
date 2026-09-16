@@ -75,6 +75,10 @@ test('align 工具 schema：action 必填枚举 review/confirm；expectedPrdHash
   assert.deepEqual(props.action.enum, ['review', 'confirm'])
   assert.ok(def.parameters.required.includes('action'), 'action must be required')
   assert.equal(props.action.description, PARAM_DESCRIPTIONS.action)
+  // review 诊断契约：调用方须知道 review 返回结构问题、content blockers 与 ready 状态
+  assert.match(props.action.description, /structural issues/)
+  assert.match(props.action.description, /content blockers/)
+  assert.match(props.action.description, /readyToConfirm/)
   assert.equal(props.expectedPrdHash.description, PARAM_DESCRIPTIONS.expectedPrdHash)
   assert.equal(props.summary.description, PARAM_DESCRIPTIONS.alignmentSummary)
 })
