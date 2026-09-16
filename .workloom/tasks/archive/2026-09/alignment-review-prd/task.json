@@ -1,0 +1,63 @@
+{
+  "id": "9d24a049-198b-4d2b-a788-7bacff5c4601",
+  "name": "alignment-review-prd",
+  "title": "alignment review 提前暴露 PRD 结构门禁",
+  "description": "让 workloom_task_align 的 review 结果在不改变只读语义的前提下，提前返回 PRD 结构诊断（如 H1 缺失、骨架小节缺失或仍是 placeholder、open nodes 未收敛）以及 confirmBlockers/readyToConfirm，避免主会话直到 confirm 才发现 ## Notes 等必备小节在整文件重写时被漏掉；同步区分 missing section 与 unfilled placeholder 的诊断文案，并补齐资产契约与测试。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-16T04:48:37.577Z",
+  "completedAt": "2026-09-16T07:14:37.529Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-16T07:13:09.754Z",
+    "summary": "Phase 2.2 passed after independent implement-report verification and a dedicated check executor review. Verified the shared PRD structure classifier, review structureIssues/confirmBlockers/readyToConfirm contract, distinct missing-section and placeholder diagnostics, confirm aggregation and zero-write behavior, start/doctor reuse, DSH/Pi opaque projection, workflow/skill/eval/surface updates, and protocol v22 consistency. Check executor fixed one in-scope P2 formatting issue in task-store.test.js; main session independently reran git diff --check, pnpm lint, pnpm -r typecheck, pnpm -r build, core node tests (594 pass), adapter-dsh node tests (139 pass), and adapter-pi bun tests (188 pass), all green. LSP diagnostics on changed test lines were clean; stale core LSP module-resolution errors were contradicted by clean tsc. No commit, push, profile rsync, or dshweb restart occurred."
+  },
+  "alignment": {
+    "passedAt": "2026-09-16T06:33:16.598Z",
+    "summary": "Phase 1.1 alignment covered goal/value, scope and non-goals, environment and layering constraints, observable acceptance, UI/test-first applicability, test-first seams, review result shape and stable blocker codes, shared PRD classifier consumption across review/confirm/start/doctor, error aggregation order, readyToConfirm semantics, DSH/Pi adapter projection, workflow/skill/eval/surface/protocol-version asset updates, validation matrix, and deployment boundary. User confirmed reviewed PRD hash 41ae6c88c1ca7f7ee3c4886fb659f55be03b45690e821d747526d55cdc8a09a2.",
+    "prdHash": "41ae6c88c1ca7f7ee3c4886fb659f55be03b45690e821d747526d55cdc8a09a2"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-16T06:51:13.301Z",
+      "title": "PRD review 结构就绪诊断",
+      "status": "completed",
+      "childId": "760410e0-d335-4090-9709-d63573a1cf56",
+      "model": "deepseek-official/deepseek-flash",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-16T07:04:21.496Z",
+      "title": "PRD review 结构就绪诊断复审",
+      "status": "completed",
+      "childId": "1820100c-7151-43f3-b9f5-3d22f04e0b78",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

@@ -280,3 +280,9 @@
 - Commit: efc8d5d6980474d4a697f6fd4ddccdd932b46519
 - Summary: 删除 workloom_execute 的 foreground 公开参数与 DSH/Pi 前台阻塞链路，统一后台派发和异步报告；更新 workflow 契约、测试与 Pi 真机验证。
 
+## alignment review 提前暴露 PRD 结构门禁
+
+- Time: 2026-09-16T07:15:33.503Z
+- Commit: fc874cc
+- Summary: 完成 workloom alignment review 结构就绪诊断：review 新增 structureIssues、confirmBlockers、readyToConfirm；统一 review/confirm/start/doctor 的 PRD 分类器；协议升级到 v22；完整测试与 check 通过。
+

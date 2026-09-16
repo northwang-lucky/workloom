@@ -1,0 +1,6 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "复核 LSP/ESLint/TypeScript 错误处理、常量与导出边界是否满足编码规范"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "按规范运行 lint、typecheck、build 与受影响包测试并记录原始结果"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "复核 core/assets/adapters 分层和双 adapter 薄投影是否被破坏"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "复核运行时诊断、surface 与 workflow/skill 资产文案的语言分工"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "确认本任务未未经用户确认执行本机 profile rsync 或重启 dshweb"}

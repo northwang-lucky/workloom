@@ -1,0 +1,7 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "确保结构诊断沉淀在 runtime-independent core，adapter 只薄投影，assets 只承载契约内容"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "区分 legacy 纯 JS 门禁模块、service TypeScript 编排与 assets 文档的落点"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "扩展 task-gates 时保持既有数据布局与 JSDoc 行为移植模块约定"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "约束常量枚举、卫语句、TS 类型导入、私有函数与错误处理风格"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "确保运行时诊断与 agent-facing 文案为英文，源码注释和任务文档为中文"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "实现轮完成后按仓库提交规范形成单独提交且不主动 push"}
