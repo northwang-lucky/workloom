@@ -3,7 +3,7 @@
   "name": "fix-pi-agent-definitions-stale-description",
   "title": "修正 adapter-pi 执行器角色自述的过时注入描述",
   "description": "adapter-pi/src/agent-definitions.ts 的角色自述仍称「PRD/design 已内联、超预算降级为 index 行」，与指针化现实不符（slim-executor-context 任务后进一步失实）。修正角色自述使其与现行注入机制一致。来源：slim-executor-context 任务 implement 轮遗留风险第 1 条，用户确认归档后另立。",
-  "status": "planning",
+  "status": "in_progress",
   "priority": "P2",
   "creator": "northwang-lucky",
   "assignee": "",
@@ -22,11 +22,49 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {},
-  "check": null,
-  "alignment": null,
+  "check": {
+    "passedAt": "2026-09-22T13:03:05.382Z",
+    "summary": "2.2 check 两轮复核通过：第 1 轮 5 条 AC 逐项核实（四段定稿逐字比对 4/4、旧关键词零命中、防回归断言语义正确、HEAD 回退独立复现红→绿、门禁全绿无波及），上报 1 条 P1（executor.ts:8 同款失实头注漏网）；主会话按用户决断同款修正并全仓扫描无漏网后，第 2 轮复核闭环成立、Open issues 为 none。终态门禁：lint/typecheck/build 全绿，adapter-pi bun 216 / core 588 / adapter-dsh 139。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-22T12:42:26.278Z",
+    "summary": "单轮收敛 4 决策：四个 kind 的 systemPrompt 第二段逐字定稿为「指针+分层加载」描述（按 kind 微调 prd 内联差异）；头注两处失实表述顺带修正；agents.test.ts 加防回归断言（不含 already inlined / degrade to index）；交付按红→绿顺序同 commit。不另写 design/implement（定稿在 prd 中），不拆子任务。",
+    "prdHash": "8794c40ccc68a9132a101c4ea6a5bac2a3abfb80dcbbf1aff0ab386eb8c8a76a"
+  },
   "overrides": [],
-  "stage": "implement",
-  "dispatches": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-22T12:44:30.827Z",
+      "title": "修正 adapter-pi 执行器角色自述",
+      "status": "completed",
+      "childId": "0493d742-aba8-4ff6-91fe-39ee84e3c0ae",
+      "model": "xiaomi-token-plan-cn/mimo-v2.6-flash",
+      "effort": "medium",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-22T12:52:16.387Z",
+      "title": "2.2 复核角色自述修正",
+      "status": "completed",
+      "childId": "77d8b9b5-37c9-47c3-bf41-94f6ae693e29",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-22T13:01:51.490Z",
+      "title": "复核 executor.ts 头注闭环",
+      "status": "completed",
+      "childId": "77d8b9b5-37c9-47c3-bf41-94f6ae693e29",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
   "hooks": {
     "after_create": [],
     "after_start": [],

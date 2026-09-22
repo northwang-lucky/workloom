@@ -5,7 +5,8 @@
  * ADR-0006 修订（2026-09-09）：transport 从「`--mode json` spawn 用后即弃」
  * 演进为「`--mode rpc` 常驻 child + 会话落盘」。
  * - 动因：parity P1–P8 全量对齐（续用/后台/steering/留痕/title/孤儿回收）。
- * - 保持的设计初衷：① fresh prompt 保证 fresh context（首派全量内联语义不变）；
+ * - 保持的设计初衷：① fresh prompt 保证 fresh context（首派注入形态随 core
+ *   组装演进，现为指针化 + 分层加载）；
  *   ② 零再派发（`--no-extensions` + 按需 `-e` 在 RPC child 上原样保留）。
  * - 否决的备选：架构 S（resume spawn，steering/title 无法对齐）、pi-web 原生
  *   transport（见 docs/research/pi-web-subagent-support.md §4.2）；全量对齐

@@ -44,6 +44,24 @@ test('agent definitions: check role is fix-oriented, not report-only', () => {
   assert.match(check.systemPrompt, /verify/i)
 })
 
+test('agent definitions: systemPrompt describes pointer-based context, not the retired inline mechanism', () => {
+  const kinds = Object.values(EXECUTOR_KINDS)
+  for (const kind of kinds) {
+    const definition: ExecutorAgentDefinition | undefined = EXECUTOR_AGENT_DEFINITIONS[kind]
+    assert.ok(definition !== undefined, `missing definition for ${kind}`)
+    // 防回归：slim-executor-context 后注入为指针化 + 分层加载，
+    // 角色自述不得再声称全量内联，也不得承诺超预算降级为索引行。
+    assert.ok(
+      !definition.systemPrompt.includes('already inlined'),
+      `stale "already inlined" copy in ${kind}`,
+    )
+    assert.ok(
+      !definition.systemPrompt.includes('degrade to index'),
+      `stale "degrade to index" copy in ${kind}`,
+    )
+  }
+})
+
 test('agent definitions: check role classifies findings P0/P1/P2, fixes P2, escalates P0/P1', () => {
   const check = EXECUTOR_AGENT_DEFINITIONS[EXECUTOR_KINDS.check]
   assert.ok(check !== undefined, 'missing definition for check')

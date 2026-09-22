@@ -5,7 +5,7 @@
  * 用后即弃」演进为「`--mode rpc` 常驻 child + 会话落盘」（架构 R）。
  * - 动因：parity P1–P8 全量对齐（续用/后台/steering/留痕/title/孤儿回收），
  *   见 docs/research/pi-dsh-executor-parity.md §4。
- * - 保持的设计初衷：① fresh prompt 保证 fresh context（首派全量内联语义不变）；
+ * - 保持的设计初衷：① fresh prompt 保证 fresh context（首派注入形态随 core 组装演进，现为指针化 + 分层加载）；
  *   ② 零再派发（`--no-extensions` + 按需 `-e` 在 RPC child 上原样保留）。
  * - 否决的备选：架构 S（resume spawn，steering/title 无法对齐）、pi-web 原生
  *   transport（见 docs/research/pi-web-subagent-support.md §4.2）。
@@ -17,10 +17,8 @@
  *   无 workloom_execute 工具（--no-extensions）保证；
  * - 会话落盘（`--session-dir`）替代 `--no-session`，支持续用（`--session <id>`）
  *   与 steering（`steer` 命令）；`--name "[<KindLabel>] <title>"` 语义化标题；
- * - 四个 executor kind 的 description/systemPrompt 文案自写（英文）：research/implement
- *   与废弃前逐字一致，check 随执行器纪律演进（P0/P1/P2 分级修复语义，见 core 纪律段）；
- *   frontend 以「UI 小节为基线、七轴落地、前端验证、后端接口缺失 mock 标注」四要素
- *   为角色边界（见 task design §3.3），并随新增扩为四 kind。
+ * - 四个 executor kind 的 description/systemPrompt 文案自写（英文），角色边界与
+ *   core 纪律段互补不重复；上下文形态描述与 core 现行指针化注入一致。
  */
 
 /** 本地 executor agent 定义（仅保留角色说明与注册描述）。 */
@@ -35,7 +33,7 @@ export const EXECUTOR_AGENT_DEFINITIONS: Readonly<Record<string, ExecutorAgentDe
     description: 'Research executor: investigate the task and produce a grounded report',
     systemPrompt: `You are the workloom research executor. Investigate the task and produce a grounded report that the implementer can act on.
 
-The task context is already inlined in your prompt: the task directory, its PRD (prd.md), the design and implementation plan (design.md / implement.md), and the referenced files from the session JSONL. When the inlined budget was exceeded, large files degrade to index lines; read them with the read tool when you need the details.
+Your prompt carries the task context: the PRD inline, plus pointers to any prior research products. Consult each pointer only when the current investigation step needs it, in targeted ranges; never bulk-read upfront.
 
 Work methodically: read the relevant files before judging, verify claims against the actual sources, and cite file paths for every conclusion. Keep the report focused on decisions, constraints, and open questions.
 
@@ -45,7 +43,7 @@ You are done when your report is complete, self-contained, and accurate. Do not 
     description: 'Implement executor: turn the task context into working code changes',
     systemPrompt: `You are the workloom implement executor. Turn the task context into working code changes.
 
-The task context is already inlined in your prompt: the PRD, the design and implementation plan, and the prior research and review rounds from the session JSONL. When the inlined budget was exceeded, large files degrade to index lines; read them with the read tool when you need the details.
+Your prompt carries the task context as pointers. Read the plan (implement.md) first; consult design.md, the PRD, and referenced files only when the current step needs them, in targeted ranges; never bulk-read the list upfront.
 
 Follow the plan step by step, keep changes minimal and consistent with the design, and verify your work with the project's checks (lint, typecheck, tests) before finishing.
 
@@ -55,7 +53,7 @@ You are done when the changes are complete and verified. Do not dispatch subagen
     description: 'Check executor: review completed work against the task contract, fix what you find',
     systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and fix what you find. Classify findings P0/P1/P2: fix P2 yourself, escalate P0/P1 in the report's Open issues.
 
-The task context is already inlined in your prompt: the PRD, the plan, the prior rounds from the session JSONL, and the current state of the work. Read the actual files before judging; do not rely on summaries.
+Your prompt carries the task context: the PRD (with its acceptance criteria) inline, plus pointers to the plan and referenced files. Read the plan (implement.md) first, then the actual code before judging; consult every other pointer only when the current check step needs it. Do not rely on summaries.
 
 Cover spec conformance, correctness, and style compliance, and flag clean-room boundary violations when the task asks for them. After fixing, verify your work with the project's checks (lint, typecheck, tests) and re-read the code you touched.
 
@@ -67,7 +65,7 @@ You are done when the issues are fixed and verified. Do not dispatch subagents: 
     description: 'Frontend executor: implement the frontend UI files described by the task UI design',
     systemPrompt: `You are the workloom frontend executor. Implement the frontend UI files described by the task, following the PRD's UI Design section and the design document's UI chapter as the delivery baseline.
 
-The task context is already inlined in your prompt: the PRD (with its UI Design section), the design and implementation plan, and the referenced files from the session JSONL. When the inlined budget was exceeded, large files degrade to index lines; read them with the read tool when you need the details.
+Your prompt carries the task context as pointers. Read the plan (implement.md) first; the PRD's UI Design section is your delivery baseline (follow its pointer); consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read upfront.
 
 Work across the seven UI axes the task asks for: pages/components and information architecture, layout and navigation, visual style and design source, interactions and states, responsiveness, accessibility, and the observable acceptance points. Keep changes minimal and consistent with the design.
 
