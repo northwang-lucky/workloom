@@ -286,3 +286,9 @@
 - Commit: fc874cc
 - Summary: 完成 workloom alignment review 结构就绪诊断：review 新增 structureIssues、confirmBlockers、readyToConfirm；统一 review/confirm/start/doctor 的 PRD 分类器；协议升级到 v22；完整测试与 check 通过。
 
+## 缩减执行器上下文至最小执行面
+
+- Time: 2026-09-22T12:09:55.444Z
+- Commit: 3ed34e7
+- Summary: 执行器上下文缩减至最小执行面：注入面指针化（implement/frontend）、快照 depth>0 白名单、contract 措辞压缩（机制全留、≤260 词）、加载协议分层按需读（契约 v23）、删除 research-facts context-pack 死链；4 轮对齐 11 决策，implement+check 各两轮派发，门禁全绿。
+
