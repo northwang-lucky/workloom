@@ -292,3 +292,9 @@
 - Commit: 3ed34e7
 - Summary: 执行器上下文缩减至最小执行面：注入面指针化（implement/frontend）、快照 depth>0 白名单、contract 措辞压缩（机制全留、≤260 词）、加载协议分层按需读（契约 v23）、删除 research-facts context-pack 死链；4 轮对齐 11 决策，implement+check 各两轮派发，门禁全绿。
 
+## 修正 adapter-pi 执行器角色自述的过时注入描述
+
+- Time: 2026-09-22T13:05:20.608Z
+- Commit: aa15c72
+- Summary: 修正 adapter-pi 执行器角色自述的过时注入描述：四个 kind 的 systemPrompt 第二段逐字定稿为「指针化 + 分层加载」现行形态，agent-definitions.ts 与 executor.ts 头注同款失实修正，agents.test.ts 加防回归断言；红→绿交付，两轮 check 复核通过。
+
