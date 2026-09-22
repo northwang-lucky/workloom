@@ -2,7 +2,8 @@
  * session-context 单测：assembleSessionContext 快照组装（临时项目目录）。
  *
  * 覆盖：developer 默认 unknown 与读取；无活跃任务行；活跃任务行（标题/状态/路径）；
- * git 分支与脏计数及非 git 降级；workflow 概览拼接与空数组省略；块包裹格式。
+ * git 分支与脏计数及非 git 降级；workflow 概览拼接与空数组省略；块包裹格式；
+ * delegationDepth>0 的 executor 版白名单（仅 Active task / Guidelines / Executor norms）。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -362,9 +363,22 @@ test('norms 为空白字符串时不追加小节', () => {
   }
 })
 
-test('delegationDepth>0 时 norms 段整体替换为 executor 版（零派发语义、概览保留）', () => {
+test('delegationDepth>0：快照仅含块标记 + Active task 行 + Guidelines 索引段 + Executor norms 段（白名单裁剪）', () => {
   const root = makeProject()
   try {
+    // 夹具齐备（派发记录 / spec 索引 / 契约 norms / 工作流概览）：被删行不得出现
+    addTaskWithDispatches(root, 'dsh_sess_17', 'Implement X', 'in_progress', [
+      {
+        kind: 'implement',
+        at: '2026-09-03T10:00:00.000Z',
+        title: 'i1',
+        childId: 'child-2',
+        status: 'completed',
+      },
+    ])
+    const indexDir = join(root, '.workloom', 'spec', 'cli', 'backend')
+    mkdirSync(indexDir, { recursive: true })
+    writeFileSync(join(indexDir, 'index.md'), '# cli backend\n')
     const contractNorms =
       'Dispatch (always-on):\n- Implementation changes come from workloom_execute subagents.'
     const [err, text] = assembleSessionContext({
@@ -373,14 +387,19 @@ test('delegationDepth>0 时 norms 段整体替换为 executor 版（零派发语
       workflowSteps: [{ id: '2.1', title: 'Implement' }],
       norms: contractNorms,
       delegationDepth: 1,
+      mainModel: 'kimi-coding/k3',
     })
     assert.equal(err, null)
+    // 块标记包裹
+    assert.ok(text.startsWith('<workloom-session-context>\n'))
+    assert.ok(text.endsWith('\n</workloom-session-context>'))
+    // 白名单三件套齐全且按序：Active task → Guidelines → Executor norms
+    const activeAt = text.indexOf('\nActive task: "Implement X" (in_progress) at tasks/08-24-demo.\n')
+    const guidelinesAt = text.indexOf('\nGuidelines (spec index — read files as needed):\n')
     const normsStart = text.indexOf('\nAlways-on norms:\n')
-    assert.ok(normsStart > 0, 'executor norms section must render for depth > 0')
-    assert.ok(
-      text.indexOf('\nWorkflow: 2.1 Implement\n') < normsStart,
-      'overview kept before norms',
-    )
+    assert.ok(activeAt > 0, 'active task line must render for depth > 0')
+    assert.ok(guidelinesAt > activeAt, 'guidelines section must follow the active task line')
+    assert.ok(normsStart > guidelinesAt, 'executor norms must be the closing section')
     const normsSection = text.slice(normsStart)
     assert.ok(
       !normsSection.includes('dispatch'),
@@ -391,7 +410,12 @@ test('delegationDepth>0 时 norms 段整体替换为 executor 版（零派发语
       'contract norms must be replaced entirely',
     )
     assert.ok(normsSection.includes('leaf executor'), 'executor norms name the leaf executor role')
-    assert.ok(normsSection.endsWith('\n</workloom-session-context>'))
+    // 被删行全量不出现（Developer / Last dispatch / Executor profiles / Git / Workflow 概览）
+    assert.ok(!text.includes('Developer: '), 'developer line must be dropped at depth > 0')
+    assert.ok(!text.includes('Last dispatch:'), 'last dispatch line must be dropped at depth > 0')
+    assert.ok(!text.includes('Executor profiles'), 'profiles section must be dropped at depth > 0')
+    assert.ok(!text.includes('Git: '), 'git line must be dropped at depth > 0')
+    assert.ok(!text.includes('Workflow:'), 'workflow overview must be dropped at depth > 0')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

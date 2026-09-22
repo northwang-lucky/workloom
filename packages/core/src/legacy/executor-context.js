@@ -1,21 +1,23 @@
 /**
  * executor 上下文注入组装（行为移植模块，纯 JS + JSDoc）。
  *
- * 设计意图（W9 行为移植，规格见任务派发规格；注入优化任务 09-02 五项切片）：
- * - 子代理派发前组装首条 prompt：artifacts（prd/design/implement 按节提取）+
- *   jsonl 清单指针行 + research 产物指针 + 任务正文 + 纪律段，让子代理带完整
- *   信息自主工作（注入有预算）；
- * - 注入优化（指针化，切片 ①/②）：jsonl 引用文件与 research/*.md 只给「路径 +
- *   reason + 先读后判」指针行，不再内联全文（体积压到指针级）；prd 保留
- *   Requirements/Acceptance 两节全文、其余节只留标题指针；design/implement 只进
- *   H2 目录 + 文件指针——正文由执行器按强制加载协议（纪律段 + 注入标记回声）自读；
+ * 设计意图（注入瘦身任务 09-22：段落白名单 + 分层加载协议）：
+ * - 子代理派发前组装首条 prompt，段落按 kind 白名单统一排序：任务标注 + 注入
+ *   marker → （check/research：prd 全文节块）→ Pointer list（research 无；前两行为
+ *   design/implement 纯指针行，后接 jsonl 条目）→ Research materials → （implement/
+ *   frontend：prd 软指针行）→ Local directives → Task prompt → Executor contract；
+ * - 指针化（体积压到指针级）：jsonl 条目、research/*.md、design/implement 均只给
+ *   「路径 + reason」指针行，无逐行读后判后缀；prd 仅 check/research 物化
+ *   Requirements/Acceptance 全文 + 其余节标题指针（验收基线/问题框架，职责必需），
+ *   implement/frontend 只出软指针行（有歧义时按需查阅，非必读）；
+ * - 分层加载协议（取代开工前强制全读）：开工前必读计划 artifact，其余指针步骤
+ *   需要时定点读区间，显式禁止 upfront 通读整个指针清单；措辞与 assets 契约
+ *   workflow.md Loading protocol 行同源（check 逐字核对）；
  * - 可靠性护栏（切片 ⑤）：每次派发注入唯一 marker token，纪律句要求执行器报告
- *   首行回显（证明注入到达且协议被读）；「实读文件」由既有「报告引用实读文件」
- *   纪律保证（子代理实读不可观测为已知能力边界）；
- * - 预算来自 config.contextInjection：max_artifact_bytes 限单个 artifact 块、
- *   max_total_bytes 限总量；指针行极轻量，无截断/索引降级语义，预算仅对 artifact
- *   内容生效（128KB 上限保留作兜底）；
- * - 超限策略：artifact 块内容截断（追加 [...truncated at N bytes] 提示）；
+ *   首行回显（证明注入到达且协议被读）；
+ * - 预算来自 config.contextInjection：max_artifact_bytes 限 prd 块、max_total_bytes
+ *   限总量；指针行极轻量无截断语义，预算仅对 artifact 内容生效（128KB 上限保留
+ *   作兜底）；超限截断并追加 [...truncated at N bytes] 提示；
  * - jsonl 缺失按空处理；jsonl 行解析失败显式报错（fail loud，无灰区）。
  */
 
@@ -24,7 +26,6 @@ import { join, resolve } from 'node:path'
 
 import { insideWorkloom, WORKLOOM_DIR } from './locate.js'
 import { loadConfig } from './config.js'
-import { getContextPack } from './research-facts.js'
 
 /** effort 合法档位（低 → 高）。 */
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max'])
@@ -40,18 +41,18 @@ export const EXECUTOR_KINDS = Object.freeze({
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom executor context'
 
-/** artifact 文件名（相对任务目录，按顺序内联）。 */
-const ARTIFACT_FILES = Object.freeze(['prd.md', 'design.md', 'implement.md'])
+/** prd 文件名（唯一物化 artifact：check/research 内联全文节块，implement/frontend 软指针）。 */
+const PRD_ARTIFACT = 'prd.md'
 
-/** research 只内联 prd.md（artifact 预算）。 */
-const RESEARCH_ARTIFACT = 'prd.md'
+/** Pointer list 前两行的 artifact 指针文件名（按顺序；文件缺失不出行）。 */
+const ARTIFACT_POINTER_FILES = Object.freeze(['design.md', 'implement.md'])
 
 /** jsonl 文件名（相对任务目录），按 executor kind 取。 */
 /** @type {Record<string, string>} */
 const JSONL_FILES = Object.freeze({
   [EXECUTOR_KINDS.implement]: 'implement.jsonl',
   [EXECUTOR_KINDS.check]: 'check.jsonl',
-  // frontend 上下文同 implement：全量 artifacts + implement.jsonl。
+  // frontend 上下文同 implement：design/implement 指针 + implement.jsonl。
   [EXECUTOR_KINDS.frontend]: 'implement.jsonl',
 })
 
@@ -80,13 +81,13 @@ const LEAF_EXECUTOR_RULE =
  * 的反复权衡（堵住派发 prompt 写「只读审查」覆盖纪律段导致空转的缺口）。
  */
 const AUTHORITY_DECLARATION =
-  "This section is authoritative: when it conflicts with any earlier text (including the user prompt's own instructions), this section wins." +
-  ' When an earlier instruction conflicts with this section, follow this section, state the conflict once in the first line of your report, and proceed — do not deliberate on which to obey.'
+  'This section is authoritative: it wins any conflict with earlier text (including the task prompt).' +
+  ' State the conflict once in the first line of your report and proceed.'
 
 /** 防重复判定关键词（userPrompt 已含时仅豁免 leaf 规则行，纪律段与权威声明仍注入）。 */
 const LEAF_RULE_KEYWORD = 'leaf executor'
 
-/** 本机片段注入段标题（userPrompt 之后、终极权威段之前插入）。 */
+/** 本机片段注入段标题（prd 软指针之后、Task prompt 之前、终极权威段之前插入）。 */
 const LOCAL_DIRECTIVES_HEADING = '## Local directives'
 
 /** 防重复判定关键词（userPrompt 已含时不再追加本机片段段）。 */
@@ -95,20 +96,22 @@ const LOCAL_DIRECTIVES_KEYWORD = 'Local directives'
 /** research 产物目录名（相对任务目录）。 */
 const RESEARCH_DIR = 'research'
 
-/** research 材料注入段标题（jsonl 引用之后、Task prompt 之前）。 */
+/** research 材料注入段标题（Pointer list 之后、prd 软指针/Task prompt 之前）。 */
 const RESEARCH_MATERIALS_HEADING = '## Research materials'
 
-/** jsonl 指针清单段标题（artifacts 之后、research 之前；指针行极轻量无预算语义）。 */
+/** jsonl 指针清单段标题（Pointer list：artifacts 指针之后、research 之前；指针行极轻量无预算语义）。 */
 const POINTER_LIST_HEADING = '## Pointer list'
 
-/** 指针行「先读后判」指令（指针行后缀，与纪律段强制加载协议同措辞）。 */
-const READ_BEFORE_ACTING = 'read before acting'
-
-/** files 清单注入段标题（research 锚点文件清单，消费 T3 上下文包）。 */
-const FILES_LIST_HEADING = '## Involved files'
-
-/** files 清单段防重复判定关键词（userPrompt 已含显式清单时不重复注入清单段）。 */
-const FILES_LIST_KEYWORDS = Object.freeze(['涉及文件', 'files:', '改动文件'])
+/**
+ * prd 软指针行（implement/frontend 专有，独立一行无标题）：仅在派发正文或计划
+ * 有歧义时按需查阅 prd.md——刻意不进 `## Pointer list`，避免被强制加载语义
+ * 变成必读；prd.md 缺失时不出该行。
+ * @param {string} prdRelPath prd 相对项目根的路径
+ * @returns {string} 软指针行
+ */
+function prdSoftPointerLine(prdRelPath) {
+  return `If the task prompt or the plan is ambiguous, consult ${prdRelPath} before deciding.`
+}
 
 /** prd 全文保留节（Requirements/Acceptance 两节全文；其余节只留标题指针）。 */
 const PRD_FULL_SECTIONS = Object.freeze(['Requirements', 'Acceptance Criteria'])
@@ -122,61 +125,56 @@ const H2_TITLE_RE = /^##\s+(.+)$/
 /**
  * 内置 LSP 主基线句子（产品内置，runtime 无关，不带条件；检测到 LSP 工具时由
  * 本机片段加强为硬指令）。统一软措辞（"When available"）确保无 LSP 插件环境
- * 不产生指向虚无的硬指令。场景语言点名五类 LSP 能力（symbol 大纲/签名、
- * 补全、改名、修复动作、diagnostics 验证），不指名 runtime 特有工具名。
+ * 不产生指向虚无的硬指令。场景语言点名五类 LSP 能力（结构大纲/签名、补全、
+ * 改名、修复动作、diagnostics 验证），不指名 runtime 特有工具名。
  */
 const LSP_BASELINE_SENTENCE =
-  'When LSP tooling is available, treat it as the first choice for code work: ' +
-  'read structure through LSP symbol outlines and call signatures; ' +
-  'resolve members and arguments with completions; ' +
-  'rename symbols through server-side rename and fix them with code actions ' +
-  'instead of hand-searched edits; ' +
-  'and include an LSP diagnostics check in the verification pass.'
+  'When LSP tooling is available, use it first: symbol outlines and signatures for structure, ' +
+  'completions for members, server-side rename and code actions for edits, ' +
+  'diagnostics in the verification pass.'
 
 /**
  * 内置 LSP 只读变体句子（research 纪律段专用，同主句的 runtime 无关软措辞）：
- * 探索阶段优先用 LSP 读结构（symbol 大纲/签名解析），再回退文本扫描。
+ * 探索阶段优先用 LSP 读结构（大纲/签名/成员解析），再回退文本扫描。
  */
 const LSP_RESEARCH_BASELINE_SENTENCE =
-  'When LSP tooling is available, explore through it before falling back to ' +
-  'text-search sweeps: map code structure with LSP symbol outlines and resolve ' +
-  'call signatures and members from the language server.'
+  'When LSP tooling is available, explore with it before text-search sweeps: ' +
+  'symbol outlines for structure, signatures and members from the language server.'
 
 /**
- * 纪律段追加的「先读材料、禁止全局 recon」指令（implement/check 两 kind 注入；
- * research 契约已由 research-facts 增强，不重复追加）。让子代理先消费注入的
- * 研究产物与文件清单，消除各自重新摸底仓库（git 扫库、全库 glob、无关批量读）
- * 的开销。
+ * 纪律段追加的「按需查材料、禁止全局 recon」指令（implement/check 两 kind 注入；
+ * research 契约已由 research-facts 增强，不重复追加）。分层协议下材料只在当前
+ * 步骤需要时读，同时保留反 recon 语义：禁止各自重新摸底仓库（git 扫库、全库
+ * glob、无关批量读）。
  */
-const READ_MATERIALS_FIRST_RULE =
-  'Read the injected research materials and file list before acting; do not re-discover ' +
-  'the repository state (no git status/log sweeps, no whole-repo globs, no bulk reads of ' +
-  'unrelated files).'
+const CONSULT_MATERIALS_ON_DEMAND_RULE =
+  'Consult the injected research materials only when the current step needs them; do not re-discover ' +
+  'the repository (no git sweeps, no whole-repo globs, no bulk unrelated reads).'
 
 /**
  * 批处理纪律句（implement/check 纪律段共用，命令式、无弱化词）：把互不依赖
  * 输出的验证/比对命令合并进单次 shell 调用，一次一命令浪费一轮推理。
  */
 const BATCHING_DISCIPLINE =
-  "Combine verification and comparison commands that do not depend on each other's output " +
-  'into a single shell invocation; one command per invocation wastes a reasoning round each.'
+  'Batch independent verification and comparison commands into a single shell invocation.'
 
 /**
  * 工具输出紧凑纪律句（implement/check 纪律段共用，命令式）：定向读区间、限量
  * 搜索/列表输出、倾向摘要而非整文件倾倒，抑制每步上下文累积撑爆注入预算。
  */
 const COMPACT_OUTPUT_DISCIPLINE =
-  'Keep tool outputs compact: read targeted ranges instead of whole files, cap search and ' +
-  'list output, and prefer summaries over full dumps.'
+  'Keep tool outputs compact: read targeted ranges, cap search and list output, prefer summaries.'
 
 /**
- * 强制加载协议 + 注入标记回声纪律句（全部 kind 纪律段共用，命令式、无弱化词）：
- * 指针模式不再内联文件全文，执行器必须先读指针清单所列文件再动手，并在报告首行
- * 回显本次派发的唯一 marker token（证明注入到达且协议被读）。措辞与 assets
- * workflow.md 契约 norms 逐字一致（check 逐字核对）。
+ * 分层加载协议 + 注入标记回声纪律句（全部 kind 纪律段共用，命令式、无弱化词）：
+ * 开工前只强制读计划 artifact，其余指针步骤需要时定点读区间，显式禁止 upfront
+ * 通读整个指针清单；并在报告首行回显本次派发的唯一 marker token（证明注入到达
+ * 且协议被读）。前半句分层语义与 assets workflow.md 契约 Loading protocol 行
+ * 同源；后半句回声协议与契约逐字一致（check 逐字核对）。
  */
 const INJECTION_PROTOCOL_DISCIPLINE =
-  'Read the files in the injected pointer list before acting. ' +
+  'Load in layers: read the plan artifact (implement.md) before acting; consult every other pointer ' +
+  'only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. ' +
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
 
 /**
@@ -185,11 +183,9 @@ const INJECTION_PROTOCOL_DISCIPLINE =
  * 作为阻塞项写进最终报告回传主会话（主会话按契约 2.1 处置句成批交用户决断）。
  */
 const NO_USER_CHANNEL_DISCIPLINE =
-  'You have no user channel: never ask the user questions and never call ' +
-  'interactive question tools (ask_user_question or equivalents). ' +
-  'When you hit a gap you cannot resolve yourself, stop working, write every open ' +
-  'question as a blocking item in your final report, and let the main session batch ' +
-  'them to the user for decisions.'
+  'You have no user channel: never ask the user or call interactive question tools. ' +
+  'On a gap you cannot resolve, stop and list every open question as a blocking item in your final report; ' +
+  'the main session batches them to the user.'
 
 /**
  * research 写/编辑路径限制告知句（research 纪律段专属，机制强制的前置告知）：
@@ -224,7 +220,7 @@ function buildInjectionMarkerLine(taskRelPath) {
  */
 export const EXECUTOR_CONTRACT_BY_KIND = Object.freeze({
   [EXECUTOR_KINDS.research]: `Produce an actionable report the implementer can follow directly.
-Ground every conclusion in the real source: read the actual files or data before claiming a fact, and cite file paths for each conclusion.
+Ground every conclusion in the real source: read the actual files or data before claiming a fact; cite file paths.
 Separate verified findings from suggestions, and mark anything unverified as such.
 ${LSP_RESEARCH_BASELINE_SENTENCE}
 ${RESEARCH_WRITE_SCOPE_DISCIPLINE}
@@ -236,27 +232,27 @@ Structure the report in research-facts blocks (see the research-facts spec and i
 ${INJECTION_PROTOCOL_DISCIPLINE}`,
   [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/design/implement) in order.
 Make the smallest change that satisfies the requirement; do not touch unrelated code.
-Verify before wrapping up with the project's checks (lint / typecheck / tests), then report the list of changed files.
+Verify with the project's checks (lint / typecheck / tests) before wrapping up, then report the changed files.
 ${LSP_BASELINE_SENTENCE}
 ${BATCHING_DISCIPLINE}
 ${COMPACT_OUTPUT_DISCIPLINE}
-${READ_MATERIALS_FIRST_RULE}
+${CONSULT_MATERIALS_ON_DEMAND_RULE}
 ${INJECTION_PROTOCOL_DISCIPLINE}`,
-  [EXECUTOR_KINDS.check]: `Classify every finding by severity before acting (definitions in the workflow contract §2.2; summarized here):
-- P0 (blocking): acceptance criteria unmet; hard lint / typecheck / build / tests failures; security or data-integrity risks.
-- P1 (important): behavioral or correctness defects; design or spec deviations (including cross-file semantic changes); issues that pre-date this task (even mechanical ones).
-- P2 (minor): mechanical issues (typos, naming, comments, formatting, weakened test assertions); small local defects confined to a single file; compliance fixes with no trade-offs.
+  [EXECUTOR_KINDS.check]: `Classify every finding by severity before acting (definitions in workflow contract §2.2, summarized here):
+- P0 (blocking): acceptance criteria unmet; hard lint / typecheck / build / test failures; security or data-integrity risks.
+- P1 (important): behavioral or correctness defects; design or spec deviations (including cross-file semantic changes); issues pre-dating this task (even mechanical ones).
+- P2 (minor): mechanical issues (typos, naming, comments, formatting, weakened test assertions); single-file local defects; compliance fixes with no trade-offs.
 
-Fix P2 findings yourself — leaving a P2 unfixed is a dereliction of duty. Do not fix P0/P1 findings; escalate them in your report's final "## Open issues" section, one per line:
+Fix P2 yourself — an unfixed P2 is a dereliction of duty. Do not fix P0/P1; escalate them in your report's final "## Open issues" section, one per line:
 - <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>
 Write "- none" when no issue remains.
 After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
 ${LSP_BASELINE_SENTENCE}
 ${BATCHING_DISCIPLINE}
 ${COMPACT_OUTPUT_DISCIPLINE}
-${READ_MATERIALS_FIRST_RULE}
+${CONSULT_MATERIALS_ON_DEMAND_RULE}
 ${INJECTION_PROTOCOL_DISCIPLINE}`,
-  [EXECUTOR_KINDS.frontend]: `Follow the PRD's "## UI Design" section as the baseline and deliver all seven UI axes it asks for.
+  [EXECUTOR_KINDS.frontend]: `Follow the PRD's '## UI Design' section as the baseline and deliver all seven UI axes it asks for.
 Touch frontend files only; verify with the project's frontend checks (lint / typecheck / build / relevant tests).
 When a backend interface is missing, use an annotated mock or placeholder and mark it for later wiring.
 ${LSP_BASELINE_SENTENCE}
@@ -334,7 +330,9 @@ export function assertKind(kind) {
 }
 
 /**
- * 组装 executor 首条 prompt：任务标注 + artifact/jsonl 内联 + 任务正文。
+ * 组装 executor 首条 prompt：段落按 kind 白名单排序（任务标注 + marker → prd 块
+ * → Pointer list → Research materials → prd 软指针 → Local directives → Task prompt
+ * → Executor contract）。
  * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params
  *   入参（root 为项目根；taskRelPath 为任务目录相对 .workloom 的路径）
  * @returns {[Error | null, import('./executor-context.d.ts').ExecutorPromptResult | null]}
@@ -367,38 +365,48 @@ function buildInternal(params) {
     truncated: 0,
   }
   // 首行任务标注 + 注入标记（单次注入标记回声机制）：每次派发生成唯一 marker
-  // token 随指针清单注入（放在首行附近便于执行器最先读到），纪律句要求执行器
-  // 在报告首行回显，证明注入到达且强制加载协议被读。
+  // token 随注入文本首行注入，纪律句要求执行器在报告首行回显，证明注入到达且
+  // 分层加载协议被读。
   const parts = [
     `${ACTIVE_TASK_PREFIX}${params.taskRelPath}\n${buildInjectionMarkerLine(params.taskRelPath)}`,
   ]
   const taskDir = insideWorkloom(params.root, params.taskRelPath)
-  if (params.kind === EXECUTOR_KINDS.research) {
-    // research 只物化 prd（按节提取），不读 jsonl。
-    inlineArtifact(parts, params.taskRelPath, taskDir, RESEARCH_ARTIFACT, ci, stats)
-  } else {
-    for (const name of ARTIFACT_FILES) {
-      inlineArtifact(parts, params.taskRelPath, taskDir, name, ci, stats)
-    }
+  // check/research 物化 prd 全文节块（验收基线/问题框架，职责必需）；implement/
+  // frontend 不物化 prd（下方软指针行代替，正文按需查阅）。
+  if (params.kind === EXECUTOR_KINDS.check || params.kind === EXECUTOR_KINDS.research) {
+    inlinePrdArtifact(parts, params.taskRelPath, taskDir, ci, stats)
+  }
+  // Pointer list（research 无此段）：前两行固定 design/implement 纯指针行（文件
+  // 缺失不出行），后接当前 kind 的 jsonl 条目指针行；文件不存在不指向空。
+  if (params.kind !== EXECUTOR_KINDS.research) {
+    const pointerLines = ARTIFACT_POINTER_FILES.filter((name) =>
+      existsSync(join(taskDir, name)),
+    ).map((name) => pointerLine(join(WORKLOOM_DIR, params.taskRelPath, name)))
+    stats.filesPointed += pointerLines.length
     const jsonlName = JSONL_FILES[params.kind]
     if (jsonlName !== undefined) {
-      const pointerLines = materializeJsonlEntries(params.root, taskDir, jsonlName, stats)
-      if (pointerLines.length > 0) {
-        parts.push(`${POINTER_LIST_HEADING}\n${pointerLines.join('\n')}`)
-      }
+      pointerLines.push(...materializeJsonlEntries(params.root, taskDir, jsonlName, stats))
+    }
+    if (pointerLines.length > 0) {
+      parts.push(`${POINTER_LIST_HEADING}\n${pointerLines.join('\n')}`)
     }
   }
-  // research 产物指针注入（自动行为，不由主会话控制）：任务上下文先于任务正文，
-  // 让子代理先读材料再行动；无 research 产物时为空段，不报错。
+  // research 产物指针注入（自动行为，不由主会话控制）：指针行给路径，正文由
+  // 执行器按分层协议在步骤需要时读；无 research 产物时为空段，不报错。
   inlineResearchMaterials(parts, params.taskRelPath, taskDir, stats)
-  // files 清单注入（消费 T3 上下文包）：userPrompt 已含显式清单时不重复注入。
-  inlineFilesList(parts, params.root, params.taskRelPath, params.userPrompt)
-  if (params.userPrompt !== '') {
-    parts.push(`${TASK_PROMPT_HEADING}\n${params.userPrompt}`)
+  // prd 软指针行（implement/frontend 专有，独立一行无标题）：有歧义时按需查阅，
+  // 不进 Pointer list（避免被强制加载语义变成必读）；prd 缺失不出行。
+  if (
+    (params.kind === EXECUTOR_KINDS.implement || params.kind === EXECUTOR_KINDS.frontend) &&
+    existsSync(join(taskDir, PRD_ARTIFACT))
+  ) {
+    parts.push(prdSoftPointerLine(join(WORKLOOM_DIR, params.taskRelPath, PRD_ARTIFACT)))
+    stats.filesPointed += 1
   }
-  // 本机片段段（adapter 探测后传入的合成文本，core 不做 IO）：userPrompt 之后、
-  // 终极权威段之前；userPrompt 已含标题时不重复注入（与权威段同规则）；空串
-  // /未传不插入（Pi 不传参 = 不注入，向后兼容）。
+  // 本机片段段（adapter 探测后传入的合成文本，core 不做 IO）：prd 软指针之后、
+  // Task prompt 之前、终极权威段之前（内容段收尾吃近因效应，正文在最后）；
+  // userPrompt 已含标题时不重复注入（与权威段同规则）；空串/未传不插入
+  // （Pi 不传参 = 不注入，向后兼容）。
   const localDirectives = params.localDirectives
   if (
     localDirectives !== undefined &&
@@ -406,6 +414,9 @@ function buildInternal(params) {
     !params.userPrompt.includes(LOCAL_DIRECTIVES_KEYWORD)
   ) {
     parts.push(`${LOCAL_DIRECTIVES_HEADING}\n${localDirectives}`)
+  }
+  if (params.userPrompt !== '') {
+    parts.push(`${TASK_PROMPT_HEADING}\n${params.userPrompt}`)
   }
   // 终极权威段（注入文本末尾，所有 kind 一致生效）：kind 纪律段 + leaf 规则 +
   // 权威声明合并为一段，末尾权威声明声明「与更早文本冲突时以本节为准」；去重
@@ -422,44 +433,27 @@ function buildInternal(params) {
 }
 
 /**
- * 内联单个 artifact（prd/design/implement.md）：按节提取注入（切片 ②），
- * 文件缺失跳过；块文本写入 parts；返回实际写入的字节数（缺失为 0）。
- * - prd.md：Requirements/Acceptance 两节全文保留，其余节只留标题指针；
- * - design.md/implement.md：只进 H2 目录 + 文件指针（正文执行器自读）。
- * 按 maxArtifactBytes 截断（预算兜底）。
+ * 内联 prd.md 全文节块（check/research 专有；验收基线与偏差判定依据，职责必需）：
+ * 按节提取注入，文件缺失跳过；块文本写入 parts；返回实际写入的字节数（缺失为 0）。
+ * Requirements/Acceptance 两节全文保留，其余节只留标题指针；按 maxArtifactBytes
+ * 截断（预算兜底）。
  * @param {string[]} parts prompt 段落列表（块文本追加于此）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {string} taskDir 任务目录绝对路径
- * @param {string} name artifact 文件名
  * @param {import('./config.d.ts').WorkloomConfig['contextInjection']} ci 注入预算
  * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 统计
  * @returns {number} 注入字节数（写入调用方累计预算）
  */
-function inlineArtifact(parts, taskRelPath, taskDir, name, ci, stats) {
-  const text = readTaskFile(join(taskDir, name))
+function inlinePrdArtifact(parts, taskRelPath, taskDir, ci, stats) {
+  const text = readTaskFile(join(taskDir, PRD_ARTIFACT))
   if (text === null) return 0
-  const relPath = join(WORKLOOM_DIR, taskRelPath, name)
-  const content = extractArtifactContent(name, text)
+  const relPath = join(WORKLOOM_DIR, taskRelPath, PRD_ARTIFACT)
+  const content = extractPrdContent(text)
   const limited = limitByBytes(content, ci.maxArtifactBytes)
   parts.push(`${BLOCK_SEPARATOR}${relPath}${BLOCK_SEPARATOR_END}\n${limited.text}`)
   if (limited.truncated) stats.truncated += 1
   stats.filesInlined += 1
   return byteLength(limited.text)
-}
-
-/**
- * 按 artifact 类型提取注入正文（切片 ②）：
- * - prd.md：Requirements/Acceptance 两节全文 + 其余节标题指针（Read in file:）；
- *   无全文节时整体只给文件指针；
- * - design.md/implement.md：H2 目录（标题行列表）+ 文件指针（Read the full
- *   document in the file），正文执行器按强制加载协议自读。
- * @param {string} name artifact 文件名
- * @param {string} text artifact 全文
- * @returns {string} 注入正文（可能为空串）
- */
-function extractArtifactContent(name, text) {
-  if (name === 'prd.md') return extractPrdContent(text)
-  return extractOutlineContent(text)
 }
 
 /**
@@ -490,19 +484,6 @@ function extractPrdContent(text) {
 }
 
 /**
- * design/implement 提取：只进 H2 目录（标题行列表）+ 文件指针。
- * @param {string} text 文档全文
- * @returns {string} 注入正文
- */
-function extractOutlineContent(text) {
-  const headings = listH2Headings(text)
-  if (headings.length === 0) {
-    return 'Read the full document in the file (no H2 sections).'
-  }
-  return `${headings.join('\n')}\nRead the full document in the file.`
-}
-
-/**
  * 按 H2 节切分 markdown 文本：返回 [{heading, body}]，body 不含标题行；
  * H2 之前（H1 标题等）的内容不属于任何节，跳过。
  * @param {string} text markdown 全文
@@ -528,21 +509,12 @@ function splitH2Sections(text) {
 }
 
 /**
- * 列出文档全部 H2 标题行（原样含 `## ` 前缀，作为 H2 目录）。
- * @param {string} text markdown 全文
- * @returns {string[]}
- */
-function listH2Headings(text) {
-  return text.split('\n').filter((line) => H2_HEADING_RE.test(line))
-}
-
-/**
  * 物化 jsonl 引用条目为指针行列表（切片 ①，内部，失败抛错）。
  * 逐行 JSON {file, reason?, type?}：无 file 行跳过；两角色（implement/check，
- * frontend 同 implement）统一输出「路径 + reason + 先读后判」指针行，撤全文
- * 内联与预取——全文由执行器按强制加载协议自读；越界路径与缺失文件跳过；
- * 指针行极轻量且是可靠性基线，不受预算截断/索引降级影响（预算仅对 artifact
- * 内容生效，128KB 上限保留作兜底）；jsonl 缺失按空处理。
+ * frontend 同 implement）统一输出「路径 + reason」纯指针行——逐行 mandate 由分层
+ * 加载协议句统一取代；越界路径与缺失文件跳过；指针行极轻量且是可靠性基线，不受
+ * 预算截断/索引降级影响（预算仅对 artifact 内容生效，128KB 上限保留作兜底）；
+ * jsonl 缺失按空处理。
  * @param {string} root 项目根
  * @param {string} taskDir 任务目录绝对路径
  * @param {string} jsonlName jsonl 文件名
@@ -564,21 +536,21 @@ function materializeJsonlEntries(root, taskDir, jsonlName, stats) {
 }
 
 /**
- * 拼装 jsonl 引用指针行：`- <file> (<reason>) — read before acting`（reason 缺失
- * 省略括号；「先读后判」指令与纪律段强制加载协议同措辞）。
+ * 拼装指针行：`- <file>` 或 `- <file> (<reason>)`（reason 缺失省略括号；逐行
+ * 「read before acting」后缀已删，逐行 mandate 由分层加载协议句统一取代）。
  * @param {string} file 条目路径
- * @param {string | undefined} reason 引用理由
+ * @param {string | undefined} [reason] 引用理由
  * @returns {string} 指针行
  */
 function pointerLine(file, reason) {
   const reasonPart = reason === undefined ? '' : ` (${reason})`
-  return `- ${file}${reasonPart} — ${READ_BEFORE_ACTING}`
+  return `- ${file}${reasonPart}`
 }
 
 /**
  * 内联任务 research/*.md 指针（切片 ②，自动行为，不由主会话控制）：
- * 按文件名排序逐文件给「路径 — read before acting」指针行，不内联正文（与 jsonl
- * ① 同口径）；无 research 目录或无 .md 产物时为空段，不影响注入链与统计（缺省 0）。
+ * 按文件名排序逐文件给路径指针行，不内联正文（与 jsonl ① 同口径）；无 research
+ * 目录或无 .md 产物时为空段，不影响注入链与统计（缺省 0）。
  * @param {string[]} parts prompt 段落列表（块文本追加于此）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {string} taskDir 任务目录绝对路径
@@ -592,7 +564,7 @@ function inlineResearchMaterials(parts, taskRelPath, taskDir, stats) {
     const absPath = join(taskDir, RESEARCH_DIR, name)
     if (!existsSync(absPath)) continue // 产物缺失跳过
     const relPath = join(WORKLOOM_DIR, taskRelPath, RESEARCH_DIR, name)
-    lines.push(`- ${relPath} — ${READ_BEFORE_ACTING}`)
+    lines.push(pointerLine(relPath))
     stats.filesPointed += 1
   }
   if (lines.length > 0) {
@@ -614,23 +586,6 @@ function listResearchMarkdownNames(taskDir) {
     throw error
   }
   return entries.filter((name) => name.endsWith('.md')).sort()
-}
-
-/**
- * files 清单注入段（消费 T3 上下文包）：从 getContextPack(root, taskRelPath).files
- * 生成「涉及文件清单」段（相对路径行，不含 sections 全文，避免 seed 膨胀）；
- * userPrompt 已含显式清单关键词（FILES_LIST_KEYWORDS）时不重复注入（主会话
- * 覆盖优先级）；空包（无 research 产物/无锚点）或包读取失败时不注入，不报错。
- * @param {string[]} parts prompt 段落列表
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {string} userPrompt 用户任务正文（防重复关键词判定用）
- */
-function inlineFilesList(parts, root, taskRelPath, userPrompt) {
-  if (FILES_LIST_KEYWORDS.some((keyword) => userPrompt.includes(keyword))) return
-  const [err, pack] = getContextPack(root, taskRelPath)
-  if (err !== null || pack === null || pack.files.length === 0) return
-  parts.push(`${FILES_LIST_HEADING}\n${pack.files.join('\n')}`)
 }
 
 /**

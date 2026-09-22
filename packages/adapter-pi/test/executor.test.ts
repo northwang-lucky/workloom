@@ -471,14 +471,11 @@ test('buildExecutorPromptWithPi: hasLsp=false → 本机片段仍注入（无工
   }
 })
 
-/** LSP 主基线句（与 core 纪律段一致，测试自给自足）。 */
+/** LSP 主基线句（与 core 纪律段一致，contract 定稿压缩版，测试自给自足）。 */
 const LSP_BASELINE_SENTENCE =
-  'When LSP tooling is available, treat it as the first choice for code work: ' +
-  'read structure through LSP symbol outlines and call signatures; ' +
-  'resolve members and arguments with completions; ' +
-  'rename symbols through server-side rename and fix them with code actions ' +
-  'instead of hand-searched edits; ' +
-  'and include an LSP diagnostics check in the verification pass.'
+  'When LSP tooling is available, use it first: symbol outlines and signatures for structure, ' +
+  'completions for members, server-side rename and code actions for edits, ' +
+  'diagnostics in the verification pass.'
 
 test('S4 交付时过滤：hasLsp=false 时首条 prompt 不含纪律段 LSP 句，true 时保留', () => {
   const root = makeLspFragmentsRoot()

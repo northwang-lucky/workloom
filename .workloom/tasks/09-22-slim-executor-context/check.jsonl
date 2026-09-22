@@ -1,0 +1,7 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "验收编码原则与验证命令"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "legacy 模块约定核查（executor-context.js）"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "中英文分工核查（运行时文案英文、注释中文）"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/adapter 分层依赖核查"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "提交规范核查（2.3 commit message）"}
+{"file": ".workloom/spec/repo/research-facts/format.md", "reason": "research 输出格式约定——context-pack 约定摘除后的保留面，复核 spec 修订未伤及"}

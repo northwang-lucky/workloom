@@ -41,8 +41,8 @@ export interface BuildExecutorPromptParams {
   userPrompt: string
   /**
    * 本机片段合成文本（三层 prompts 叠加后经 core composeLocalDirectivesText
-   * 组装；在 userPrompt 之后、终极权威段之前以 ## Local directives 段注入）。
-   * 空串/未传 = 不注入（Pi 与 DSH 均已接线，缺省保持向后兼容）。
+   * 组装；在 prd 软指针之后、Task prompt 之前、终极权威段之前以 ## Local directives
+   * 段注入）。空串/未传 = 不注入（Pi 与 DSH 均已接线，缺省保持向后兼容）。
    */
   localDirectives?: string
   /**
@@ -54,9 +54,12 @@ export interface BuildExecutorPromptParams {
 
 /** 组装统计：内联/指针/截断计数。 */
 export interface ExecutorPromptStats {
-  /** 注入的 artifact 块数（prd/design/implement；含部分提取注入与 H2 目录）。 */
+  /** 注入的 artifact 块数（现仅 check/research 物化的 prd 全文节块）。 */
   filesInlined: number
-  /** 指针引用条数（jsonl 清单文件/目录 + research/*.md 路径行；非内联，执行器按加载协议自读）。 */
+  /**
+   * 指针引用条数（design/implement 纯指针行 + implement/frontend 的 prd 软指针行
+   * + jsonl 清单文件/目录 + research/*.md 路径行；非内联，执行器按分层协议按需自读）。
+   */
   filesPointed: number
   /** 发生内容截断的次数（artifact 按预算截断）。 */
   truncated: number

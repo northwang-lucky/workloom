@@ -545,9 +545,10 @@ test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数
     assert.equal(startCalls.length, 1)
     assert.equal(typeof built, 'string')
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
-    // makeProject 只写 prd/design/implement 三个 artifact（无 jsonl）：内联 3、截断 0、索引 0。
+    // makeProject 只写 prd/design/implement 三个 artifact（无 jsonl）：implement 不内联
+    // artifact（内联 0），三个文件均走指针行（pointed 3）、截断 0、索引 0。
     assert.ok(
-      text.includes(`; injection: ${kb}KB, 3 inlined, 0 truncated, 0 indexed`),
+      text.includes(`; injection: ${kb}KB, 0 inlined, 0 truncated, 0 indexed`),
       'new dispatch receipt must carry the injection 4-tuple',
     )
   } finally {
@@ -581,7 +582,7 @@ test('receipt 行：续用轮 reinject: true 恢复全量注入（统计同新�
     assert.ok(built.includes('Active task:'), 'reinject must restore the full prompt')
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
     assert.ok(
-      second.receipt.includes(`; injection: ${kb}KB, 3 inlined, 0 truncated, 0 indexed`),
+      second.receipt.includes(`; injection: ${kb}KB, 0 inlined, 0 truncated, 0 indexed`),
       'reinject receipt must carry the full injection 4-tuple',
     )
     assert.ok(second.receipt.includes('(reused)'), 'reused turn must still mark (reused)')
@@ -1513,8 +1514,8 @@ test('本机片段：首条 prompt 注入 Local directives 段（all 前、专�
     const contractAt = text.indexOf('## Executor contract')
     assert.ok(localAt !== -1, 'local directives section must be injected')
     assert.ok(
-      taskPromptAt !== -1 && taskPromptAt < localAt && localAt < contractAt,
-      'local directives must sit between the task prompt and the authoritative contract',
+      taskPromptAt !== -1 && taskPromptAt < contractAt && localAt < taskPromptAt,
+      'local directives must sit before the task prompt and before the authoritative contract',
     )
     // 合成顺序：all.md 在前、kind 专属在后。
     const section = text.slice(localAt, contractAt)
@@ -1580,14 +1581,11 @@ test('本机片段：项目共享层（prompts/）与本机层（prompts.local/�
   }
 })
 
-/** LSP 主基线句（与 core 纪律段一致，测试自给自足）。 */
+/** LSP 主基线句（与 core 纪律段一致，contract 定稿压缩版，测试自给自足）。 */
 const LSP_BASELINE_SENTENCE =
-  'When LSP tooling is available, treat it as the first choice for code work: ' +
-  'read structure through LSP symbol outlines and call signatures; ' +
-  'resolve members and arguments with completions; ' +
-  'rename symbols through server-side rename and fix them with code actions ' +
-  'instead of hand-searched edits; ' +
-  'and include an LSP diagnostics check in the verification pass.'
+  'When LSP tooling is available, use it first: symbol outlines and signatures for structure, ' +
+  'completions for members, server-side rename and code actions for edits, ' +
+  'diagnostics in the verification pass.'
 
 test('S4 hasLspTooling：可见集含 lsp_ 前缀工具判定具备 LSP 工具面，否则不具', async () => {
   assert.equal(hasLspTooling([]), false, 'empty tool set has no LSP')
@@ -1657,7 +1655,7 @@ test('s1-bg: 后台派发立即返回（不等 turn 结算），返回 {kind, ch
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
     assert.ok(result.receipt.includes('deepseek-official/deepseek-v4-flash'))
     assert.ok(
-      result.receipt.includes(`; injection: ${kb}KB, 3 inlined, 0 truncated, 0 indexed`),
+      result.receipt.includes(`; injection: ${kb}KB, 0 inlined, 0 truncated, 0 indexed`),
       'background receipt must carry the injection 4-tuple',
     )
   } finally {

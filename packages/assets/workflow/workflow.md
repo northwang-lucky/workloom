@@ -1,5 +1,5 @@
 ---
-version: 22
+version: 23
 states:
   - no_task
   - planning
@@ -55,7 +55,7 @@ Completion criteria: findings are persisted and either referenced by 1.3's conte
 
 #### 1.3 Configure context
 
-Fill implement.jsonl and check.jsonl with real entries (`{"file": "<path>", "reason": "<why>"}`): spec and research only, never code paths. Referenced spec files must live under `.workloom/spec/` in its two-level layout (`<package>/<layer>/`).
+Fill implement.jsonl and check.jsonl with real entries (`{"file": "<path>", "reason": "<why>"}`): spec and research only, never code paths. Referenced spec files must live under `.workloom/spec/` in its two-level layout (`<package>/<layer>/`). Keep each list minimal: include only the entries the current stage actually needs — when in doubt, fewer entries beat more.
 Completion criteria: each jsonl has at least one real entry (the seeded `_example` line does not count).
 
 #### 1.4 Review and start
@@ -138,7 +138,7 @@ Dispatch (always-on):
 - Dispatch and continuation prompts must not restate the context the subagent already holds (spec, research, prd/design/implement, and the session history); send only the new work for this round, and use `reinject` only when compaction lost context.
 - Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
 - Exception (stage `check`): while the task stage is `check`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the check executor for a full re-review afterwards.
-- Loading protocol: Read the files in the injected pointer list before acting. Echo the injection marker token in the first line of your report as proof the protocol was read.
+- Loading protocol: Load in layers: read the plan artifact (implement.md) before acting; consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. Echo the injection marker token in the first line of your report as proof the protocol was read.
 
 Task decomposition (always-on):
 

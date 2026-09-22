@@ -80,14 +80,16 @@ test('含 norms 块契约：快照末尾追加 Always-on norms 小节（原文�
   }
 })
 
-test('委派深度>0：快照 norms 段整体替换为 executor 版（零派发语义）', () => {
+test('委派深度>0：快照按白名单裁剪（无 Workflow 概览行），norms 段整体替换为 executor 版（零派发语义）', () => {
   const root = makeRoot()
   try {
     // 深度由调用方（plugin 的 text provider 经 delegationDepthOf(target.agent) 读取）透传第三参。
     const text = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS, 1)
     const normsIdx = text.indexOf('Always-on norms:')
     assert.ok(normsIdx >= 0, 'executor norms section must render for depth > 0')
-    assert.ok(normsIdx > text.indexOf('Workflow: '), 'overview kept before norms')
+    // depth>0 白名单：Developer / Last dispatch / Executor profiles / Git / Workflow 概览行全删
+    assert.ok(!text.includes('Workflow: '), 'workflow overview must be dropped at depth > 0')
+    assert.ok(!text.includes('Developer: '), 'developer line must be dropped at depth > 0')
     assert.ok(
       !text.includes('Implementation changes come from workloom_execute subagents.'),
       'contract norms must be replaced entirely',

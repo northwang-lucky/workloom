@@ -129,33 +129,40 @@ export function assembleSessionContext(
 }
 
 /**
- * 组装实现（内部）：按 Developer / Active task / Last dispatch / Executor profiles /
- * Git / 工作流 / guidelines 顺序拼行，结尾按需追加 norms 小节（always-on 规范原文），
- * 整体包进块标记。配置一次读取、两节消费（画像节 + guidelines 共用 loadConfig 结果），
- * 配置解析失败时两节各自整节降级，不拖垮快照。
+ * 组装实现（内部）：depth=0 按 Developer / Active task / Last dispatch / Executor
+ * profiles / Git / 工作流 / guidelines 顺序拼行，结尾按需追加 norms 小节（always-on
+ * 规范原文）；depth>0（executor 等叶子子代理）按白名单只拼 Active task / guidelines /
+ * executor norms——Developer / Last dispatch / Executor profiles / Git / 工作流概览
+ * 对执行器无价值，裁剪省注入体积。整体包进块标记。配置一次读取、两节消费（画像节
+ * + guidelines 共用 loadConfig 结果），配置解析失败时两节各自整节降级，不拖垮快照。
  * @param params 入参
  * @returns 快照文本
  */
 function assembleInternal(params: SessionContextParams): string {
   const config = loadConfigSafely(params.root)
+  const depth = params.delegationDepth ?? 0
   const active = activeTaskContext(params)
-  const lines = [
-    `${LINE_LABELS.developer}${readDeveloper(params.root)}`,
-    active.line,
-    ...lastDispatchLines(active.task),
-    ...executorProfilesLines(params, config),
-    gitLine(params.root),
-  ]
-  if (params.workflowSteps.length > 0) {
-    const overview = params.workflowSteps
-      .map((step) => `${step.id} ${step.title}`)
-      .join(STEP_SEPARATOR)
-    lines.push(`${LINE_LABELS.workflow}${overview}`)
+  const lines: string[] = []
+  if (depth === 0) {
+    lines.push(`${LINE_LABELS.developer}${readDeveloper(params.root)}`)
+  }
+  lines.push(active.line)
+  if (depth === 0) {
+    lines.push(
+      ...lastDispatchLines(active.task),
+      ...executorProfilesLines(params, config),
+      gitLine(params.root),
+    )
+    if (params.workflowSteps.length > 0) {
+      const overview = params.workflowSteps
+        .map((step) => `${step.id} ${step.title}`)
+        .join(STEP_SEPARATOR)
+      lines.push(`${LINE_LABELS.workflow}${overview}`)
+    }
   }
   lines.push(...guidelinesLines(params.root, config))
   // 深度>0（executor 等叶子子代理）：norms 段整体替换为 executor 版（无视契约 norms，
   // 保证纪律注入不依赖契约内容）；深度=0 保持现状（契约 norms 原文，缺失不输出）。
-  const depth = params.delegationDepth ?? 0
   if (depth > 0) {
     lines.push(NORMS_LABEL, EXECUTOR_NORMS)
   } else if (hasNorms(params.norms)) {

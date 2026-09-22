@@ -31,9 +31,9 @@ test('契约 v20 的全部 force 路径都要求 non-empty reason', () => {
   assert.doesNotMatch(readFileSync(assetPath, 'utf8'), /ideally with `reason`/)
 })
 
-/** 强制加载协议 + marker 回声纪律句（v19 契约 norms Dispatch 段，与 executor-context 纪律段逐字一致）。 */
+/** 分层加载协议 + marker 回声纪律句（契约 norms Dispatch 段，与 executor-context 纪律段逐字同源；回声句后半为组件级不变量）。 */
 const INJECTION_PROTOCOL_DISCIPLINE =
-  'Read the files in the injected pointer list before acting. ' +
+  'Load in layers: read the plan artifact (implement.md) before acting; consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. ' +
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
 
 /** 主会话处置句（契约 2.1 末尾，覆盖 implement 与 check，逐字）。 */
@@ -43,20 +43,23 @@ const MAIN_SESSION_DISPOSAL_SENTENCE =
   'the user for decisions in one round, records the decisions, and only then ' +
   're-dispatches; never route the executor to the user directly.'
 
-test('契约 v19 含强制加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
+test('契约 v19 含分层加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 22)
+  assert.equal(contract.version, 23)
   assert.ok(
     contract.norms.includes(INJECTION_PROTOCOL_DISCIPLINE),
-    'v19 契约 norms 必须含强制加载协议 + marker 回声纪律句',
+    'v19 契约 norms 必须含分层加载协议 + marker 回声纪律句',
   )
+  // 禁止 upfront 通读的指令可辨；旧「开工前强制全读」措辞不得残留
+  assert.ok(contract.norms.includes('never bulk-read the whole list upfront'))
+  assert.ok(!contract.norms.includes('Read the files in the injected pointer list before acting'))
 })
 
 test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决断，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 22)
+  assert.equal(contract.version, 23)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(MAIN_SESSION_DISPOSAL_SENTENCE),
@@ -67,7 +70,7 @@ test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决�
 test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 22)
+  assert.equal(contract.version, 23)
   assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)
@@ -238,7 +241,7 @@ test('契约 v20 1.1 UI/test-first 分支为按需 references（不内联七轴�
   assert.ok(alignBody.includes('Both references load only when their node applies'), '缺按需披露句')
 })
 
-test('契约 v22 1.1 收敛顺序以 review 内容就绪为门禁（blocker 先修复再重新 review）', () => {
+test('契约 v23 1.1 收敛顺序以 review 内容就绪为门禁（blocker 先修复再重新 review）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
@@ -314,6 +317,20 @@ test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {
   assert.match(alignStep.body, /no grey areas/)
   const loopStep = contract.steps.find((step) => step.id === '2.1')
   assert.match(loopStep.body, /red-green/)
+})
+
+test('契约 1.3 步骤文案含最小条目指引（只放当前阶段真正需要的条目，宁少勿多）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const configBody = contract.steps.find((step) => step.id === '1.3').body
+  assert.ok(
+    configBody.includes('include only the entries the current stage actually needs'),
+    '1.3 正文缺「只放当前阶段真正需要的条目」指引',
+  )
+  assert.ok(
+    configBody.includes('fewer entries beat more'),
+    '1.3 正文缺「宁少勿多」指引',
+  )
 })
 
 test('契约 v17 §2.2 含 check 分级发现即修（P2 自修）与结构化 Open issues 仅存问题段', () => {

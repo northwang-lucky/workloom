@@ -1,0 +1,84 @@
+{
+  "id": "a7ed071d-26c6-45ee-a2ea-401700f92dcb",
+  "name": "slim-executor-context",
+  "title": "缩减 implement/frontend 执行器上下文至最小执行面",
+  "description": "把 implement / frontend 执行器 subagent 的注入上下文（首条 prompt 注入 + session-context 快照 executor 版）缩减到执行所需的最小集合，check / research 维持现状。",
+  "status": "in_progress",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-22T09:31:56.601Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-22T12:03:45.365Z",
+    "summary": "2.2 check 两轮复核通过：第 1 轮 12 条 AC 逐项核实（含 HEAD 回退 A/B 实证 seam 测试 27 红→64 绿、depth=0 快照逐字节一致、四种 kind 实渲染白名单核对、implement contract 段 260 词达标），上报 1 条 P1（getContextPack 死链未闭环）；主会话按用户决断删除 research-facts 模块三件套 + spec 摘 context-pack 约定后，第 2 轮复核闭环成立、Open issues 为 none。门禁终态：lint/typecheck/build 全绿，core 588 / adapter-dsh 139 / adapter-pi 188。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-22T10:51:06.600Z",
+    "summary": "第 4 轮读入面收敛：加载协议从开工前强制全读改为分层按需读（必读仅 implement.md，其余指针按步骤定点读取，显式禁止 upfront 通读，四种 kind 统一）；指针行逐行 read-before-acting 后缀去除；回声句后半句逐字保留；assets 边界扩展（workflow.md Loading protocol 行改写 + 1.3 步骤追加最小条目指引 + contract-asset 测试同步）。动机证据：cardx 会话 implement 执行器三次翻文件阶段烧穿上下文。累计 4 轮 11 个决策节点，第 4 版快照哈希经用户明确确认。",
+    "prdHash": "00c25f0662a297c0931a2bff89d9e5682b6628218395e5cff0f58bc0dc315d51"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-22T11:02:49.216Z",
+      "title": "test-first 重构 executor 注入与快照组装",
+      "status": "completed",
+      "childId": "2122b9ba-6625-4fd2-b3bf-31fad3f3734e",
+      "model": "xiaomi-token-plan-cn/mimo-v2.6-flash",
+      "effort": "medium",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-22T11:31:03.897Z",
+      "title": "契约版本 bump 22→23",
+      "status": "completed",
+      "childId": "2122b9ba-6625-4fd2-b3bf-31fad3f3734e",
+      "model": "xiaomi-token-plan-cn/mimo-v2.6-flash",
+      "effort": "medium",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-22T11:33:13.747Z",
+      "title": "2.2 全量复核执行器上下文裁剪",
+      "status": "completed",
+      "childId": "3296a0c9-59ef-4e76-bb96-19a497ea6605",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-22T12:00:01.637Z",
+      "title": "复核 P1 死链删除闭环",
+      "status": "completed",
+      "childId": "3296a0c9-59ef-4e76-bb96-19a497ea6605",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
