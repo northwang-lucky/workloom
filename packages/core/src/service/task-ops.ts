@@ -7,8 +7,8 @@
  *   活跃任务 fallback → core 任务调用 → null 结果兜底报错）下沉为单一调用，
  *   adapter 只负责从执行上下文提取 cwd/contextKey 并投影返回值；
  * - create 的入参过滤（空串 slug/priority/description 不传）照 DSH 现状；
- * - archive 的内层 archiveTask 调用不需要 contextKey，但包裹层的 taskPath
- *   fallback 需要（照现状）；
+ * - archive 的 taskPath 必填（requireTaskRelPath，缺参即报错不回退活跃任务），
+ *   归档必须显式绑定目标任务；start/check/finish/align 保持活跃任务回退；
  * - 所有错误消息使用 surface.ERR_PREFIX.taskTool 前缀，与下沉前逐字一致。
  */
 
@@ -76,6 +76,19 @@ export function resolveTaskRelPath(
     throw new Error(`${errPrefix}: no active task and no taskPath given`)
   }
   return active
+}
+
+/**
+ * 解析必填任务相对路径：taskPath 缺失或空串直接抛错，不回退活跃任务
+ * （archive/journal 等必须显式绑定任务的消费方用；权威校验在 core，
+ * adapter schema 的 required 只是投影）。
+ * @param taskPath 显式任务路径（必填）
+ * @param errPrefix 错误消息前缀（任务工具传 taskTool，journal 传 command）
+ * @returns 任务目录相对 .workloom 的路径
+ */
+export function requireTaskRelPath(taskPath: string | undefined, errPrefix: string): string {
+  if (typeof taskPath === 'string' && taskPath !== '') return taskPath
+  throw new Error(`${errPrefix}: taskPath is required (task directory relative to .workloom)`)
 }
 
 /** executeCreateTask 入参（title 必填；slug/priority/description/parent 可选）。 */
@@ -314,9 +327,10 @@ export interface ExecuteArchiveTaskResult {
   note: string
 }
 
-/** archive 工具编排入参（force 豁免 archive 门禁并留痕）。 */
+/** archive 工具编排入参（taskPath 必填；force 豁免 archive 门禁并留痕）。 */
 export interface ExecuteArchiveTaskParams {
-  taskPath?: string
+  /** 任务目录相对 .workloom 的路径（必填，不回退活跃任务）。 */
+  taskPath: string
   autoCommit?: boolean
   force?: boolean
   reason?: string
@@ -326,17 +340,15 @@ export interface ExecuteArchiveTaskParams {
  * archive 工具编排：归档任务（completed + 移入 archive/，可选 git 自动提交）。
  * 默认硬阻断：task.json 无 check 凭据时拒绝；force 豁免并留痕。
  * @param cwd 会话工作目录
- * @param contextKey 会话标识（adapter 组装，taskPath 缺省时取活跃任务）
- * @param params 工具参数
+ * @param params 工具参数（taskPath 必填）
  * @returns [err, result]：err 为任一失败（消息含前缀）
  */
 export async function executeArchiveTask(
   cwd: string,
-  contextKey: string,
   params: ExecuteArchiveTaskParams,
 ): Promise<[Error | null, ExecuteArchiveTaskResult | null]> {
   try {
-    return [null, await executeArchiveInternal(cwd, contextKey, params)]
+    return [null, await executeArchiveInternal(cwd, params)]
   } catch (error) {
     return [toError(error), null]
   }
@@ -345,17 +357,15 @@ export async function executeArchiveTask(
 /**
  * archive 编排实现（内部）：任一失败抛错，由外层转元组。
  * @param cwd 会话工作目录
- * @param contextKey 会话标识
  * @param params 工具参数
  * @returns 归档结果
  */
 async function executeArchiveInternal(
   cwd: string,
-  contextKey: string,
   params: ExecuteArchiveTaskParams,
 ): Promise<ExecuteArchiveTaskResult> {
   requireWorkloomCwd(cwd)
-  const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
+  const taskRelPath = requireTaskRelPath(params.taskPath, ERR_PREFIX.taskTool)
   const [err, task] = await archiveTask(cwd, {
     taskRelPath,
     ...(params.autoCommit !== undefined ? { autoCommit: params.autoCommit } : {}),

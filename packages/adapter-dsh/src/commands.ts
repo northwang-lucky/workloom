@@ -2,15 +2,14 @@
  * adapter-dsh 的 slash 命令注册（薄投影层）。
  *
  * 设计意图：
- * - 三个命令（init/continue/finish）的编排（cwd 校验、项目定位、活跃任务
- *   解析、下一步路由、git 检查、文本组装）已下沉 core 的 command-ops，
- *   本文件只做宿主投影：取 cwd/contextKey → 读命令指引资产 → 调 core →
- *   followup 注入（指引/转述文本）+ 回执文本；
+ * - 两个命令（init/doctor）的编排（cwd 校验、项目定位、健康检查、文本组装）
+ *   已下沉 core 的 command-ops / doctor，本文件只做宿主投影：取 cwd → 调 core →
+ *   followup 注入（指引/转述文本）+ 回执文本；continue/finish 已改造为同名 skill，
+ *   不再注册为命令；
  * - 命令名/描述/错误前缀/资产路径改引 core surface 常量，文案与下沉前逐字一致；
- * - continue/finish 通过 agent.followup 注入指引后触发模型回合，命令本身
- *   只返回一句成功提示；任何失败不再返回 error 结果，而是 followup 注入
- *   buildErrorRelayText 转述文本触发模型回合，命令返回 success 回执
- *   （COMMAND_FAILURE_ACK）；init 成功同样 followup 注入 buildSuccessRelayText；
+ * - 命令成功经 followup 注入 buildSuccessRelayText / 结果原文触发模型回合；
+ *   任何失败不返回 error 结果，而是 followup 注入 buildErrorRelayText 转述文本
+ *   触发模型回合，命令返回 success 回执（COMMAND_FAILURE_ACK）；
  * - 顺序变化（规格允许）：先读资产（null 报 missing asset）再调 core。
  */
 
@@ -19,12 +18,8 @@ import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands
 import type { Context } from '@deepseek-ai/cordis'
 
 import {
-  ASSET_COMMAND_CONTINUE,
-  ASSET_COMMAND_FINISH,
-  buildContinueGuidance,
   buildDoctorRelayText,
   buildErrorRelayText,
-  buildFinishGuidance,
   buildSuccessRelayText,
   COMMAND_DESCRIPTIONS,
   COMMAND_FAILURE_ACK,
@@ -37,14 +32,14 @@ import {
 } from '@workloom-ai/core'
 import { readAssetText } from '@workloom-ai/assets'
 
-import { CONTEXT_KEY_PREFIX, SOURCE_PLUGIN } from './constants.js'
+import { SOURCE_PLUGIN } from './constants.js'
 
 /** spec 模板资产相对 assets 包根（init 成功后补落进项目）。 */
 const ASSET_TEMPLATE_INDEX = 'templates/spec-index.md'
 const ASSET_TEMPLATE_DETAIL = 'templates/spec-detail.md'
 
 /**
- * 注册三个 workloom 命令（ctx.commands 由 inject 声明为硬依赖；
+ * 注册两个 workloom 命令（ctx.commands 由 inject 声明为硬依赖；
  * register 自绑定 fiber 生命周期，插件卸载时自动注销）。
  * @param ctx 插件作用域上下文
  */
@@ -54,16 +49,6 @@ export function registerCommands(ctx: Context): void {
     description: COMMAND_DESCRIPTIONS.init,
     input: { hint: 'developer identity | --purge' },
     handler: handleInit,
-  })
-  ctx.commands.register({
-    name: COMMAND_NAMES.continue,
-    description: COMMAND_DESCRIPTIONS.continue,
-    handler: handleContinue,
-  })
-  ctx.commands.register({
-    name: COMMAND_NAMES.finish,
-    description: COMMAND_DESCRIPTIONS.finish,
-    handler: handleFinish,
   })
   ctx.commands.register({
     name: COMMAND_NAMES.doctor,
@@ -144,82 +129,6 @@ function ensureTemplates(cwd: string): void {
     }
   } catch (error) {
     console.warn(`${ERR_PREFIX.command}: spec templates: ${String(error)}`)
-  }
-}
-
-/**
- * continue 命令：先读命令指引资产（缺失走失败转述），再经 core 组装注入文本触发模型回合。
- * @param invocation 命令调用
- * @returns 成功提示或失败转述回执
- */
-async function handleContinue(invocation: CommandInvocation): Promise<CommandResult> {
-  const cwd = cwdOf(invocation)
-  if (cwd === null) {
-    return relayFailure(
-      invocation,
-      COMMAND_NAMES.continue,
-      `${ERR_PREFIX.command}: cannot determine the working directory of this session`,
-    )
-  }
-  const contextKey = `${CONTEXT_KEY_PREFIX}_${invocation.agent.id}`
-  const body = readAssetText(ASSET_COMMAND_CONTINUE)
-  if (body === null) {
-    return relayFailure(
-      invocation,
-      COMMAND_NAMES.continue,
-      `${ERR_PREFIX.command}: missing asset: ${ASSET_COMMAND_CONTINUE}`,
-    )
-  }
-  const [err, text] = buildContinueGuidance(cwd, contextKey, body)
-  if (err !== null || text === null) {
-    return relayFailure(
-      invocation,
-      COMMAND_NAMES.continue,
-      err?.message ?? `${ERR_PREFIX.command}: continue returned no guidance`,
-    )
-  }
-  followup(invocation, text)
-  return {
-    kind: 'success',
-    text: 'Workloom continue: routed the active task and handed the guidance to the model.',
-  }
-}
-
-/**
- * finish 命令：先读命令指引资产（缺失走失败转述），再经 core 组装注入文本触发模型回合。
- * @param invocation 命令调用
- * @returns 成功提示或失败转述回执
- */
-async function handleFinish(invocation: CommandInvocation): Promise<CommandResult> {
-  const cwd = cwdOf(invocation)
-  if (cwd === null) {
-    return relayFailure(
-      invocation,
-      COMMAND_NAMES.finish,
-      `${ERR_PREFIX.command}: cannot determine the working directory of this session`,
-    )
-  }
-  const contextKey = `${CONTEXT_KEY_PREFIX}_${invocation.agent.id}`
-  const body = readAssetText(ASSET_COMMAND_FINISH)
-  if (body === null) {
-    return relayFailure(
-      invocation,
-      COMMAND_NAMES.finish,
-      `${ERR_PREFIX.command}: missing asset: ${ASSET_COMMAND_FINISH}`,
-    )
-  }
-  const [err, text] = await buildFinishGuidance(cwd, contextKey, body)
-  if (err !== null || text === null) {
-    return relayFailure(
-      invocation,
-      COMMAND_NAMES.finish,
-      err?.message ?? `${ERR_PREFIX.command}: finish returned no guidance`,
-    )
-  }
-  followup(invocation, text)
-  return {
-    kind: 'success',
-    text: 'Workloom finish: working tree is clean; handed the wrap-up instructions to the model.',
   }
 }
 

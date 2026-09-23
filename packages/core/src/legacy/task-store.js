@@ -21,7 +21,7 @@ import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 
 import { writeFileAtomic } from './file-atomic.js'
-import { findWorkloomRoot, insideWorkloom } from './locate.js'
+import { findWorkloomRoot, insideWorkloom, WORKLOOM_DIR } from './locate.js'
 import { loadConfig } from './config.js'
 import { EXECUTOR_KINDS } from './executor-context.js'
 import {
@@ -1198,7 +1198,14 @@ async function archiveTaskInternal(root, params) {
     join(archiveDir, FILE_NAMES.taskJson),
     task.hooks.after_archive,
   )
-  warnings.push(...(await autoCommitIfEnabled(projectRoot, params.autoCommit, task.name)))
+  warnings.push(
+    ...(await autoCommitIfEnabled(projectRoot, params.autoCommit, task.name, [
+      // 收窄暂存：仅本任务移动前路径（删除）与归档后路径（新增），指针文件
+      // 位于 gitignore 的 .runtime/，无需暂存；路径均相对项目根供 git 消费。
+      join(WORKLOOM_DIR, params.taskRelPath),
+      join(WORKLOOM_DIR, archiveRel),
+    ])),
+  )
   logWarnings(warnings)
   // 返回归档后的新路径，避免调用方拿着旧路径继续操作。
   task.taskRelPath = archiveRel
@@ -1207,17 +1214,19 @@ async function archiveTaskInternal(root, params) {
 
 /**
  * 按配置决定是否 git 自动提交归档（git 失败只告警，不阻塞）。
+ * 暂存范围由调用方枚举收窄，其他在途任务的脏文件零接触。
  * @param {string} root 项目根
  * @param {boolean | undefined} autoCommit 显式开关
  * @param {string} slug 任务 slug（提交信息用）
+ * @param {string[]} paths 相对项目根的待暂存路径列表（归档删除/新增两侧）
  * @returns {Promise<string[]>} WARNING 消息列表
  */
-async function autoCommitIfEnabled(root, autoCommit, slug) {
+async function autoCommitIfEnabled(root, autoCommit, slug, paths) {
   if (autoCommit === undefined) {
     autoCommit = loadConfig(root).sessionAutoCommit
   }
   if (!autoCommit) return []
-  const [gitErr] = await gitAddCommit(root, `${ARCHIVE_COMMIT_PREFIX} ${slug}`)
+  const [gitErr] = await gitAddCommit(root, `${ARCHIVE_COMMIT_PREFIX} ${slug}`, paths)
   if (gitErr) return [`git auto-commit failed (archival proceeds anyway): ${gitErr.message}`]
   return []
 }

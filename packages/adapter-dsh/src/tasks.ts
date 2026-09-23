@@ -163,12 +163,12 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
     parameters: {
       type: 'object',
       properties: {
-        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPathRequired },
         autoCommit: { type: 'boolean', description: PARAM_DESCRIPTIONS.autoCommit },
         force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
         reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
       },
-      required: [],
+      required: ['taskPath'],
       additionalProperties: false,
     },
     output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
@@ -317,12 +317,12 @@ async function finishTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   return result
 }
 
-/** archive 工具：归档任务（completed + 移入 archive/，可选 git 自动提交）。 */
+/** archive 工具：归档任务（completed + 移入 archive/，可选 git 自动提交；taskPath 必填）。 */
 async function archiveTaskTool(args: unknown, exec: unknown): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
-  const [err, result] = await executeArchiveTask(cwd, contextKeyOf(exec), {
-    taskPath: taskPathOf(typed),
+  const [err, result] = await executeArchiveTask(cwd, {
+    taskPath: taskPathOf(typed) ?? '',
     autoCommit: boolOf(typed, 'autoCommit'),
     force: boolOf(typed, 'force'),
     reason: stringOf(typed, 'reason'),

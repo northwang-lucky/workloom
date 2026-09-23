@@ -22,7 +22,7 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 
-import { findWorkloomRoot, insideWorkloom } from './locate.js'
+import { findWorkloomRoot, insideWorkloom, WORKLOOM_DIR } from './locate.js'
 import { loadConfig } from './config.js'
 import { gitAddCommit } from './git.js'
 import { assertDeveloper } from './identity.js'
@@ -226,7 +226,12 @@ async function addSessionInternal(root, params) {
   updateIndex(projectRoot, join(DIR_NAMES.workspace, params.developer, FILE_NAMES.index), now)
   updateIndex(projectRoot, join(DIR_NAMES.workspace, FILE_NAMES.index), now)
   if (config.sessionAutoCommit) {
-    const [gitErr] = await gitAddCommit(projectRoot, config.sessionCommitMessage)
+    // 收窄暂存：仅本次记录相关的 workspace 路径（个人目录覆盖 journal 滚动与
+    // 个人索引，另加全局索引），其他在途任务的脏文件零接触；路径相对项目根。
+    const [gitErr] = await gitAddCommit(projectRoot, config.sessionCommitMessage, [
+      join(WORKLOOM_DIR, DIR_NAMES.workspace, params.developer),
+      join(WORKLOOM_DIR, DIR_NAMES.workspace, FILE_NAMES.index),
+    ])
     if (gitErr) {
       console.warn(
         `${ERR_PREFIX}: WARNING: git auto-commit failed (journal record proceeds anyway): ${gitErr.message}`,

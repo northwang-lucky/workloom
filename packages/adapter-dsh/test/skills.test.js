@@ -139,18 +139,53 @@ function setupSkills() {
   return registered.map((def) => def.name)
 }
 
-test('skill 清单契约：只注册 workloom-alignment/update-spec/packages-scan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
+test('skill 清单契约：注册 continue/finish/alignment/update-spec/packages-scan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
   const names = setupSkills()
   assert.deepEqual(names.sort(), [
     'grilling',
     'tdd',
     'workloom-alignment',
+    'workloom-continue',
+    'workloom-finish',
     'workloom-packages-scan',
     'workloom-update-spec',
     'writing-for-agents',
   ])
   assert.ok(!names.includes('workloom-brainstorm'), '旧 brainstorm 不再注册')
   assert.ok(!names.includes('workloom-ui-design'), '旧 ui-design 不再注册')
+})
+
+test('workloom-continue/workloom-finish 资产可解析：路由表与收尾五步 + taskPath 必填指引', () => {
+  for (const [rel, name] of [
+    ['workloom-continue', 'workloom-continue'],
+    ['workloom-finish', 'workloom-finish'],
+  ]) {
+    const doc = readFileSync(
+      new URL(`../../assets/skills/${rel}/SKILL.md`, import.meta.url),
+      'utf8',
+    )
+    const [err, parsed] = parseSkillFrontmatter(doc)
+    assert.equal(err, null, `${name} SKILL.md must parse`)
+    assert.equal(parsed.name, name)
+    assert.ok(parsed.description !== '', `${name} description must be non-empty`)
+    // archive/journal 的 taskPath 必填指引必须写进 skill 步骤。
+    assert.match(parsed.body, /workloom_task_archive/)
+    assert.match(parsed.body, /workloom_journal/)
+    assert.match(parsed.body, /`?taskPath`?/)
+  }
+  // continue 走路由表，finish 走收尾五步（原命令语义平移）。
+  const cont = readFileSync(
+    new URL('../../assets/skills/workloom-continue/SKILL.md', import.meta.url),
+    'utf8',
+  )
+  assert.match(cont, /1\.1 Align requirements/)
+  assert.match(cont, /`completed` → 3\.1/)
+  const finish = readFileSync(
+    new URL('../../assets/skills/workloom-finish/SKILL.md', import.meta.url),
+    'utf8',
+  )
+  assert.match(finish, /workloom-update-spec/)
+  assert.match(finish, /bookkeeping commit/)
 })
 
 test('workloom-alignment 资产可解析：name/description/whenToUse + 收敛标记与 references 就位', () => {

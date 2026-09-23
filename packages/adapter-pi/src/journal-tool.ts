@@ -2,8 +2,9 @@
  * adapter-pi 的 journal 工具注册（薄投影层，registerTool）。
  *
  * 设计意图：
- * - 编排（cwd 校验、身份读取、addSession 调用）已下沉 core executeJournalEntry，
- *   本文件只从 ExtensionContext 取 cwd，返回 {content, details}；
+ * - 编排（cwd 校验、必填 taskPath 与任务存在性校验、身份读取、addSession 调用）
+ *   已下沉 core executeJournalEntry，本文件只从 ExtensionContext 取 cwd，
+ *   返回 {content, details}（schema 的 required 只是投影，权威校验在 core）；
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量。
  */
 
@@ -19,8 +20,9 @@ import {
   TOOL_SNIPPETS,
 } from '@workloom-ai/core'
 
-/** journal 工具参数 schema。 */
+/** journal 工具参数 schema（taskPath 必填：条目必须显式绑定任务）。 */
 const JOURNAL_PARAMS = Type.Object({
+  taskPath: Type.String({ description: PARAM_DESCRIPTIONS.taskPathRequired }),
   title: Type.String({ description: PARAM_DESCRIPTIONS.journalTitle }),
   commit: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.journalCommit })),
   summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.journalSummary })),
@@ -66,6 +68,7 @@ async function executeJournal(
     throw new Error(`${ERR_PREFIX.command}: cannot determine the working directory of this session`)
   }
   const [err, result] = await executeJournalEntry(ctx.cwd, {
+    taskPath: params.taskPath,
     title: params.title,
     commit: params.commit,
     summary: params.summary,

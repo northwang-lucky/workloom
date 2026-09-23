@@ -92,35 +92,26 @@ function writeCompletedTask(root, name) {
   )
 }
 
-test('continue 失败：不再返回 error kind，followup 注入错误转述触发模型回合', async () => {
-  const { ctx, handlers } = makeCtx()
-  registerCommands(ctx)
-  const root = makeRoot()
-  try {
-    const { invocation, followups } = makeInvocation(root)
-    const result = await handlers.get(COMMAND_NAMES.continue)(invocation)
-    assert.equal(result.kind, 'success')
-    assert.equal(result.text, COMMAND_FAILURE_ACK)
-    assert.equal(followups.length, 1)
-    const text = followupText(followups[0])
-    assert.ok(text.includes(COMMAND_NAMES.continue), 'relay text must name the command')
-    assert.ok(text.includes('no .workloom directory found'), 'relay text must keep the raw error')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
 test('cwd 为空：内部错误与业务校验同一转述出口', async () => {
   const { ctx, handlers } = makeCtx()
   registerCommands(ctx)
   const { invocation, followups } = makeInvocation('')
-  const result = await handlers.get(COMMAND_NAMES.finish)(invocation)
+  const result = await handlers.get(COMMAND_NAMES.init)(invocation)
   assert.equal(result.kind, 'success')
   assert.equal(result.text, COMMAND_FAILURE_ACK)
   assert.equal(followups.length, 1)
   const text = followupText(followups[0])
-  assert.ok(text.includes(COMMAND_NAMES.finish), 'relay text must name the command')
+  assert.ok(text.includes(COMMAND_NAMES.init), 'relay text must name the command')
   assert.ok(text.includes('cannot determine the working directory'), 'relay text keeps raw error')
+})
+
+test('continue/finish 不再注册为命令（改造为同名 skill）', () => {
+  const { ctx, handlers } = makeCtx()
+  registerCommands(ctx)
+  assert.equal(handlers.has('workloom-continue'), false)
+  assert.equal(handlers.has('workloom-finish'), false)
+  assert.ok(handlers.has(COMMAND_NAMES.init))
+  assert.ok(handlers.has(COMMAND_NAMES.doctor))
 })
 
 test('init 失败：followup 注入错误转述且返回 success 回执', async () => {

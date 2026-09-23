@@ -1,18 +1,15 @@
 /**
- * command-ops 模块单测：init 参数解析、迁移摘要、init/continue/finish 编排。
- * 测试依赖 dist（test 脚本先 build 再跑 node --test），临时目录 setup 照
- * init.test.js 先例（mkdtemp + finally rmSync）。
+ * command-ops 模块单测：init 参数解析、迁移摘要、init 编排、journal 必填
+ * taskPath 与记录编排。测试依赖 dist（test 脚本先 build 再跑 node --test），
+ * 临时目录 setup 照 init.test.js 先例（mkdtemp + finally rmSync）。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
-  buildContinueGuidance,
-  buildFinishGuidance,
   executeInitCommand,
   executeJournalEntry,
   migrationSummaryLines,
@@ -30,11 +27,6 @@ function makeRoot() {
 function seedLegacy(root) {
   mkdirSync(join(root, '.trellis', 'tasks', '09-01-demo'), { recursive: true })
   writeFileSync(join(root, '.trellis', 'tasks', '09-01-demo', 'task.json'), '{}\n')
-}
-
-/** 在临时根内执行 git 命令。 */
-function runGit(root, args) {
-  return execFileSync('git', args, { cwd: root, stdio: 'pipe' })
 }
 
 test('parseInitArgs 精确 --purge 进入 purge 模式（含 trim）', () => {
@@ -168,84 +160,29 @@ test('executeInitCommand 迁移失败附 WARNING 不阻塞结果', () => {
   }
 })
 
-test('buildContinueGuidance 无 .workloom 报错', () => {
+test('executeJournalEntry 缺 taskPath 拒绝（必填，不回退活跃任务）', async () => {
   const root = makeRoot()
   try {
-    const [err, text] = buildContinueGuidance(root, 'dsh_t1', 'body')
+    const [err, result] = await executeJournalEntry(root, { title: 'No TaskPath' })
     assert.ok(err)
-    assert.match(err.message, /no \.workloom directory found \(searched up from/)
-    assert.equal(text, null)
+    assert.match(err.message, /taskPath is required/)
+    assert.equal(result, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('buildContinueGuidance 无活跃任务报错', () => {
+test('executeJournalEntry taskPath 指向不存在任务报错（存在性校验）', async () => {
   const root = makeRoot()
   try {
-    initWorkloom(root)
-    const [err, text] = buildContinueGuidance(root, 'dsh_t1', 'body')
+    initWorkloom(root, { developer: 'alice' })
+    const [err, result] = await executeJournalEntry(root, {
+      taskPath: 'tasks/ghost',
+      title: 'Ghost Task',
+    })
     assert.ok(err)
-    assert.match(err.message, /no active task for this session \(start or create a task first\)/)
-    assert.equal(text, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('buildContinueGuidance 正常拼文本（含 Next step 与 body）', () => {
-  const root = makeRoot()
-  try {
-    initWorkloom(root)
-    createTask(root, { title: 'Demo Task', contextKey: 'dsh_t1' })
-    const [err, text] = buildContinueGuidance(root, 'dsh_t1', 'asset body line')
-    assert.equal(err, null)
-    assert.ok(text.includes('Active task: tasks/'))
-    assert.ok(text.includes('Title: Demo Task'))
-    assert.ok(text.includes('Status: planning'))
-    // createTask 已建 prd.md 骨架：planning 路由到 1.4（轻量任务待评审）。
-    assert.ok(
-      text.includes('Next step: Step 1.4: await review (lightweight task, PRD artifacts ready).'),
-    )
-    assert.ok(text.endsWith('\n\nasset body line'))
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('buildFinishGuidance 脏文件报错', async () => {
-  const root = makeRoot()
-  try {
-    runGit(root, ['init'])
-    writeFileSync(join(root, 'dirty.txt'), 'x\n')
-    const [err, text] = await buildFinishGuidance(root, 'dsh_t1', 'body')
-    assert.ok(err)
-    assert.match(
-      err.message,
-      /1 dirty file\(s\) remain; complete step 2\.3 \(commit\) before wrapping up/,
-    )
-    assert.equal(text, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('buildFinishGuidance 干净树拼文本', async () => {
-  const root = makeRoot()
-  try {
-    runGit(root, ['init'])
-    runGit(root, ['config', 'user.email', 'test@example.com'])
-    runGit(root, ['config', 'user.name', 'test'])
-    initWorkloom(root)
-    createTask(root, { title: 'Demo Task', contextKey: 'dsh_t1' })
-    runGit(root, ['add', '--all'])
-    runGit(root, ['commit', '-m', 'init'])
-    const [err, text] = await buildFinishGuidance(root, 'dsh_t1', 'asset body line')
-    assert.equal(err, null)
-    assert.ok(text.includes('Active task: tasks/'))
-    assert.ok(text.includes('Title: Demo Task'))
-    assert.ok(text.includes('Status: planning'))
-    assert.ok(text.endsWith('\n\nasset body line'))
+    assert.match(err.message, /task\.json missing: tasks\/ghost/)
+    assert.equal(result, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -255,7 +192,9 @@ test('executeJournalEntry 成功写 journal 文件（含身份与标题）', asy
   const root = makeRoot()
   try {
     initWorkloom(root, { developer: 'alice' })
+    const [, created] = await createTask(root, { title: 'Journal Task' })
     const [err, result] = await executeJournalEntry(root, {
+      taskPath: created.taskRelPath,
       title: 'Session One',
       commit: 'abc123',
       summary: 'Wrapped up the demo',
@@ -277,7 +216,10 @@ test('executeJournalEntry 无 developer 身份报错', async () => {
   try {
     // init 不带 developer：.developer 为空文件，readExistingDeveloper 返回空串，同视为无身份。
     initWorkloom(root)
-    const [err, result] = await executeJournalEntry(root, { title: 'No Identity' })
+    const [err, result] = await executeJournalEntry(root, {
+      taskPath: 'tasks/any',
+      title: 'No Identity',
+    })
     assert.ok(err)
     assert.match(err.message, /no developer identity found/)
     assert.equal(result, null)
@@ -290,7 +232,10 @@ test('executeJournalEntry 项目不存在（无 .workloom）同样报无身份',
   const root = makeRoot()
   try {
     // 不 init：readExistingDeveloper 返回 undefined，与空串分支同文案。
-    const [err, result] = await executeJournalEntry(root, { title: 'Nowhere' })
+    const [err, result] = await executeJournalEntry(root, {
+      taskPath: 'tasks/any',
+      title: 'Nowhere',
+    })
     assert.ok(err)
     assert.match(err.message, /no developer identity found/)
     assert.equal(result, null)
@@ -303,7 +248,11 @@ test('executeJournalEntry 空 title 报错（addSession 校验转发）', async 
   const root = makeRoot()
   try {
     initWorkloom(root, { developer: 'alice' })
-    const [err, result] = await executeJournalEntry(root, { title: '' })
+    const [, created] = await createTask(root, { title: 'Title Gate' })
+    const [err, result] = await executeJournalEntry(root, {
+      taskPath: created.taskRelPath,
+      title: '',
+    })
     assert.ok(err)
     assert.match(err.message, /title must not be empty/)
     assert.equal(result, null)
@@ -318,7 +267,9 @@ test('executeJournalEntry 空 commit/summary 视为未提供且记录成功', as
   const root = makeRoot()
   try {
     initWorkloom(root, { developer: 'alice' })
+    const [, created] = await createTask(root, { title: 'Empty Fields' })
     const [err, result] = await executeJournalEntry(root, {
+      taskPath: created.taskRelPath,
       title: 'Session Two',
       commit: '',
       summary: '',

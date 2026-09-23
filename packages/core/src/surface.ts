@@ -8,19 +8,16 @@
  * - 全部 `as const`：类型即字面量，注册面与 adapter 消费处共享同一文本。
  */
 
-/** 四个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。 */
+/** 两个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。
+ * continue/finish 已改造为同名 skill（skills/workloom-*），不再注册为命令。 */
 export const COMMAND_NAMES = {
   init: 'workloom-init',
-  continue: 'workloom-continue',
-  finish: 'workloom-finish',
   doctor: 'workloom-doctor',
 } as const
 
-/** 四个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
+/** 两个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
 export const COMMAND_DESCRIPTIONS = {
   init: 'Initialize the .workloom skeleton, migrate a legacy .trellis project, and purge it with --purge',
-  continue: 'Locate where the active task left off and route to the next workflow step',
-  finish: 'Check dirty files and hand the wrap-up instructions to the model',
   doctor:
     'Run a structured workflow health check and auto-fix mechanical issues with --fix (results are handed to the model as JSON)',
 } as const
@@ -73,18 +70,21 @@ export const TOOL_SNIPPETS = {
     'workloom_task_align(action, taskPath?, expectedPrdHash?, summary?) — review or confirm Phase 1.1 alignment',
   taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
   taskArchive:
-    'workloom_task_archive(taskPath?, autoCommit?, force?, reason?) — archive the completed task',
+    'workloom_task_archive(taskPath, autoCommit?, force?, reason?) — archive the completed task',
   taskList: 'workloom_task_list(status?) — list task summaries',
   executor:
     'workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?) — dispatch an executor, or continue the same-kind executor session',
   step: 'workloom_step(stepId) — show one workflow step body',
-  journal: 'workloom_journal(title, commit?, summary?) — record the session journal',
+  journal: 'workloom_journal(taskPath, title, commit?, summary?) — record the session journal',
 } as const
 
-/** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有两处变体）。 */
+/** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有三处变体）。 */
 export const PARAM_DESCRIPTIONS = {
-  /** 任务工具（start/finish/archive）的 taskPath 参数。 */
+  /** 支持活跃任务回退的任务工具（start/check/finish/align）的 taskPath 参数。 */
   taskPath: 'Task directory relative to .workloom; defaults to the active task',
+  /** 必填 taskPath 变体（archive/journal）：缺参即报错，不回退活跃任务。 */
+  taskPathRequired:
+    'Task directory relative to .workloom; required (no active-task fallback)',
   /** executor 工具的 taskPath 参数（措辞多了 of this session）。 */
   taskPathExecutor:
     'Task directory relative to .workloom; defaults to the active task of this session',
@@ -200,8 +200,6 @@ export const DOCTOR_FIX_FLAG = '--fix'
 export const DEVELOPER_FILE = '.developer'
 
 /** 命令指引资源路径（相对 assets 包根）。 */
-export const ASSET_COMMAND_CONTINUE = 'commands/workloom-continue.md'
-export const ASSET_COMMAND_FINISH = 'commands/workloom-finish.md'
 export const ASSET_COMMAND_DOCTOR = 'commands/workloom-doctor.md'
 
 /**
@@ -245,8 +243,9 @@ export function buildSuccessRelayText(command: string, resultText: string): stri
   ].join('\n')
 }
 
-/** archive 工具收尾提示（命令名用模板拼 COMMAND_NAMES.finish，避免硬编码）。 */
-export const TASK_ARCHIVE_NOTE = `Task archived. When the session ends, run /${COMMAND_NAMES.finish} to record the session journal.`
+/** archive 工具收尾提示（引导加载 workloom-finish skill 记录会话日志）。 */
+export const TASK_ARCHIVE_NOTE =
+  'Task archived. When the session ends, load the workloom-finish skill to record the session journal.'
 
 /**
  * create 工具返回的下一步行动指引（Phase 1.1 alignment 入口）：任务创建后自动

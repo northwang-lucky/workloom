@@ -1,5 +1,5 @@
 ---
-version: 23
+version: 24
 states:
   - no_task
   - planning
@@ -105,8 +105,8 @@ Completion criteria: `git status` shows no dirty files belonging to this task.
 
 #### 3.1 Archive and record
 
-Run `workloom_finish`: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with a non-empty `reason` for a recorded bypass. Before archiving the main task, confirm that every declared subtask is archived; if any is missing, state the reason and leave a trace (for example a note in the task record) so the gap is auditable.
-Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires the `/workloom-finish` command (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
+Load the `workloom-finish` skill: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit; both `workloom_task_archive` and `workloom_journal` require an explicit `taskPath`. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with a non-empty `reason` for a recorded bypass. Before archiving the main task, confirm that every declared subtask is archived; if any is missing, state the reason and leave a trace (for example a note in the task record) so the gap is auditable.
+Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires loading the `workloom-finish` skill (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
 
 [workflow-state:no_task]
 No active task right now. When the user expresses a need, answer direct questions outright without a task; for work touching files or documents, recommend whether it warrants a task and create it only after the user confirms (follow 1.0), then proceed by the planning guidance.
@@ -121,7 +121,7 @@ The task is in progress. Follow Phase 2: implement → check → commit. Subagen
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
-The task is archived. When the user asks for more, recommend whether a new task is warranted and create it only after the user confirms (follow 1.0); do not modify tasks under the archive directory. If this session is wrapping up and no journal entry has been recorded yet, run the `/workloom-finish` command to record it.
+The task is archived. When the user asks for more, recommend whether a new task is warranted and create it only after the user confirms (follow 1.0); do not modify tasks under the archive directory. If this session is wrapping up and no journal entry has been recorded yet, load the `workloom-finish` skill to record it.
 [/workflow-state:completed]
 
 [workflow-norms]

@@ -108,7 +108,6 @@ export {
 export {
   countDirtyLines,
   gitAddCommit,
-  gitStatus,
   gitStatusSync,
   gitCurrentBranchSync,
 } from './legacy/git.js'
@@ -146,15 +145,11 @@ export {
   composeLocalDirectivesText,
 } from './service/local-prompts.js'
 
-export { routeNextStep } from './service/route-service.js'
-
 export {
   parseInitArgs,
   readExistingDeveloper,
   migrationSummaryLines,
   executeInitCommand,
-  buildContinueGuidance,
-  buildFinishGuidance,
   executeJournalEntry,
 } from './service/command-ops.js'
 
@@ -194,8 +189,6 @@ export {
   PURGE_FLAG,
   DOCTOR_FIX_FLAG,
   DEVELOPER_FILE,
-  ASSET_COMMAND_CONTINUE,
-  ASSET_COMMAND_FINISH,
   ASSET_COMMAND_DOCTOR,
   COMMAND_FAILURE_ACK,
   buildErrorRelayText,
@@ -290,7 +283,6 @@ export type { SessionContextParams } from './service/session-context.js'
 
 export type { LocalFragmentTarget, LocalFragment } from './service/local-prompts.js'
 
-export type { RouteNextStepParams, RouteNextStepResult } from './service/route-service.js'
 export type { SpecTemplatesParams, SpecTemplatesResult } from './service/spec-templates.js'
 
 export type {

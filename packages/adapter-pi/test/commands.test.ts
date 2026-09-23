@@ -34,7 +34,6 @@ function makeCtx(cwd: string) {
   const ctx = {
     cwd,
     ui: { notify: (text: string, level: string) => notices.push({ text, level }) },
-    sessionManager: { getSessionId: () => 'sess-1' },
   } as unknown as ExtensionCommandContext
   return { ctx, notices }
 }
@@ -93,24 +92,13 @@ function writeCompletedTask(root: string, name: string) {
   )
 }
 
-test('continue 失败：不再 notify error，sendUserMessage 注入错误转述触发回合', async () => {
-  const { pi, handlers, sent } = makePi()
+test('continue/finish 不再注册为命令（改造为同名 skill）', () => {
+  const { pi, handlers } = makePi()
   registerCommands(pi)
-  const root = makeRoot()
-  try {
-    const { ctx, notices } = makeCtx(root)
-    const handler = handlers.get(COMMAND_NAMES.continue)
-    assert.ok(handler)
-    await handler('', ctx)
-    assert.equal(sent.length, 1)
-    const text = sent[0]
-    assert.ok(text !== undefined)
-    assert.ok(text.includes(COMMAND_NAMES.continue), 'relay text must name the command')
-    assert.ok(text.includes('no .workloom directory found'), 'relay text keeps the raw error')
-    assert.deepEqual(notices, [{ text: COMMAND_FAILURE_ACK, level: 'info' }])
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
+  assert.equal(handlers.has('workloom-continue'), false)
+  assert.equal(handlers.has('workloom-finish'), false)
+  assert.ok(handlers.has(COMMAND_NAMES.init))
+  assert.ok(handlers.has(COMMAND_NAMES.doctor))
 })
 
 test('init 失败：sendUserMessage 注入错误转述，notify 仅 info 回执', async () => {

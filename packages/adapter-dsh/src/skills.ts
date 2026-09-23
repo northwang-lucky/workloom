@@ -5,9 +5,10 @@
  * - parseSkillFrontmatter：极简 front-matter 解析器（本地纯函数，不引 yaml），
  *   只认 name/description/whenToUse 三个键（未知键如 license/source 忽略，
  *   兼容 vendored skills），name/description 必填，缺任一返回 err；
- * - registerSkills：把 assets 包内的 6 个 SKILL.md（自有 alignment/
- *   update-spec/ packages-scan + 三个 vendored mattpocock skills）注册进 ctx.skills；任一 skill 缺失/解析失败/
- *   注册抛错都只 console.warn 跳过，skill 注册失败不阻塞插件；
+ * - registerSkills：把 assets 包内的 8 个 SKILL.md（自有 continue/finish/
+ *   alignment/update-spec/packages-scan + 三个 vendored mattpocock skills）
+ *   注册进 ctx.skills；任一 skill 缺失/解析失败/注册抛错都只 console.warn 跳过，
+ *   skill 注册失败不阻塞插件；
  * - registerStepsTool：暴露 workloom_step 工具，按 stepId 从工作流契约返回
  *   步骤详情（未找到抛英文 Error，由 DSH 工具管线转失败结果）；
  * - skills/tools 服务按注册面做局部结构化声明（参考 executor.ts 风格），
@@ -42,9 +43,12 @@ const ALLOWED_KEYS = new Set(['name', 'description', 'whenToUse'])
 const REQUIRED_KEYS = ['name', 'description'] as const
 
 /** 注册的 skill 资源（相对 assets 包根；resourceBase 取其所在目录）。
- * 自有 workloom 侧注册 workloom-alignment（统一 Phase 1.1）、update-spec 与 packages-scan；
+ * 自有 workloom 侧注册 continue/finish（原 slash 命令改造的路由与收尾指引）、
+ * alignment（统一 Phase 1.1）、update-spec 与 packages-scan；
  * 旧 brainstorm/ui-design 不再注册，generic tdd/grilling/writing-for-agents 独立分发。 */
 const SKILL_ASSETS = [
+  'skills/workloom-continue/SKILL.md',
+  'skills/workloom-finish/SKILL.md',
   'skills/workloom-alignment/SKILL.md',
   'skills/workloom-update-spec/SKILL.md',
   'skills/workloom-packages-scan/SKILL.md',
@@ -201,7 +205,7 @@ function parseSkillFrontmatterInternal(markdownText: string): ParsedSkillFrontma
 }
 
 /**
- * 注册 assets 包内的 6 个 SKILL.md 到 ctx.skills（register 自绑定 fiber 生命周期，
+ * 注册 assets 包内的 8 个 SKILL.md 到 ctx.skills（register 自绑定 fiber 生命周期，
  * 插件卸载自动注销）。任一 skill 缺失/解析失败/注册抛错都只告警跳过，不阻塞插件。
  * @param ctx 插件上下文（skills 由宿主注入）
  */

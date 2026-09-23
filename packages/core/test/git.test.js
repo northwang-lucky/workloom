@@ -1,14 +1,15 @@
 /**
- * git 模块单测：gitStatus 工作区状态与错误返回、同步查询 stderr 静默。
+ * git 模块单测：gitAddCommit 收窄暂存（空 paths 拒绝、未入库路径剔除）、
+ * 同步工作区/分支查询与 stderr 静默。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { gitCurrentBranchSync, gitStatus, gitStatusSync } from '../dist/legacy/git.js'
+import { gitAddCommit, gitCurrentBranchSync, gitStatusSync } from '../dist/legacy/git.js'
 
 /** git 提交所需的最小身份环境变量（不依赖全局 git config）。 */
 const GIT_IDENTITY_ENV = {
@@ -31,38 +32,37 @@ function gitCommit(root, message) {
   })
 }
 
-test('gitStatus 报告未提交的脏文件', async () => {
+test('gitAddCommit 空 paths 直接报错（fail loud，防误提交空集）', async () => {
   const root = makeGitRepo()
   try {
-    writeFileSync(join(root, 'a.txt'), 'hello')
-    const [err, status] = await gitStatus(root)
-    assert.equal(err, null)
-    assert.match(status, /a\.txt/)
+    const [err] = await gitAddCommit(root, 'chore: nothing', [])
+    assert.match(err.message, /at least one path/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('gitStatus 在干净工作区返回空串', async () => {
+test('gitAddCommit 剔除从未入库的已删除路径：不阻塞其余路径提交', async () => {
   const root = makeGitRepo()
   try {
-    writeFileSync(join(root, 'a.txt'), 'hello')
-    execFileSync('git', ['add', '--', 'a.txt'], { cwd: root })
+    writeFileSync(join(root, 'tracked.txt'), 'a')
+    execFileSync('git', ['add', '--', 'tracked.txt'], { cwd: root })
     gitCommit(root, 'init')
-    const [err, status] = await gitStatus(root)
+    // 旧任务路径从未被提交即被归档删除（磁盘与索引都无）；
+    // 归档新路径为磁盘新增，须正常入提交。
+    mkdirSync(join(root, 'archive', 'new-task'), { recursive: true })
+    writeFileSync(join(root, 'archive', 'new-task', 'task.json'), '{}\n')
+    const [err] = await gitAddCommit(root, 'chore(task): archive new-task', [
+      'tasks/never-committed',
+      'archive/new-task',
+    ])
     assert.equal(err, null)
-    assert.equal(status, '')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('非 git 目录返回 err', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'workloom-git-'))
-  try {
-    const [err, status] = await gitStatus(root)
-    assert.ok(err)
-    assert.equal(status, null)
+    const show = execFileSync('git', ['show', '--name-only', '--format=%s', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+    assert.match(show, /chore\(task\): archive new-task/)
+    assert.match(show, /archive\/new-task\/task\.json/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

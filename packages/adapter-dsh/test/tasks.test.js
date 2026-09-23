@@ -102,6 +102,18 @@ test('align 工具主会话限制：子代理（delegationDepth>0）调用被拒
   )
 })
 
+test('archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.taskPathRequired', () => {
+  const { ctx, registered } = makeCtx()
+  registerTaskTools(ctx)
+  const def = registered.find((entry) => entry.name === 'workloom_task_archive')
+  assert.ok(def, 'archive tool must be registered')
+  assert.ok(def.parameters.required.includes('taskPath'), 'taskPath must be required')
+  assert.equal(
+    def.parameters.properties.taskPath.description,
+    PARAM_DESCRIPTIONS.taskPathRequired,
+  )
+})
+
 test('createTaskTool 透传 parent：子任务落盘 parent 字段且父 children 联动', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-tasks-'))
   mkdirSync(join(root, '.workloom'))

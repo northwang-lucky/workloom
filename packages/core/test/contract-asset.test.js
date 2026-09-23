@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { parseContract } from '../src/legacy/workflow-contract.js'
+import { WORKFLOW_PROTOCOL_VERSION } from '../src/legacy/protocol.js'
 
 const assetPath = fileURLToPath(new URL('../../assets/workflow/workflow.md', import.meta.url))
 
@@ -46,7 +47,7 @@ const MAIN_SESSION_DISPOSAL_SENTENCE =
 test('契约 v19 含分层加载协议句与 marker 回声要求（norms Dispatch 段，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 23)
+  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)
   assert.ok(
     contract.norms.includes(INJECTION_PROTOCOL_DISCIPLINE),
     'v19 契约 norms 必须含分层加载协议 + marker 回声纪律句',
@@ -59,7 +60,7 @@ test('契约 v19 含分层加载协议句与 marker 回声要求（norms Dispatc
 test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决断，逐字）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 23)
+  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(MAIN_SESSION_DISPOSAL_SENTENCE),
@@ -70,7 +71,7 @@ test('契约 v19 2.1 末尾含主会话处置句（阻塞项成批交用户决�
 test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一致', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  assert.equal(contract.version, 23)
+  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)
   assert.ok(contract.norms !== null, 'v17 契约必须含 norms 块')
   // 两组规范齐全
   assert.match(contract.norms, /Questioning \(always-on\):/)

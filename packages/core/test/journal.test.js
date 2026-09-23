@@ -157,6 +157,53 @@ test('开启自动提交时 commit message 取 config 配置', async () => {
   }
 })
 
+test('开启自动提交时只暂存 workspace 路径：在途任务的脏文件零接触', async () => {
+  const root = makeRoot({
+    config: { session_auto_commit: true, session_commit_message: 'chore: record journal' },
+  })
+  runGit(root, ['init'])
+  runGit(root, ['config', 'user.email', 'test@example.com'])
+  runGit(root, ['config', 'user.name', 'test'])
+  try {
+    // 初始提交把 .workloom 纳入跟踪，模拟已有提交纪律的项目。
+    runGit(root, ['add', '--all'])
+    runGit(root, ['commit', '-m', 'chore: seed'])
+    // 在途任务的脏文件：journal 自动提交不得把它卷进来。
+    mkdirSync(join(root, '.workloom', 'tasks'), { recursive: true })
+    writeFileSync(join(root, '.workloom', 'tasks', 'in-flight.md'), 'dirty in-flight\n')
+    const [err] = await addSession(root, { developer: 'alice', title: 'Narrowed' })
+    assert.equal(err, null)
+    const show = execFileSync('git', ['show', '--no-renames', '--name-only', '--format=%s', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+    const [subject, ...files] = show.trim().split('\n')
+    assert.equal(subject, 'chore: record journal')
+    // 提交含 journal 文件与两个索引，完全不含 tasks/ 下的在途文件。
+    assert.ok(
+      files.some((file) => file.startsWith('.workloom/workspace/alice/')),
+      'journal commit must stage the developer workspace directory',
+    )
+    assert.ok(
+      files.includes('.workloom/workspace/index.md'),
+      'journal commit must stage the global workspace index',
+    )
+    for (const file of files) {
+      assert.ok(!file.includes('tasks/in-flight.md'), `journal commit must not touch: ${file}`)
+    }
+    // 在途文件依旧脏（未被暂存/提交），workspace 无残留未提交项。
+    // -uall：强制展开未跟踪目录，直接断言到文件级。
+    const status = execFileSync('git', ['status', '--porcelain', '-uall'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+    assert.match(status, /tasks\/in-flight\.md/)
+    assert.ok(!status.includes('workspace/'), 'workspace must leave no dirty residue')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('developer 非法值报错（越界/分隔符/中文/空），白名单内可用', async () => {
   const root = makeRoot({ config: { session_auto_commit: false } })
   try {

@@ -441,6 +441,59 @@ test('archiveTask 显式 autoCommit: false 覆盖 config 默认开启', async ()
   }
 })
 
+test('archiveTask auto-commit 只暂存本任务路径：另一个在途任务的脏文件零接触', async () => {
+  const root = makeRoot({ config: { session_auto_commit: true } })
+  runGit(root, ['init'])
+  runGit(root, ['config', 'user.email', 'test@example.com'])
+  runGit(root, ['config', 'user.name', 'test'])
+  try {
+    const [, taskA] = await createTask(root, { title: 'Task Alpha' })
+    const [, taskB] = await createTask(root, { title: 'Task Bravo' })
+    // 初始提交：两个任务都被 git 跟踪（归档删除侧路径才能入暂存区）。
+    runGit(root, ['add', '--all'])
+    runGit(root, ['commit', '-m', 'chore: seed'])
+    // 任务 B 的在途修改：归档 A 的自动提交不得把它卷进来。
+    writeFileSync(join(root, '.workloom', taskB.taskRelPath, 'prd.md'), 'dirty in-flight\n')
+    const [err] = await archiveTask(root, {
+      taskRelPath: taskA.taskRelPath,
+      force: true,
+      reason: 'test narrowed staging',
+    })
+    assert.equal(err, null)
+    const show = execFileSync(
+      'git',
+      ['show', '--no-renames', '--name-only', '--format=%s', 'HEAD'],
+      { cwd: root, encoding: 'utf8' },
+    )
+    const [subject, ...files] = show.trim().split('\n')
+    assert.equal(subject, `chore(task): archive ${taskA.task.name}`)
+    // 提交同时覆盖移动前删除与归档后新增，且完全不含任务 B 的路径。
+    assert.ok(
+      files.some((file) => file.startsWith(`.workloom/${taskA.taskRelPath}/`)),
+      'archive commit must stage the removed source path',
+    )
+    assert.ok(
+      files.some((file) => file.includes(`tasks/archive/`) && file.includes(taskA.task.name)),
+      'archive commit must stage the archived target path',
+    )
+    for (const file of files) {
+      assert.ok(
+        !file.includes(taskB.taskRelPath),
+        `archive commit must not touch the in-flight task: ${file}`,
+      )
+    }
+    // 任务 B 依旧脏（未被暂存/提交），任务 A 无残留未提交项。
+    const status = execFileSync('git', ['status', '--porcelain'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+    assert.match(status, new RegExp(`\\.workloom/${taskB.taskRelPath}/prd\\.md`))
+    assert.ok(!status.includes(taskA.taskRelPath), 'archived task must leave no dirty residue')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('listTasks 跳过损坏的任务目录', async () => {
   const root = makeRoot()
   try {

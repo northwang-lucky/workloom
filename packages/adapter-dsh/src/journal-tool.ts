@@ -3,8 +3,9 @@
  * 本文件只从执行上下文取 cwd 并投影结果；参数标准 JSON Schema（宿主原样转发 API）。
  *
  * 设计意图：
- * - 编排（cwd 校验、身份读取、addSession 调用）已下沉 core executeJournalEntry，
- *   本文件只做宿主投影，工具返回原样透传 AddSessionResult；
+ * - 编排（cwd 校验、必填 taskPath 与任务存在性校验、身份读取、addSession 调用）
+ *   已下沉 core executeJournalEntry，本文件只做宿主投影，工具返回原样透传
+ *   AddSessionResult（schema 的 required 只是投影，权威校验在 core）；
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量。
  */
 
@@ -54,11 +55,12 @@ export function registerJournalTool(ctx: Context & JournalToolServices): void {
     parameters: {
       type: 'object',
       properties: {
+        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPathRequired },
         title: { type: 'string', description: PARAM_DESCRIPTIONS.journalTitle },
         commit: { type: 'string', description: PARAM_DESCRIPTIONS.journalCommit },
         summary: { type: 'string', description: PARAM_DESCRIPTIONS.journalSummary },
       },
-      required: ['title'],
+      required: ['taskPath', 'title'],
       additionalProperties: false,
     },
     output: { schema: { type: 'object', additionalProperties: true }, render: renderJournal },
@@ -81,6 +83,8 @@ async function journalTool(args: unknown, exec: unknown): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, result] = await executeJournalEntry(cwd, {
+    // taskPath 必填（schema required 投影）；缺参由 core 权威校验拒绝。
+    taskPath: typeof typed.taskPath === 'string' ? typed.taskPath : '',
     title: String(typed.title ?? ''),
     commit: typeof typed.commit === 'string' ? typed.commit : undefined,
     summary: typeof typed.summary === 'string' ? typed.summary : undefined,

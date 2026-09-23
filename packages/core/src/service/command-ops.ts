@@ -1,11 +1,12 @@
 /**
- * command-ops：三个 slash 命令（init/continue/finish）的 runtime 无关编排
+ * command-ops：init 命令与 journal 工具的 runtime 无关编排
  * （新增抽象，TypeScript）。
  *
  * 设计意图：
- * - 把两个 adapter 逐行对应的命令序列（cwd 校验 → 项目定位 → 活跃任务解析 →
- *   下一步路由 / git 检查 → 文本组装）下沉为单一调用，adapter 只负责读取
- *   命令资产文本（continue/finish 的 body）并投影结果；
+ * - init 的命令序列（cwd 校验 → 项目定位 → 骨架初始化 → 可选迁移 → 文本组装）
+ *   下沉为单一调用，adapter 只负责投影结果；
+ * - journal 编排（cwd 校验 → 必填 taskPath → 身份读取 → 任务存在性校验 →
+ *   addSession）：taskPath 必填是权威校验，adapter schema 的 required 只是投影；
  * - 命令资产缺失检查不在本模块：adapter 先 readAssetText（路径用 surface 的
  *   ASSET_COMMAND_*），缺失按现状文案报错后直接返回；
  * - 所有错误消息使用 surface.ERR_PREFIX.command 前缀，与下沉前 adapter
@@ -18,11 +19,9 @@ import { join } from 'node:path'
 import { detectLegacyTrellis, findWorkloomRoot, WORKLOOM_DIR } from '../legacy/locate.js'
 import { initWorkloom } from '../legacy/init.js'
 import { migrateLegacyTrellis } from '../legacy/migrate.js'
-import { resolveActiveTask } from '../legacy/active-task.js'
 import { readTask } from '../legacy/task-store.js'
-import { countDirtyLines, gitStatus } from '../legacy/git.js'
 import { addSession } from '../legacy/journal.js'
-import { routeNextStep } from './route-service.js'
+import { requireTaskRelPath } from './task-ops.js'
 import { COMMAND_NAMES, DEVELOPER_FILE, ERR_PREFIX, PURGE_FLAG } from '../surface.js'
 
 import type { MigrateLegacyTrellisResult } from '../legacy/migrate.d.ts'
@@ -156,126 +155,21 @@ function executeInitInternal(cwd: string, rawInput: string): string {
   return lines.join('\n')
 }
 
-/**
- * 组装 continue 命令指引：解析活跃任务并按状态路由下一步，拼接完整注入文本。
- * @param cwd 会话工作目录
- * @param contextKey 会话标识（adapter 组装，如 dsh_<agent-id>）
- * @param body 命令指引资产全文（adapter 已读取并校验存在）
- * @returns [err, text]：err 为任一编排步骤的失败（消息含前缀）；成功为完整文本
- */
-export function buildContinueGuidance(
-  cwd: string,
-  contextKey: string,
-  body: string,
-): [Error | null, string | null] {
-  try {
-    return [null, continueInternal(cwd, contextKey, body)]
-  } catch (error) {
-    return [toError(error), null]
-  }
-}
-
-/**
- * continue 编排实现（内部）：任一失败抛错，由外层转元组。
- * @param cwd 会话工作目录
- * @param contextKey 会话标识
- * @param body 命令指引资产全文
- * @returns 注入文本
- */
-function continueInternal(cwd: string, contextKey: string, body: string): string {
-  requireNonEmptyCwd(cwd)
-  const root = requireWorkloomRoot(cwd)
-  const [ptrErr, taskRelPath] = resolveActiveTask(root, contextKey)
-  if (ptrErr) throw new Error(`${ERR_PREFIX.command}: ${ptrErr.message}`)
-  if (taskRelPath === null) {
-    throw new Error(
-      `${ERR_PREFIX.command}: no active task for this session (start or create a task first)`,
-    )
-  }
-  const task = readTaskOrThrow(root, taskRelPath)
-  const [routeErr, route] = routeNextStep(root, { taskRelPath })
-  if (routeErr !== null) {
-    throw new Error(`${ERR_PREFIX.command}: ${routeErr.message}`)
-  }
-  if (route === null) {
-    throw new Error(`${ERR_PREFIX.command}: route returned no step`)
-  }
-  return [
-    `Active task: ${taskRelPath}`,
-    `Title: ${task.title}`,
-    `Status: ${task.status}`,
-    `Next step: ${route.guidance}`,
-    '',
-    body,
-  ].join('\n')
-}
-
-/**
- * 组装 finish 命令指引：先查脏文件（>0 报错），干净后拼接收尾注入文本。
- * @param cwd 会话工作目录
- * @param contextKey 会话标识（adapter 组装）
- * @param body 命令指引资产全文（adapter 已读取并校验存在）
- * @returns [err, text]：err 为脏文件等任一失败（消息含前缀）；成功为完整文本
- */
-export async function buildFinishGuidance(
-  cwd: string,
-  contextKey: string,
-  body: string,
-): Promise<[Error | null, string | null]> {
-  try {
-    return [null, await finishInternal(cwd, contextKey, body)]
-  } catch (error) {
-    return [toError(error), null]
-  }
-}
-
-/**
- * finish 编排实现（内部）：任一失败抛错，由外层转元组。
- * @param cwd 会话工作目录
- * @param contextKey 会话标识
- * @param body 命令指引资产全文
- * @returns 注入文本
- */
-async function finishInternal(cwd: string, contextKey: string, body: string): Promise<string> {
-  requireNonEmptyCwd(cwd)
-  const [gitErr, status] = await gitStatus(cwd)
-  if (gitErr) {
-    throw new Error(`${ERR_PREFIX.command}: git status failed: ${gitErr.message}`)
-  }
-  const dirtyCount = countDirtyLines(status ?? '')
-  if (dirtyCount > 0) {
-    throw new Error(
-      `${ERR_PREFIX.command}: ${dirtyCount} dirty file(s) remain; complete step 2.3 (commit) before wrapping up`,
-    )
-  }
-  const root = requireWorkloomRoot(cwd)
-  const [ptrErr, taskRelPath] = resolveActiveTask(root, contextKey)
-  if (ptrErr) throw new Error(`${ERR_PREFIX.command}: ${ptrErr.message}`)
-  if (taskRelPath === null) {
-    throw new Error(`${ERR_PREFIX.command}: no active task for this session`)
-  }
-  const task = readTaskOrThrow(root, taskRelPath)
-  return [
-    `Active task: ${taskRelPath}`,
-    `Title: ${task.title}`,
-    `Status: ${task.status}`,
-    '',
-    body,
-  ].join('\n')
-}
-
-/** executeJournalEntry 入参（title 必填；commit/summary 可选）。 */
+/** executeJournalEntry 入参（taskPath/title 必填；commit/summary 可选）。 */
 export interface ExecuteJournalEntryParams {
+  /** 任务目录相对 .workloom 的路径（会话条目必须显式绑定所属任务）。 */
+  taskPath: string
   title: string
   commit?: string
   summary?: string
 }
 
 /**
- * journal 工具编排：读 .developer 身份后调 addSession 记录会话日志。
+ * journal 工具编排：校验必填 taskPath 与任务存在性、读 .developer 身份后调
+ * addSession 记录会话日志。
  * @param cwd 会话工作目录
- * @param params 工具参数（空串 commit/summary 不传，口径同任务工具）
- * @returns [err, result]：err 为任一失败（空 cwd/无身份/记录失败）
+ * @param params 工具参数（taskPath/title 必填；空串 commit/summary 不传，口径同任务工具）
+ * @returns [err, result]：err 为任一失败（空 cwd/缺 taskPath/任务不存在/无身份/记录失败）
  */
 export async function executeJournalEntry(
   cwd: string,
@@ -299,6 +193,8 @@ async function executeJournalInternal(
   params: ExecuteJournalEntryParams,
 ): Promise<AddSessionResult> {
   requireNonEmptyCwd(cwd)
+  // taskPath 必填：会话条目必须显式绑定任务，缺参直接拒绝（不回退活跃任务）。
+  const taskRelPath = requireTaskRelPath(params.taskPath, ERR_PREFIX.command)
   const developer = readExistingDeveloper(cwd)
   // init 不带 developer 会落空 .developer 文件（trim 后为 ''），与无文件同视为无身份。
   if (developer === undefined || developer === '') {
@@ -306,6 +202,9 @@ async function executeJournalInternal(
       `${ERR_PREFIX.command}: no developer identity found; run the workloom init command first`,
     )
   }
+  // 任务存在性校验：条目绑定的任务必须能解析并读取。
+  const root = requireWorkloomRoot(cwd)
+  readTaskOrThrow(root, taskRelPath)
   const [err, result] = await addSession(cwd, {
     developer,
     title: params.title,

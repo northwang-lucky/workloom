@@ -72,9 +72,9 @@ const TASK_ALIGN_PARAMS = Type.Object({
   summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.alignmentSummary })),
 })
 
-/** archive 工具参数 schema（taskPath + autoCommit + force/reason 门禁豁免）。 */
+/** archive 工具参数 schema（taskPath 必填 + autoCommit + force/reason 门禁豁免）。 */
 const TASK_ARCHIVE_PARAMS = Type.Object({
-  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
+  taskPath: Type.String({ description: PARAM_DESCRIPTIONS.taskPathRequired }),
   autoCommit: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.autoCommit })),
   force: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.force })),
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reason })),
@@ -271,22 +271,18 @@ async function executeFinish(
   return resultOf(result)
 }
 
-/** archive 工具：归档任务（completed + 移入 archive/，可选 git 自动提交）。 */
+/** archive 工具：归档任务（completed + 移入 archive/，可选 git 自动提交；taskPath 必填）。 */
 async function executeArchive(
   ctx: ToolContextLike,
   params: Static<typeof TASK_ARCHIVE_PARAMS>,
 ): Promise<{ content: [{ type: 'text'; text: string }]; details: unknown }> {
   const cwd = requireWorkloomCwd(ctx.cwd)
-  const [err, result] = await executeArchiveTask(
-    cwd,
-    contextKeyOf(ctx.sessionManager.getSessionId()),
-    {
-      taskPath: params.taskPath,
-      autoCommit: params.autoCommit,
-      force: params.force,
-      reason: params.reason,
-    },
-  )
+  const [err, result] = await executeArchiveTask(cwd, {
+    taskPath: params.taskPath,
+    autoCommit: params.autoCommit,
+    force: params.force,
+    reason: params.reason,
+  })
   if (err !== null || result === null)
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`)
   // R1: 归档清理——按 dispatches 的 childId 对账，删除关联 pi 会话文件。

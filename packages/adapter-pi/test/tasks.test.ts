@@ -108,6 +108,18 @@ test('TASK_ALIGN tool：名称/参数 action 必填 review/confirm + expectedPrd
   assert.match(actionDescription, /readyToConfirm/)
 })
 
+test('archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.taskPathRequired', () => {
+  const { pi, registered } = makePi()
+  registerTaskTools(pi)
+  const def = registered.find((entry) => entry.name === 'workloom_task_archive')
+  assert.ok(def, 'archive tool must be registered')
+  assert.ok(def.parameters.required?.includes('taskPath'), 'taskPath must be required')
+  assert.equal(
+    readDescription(def.parameters.properties.taskPath),
+    PARAM_DESCRIPTIONS.taskPathRequired,
+  )
+})
+
 test('executeCreate 转发 parent：子任务落盘 parent 字段且父 children 联动', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-tasks-'))
   mkdirSync(join(root, '.workloom'))

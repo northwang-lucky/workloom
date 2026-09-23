@@ -20,6 +20,7 @@ import {
   DOCTOR_FIX_FLAG,
   ERR_PREFIX,
   PARAM_DESCRIPTIONS,
+  TASK_ARCHIVE_NOTE,
   TASK_CREATE_NOTE,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
@@ -57,8 +58,8 @@ test('TOOL_SNIPPETS 与 TOOL_NAMES 键对齐且文案非空（Pi promptSnippet �
 })
 
 test('buildErrorRelayText 含命令名与原始错误消息，并要求按用户语言转述', () => {
-  const text = buildErrorRelayText(COMMAND_NAMES.continue, 'workloom command: no active task')
-  assert.ok(text.includes(COMMAND_NAMES.continue), 'relay text must name the command')
+  const text = buildErrorRelayText(COMMAND_NAMES.doctor, 'workloom command: no active task')
+  assert.ok(text.includes(COMMAND_NAMES.doctor), 'relay text must name the command')
   assert.ok(text.includes('no active task'), 'relay text must keep the raw error message')
   assert.match(text, /user's language/, 'relay text must instruct answering in the user language')
 })
@@ -211,6 +212,25 @@ test('doctor 命令键对齐：COMMAND_NAMES.doctor / COMMAND_DESCRIPTIONS.docto
   assert.ok(COMMAND_DESCRIPTIONS.doctor !== '', 'doctor description must be non-empty')
   assert.ok(ASSET_COMMAND_DOCTOR !== '', 'doctor asset path must be non-empty')
   assert.equal(DOCTOR_FIX_FLAG, '--fix', 'doctor fix flag must be --fix')
+})
+
+test('continue/finish 已改造为 skill：命令面无残留，archive/journal 契约要求必填 taskPath', () => {
+  // 命令面只剩 init/doctor：continue/finish 以同名 skill 注册（资产层），不得回流。
+  assert.deepEqual(Object.values(COMMAND_NAMES).sort(), ['workloom-doctor', 'workloom-init'])
+  assert.ok(!JSON.stringify(COMMAND_NAMES).includes('workloom-continue'))
+  assert.ok(!JSON.stringify(COMMAND_NAMES).includes('workloom-finish'))
+  // archive/journal 的 taskPath 必填：snippet 不得再带 ?，必填描述非空。
+  assert.ok(!TOOL_SNIPPETS.taskArchive.includes('taskPath?'), 'archive taskPath is required')
+  assert.ok(!TOOL_SNIPPETS.journal.includes('taskPath?'), 'journal taskPath is required')
+  assert.match(TOOL_SNIPPETS.journal, /workloom_journal\(taskPath, title/)
+  assert.ok(
+    typeof PARAM_DESCRIPTIONS.taskPathRequired === 'string' &&
+      PARAM_DESCRIPTIONS.taskPathRequired !== '',
+    'taskPathRequired description must be non-empty',
+  )
+  // archive 收尾提示引导加载 finish skill，而非 slash 命令。
+  assert.match(TASK_ARCHIVE_NOTE, /load the workloom-finish skill/)
+  assert.ok(!TASK_ARCHIVE_NOTE.includes('/workloom-finish'), 'note must not reference a command')
 })
 
 test('taskCheck 描述与 snippet 提及 2.2 check 凭据（不含 grilling 阶段）', () => {

@@ -141,12 +141,12 @@ test('create→start→check→finish→list→archive 全链（活跃任务 fal
     // list：列出全部任务。
     const [, list] = await executeListTasks(root, undefined)
     assert.ok(list.tasks.some((task) => task.title === 'Chain Task'))
-    // archive：显式 taskPath（finish 已清指针），note 含 /workloom-finish。
-    const [, archived] = await executeArchiveTask(root, contextKey, {
+    // archive：显式必填 taskPath（finish 已清指针），note 引导加载 finish skill。
+    const [, archived] = await executeArchiveTask(root, {
       taskPath: created.taskRelPath,
     })
     assert.equal(archived.task.status, 'completed')
-    assert.match(archived.note, /run \/workloom-finish to record the session journal/)
+    assert.match(archived.note, /load the workloom-finish skill to record the session journal/)
     assert.notEqual(archived.taskRelPath, created.taskRelPath)
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -179,8 +179,10 @@ test('executeCheckTask 无 check.jsonl 有效记录被拒绝，force 放行', as
     })
     assert.equal(err2, null)
     assert.equal(checked.check.summary, 'forced check')
-    // archive 门禁：有 check 凭据后放行。
-    const [archErr, archived] = await executeArchiveTask(root, contextKey, {})
+    // archive 门禁：有 check 凭据后放行（taskPath 必填，显式绑定目标任务）。
+    const [archErr, archived] = await executeArchiveTask(root, {
+      taskPath: created.taskRelPath,
+    })
     assert.equal(archErr, null)
     assert.equal(archived.task.status, 'completed')
     // 两次 force 豁免均留痕于归档后的 task.json。
@@ -190,6 +192,24 @@ test('executeCheckTask 无 check.jsonl 有效记录被拒绝，force 放行', as
     assert.deepEqual(
       finalJson.overrides.map((o) => o.gate),
       ['start', 'check'],
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeArchiveTask 缺 taskPath 拒绝（必填，不回退活跃任务）', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_archive_required'
+    const [, created] = await executeCreateTask(root, contextKey, { title: 'Required Path' })
+    const [err, archived] = await executeArchiveTask(root, {})
+    assert.ok(err)
+    assert.match(err.message, /taskPath is required/)
+    assert.equal(archived, null)
+    // 任务保持原位，未被误归档。
+    assert.ok(
+      JSON.parse(readFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), 'utf8')),
     )
   } finally {
     rmSync(root, { recursive: true, force: true })
