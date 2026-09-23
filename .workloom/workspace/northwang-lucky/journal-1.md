@@ -298,3 +298,9 @@
 - Commit: aa15c72
 - Summary: 修正 adapter-pi 执行器角色自述的过时注入描述：四个 kind 的 systemPrompt 第二段逐字定稿为「指针化 + 分层加载」现行形态，agent-definitions.ts 与 executor.ts 头注同款失实修正，agents.test.ts 加防回归断言；红→绿交付，两轮 check 复核通过。
 
+## continue/finish 命令改造为 skill 并收紧自动提交工具约束
+
+- Time: 2026-09-23T09:31:07.233Z
+- Commit: c7479c0
+- Summary: /workloom-continue 与 /workloom-finish 从 slash 命令彻底改造为 skill（双 adapter 移除注册，core 动态编排删除并下沉为 SKILL.md 静态指令）；workloom_task_archive taskPath 改必填、workloom_journal 新增必填 taskPath；gitAddCommit 收窄为按任务枚举路径暂存，根治归档/记录日志卷入其他在途任务脏文件的问题。另提交 lockfile resync（cfd2487）。
+
