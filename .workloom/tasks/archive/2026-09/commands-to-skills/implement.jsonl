@@ -1,0 +1,6 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "全部代码改动遵守编码原则（枚举替代 Magic String、注释规范、验证命令）"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "git.js/journal.js/task-store.js 为 legacy 纯 JS + JSDoc 模块，收窄暂存范围与 slug 必填须遵守其约定"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "assets/core/adapter 分层与依赖规则：skill 注册清单、core 导出删改不得越层"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "SKILL.md、workflow.md 契约、surface 文案的中英文分工"}
+{"file": ".workloom/spec/repo/terminology/index.md", "reason": "skill/command/taskPath 等术语在资产与文案中保持一致"}

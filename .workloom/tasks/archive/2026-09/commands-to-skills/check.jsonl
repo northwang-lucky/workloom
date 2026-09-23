@@ -1,0 +1,4 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "验收门槛：lint/typecheck/build/三侧测试全绿，按 spec 验证命令逐项核"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "核对构建产物部署同步纪律：core dist 与 adapter-pi skills/ 产物同步"}
+{"file": ".workloom/spec/adapter-pi/verify/index.md", "reason": "Pi 侧验证方式（bun test、skills 同步产物核对）"}

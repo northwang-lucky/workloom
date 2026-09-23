@@ -1,0 +1,64 @@
+{
+  "id": "d7a44031-4ae0-4463-a0aa-7b96973c9494",
+  "name": "commands-to-skills",
+  "title": "continue/finish 命令改造为 skill 并收紧自动提交工具 slug 约束",
+  "description": "将 /workloom-continue 与 /workloom-finish 从 slash 命令改为 skill 形态（移除命令入口，core 动态编排下沉为 skill 静态指令）；同时收紧 workloom_task_archive / workloom_journal 等自动提交类工具：必须传入 task slug 才能执行，避免卷入其他任务的脏文件。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-23T08:25:39.527Z",
+  "completedAt": "2026-09-23T09:30:41.731Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-23T09:29:37.468Z",
+    "summary": "2.2 完整复核通过：7 条验收标准逐条有证据（命令与 core 导出零残留、双 skill 注册且 Pi 产物字节一致、slug 必填三侧测试钉住、双在途任务互不卷入、契约文案无命令引用、init/doctor 不变、全量验证绿）；4 个设计点落地忠实；7 个偏离点均合理；check executor 自修 1 个 P2（删死代码 gitStatus + 补 gitAddCommit 守卫测试）后，主会话独立复跑 core 582/582、lint 0、typecheck 3 包全绿。遗留 2 个 P2 另行处理：lockfile resync 随 chore 提交、ASSET_COMMAND_DOCTOR 死常量另立清理任务。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-23T08:35:16.927Z",
+    "summary": "设计树 8 个根节点全部收敛（三轮问答）：目标为 continue/finish 命令彻底改 skill 形态 + archive/journal 强制任务标识并收窄暂存范围。关键决策（均经用户确认）：移除两个 slash 命令靠 skill description 触发；core 动态编排（buildContinueGuidance/buildFinishGuidance/routeNextStep）删除并下沉为 skill 静态指令；新建 workloom-continue/workloom-finish 两个独立 skill；archive 的 taskPath 改必填、journal 新增必填 taskPath；gitAddCommit 暂存范围从整个 .workloom 收窄到本任务相关路径。范围纪律：init/doctor 命令不动、skill 触发机制不动、双 runtime parity。UI/test-first 不适用。用户已确认 review 快照（hash 匹配）。",
+    "prdHash": "942ea63b2f79a4a6f0a4c90cbd39cbece0be3540990ad8ce8b100fca264f35bd"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-23T08:45:57.727Z",
+      "title": "命令转 skill 与 slug 约束实现",
+      "status": "completed",
+      "childId": "82edbd68-3ddf-49fc-b9f4-17cb314d7aed",
+      "model": "xiaomi-token-plan-cn/mimo-v2.6-flash",
+      "effort": "medium",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-23T09:13:56.448Z",
+      "title": "命令转 skill 与 slug 约束复核",
+      "status": "completed",
+      "childId": "0f0f4cfa-f842-46c2-b5f3-de8d7d8a16db",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
