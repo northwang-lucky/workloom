@@ -199,9 +199,6 @@ export const DOCTOR_FIX_FLAG = '--fix'
 /** 资产目录内的 developer 身份文件名（与 core 的 init 约定一致）。 */
 export const DEVELOPER_FILE = '.developer'
 
-/** 命令指引资源路径（相对 assets 包根）。 */
-export const ASSET_COMMAND_DOCTOR = 'commands/workloom-doctor.md'
-
 /**
  * 命令失败的宿主回执文案（两 adapter 共享）：细节已由 followup/sendUserMessage
  * 注入模型回合转述，宿主只提示「已转交模型」，不再弹红错。

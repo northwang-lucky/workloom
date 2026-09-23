@@ -189,7 +189,6 @@ export {
   PURGE_FLAG,
   DOCTOR_FIX_FLAG,
   DEVELOPER_FILE,
-  ASSET_COMMAND_DOCTOR,
   COMMAND_FAILURE_ACK,
   buildErrorRelayText,
   buildSuccessRelayText,
