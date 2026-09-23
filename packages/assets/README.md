@@ -6,8 +6,7 @@ workloom 资源层：与 runtime 无关的内容资源。规划中的目录结�
 workflow/      # 工作流契约（阶段/tag/迁移）+ 内置指引文案（MD + front-matter）
 skills/        # workloom 自有 skills 的中间表示
 agents/        # Executor 定义（research/implement/check/frontend）的中间表示
-commands/      # 命令资源的中间表示（init/continue/finish 等）
 third-party/   # 三方 skill vendoring（mattpocock/skills，MIT；改写约定见 docs/vendoring-plan.md）
 ```
 
-中间表示约定：正文 Markdown，元数据用 YAML front-matter；adapter 渲染为各 runtime 官方格式（DSH：skills 注册 / commands 注册；Pi：包内 skills / registerCommand / pi-subagents agent 定义）。
+中间表示约定：正文 Markdown，元数据用 YAML front-matter；adapter 渲染为各 runtime 官方格式（DSH：skills 注册；Pi：包内 skills / pi-subagents agent 定义）。命令入口（init/doctor）由 adapter 代码直接注册，不经过本包中间表示。
