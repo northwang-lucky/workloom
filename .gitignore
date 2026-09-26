@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# dist 入库例外：core 与 adapter-dsh 的构建产物随源码提交，git 子目录安装免构建
+!packages/core/dist/
+!packages/adapter-dsh/dist/
 *.tsbuildinfo
 .DS_Store
 *.log

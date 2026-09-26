@@ -1,0 +1,523 @@
+/**
+ * doctor 检查引擎的 9 类检查规则实现（只读）。
+ *
+ * 设计意图：
+ * - 从 doctor-checks.ts 拆分出的检查函数集（原文件超 600 行，见 code-style size 规则）；
+ * - doctor-checks.ts 保留 collectChecks/buildReport（收集与报告），此处只实现单类检查；
+ * - 全部检查只读，不写任何 `.workloom/` 文件；makeIssue 等 issue 辅助在 doctor-tasks.ts；
+ * - 运行时 issue/message 文案英文；注释中文。
+ */
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
+import { insideWorkloom, WORKLOOM_DIR } from '../legacy/locate.js';
+import { TaskStage, TaskStatus } from '../legacy/task-store.js';
+import { EXECUTOR_KINDS, parseJsonlEntries } from '../legacy/executor-context.js';
+import { listPointers } from '../legacy/active-task.js';
+import { countEffectiveJsonlRecords, inspectPrdStructure, PRD_STRUCTURE_CODES, } from '../legacy/task-gates.js';
+import { loadConfig } from '../legacy/config.js';
+import { makeIssue, pointerPath, taskJsonPath } from './doctor-tasks.js';
+import { OVERLAY_REL_PATH } from './workflow-service.js';
+/** 计划任务超期未 start 的判定窗口（24h）。 */
+const PLANNING_STALE_MS = 24 * 3600 * 1000;
+/** 检查的 jsonl 文件。 */
+const JSONL_NAMES = ['implement.jsonl', 'check.jsonl'];
+/** 检查①：任务状态机（planning 超期 / in_progress 无 check / completed 未归档）。 */
+export function checkTaskLifecycle(root, nodes) {
+    const issues = [];
+    const now = Date.now();
+    for (const node of nodes) {
+        const rec = node.record;
+        if (rec.status === TaskStatus.PLANNING) {
+            const createdAt = new Date(rec.createdAt).getTime();
+            if (Number.isFinite(createdAt) && now - createdAt > PLANNING_STALE_MS) {
+                issues.push(makeIssue({
+                    code: 'task-lifecycle',
+                    title: 'Stale planning task',
+                    severity: 'warn',
+                    task: node.relPath,
+                    message: `Task has been in planning for more than 24h (created ${rec.createdAt}); it has not been started.`,
+                    path: taskJsonPath(node.relPath),
+                    fixable: false,
+                    hint: 'Start the task (workloom_task_start) or drop it if it is no longer needed.',
+                }));
+            }
+        }
+        else if (rec.status === TaskStatus.IN_PROGRESS && rec.check === null) {
+            issues.push(makeIssue({
+                code: 'task-lifecycle',
+                title: 'In-progress task without a check',
+                severity: 'warn',
+                task: node.relPath,
+                message: 'Task is in_progress but has no recorded check (step 2.2 not recorded).',
+                path: taskJsonPath(node.relPath),
+                fixable: false,
+                hint: 'Run the check step (workloom_task_check) once the implementation passes.',
+            }));
+        }
+        else if (rec.status === TaskStatus.COMPLETED && !node.archived) {
+            const fixable = rec.check !== null;
+            issues.push(makeIssue({
+                code: 'task-lifecycle',
+                title: 'Completed task not archived',
+                severity: 'error',
+                task: node.relPath,
+                message: 'Task is completed but still under tasks/; it has not been archived.',
+                path: taskJsonPath(node.relPath),
+                fixable,
+                hint: fixable
+                    ? 'Re-run with --fix to move it into archive/, or run workloom_task_archive.'
+                    : 'No check was recorded, so it cannot be archived automatically; record a check first.',
+            }));
+        }
+    }
+    return issues;
+}
+/** 检查②：父子一致性（双向缺失）。 */
+export function checkParentChild(nodes, byName) {
+    const issues = [];
+    for (const child of nodes) {
+        const rec = child.record;
+        if (rec.parent === null)
+            continue;
+        const parentName = basename(rec.parent);
+        const parent = byName.get(parentName);
+        if (parent === undefined) {
+            issues.push(makeIssue({
+                code: 'parent-child',
+                title: 'Child references a missing parent',
+                severity: 'error',
+                task: child.relPath,
+                message: `Task references parent '${rec.parent}' but no such task exists.`,
+                path: taskJsonPath(child.relPath),
+                fixable: false,
+                hint: 'Reconcile the parent reference manually or remove it if the parent is gone.',
+            }));
+        }
+        else if (!parent.record.children.some((childRef) => basename(childRef) === child.name)) {
+            issues.push(makeIssue({
+                code: 'parent-child',
+                title: 'Parent missing child back-reference',
+                severity: 'warn',
+                task: child.relPath,
+                message: `Parent '${parentName}' (${parent.relPath}) is missing this child in its children list.`,
+                path: taskJsonPath(child.relPath),
+                fixable: true,
+                hint: 'Re-run with --fix to append the child reference to the parent.',
+            }));
+        }
+    }
+    for (const parent of nodes) {
+        const rec = parent.record;
+        for (const childRef of rec.children) {
+            const childName = basename(childRef);
+            const child = byName.get(childName);
+            if (child === undefined)
+                continue;
+            if (child.record.parent === null) {
+                issues.push(makeIssue({
+                    code: 'parent-child',
+                    title: 'Child missing parent back-reference',
+                    severity: 'warn',
+                    task: child.relPath,
+                    message: `Task '${childName}' is listed under ${parent.name}'s children but has no parent back-reference.`,
+                    path: taskJsonPath(child.relPath),
+                    fixable: true,
+                    hint: 'Re-run with --fix to set the child parent back-reference.',
+                }));
+            }
+        }
+    }
+    return issues;
+}
+/** 检查③：归档完整性（父与子归档位置不一致）。 */
+export function checkArchive(nodes, byName) {
+    const issues = [];
+    for (const parent of nodes) {
+        const rec = parent.record;
+        if (rec.children.length === 0)
+            continue;
+        for (const childRef of rec.children) {
+            const childName = basename(childRef);
+            const child = byName.get(childName);
+            if (child === undefined)
+                continue;
+            if (child.archived !== parent.archived) {
+                issues.push(makeIssue({
+                    code: 'archive',
+                    title: 'Parent/child archive mismatch',
+                    severity: 'error',
+                    task: parent.relPath,
+                    message: `Parent '${parent.name}' is ${parent.archived ? 'archived' : 'active'} but child '${childName}' is ${child.archived ? 'archived' : 'active'}.`,
+                    path: taskJsonPath(parent.relPath),
+                    fixable: false,
+                    hint: 'Archive or un-archive the mismatched task so parent/child locations stay consistent.',
+                }));
+            }
+        }
+    }
+    return issues;
+}
+/** 检查④：executor 派发审计（已离开 planning 但无派发记录）。 */
+export function checkDispatchAudit(nodes) {
+    const issues = [];
+    for (const node of nodes) {
+        const rec = node.record;
+        if (rec.status === TaskStatus.PLANNING)
+            continue;
+        if (rec.dispatches.length === 0) {
+            issues.push(makeIssue({
+                code: 'dispatch-audit',
+                title: 'No recorded executor dispatch',
+                severity: 'warn',
+                task: node.relPath,
+                message: `Task is ${rec.status} but has no recorded executor dispatch; work may have bypassed the workloom_execute dispatch convention.`,
+                path: taskJsonPath(node.relPath),
+                fixable: false,
+                hint: 'Dispatch the work through workloom_execute so the audit has a record.',
+            }));
+        }
+    }
+    return issues;
+}
+/** 检查⑤：任务阶段一致性（stage=check 无/非 check 派发；stage 非法值）。 */
+export function checkStageConsistency(nodes) {
+    const issues = [];
+    const stageValues = Object.values(TaskStage);
+    for (const node of nodes) {
+        const rec = node.record;
+        // stage 非法值（手改/损坏）：readTask 归一化只兜底 null/undefined，非空非法值原样保留。
+        if (!stageValues.includes(rec.stage)) {
+            issues.push(makeIssue({
+                code: 'stage-consistency',
+                title: 'Invalid task stage',
+                severity: 'warn',
+                task: node.relPath,
+                message: `Task has invalid stage value '${String(rec.stage)}' (must be implement or check); task.json may have been edited manually.`,
+                path: taskJsonPath(node.relPath),
+                fixable: false,
+                hint: 'Restore the stage field to implement or check (re-dispatch through workloom_execute to rewrite it).',
+            }));
+            continue;
+        }
+        // 仅 in_progress + stage=check 需要「最近派发为 check」的审计闭环。
+        if (rec.status !== TaskStatus.IN_PROGRESS || rec.stage !== TaskStage.CHECK)
+            continue;
+        const last = rec.dispatches[rec.dispatches.length - 1];
+        if (last === undefined) {
+            issues.push(makeIssue({
+                code: 'stage-consistency',
+                title: 'Check stage without dispatch',
+                severity: 'warn',
+                task: node.relPath,
+                message: "Task is in_progress with stage 'check' but has no recorded executor dispatch; the check phase has no audit trail.",
+                path: taskJsonPath(node.relPath),
+                fixable: false,
+                hint: 'Dispatch a check executor (workloom_execute kind=check) to record the phase.',
+            }));
+        }
+        else if (last.kind !== EXECUTOR_KINDS.check) {
+            issues.push(makeIssue({
+                code: 'stage-consistency',
+                title: 'Check stage with stale dispatch',
+                severity: 'warn',
+                task: node.relPath,
+                message: `Task is in_progress with stage 'check' but the latest dispatch was kind '${last.kind}' (not check); the stage may be out of sync.`,
+                path: taskJsonPath(node.relPath),
+                fixable: false,
+                hint: 'Dispatch a check executor (workloom_execute kind=check) to sync the stage, or reset the stage if the task never entered check.',
+            }));
+        }
+    }
+    return issues;
+}
+/** 检查⑥：活跃指针（指向不存在/已归档任务）。 */
+export function checkActivePointer(root, byName) {
+    const issues = [];
+    const [, pointers] = listPointers(root);
+    if (pointers === null)
+        return issues;
+    for (const pointer of pointers) {
+        const targetName = basename(pointer.current_task);
+        const node = byName.get(targetName);
+        if (node === undefined) {
+            issues.push(makeIssue({
+                code: 'active-pointer',
+                title: 'Dangling active-task pointer',
+                severity: 'warn',
+                task: pointer.current_task,
+                message: `Active pointer for session '${pointer.contextKey}' references '${pointer.current_task}', which does not exist.`,
+                path: pointerPath(pointer.contextKey),
+                fixable: true,
+                hint: 'Re-run with --fix to clear the dangling pointer.',
+            }));
+        }
+        else if (node.archived) {
+            issues.push(makeIssue({
+                code: 'active-pointer',
+                title: 'Active pointer to archived task',
+                severity: 'warn',
+                task: pointer.current_task,
+                message: `Active pointer for session '${pointer.contextKey}' references archived task '${pointer.current_task}'.`,
+                path: pointerPath(pointer.contextKey),
+                fixable: true,
+                hint: 'Re-run with --fix to clear the pointer to the archived task.',
+            }));
+        }
+    }
+    return issues;
+}
+/**
+ * 把一条 PRD 结构 issue 投影为 doctor 文档完整性 issue（内部）。
+ * 只投影文档类 code（缺 H1、缺小节、placeholder 小节）；open-nodes 属 alignment
+ * 就绪诊断，不混入普通文档检查，返回 null 表示不生成 doctor issue。
+ * @param issue PRD 结构 issue
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param prdPath prd.md 展示路径
+ * @returns doctor issue 或 null（不投影）
+ */
+function toDocIssue(issue, taskRelPath, prdPath) {
+    if (issue.code === PRD_STRUCTURE_CODES.PRD_TITLE_MISSING) {
+        return makeIssue({
+            code: 'doc-completeness',
+            title: 'prd.md missing H1',
+            severity: 'warn',
+            task: taskRelPath,
+            message: `prd.md is missing an H1 title (${issue.message}).`,
+            path: prdPath,
+            fixable: false,
+            hint: 'Start prd.md with a "# Task title" H1 line.',
+        });
+    }
+    if (issue.section === undefined)
+        return null;
+    const isMissing = issue.code === PRD_STRUCTURE_CODES.PRD_SECTION_MISSING;
+    return makeIssue({
+        code: 'doc-completeness',
+        title: isMissing ? `prd.md missing ${issue.section} section` : `prd.md ${issue.section} placeholder`,
+        severity: 'warn',
+        task: taskRelPath,
+        message: `${issue.message}.`,
+        path: prdPath,
+        fixable: false,
+        hint: isMissing
+            ? `Add the "## ${issue.section}" section to prd.md.`
+            : `Fill in the "## ${issue.section}" section of prd.md.`,
+    });
+}
+/** 检查⑦：文档完整性（prd 结构/H1、jsonl 有效记录）。 */
+export function checkDocCompleteness(root, nodes) {
+    const issues = [];
+    for (const node of nodes) {
+        const taskDir = insideWorkloom(root, node.relPath);
+        const prdPath = join(WORKLOOM_DIR, node.relPath, 'prd.md');
+        const prd = readIfExists(join(taskDir, 'prd.md'));
+        if (prd === null) {
+            issues.push(makeIssue({
+                code: 'doc-completeness',
+                title: 'Missing prd.md',
+                severity: 'warn',
+                task: node.relPath,
+                message: 'prd.md is missing.',
+                path: prdPath,
+                fixable: false,
+                hint: 'Write prd.md with Goal, Requirements, Acceptance Criteria and Notes sections.',
+            }));
+        }
+        else {
+            // 文档结构问题与 review/confirm/start 共用同一分类器；open-nodes marker 属
+            // Phase 1.1 alignment readiness，不作为普通文档完整性告警（避免历史任务噪音）。
+            for (const issue of inspectPrdStructure(prd)) {
+                const docIssue = toDocIssue(issue, node.relPath, prdPath);
+                if (docIssue !== null)
+                    issues.push(docIssue);
+            }
+        }
+        if (node.record.status === TaskStatus.PLANNING)
+            continue;
+        for (const jsonlName of JSONL_NAMES) {
+            const content = readIfExists(join(taskDir, jsonlName));
+            if (content === null) {
+                issues.push(makeIssue({
+                    code: 'doc-completeness',
+                    title: 'Missing jsonl',
+                    severity: 'warn',
+                    task: node.relPath,
+                    message: `${jsonlName} is missing.`,
+                    path: join(WORKLOOM_DIR, node.relPath, jsonlName),
+                    fixable: false,
+                    hint: `Record the specs/files in ${jsonlName} (one JSON object per line with a file field).`,
+                }));
+                continue;
+            }
+            let effective;
+            try {
+                effective = countEffectiveJsonlRecords(content, jsonlName);
+            }
+            catch {
+                issues.push(makeIssue({
+                    code: 'doc-completeness',
+                    title: 'Malformed jsonl',
+                    severity: 'warn',
+                    task: node.relPath,
+                    message: `${jsonlName} has a malformed line.`,
+                    path: join(WORKLOOM_DIR, node.relPath, jsonlName),
+                    fixable: false,
+                    hint: `Fix the JSON lines in ${jsonlName}.`,
+                }));
+                continue;
+            }
+            if (effective === 0) {
+                issues.push(makeIssue({
+                    code: 'doc-completeness',
+                    title: 'jsonl without effective records',
+                    severity: 'warn',
+                    task: node.relPath,
+                    message: `${jsonlName} has no effective records.`,
+                    path: join(WORKLOOM_DIR, node.relPath, jsonlName),
+                    fixable: false,
+                    hint: `Record the specs/files in ${jsonlName} (one JSON object per line with a file field).`,
+                }));
+            }
+        }
+    }
+    return issues;
+}
+/** 检查⑧：spec 引用完整性（jsonl 引用文件不存在）。 */
+export function checkSpecRef(root, nodes) {
+    const issues = [];
+    for (const node of nodes) {
+        const taskDir = insideWorkloom(root, node.relPath);
+        for (const jsonlName of JSONL_NAMES) {
+            const content = readIfExists(join(taskDir, jsonlName));
+            if (content === null)
+                continue;
+            let entries;
+            try {
+                entries = parseJsonlEntries(content, jsonlName);
+            }
+            catch {
+                continue; // 结构性坏行已在 doc-completeness 报，此处避免重复
+            }
+            for (const entry of entries) {
+                if (entry.type === 'directory')
+                    continue;
+                const absFile = resolveInsideRoot(root, entry.file);
+                if (absFile === null)
+                    continue;
+                if (!existsSync(absFile)) {
+                    issues.push(makeIssue({
+                        code: 'spec-ref',
+                        title: 'Missing referenced file',
+                        severity: 'warn',
+                        task: node.relPath,
+                        message: `${jsonlName} references a missing file: ${entry.file}.`,
+                        path: join(WORKLOOM_DIR, node.relPath, jsonlName),
+                        fixable: false,
+                        hint: 'Fix the spec/research reference so the referenced file exists.',
+                    }));
+                }
+            }
+        }
+    }
+    return issues;
+}
+/** 检查⑨：配置（.workloom/config.json 或 config.js 缺失/非法）。 */
+export function checkConfig(root) {
+    const issues = [];
+    const workloomDir = join(root, WORKLOOM_DIR);
+    const hasConfig = ['config.json', 'config.js'].some((name) => existsSync(join(workloomDir, name)));
+    if (!hasConfig) {
+        issues.push(makeIssue({
+            code: 'config',
+            title: 'Missing config file',
+            severity: 'warn',
+            task: null,
+            message: 'No .workloom/config.json or config.js; using built-in defaults.',
+            path: join(WORKLOOM_DIR, 'config.json'),
+            fixable: false,
+            hint: 'Create .workloom/config.json to customize hooks, packages and subagents.',
+        }));
+    }
+    else {
+        try {
+            loadConfig(root);
+        }
+        catch (error) {
+            issues.push(makeIssue({
+                code: 'config',
+                title: 'Invalid config file',
+                severity: 'error',
+                task: null,
+                message: `config is invalid: ${messageOf(error)}`,
+                path: join(WORKLOOM_DIR, 'config.json'),
+                fixable: false,
+                hint: 'Fix the config error in .workloom/config.json or config.js.',
+            }));
+        }
+    }
+    return issues;
+}
+/** 读取文件文本（缺失返回 null，其他错误透传）。 */
+function readIfExists(absPath) {
+    try {
+        return readFileSync(absPath, 'utf8');
+    }
+    catch (error) {
+        if (isEnoent(error))
+            return null;
+        throw error;
+    }
+}
+/** 把 jsonl 引用文件解析为项目根内绝对路径；越界返回 null（防路径逃逸）。 */
+function resolveInsideRoot(root, file) {
+    const abs = resolve(root, file);
+    if (abs !== root && !abs.startsWith(`${root}/`))
+        return null;
+    return abs;
+}
+/** @param {unknown} error @returns {string} 消息文本。 */
+function messageOf(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/** @param {unknown} error @returns {boolean} 是否文件不存在。 */
+function isEnoent(error) {
+    return error?.code === 'ENOENT';
+}
+/** overlay 遗留旧 alignment 引用的正则（旧 skill 名与 Phase 1.1 子阶段引用）。 */
+const LEGACY_ALIGNMENT_REF_RE = /\b(workloom-brainstorm|workloom-ui-design|1\.1[abc])\b/g;
+/**
+ * 检查 workflow overlay（.workloom/workflow.override.md）是否引用旧 alignment 资产
+ * （R19）：检出旧 skill 名与 Phase 1.1a/1.1b/1.1c 引用，给出人工迁移提示。不可自动
+ * 修复（doctor 绝不改写 overlay）；无 overlay / 无旧引用通过。
+ * @param root 项目根
+ * @returns 检查出的 issue 列表（无 overlay/无旧引用为空数组）
+ */
+export function checkWorkflowOverlay(root) {
+    const path = insideWorkloom(root, OVERLAY_REL_PATH);
+    let text;
+    try {
+        text = readFileSync(path, 'utf8');
+    }
+    catch (error) {
+        if (isEnoent(error))
+            return [];
+        throw error;
+    }
+    const found = [...text.matchAll(LEGACY_ALIGNMENT_REF_RE)].map((match) => match[0]);
+    if (found.length === 0)
+        return [];
+    const unique = [...new Set(found)].join(', ');
+    return [
+        makeIssue({
+            code: 'workflow-overlay',
+            title: 'Workflow overlay references legacy alignment assets',
+            severity: 'warn',
+            task: null,
+            message: `workflow overlay references legacy alignment assets: ${unique}`,
+            path: join(WORKLOOM_DIR, OVERLAY_REL_PATH),
+            fixable: false,
+            hint: 'Migrate by hand: rewrite the overlay guidance that references workloom-brainstorm / workloom-ui-design / Phase 1.1a-1.1c into the unified Phase 1.1 alignment driven by workloom-alignment (one design tree, workloom_task_align review/confirm); doctor never rewrites the overlay.',
+        }),
+    ];
+}
+//# sourceMappingURL=doctor-check-rules.js.map

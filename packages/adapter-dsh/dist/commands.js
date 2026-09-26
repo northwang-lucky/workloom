@@ -1,0 +1,142 @@
+/**
+ * adapter-dsh 的 slash 命令注册（薄投影层）。
+ *
+ * 设计意图：
+ * - 两个命令（init/doctor）的编排（cwd 校验、项目定位、健康检查、文本组装）
+ *   已下沉 core 的 command-ops / doctor，本文件只做宿主投影：取 cwd → 调 core →
+ *   followup 注入（指引/转述文本）+ 回执文本；continue/finish 已改造为同名 skill，
+ *   不再注册为命令；
+ * - 命令名/描述/错误前缀/资产路径改引 core surface 常量，文案与下沉前逐字一致；
+ * - 命令成功经 followup 注入 buildSuccessRelayText / 结果原文触发模型回合；
+ *   任何失败不返回 error 结果，而是 followup 注入 buildErrorRelayText 转述文本
+ *   触发模型回合，命令返回 success 回执（COMMAND_FAILURE_ACK）；
+ * - 顺序变化（规格允许）：先读资产（null 报 missing asset）再调 core。
+ */
+import { createUserMessage } from '@deepseek-ai/dsh-llm';
+import { buildDoctorRelayText, buildErrorRelayText, buildSuccessRelayText, COMMAND_DESCRIPTIONS, COMMAND_FAILURE_ACK, COMMAND_NAMES, DOCTOR_FIX_FLAG, ERR_PREFIX, ensureSpecTemplates, executeInitCommand, runDoctor, } from '@workloom-ai/core';
+import { readAssetText } from '@workloom-ai/assets';
+import { SOURCE_PLUGIN } from './constants.js';
+/** spec 模板资产相对 assets 包根（init 成功后补落进项目）。 */
+const ASSET_TEMPLATE_INDEX = 'templates/spec-index.md';
+const ASSET_TEMPLATE_DETAIL = 'templates/spec-detail.md';
+/**
+ * 注册两个 workloom 命令（ctx.commands 由 inject 声明为硬依赖；
+ * register 自绑定 fiber 生命周期，插件卸载时自动注销）。
+ * @param ctx 插件作用域上下文
+ */
+export function registerCommands(ctx) {
+    ctx.commands.register({
+        name: COMMAND_NAMES.init,
+        description: COMMAND_DESCRIPTIONS.init,
+        input: { hint: 'developer identity | --purge' },
+        handler: handleInit,
+    });
+    ctx.commands.register({
+        name: COMMAND_NAMES.doctor,
+        description: COMMAND_DESCRIPTIONS.doctor,
+        input: { hint: '--fix' },
+        handler: handleDoctor,
+    });
+}
+/**
+ * 读取会话 cwd；为空返回 null（调用方走失败转述出口）。
+ * @param invocation 命令调用
+ * @returns cwd 或 null
+ */
+function cwdOf(invocation) {
+    const cwd = invocation.agent.session.header.cwd;
+    if (cwd === undefined || cwd === '')
+        return null;
+    return cwd;
+}
+/**
+ * 命令失败统一出口：followup 注入错误转述文本触发模型回合，
+ * 命令返回 success 回执（不再 error kind，红错改由模型自然语言转述）。
+ * @param invocation 命令调用
+ * @param command 命令名
+ * @param errorText 原始错误消息
+ * @returns success 回执
+ */
+function relayFailure(invocation, command, errorText) {
+    followup(invocation, buildErrorRelayText(command, errorText));
+    return { kind: 'success', text: COMMAND_FAILURE_ACK };
+}
+/** init 命令：初始化 .workloom 骨架并可选迁移（编排下沉 core），成功后补落 spec 模板并注入转述。 */
+function handleInit(invocation) {
+    const cwd = cwdOf(invocation);
+    if (cwd === null) {
+        return relayFailure(invocation, COMMAND_NAMES.init, `${ERR_PREFIX.command}: cannot determine the working directory of this session`);
+    }
+    const [err, text] = executeInitCommand(cwd, invocation.rawInput);
+    if (err !== null || text === null) {
+        return relayFailure(invocation, COMMAND_NAMES.init, err?.message ?? `${ERR_PREFIX.command}: init returned no result`);
+    }
+    ensureTemplates(cwd);
+    followup(invocation, buildSuccessRelayText(COMMAND_NAMES.init, text));
+    return { kind: 'success', text };
+}
+/**
+ * 补落 spec 模板到项目 .workloom/spec/.templates/（幂等，core 写盘）。
+ * 模板是 init 的附属物：资产缺失、写盘失败或任何非预期异常都只告警，
+ * 不阻塞 init 成功路径。
+ * @param cwd init 命令的工作目录（项目根或根下目录均可）
+ */
+function ensureTemplates(cwd) {
+    try {
+        const indexTemplate = readAssetText(ASSET_TEMPLATE_INDEX);
+        const detailTemplate = readAssetText(ASSET_TEMPLATE_DETAIL);
+        if (indexTemplate === null || detailTemplate === null) {
+            console.warn(`${ERR_PREFIX.command}: spec template asset missing; skipped`);
+            return;
+        }
+        const [err] = ensureSpecTemplates({ root: cwd, indexTemplate, detailTemplate });
+        if (err !== null) {
+            console.warn(`${ERR_PREFIX.command}: spec templates: ${err.message}`);
+        }
+    }
+    catch (error) {
+        console.warn(`${ERR_PREFIX.command}: spec templates: ${String(error)}`);
+    }
+}
+/**
+ * doctor 命令：解析 --fix，跑健康检查引擎，followup 注入 JSON 报告 + 引导语触发模型回合。
+ * @param invocation 命令调用
+ * @returns 成功提示或失败转述回执
+ */
+function handleDoctor(invocation) {
+    const cwd = cwdOf(invocation);
+    if (cwd === null) {
+        return relayFailure(invocation, COMMAND_NAMES.doctor, `${ERR_PREFIX.command}: cannot determine the working directory of this session`);
+    }
+    const fix = hasFixFlag(invocation.rawInput);
+    const [err, report] = runDoctor(cwd, { fix });
+    if (err !== null || report === null) {
+        return relayFailure(invocation, COMMAND_NAMES.doctor, err?.message ?? `${ERR_PREFIX.command}: doctor returned no report`);
+    }
+    followup(invocation, buildDoctorRelayText(report));
+    return {
+        kind: 'success',
+        text: `Workloom doctor: ${report.summary.total} issue(s) found; handed the health report to the model.`,
+    };
+}
+/**
+ * 判定自由输入是否启用 --fix（精确 `--fix` 或以 `--fix ` 开头，参考 init --purge 的先例）。
+ * @param rawInput 命令自由输入
+ * @returns 是否启用修复
+ */
+function hasFixFlag(rawInput) {
+    const raw = rawInput.trim();
+    return raw === DOCTOR_FIX_FLAG || raw.startsWith(`${DOCTOR_FIX_FLAG} `);
+}
+/**
+ * 通过 followup 注入指引文本并触发模型回合（workloom 来源）。
+ * @param invocation 命令调用
+ * @param text 注入文本
+ */
+function followup(invocation, text) {
+    invocation.agent.followup(createUserMessage({
+        content: [{ type: 'text', text }],
+        source: { kind: 'workloom', plugin: SOURCE_PLUGIN },
+    }));
+}
+//# sourceMappingURL=commands.js.map
