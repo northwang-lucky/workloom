@@ -21,8 +21,7 @@
  * - 派发留痕：派发时刻即写 task.json dispatches（status: running），终态由
  *   executor-settle 的 subagent/end 全局监听按 childId 自动回填 completed/failed
  *   + 一行错误摘要，主会话不参与；失败派发（初写后未结算）也留痕可见；
- * - 工具依赖的 tools/subagents 服务按注册面做局部结构化声明（参考 plugin.ts 的
- *   SystemPromptService 做法），运行时由宿主注入；
+ * - 工具依赖的 tools/subagents 服务使用宿主官方类型（Context 增强），由宿主注入；
  * - 其余故障 fail loud（抛错由 DSH 工具管线转失败结果）；
  * - model 未显式传入时回退到 .workloom/config.json|js 的 subagents 配置（按 executor
  *   kind 取值，字段独立合并）；配置支持 subagent_profiles 按主会话当前模型
@@ -54,8 +53,9 @@
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：后台 receipt
  *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨。
  * - 并发容量闸（executor-capacity.ts）：新派发与续用入口均先取本主会话 running 集合
- *   （DSH 原生 listChildren(parentId)，会话级，不跨会话），结合 dispatches 记录 +
- *   label 解析补全 childId→kind 映射，调用 core 的 evaluateExecutorCapacity 判定；
+ *   （DSH 原生 listDescendants(parentId) 直子级 running 行，会话级，不跨会话），
+ *   结合 dispatches 记录 + label 解析补全 childId→kind 映射，调用 core 的
+ *   evaluateExecutorCapacity 判定；
  *   续用路径先把目标 childId 从 running 集合排除（其槽不重复计）；拒绝时返回英文
  *   at capacity 回执文案（注明撞限层级与计数），不写 dispatches、不 spawn，主会话稍后
  *   自行重试；不引入队列与 pending 态。
@@ -68,8 +68,11 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import type { SubagentSendMessageOptions, ContinuableStart, SubagentProvider, SubagentListEntry } from '@deepseek-ai/dsh-subagent'
-import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
+import { SessionId } from '@deepseek-ai/dsh-session'
+import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
+// Context 增强类型登记：tools/subagents 官方服务类型
+import type {} from '@deepseek-ai/dsh-subagent'
+import type {} from '@deepseek-ai/dsh-tools'
 
 import type { ExecutorInjectionStats } from '@workloom-ai/core'
 
@@ -115,7 +118,6 @@ import {
   releaseInFlightDispatch,
 } from './executor-capacity.js'
 import { registerResearchChildId, registerResearchGuard } from './executor-guard.js'
-import type { ResearchExecutionLike } from './executor-guard.js'
 import {
   buildTurnReceiptText,
   locateContinueChildId,
@@ -164,77 +166,6 @@ interface ExecutorArgs {
   reinject?: boolean
 }
 
-/** 工具执行上下文最小形状（exec 参数，仅消费 agent 与 signal）。 */
-interface ToolExec {
-  [k: string]: unknown
-  agent?: MinimalAgent
-  signal: AbortSignal
-}
-
-/** 发起 agent 的最小形状（continuable 派发需读 cwd 与最近请求头）。 */
-export interface MinimalAgent {
-  id: string
-  session: {
-    header: { cwd?: string }
-    /**
-     * 会话日志最新 request/header 快照（主模型来源；只声明 config 投影，不依赖
-     * dsh-session 的完整 LlmCallConfig 类型）。
-     */
-    requestHeader?(): { config?: { provider?: string; model?: string } } | undefined
-  }
-}
-
-/** tools 服务的最小接口（register + 作用域工具视图 + guard 守卫注册）。 */
-interface ToolsService {
-  register(definition: MinimalToolDefinition): () => void
-  schemas(scope?: object): readonly { name: string }[]
-  guard(guard: (execution: Readonly<ResearchExecutionLike>) => string | undefined): () => void
-}
-
-/** subagents 服务的最小接口（continuable 派发/续用/释放 + provider 查询 + 会话级 running 枚举）。 */
-interface SubagentsService {
-  getProvider(name: string): SubagentProvider | undefined
-  /** 枚举本主会话在途子代理（DSH 原生，会话级 running 集合的正规通道）。 */
-  listChildren(parentId: string, signal?: AbortSignal): Promise<SubagentListEntry[]>
-  startContinuable(spec: {
-    provider: string
-    label: string
-    request: {
-      prompt: TextBlockLike[]
-      parent: MinimalAgent
-      agentOptions?: { provider?: string; model?: string; reasoningEffort?: ReasoningEffortId }
-      maxDepth?: number
-      toolFilter?: ToolRestriction
-    }
-    signal: AbortSignal
-  }): Promise<ContinuableStart>
-  sendMessage(
-    sender: MinimalAgent,
-    targetId: string,
-    content: readonly TextBlockLike[],
-    options: SubagentSendMessageOptions,
-  ): Promise<string>
-}
-
-/** 工具定义的最小形状（与 DSH 工具注册面兼容的子集）。 */
-interface MinimalToolDefinition {
-  name: string
-  description: string
-  parameters: Record<string, unknown>
-  output: {
-    schema: { type: 'object' }
-    render(args: unknown, value: unknown): TextBlockLike[]
-  }
-  isConcurrencySafe(): boolean
-  execute(args: unknown, exec: unknown): Promise<unknown>
-}
-
-/** executor 依赖的服务注入面（运行时由宿主注入）。 */
-export interface ExecutorServices {
-  tools: ToolsService
-  subagents: SubagentsService
-}
-
 /** 工具成功返回的 canonical 值形状（后台派发：childId + receipt；提示面：输出文本）。 */
 type ExecutorValue =
   | { kind: 'background'; childId: string; receipt: string }
@@ -242,11 +173,10 @@ type ExecutorValue =
 
 /**
  * 注册 workloom_execute 工具（register 自绑定 fiber 生命周期，插件卸载自动注销）。
- * @param ctx 插件上下文（tools/subagents 由宿主注入）
+ * @param ctx 插件上下文（tools/subagents 由宿主注入，官方 Context 增强类型）
  */
-export function registerExecutor(ctx: Context & ExecutorServices): void {
-  const { tools } = ctx
-  tools.register({
+export function registerExecutor(ctx: Context): void {
+  ctx.tools.register({
     name: TOOL_NAMES.executor,
     description: TOOL_DESCRIPTIONS.executor,
     parameters: buildExecutorSchema(PARAM_DESCRIPTIONS),
@@ -255,7 +185,7 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
       render: (_args, value) => [renderOutput(value)],
     },
     isConcurrencySafe: () => true,
-    execute: (args, exec: unknown) => executeTool(ctx, args, exec as ToolExec),
+    execute: (args, exec) => executeTool(ctx, args, exec),
   })
   // research 写守卫：插件激活时注册一次（机制强制面：research 只能写 <cwd>/.workloom/）。
   registerResearchGuard(ctx)
@@ -264,7 +194,6 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
   registerDispatchSettlement(ctx)
 }
 
-/* ---- 下文分段追加：executeTool 与辅助函数 ---- */
 /**
  * 后台派发（或续用）executor 子代理并立即返回 childId + receipt。
  * @param ctx 插件上下文（含 subagents 服务）
@@ -273,9 +202,9 @@ export function registerExecutor(ctx: Context & ExecutorServices): void {
  * @returns canonical 结果（background 派发或 notice 提示面）
  */
 async function executeTool(
-  ctx: Context & ExecutorServices,
+  ctx: Context,
   args: unknown,
-  exec: ToolExec,
+  exec: ToolRunContext,
 ): Promise<ExecutorValue> {
   const params = args as ExecutorArgs
   const parent = exec.agent
@@ -512,7 +441,7 @@ async function executeTool(
     // parent 严格校验拒绝（belongs to another parent session）转译为引导文案（见
     // translateForkContinueError，保留 isError 语义）。
     try {
-      await ctx.subagents.sendMessage(parent, childId, [{ type: 'text', text: sendText }], {
+      await ctx.subagents.sendMessage(parent, SessionId(childId), [{ type: 'text', text: sendText }], {
         signal: exec.signal,
       })
       // 投递成功：child 已在 native 视野，移除 in-flight 本地项。

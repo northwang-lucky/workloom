@@ -17,8 +17,11 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 
-import { ERR_PREFIX, EXECUTOR_KINDS, findWorkloomRoot } from '@workloom-ai/core'
+import type { Context } from '@deepseek-ai/cordis'
+import type { ToolExecution } from '@deepseek-ai/dsh-tools'
+import type {} from '@deepseek-ai/dsh-tools'
 
+import { ERR_PREFIX, EXECUTOR_KINDS, findWorkloomRoot } from '@workloom-ai/core'
 /** 受守卫约束的工具名（DSH 文件工具；其余工具一律放行）。 */
 const WRITE_TOOL = 'write'
 const EDIT_TOOL = 'edit'
@@ -33,27 +36,13 @@ const TASKS_DIR = 'tasks'
 const ARCHIVE_DIR = 'archive'
 
 /** 守卫入参的最小形状（DSH ToolExecution 的窄化投影，不引入 dsh-tools 类型依赖）。 */
-export interface ResearchExecutionLike {
-  name: string
-  arguments: unknown
-  agent?: {
-    id?: string
-    session?: { header?: { cwd?: string } }
-  }
-}
+/** 守卫入参（官方 ToolExecution；agent 携带会话 cwd 供项目根定位）。 */
+export type ResearchExecutionLike = ToolExecution
 
 /** 守卫状态：项目根 → 该项目的 research 子代理 id 集（派发登记 + 扫描重建维护）。 */
 export interface ResearchGuardState {
   byRoot: Map<string, Set<string>>
 }
-
-/** 守卫注册面（ctx.tools.guard 的最小形状）。 */
-export interface ResearchGuardServices {
-  tools: {
-    guard(guard: (execution: Readonly<ResearchExecutionLike>) => string | undefined): () => void
-  }
-}
-
 /** 创建空的守卫状态（每插件激活一份；重启后按项目懒重建）。 */
 export function createResearchGuardState(): ResearchGuardState {
   return { byRoot: new Map() }
@@ -163,7 +152,7 @@ export function researchWriteGuard(
 const pluginGuardState = createResearchGuardState()
 
 /** 插件激活时注册 research 写守卫（一次；卸载由 ctx.tools.guard 的 disposer 处理）。 */
-export function registerResearchGuard(ctx: ResearchGuardServices): void {
+export function registerResearchGuard(ctx: Context): void {
   ctx.tools.guard(researchWriteGuard(pluginGuardState))
 }
 

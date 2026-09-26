@@ -10,6 +10,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 
 import {
   ERR_PREFIX,
@@ -18,25 +19,6 @@ import {
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
 } from '@workloom-ai/core'
-
-/** 工具执行上下文最小形状（仅消费 agent 会话头）。 */
-interface JournalToolExec {
-  agent?: { session: { header: { cwd?: string } } }
-}
-
-/** 工具注册面最小形状。 */
-export interface JournalToolServices {
-  tools: {
-    register(definition: {
-      name: string
-      description: string
-      parameters: Record<string, unknown>
-      output: { schema: Record<string, unknown>; render(args: unknown, value: unknown): unknown[] }
-      isConcurrencySafe(): boolean
-      execute(args: unknown, exec: unknown): Promise<unknown>
-    }): () => void
-  }
-}
 
 /** 文本结果块。 */
 interface TextBlockLike {
@@ -48,7 +30,7 @@ interface TextBlockLike {
  * 注册 journal 工具（workloom_journal）。
  * @param ctx 插件作用域上下文
  */
-export function registerJournalTool(ctx: Context & JournalToolServices): void {
+export function registerJournalTool(ctx: Context): void {
   ctx.tools.register({
     name: TOOL_NAMES.journal,
     description: TOOL_DESCRIPTIONS.journal,
@@ -70,8 +52,8 @@ export function registerJournalTool(ctx: Context & JournalToolServices): void {
 }
 
 /** 从执行上下文解析会话 cwd（空串抛错，前缀沿用 core 的 command 约定）。 */
-function cwdOf(exec: unknown): string {
-  const cwd = (exec as JournalToolExec).agent?.session.header.cwd ?? ''
+function cwdOf(exec: ToolRunContext): string {
+  const cwd = exec.agent?.session.header.cwd ?? ''
   if (cwd === '') {
     throw new Error(`${ERR_PREFIX.command}: cannot determine the working directory of this session`)
   }
@@ -79,7 +61,7 @@ function cwdOf(exec: unknown): string {
 }
 
 /** journal 工具：记录会话日志（编排下沉 core，err 直接抛给宿主）。 */
-async function journalTool(args: unknown, exec: unknown): Promise<unknown> {
+async function journalTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, result] = await executeJournalEntry(cwd, {

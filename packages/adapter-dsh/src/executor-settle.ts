@@ -7,7 +7,7 @@
  *   记入进程内注册表：subagent/end 载荷不含父会话/cwd（事件 args 只有 info），
  *   无法回推任务，必须派发时显式登记；同一子代理会话始终属于同一任务，同
  *   childId 多轮派发覆盖为最新任务（等价幂等）；
- * - apply(ctx) 经 registerExecutor 注册两条全局监听（先例 effort-inject.ts:33）：
+ * - apply(ctx) 经 registerExecutor 注册两条全局监听：
  *   - session/event：对登记表内 childId 捕获最近一次 turn/end 的 error（真实 DSH
  *     reason.error 为结构化 { message, code }），压成一行 `<message> (<code>)`
  *     覆盖式写入 lastTurnErrorByChildId——结算时才有真实错误可写，主会话不再靠
@@ -22,7 +22,7 @@
  * - 两条注册表与结算同生命周期：trackDispatchSettle 派发时清除上轮残留错误
  *   （错误登记覆盖式取最近、仅 error 终态消费），每条结算后消费条目（每 epoch
  *   结算一次；后续续用轮派发时重新登记），避免注册表无界增长；
- * - 监听器同步边界，内部 try/catch 只告警不冒泡（与 effort-inject 同策）。
+ * - 监听器同步边界，内部 try/catch 只告警不冒泡（serial 派发下监听器抛错会拒绝 agent 注册）。
  */
 import type { Context } from '@deepseek-ai/cordis'
 

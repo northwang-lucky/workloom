@@ -146,10 +146,10 @@ function makeCtx(overrides = {}) {
         inheritsParentContext: true,
       }
     },
-    // 会话级 running 枚举（DSH 原生 listChildren 接缝）：用例可经 overrides.listChildren
+    // 会话级 running 枚举（DSH 原生 listDescendants 接缝）：用例可经 overrides.listDescendants
     // 注入 mock 返回值（SubagentListEntry 形状：kind/activity/id/label）；默认空集合。
-    async listChildren() {
-      if (overrides.listChildren !== undefined) return overrides.listChildren()
+    async listDescendants() {
+      if (overrides.listDescendants !== undefined) return overrides.listDescendants()
       return []
     },
     // continuable 派发：resolve 即返回 durable childId。
@@ -2557,14 +2557,14 @@ test('循环 settle：同 childId 两条 running 一次 end 全部回填 failed'
 
 // ---------- 并发容量闸（R3 派发入口闸） ----------
 
-/** 构造 listChildren 返回的 running 子代理条目（SubagentListEntry 最小形状）。 */
+/** 构造 listDescendants 返回的 running 直子级条目（SubagentDescendantListEntry 最小形状）。 */
 function makeRunningChild(childId, kindLabel) {
-  return { kind: 'child', id: childId, activity: 'running', mode: 'continuable', label: `[${kindLabel}] t` }
+  return { kind: 'child', id: childId, parentId: 'parent-session', depth: 1, activity: 'running', mode: 'continuable', label: `[${kindLabel}] t` }
 }
 
 /**
  * 在 task.json 预写 running dispatches（供 collectRunningExecutors 读取 childId→kind 映射），
- * 并返回各 childId 对应的 kindLabel 文案（构造 listChildren mock 用）。
+ * 并返回各 childId 对应的 kindLabel 文案（构造 listDescendants mock 用）。
  */
 function seedRunningDispatches(root, entries) {
   const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
@@ -2586,7 +2586,7 @@ test('capacity: 全局达限拒绝（2 running / limit 2）并返回 at capacity
       { childId: 'child-b', kind: 'research' },
     ])
     const { execute, startCalls } = setupExecutor({
-      listChildren: async () => [
+      listDescendants: async () => [
         makeRunningChild('child-a', 'Implement'),
         makeRunningChild('child-b', 'Research'),
       ],
@@ -2615,7 +2615,7 @@ test('capacity: 全局显式 0 = 不限（多 running 仍放行）', async () =>
       { childId: 'child-c', kind: 'check' },
     ])
     const { execute, startCalls } = setupExecutor({
-      listChildren: async () => [
+      listDescendants: async () => [
         makeRunningChild('child-a', 'Implement'),
         makeRunningChild('child-b', 'Research'),
         makeRunningChild('child-c', 'Check'),
@@ -2645,7 +2645,7 @@ test('capacity: kind 闸达限拒绝（kind 2/2）并返回 kind 层回执文案
       { childId: 'child-b', kind: 'implement' },
     ])
     const { execute, startCalls } = setupExecutor({
-      listChildren: async () => [
+      listDescendants: async () => [
         makeRunningChild('child-a', 'Implement'),
         makeRunningChild('child-b', 'Implement'),
       ],
@@ -2668,7 +2668,7 @@ test('capacity: 续用不误占槽（排除目标 childId 后未达限 → 放�
     // 1 个 running（即续用目标 child-a），全局上限 2；排除后 running=0 → 放行。
     seedRunningDispatches(root, [{ childId: 'child-a', kind: 'implement' }])
     const { execute, sendMessageCalls } = setupExecutor({
-      listChildren: async () => [makeRunningChild('child-a', 'Implement')],
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
     })
     const parent = makeAgent(root)
     await execute(
@@ -2693,7 +2693,7 @@ test('capacity: 续用目标之外达限 → 续用被拒（排除目标后其�
       { childId: 'child-c', kind: 'research' },
     ])
     const { execute, sendMessageCalls } = setupExecutor({
-      listChildren: async () => [
+      listDescendants: async () => [
         makeRunningChild('child-a', 'Implement'),
         makeRunningChild('child-b', 'Implement'),
         makeRunningChild('child-c', 'Research'),
@@ -2730,7 +2730,7 @@ test('capacity: 配置解析报错（executor.max_concurrent 为负）', async (
 
 // ---------- 并发闸异步窗口（in-flight 竞态防治，P1-3） ----------
 
-test('capacity: 并发闸异步窗口——mock listChildren 恒空 + 延迟 startContinuable，两连发第二笔必须 at capacity', async () => {
+test('capacity: 并发闸异步窗口——mock listDescendants 恒空 + 延迟 startContinuable，两连发第二笔必须 at capacity', async () => {
   // 时序核心：DSH 同轮可并行多工具调用，第一笔闸放行后 startContinuable 尚未返回
   // （child 未进 native 视野），若无 in-flight 结构，第二笔会看到空 running 集合而过闸。
   // 修复后：第一笔同步登记 in-flight → 第二笔取数 = native(空) ∪ in-flight(1) → 达限拒绝。
@@ -2744,7 +2744,7 @@ test('capacity: 并发闸异步窗口——mock listChildren 恒空 + 延迟 sta
       releaseFirstStartContinuable = resolve
     })
     const { execute } = setupExecutor({
-      listChildren: async () => [],
+      listDescendants: async () => [],
       startContinuableDelay: firstStartContinuableDelay,
     })
     const parent = makeAgent(root)

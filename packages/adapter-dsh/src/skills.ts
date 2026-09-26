@@ -18,7 +18,7 @@
 import { dirname, join } from 'node:path'
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
 
 import {
@@ -75,67 +75,17 @@ export interface ParsedSkillFrontmatter {
 }
 
 /** SkillRegistration 最小形状（与 @deepseek-ai/dsh-skill 注册面兼容的子集）。 */
-interface SkillRegistration {
-  name: string
-  description: string
-  whenToUse?: string
-  content: string
-  source: 'runtime'
-  path?: string
-  resourceBase?: { kind: 'directory'; path: string }
-}
-
-/** skills 服务的最小接口（register 即可；返回 fiber 生命周期 disposer）。 */
-interface SkillsService {
-  register(skill: SkillRegistration): () => void
-}
-
-/** tools 服务的最小接口（register 即可）。 */
-interface ToolsService {
-  register(definition: MinimalToolDefinition): () => void
-}
-
 /** 叶子执行器提示文本模板（workloom_step 深度>0 时的契约兜底，运行时文案英文）。 */
 const LEAF_STEP_HINT = (stepId: string): string =>
   `Workflow step ${stepId} is managed by the main session. ` +
   'You are a leaf executor subagent: implement the task directly from the task artifacts; ' +
   'never delegate to other agents or call workloom orchestration tools.'
 
-/** 工具执行上下文最小形状（execute 入参，仅消费 agent；缺失视为深度 0）。 */
-interface StepToolExec {
-  [k: string]: unknown
-  agent?: Agent
-}
-
-/** 工具定义的最小形状（与 DSH 工具注册面兼容的子集，参考 executor.ts）。 */
-interface MinimalToolDefinition {
-  name: string
-  description: string
-  parameters: Record<string, unknown>
-  output: {
-    schema: { type: 'object' }
-    render(args: unknown, value: unknown): TextBlockLike[]
-  }
-  isConcurrencySafe(): boolean
-  execute(args: unknown, exec?: unknown): StepToolValue
-}
-
 /** 步骤详情工具成功返回的 canonical 值形状（与 executor.ts 对齐）。 */
 interface StepToolValue {
   kind: 'foreground'
   output: TextBlockLike[]
 }
-
-/** skills 注册依赖的服务注入面（运行时由宿主注入）。 */
-export interface SkillsServices {
-  skills: SkillsService
-}
-
-/** workloom_step 工具依赖的服务注入面（仅消费 tools）。 */
-export interface StepsToolServices {
-  tools: ToolsService
-}
-
 /** 把任意异常归一为 Error（内部）。 */
 function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value))
@@ -209,7 +159,12 @@ function parseSkillFrontmatterInternal(markdownText: string): ParsedSkillFrontma
  * 插件卸载自动注销）。任一 skill 缺失/解析失败/注册抛错都只告警跳过，不阻塞插件。
  * @param ctx 插件上下文（skills 由宿主注入）
  */
-export function registerSkills(ctx: Context & SkillsServices): void {
+/**
+ * 注册 assets 包内的 8 个 SKILL.md 到 ctx.skills（register 自绑定 fiber 生命周期，
+ * 插件卸载自动注销）。任一 skill 缺失/解析失败/注册抛错都只告警跳过，不阻塞插件。
+ * @param ctx 插件上下文（skills 由宿主注入，官方 Context 增强类型）
+ */
+export function registerSkills(ctx: Context): void {
   for (const rel of SKILL_ASSETS) {
     const text = readAssetText(rel)
     if (text === null) {
@@ -242,9 +197,8 @@ export function registerSkills(ctx: Context & SkillsServices): void {
  * 注册 workloom_step 工具：按 stepId 返回工作流契约中的步骤详情。
  * @param ctx 插件上下文（tools 由宿主注入）
  */
-export function registerStepsTool(ctx: Context & StepsToolServices): void {
-  const { tools } = ctx
-  tools.register({
+export function registerStepsTool(ctx: Context): void {
+  ctx.tools.register({
     name: TOOL_NAMES.step,
     description: TOOL_DESCRIPTIONS.step,
     parameters: {
@@ -263,7 +217,7 @@ export function registerStepsTool(ctx: Context & StepsToolServices): void {
       render: (_args, value) => [renderOutput(value)],
     },
     isConcurrencySafe: () => true,
-    execute: (args, exec) => executeStepTool(args, exec),
+    execute: (args, exec) => Promise.resolve(executeStepTool(args, exec)),
   })
 }
 
@@ -277,12 +231,12 @@ export function registerStepsTool(ctx: Context & StepsToolServices): void {
  * @param exec 工具执行上下文（发起 agent；缺失视为深度 0）
  * @returns canonical 结果 {kind, output}
  */
-function executeStepTool(args: unknown, exec?: unknown): StepToolValue {
+function executeStepTool(args: unknown, exec?: ToolRunContext): StepToolValue {
   const params = args as { stepId?: string }
   if (params.stepId === undefined) {
     throw new Error(`${SURFACE_ERR_PREFIX.stepTool}: stepId parameter is required`)
   }
-  const agent = (exec as StepToolExec | undefined)?.agent
+  const agent = exec?.agent
   if (agent !== undefined && delegationDepthOf(agent) > 0) {
     return { kind: 'foreground', output: [{ type: 'text', text: LEAF_STEP_HINT(params.stepId) }] }
   }

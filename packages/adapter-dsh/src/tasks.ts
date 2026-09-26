@@ -10,6 +10,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
 
 import {
@@ -29,26 +30,6 @@ import {
 
 import { CONTEXT_KEY_PREFIX } from './constants.js'
 
-/** 工具执行上下文最小形状（仅消费 agent 与 signal）。 */
-interface ToolExec {
-  agent?: { id: string; session: { header: { cwd?: string } } }
-  signal: AbortSignal
-}
-
-/** 工具注册面最小形状。 */
-export interface TaskToolsServices {
-  tools: {
-    register(definition: {
-      name: string
-      description: string
-      parameters: Record<string, unknown>
-      output: { schema: Record<string, unknown>; render(args: unknown, value: unknown): unknown[] }
-      isConcurrencySafe(): boolean
-      execute(args: unknown, exec: unknown): Promise<unknown>
-    }): () => void
-  }
-}
-
 /** 文本结果块。 */
 interface TextBlockLike {
   type: 'text'
@@ -59,7 +40,7 @@ interface TextBlockLike {
  * 注册六个任务管理工具（create/start/check/finish/archive/list）。
  * @param ctx 插件作用域上下文
  */
-export function registerTaskTools(ctx: Context & TaskToolsServices): void {
+export function registerTaskTools(ctx: Context): void {
   const tools = ctx.tools
 
   tools.register({
@@ -194,13 +175,13 @@ export function registerTaskTools(ctx: Context & TaskToolsServices): void {
 }
 
 /** 从执行上下文解析会话 cwd（空串抛错，消息前缀来自 core）。 */
-function cwdOf(exec: unknown): string {
-  return requireWorkloomCwd((exec as ToolExec).agent?.session.header.cwd ?? '')
+function cwdOf(exec: ToolRunContext): string {
+  return requireWorkloomCwd(exec.agent?.session.header.cwd ?? '')
 }
 
 /** 组装会话 contextKey（DSH 会话指针前缀约定）。 */
-function contextKeyOf(exec: unknown): string {
-  return `${CONTEXT_KEY_PREFIX}_${(exec as ToolExec).agent?.id ?? ''}`
+function contextKeyOf(exec: ToolRunContext): string {
+  return `${CONTEXT_KEY_PREFIX}_${exec.agent?.id ?? ''}`
 }
 
 /** 提取可选 taskPath 参数（非字符串按未指定处理）。 */
@@ -222,7 +203,7 @@ function stringOf(args: Record<string, unknown>, key: string): string | undefine
 }
 
 /** create 工具：创建任务并设为当前会话活跃任务（编排下沉 core）。 */
-async function createTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+async function createTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, result] = await executeCreateTask(cwd, contextKeyOf(exec), {
@@ -244,7 +225,7 @@ async function createTaskTool(args: unknown, exec: unknown): Promise<unknown> {
 }
 
 /** start 工具：把任务从 planning 移到 in_progress。 */
-async function startTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+async function startTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, task] = await executeStartTask(cwd, contextKeyOf(exec), {
@@ -259,7 +240,7 @@ async function startTaskTool(args: unknown, exec: unknown): Promise<unknown> {
 }
 
 /** check 工具：记录 2.2 check 通过凭据。 */
-async function checkTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+async function checkTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, task] = await executeCheckTask(cwd, contextKeyOf(exec), {
@@ -278,13 +259,11 @@ async function checkTaskTool(args: unknown, exec: unknown): Promise<unknown> {
  * align 工具：Phase 1.1 review/confirm（R10：只允许主会话调用——executor 等
  * 子代理按 delegation depth 硬拒绝；Pi 子进程以 --no-extensions spawn 天然无此工具）。
  */
-async function alignTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+async function alignTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
-  const agent = (exec as ToolExec).agent
+  const agent = exec.agent
   if (agent !== undefined) {
-    // delegationDepthOf 需要完整 Agent 形状；工具执行上下文里 agent 为宿主对象，
-    // 经 unknown 双断言收窄（编译面），运行期宿主 agent 恒带 options/session。
-    const depth = delegationDepthOf(agent as unknown as Parameters<typeof delegationDepthOf>[0])
+    const depth = delegationDepthOf(agent)
     if (depth > 0) {
       throw new Error(
         `${ERR_PREFIX.taskTool}: workloom_task_align can only be called from the main session ` +
@@ -307,7 +286,7 @@ async function alignTaskTool(args: unknown, exec: unknown): Promise<unknown> {
 }
 
 /** finish 工具：清除会话活跃任务指针（状态不变）。 */
-async function finishTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+async function finishTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, result] = await executeFinishTask(cwd, contextKeyOf(exec), taskPathOf(typed))
@@ -318,7 +297,7 @@ async function finishTaskTool(args: unknown, exec: unknown): Promise<unknown> {
 }
 
 /** archive 工具：归档任务（completed + 移入 archive/，可选 git 自动提交；taskPath 必填）。 */
-async function archiveTaskTool(args: unknown, exec: unknown): Promise<unknown> {
+async function archiveTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, result] = await executeArchiveTask(cwd, {
@@ -334,7 +313,7 @@ async function archiveTaskTool(args: unknown, exec: unknown): Promise<unknown> {
 }
 
 /** list 工具：列出任务摘要（可选 status 过滤）。 */
-async function listTasksTool(args: unknown, exec: unknown): Promise<unknown> {
+async function listTasksTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
   const [err, result] = await executeListTasks(

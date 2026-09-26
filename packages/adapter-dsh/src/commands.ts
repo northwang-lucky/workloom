@@ -173,7 +173,17 @@ function hasFixFlag(rawInput: string): boolean {
 }
 
 /**
- * 通过 followup 注入指引文本并触发模型回合（plugin 来源）。
+ * workloom 命令转述消息的来源 kind（0.1.7 起 MessageSourceMap 为可合并扩展类型，
+ * 各生产者在自己的模块声明 kind，官方已移除共享 plugin 兜底；消费方对未知 kind 透传）。
+ */
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    workloom: { kind: 'workloom'; plugin: string }
+  }
+}
+
+/**
+ * 通过 followup 注入指引文本并触发模型回合（workloom 来源）。
  * @param invocation 命令调用
  * @param text 注入文本
  */
@@ -181,7 +191,7 @@ function followup(invocation: CommandInvocation, text: string): void {
   invocation.agent.followup(
     createUserMessage({
       content: [{ type: 'text', text }],
-      source: { kind: 'plugin', plugin: SOURCE_PLUGIN },
+      source: { kind: 'workloom', plugin: SOURCE_PLUGIN },
     }),
   )
 }

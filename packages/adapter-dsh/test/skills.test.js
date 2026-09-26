@@ -104,9 +104,9 @@ function setupStepTool() {
   return def.execute.bind(def)
 }
 
-test('workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文）', () => {
+test('workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文）', async () => {
   const execute = setupStepTool()
-  const value = execute({ stepId: '1.1' }, { agent: makeAgent(1) })
+  const value = await execute({ stepId: '1.1' }, { agent: makeAgent(1) })
   const text = value.output[0].text
   assert.ok(text.includes('1.1'), 'hint echoes the step id')
   assert.ok(text.includes('leaf executor'), 'hint names the leaf executor role')
@@ -117,16 +117,16 @@ test('workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显�
   assert.ok(!text.includes('## 1.1 '), 'contract body must not be returned to a leaf executor')
 })
 
-test('workloom_step 深度=0：返回契约原文（现状不变）', () => {
+test('workloom_step 深度=0：返回契约原文（现状不变）', async () => {
   const execute = setupStepTool()
-  const value = execute({ stepId: '1.1' }, { agent: makeAgent(0) })
+  const value = await execute({ stepId: '1.1' }, { agent: makeAgent(0) })
   const text = value.output[0].text
   assert.ok(text.startsWith('## 1.1 '), 'contract body returned verbatim for the main session')
 })
 
-test('workloom_step exec 缺失时视为深度 0：返回契约原文', () => {
+test('workloom_step exec 缺失时视为深度 0：返回契约原文', async () => {
   const execute = setupStepTool()
-  const value = execute({ stepId: '1.1' })
+  const value = await execute({ stepId: '1.1' })
   const text = value.output[0].text
   assert.ok(text.startsWith('## 1.1 '), 'missing exec.agent must fall back to depth 0')
 })

@@ -9,12 +9,20 @@
  * - 两个 text provider 都是同步签名，共用同一套自激活判定（agent → cwd → 项目根）；
  * - 自激活：cwd 不在 .workloom 项目内时静默返回空串，不注入任何内容；
  * - 注入失败只 console.warn，绝不阻塞会话（注入是增强，不是门禁）；
- * - systemPrompt 服务未作为本包依赖（不强依赖），按注册面做结构化局部声明。
+ * - 服务面全部使用宿主官方类型（Context 增强）：systemPrompt/agents/commands/
+ *   tools/subagents/skills 由 inject 声明硬依赖，缺任一插件不激活；
+ * - effort 经 startContinuable 的 agentOptions.reasoningEffort 原生通道透传
+ *   （0.1.7 起 DSH 原生消费并持久化），不再需要 agent/created 监听补丁。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent'
+// Context 增强类型登记：systemPrompt/agents/commands/tools/subagents/skills 官方服务类型
+import type {} from '@deepseek-ai/dsh-system-prompt'
+import type {} from '@deepseek-ai/dsh-commands'
+import type {} from '@deepseek-ai/dsh-tools'
+import type {} from '@deepseek-ai/dsh-skill'
 
 import { CONTEXT_KEY_PREFIX, PLUGIN_NAME } from './constants.js'
 
@@ -31,16 +39,10 @@ import { loadWorkflowContractText } from '@workloom-ai/assets'
 
 import { registerCommands } from './commands.js'
 import { registerExecutor } from './executor.js'
-import type { ExecutorServices } from './executor.js'
-import { registerEffortInjection } from './effort-inject.js'
 import { readMainModel } from './main-model.js'
 import { registerSkills, registerStepsTool } from './skills.js'
-import type { SkillsServices, StepsToolServices } from './skills.js'
 import { registerTaskTools } from './tasks.js'
-import type { TaskToolsServices } from './tasks.js'
 import { registerJournalTool } from './journal-tool.js'
-import type { JournalToolServices } from './journal-tool.js'
-
 /** 注入 section 名（systemPrompt 注册键，同名重复注册会抛错）。 */
 const SECTION_NAME = 'workloom-breadcrumb'
 
@@ -58,24 +60,6 @@ const WARN_PREFIX = 'workloom: breadcrumb injection skipped:'
 
 /** session-context 注入失败时的告警前缀（运行时文案英文）。 */
 const CONTEXT_WARN_PREFIX = 'workloom: session context injection skipped:'
-
-/**
- * systemPrompt 服务的最小结构化接口。
- * @deepseek-ai/dsh-system-prompt 未作为本包依赖，按注册面局部声明；
- * 运行时由宿主注入的 systemPrompt 服务满足该结构（inject 已声明硬依赖）。
- */
-interface SystemPromptService {
-  section(section: {
-    name: string
-    order: number
-    text: string | ((context: unknown) => string)
-  }): () => void
-  context(context: {
-    name: string
-    order: number
-    text: string | ((context: unknown) => string)
-  }): () => void
-}
 
 /** 自激活判定的结果：当前发起 agent 与所在项目根（导出供组装函数公共签名引用）。 */
 export interface InjectionTarget {
@@ -105,8 +89,7 @@ export const inject = [
 export function apply(ctx: Context): void {
   // protocol 握手（R21）：任何注册副作用前解析资产契约并校验版本一致，不匹配 fail loud。
   assertLoadedWorkflowProtocol()
-  const service = systemPromptOf(ctx)
-  service.context({
+  ctx.systemPrompt.context({
     name: CONTEXT_NAME,
     order: CONTEXT_ORDER,
     // 同步 text provider：DSH 在每次组装时同步求值，故走 core 的同步核心。
@@ -116,7 +99,7 @@ export function apply(ctx: Context): void {
       return renderSessionContext(target)
     },
   })
-  service.section({
+  ctx.systemPrompt.section({
     name: SECTION_NAME,
     order: SECTION_ORDER,
     // 同步 text provider：DSH 在每次组装时同步求值，故走 core 的同步核心。
@@ -127,15 +110,11 @@ export function apply(ctx: Context): void {
     },
   })
   registerCommands(ctx)
-  // 服务注入面为局部结构化声明，运行时由宿主满足；断言仅打通类型边界。
-  registerExecutor(ctx as Context & ExecutorServices)
-  // effort 通道：全局 agent/created 监听，对携带 reasoningEffort 的 in-process 子代理
-  // 安装模型选择器，由 DSH 瀑布把 effort 注入请求配置；无该字段的 agent 零影响。
-  registerEffortInjection(ctx)
-  registerSkills(ctx as Context & SkillsServices)
-  registerStepsTool(ctx as Context & StepsToolServices)
-  registerTaskTools(ctx as Context & TaskToolsServices)
-  registerJournalTool(ctx as Context & JournalToolServices)
+  registerExecutor(ctx)
+  registerSkills(ctx)
+  registerStepsTool(ctx)
+  registerTaskTools(ctx)
+  registerJournalTool(ctx)
 }
 
 /**
@@ -246,15 +225,6 @@ export function assembleSessionContextText(
     return ''
   }
   return text ?? ''
-}
-
-/**
- * 读取 systemPrompt 服务（inject 已声明硬依赖，运行期必然存在）。
- * @param ctx 插件上下文
- * @returns systemPrompt 服务
- */
-function systemPromptOf(ctx: Context): SystemPromptService {
-  return (ctx as Context & { systemPrompt: SystemPromptService }).systemPrompt
 }
 
 /**

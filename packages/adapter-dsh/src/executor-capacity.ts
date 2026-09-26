@@ -2,27 +2,28 @@
  * adapter-dsh executor 并发容量闸：会话级 running 取数 + core 判定 + 回执。
  *
  * 设计意图：
- * - running 集合取 DSH 原生 listChildren(parentId)，仅计本主会话在途 child（activity='running'），
- *   符合「按主会话计数」语义（对齐决策 2A），不跨会话；
+ * - running 集合取 DSH 原生 listDescendants(parentId) 的直子级行（depth=1 且
+ *   kind='child' 且 activity='running'），仅计本主会话在途 child，符合「按主会话
+ *   计数」语义（对齐决策 2A），不跨会话；0.1.7 起 listChildren 只回目录投影
+ *   （无 activity），enriched 行（kind/activity/hasChildren）由 listDescendants 返回；
  * - childId→kind 映射：优先从本任务 dispatches 记录读取（workloom 派发留痕，权威来源），
- *   缺失时回退解析 listChildren 的 label（[<KindLabel>] <title>），两路均无则 kind 置空
+ *   缺失时回退解析 listDescendants 的 label（[<KindLabel>] <title>），两路均无则 kind 置空
  *   （仍占全局槽、不占任何 kind 槽——保守安全）；
  * - 判定委托 core 的 evaluateExecutorCapacity 纯函数，拒绝时返回 formatAtCapacityReceipt
  *   文案（不抛错、不写 dispatches、不 spawn），主会话稍后自行重试；
  * - 续用路径调用方传入 excludeChildId，把目标 child 从 running 集合排除（其槽不重复计）；
  * - 进程内同步 in-flight 结构：DSH 同轮可并行多工具调用，闸判定→startContinuable 之间
  *   存在异步窗口，两笔派发可同时过闸（与 Pi 缺陷 4 同款）。镜像 Pi 的 provisional 方案：
- *   闸判定通过后同步登记 in-flight 条目（键用派发序号），取数 = native listChildren(running)
+ *   闸判定通过后同步登记 in-flight 条目（键用派发序号），取数 = native listDescendants(running)
  *   ∪ in-flight 本地集；startContinuable 成功返回后 child 已进 native 视野→移除本地项；
  *   失败/异常路径 catch 中移除。in-flight 是会话进程内结构，本会话计数语义不变。
  */
-import type { SubagentListEntry } from '@deepseek-ai/dsh-subagent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { SubagentDescendantListEntry } from '@deepseek-ai/dsh-subagent'
 import { evaluateExecutorCapacity, formatAtCapacityReceipt, readTask } from '@workloom-ai/core'
 import type { RunningExecutorRecord } from '@workloom-ai/core'
 
-import type { MinimalAgent } from './executor.js'
 import { KIND_LABELS } from './executor-injection.js'
-
 /* ---- 进程内同步 in-flight 结构（DSH 闸异步窗口竞态防治） ---- */
 
 /** in-flight 派发条目（闸判定通过后、startContinuable 返回前占槽）。 */
@@ -86,11 +87,10 @@ export function clearInFlightDispatches(): void {
   inFlightDispatches.clear()
 }
 
-/** 子代理服务的最小 running 取数接口（DSH 原生 listChildren 会话级枚举）。 */
+/** 子代理服务的最小 running 取数接口（DSH 原生 listDescendants 会话级枚举）。 */
 export interface RunningCollectionService {
-  listChildren(parentId: string, signal?: AbortSignal): Promise<SubagentListEntry[]>
+  listDescendants(parentId: Agent['id'], signal?: AbortSignal): Promise<SubagentDescendantListEntry[]>
 }
-
 /**
  * label 显示标签 → executor kind 反向映射（回退解析用，枚举禁 Magic String）：
  * 由 buildChildLabel 使用的 KIND_LABELS 单一来源反转派生，两侧永不失配。
@@ -99,7 +99,7 @@ const LABEL_TO_KIND: Record<string, string> = Object.fromEntries(
   Object.entries(KIND_LABELS).map(([kind, label]) => [label, kind]),
 )
 
-/** 从 listChildren label（[<KindLabel>] <title>）回退解析 kind。 */
+/** 从 listDescendants label（[<KindLabel>] <title>）回退解析 kind。 */
 function kindFromLabel(label: string | undefined): string | undefined {
   if (!label) return undefined
   const match = label.match(/^\[([^\]]+)\]/)
@@ -111,8 +111,8 @@ function kindFromLabel(label: string | undefined): string | undefined {
 
 /**
  * 收集本主会话 running executor 集合（DSH native 会话级 + dispatches 补 kind）。
- * @param service 子代理服务（listChildren 枚举）
- * @param parent 发起 agent（取 id 作为 listChildren 的 parentSessionId）
+ * @param service 子代理服务（listDescendants 枚举）
+ * @param parent 发起 agent（取 id 作为 listDescendants 的根会话 id）
  * @param signal 取消信号
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径（读 dispatches 补 kind）
@@ -121,13 +121,13 @@ function kindFromLabel(label: string | undefined): string | undefined {
  */
 export async function collectRunningExecutors(
   service: RunningCollectionService,
-  parent: MinimalAgent,
+  parent: Agent,
   signal: AbortSignal,
   root: string,
   taskRelPath: string,
   excludeChildId?: string,
 ): Promise<RunningExecutorRecord[]> {
-  const entries = await service.listChildren(parent.id, signal)
+  const entries = await service.listDescendants(parent.id, signal)
   // childId → kind：优先本任务 dispatches 记录（workloom 派发留痕，权威来源）。
   const [taskErr, task] = readTask(root, taskRelPath)
   const kindByChildId = new Map<string, string>()
@@ -138,8 +138,8 @@ export async function collectRunningExecutors(
   }
   const records: RunningExecutorRecord[] = []
   for (const entry of entries) {
-    // 仅计本主会话在途 child（activity='running'），排除续用目标。
-    if (entry.kind !== 'child' || entry.activity !== 'running') continue
+    // 仅计本主会话在途直子级 child（depth=1 且 activity='running'），排除续用目标。
+    if (entry.kind !== 'child' || entry.depth !== 1 || entry.activity !== 'running') continue
     if (entry.id === excludeChildId) continue
     const kind = kindByChildId.get(entry.id) ?? kindFromLabel(entry.label) ?? ''
     records.push({ childId: entry.id, kind })
