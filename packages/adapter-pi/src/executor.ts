@@ -366,8 +366,8 @@ async function executeTool(
   )
   assertEffort(effective.effort)
   assertKind(params.kind)
-  // 并发容量闸上限：全局（缺省 2、0 不限）+ kind 层（undefined 不限；
-  // effective 已透出命中 profile 条目的 maxConcurrent，无需二次 resolve）。
+  // 并发容量闸上限：全局（缺省 0 = 不限、显式 > 0 生效）+ kind 层（缺省 3，
+  // effective 已按 resolveSubagentDefaults 兜底，无需二次 resolve；0 = 不限）。
   const globalLimit = config.executor.maxConcurrent
   const kindLimit = effective.maxConcurrent
   // 冲突门。

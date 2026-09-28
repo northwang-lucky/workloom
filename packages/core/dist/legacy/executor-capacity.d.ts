@@ -10,7 +10,9 @@ export function evaluateExecutorCapacity({ running, kind, globalLimit, kindLimit
 /**
  * 组装 at capacity 失败回执文案（英文运行时文案）。
  * 格式：`<kind> kind at capacity (<kindCount>/<kindLimit>), global <globalCount>/<globalLimit>`
- * 或 `at capacity (<globalCount>/<globalLimit>)`（撞全局闸）。
+ * （撞 kind 闸且 globalLimit > 0）；globalLimit = 0（全局不限）时省略 global 段，
+ * 输出 `<kind> kind at capacity (<kindCount>/<kindLimit>)`；
+ * 撞全局闸时为 `at capacity (<globalCount>/<globalLimit>)`。
  * @param {string} kind executor 类型
  * @param {import('./executor-capacity.d.ts').CapacityResult} result 判定结果（allow = false）
  * @returns {string} 英文回执文案

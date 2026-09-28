@@ -127,7 +127,7 @@ test('init 生成 {} 的 config.json、有效 JSON 的 config.example.json 与�
   }
 })
 
-test('config.example.json 覆盖 DEFAULT_CONFIG 全部字段键（含 tools，不含 default_package）', () => {
+test('config.example.json 覆盖 DEFAULT_CONFIG 全部字段键（含 tools，不含 default_package 与 executor）', () => {
   const root = makeRoot()
   try {
     const [err] = initWorkloom(root)
@@ -135,10 +135,14 @@ test('config.example.json 覆盖 DEFAULT_CONFIG 全部字段键（含 tools，�
     const example = readFileSync(join(root, '.workloom', 'config.example.json'), 'utf8')
     const doc = JSON.parse(example)
     const examplePaths = new Set(collectPaths(doc, (key) => key))
-    const expectedPaths = collectPaths(DEFAULT_CONFIG, camelToSnake)
+    // executor 段不再示范（全局闸缺省 = 0 不限、每 kind 缺省 3，配置入口保留但开箱无需写）。
+    const expectedPaths = collectPaths(DEFAULT_CONFIG, camelToSnake).filter(
+      (path) => path !== 'executor' && !path.startsWith('executor.'),
+    )
     for (const path of expectedPaths) {
       assert.ok(examplePaths.has(path), `missing ${path} in config.example.json`)
     }
+    assert.equal('executor' in doc, false, 'config.example.json must not show executor section')
     // subagents 必须同时展示 model 的 string 与按 runtime 的 map 双形式。
     for (const path of [
       'subagents.research.model',
@@ -168,7 +172,6 @@ test('config.example.json 覆盖 DEFAULT_CONFIG 全部字段键（含 tools，�
       DEFAULT_CONFIG.contextInjection.maxTotalBytes,
     )
     assert.equal(doc.prompt_injection.skip_keyword, DEFAULT_CONFIG.promptInjection.skipKeyword)
-    assert.equal(doc.executor.max_concurrent, DEFAULT_CONFIG.executor.maxConcurrent)
     assert.equal(doc.packages.cli.path, 'packages/cli')
     // tools 字段在 subagent_profiles 内层展示（includes/excludes 带 lsp_* 前缀模式）。
     const checkEntry = doc.subagent_profiles.find((p) => p.subagents.check !== undefined)
@@ -194,6 +197,8 @@ test('config.example.js 说明三层合并、工厂形态与全局白名单', ()
     assert.match(example, /config\.local\.json/)
     assert.match(example, /top-level key/)
     assert.match(example, /tools/)
+    // executor 段不再示范（全局闸缺省 = 0 不限，AC：两份模板均不含 executor 段）。
+    assert.doesNotMatch(example, /executor/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

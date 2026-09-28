@@ -19,7 +19,7 @@ export interface WorkloomConfig {
   }
   packages: Record<string, { path: string; type?: string; git?: boolean }>
   subagents: Record<string, SubagentConfigEntry>
-  /** 全局 executor 并发闸：max_concurrent 为全局上限（0 = 不限，缺省 = 2，开箱防失控）。 */
+  /** 全局 executor 并发闸：max_concurrent 为全局上限（0 = 不限，缺省 = 0；按 kind 分闸缺省 3，全局闸保留作可选总量保险）。 */
   executor: {
     maxConcurrent: number
   }
@@ -68,7 +68,7 @@ export interface SubagentConfigEntry {
   effort?: string
   tools?: SubagentTools
   /**
-   * 该 kind 的并发上限（0 = 不限；undefined = 该层不限，仅全局层闸生效）。
+   * 该 kind 的并发上限（0 = 不限；条目未配置时由 resolveSubagentDefaults 兜底缺省 3）。
    * 仅 subagent_profiles 内层条目携带。
    */
   maxConcurrent?: number
@@ -99,8 +99,8 @@ export interface ResolveSubagentDefaultsResult {
    *  profiles 层支持，legacy 层无 tools，未命中时 undefined）。 */
   tools?: SubagentTools
   /**
-   * 命中 subagent_profiles 条目该 kind 的并发上限（undefined = 该层不限，仅全局闸生效；
-   * 0 = 不限；> 0 = 该 kind 上限）。
+   * 该 kind 的并发上限：命中 subagent_profiles 条目时为该条目值（0 = 不限；
+   * 未配置时兜底缺省 3），> 0 = 该 kind 上限。仅全局闸生效的场景不再出现。
    */
   maxConcurrent?: number
 }

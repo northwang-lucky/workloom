@@ -1,6 +1,7 @@
 /**
  * executor 并发容量判定单测（R2 判定纯函数矩阵）：
- * 默认 2 / 显式 0 不限 / 达限拒绝 / 续用并槽 / 双层取严 / kind unset 不限 / 上下文正确 / receipt 文案。
+ * 全局闸显式值/0 不限 / 达限拒绝 / 续用并槽 / 双层取严 / kind unset 不限 / 上下文正确 /
+ * receipt 文案（kind 层含 global 段与省略段两个分支、全局层）。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -14,7 +15,7 @@ function running(...pairs) {
 
 // ---------- 全局闸 ----------
 
-test('全局默认上限 2：在途 2 → 拒绝', () => {
+test('全局闸显式上限 2：在途 2 → 拒绝', () => {
   const result = evaluateExecutorCapacity({
     running: running(['c1', 'implement'], ['c2', 'implement']),
     kind: 'implement',
@@ -26,7 +27,7 @@ test('全局默认上限 2：在途 2 → 拒绝', () => {
   assert.equal(result.kindCount, 2)
 })
 
-test('全局默认上限 2：在途 1 → 放行', () => {
+test('全局闸显式上限 2：在途 1 → 放行', () => {
   const result = evaluateExecutorCapacity({
     running: running(['c1', 'implement']),
     kind: 'implement',
@@ -205,6 +206,18 @@ test('receipt：撞 kind 文案含 kind/计数/全局', () => {
   })
   const receipt = formatAtCapacityReceipt('implement', result)
   assert.equal(receipt, 'implement kind at capacity (2/2), global 2/4')
+})
+
+test('receipt：撞 kind 且全局闸 0（不限）→ 省略 global 段', () => {
+  // 新缺省形态：全局 0（不限）+ 每 kind 3，kind 层拒绝只报 kind 计数。
+  const result = evaluateExecutorCapacity({
+    running: running(['c1', 'implement'], ['c2', 'implement'], ['c3', 'implement']),
+    kind: 'implement',
+    globalLimit: 0,
+    kindLimit: 3,
+  })
+  const receipt = formatAtCapacityReceipt('implement', result)
+  assert.equal(receipt, 'implement kind at capacity (3/3)')
 })
 
 test('receipt：撞全局文案含计数', () => {

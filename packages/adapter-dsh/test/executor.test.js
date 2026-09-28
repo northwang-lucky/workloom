@@ -2578,8 +2578,9 @@ function seedRunningDispatches(root, entries) {
   writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task))
 }
 
-test('capacity: 全局达限拒绝（2 running / limit 2）并返回 at capacity 回执文案', async () => {
-  const root = makeProject()
+test('capacity: 全局达限拒绝（2 running / 显式 limit 2）并返回 at capacity 回执文案', async () => {
+  // 新缺省全局闸 = 0（不限），此处显式配置 2 以保留「撞全局闸」路径的用例语义。
+  const root = makeProject({ executor: { max_concurrent: 2 } })
   try {
     seedRunningDispatches(root, [
       { childId: 'child-a', kind: 'implement' },
@@ -2656,16 +2657,59 @@ test('capacity: kind 闸达限拒绝（kind 2/2）并返回 kind 层回执文案
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 0, 'kind at capacity must not spawn')
-    assert.match(result.output[0].text, /implement kind at capacity \(2\/2\), global 2\/0/)
+    // 新回执格式：全局闸 0（不限）→ 省略 global 段，只报 kind 计数。
+    assert.equal(result.output[0].text, 'implement kind at capacity (2/2)')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('capacity: 缺省配置（全局 0 不限、每 kind 3）——同 kind 3 running 拒第 4 笔、不同 kind 放行', async () => {
+  // 不写任何并发配置：新缺省 = 全局 0（不限）+ 每 kind 3（AC1）。
+  const root = makeProject()
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement' },
+      { childId: 'child-b', kind: 'implement' },
+      { childId: 'child-c', kind: 'implement' },
+      { childId: 'child-d', kind: 'research' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [
+        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-b', 'Implement'),
+        makeRunningChild('child-c', 'Implement'),
+        makeRunningChild('child-d', 'Research'),
+      ],
+    })
+    const parent = makeAgent(root)
+    // 全局在途 4（> 旧缺省 2）但全局缺省 0 = 不限；research 1/3 → 放行（不同 kind 不挤占）。
+    const allowResult = await execute(execArgs({ kind: 'research', title: 'default capacity allow test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(
+      startCalls.length,
+      1,
+      `default global 0 must allow research dispatch, got: ${JSON.stringify(allowResult)}`,
+    )
+    // implement 已 3/3 → 第 4 笔同 kind 拒绝，回执省略 global 段（AC4）。
+    const rejectResult = await execute(execArgs({ title: 'default capacity reject test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1, 'default kind limit 3 must not spawn')
+    assert.equal(rejectResult.output[0].text, 'implement kind at capacity (3/3)')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
 test('capacity: 续用不误占槽（排除目标 childId 后未达限 → 放行）', async () => {
-  const root = makeProject()
+  // 显式全局闸 2（新缺省 0 下保留原「达限」对照语义）：1 个 running（即续用目标
+  // child-a），排除后 running=0 → 放行。
+  const root = makeProject({ executor: { max_concurrent: 2 } })
   try {
-    // 1 个 running（即续用目标 child-a），全局上限 2；排除后 running=0 → 放行。
     seedRunningDispatches(root, [{ childId: 'child-a', kind: 'implement' }])
     const { execute, sendMessageCalls } = setupExecutor({
       listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
@@ -2683,10 +2727,11 @@ test('capacity: 续用不误占槽（排除目标 childId 后未达限 → 放�
 })
 
 test('capacity: 续用目标之外达限 → 续用被拒（排除目标后其余 2/2）', async () => {
-  const root = makeProject()
+  // 显式全局闸 2（新缺省 0 下保留原「达限」语义）：排除 child-a 后 running 集合
+  // = [child-b, child-c] = 2 → 达限拒绝。
+  const root = makeProject({ executor: { max_concurrent: 2 } })
   try {
     // child-a 为续用目标（需在 dispatches 中定位成功），child-b/child-c 为其他 running。
-    // 全局上限 2；排除 child-a 后 running 集合 = [child-b, child-c] = 2 → 达限拒绝。
     seedRunningDispatches(root, [
       { childId: 'child-a', kind: 'implement' },
       { childId: 'child-b', kind: 'implement' },

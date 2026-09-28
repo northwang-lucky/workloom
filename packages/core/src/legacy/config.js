@@ -45,12 +45,17 @@ export const DEFAULT_CONFIG = {
     afterArchive: [],
   },
   executor: {
-    maxConcurrent: 2,
+    // 全局闸缺省 0 = 不限：并发限制重心在按 kind 分闸（缺省每 kind 3），
+    // 全局闸保留作可选的总量保险（显式 > 0 时与 kind 闸取严）。
+    maxConcurrent: 0,
   },
   packages: {},
   subagents: {},
   subagentProfiles: [],
 }
+
+/** 每 kind 并发上限缺省值（subagent_profiles 条目未配置 max_concurrent 时兜底）。 */
+const DEFAULT_KIND_MAX_CONCURRENT = 3
 
 /** 主配置层候选文件名（同层并存即歧义）。 */
 const MAIN_CONFIG_NAMES = Object.freeze(['config.json', 'config.js'])
@@ -763,8 +768,9 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
     effort = legacyLayer.effort
     effortConfigSource = 'legacy'
   }
-  // kind 层并发上限：仅 subagent_profiles 命中条目携带（legacy 层不支持），未命中 / 未配置 = undefined。
-  const maxConcurrent = profileLayer.maxConcurrent
+  // kind 层并发上限：仅 subagent_profiles 命中条目携带（legacy 层不支持），
+  // 未命中 / 未配置时兜底硬编码缺省 3（显式 0 = 该 kind 不限，?? 不吞 0）。
+  const maxConcurrent = profileLayer.maxConcurrent ?? DEFAULT_KIND_MAX_CONCURRENT
   return {
     model,
     effort,
@@ -777,8 +783,8 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
     // tools 仅 subagent_profiles 层支持（legacy 层无 tools）：命中条目的该 kind
     // tools 字段原样透出，未命中时为 undefined（调用方按 allow 清单组装消费）。
     tools: profileLayer.tools,
-    // maxConcurrent：命中 profile 条目该 kind 的 max_concurrent 原样透出
-    // （undefined = 该层不限；0 = 不限；> 0 = 该 kind 上限）。
+    // maxConcurrent：命中 profile 条目该 kind 的 max_concurrent 原样透出，
+    // 未配置时兜底缺省 3（0 = 不限；> 0 = 该 kind 上限）。
     maxConcurrent,
     // whenMainValue 仅在字段实际来自 whenMain 条目时返回（receipt 展示用）。
     ...(matched?.whenMainValue !== undefined &&

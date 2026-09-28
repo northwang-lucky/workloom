@@ -47,7 +47,8 @@ export function evaluateExecutorCapacity(params: CapacityCheckParams): CapacityR
 
 /**
  * 组装 at capacity 失败回执文案（英文运行时文案）。
- * 撞 kind 闸：`<kind> kind at capacity (<kindCount>/<kindLimit>), global <globalCount>/<globalLimit>`；
+ * 撞 kind 闸且 globalLimit > 0：`<kind> kind at capacity (<kindCount>/<kindLimit>), global <globalCount>/<globalLimit>`；
+ * 撞 kind 闸且 globalLimit = 0（全局不限，省略 global 段）：`<kind> kind at capacity (<kindCount>/<kindLimit>)`；
  * 撞全局闸：`at capacity (<globalCount>/<globalLimit>)`。
  */
 export function formatAtCapacityReceipt(kind: string, result: CapacityResult): string
