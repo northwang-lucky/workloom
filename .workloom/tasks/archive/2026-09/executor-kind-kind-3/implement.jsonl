@@ -1,0 +1,10 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则（TS/JS 校验、LSP 优先、注释语言），实现全程须满足"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "提交前全量验证命令：pnpm lint / typecheck / build / 各包测试，core 测试先 build"}
+{"file": ".workloom/spec/repo/code-style/concurrency.md", "reason": "容量闸原子性与占槽语义：本任务改默认值与回执文案，不得破坏 check→reserve 同步窗口、in-flight/provisional 机制与 idle 释槽规则"}
+{"file": ".workloom/spec/repo/legacy-module/index.md", "reason": "config.js / init.js / executor-capacity.js 属 legacy 纯 JS + JSDoc 模块，改动须遵守其约定（含 d.ts 同步）"}
+{"file": ".workloom/spec/repo/architecture/layering.md", "reason": "core 纯函数判定、adapter 只做接线：默认值兜底落 core resolveSubagentDefaults，回执格式落 core formatAtCapacityReceipt，adapter 只随动注释"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "运行时文案英文（at capacity 回执）、代码注释中文、提交 message 中文的分工约定"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "dist 与 src 同 commit 重建入库；git 源安装闭环：push 后在 ~/.dsh/profiles/web 执行 pnpm update @workloom-ai/adapter-dsh 重钉锁；重启归用户，agent 不自行重启"}
+{"file": ".workloom/spec/repo/commits/index.md", "reason": "每轮一个 commit、中文 message 格式；push 属部署闭环一环，执行前需用户确认"}
+{"file": ".workloom/spec/adapter-pi/verify/index.md", "reason": "adapter-pi 包用 bun test 验证（与 core/adapter-dsh 的 node --test 不同）"}
