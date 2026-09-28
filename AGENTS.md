@@ -37,6 +37,17 @@ cd packages/adapter-dsh && node --test test/*.test.js
 cd packages/adapter-pi && bun test test/*.test.ts
 ```
 
+## 插件变更流程（adapter-dsh）
+
+生产 profile 经 `github:northwang-lucky/workloom#path:packages/adapter-dsh` 安装本仓库子目录，pnpm-lock 钉提交。变更循环：
+
+1. 改 src，跑 `pnpm -r build` + `pnpm -r typecheck` + 对应包 `node --test`；
+2. `dist/` 入库：同 commit 重建并提交（git 子目录安装无构建步骤）；
+3. push 后在 profile 目录（`~/.dsh/profiles/web`）`pnpm update @workloom-ai/adapter-dsh` 把锁重钉到新提交；
+4. 生效：host 侧 bundle 启动时读取，需用户授权后重启实例（`dsh-stop --only-ui && dsh-start --only-ui`），agent 不自行重启。
+
+旧流程 `dsh-sync-workloom` rsync 硬拷贝与 `dsh plugin add` 重装已退役（脚本本机已不存在）。细则见 `.workloom/spec/repo/deployment`。
+
 ## 个人本地规则
 
 个人化/本地规则写在 `AGENTS.local.md`（已 gitignore，每台机器各自维护，不入库）。
