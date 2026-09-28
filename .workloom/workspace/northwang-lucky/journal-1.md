@@ -304,3 +304,9 @@
 - Commit: c7479c0
 - Summary: /workloom-continue 与 /workloom-finish 从 slash 命令彻底改造为 skill（双 adapter 移除注册，core 动态编排删除并下沉为 SKILL.md 静态指令）；workloom_task_archive taskPath 改必填、workloom_journal 新增必填 taskPath；gitAddCommit 收窄为按任务枚举路径暂存，根治归档/记录日志卷入其他在途任务脏文件的问题。另提交 lockfile resync（cfd2487）。
 
+## executor 并发闸改为按 kind 限制（缺省每 kind 3、全局闸缺省不限）
+
+- Time: 2026-09-28T16:31:10.982Z
+- Commit: 69fa8c2c229f05fd4845bce8c4ed836816a6d624
+- Summary: 全流程走完 1.0–3.1：对齐 11 项决策（全局闸保留缺省 2→0、per-kind 兜底硬编码 3、回执 globalLimit=0 省略 global 段、init 模板去 executor 行、测试先行=B、git 源部署闭环）；implement executor 改 core src 5 + test 4 + dist 重建，check executor 全量复审 pass（六项验证亲测全绿、dist 无漂移、1 个 P2 自查自修）；work commit 69fa8c2 含 dist 同 commit 入库。部署待办：push 后在 ~/.dsh/profiles/web 执行 pnpm update @workloom-ai/adapter-dsh 重钉锁，重启 DSH 归用户。
+
