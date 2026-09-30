@@ -310,3 +310,9 @@
 - Commit: 69fa8c2c229f05fd4845bce8c4ed836816a6d624
 - Summary: 全流程走完 1.0–3.1：对齐 11 项决策（全局闸保留缺省 2→0、per-kind 兜底硬编码 3、回执 globalLimit=0 省略 global 段、init 模板去 executor 行、测试先行=B、git 源部署闭环）；implement executor 改 core src 5 + test 4 + dist 重建，check executor 全量复审 pass（六项验证亲测全绿、dist 无漂移、1 个 P2 自查自修）；work commit 69fa8c2 含 dist 同 commit 入库。部署待办：push 后在 ~/.dsh/profiles/web 执行 pnpm update @workloom-ai/adapter-dsh 重钉锁，重启 DSH 归用户。
 
+## 原生 git worktree 模式交付（S0 domain 重命名 + S1 生命周期 + S2 集成面）
+
+- Time: 2026-09-30T05:28:10.860Z
+- Commit: 3b24bde
+- Summary: 原生 git worktree 模式全量交付（容器 worktree-native + 三子任务严格串行）。对齐：5 轮 35 节点用户裁决（默认开启可配置关闭、start 建 .workloom/worktree/<task-id> + workloom/<task-id> 分支、元数据集中主 worktree、executor 统一 prompt 注入、archive 清理四模式缺省 merge-keep-branch、submodule gitlink 自动联动、package 恒必填、追加 legacy→domain 重命名）。交付：S0 重命名（567a6a1，R100 纯度+导出面零 diff）；S1 core 生命周期（42a1ec5，git.js 12 新原语+domain/worktree.js+start/archive 接线+init/doctor 配套+两端 create schema，先红 18 例接缝①-⑨ 含真实 submodule fixture）；S2 runtime 集成面（3b24bde，buildExecutorPrompt Worktree 纪律段+session-context Worktree 行+assets 2.1/2.3/finish/continue 指引，零 diff 回归）。验证：core 617/adapter-dsh 139/adapter-pi 193 全绿，dist 同 commit 入库。check 三方独立复核全 PASS。部署后续（push、profile 锁重钉、实例重启）归用户。
+
