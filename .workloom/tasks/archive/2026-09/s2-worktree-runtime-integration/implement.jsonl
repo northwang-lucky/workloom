@@ -1,0 +1,16 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"约束 core/adapter/assets 分层：注入产物由 core 组装，adapter 只消费"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"编码原则与验证命令"}
+{"file":".workloom/spec/repo/domain-module/index.md","reason":"executor-context.js 为 domain 纯 JS+JSDoc 模块，扩展须守约定"}
+{"file":".workloom/spec/repo/language/index.md","reason":"运行时文案/注入纪律段英文、注释中文分工"}
+{"file":".workloom/spec/repo/commits/index.md","reason":"提交粒度与 message 格式"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"adapter-dsh dist 同 commit 重建入库 + assets 经 bundle 分发的部署纪律"}
+{"file":".workloom/spec/adapter-pi/verify/index.md","reason":"adapter-pi 侧 bun test 验证规范"}
+{"file":".workloom/tasks/09-29-worktree-native/prd.md","reason":"容器 PRD：统一注入机制（R1-Q1）与指引面范围（R1-Q10）的权威决策来源"}
+{"file":".workloom/tasks/archive/2026-09/s1-core-worktree-lifecycle/prd.md","reason":"S1 接口契约：worktree_path 相对路径落盘格式（S1-Q1=A）与 branch/base_branch 字段语义"}
+{"file":"packages/core/src/domain/executor-context.js","reason":"buildExecutorPrompt 组装：worktree 路径 + 纪律段注入点"}
+{"file":"packages/core/src/service/session-context.ts","reason":"workloom-session-context 生成：新增活跃任务 worktree 行"}
+{"file":"packages/adapter-dsh/src/executor.ts","reason":"DSH 派发链路：注入产物透传、create 工具 schema package 必填核对"}
+{"file":"packages/adapter-pi/src/executor.ts","reason":"Pi 派发链路：注入产物透传、create 工具 schema package 必填核对"}
+{"file":"packages/assets/workflow/workflow.md","reason":"2.1/2.3 步骤指引：worktree 感知文案更新点"}
+{"file":"packages/assets/skills/workloom-finish/SKILL.md","reason":"脏文件检查覆盖任务 worktree 的更新点"}
+{"file":"packages/assets/skills/workloom-continue/SKILL.md","reason":"会话恢复路由感知 worktree（位置+分支状态）的更新点"}

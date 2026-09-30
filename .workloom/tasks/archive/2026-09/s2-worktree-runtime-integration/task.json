@@ -1,0 +1,64 @@
+{
+  "id": "62804ec1-fa3a-4d7b-8fb4-6548cc5e8974",
+  "name": "s2-worktree-runtime-integration",
+  "title": "S2 worktree runtime 集成面：executor 注入 + session-context + assets/skills",
+  "description": "容器 tasks/09-29-worktree-native 的子任务 S2。交付 runtime 集成面（PRD 需求 4/5/8 + AC11）：executor prompt 注入 worktree 绝对路径 + 纪律段（core executor-context/buildExecutorPrompt + DSH/Pi 两端消费，子会话 cwd 保持主仓根）、session-context 暴露活跃任务 worktree 路径、assets 层 2.1/2.3 workflow prompts 与 workloom-finish / workloom-continue skills 更新为 worktree 感知、并发闸沿用现状的回归确认。依赖 S1 的 task.json worktree_path/branch/base_branch 落盘接口。对齐继承容器 PRD 决策。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-30T01:11:33.532Z",
+  "completedAt": "2026-09-30T05:25:06.832Z",
+  "parent": "tasks/09-29-worktree-native",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-30T05:24:32.686Z",
+    "summary": "S2（worktree runtime 集成面）2.2 全量检查 PASS：check executor 独立重跑全绿（core 617/617、adapter-dsh 139/139、adapter-pi 193/193、lint/typecheck/build 通过）；dist 同步核验无漂移（core dist 5 文件唯一变更、adapter-dsh src 零改动故 dist 无需重交）；工作区恰 12 预期文件、executor 零 commit。两项主会话裁定前提验证成立：workflow.md version 24 保持（states/步骤结构零变化、protocol 握手断言 version===24 绿）、executor-context↔task-store 循环 import 严格封闭于两模块且均仅函数体内消费。AC1-7 逐条 PASS：注入产物（绝对路径/纪律段/插入位置断言 softAt<wtAt<localAt）、零 diff 快照逐字比对（4 kind × 空/坏 JSON × 基线）、session-context 行格式与条件、assets 4 处最小追加语义正确、create schema 只核未改、enabled=false 零变化。发现清单 P0/P1/P2 全无，Open issues 无。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-30T03:21:58.658Z",
+    "summary": "S2 凭据刷新（R5 轮）：需求 4 收窄为 create 参数面回归核对（schema 与透传已由 S1 原子交付，R5-Q1）；AC5 相应调整为回归复核；Notes 固化严格串行 S0→S1→S2（S2 在 S1 check 通过后 start）与 S0 重命名后 domain/ 路径指针。其余范围（统一注入、session-context、assets 2.1/2.3 + workloom-finish/continue、并发闸回归）不变。用户明示免逐份确认直接推进（review readyToConfirm=true，blockers 空）。",
+    "prdHash": "ceba6feeb6a4312da3ec5430fcf5f1d9affd5093dd1f75f96233132169bbd787"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-30T05:03:43.213Z",
+      "title": "S2 实现 R1-R3：executor 注入 + session-context worktree 行 + assets 指引面",
+      "status": "completed",
+      "childId": "bdd3fa22-b64e-4328-8290-c374c0d31724",
+      "model": "xiaomi-token-plan-cn/mimo-v2.6-flash",
+      "effort": "medium",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-30T05:15:19.212Z",
+      "title": "S2 检查：注入面实质性、零 diff 回归与 assets 文案审查",
+      "status": "completed",
+      "childId": "039be55e-ee81-441f-886b-2ed5d529e22c",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
