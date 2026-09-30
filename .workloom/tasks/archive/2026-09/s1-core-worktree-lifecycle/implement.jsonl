@@ -1,0 +1,17 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"约束 service/domain 分层与依赖方向（worktree 编排落 core，禁反向依赖）"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"编码原则、test-first 接缝纪律与验证命令"}
+{"file":".workloom/spec/repo/domain-module/index.md","reason":"config/task-store/git/init/worktree 均为 domain 纯 JS+JSDoc 模块，扩展须守约定"}
+{"file":".workloom/spec/repo/language/index.md","reason":"运行时文案英文、注释/文档中文分工"}
+{"file":".workloom/spec/repo/commits/index.md","reason":"提交粒度与 message 格式"}
+{"file":".workloom/spec/repo/terminology/index.md","reason":"worktree/branch/task 生命周期术语对齐"}
+{"file":".workloom/tasks/09-29-worktree-native/prd.md","reason":"容器 PRD：全部继承决策（R0-R5）与环境事实的权威来源"}
+{"file":".workloom/tasks/archive/2026-09/git-worktree/research/01-compat-facts.md","reason":"上期 compatibility 事实核查：worktree 定位/隔离语义与测试基建一手事实"}
+{"file":"packages/core/src/domain/config.js","reason":"扩展点：mergeWithDefaults 加 worktree 节校验、GLOBAL_PROJECT_ONLY_FIELDS 加 worktree"}
+{"file":"packages/core/src/domain/task-store.js","reason":"createTask/startTask/archiveTask 编排链：package 必填、worktree 创建与清理插入点"}
+{"file":"packages/core/src/domain/git.js","reason":"git 原语纪律（execFile 无 shell、err 元组返回）与新增 worktree/merge/ancestor 原语的落点"}
+{"file":"packages/core/src/domain/init.js","reason":"CONFIG_TEMPLATE 种子根包 + GITIGNORE_TEMPLATE 加 worktree/ 条目"}
+{"file":"packages/core/src/service/task-ops.ts","reason":"executeCreateTask 参数面（package 必填）与 start/archive 编排透传"}
+{"file":"packages/core/src/service/doctor-check-rules.ts","reason":"doctor 新增检查项的规则注册结构"}
+{"file":"packages/core/test/worktree-compat.test.js","reason":"真实 git 临时仓集成测试基建（fixture/skip 兜底），新集成测试直接扩展此文件风格"}
+{"file":".workloom/tasks/09-30-s1-core-worktree-lifecycle/research/01-git-worktree-submodule-semantics.md","reason":"git worktree/submodule/merge 命令语义一手事实（design.md §2/§3 逐条吸收的 §A 锚点来源）"}
+{"file":".workloom/tasks/09-30-s1-core-worktree-lifecycle/research/02-core-start-archive-callchain.md","reason":"start/archive 调用链插入点与既有测试红点清单（design.md §5/§8 的 §B 锚点来源）"}

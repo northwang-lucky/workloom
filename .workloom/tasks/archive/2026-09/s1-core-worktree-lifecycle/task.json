@@ -1,0 +1,74 @@
+{
+  "id": "f5999536-b588-4580-b069-d142489ebb7e",
+  "name": "s1-core-worktree-lifecycle",
+  "title": "S1 core worktree 生命周期：配置节 + start 创建 + archive 清理四模式 + gitlink 联动",
+  "description": "容器 tasks/09-29-worktree-native 的子任务 S1。交付 core 侧全部 worktree 生命周期（PRD 需求 1/2/3/6/7/9）：config worktree 节解析与校验、create package 恒必填、init 种子根包 + gitignore 模板、start 建 worktree+分支（package→仓解析、模板渲染、复用/拒绝边界）、archive 清理四模式（合并冲突 abort+幂等重跑、HEAD==base 校验、脏 worktree 无 force 逃生）、submodule gitlink 自动联动、doctor 新增检查、真实 git 集成测试（先红用例 ①-⑨）。对齐继承容器 PRD 决策。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-30T01:11:06.258Z",
+  "completedAt": "2026-09-30T05:02:42.718Z",
+  "parent": "tasks/09-29-worktree-native",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-30T05:02:32.822Z",
+    "summary": "S1（core worktree 生命周期）2.2 全量检查 PASS：check executor 独立重跑六项验证全绿（core 612/612、adapter-dsh 139/139、adapter-pi 193/193、lint/typecheck/build exit 0）；dist 与 src byte-identical（171 文件 sha256 比对，DIST_NO_DRIFT）；先红证据链自洽（18 红组=导出缺失/行为未实现，19 例断言实质性达标、真值源全部为独立 git 事实）；design §A 硬约束 8 项抽查全落实（MERGE_HEAD 判别、branch -D 回滚、残留前置探测、HEAD:<path> gitlink 探针、remove→branch -D 顺序、脏 worktree 无 force 旁路、gitlink 不复用 autoCommitIfEnabled、worktree_path 相对路径）；插入点锚定核实（start 门禁后 status 前、archive renameSync 前、package 校验写盘前）；implement 5 项风险全部消解或有据可接受（外部 revert 已复核、config.local fixture 正当、三增补未越权导出、LC_ALL=C 影响面安全、④c 超测试计划）；AC 1-13 逐条 PASS；executor 零 commit、工作区无预期外文件。观察项 1 条（\"注册但分支不符\"路径无专项测试，design 未要求，不阻塞）。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-30T04:51:02.525Z",
+    "summary": "S1 凭据刷新（implement 报告风险 2 的主会话裁定）：start 的 package 门禁作用域按 R3-Q3 原始裁决问题域（\"worktree 开启时\"）修正 PRD 措辞——enabled=true 时存量 package=null 任务 start fail loud；enabled=false 时 start 不校验 package（现状零回归）。design §5.2 实现与裁决意图一致，维持不动；需求 2 与 AC9 两处措辞同步限定。其余零变化。按用户免确认授权写入（review readyToConfirm=true，blockers 空）。",
+    "prdHash": "d42345324eb139bef5fc5a8fd2639463cf5b674e6d98b82b0295049c5cd05e77"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-09-30T02:55:17.256Z",
+      "title": "git worktree/submodule 语义与 start/archive 调用链事实核查",
+      "status": "completed",
+      "childId": "19a19bee-8edb-418b-9605-faf624b281a8",
+      "model": "deepseek-official/deepseek-flash",
+      "effort": "high",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-09-30T03:49:06.849Z",
+      "title": "S1 实现 R1-R6：config/init → 先红集成测试 → worktree 生命周期 → adapter → doctor",
+      "status": "completed",
+      "childId": "59bf43fa-081b-4810-8e89-9c2ff91aa43c",
+      "model": "xiaomi-token-plan-cn/mimo-v2.6-flash",
+      "effort": "medium",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-30T04:51:42.911Z",
+      "title": "S1 检查：AC 1-13、design 硬约束落实与 implement 风险判定",
+      "status": "completed",
+      "childId": "e2316b0e-4a20-4c01-892f-358c387afc1b",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
