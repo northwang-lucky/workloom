@@ -1,0 +1,47 @@
+{
+  "id": "ce8ae864-2167-4a59-a21e-282bbc7a6a82",
+  "name": "worktree-native",
+  "title": "原生 git worktree 模式：每任务独立 worktree 并行开发",
+  "description": "把 worktree 升级为 workloom 默认工作方式（项目层配置可关闭）：task start 时在 .workloom/worktree/<task-slug> 创建任务专属 worktree（含子任务），executor 派发 cwd 指向 worktree，元数据集中主 worktree，monorepo 按任务关联 package 决定建仓，archive 按四种可配置清理策略处理（默认自动合并回 base + 删 worktree + 保留分支，冲突交 Agent 处理）。继承 git-worktree 兼容任务的原生阶段演进结论。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-29T10:17:48.117Z",
+  "completedAt": "2026-09-30T05:27:28.295Z",
+  "parent": null,
+  "children": [
+    "tasks/09-30-s1-core-worktree-lifecycle",
+    "tasks/09-30-s2-worktree-runtime-integration",
+    "tasks/09-30-s0-legacy-to-domain-rename"
+  ],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-30T05:27:18.671Z",
+    "summary": "容器终验收（主会话执行）PASS：三个子任务全部归档且各自 check PASS——S0（legacy→domain 重命名，AC1-5，commit 567a6a1）、S1（core worktree 生命周期，AC1-13 含先红接缝①-⑨+submodule gitlink，commit 42a1ec5）、S2（runtime 集成面，AC1-7 注入/session-context/assets，commit 3b24bde）。容器 AC 映射：AC1-8=S1 先红接缝（check 逐条 PASS）；AC9-10=S1 create/config（PASS）；AC11=S2（PASS）；AC12=主会话独立重跑全量验证全绿（lint/typecheck/build exit 0，core 617、adapter-dsh 139 pass/0 fail、adapter-pi 193 pass/0 fail；core+adapter-dsh dist 已随各工作提交同 commit 入库）。需求 10 严格串行 S0→S1→S2 执行完毕；需求 11 重命名交付且导出面零 diff。遗留观察项（均不阻塞）：④c\"注册但分支不符\"路径无专项测试（design 未要求）；executor-context↔task-store 循环 import 仅函数体内消费（已验证封闭）；部署后续（push + profile 锁重钉 + 实例重启）归用户执行。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-30T03:21:58.656Z",
+    "summary": "R5 轮重对齐（凭据刷新）：吸收 S1 research 碰撞事实（实现层，不改需求语义）+ 用户裁决 6 节点——R5-Q1 adapter create schema 移入 S1（create 链路原子交付）；R5-Q2 archive 中段失败容忍+幂等重跑；R5-Q3 渲染后分支名 check-ref-format 校验；R5-Q4/Q5/Q6 用户追加需求 legacy/→domain/ 重命名（前置子任务 S0、文档指针全量、名称 domain 由用户从候选池选定）。拆分扩为容器+S0/S1/S2 严格串行，5 轮 35 节点全部用户裁决。用户明示\"改完的 PRD 不用再确认直接推进\"，凭据按该授权写入（review readyToConfirm=true，blockers 空）。",
+    "prdHash": "8a4739a1488606f740c42717d74442a33ff680f3643f1d0cfd34968e178221fb"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

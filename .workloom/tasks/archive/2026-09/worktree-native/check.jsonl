@@ -1,0 +1,4 @@
+{"file":".workloom/tasks/archive/2026-09/s0-legacy-to-domain-rename/prd.md","reason":"终验收基准：S0 AC1-5（重命名纯度与零行为变化）"}
+{"file":".workloom/tasks/archive/2026-09/s1-core-worktree-lifecycle/prd.md","reason":"终验收基准：S1 AC1-13（生命周期/接缝①-⑨/gitlink）"}
+{"file":".workloom/tasks/archive/2026-09/s2-worktree-runtime-integration/prd.md","reason":"终验收基准：S2 AC1-7（注入/session-context/assets）"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"终验收全量验证命令口径"}
