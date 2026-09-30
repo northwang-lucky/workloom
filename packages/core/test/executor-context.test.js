@@ -13,7 +13,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import {
   EFFORT_LEVELS,
   EXECUTOR_KINDS,
@@ -1232,5 +1232,105 @@ test('implement 版 contract 段词数 ≤ 260（定稿压缩，空白分隔的�
     )
   } finally {
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 写 task.json（任务记录直写，worktree 注入用例）。 */
+function writeTaskJson(root, record) {
+  writeTaskFile(root, 'task.json', `${JSON.stringify(record)}\n`)
+}
+
+/** 归一化唯一 marker 行（每次派发 nonce 不同，快照零 diff 对比口径）。 */
+function normalizeMarker(text) {
+  return text.replace(/Injection marker: [^\n]+/, 'Injection marker: <nonce>')
+}
+
+test('S2 worktree 注入：worktree_path 非空 → ## Worktree 段（绝对路径 + Branch 行 + 三条纪律要点），位于 prd 软指针之后、Local directives/Task prompt 之前', () => {
+  const root = makeProject()
+  try {
+    writeFullFixture(root)
+    writeTaskJson(root, {
+      title: 'Worktree task',
+      status: 'in_progress',
+      worktree_path: '.workloom/worktree/task-wt-1',
+      branch: 'workloom/task-wt-1',
+      base_branch: 'main',
+    })
+    const [err, result] = buildExecutorPrompt({
+      ...baseParams(root, 'implement'),
+      localDirectives: 'LOCAL_FRAGMENT',
+    })
+    assert.equal(err, null)
+    const text = result.text
+    const wtAt = text.indexOf('## Worktree')
+    assert.ok(wtAt !== -1, 'worktree section must be injected')
+    const softAt = text.indexOf(PRD_SOFT_POINTER_LINE)
+    const localAt = text.indexOf(LOCAL_DIRECTIVES_HEADING)
+    const taskAt = text.indexOf('## Task prompt')
+    assert.ok(softAt !== -1 && softAt < wtAt, 'worktree section follows the prd soft pointer')
+    assert.ok(
+      wtAt < localAt && wtAt < taskAt,
+      'worktree section precedes Local directives and Task prompt',
+    )
+    // 绝对路径 = resolve(root, worktree_path)
+    assert.ok(
+      text.includes(`Path: ${resolve(root, '.workloom/worktree/task-wt-1')}\n`),
+      'abs worktree path must render',
+    )
+    assert.ok(text.includes('Branch: workloom/task-wt-1 (base main)\n'), 'branch line must render')
+    // 纪律要点关键词：代码面指向 worktree / 元数据写主仓 .workloom / 提交在 worktree 任务分支
+    assert.ok(
+      text.includes('- All code reads, writes, builds, and tests target this worktree'),
+      'code-target discipline bullet',
+    )
+    assert.ok(text.includes('workdir or absolute paths'), 'bash workdir discipline')
+    assert.ok(
+      text.includes('written to the main repository .workloom'),
+      'metadata stays in main repo .workloom',
+    )
+    assert.ok(
+      text.includes('- Code commits happen in this worktree on the task branch.'),
+      'commit-on-task-branch bullet',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('S2 worktree 零 diff：worktree_path 空串 / task.json 损坏（readTask 失败降级不抛）→ 产物与无 task.json 基线逐字相同（marker 归一），stats 一致', () => {
+  /** @type {Record<string, string>} */
+  const roots = {}
+  try {
+    for (const name of ['baseline', 'empty', 'broken']) {
+      roots[name] = makeProject()
+      writeFullFixture(roots[name])
+    }
+    writeTaskJson(roots.empty, {
+      title: 'No worktree',
+      status: 'in_progress',
+      worktree_path: '',
+      branch: 'workloom/x',
+      base_branch: 'main',
+    })
+    writeTaskFile(roots.broken, 'task.json', '{ this is not valid json')
+    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+      const [baseErr, baseResult] = buildExecutorPrompt(baseParams(roots.baseline, kind))
+      assert.equal(baseErr, null)
+      for (const name of ['empty', 'broken']) {
+        const [err, result] = buildExecutorPrompt(baseParams(roots[name], kind))
+        assert.equal(err, null, `${name}/${kind} must not fail (silent degrade)`)
+        assert.ok(!result.text.includes('## Worktree'), `${name}/${kind} must not inject worktree`)
+        assert.equal(
+          normalizeMarker(result.text),
+          normalizeMarker(baseResult.text),
+          `${name}/${kind} must be byte-identical to the baseline`,
+        )
+        assert.deepEqual(result.stats, baseResult.stats, `${name}/${kind} stats unchanged`)
+      }
+    }
+  } finally {
+    for (const root of Object.values(roots)) {
+      rmSync(root, { recursive: true, force: true })
+    }
   }
 })

@@ -12,6 +12,7 @@
  * - root 约定为项目根（由 adapter 传 findWorkloomRoot 的结果），内部只拼路径不再向上查找。
  */
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { insideWorkloom } from '../domain/locate.js';
 import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from '../domain/git.js';
 import { resolveActiveTask } from '../domain/active-task.js';
@@ -37,6 +38,7 @@ const LINE_LABELS = Object.freeze({
     developer: 'Developer: ',
     activeTask: 'Active task: "',
     git: 'Git: branch ',
+    worktree: 'Worktree: ',
     workflow: 'Workflow: ',
 });
 /** git 行脏文件数后缀。 */
@@ -81,7 +83,7 @@ export function assembleSessionContext(params) {
 }
 /**
  * 组装实现（内部）：depth=0 按 Developer / Active task / Last dispatch / Executor
- * profiles / Git / 工作流 / guidelines 顺序拼行，结尾按需追加 norms 小节（always-on
+ * profiles / Git / Worktree / 工作流 / guidelines 顺序拼行，结尾按需追加 norms 小节（always-on
  * 规范原文）；depth>0（executor 等叶子子代理）按白名单只拼 Active task / guidelines /
  * executor norms——Developer / Last dispatch / Executor profiles / Git / 工作流概览
  * 对执行器无价值，裁剪省注入体积。整体包进块标记。配置一次读取、两节消费（画像节
@@ -99,7 +101,7 @@ function assembleInternal(params) {
     }
     lines.push(active.line);
     if (depth === 0) {
-        lines.push(...lastDispatchLines(active.task), ...executorProfilesLines(params, config), gitLine(params.root));
+        lines.push(...lastDispatchLines(active.task), ...executorProfilesLines(params, config), gitLine(params.root), ...worktreeLines(params.root, active.task));
         if (params.workflowSteps.length > 0) {
             const overview = params.workflowSteps
                 .map((step) => `${step.id} ${step.title}`)
@@ -268,6 +270,29 @@ function gitLine(root) {
     const [statusErr, status] = gitStatusSync(root);
     const dirtyCount = statusErr || status === null ? 0 : countDirtyLines(status);
     return `${LINE_LABELS.git}${branchName}, ${dirtyCount}${DIRTY_SUFFIX}`;
+}
+/**
+ * 组装 Worktree 行（内部）：活跃任务 worktree_path 非空时输出一行（Git 行之后），
+ * branch/base 空串降级省略对应括注段；无任务、路径为空或字段缺失时输出空列表
+ * （行不出现，零变化面 AC3/AC6）。
+ * @param root 项目根
+ * @param task 活跃任务记录（无任务为 null）
+ * @returns 行列表（空数组 = 不输出）
+ */
+function worktreeLines(root, task) {
+    if (task === null)
+        return [];
+    const worktreePath = task.worktree_path;
+    if (typeof worktreePath !== 'string' || worktreePath === '')
+        return [];
+    const notes = [];
+    if (typeof task.branch === 'string' && task.branch !== '')
+        notes.push(`branch ${task.branch}`);
+    if (typeof task.base_branch === 'string' && task.base_branch !== '') {
+        notes.push(`base ${task.base_branch}`);
+    }
+    const suffix = notes.length > 0 ? ` (${notes.join(', ')})` : '';
+    return [`${LINE_LABELS.worktree}${join(root, worktreePath)}${suffix}`];
 }
 /** 把任意异常归一为 Error（内部）。 */
 function toError(value) {

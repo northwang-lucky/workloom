@@ -712,3 +712,104 @@ test('画像解析失败（无 runtime 的 per-runtime model map）：整节降�
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+/** 在项目内落一个携带 worktree 字段的任务（task.json 直写 + 会话指针）。 */
+function addTaskWithWorktree(root, contextKey, fields) {
+  const taskDir = join(root, '.workloom', 'tasks', '08-24-demo')
+  mkdirSync(taskDir, { recursive: true })
+  const record = { title: 'WT task', status: 'in_progress', ...fields }
+  writeFileSync(join(taskDir, 'task.json'), `${JSON.stringify(record)}\n`)
+  setActiveTask(root, contextKey, 'tasks/08-24-demo')
+}
+
+test('Worktree 行：活跃任务带 worktree → 输出于 Git 行之后（绝对路径 + branch/base 括注），Git 行不受影响', () => {
+  const root = makeProject()
+  try {
+    addTaskWithWorktree(root, 'dsh_sess_w1', {
+      worktree_path: '.workloom/worktree/task-wt-1',
+      branch: 'workloom/task-wt-1',
+      base_branch: 'main',
+    })
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_w1', workflowSteps: [] }),
+    )
+    assert.equal(err, null)
+    const abs = join(root, '.workloom/worktree/task-wt-1')
+    // 主仓 git 行保持现状（非 git 目录降级），Worktree 行紧随其后
+    assert.ok(
+      text.includes(
+        `\nGit: branch unknown, 0 dirty file(s).\nWorktree: ${abs} (branch workloom/task-wt-1, base main)\n`,
+      ),
+      `worktree line must follow the git line, got:\n${text}`,
+    )
+    assert.ok(text.includes('\nActive task: "WT task" (in_progress) at tasks/08-24-demo.\n'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Worktree 行缺失面：worktree_path 空串 / 字段缺失 → 行不出现（Git 行照常）', () => {
+  const root = makeProject()
+  try {
+    // 字段缺失（旧任务归一化）→ 行不出现
+    addTask(root, 'dsh_sess_w2', 'No worktree field', 'in_progress')
+    const [firstErr, firstText] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_w2', workflowSteps: [] }),
+    )
+    assert.equal(firstErr, null)
+    assert.ok(!firstText.includes('Worktree: '), 'missing worktree_path → no line')
+    assert.match(firstText, /\nGit: /, 'git line stays')
+    // worktree_path 空串 → 行不出现
+    addTaskWithWorktree(root, 'dsh_sess_w2', {
+      worktree_path: '',
+      branch: 'workloom/x',
+      base_branch: 'main',
+    })
+    const [secondErr, secondText] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_w2', workflowSteps: [] }),
+    )
+    assert.equal(secondErr, null)
+    assert.ok(!secondText.includes('Worktree: '), 'empty worktree_path → no line')
+    assert.match(secondText, /\nGit: /, 'git line stays')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Worktree 行降级：branch/base 空串 → 省略对应括注段', () => {
+  const root = makeProject()
+  try {
+    // 全空 → 仅路径
+    addTaskWithWorktree(root, 'dsh_sess_w3', {
+      worktree_path: '.workloom/worktree/task-wt-3',
+      branch: '',
+      base_branch: '',
+    })
+    const [firstErr, firstText] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_w3', workflowSteps: [] }),
+    )
+    assert.equal(firstErr, null)
+    assert.ok(
+      firstText.includes(`\nWorktree: ${join(root, '.workloom/worktree/task-wt-3')}\n`),
+      'empty branch/base → path-only line',
+    )
+    // 仅 base → 省略 branch 段
+    addTaskWithWorktree(root, 'dsh_sess_w3', {
+      worktree_path: '.workloom/worktree/task-wt-3',
+      branch: '',
+      base_branch: 'main',
+    })
+    const [secondErr, secondText] = withEmptyHome(() =>
+      assembleSessionContext({ root, contextKey: 'dsh_sess_w3', workflowSteps: [] }),
+    )
+    assert.equal(secondErr, null)
+    assert.ok(
+      secondText.includes(
+        `\nWorktree: ${join(root, '.workloom/worktree/task-wt-3')} (base main)\n`,
+      ),
+      'empty branch → base-only parenthetical',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

@@ -5,7 +5,8 @@
  * - 子代理派发前组装首条 prompt，段落按 kind 白名单统一排序：任务标注 + 注入
  *   marker → （check/research：prd 全文节块）→ Pointer list（research 无；前两行为
  *   design/implement 纯指针行，后接 jsonl 条目）→ Research materials → （implement/
- *   frontend：prd 软指针行）→ Local directives → Task prompt → Executor contract；
+ *   frontend：prd 软指针行）→ （worktree_path 非空：`## Worktree` 纪律段）→
+ *   Local directives → Task prompt → Executor contract；
  * - 指针化（体积压到指针级）：jsonl 条目、research/*.md、design/implement 均只给
  *   「路径 + reason」指针行，无逐行读后判后缀；prd 仅 check/research 物化
  *   Requirements/Acceptance 全文 + 其余节标题指针（验收基线/问题框架，职责必需），
@@ -24,6 +25,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { insideWorkloom, WORKLOOM_DIR } from './locate.js';
 import { loadConfig } from './config.js';
+import { readTask } from './task-store.js';
 /** effort 合法档位（低 → 高）。 */
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
 /** executor 类型枚举（子代理角色）。 */
@@ -70,6 +72,19 @@ const AUTHORITY_DECLARATION = 'This section is authoritative: it wins any confli
 const LEAF_RULE_KEYWORD = 'leaf executor';
 /** 本机片段注入段标题（prd 软指针之后、Task prompt 之前、终极权威段之前插入）。 */
 const LOCAL_DIRECTIVES_HEADING = '## Local directives';
+/** worktree 纪律段标题（task.worktree_path 非空时注入，与 Local directives 同层级的独立段）。 */
+const WORKTREE_HEADING = '## Worktree';
+/** worktree 段绝对路径标签行前缀。 */
+const WORKTREE_PATH_LABEL = 'Path: ';
+/**
+ * worktree 纪律要点（英文运行时文案，段内无占位）：代码面一律指向 worktree、任务
+ * 元数据写主仓 .workloom、代码提交在 worktree 任务分支（design §1）。
+ */
+const WORKTREE_DISCIPLINE_LINES = Object.freeze([
+    '- All code reads, writes, builds, and tests target this worktree: point bash at it via workdir or absolute paths.',
+    '- Task metadata (.workloom content: jsonl, context, research, prd, etc.) is always written to the main repository .workloom; injected relative paths resolve against the main repository root.',
+    '- Code commits happen in this worktree on the task branch.',
+]);
 /** 防重复判定关键词（userPrompt 已含时不再追加本机片段段）。 */
 const LOCAL_DIRECTIVES_KEYWORD = 'Local directives';
 /** research 产物目录名（相对任务目录）。 */
@@ -273,8 +288,8 @@ export function assertKind(kind) {
 }
 /**
  * 组装 executor 首条 prompt：段落按 kind 白名单排序（任务标注 + marker → prd 块
- * → Pointer list → Research materials → prd 软指针 → Local directives → Task prompt
- * → Executor contract）。
+ * → Pointer list → Research materials → prd 软指针 → worktree 纪律段（worktree_path
+ * 非空时）→ Local directives → Task prompt → Executor contract）。
  * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params
  *   入参（root 为项目根；taskRelPath 为任务目录相对 .workloom 的路径）
  * @returns {[Error | null, import('./executor-context.d.ts').ExecutorPromptResult | null]}
@@ -341,6 +356,13 @@ function buildInternal(params) {
         parts.push(prdSoftPointerLine(join(WORKLOOM_DIR, params.taskRelPath, PRD_ARTIFACT)));
         stats.filesPointed += 1;
     }
+    // worktree 纪律段（design §1）：task.worktree_path 非空时注入（prd 软指针/artifact
+    // 块之后、Local directives/Task prompt 之前）；readTask 失败或路径为空静默降级
+    // 不注入（prompt 产物零变化）。段为常量文本，不计 filesInlined/filesPointed。
+    const worktreeSection = buildWorktreeSection(params.root, params.taskRelPath);
+    if (worktreeSection !== null) {
+        parts.push(worktreeSection);
+    }
     // 本机片段段（adapter 探测后传入的合成文本，core 不做 IO）：prd 软指针之后、
     // Task prompt 之前、终极权威段之前（内容段收尾吃近因效应，正文在最后）；
     // userPrompt 已含标题时不重复注入（与权威段同规则）；空串/未传不插入
@@ -364,6 +386,31 @@ function buildInternal(params) {
         `${renderKindDiscipline(params.kind, params.hasLsp)}\n\n` +
         `${NO_USER_CHANNEL_DISCIPLINE}\n\n${leafRule}${AUTHORITY_DECLARATION}`);
     return { text: parts.join('\n\n'), stats };
+}
+/**
+ * 组装 `## Worktree` 纪律段（内部）：task.worktree_path 非空时产出（绝对路径 +
+ * Branch 行 + 纪律要点）；readTask 失败或路径为空时返回 null 静默降级（prompt
+ * 组装对缺失/损坏任务记录本就宽容，产物与现状零变化，AC1）。branch/base 空串
+ * 降级省略对应行/括注段。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @returns {string | null} 段文本（不注入为 null）
+ */
+function buildWorktreeSection(root, taskRelPath) {
+    const [taskErr, task] = readTask(root, taskRelPath);
+    if (taskErr || task === null)
+        return null;
+    const worktreePath = task.worktree_path;
+    if (typeof worktreePath !== 'string' || worktreePath === '')
+        return null;
+    const lines = [WORKTREE_HEADING, `${WORKTREE_PATH_LABEL}${resolve(root, worktreePath)}`];
+    const branch = typeof task.branch === 'string' ? task.branch : '';
+    const baseBranch = typeof task.base_branch === 'string' ? task.base_branch : '';
+    if (branch !== '') {
+        lines.push(baseBranch === '' ? `Branch: ${branch}` : `Branch: ${branch} (base ${baseBranch})`);
+    }
+    lines.push(...WORKTREE_DISCIPLINE_LINES);
+    return lines.join('\n');
 }
 /**
  * 内联 prd.md 全文节块（check/research 专有；验收基线与偏差判定依据，职责必需）：

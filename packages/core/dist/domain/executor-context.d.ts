@@ -10,8 +10,8 @@ export function assertEffort(effort: string | undefined): void;
 export function assertKind(kind: string | undefined): void;
 /**
  * 组装 executor 首条 prompt：段落按 kind 白名单排序（任务标注 + marker → prd 块
- * → Pointer list → Research materials → prd 软指针 → Local directives → Task prompt
- * → Executor contract）。
+ * → Pointer list → Research materials → prd 软指针 → worktree 纪律段（worktree_path
+ * 非空时）→ Local directives → Task prompt → Executor contract）。
  * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params
  *   入参（root 为项目根；taskRelPath 为任务目录相对 .workloom 的路径）
  * @returns {[Error | null, import('./executor-context.d.ts').ExecutorPromptResult | null]}

@@ -10,7 +10,7 @@ Locate where work left off and resume from the matching Phase step. Do the routi
 ## Steps
 
 1. Read the active task of this session and its `task.json` `status`. With no active task, tell the user to create or start one first (1.0).
-2. Read `git status` and the recent commits to see what actually changed.
+2. Read `git status` and the recent commits to see what actually changed. If the active task has a worktree, report its location and branch state (present, missing, or dirty) too, and run implement/check-stage work in that worktree.
 3. Route by `status` and artifacts (artifact files live inside the task directory):
 
    - `planning` without prd.md → 1.1 Align requirements.
