@@ -4,8 +4,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { parseContract, WorkflowContractError } from '../src/legacy/workflow-contract.js'
-import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from '../src/legacy/breadcrumb.js'
+import { parseContract, WorkflowContractError } from '../src/domain/workflow-contract.js'
+import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from '../src/domain/breadcrumb.js'
 
 /** 内置契约（planning/in_progress/completed 三态，completed 缺块）。 */
 function makeContract() {

@@ -11,15 +11,15 @@
 
 import { readFileSync } from 'node:fs'
 
-import { findWorkloomRoot, insideWorkloom } from '../legacy/locate.js'
-import { loadConfig } from '../legacy/config.js'
-import { parseContract } from '../legacy/workflow-contract.js'
-import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from '../legacy/breadcrumb.js'
-import { resolveActiveTask } from '../legacy/active-task.js'
-import { readTask } from '../legacy/task-store.js'
+import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js'
+import { loadConfig } from '../domain/config.js'
+import { parseContract } from '../domain/workflow-contract.js'
+import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from '../domain/breadcrumb.js'
+import { resolveActiveTask } from '../domain/active-task.js'
+import { readTask } from '../domain/task-store.js'
 
 import type { WorkflowContract } from '../workflow-contract-types.js'
-import type { TaskRecordWithPath } from '../legacy/task-store.d.ts'
+import type { TaskRecordWithPath } from '../domain/task-store.d.ts'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom workflow'

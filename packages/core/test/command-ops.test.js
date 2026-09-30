@@ -15,8 +15,8 @@ import {
   migrationSummaryLines,
   parseInitArgs,
 } from '../dist/index.js'
-import { createTask } from '../dist/legacy/task-store.js'
-import { initWorkloom } from '../dist/legacy/init.js'
+import { createTask } from '../dist/domain/task-store.js'
+import { initWorkloom } from '../dist/domain/init.js'
 
 /** 创建临时项目根。 */
 function makeRoot() {

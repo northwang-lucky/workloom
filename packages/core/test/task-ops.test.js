@@ -23,7 +23,7 @@ import {
   requireWorkloomCwd,
   resolveTaskRelPath,
 } from '../dist/index.js'
-import { initWorkloom } from '../dist/legacy/init.js'
+import { initWorkloom } from '../dist/domain/init.js'
 
 /** 创建临时项目根（含 .workloom 骨架）。 */
 function makeRoot() {

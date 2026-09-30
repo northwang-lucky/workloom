@@ -11,7 +11,7 @@
  *   归档必须显式绑定目标任务；start/check/finish/align 保持活跃任务回退；
  * - 所有错误消息使用 surface.ERR_PREFIX.taskTool 前缀，与下沉前逐字一致。
  */
-import type { StartedTaskRecord, TaskRecord, TaskRecordWithPath, TaskSummary } from '../legacy/task-store.d.ts';
+import type { StartedTaskRecord, TaskRecord, TaskRecordWithPath, TaskSummary } from '../domain/task-store.d.ts';
 /**
  * 校验工具 cwd：空串直接抛错（消息含前缀，与下沉前 adapter 文案逐字一致）。
  * @param cwd 工具执行上下文的工作目录

@@ -8,9 +8,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { initWorkloom } from '../dist/legacy/init.js'
-import { migrateLegacyTrellis } from '../dist/legacy/migrate.js'
-import { loadConfig } from '../dist/legacy/config.js'
+import { initWorkloom } from '../dist/domain/init.js'
+import { migrateLegacyTrellis } from '../dist/domain/migrate.js'
+import { loadConfig } from '../dist/domain/config.js'
 
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-migrate-'))

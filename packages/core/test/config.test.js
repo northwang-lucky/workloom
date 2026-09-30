@@ -16,7 +16,7 @@ import {
   resolveSubagentDefaults,
   splitProviderModel,
   WorkloomConfigError,
-} from '../src/legacy/config.js'
+} from '../src/domain/config.js'
 
 /** 创建临时项目根。 */
 function makeRoot() {

@@ -2,7 +2,7 @@
  * workloom core 公共入口。
  *
  * 分层约定：
- * - src/legacy/ 下的模块是既有脚本的行为移植，纯 JS（JSDoc 注释）；
+ * - src/domain/ 下是 runtime 无关的领域行为模块，纯 JS（JSDoc 注释）；
  * - 其余模块是新增抽象，用 TypeScript 编写。
  * 本包整体经 tsc 构建发布，不得 import 任何 runtime 包。
  */
@@ -13,7 +13,7 @@ export {
   findWorkloomRoot,
   detectLegacyTrellis,
   insideWorkloom,
-} from './legacy/locate.js'
+} from './domain/locate.js'
 
 export {
   DEFAULT_CONFIG,
@@ -24,9 +24,9 @@ export {
   assertForceReason,
   WorkloomConfigError,
   loadConfig,
-} from './legacy/config.js'
+} from './domain/config.js'
 
-export { buildNewDispatchBinding, resolveDispatchModelSource } from './legacy/dispatch-binding.js'
+export { buildNewDispatchBinding, resolveDispatchModelSource } from './domain/dispatch-binding.js'
 
 export {
   EFFORT_LEVELS,
@@ -34,28 +34,28 @@ export {
   assertEffort,
   assertKind,
   buildExecutorPrompt,
-} from './legacy/executor-context.js'
+} from './domain/executor-context.js'
 
 export {
   NATIVE_TOOLS_DSH,
   NATIVE_TOOLS_PI,
   buildAllowList,
-} from './legacy/executor-tools.js'
+} from './domain/executor-tools.js'
 
 export {
   evaluateExecutorCapacity,
   formatAtCapacityReceipt,
-} from './legacy/executor-capacity.js'
+} from './domain/executor-capacity.js'
 
 export type {
   RunningExecutorRecord,
   CapacityCheckParams,
   CapacityResult,
-} from './legacy/executor-capacity.d.ts'
+} from './domain/executor-capacity.d.ts'
 
-export { initWorkloom } from './legacy/init.js'
+export { initWorkloom } from './domain/init.js'
 
-export { migrateLegacyTrellis } from './legacy/migrate.js'
+export { migrateLegacyTrellis } from './domain/migrate.js'
 
 export {
   computePrdHash,
@@ -64,18 +64,18 @@ export {
   evaluateAlignmentGate,
   ALIGNMENT_MISSING,
   ALIGNMENT_STALE,
-} from './legacy/alignment.js'
+} from './domain/alignment.js'
 
-export { writeFileAtomic } from './legacy/file-atomic.js'
+export { writeFileAtomic } from './domain/file-atomic.js'
 
-export { parseContract, WorkflowContractError } from './legacy/workflow-contract.js'
+export { parseContract, WorkflowContractError } from './domain/workflow-contract.js'
 
 export {
   WORKFLOW_PROTOCOL_VERSION,
   assertWorkflowProtocolVersion,
-} from './legacy/protocol.js'
+} from './domain/protocol.js'
 
-export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './legacy/breadcrumb.js'
+export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './domain/breadcrumb.js'
 
 export {
   TaskStatus,
@@ -96,25 +96,25 @@ export {
   recordAlignmentCredential,
   recordExecutorDispatch,
   settleExecutorDispatch,
-} from './legacy/task-store.js'
+} from './domain/task-store.js'
 
 export {
   setActiveTask,
   clearActiveTask,
   resolveActiveTask,
   clearPointersToTask,
-} from './legacy/active-task.js'
+} from './domain/active-task.js'
 
 export {
   countDirtyLines,
   gitAddCommit,
   gitStatusSync,
   gitCurrentBranchSync,
-} from './legacy/git.js'
+} from './domain/git.js'
 
-export { addSession, listJournals } from './legacy/journal.js'
+export { addSession, listJournals } from './domain/journal.js'
 
-export { DEVELOPER_PATTERN, assertDeveloper } from './legacy/identity.js'
+export { DEVELOPER_PATTERN, assertDeveloper } from './domain/identity.js'
 
 export {
   GATES,
@@ -130,7 +130,7 @@ export {
   evaluateCheckLogGate,
   evaluateFrontendDispatchGate,
   makeOverride,
-} from './legacy/task-gates.js'
+} from './domain/task-gates.js'
 
 export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-service.js'
 
@@ -209,22 +209,22 @@ export type {
   SubagentConfigSource,
   ResolveSubagentDefaultsResult,
   ExecutorConflict,
-} from './legacy/config.d.ts'
+} from './domain/config.d.ts'
 
 export type {
   AllowToolsConfig,
   BuildAllowListParams,
-} from './legacy/executor-tools.d.ts'
+} from './domain/executor-tools.d.ts'
 
 export type {
   BuildExecutorPromptParams,
   ExecutorPromptStats,
   ExecutorPromptResult,
-} from './legacy/executor-context.d.ts'
+} from './domain/executor-context.d.ts'
 
-export type { InitWorkloomParams, InitWorkloomResult } from './legacy/init.d.ts'
+export type { InitWorkloomParams, InitWorkloomResult } from './domain/init.d.ts'
 
-export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './legacy/migrate.d.ts'
+export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './domain/migrate.d.ts'
 
 export type { WorkflowContract, WorkflowStep } from './workflow-contract-types.js'
 
@@ -255,7 +255,7 @@ export type {
   DispatchStatus,
   DispatchModelSource,
   DispatchSettleInput,
-} from './legacy/task-store.d.ts'
+} from './domain/task-store.d.ts'
 
 export type {
   GateKey,
@@ -263,9 +263,9 @@ export type {
   PrdSection,
   PrdStructureCode,
   PrdStructureIssue,
-} from './legacy/task-gates.d.ts'
+} from './domain/task-gates.d.ts'
 
-export type { OpenNodeState } from './legacy/alignment.d.ts'
+export type { OpenNodeState } from './domain/alignment.d.ts'
 
 export type {
   ExecuteAlignTaskParams,
@@ -274,7 +274,7 @@ export type {
   AlignConfirmResult,
 } from './service/alignment-service.js'
 
-export type { SessionPointer } from './legacy/active-task.d.ts'
+export type { SessionPointer } from './domain/active-task.d.ts'
 
 export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
 
@@ -303,4 +303,4 @@ export type {
   AddSessionResult,
   ListJournalsParams,
   JournalSummary,
-} from './legacy/journal.d.ts'
+} from './domain/journal.d.ts'

@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { addSession, listJournals } from '../src/legacy/journal.js'
+import { addSession, listJournals } from '../src/domain/journal.js'
 
 /** 创建临时项目根（含 .workloom，可选 config）。 */
 function makeRoot(options = {}) {

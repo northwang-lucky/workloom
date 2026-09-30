@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url'
 import {
   assertWorkflowProtocolVersion,
   WORKFLOW_PROTOCOL_VERSION,
-} from '../src/legacy/protocol.js'
-import { parseContract } from '../src/legacy/workflow-contract.js'
+} from '../src/domain/protocol.js'
+import { parseContract } from '../src/domain/workflow-contract.js'
 
 const assetPath = fileURLToPath(new URL('../../assets/workflow/workflow.md', import.meta.url))
 

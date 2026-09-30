@@ -11,8 +11,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { loadConfig } from '../src/legacy/config.js'
-import { renderExecutorProfilesSection } from '../src/legacy/executor-profiles.js'
+import { loadConfig } from '../src/domain/config.js'
+import { renderExecutorProfilesSection } from '../src/domain/executor-profiles.js'
 
 /** 创建临时项目根。 */
 function makeRoot() {

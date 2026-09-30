@@ -8,8 +8,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { initWorkloom } from '../dist/legacy/init.js'
-import { DEFAULT_CONFIG, loadConfig } from '../dist/legacy/config.js'
+import { initWorkloom } from '../dist/domain/init.js'
+import { DEFAULT_CONFIG, loadConfig } from '../dist/domain/config.js'
 
 /** 完整骨架路径清单（相对 root，与实现创建顺序一致）。 */
 const SKELETON = [

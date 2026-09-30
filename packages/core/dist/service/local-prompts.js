@@ -21,7 +21,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { insideWorkloom } from '../legacy/locate.js';
+import { insideWorkloom } from '../domain/locate.js';
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom local prompts';
 /** 项目共享片段目录相对 .workloom 的路径（可入库，doctor 侧复用同一约定）。 */

@@ -16,8 +16,8 @@ import {
   countEffectiveJsonlRecords,
   evaluateFrontendDispatchGate,
   evaluateStaleAlignmentGate,
-} from '../src/legacy/task-gates.js'
-import { computePrdHash } from '../src/legacy/alignment.js'
+} from '../src/domain/task-gates.js'
+import { computePrdHash } from '../src/domain/alignment.js'
 
 /** 骨架 prd 原文（字面量独立于此模块常量，防同义反复）。 */
 const SKELETON_PRD = `## Goal

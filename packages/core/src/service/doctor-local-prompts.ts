@@ -20,7 +20,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import { WORKLOOM_DIR } from '../legacy/locate.js'
+import { WORKLOOM_DIR } from '../domain/locate.js'
 import type { LocalFragmentTarget } from './local-prompts.js'
 import {
   LOCAL_PROMPTS_REL,

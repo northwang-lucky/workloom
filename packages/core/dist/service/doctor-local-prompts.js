@@ -18,7 +18,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { WORKLOOM_DIR } from '../legacy/locate.js';
+import { WORKLOOM_DIR } from '../domain/locate.js';
 import { LOCAL_PROMPTS_REL, parseLocalFragment, SHARED_PROMPTS_REL, targetFromFileName, } from './local-prompts.js';
 import { makeIssue } from './doctor-tasks.js';
 /**

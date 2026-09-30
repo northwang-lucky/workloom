@@ -12,7 +12,7 @@
  * - 未找到与坏契约的 err 消息使用 surface.ERR_PREFIX.stepTool 前缀，
  *   坏契约的解析错误原样转发（消息为 workflow contract: ...）。
  */
-import { parseContract } from '../legacy/workflow-contract.js';
+import { parseContract } from '../domain/workflow-contract.js';
 import { ERR_PREFIX } from '../surface.js';
 /**
  * 从契约文本中按 stepId 查找步骤。

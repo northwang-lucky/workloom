@@ -4,7 +4,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { parseContract, WorkflowContractError } from '../src/legacy/workflow-contract.js'
+import { parseContract, WorkflowContractError } from '../src/domain/workflow-contract.js'
 
 /** 构造一份全部 states 都有对应 tag 块的合法文档。 */
 function makeFullDoc() {

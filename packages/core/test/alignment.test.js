@@ -12,7 +12,7 @@ import {
   evaluateAlignmentGate,
   findOpenNodeState,
   normalizePrdEol,
-} from '../src/legacy/alignment.js'
+} from '../src/domain/alignment.js'
 
 /** 一份已收敛的最小 prd 全文（H1 + 四小节 + Alignment Decisions + open-nodes=none）。 */
 const CONVERGED_PRD = `# Ship the alignment

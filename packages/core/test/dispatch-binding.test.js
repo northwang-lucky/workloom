@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import {
   buildNewDispatchBinding,
   resolveDispatchModelSource,
-} from '../src/legacy/dispatch-binding.js'
+} from '../src/domain/dispatch-binding.js'
 
 /** 构造 ResolveSubagentDefaultsResult 形状的最小 effective。 */
 function effectiveOf({ model, effort, configModel } = {}) {

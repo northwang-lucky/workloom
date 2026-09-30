@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { findWorkloomRoot, detectLegacyTrellis, insideWorkloom } from '../src/legacy/locate.js'
+import { findWorkloomRoot, detectLegacyTrellis, insideWorkloom } from '../src/domain/locate.js'
 
 function makeTree() {
   const base = mkdtempSync(join(tmpdir(), 'workloom-locate-'))

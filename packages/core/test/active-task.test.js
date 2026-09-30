@@ -12,7 +12,7 @@ import {
   clearActiveTask,
   resolveActiveTask,
   clearPointersToTask,
-} from '../src/legacy/active-task.js'
+} from '../src/domain/active-task.js'
 
 /** 创建临时项目根（含 .workloom）。 */
 function makeRoot() {

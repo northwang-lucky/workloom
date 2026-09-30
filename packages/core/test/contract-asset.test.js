@@ -6,8 +6,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { parseContract } from '../src/legacy/workflow-contract.js'
-import { WORKFLOW_PROTOCOL_VERSION } from '../src/legacy/protocol.js'
+import { parseContract } from '../src/domain/workflow-contract.js'
+import { WORKFLOW_PROTOCOL_VERSION } from '../src/domain/protocol.js'
 
 const assetPath = fileURLToPath(new URL('../../assets/workflow/workflow.md', import.meta.url))
 

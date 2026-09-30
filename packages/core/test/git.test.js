@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { gitAddCommit, gitCurrentBranchSync, gitStatusSync } from '../dist/legacy/git.js'
+import { gitAddCommit, gitCurrentBranchSync, gitStatusSync } from '../dist/domain/git.js'
 
 /** git 提交所需的最小身份环境变量（不依赖全局 git config）。 */
 const GIT_IDENTITY_ENV = {

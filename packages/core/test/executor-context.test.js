@@ -20,7 +20,7 @@ import {
   assertEffort,
   assertKind,
   buildExecutorPrompt,
-} from '../dist/legacy/executor-context.js'
+} from '../dist/domain/executor-context.js'
 
 /** 任务目录相对 .workloom 的路径（测试统一使用）。 */
 const TASK_REL_PATH = 'tasks/08-24-demo'
@@ -839,8 +839,8 @@ test('Involved files 段全 kind 删除：research 锚点上下文包不再注�
         '',
         '## 节',
         '',
-        '- `packages/core/src/legacy/executor-context.js:100` 锚点一',
-        '- `packages/core/src/legacy/config.js:60` 锚点二',
+        '- `packages/core/src/domain/executor-context.js:100` 锚点一',
+        '- `packages/core/src/domain/config.js:60` 锚点二',
         '',
       ].join('\n'),
     )
@@ -863,7 +863,7 @@ test('Involved files 段全 kind 删除：research 锚点上下文包不再注�
           `${kind} must not inject the Involved files section`,
         )
         assert.ok(
-          !result.text.includes('packages/core/src/legacy/executor-context.js'),
+          !result.text.includes('packages/core/src/domain/executor-context.js'),
           `${kind} must not leak the anchor file list`,
         )
       }

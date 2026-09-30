@@ -13,7 +13,7 @@
  *   坏契约的解析错误原样转发（消息为 workflow contract: ...）。
  */
 
-import { parseContract } from '../legacy/workflow-contract.js'
+import { parseContract } from '../domain/workflow-contract.js'
 import { ERR_PREFIX } from '../surface.js'
 
 import type { WorkflowStep } from '../workflow-contract-types.js'

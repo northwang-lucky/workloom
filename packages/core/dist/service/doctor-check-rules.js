@@ -9,12 +9,12 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { insideWorkloom, WORKLOOM_DIR } from '../legacy/locate.js';
-import { TaskStage, TaskStatus } from '../legacy/task-store.js';
-import { EXECUTOR_KINDS, parseJsonlEntries } from '../legacy/executor-context.js';
-import { listPointers } from '../legacy/active-task.js';
-import { countEffectiveJsonlRecords, inspectPrdStructure, PRD_STRUCTURE_CODES, } from '../legacy/task-gates.js';
-import { loadConfig } from '../legacy/config.js';
+import { insideWorkloom, WORKLOOM_DIR } from '../domain/locate.js';
+import { TaskStage, TaskStatus } from '../domain/task-store.js';
+import { EXECUTOR_KINDS, parseJsonlEntries } from '../domain/executor-context.js';
+import { listPointers } from '../domain/active-task.js';
+import { countEffectiveJsonlRecords, inspectPrdStructure, PRD_STRUCTURE_CODES, } from '../domain/task-gates.js';
+import { loadConfig } from '../domain/config.js';
 import { makeIssue, pointerPath, taskJsonPath } from './doctor-tasks.js';
 import { OVERLAY_REL_PATH } from './workflow-service.js';
 /** 计划任务超期未 start 的判定窗口（24h）。 */

@@ -6,7 +6,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { evaluateExecutorCapacity, formatAtCapacityReceipt } from '../src/legacy/executor-capacity.js'
+import { evaluateExecutorCapacity, formatAtCapacityReceipt } from '../src/domain/executor-capacity.js'
 
 /** 构造 running 记录。 @param {...([string, string])} pairs [childId, kind] */
 function running(...pairs) {

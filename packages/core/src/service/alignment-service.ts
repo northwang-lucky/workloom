@@ -16,16 +16,16 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { computePrdHash, findOpenNodeState } from '../legacy/alignment.js'
-import { inspectPrdStructure, PRD_MISSING } from '../legacy/task-gates.js'
-import { findWorkloomRoot, insideWorkloom } from '../legacy/locate.js'
-import { readTask, recordAlignmentCredential } from '../legacy/task-store.js'
+import { computePrdHash, findOpenNodeState } from '../domain/alignment.js'
+import { inspectPrdStructure, PRD_MISSING } from '../domain/task-gates.js'
+import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js'
+import { readTask, recordAlignmentCredential } from '../domain/task-store.js'
 import { ERR_PREFIX } from '../surface.js'
 import { requireWorkloomCwd, resolveTaskRelPath } from './task-ops.js'
 
-import type { TaskAlignmentRecord, TaskRecordWithPath, TaskStatusValue } from '../legacy/task-store.d.ts'
-import type { OpenNodeState } from '../legacy/alignment.d.ts'
-import type { PrdStructureIssue } from '../legacy/task-gates.d.ts'
+import type { TaskAlignmentRecord, TaskRecordWithPath, TaskStatusValue } from '../domain/task-store.d.ts'
+import type { OpenNodeState } from '../domain/alignment.d.ts'
+import type { PrdStructureIssue } from '../domain/task-gates.d.ts'
 
 /** task 目录内 prd 文件名（与 task-store 数据布局一致）。 */
 const PRD_FILE = 'prd.md'

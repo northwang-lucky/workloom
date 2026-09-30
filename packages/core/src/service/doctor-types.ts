@@ -7,7 +7,7 @@
  * - 运行时 issue/message 文案英文；注释中文。
  */
 
-import type { TaskRecordWithPath } from '../legacy/task-store.d.ts'
+import type { TaskRecordWithPath } from '../domain/task-store.d.ts'
 
 /** 检查项 code 枚举。 */
 export type DoctorIssueCode =

@@ -7,8 +7,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { collectSpecIndexes, MAX_GUIDELINES_BYTES } from '../dist/legacy/spec-index.js'
-import { loadConfig } from '../dist/legacy/config.js'
+import { collectSpecIndexes, MAX_GUIDELINES_BYTES } from '../dist/domain/spec-index.js'
+import { loadConfig } from '../dist/domain/config.js'
 
 /** 创建临时项目根（含 .workloom/spec）。 */
 function makeProject() {

@@ -6,7 +6,7 @@
  * - doctor-checks.ts / doctor-fixes.ts / doctor.ts 各自从此处引用类型与常量，避免循环依赖；
  * - 运行时 issue/message 文案英文；注释中文。
  */
-import type { TaskRecordWithPath } from '../legacy/task-store.d.ts';
+import type { TaskRecordWithPath } from '../domain/task-store.d.ts';
 /** 检查项 code 枚举。 */
 export type DoctorIssueCode = 'task-lifecycle' | 'parent-child' | 'archive' | 'dispatch-audit' | 'stage-consistency' | 'active-pointer' | 'doc-completeness' | 'spec-ref' | 'config' | 'local-prompts' | 'workflow-overlay';
 /** 严重级别。 */

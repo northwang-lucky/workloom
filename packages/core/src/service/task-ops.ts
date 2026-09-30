@@ -12,8 +12,8 @@
  * - 所有错误消息使用 surface.ERR_PREFIX.taskTool 前缀，与下沉前逐字一致。
  */
 
-import { resolveActiveTask } from '../legacy/active-task.js'
-import { findWorkloomRoot } from '../legacy/locate.js'
+import { resolveActiveTask } from '../domain/active-task.js'
+import { findWorkloomRoot } from '../domain/locate.js'
 import {
   archiveTask,
   checkTask,
@@ -21,7 +21,7 @@ import {
   finishTask,
   listTasks,
   startTask,
-} from '../legacy/task-store.js'
+} from '../domain/task-store.js'
 import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE } from '../surface.js'
 
 import type {
@@ -31,7 +31,7 @@ import type {
   TaskRecordWithPath,
   TaskStatusValue,
   TaskSummary,
-} from '../legacy/task-store.d.ts'
+} from '../domain/task-store.d.ts'
 
 /**
  * 校验工具 cwd：空串直接抛错（消息含前缀，与下沉前 adapter 文案逐字一致）。

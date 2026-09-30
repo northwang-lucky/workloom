@@ -14,11 +14,11 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { detectLegacyTrellis, findWorkloomRoot, WORKLOOM_DIR } from '../legacy/locate.js';
-import { initWorkloom } from '../legacy/init.js';
-import { migrateLegacyTrellis } from '../legacy/migrate.js';
-import { readTask } from '../legacy/task-store.js';
-import { addSession } from '../legacy/journal.js';
+import { detectLegacyTrellis, findWorkloomRoot, WORKLOOM_DIR } from '../domain/locate.js';
+import { initWorkloom } from '../domain/init.js';
+import { migrateLegacyTrellis } from '../domain/migrate.js';
+import { readTask } from '../domain/task-store.js';
+import { addSession } from '../domain/journal.js';
 import { requireTaskRelPath } from './task-ops.js';
 import { COMMAND_NAMES, DEVELOPER_FILE, ERR_PREFIX, PURGE_FLAG } from '../surface.js';
 /**

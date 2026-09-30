@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { findWorkloomRoot } from '../legacy/locate.js'
+import { findWorkloomRoot } from '../domain/locate.js'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom spec templates'

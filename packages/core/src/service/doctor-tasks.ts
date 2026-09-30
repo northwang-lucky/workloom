@@ -11,8 +11,8 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { insideWorkloom, WORKLOOM_DIR } from '../legacy/locate.js'
-import { readTask } from '../legacy/task-store.js'
+import { insideWorkloom, WORKLOOM_DIR } from '../domain/locate.js'
+import { readTask } from '../domain/task-store.js'
 import { ARCHIVE_DIR, TASK_DIR } from './doctor-types.js'
 import type {
   DoctorCheck,

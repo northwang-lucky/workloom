@@ -12,13 +12,13 @@
  * - root 约定为项目根（由 adapter 传 findWorkloomRoot 的结果），内部只拼路径不再向上查找。
  */
 import { readFileSync } from 'node:fs';
-import { insideWorkloom } from '../legacy/locate.js';
-import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from '../legacy/git.js';
-import { resolveActiveTask } from '../legacy/active-task.js';
-import { readTask } from '../legacy/task-store.js';
-import { loadConfig } from '../legacy/config.js';
-import { collectSpecIndexes } from '../legacy/spec-index.js';
-import { renderExecutorProfilesSection } from '../legacy/executor-profiles.js';
+import { insideWorkloom } from '../domain/locate.js';
+import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from '../domain/git.js';
+import { resolveActiveTask } from '../domain/active-task.js';
+import { readTask } from '../domain/task-store.js';
+import { loadConfig } from '../domain/config.js';
+import { collectSpecIndexes } from '../domain/spec-index.js';
+import { renderExecutorProfilesSection } from '../domain/executor-profiles.js';
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom session context';
 /** 注入块开/闭标记（包住整份快照）。 */

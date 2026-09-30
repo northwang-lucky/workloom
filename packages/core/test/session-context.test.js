@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { assembleSessionContext } from '../dist/service/session-context.js'
-import { setActiveTask } from '../dist/legacy/active-task.js'
+import { setActiveTask } from '../dist/domain/active-task.js'
 
 /** git 提交所需的最小身份环境变量（不依赖全局 git config）。 */
 const GIT_IDENTITY_ENV = {

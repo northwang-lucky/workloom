@@ -9,12 +9,12 @@
  *   供 systemPrompt 的同步 text provider 直接调用，避免编排逻辑重复。
  */
 import { readFileSync } from 'node:fs';
-import { findWorkloomRoot, insideWorkloom } from '../legacy/locate.js';
-import { loadConfig } from '../legacy/config.js';
-import { parseContract } from '../legacy/workflow-contract.js';
-import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from '../legacy/breadcrumb.js';
-import { resolveActiveTask } from '../legacy/active-task.js';
-import { readTask } from '../legacy/task-store.js';
+import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js';
+import { loadConfig } from '../domain/config.js';
+import { parseContract } from '../domain/workflow-contract.js';
+import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from '../domain/breadcrumb.js';
+import { resolveActiveTask } from '../domain/active-task.js';
+import { readTask } from '../domain/task-store.js';
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom workflow';
 /** overlay 文件相对 .workloom 的路径（doctor overlay 检查等共享）。 */

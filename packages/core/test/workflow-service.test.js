@@ -11,8 +11,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { assembleBreadcrumb } from '../dist/service/workflow-service.js'
-import { createTask } from '../dist/legacy/task-store.js'
-import { setActiveTask } from '../dist/legacy/active-task.js'
+import { createTask } from '../dist/domain/task-store.js'
+import { setActiveTask } from '../dist/domain/active-task.js'
 
 /** 内联小契约（front-matter 与四个状态块，与 assets 的 states 对齐）。 */
 const CONTRACT_TEXT = [

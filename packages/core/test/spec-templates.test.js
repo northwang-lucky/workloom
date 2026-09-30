@@ -8,8 +8,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { ensureSpecTemplates } from '../dist/service/spec-templates.js'
-import { collectSpecIndexes } from '../dist/legacy/spec-index.js'
-import { loadConfig } from '../dist/legacy/config.js'
+import { collectSpecIndexes } from '../dist/domain/spec-index.js'
+import { loadConfig } from '../dist/domain/config.js'
 
 /** 模板入参样例。 */
 const TEMPLATES = {

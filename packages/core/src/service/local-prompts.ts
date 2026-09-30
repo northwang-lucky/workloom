@@ -24,7 +24,7 @@ import { join } from 'node:path'
 
 import { parse as parseYaml } from 'yaml'
 
-import { insideWorkloom } from '../legacy/locate.js'
+import { insideWorkloom } from '../domain/locate.js'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom local prompts'

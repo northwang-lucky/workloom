@@ -12,9 +12,9 @@
  * - cwd/root/task 解析与 task-ops 同款（requireWorkloomCwd + resolveTaskRelPath +
  *   findWorkloomRoot），adapter 只负责投影返回与主会话限制。
  */
-import type { TaskAlignmentRecord, TaskStatusValue } from '../legacy/task-store.d.ts';
-import type { OpenNodeState } from '../legacy/alignment.d.ts';
-import type { PrdStructureIssue } from '../legacy/task-gates.d.ts';
+import type { TaskAlignmentRecord, TaskStatusValue } from '../domain/task-store.d.ts';
+import type { OpenNodeState } from '../domain/alignment.d.ts';
+import type { PrdStructureIssue } from '../domain/task-gates.d.ts';
 /**
  * review 成功结果：prd 快照 + hash + 开放节点状态 + 内容就绪诊断 + 现有凭据（零写盘）。
  */

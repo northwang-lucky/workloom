@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { writeFileAtomic } from '../src/legacy/file-atomic.js'
+import { writeFileAtomic } from '../src/domain/file-atomic.js'
 
 /** 列出目录中的临时残留文件（点前缀 + .tmp 后缀）。 */
 function tmpResidue(dir) {

@@ -5,6 +5,7 @@ Shared vocabulary for this repository. Use these terms; avoid the listed alterna
 - runtime: an external AI coding platform (DeepSeek Harness, Pi, Claude Code, …) that hosts an adapter — avoid "platform"
 - adapter: the runtime-specific wrapper following that runtime's official plugin format — avoid "plugin"
 - core: runtime-independent logic — task lifecycle, workflow state machine, context assembly, asset rendering — avoid "engine", "kernel"
+- domain: the core's pure-JS behavior modules under `packages/core/src/domain/` (pure JS + JSDoc, no build), paired with the TypeScript abstractions under `src/service/` — avoid "legacy module"
 - assets: runtime-independent content (skills, agents, commands) as Markdown + YAML front-matter — avoid "resources"
 - executor: the abstraction that runs research/implement/check/frontend, inline or as a subagent — avoid "worker", "runner"
 - frontend executor: the executor kind (`frontend`) dedicated to the task's frontend UI file implementation — it follows the PRD `## UI Design` section and the design UI chapter, only touches frontend files, and uses an annotated mock/placeholder for a missing backend interface instead of implementing the backend — avoid "ui agent"

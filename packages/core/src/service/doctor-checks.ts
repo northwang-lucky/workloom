@@ -11,7 +11,7 @@
  * - 运行时 issue/message 文案英文；注释中文。
  */
 
-import { findWorkloomRoot } from '../legacy/locate.js'
+import { findWorkloomRoot } from '../domain/locate.js'
 import { CHECK_META } from './doctor-types.js'
 import type {
   DoctorCheck,

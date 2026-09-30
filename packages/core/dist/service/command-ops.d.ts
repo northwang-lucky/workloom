@@ -12,8 +12,8 @@
  * - 所有错误消息使用 surface.ERR_PREFIX.command 前缀，与下沉前 adapter
  *   输出的文本逐字一致；迁移失败只附 WARNING 不阻塞 init 结果。
  */
-import type { MigrateLegacyTrellisResult } from '../legacy/migrate.d.ts';
-import type { AddSessionResult } from '../legacy/journal.d.ts';
+import type { MigrateLegacyTrellisResult } from '../domain/migrate.d.ts';
+import type { AddSessionResult } from '../domain/journal.d.ts';
 /**
  * 解析 init 命令的自由输入：精确 --purge 或以 --purge 空格开头 → purge 模式；
  * 其余视为 developer identity（原样 trim）。

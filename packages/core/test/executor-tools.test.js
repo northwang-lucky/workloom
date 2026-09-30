@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildAllowList, NATIVE_TOOLS_DSH, NATIVE_TOOLS_PI } from '../src/legacy/executor-tools.js'
+import { buildAllowList, NATIVE_TOOLS_DSH, NATIVE_TOOLS_PI } from '../src/domain/executor-tools.js'
 
 test('默认名单：DSH 原生候选全集（不含 lsp_* 与交互/编排工具）', () => {
   // 显式枚举断言：15 个原生候选，lsp_*、ask_user_question、subagent* 等一律不入。

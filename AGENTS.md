@@ -6,7 +6,7 @@ workloom：把 AI 编码工作流抽象为 runtime 无关的核心逻辑层（co
 
 ```txt
 packages/
-├── core/            # runtime 无关逻辑：legacy 纯 JS 移植模块 + service TS 抽象
+├── core/            # runtime 无关逻辑：domain 纯 JS 领域模块 + service TS 抽象
 ├── assets/          # workflow 契约、skills/agents/commands 中间表示
 ├── adapter-dsh/     # DSH profile bundle（@workloom-ai/adapter-dsh）
 └── adapter-pi/      # Pi Package（@workloom-ai/adapter-pi，executor 自研 spawn child pi）
@@ -19,7 +19,7 @@ packages/
 | 索引 | 内容 |
 | --- | --- |
 | `repo/code-style` | 编码原则、验证命令（verify） |
-| `repo/legacy-module` | legacy 纯 JS + JSDoc 模块约定 |
+| `repo/domain-module` | domain 纯 JS + JSDoc 模块约定 |
 | `repo/deployment` | 构建产物部署同步纪律 |
 | `repo/language` | 中英文分工约定 |
 | `repo/commits` | 提交规范 |

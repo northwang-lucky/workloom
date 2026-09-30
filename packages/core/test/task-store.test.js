@@ -34,10 +34,10 @@ import {
   settleExecutorDispatch,
   runTaskHooks,
   computeTaskStage,
-} from '../src/legacy/task-store.js'
-import { computePrdHash } from '../src/legacy/alignment.js'
-import { EXECUTOR_KINDS } from '../src/legacy/executor-context.js'
-import { resolveActiveTask, setActiveTask } from '../src/legacy/active-task.js'
+} from '../src/domain/task-store.js'
+import { computePrdHash } from '../src/domain/alignment.js'
+import { EXECUTOR_KINDS } from '../src/domain/executor-context.js'
+import { resolveActiveTask, setActiveTask } from '../src/domain/active-task.js'
 
 /** 创建临时项目根（含 .workloom，可选 config 与 .developer）。 */
 function makeRoot(options = {}) {

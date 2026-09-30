@@ -11,18 +11,18 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 
-import { insideWorkloom, WORKLOOM_DIR } from '../legacy/locate.js'
-import { TaskStage, TaskStatus } from '../legacy/task-store.js'
-import { EXECUTOR_KINDS, parseJsonlEntries } from '../legacy/executor-context.js'
-import type { JsonlEntry } from '../legacy/executor-context.d.ts'
-import { listPointers } from '../legacy/active-task.js'
+import { insideWorkloom, WORKLOOM_DIR } from '../domain/locate.js'
+import { TaskStage, TaskStatus } from '../domain/task-store.js'
+import { EXECUTOR_KINDS, parseJsonlEntries } from '../domain/executor-context.js'
+import type { JsonlEntry } from '../domain/executor-context.d.ts'
+import { listPointers } from '../domain/active-task.js'
 import {
   countEffectiveJsonlRecords,
   inspectPrdStructure,
   PRD_STRUCTURE_CODES,
-} from '../legacy/task-gates.js'
-import type { PrdStructureIssue } from '../legacy/task-gates.d.ts'
-import { loadConfig } from '../legacy/config.js'
+} from '../domain/task-gates.js'
+import type { PrdStructureIssue } from '../domain/task-gates.d.ts'
+import { loadConfig } from '../domain/config.js'
 import type { DoctorIssue, TaskNode } from './doctor-types.js'
 import { makeIssue, pointerPath, taskJsonPath } from './doctor-tasks.js'
 import { OVERLAY_REL_PATH } from './workflow-service.js'

@@ -14,8 +14,8 @@ import {
   buildConflictNotice,
   detectExecutorConflicts,
   WorkloomConfigError,
-} from '../src/legacy/config.js'
-import { readTask, recordExecutorOverride } from '../src/legacy/task-store.js'
+} from '../src/domain/config.js'
+import { readTask, recordExecutorOverride } from '../src/domain/task-store.js'
 
 /** 构造只含 subagents 的配置对象（检测只消费该字段）。 */
 function makeConfig(subagents) {

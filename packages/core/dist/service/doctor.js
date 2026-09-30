@@ -6,7 +6,7 @@
  *   具体只读检查见 doctor-checks.ts，确定性修复见 doctor-fixes.ts，类型与元信息见 doctor-types.ts；
  * - --fix 路径 collectChecks 只执行 2 次（pre 检查 + 复核），复核结果由
  *   applyFixesAndMeasure 一并返回，避免额外中检；
- * - 复用 legacy task-store/active-task/task-gates/config API；仅在必要时补充极薄只读辅助；
+ * - 复用 domain task-store/active-task/task-gates/config API；仅在必要时补充极薄只读辅助；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 import { buildReport, collectChecks } from './doctor-checks.js';

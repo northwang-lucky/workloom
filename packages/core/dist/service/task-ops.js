@@ -11,9 +11,9 @@
  *   归档必须显式绑定目标任务；start/check/finish/align 保持活跃任务回退；
  * - 所有错误消息使用 surface.ERR_PREFIX.taskTool 前缀，与下沉前逐字一致。
  */
-import { resolveActiveTask } from '../legacy/active-task.js';
-import { findWorkloomRoot } from '../legacy/locate.js';
-import { archiveTask, checkTask, createTask, finishTask, listTasks, startTask, } from '../legacy/task-store.js';
+import { resolveActiveTask } from '../domain/active-task.js';
+import { findWorkloomRoot } from '../domain/locate.js';
+import { archiveTask, checkTask, createTask, finishTask, listTasks, startTask, } from '../domain/task-store.js';
 import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE } from '../surface.js';
 /**
  * 校验工具 cwd：空串直接抛错（消息含前缀，与下沉前 adapter 文案逐字一致）。

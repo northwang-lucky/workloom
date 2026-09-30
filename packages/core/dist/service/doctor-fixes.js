@@ -11,9 +11,9 @@
  */
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { insideWorkloom } from '../legacy/locate.js';
-import { TaskStatus } from '../legacy/task-store.js';
-import { clearPointersToTask, listPointers } from '../legacy/active-task.js';
+import { insideWorkloom } from '../domain/locate.js';
+import { TaskStatus } from '../domain/task-store.js';
+import { clearPointersToTask, listPointers } from '../domain/active-task.js';
 import { ARCHIVE_DIR, JSON_INDENT, TASK_DIR } from './doctor-types.js';
 import { collectChecks } from './doctor-checks.js';
 import { allIssues, canonicalRef, collectTasks, issueKey } from './doctor-tasks.js';
