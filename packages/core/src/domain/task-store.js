@@ -31,6 +31,7 @@ import {
   setActiveTask,
 } from './active-task.js'
 import { gitAddCommit } from './git.js'
+import { cleanupTaskWorktree, createTaskWorktree } from './worktree.js'
 import {
   GATES,
   PRD_SECTIONS,
@@ -332,7 +333,8 @@ function buildTaskRecord(input) {
     priority: input.params.priority ?? DEFAULT_PRIORITY,
     creator: input.creator,
     assignee: '',
-    package: null,
+    // package 归属（create 传入时落值，存量直调面缺省 null；成员校验在 createTaskInternal）。
+    package: input.params.package ?? null,
     branch: '',
     base_branch: '',
     createdAt: input.now,
@@ -550,6 +552,21 @@ async function createTaskInternal(root, params) {
   }
   const creator = readDeveloper(projectRoot)
   const config = loadConfig(projectRoot)
+  // package 归属校验（design §5.1）：传入即校验 ∈ config.packages，未知值 fail loud
+  // （文案列已声明包 + 指引 workloom-packages-scan）；置于任何写盘（mkdirSync）
+  // 之前 → 零部分状态。直调面 package 可选（存量 createTask 调用不下沉必填；
+  // executeCreateTask 层另行强制非空）。
+  if (params.package !== undefined && params.package !== null) {
+    if (typeof params.package !== 'string' || config.packages[params.package] === undefined) {
+      const declared = Object.keys(config.packages)
+      throw new Error(
+        `${ERR_PREFIX}: unknown package ${JSON.stringify(params.package)} ` +
+          `(declared: ${declared.length > 0 ? declared.join(', ') : 'none'}); ` +
+          'declare it under "packages" in .workloom/config.json ' +
+          '(run workloom-packages-scan to generate the list)',
+      )
+    }
+  }
   // 子任务落盘 parent 用归一后的 parentRelPath（tasks/ 规范形），保证两种输入格式存储一致。
   const recordParams = { ...params, parent: parentRelPath }
   const task = buildTaskRecord({
@@ -637,6 +654,25 @@ async function startTaskInternal(root, params) {
           '(pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)',
       )
     }
+  }
+  // worktree 创建（design §5.2，插入门禁合流后、status 写盘前）：任一失败抛错即中止
+  // ——内存状态与磁盘均未触碰（零部分状态），且不 push overrides（worktree 失败是
+  // 硬阻断非豁免项）；branch/base_branch/worktree_path 与 in_progress 同一次落盘。
+  const config = loadConfig(projectRoot)
+  if (config.worktree.enabled) {
+    if (!task.package) {
+      throw new Error(
+        `${ERR_PREFIX}: task has no package; edit .workloom/${params.taskRelPath}/task.json ` +
+          'and set "package" to a declared packages key before start',
+      )
+    }
+    const [wtErr, wt] = await createTaskWorktree(projectRoot, task, params.taskRelPath, config)
+    if (wt === null) {
+      throw wtErr ?? new Error(`${ERR_PREFIX}: worktree creation returned no result`)
+    }
+    task.branch = wt.branch
+    task.base_branch = wt.baseBranch
+    task.worktree_path = wt.worktreePath
   }
   task.status = TaskStatus.IN_PROGRESS
   writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task))
@@ -1128,14 +1164,17 @@ async function finishTaskInternal(root, params) {
 }
 
 /**
- * 归档任务：置 completed、移动目录、清理会话指针、执行 after_archive hooks，可选 git 自动提交。
+ * 归档任务：清理任务 worktree（失败即阻断）、置 completed、移动目录、清理会话指针、
+ * 执行 after_archive hooks，可选 git 自动提交。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').ArchiveTaskParams} params
- * @returns {Promise<[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]>}
+ * @returns {Promise<import('./task-store.d.ts').ArchiveTaskResult>} 三元组：
+ *   [err, 归档后记录, worktree 清理摘要（成功时携带）]
  */
 export async function archiveTask(root, params) {
   try {
-    return [null, await archiveTaskInternal(root, params)]
+    const { task, worktreeCleanup } = await archiveTaskInternal(root, params)
+    return [null, task, worktreeCleanup]
   } catch (error) {
     return [toError(error), null]
   }
@@ -1145,7 +1184,7 @@ export async function archiveTask(root, params) {
  * 归档任务（内部实现）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').ArchiveTaskParams} params
- * @returns {Promise<import('./task-store.d.ts').TaskRecordWithPath>}
+ * @returns {Promise<{task: import('./task-store.d.ts').TaskRecordWithPath, worktreeCleanup: import('./worktree.d.ts').CleanupTaskWorktreeResult}>}
  */
 async function archiveTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
@@ -1185,6 +1224,16 @@ async function archiveTaskInternal(root, params) {
   if (existsSync(archiveDir)) {
     throw new Error(`${ERR_PREFIX}: archive target already exists: ${archiveRel}`)
   }
+  // worktree 清理（design §5.3，插在冲突检查后、renameSync 不可逆点前）：清理失败
+  // 即阻断 archive——不改 status、不移动目录、不 autoCommit；gitlink 提交已在
+  // cleanup 内独立完成（fail loud，不复用 autoCommitIfEnabled 的 WARNING 契约）。
+  // 清理成功但后续 rename 失败 → 接受「worktree 已删、任务未归档」中间态（R5-Q2，
+  // 重跑时 cleanup 步骤幂等：已 merged 跳 merge、无 diff 跳提交、无注册跳 remove）。
+  const worktreeConfig = loadConfig(projectRoot)
+  const [wtErr, worktreeCleanup] = await cleanupTaskWorktree(projectRoot, task, worktreeConfig)
+  if (worktreeCleanup === null) {
+    throw wtErr ?? new Error(`${ERR_PREFIX}: worktree cleanup returned no result`)
+  }
   // 先移动、再在归档位置改状态：任一写盘失败都不会把原目录改成 completed。
   mkdirSync(dirname(archiveDir), { recursive: true })
   renameSync(insideWorkloom(projectRoot, params.taskRelPath), archiveDir)
@@ -1209,7 +1258,7 @@ async function archiveTaskInternal(root, params) {
   logWarnings(warnings)
   // 返回归档后的新路径，避免调用方拿着旧路径继续操作。
   task.taskRelPath = archiveRel
-  return task
+  return { task, worktreeCleanup }
 }
 
 /**

@@ -90,8 +90,15 @@ export async function executeCreateTask(cwd, contextKey, params) {
  */
 async function executeCreateInternal(cwd, contextKey, params) {
     requireWorkloomCwd(cwd);
+    // package 恒必填（PRD 需求 2，与 worktree 开关无关）：非空字符串校验在 execute
+    // 层（调用方为 adapter 薄投影，schema required 之外的兜底）；成员校验在 core。
+    if (typeof params.package !== 'string' || params.package.trim() === '') {
+        throw new Error(`${ERR_PREFIX.taskTool}: package is required (pass a declared "packages" key from .workloom/config.json; ` +
+            'run workloom-packages-scan if no package is declared)');
+    }
     const [err, result] = await createTask(cwd, {
         title: params.title,
+        package: params.package,
         ...(typeof params.slug === 'string' && params.slug !== '' ? { slug: params.slug } : {}),
         ...(typeof params.priority === 'string' && params.priority !== ''
             ? { priority: params.priority }
@@ -241,7 +248,7 @@ export async function executeArchiveTask(cwd, params) {
 async function executeArchiveInternal(cwd, params) {
     requireWorkloomCwd(cwd);
     const taskRelPath = requireTaskRelPath(params.taskPath, ERR_PREFIX.taskTool);
-    const [err, task] = await archiveTask(cwd, {
+    const [err, task, worktreeCleanup] = await archiveTask(cwd, {
         taskRelPath,
         ...(params.autoCommit !== undefined ? { autoCommit: params.autoCommit } : {}),
         ...forceOverride(params),
@@ -249,7 +256,12 @@ async function executeArchiveInternal(cwd, params) {
     if (err || task === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`);
     }
-    return { taskRelPath: task.taskRelPath, task, note: TASK_ARCHIVE_NOTE };
+    return {
+        taskRelPath: task.taskRelPath,
+        task,
+        note: TASK_ARCHIVE_NOTE,
+        ...(worktreeCleanup !== undefined ? { worktreeCleanup } : {}),
+    };
 }
 /**
  * list 工具编排：列出任务摘要（可选 status 过滤，空串视为未指定）。

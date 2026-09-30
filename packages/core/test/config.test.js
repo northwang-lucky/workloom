@@ -363,8 +363,12 @@ test('全局白名单：6 类项目无关字段放行', () => {
   }
 })
 
-test('全局白名单：packages / hooks 属项目字段报错', () => {
-  for (const doc of [{ packages: {} }, { hooks: { after_create: [] } }]) {
+test('全局白名单：packages / hooks / worktree 属项目字段报错', () => {
+  for (const doc of [
+    { packages: {} },
+    { hooks: { after_create: [] } },
+    { worktree: { enabled: true } },
+  ]) {
     const root = makeRoot()
     const home = makeHome()
     writeHomeFile(home, 'config.json', doc)
@@ -1424,6 +1428,99 @@ test('legacy subagents 层 max_concurrent → WorkloomConfigError（仅 profiles
         err instanceof WorkloomConfigError &&
         err.field === 'subagents.implement.max_concurrent'
       )
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+// ---------- worktree 节配置解析（S1 R1） ----------
+
+test('worktree 缺省值：enabled=true / branch_template=workloom/<task-id> / cleanup=merge-keep-branch', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.deepEqual(config.worktree, {
+      enabled: true,
+      branchTemplate: 'workloom/<task-id>',
+      cleanup: 'merge-keep-branch',
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('worktree 显式值解析（enabled=false、自定义模板含白名单占位符、四枚举值）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    worktree: {
+      enabled: false,
+      branch_template: 'feat/<task-slug>/<date>',
+      cleanup: 'keep-branch',
+    },
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.worktree.enabled, false)
+    assert.equal(config.worktree.branchTemplate, 'feat/<task-slug>/<date>')
+    assert.equal(config.worktree.cleanup, 'keep-branch')
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('worktree.cleanup 四枚举之外的值 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { worktree: { cleanup: 'rebase' } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'worktree.cleanup'
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('worktree.branch_template 空模板 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { worktree: { branch_template: '   ' } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'worktree.branch_template'
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('worktree.branch_template 未知占位符 → WorkloomConfigError（白名单仅 task-id/task-slug/date）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { worktree: { branch_template: 'workloom/<bogus>' } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return (
+        err instanceof WorkloomConfigError &&
+        err.field === 'worktree.branch_template' &&
+        /<bogus>/.test(err.message)
+      )
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('worktree 未知子字段 → WorkloomConfigError（fail loud）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { worktree: { bogus: 1 } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'worktree.bogus'
     })
   } finally {
     cleanup(root, home)

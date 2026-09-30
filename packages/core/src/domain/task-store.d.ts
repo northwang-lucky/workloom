@@ -178,6 +178,11 @@ export interface TaskSummary {
 /** createTask 参数。 */
 export interface CreateTaskParams {
   title: string
+  /**
+   * package 归属（config.packages 的键；可选——直调面不下沉必填，成员校验在
+   * createTaskInternal 传入即查；executeCreateTask 层强制非空）。缺省落 null。
+   */
+  package?: string | null
   slug?: string
   parent?: string | null
   priority?: TaskPriorityValue
@@ -309,11 +314,19 @@ export function computeTaskStage(current: TaskStageValue, kind: string): TaskSta
 /** 结束任务会话（清指针，不改状态）。 */
 export function finishTask(root: string, params: FinishTaskParams): Promise<[Error | null]>
 
-/** 归档任务（置 completed、移动目录、可选 git 提交）；返回记录的 taskRelPath 为归档后新路径。 */
-export function archiveTask(
-  root: string,
-  params: ArchiveTaskParams,
-): Promise<[Error | null, TaskRecordWithPath | null]>
+/**
+ * 归档任务结果（三元组）：成功时第三元素为 worktree 清理摘要（cleanup 内的
+ * merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped，供 archive
+ * 回执展示）；失败时第三元素缺省。
+ */
+export type ArchiveTaskResult = [
+  Error | null,
+  TaskRecordWithPath | null,
+  import('./worktree.d.ts').CleanupTaskWorktreeResult?,
+]
+
+/** 归档任务（先清理任务 worktree，失败即阻断；置 completed、移动目录、可选 git 提交）；返回记录的 taskRelPath 为归档后新路径。 */
+export function archiveTask(root: string, params: ArchiveTaskParams): Promise<ArchiveTaskResult>
 
 /** 列出任务摘要（可按状态过滤）。 */
 export function listTasks(

@@ -78,7 +78,7 @@ test('未命中时生成完整骨架', () => {
   }
 })
 
-test('.gitignore 模板含 .runtime/、sessions/、.developer 与 config.local.json/config.local.js 忽略条目', () => {
+test('.gitignore 模板含 .runtime/、sessions/、.developer、worktree/ 与 config.local.json/config.local.js 忽略条目', () => {
   const root = makeRoot()
   try {
     const [err] = initWorkloom(root)
@@ -87,6 +87,7 @@ test('.gitignore 模板含 .runtime/、sessions/、.developer 与 config.local.j
     assert.ok(content.includes('.runtime/'), 'missing .runtime/ entry')
     assert.ok(content.includes('sessions/'), 'missing sessions/ entry')
     assert.ok(content.includes('.developer'), 'missing .developer entry')
+    assert.ok(content.includes('worktree/'), 'missing worktree/ entry')
     assert.ok(content.includes('config.local.json'), 'missing config.local.json entry')
     assert.ok(content.includes('config.local.js'), 'missing config.local.js entry')
   } finally {
@@ -94,13 +95,19 @@ test('.gitignore 模板含 .runtime/、sessions/、.developer 与 config.local.j
   }
 })
 
-test('config.json 模板可被 loadConfig 解析且等于默认值', () => {
+test('config.json 模板种子根包 repo，其余字段等于默认值', () => {
   const root = makeRoot()
   const home = makeHome()
   try {
     initWorkloom(root)
     const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config, DEFAULT_CONFIG)
+    // 种子根包：create/start 的 package 归属开箱可用（其余字段仍全默认）。
+    assert.deepEqual(config.packages, { repo: { path: '.' } })
+    const expected = { ...DEFAULT_CONFIG }
+    delete expected.packages
+    const actual = { ...config }
+    delete actual.packages
+    assert.deepEqual(actual, expected)
     assert.equal(config.promptInjection.skipKeyword, 'no-workloom')
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -108,13 +115,17 @@ test('config.json 模板可被 loadConfig 解析且等于默认值', () => {
   }
 })
 
-test('init 生成 {} 的 config.json、有效 JSON 的 config.example.json 与带注释的 config.example.js', () => {
+test('init 生成种子根包的 config.json、有效 JSON 的 config.example.json 与带注释的 config.example.js', () => {
   const root = makeRoot()
   try {
     const [err] = initWorkloom(root)
     assert.equal(err, null)
     const config = readFileSync(join(root, '.workloom', 'config.json'), 'utf8')
-    assert.equal(config.trim(), '{}', 'config.json 应为空对象占位')
+    assert.deepEqual(
+      JSON.parse(config),
+      { packages: { repo: { path: '.' } } },
+      'config.json 应种子根包 repo',
+    )
     const exampleJson = readFileSync(join(root, '.workloom', 'config.example.json'), 'utf8')
     const doc = JSON.parse(exampleJson) // 必须是合法 JSON
     assert.equal(typeof doc, 'object')

@@ -49,6 +49,14 @@ export const DEFAULT_CONFIG = {
     // 全局闸保留作可选的总量保险（显式 > 0 时与 kind 闸取严）。
     maxConcurrent: 0,
   },
+  worktree: {
+    // start 时为任务创建独立 git worktree（enabled=false 全链路零行为变化）。
+    enabled: true,
+    // 分支名模板（占位符白名单：<task-id>/<task-slug>/<date>，渲染结果在 start 期校验）。
+    branchTemplate: 'workloom/<task-id>',
+    // archive 清理模式：合并回 base / 是否删分支 / 不动（manual）。
+    cleanup: 'merge-keep-branch',
+  },
   packages: {},
   subagents: {},
   subagentProfiles: [],
@@ -78,7 +86,18 @@ const GLOBAL_ALLOWED_TOP_FIELDS = new Set([
 ])
 
 /** 全局层禁止出现的项目级字段（报专属错误）。 */
-const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks'])
+const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree'])
+
+/** worktree.cleanup 合法枚举（archive 清理四模式，缺省首项）。 */
+const WORKTREE_CLEANUP_MODES = Object.freeze([
+  'merge-keep-branch',
+  'merge-delete-branch',
+  'keep-branch',
+  'manual',
+])
+
+/** worktree.branch_template 占位符白名单（加载期静态校验；渲染结果校验在 start）。 */
+const BRANCH_TEMPLATE_PLACEHOLDERS = new Set(['<task-id>', '<task-slug>', '<date>'])
 
 /** 布尔值合法写法（大小写不敏感），行为对齐原规格。 */
 const BOOLEAN_WORDS = new Map([
@@ -405,7 +424,65 @@ function mergeWithDefaults(doc) {
       )
     }
   }
+  if (doc.worktree !== undefined) {
+    const wt = requireMap('worktree', doc.worktree)
+    // 未知子字段 fail loud（对齐 subagents 条目纪律）。
+    for (const key of Object.keys(wt)) {
+      if (key !== 'enabled' && key !== 'branch_template' && key !== 'cleanup') {
+        throw new WorkloomConfigError(
+          `worktree.${key}`,
+          'unknown field (allowed: enabled, branch_template, cleanup)',
+        )
+      }
+    }
+    if (wt.enabled !== undefined) {
+      config.worktree.enabled = requireBoolean('worktree.enabled', wt.enabled)
+    }
+    if (wt.branch_template !== undefined) {
+      const template = requireString('worktree.branch_template', wt.branch_template)
+      if (template.trim() === '') {
+        throw new WorkloomConfigError('worktree.branch_template', 'must not be empty')
+      }
+      assertBranchTemplatePlaceholders(template)
+      config.worktree.branchTemplate = template
+    }
+    if (wt.cleanup !== undefined) {
+      config.worktree.cleanup = requireWorktreeCleanup('worktree.cleanup', wt.cleanup)
+    }
+  }
   return config
+}
+
+/**
+ * 校验 branch_template 占位符白名单（内部）：正则扫描 `<…>` 片段，出现
+ * `<task-id>`/`<task-slug>`/`<date>` 之外的占位符 fail loud。
+ * @param {string} template 分支名模板
+ */
+function assertBranchTemplatePlaceholders(template) {
+  for (const match of template.matchAll(/<[^>]*>/g)) {
+    if (!BRANCH_TEMPLATE_PLACEHOLDERS.has(match[0])) {
+      throw new WorkloomConfigError(
+        'worktree.branch_template',
+        `unknown placeholder ${match[0]} (allowed: <task-id>, <task-slug>, <date>)`,
+      )
+    }
+  }
+}
+
+/**
+ * 校验 worktree.cleanup 枚举（内部）：四模式之外 fail loud。
+ * @param {string} field 字段路径
+ * @param {unknown} value 用户文档值
+ * @returns {import('./config.d.ts').WorktreeCleanupMode}
+ */
+function requireWorktreeCleanup(field, value) {
+  if (typeof value !== 'string' || !WORKTREE_CLEANUP_MODES.includes(value)) {
+    throw new WorkloomConfigError(
+      field,
+      `must be one of: ${WORKTREE_CLEANUP_MODES.join(', ')}`,
+    )
+  }
+  return /** @type {import('./config.d.ts').WorktreeCleanupMode} */ (value)
 }
 
 /**

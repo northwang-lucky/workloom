@@ -12,6 +12,7 @@
  * - 所有错误消息使用 surface.ERR_PREFIX.taskTool 前缀，与下沉前逐字一致。
  */
 import type { StartedTaskRecord, TaskRecord, TaskRecordWithPath, TaskSummary } from '../domain/task-store.d.ts';
+import type { CleanupTaskWorktreeResult } from '../domain/worktree.d.ts';
 /**
  * 校验工具 cwd：空串直接抛错（消息含前缀，与下沉前 adapter 文案逐字一致）。
  * @param cwd 工具执行上下文的工作目录
@@ -37,9 +38,14 @@ export declare function resolveTaskRelPath(cwd: string, contextKey: string, task
  * @returns 任务目录相对 .workloom 的路径
  */
 export declare function requireTaskRelPath(taskPath: string | undefined, errPrefix: string): string;
-/** executeCreateTask 入参（title 必填；slug/priority/description/parent 可选）。 */
+/** executeCreateTask 入参（title/package 必填；slug/priority/description/parent 可选）。 */
 export interface ExecuteCreateTaskParams {
     title: string;
+    /**
+     * package 归属（必填，与 worktree 开关无关）：必须是 config.packages 的键，
+     * 缺失/未知值 fail loud（错误文案指引补配置 / workloom-packages-scan）。
+     */
+    package: string;
     slug?: string;
     priority?: string;
     description?: string;
@@ -105,11 +111,13 @@ export interface ExecuteFinishTaskResult {
  * @returns [err, result]：err 为任一失败（消息含前缀）
  */
 export declare function executeFinishTask(cwd: string, contextKey: string, taskPath: string | undefined): Promise<[Error | null, ExecuteFinishTaskResult | null]>;
-/** archive 工具成功结果（note 为收尾提示文案）。 */
+/** archive 工具成功结果（note 为收尾提示文案；worktreeCleanup 为 worktree 清理摘要）。 */
 export interface ExecuteArchiveTaskResult {
     taskRelPath: string;
     task: TaskRecord;
     note: string;
+    /** 本次归档的 worktree 清理摘要（merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。 */
+    worktreeCleanup?: CleanupTaskWorktreeResult;
 }
 /** archive 工具编排入参（taskPath 必填；force 豁免 archive 门禁并留痕）。 */
 export interface ExecuteArchiveTaskParams {

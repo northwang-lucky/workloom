@@ -1,5 +1,5 @@
 /**
- * doctor 检查引擎的检查收集与报告组装（11 类检查 + collectChecks + buildReport）。
+ * doctor 检查引擎的检查收集与报告组装（12 类检查 + collectChecks + buildReport）。
  *
  * 设计意图：
  * - 全部检查只读，不写任何 `.workloom/` 文件；写入逻辑在 doctor-fixes.ts；
@@ -12,7 +12,7 @@
  */
 import { findWorkloomRoot } from '../domain/locate.js';
 import { CHECK_META } from './doctor-types.js';
-import { checkActivePointer, checkArchive, checkConfig, checkDispatchAudit, checkDocCompleteness, checkParentChild, checkSpecRef, checkStageConsistency, checkTaskLifecycle, checkWorkflowOverlay, } from './doctor-check-rules.js';
+import { checkActivePointer, checkArchive, checkConfig, checkDispatchAudit, checkDocCompleteness, checkParentChild, checkSpecRef, checkStageConsistency, checkTaskLifecycle, checkWorkflowOverlay, checkWorktree, } from './doctor-check-rules.js';
 import { checkLocalPrompts } from './doctor-local-prompts.js';
 import { allIssues, collectTasks, makeIssue, pushIssues, } from './doctor-tasks.js';
 /** 收集全部检查：无 .workloom 时只出 config issue，其余检查为空。 */
@@ -58,6 +58,7 @@ export function collectChecks(root) {
     pushIssues(issueMap, 'local-prompts', local.issues);
     infoMap.set('local-prompts', local.info);
     pushIssues(issueMap, 'workflow-overlay', checkWorkflowOverlay(projectRoot));
+    pushIssues(issueMap, 'worktree', checkWorktree(projectRoot));
     return CHECK_META.map((meta) => ({
         ...meta,
         issues: issueMap.get(meta.code) ?? [],

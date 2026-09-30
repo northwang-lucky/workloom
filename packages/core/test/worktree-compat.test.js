@@ -147,6 +147,7 @@ test('worktree 深层子目录 cwd 解析活跃任务（回归）', gitSkip, asy
   mkdirSync(deep, { recursive: true })
   const [createErr, created] = await executeCreateTask(deep, contextKey, {
     title: 'Deep Cwd Task',
+    package: 'repo',
   })
   assert.equal(createErr, null)
   assert.ok(created)
@@ -173,6 +174,7 @@ test('linked worktree 根 cwd 下 create→start 全链路', gitSkip, async (t) 
   const contextKey = 'dsh_wt_chain'
   const [createErr, created] = await executeCreateTask(wt, contextKey, {
     title: 'Worktree Chain Task',
+    package: 'repo',
   })
   assert.equal(createErr, null)
   assert.ok(created)
@@ -223,7 +225,7 @@ test('.runtime 会话指针在两个 worktree 间互不可见', gitSkip, async (
   const repo = makeGitRepo(base)
   // 主仓先建任务并落会话指针（executeCreateTask 内部 setActiveTask）。
   const mainKey = 'dsh_main_rt'
-  const [createErr, created] = await executeCreateTask(repo, mainKey, { title: 'Main Runtime Task' })
+  const [createErr, created] = await executeCreateTask(repo, mainKey, { title: 'Main Runtime Task', package: 'repo' })
   assert.equal(createErr, null)
   assert.ok(created)
   // linked worktree 从当前 HEAD 切新分支（任务与指针都未提交，不会带过去）。
@@ -252,7 +254,7 @@ test('task 数据随分支隔离（worktree 不含其他分支的任务）', git
   const repo = makeGitRepo(base)
   const initHead = runGit(repo, ['rev-parse', 'HEAD'])
   // 主分支建任务并提交（.workloom/tasks 随分支前进）。
-  await executeCreateTask(repo, 'dsh_branch_iso', { title: 'Branch Iso Task' })
+  await executeCreateTask(repo, 'dsh_branch_iso', { title: 'Branch Iso Task', package: 'repo' })
   runGit(repo, ['add', '--', WORKLOOM_REL])
   gitCommit(repo, 'feat(task): branch isolation task')
   // 从任务提交之前的 HEAD 切新分支 worktree：该分支内容不含本任务。

@@ -31,9 +31,10 @@ import {
 import { cleanupSessionFiles } from './pi-child-registry.ts'
 import { contextKeyOf } from './constants.ts'
 
-/** create 工具参数 schema。 */
+/** create 工具参数 schema（package 恒必填，与 worktree 开关无关）。 */
 const TASK_CREATE_PARAMS = Type.Object({
   title: Type.String({ description: PARAM_DESCRIPTIONS.title }),
+  package: Type.String({ description: PARAM_DESCRIPTIONS.package }),
   slug: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.slug })),
   priority: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.priority })),
   description: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.description })),
@@ -189,6 +190,7 @@ async function executeCreate(
     contextKeyOf(ctx.sessionManager.getSessionId()),
     {
       title: params.title,
+      package: params.package,
       slug: params.slug,
       priority: params.priority,
       description: params.description,

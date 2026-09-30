@@ -4,10 +4,12 @@
  * 设计意图：
  * - 幂等生成骨架：目录与文件缺失才创建，已有内容一律不覆盖（含 force 模式）；
  * - 数据布局对齐 core 约定：.workloom/{tasks,spec,workspace,.runtime/sessions}；
- * - config.json 为最小占位（{}，loadConfig 按全默认处理）；config.example.json
+ * - config.json 种子根包（{"packages":{"repo":{"path":"."}}}，create/start 开箱有
+ *   package 归属，loadConfig 其余字段按全默认处理）；config.example.json
  *   为对象形态权威说明（有效 JSON，覆盖 DEFAULT_CONFIG 全部字段），
  *   config.example.js 为工厂形态示例（带注释说明三层合并/白名单/工具字段）；
- * - .gitignore 模板忽略 config.local.json / config.local.js（每机器本地覆盖）；
+ * - .gitignore 模板忽略 config.local.json / config.local.js（每机器本地覆盖）与
+ *   worktree/（任务 worktree，每机器）；
  * - 顺带检测旧 .trellis 目录并报告（迁移由后续实现点消费，本模块只报告）。
  * - 生成自包含的 .workloom/.gitignore：运行时状态忽略策略随骨架分发，
  *   接入方仓库无需在根 .gitignore 手工维护 workloom 内部布局规则。
@@ -60,8 +62,16 @@ const SPEC_README_TEMPLATE = [
     'by its index.',
     '',
 ].join('\n');
-/** config.json 模板：最小占位（{}，loadConfig 对空配置按全默认处理）。 */
-const CONFIG_TEMPLATE = '{}';
+/** config.json 模板：种子根包 repo（path "."，create/start 的 package 归属），其余按全默认处理。 */
+const CONFIG_TEMPLATE = [
+    '{',
+    '  "packages": {',
+    '    "repo": {',
+    '      "path": "."',
+    '    }',
+    '  }',
+    '}',
+].join('\n');
 /** config.example.json 模板：对象形态权威说明（有效 JSON，覆盖 DEFAULT_CONFIG 全部字段）。 */
 const CONFIG_EXAMPLE_JSON_TEMPLATE = [
     '{',
@@ -84,6 +94,11 @@ const CONFIG_EXAMPLE_JSON_TEMPLATE = [
     '  },',
     '  "packages": {',
     '    "cli": { "path": "packages/cli" }',
+    '  },',
+    '  "worktree": {',
+    '    "enabled": true,',
+    '    "branch_template": "workloom/<task-id>",',
+    '    "cleanup": "merge-keep-branch"',
     '  },',
     '  "subagents": {',
     '    "research": { "model": "deepseek-official/deepseek-v4-flash", "effort": "high" },',
@@ -152,6 +167,12 @@ const CONFIG_EXAMPLE_JS_TEMPLATE = [
     '    after_archive: [\'echo task archived\'],',
     '  },',
     '  packages: { cli: { path: \'packages/cli\' } },',
+    '  worktree: {',
+    '    enabled: true,',
+    '    branch_template: \'workloom/<task-id>\',',
+    '    // cleanup: merge-keep-branch (default) | merge-delete-branch | keep-branch | manual',
+    '    cleanup: \'merge-keep-branch\',',
+    '  },',
     '  subagent_profiles: [',
     '    {',
     '      whenMain: \'kimi-coding/k3\',',
@@ -169,13 +190,16 @@ const CONFIG_EXAMPLE_JS_TEMPLATE = [
     '  ],',
     '})',
 ].join('\n');
-/** .gitignore 模板：忽略策略随 .workloom 自包含（全英文，写入用户项目）。 */
+/** .gitignore 模板：忽略策略随 .workloom 自包含（运行时状态与任务 worktree，全英文，写入用户项目）。 */
 const GITIGNORE_TEMPLATE = [
     '# Runtime state (session pointers etc.), per-machine.',
     '.runtime/',
     '',
     '# Pi child session transcripts (adapter-pi runtime, per-machine).',
     'sessions/',
+    '',
+    '# Task worktrees (created by workloom start, per-machine).',
+    'worktree/',
     '',
     '# Local developer identity (like AGENTS.local.md).',
     '.developer',

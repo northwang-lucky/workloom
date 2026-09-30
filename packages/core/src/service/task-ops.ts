@@ -32,6 +32,7 @@ import type {
   TaskStatusValue,
   TaskSummary,
 } from '../domain/task-store.d.ts'
+import type { CleanupTaskWorktreeResult } from '../domain/worktree.d.ts'
 
 /**
  * 校验工具 cwd：空串直接抛错（消息含前缀，与下沉前 adapter 文案逐字一致）。
@@ -91,9 +92,14 @@ export function requireTaskRelPath(taskPath: string | undefined, errPrefix: stri
   throw new Error(`${errPrefix}: taskPath is required (task directory relative to .workloom)`)
 }
 
-/** executeCreateTask 入参（title 必填；slug/priority/description/parent 可选）。 */
+/** executeCreateTask 入参（title/package 必填；slug/priority/description/parent 可选）。 */
 export interface ExecuteCreateTaskParams {
   title: string
+  /**
+   * package 归属（必填，与 worktree 开关无关）：必须是 config.packages 的键，
+   * 缺失/未知值 fail loud（错误文案指引补配置 / workloom-packages-scan）。
+   */
+  package: string
   slug?: string
   priority?: string
   description?: string
@@ -140,8 +146,17 @@ async function executeCreateInternal(
   params: ExecuteCreateTaskParams,
 ): Promise<ExecuteCreateTaskResult> {
   requireWorkloomCwd(cwd)
+  // package 恒必填（PRD 需求 2，与 worktree 开关无关）：非空字符串校验在 execute
+  // 层（调用方为 adapter 薄投影，schema required 之外的兜底）；成员校验在 core。
+  if (typeof params.package !== 'string' || params.package.trim() === '') {
+    throw new Error(
+      `${ERR_PREFIX.taskTool}: package is required (pass a declared "packages" key from .workloom/config.json; ` +
+        'run workloom-packages-scan if no package is declared)',
+    )
+  }
   const [err, result] = await createTask(cwd, {
     title: params.title,
+    package: params.package,
     ...(typeof params.slug === 'string' && params.slug !== '' ? { slug: params.slug } : {}),
     ...(typeof params.priority === 'string' && params.priority !== ''
       ? { priority: params.priority as TaskPriorityValue }
@@ -320,11 +335,13 @@ async function executeFinishInternal(
   return { taskRelPath, finished: true }
 }
 
-/** archive 工具成功结果（note 为收尾提示文案）。 */
+/** archive 工具成功结果（note 为收尾提示文案；worktreeCleanup 为 worktree 清理摘要）。 */
 export interface ExecuteArchiveTaskResult {
   taskRelPath: string
   task: TaskRecord
   note: string
+  /** 本次归档的 worktree 清理摘要（merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。 */
+  worktreeCleanup?: CleanupTaskWorktreeResult
 }
 
 /** archive 工具编排入参（taskPath 必填；force 豁免 archive 门禁并留痕）。 */
@@ -366,7 +383,7 @@ async function executeArchiveInternal(
 ): Promise<ExecuteArchiveTaskResult> {
   requireWorkloomCwd(cwd)
   const taskRelPath = requireTaskRelPath(params.taskPath, ERR_PREFIX.taskTool)
-  const [err, task] = await archiveTask(cwd, {
+  const [err, task, worktreeCleanup] = await archiveTask(cwd, {
     taskRelPath,
     ...(params.autoCommit !== undefined ? { autoCommit: params.autoCommit } : {}),
     ...forceOverride(params),
@@ -374,7 +391,12 @@ async function executeArchiveInternal(
   if (err || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`)
   }
-  return { taskRelPath: task.taskRelPath, task, note: TASK_ARCHIVE_NOTE }
+  return {
+    taskRelPath: task.taskRelPath,
+    task,
+    note: TASK_ARCHIVE_NOTE,
+    ...(worktreeCleanup !== undefined ? { worktreeCleanup } : {}),
+  }
 }
 
 /** list 工具成功结果（tasks 为摘要数组）。 */

@@ -115,12 +115,14 @@ export function computeTaskStage(current: import("./task-store.d.ts").TaskStageV
  */
 export function finishTask(root: string, params: import("./task-store.d.ts").FinishTaskParams): Promise<[Error | null]>;
 /**
- * 归档任务：置 completed、移动目录、清理会话指针、执行 after_archive hooks，可选 git 自动提交。
+ * 归档任务：清理任务 worktree（失败即阻断）、置 completed、移动目录、清理会话指针、
+ * 执行 after_archive hooks，可选 git 自动提交。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').ArchiveTaskParams} params
- * @returns {Promise<[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]>}
+ * @returns {Promise<import('./task-store.d.ts').ArchiveTaskResult>} 三元组：
+ *   [err, 归档后记录, worktree 清理摘要（成功时携带）]
  */
-export function archiveTask(root: string, params: import("./task-store.d.ts").ArchiveTaskParams): Promise<[Error | null, import("./task-store.d.ts").TaskRecordWithPath | null]>;
+export function archiveTask(root: string, params: import("./task-store.d.ts").ArchiveTaskParams): Promise<import("./task-store.d.ts").ArchiveTaskResult>;
 /**
  * 列出任务摘要（不含 archive/），可按状态过滤；缺失或损坏的目录跳过。
  * @param {string} root 项目根

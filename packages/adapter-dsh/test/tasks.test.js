@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -53,6 +53,15 @@ test('create 工具 schema 含 parent（type string，描述引用 PARAM_DESCRIP
   assert.equal(props.parent.type, 'string')
   assert.equal(props.parent.description, PARAM_DESCRIPTIONS.parent)
   assert.ok(!def.parameters.required.includes('parent'), 'parent must be optional')
+})
+
+test('create 工具 schema：package 必填（type string，描述引用 PARAM_DESCRIPTIONS.package）', () => {
+  const def = setupCreateTool()
+  const props = def.parameters.properties
+  assert.equal(props.package.type, 'string')
+  assert.equal(props.package.description, PARAM_DESCRIPTIONS.package)
+  assert.ok(def.parameters.required.includes('package'), 'package must be required')
+  assert.ok(def.parameters.required.includes('title'), 'title must be required')
 })
 
 test('check 工具 schema 不再含 phase/required（2.2 check 单一凭据）', () => {
@@ -117,16 +126,18 @@ test('archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.
 test('createTaskTool 透传 parent：子任务落盘 parent 字段且父 children 联动', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-tasks-'))
   mkdirSync(join(root, '.workloom'))
+  // 种子 packages（package 归属校验需要声明的键）。
+  writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify({ packages: { repo: { path: '.' } } }))
   try {
-    const [, parent] = await createTask(root, { title: 'Parent' })
+    const [, parent] = await createTask(root, { title: 'Parent', package: 'repo' })
     assert.ok(parent)
     const def = setupCreateTool()
     const exec = { agent: makeAgent(root), signal: new AbortController().signal }
     // 缺省不传 parent：透传 undefined，任务无父。
-    const plain = await def.execute({ title: 'Plain' }, exec)
+    const plain = await def.execute({ title: 'Plain', package: 'repo' }, exec)
     assert.equal(readTaskJson(root, plain.taskRelPath).parent, null)
     // 带 parent 创建子任务：透传 core，子任务 parent 落盘、父 children 追加。
-    const child = await def.execute({ title: 'Child', parent: parent.taskRelPath }, exec)
+    const child = await def.execute({ title: 'Child', package: 'repo', parent: parent.taskRelPath }, exec)
     assert.equal(readTaskJson(root, child.taskRelPath).parent, parent.taskRelPath)
     const parentTask = readTaskJson(root, parent.taskRelPath)
     assert.ok(parentTask.children.includes(child.taskRelPath))

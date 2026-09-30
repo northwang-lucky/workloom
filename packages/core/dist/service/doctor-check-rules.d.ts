@@ -1,5 +1,5 @@
 /**
- * doctor 检查引擎的 9 类检查规则实现（只读）。
+ * doctor 检查引擎的检查规则实现（只读）。
  *
  * 设计意图：
  * - 从 doctor-checks.ts 拆分出的检查函数集（原文件超 600 行，见 code-style size 规则）；
@@ -24,8 +24,19 @@ export declare function checkActivePointer(root: string, byName: Map<string, Tas
 export declare function checkDocCompleteness(root: string, nodes: TaskNode[]): DoctorIssue[];
 /** 检查⑧：spec 引用完整性（jsonl 引用文件不存在）。 */
 export declare function checkSpecRef(root: string, nodes: TaskNode[]): DoctorIssue[];
-/** 检查⑨：配置（.workloom/config.json 或 config.js 缺失/非法）。 */
+/** 检查⑨：配置（.workloom/config.json 或 config.js 缺失/非法；packages 空配置）。 */
 export declare function checkConfig(root: string): DoctorIssue[];
+/**
+ * 检查⑩：worktree 一致性（design §7，第 12 类）：
+ * - `.workloom/.gitignore` 缺 `worktree/` 条目（存量项目不自动迁移 → 提示补条目，
+ *   迁移前主仓脏计数上升的副作用写入文案）；
+ * - `.workloom/worktree/` 目录与 git 注册不一致（目录在但未注册 / 注册在但目录失
+ *   或 prunable）→ 指引 `git worktree prune` + 人工检查（不自动破坏性修复）。
+ * 非 git 项目跳过注册比对（start 侧已 fail loud）；config 非法跳过（config 检查报告）。
+ * @param root 项目根
+ * @returns 检查出的 issue 列表
+ */
+export declare function checkWorktree(root: string): DoctorIssue[];
 /**
  * 检查 workflow overlay（.workloom/workflow.override.md）是否引用旧 alignment 资产
  * （R19）：检出旧 skill 名与 Phase 1.1a/1.1b/1.1c 引用，给出人工迁移提示。不可自动

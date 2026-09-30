@@ -2,7 +2,7 @@
  * workloom-doctor 检查引擎的类型、检查元信息与共享常量（新增抽象，TypeScript）。
  *
  * 设计意图：
- * - 集中定义 DoctorReport 相关类型、11 类检查元信息（CHECK_META）与跨模块常量；
+ * - 集中定义 DoctorReport 相关类型、12 类检查元信息（CHECK_META）与跨模块常量；
  * - doctor-checks.ts / doctor-fixes.ts / doctor.ts 各自从此处引用类型与常量，避免循环依赖；
  * - 运行时 issue/message 文案英文；注释中文。
  */
@@ -22,6 +22,7 @@ export type DoctorIssueCode =
   | 'config'
   | 'local-prompts'
   | 'workflow-overlay'
+  | 'worktree'
 
 /** 严重级别。 */
 export type DoctorSeverity = 'error' | 'warn'
@@ -97,7 +98,7 @@ export const ARCHIVE_DIR = 'archive'
 /** task.json 写回缩进（保持 2 空格 + 尾换行）。 */
 export const JSON_INDENT = 2
 
-/** 11 类检查的元信息（顺序即输出顺序；每类必出现）。 */
+/** 12 类检查的元信息（顺序即输出顺序；每类必出现）。 */
 export const CHECK_META: ReadonlyArray<{
   code: DoctorIssueCode
   title: string
@@ -114,4 +115,5 @@ export const CHECK_META: ReadonlyArray<{
   { code: 'config', title: 'Configuration', severity: 'warn' },
   { code: 'local-prompts', title: 'Local prompts', severity: 'warn' },
   { code: 'workflow-overlay', title: 'Workflow overlay migration', severity: 'warn' },
+  { code: 'worktree', title: 'Worktree consistency', severity: 'warn' },
 ]

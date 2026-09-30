@@ -1,5 +1,5 @@
 /**
- * doctor 检查引擎的 9 类检查规则实现（只读）。
+ * doctor 检查引擎的检查规则实现（只读）。
  *
  * 设计意图：
  * - 从 doctor-checks.ts 拆分出的检查函数集（原文件超 600 行，见 code-style size 规则）；
@@ -15,6 +15,7 @@ import { EXECUTOR_KINDS, parseJsonlEntries } from '../domain/executor-context.js
 import { listPointers } from '../domain/active-task.js';
 import { countEffectiveJsonlRecords, inspectPrdStructure, PRD_STRUCTURE_CODES, } from '../domain/task-gates.js';
 import { loadConfig } from '../domain/config.js';
+import { scanWorktreeConsistencySync } from '../domain/worktree.js';
 import { makeIssue, pointerPath, taskJsonPath } from './doctor-tasks.js';
 import { OVERLAY_REL_PATH } from './workflow-service.js';
 /** 计划任务超期未 start 的判定窗口（24h）。 */
@@ -421,7 +422,7 @@ export function checkSpecRef(root, nodes) {
     }
     return issues;
 }
-/** 检查⑨：配置（.workloom/config.json 或 config.js 缺失/非法）。 */
+/** 检查⑨：配置（.workloom/config.json 或 config.js 缺失/非法；packages 空配置）。 */
 export function checkConfig(root) {
     const issues = [];
     const workloomDir = join(root, WORKLOOM_DIR);
@@ -440,7 +441,20 @@ export function checkConfig(root) {
     }
     else {
         try {
-            loadConfig(root);
+            const config = loadConfig(root);
+            // packages 空配置（design §7）：create 将拒绝一切任务 → 提前提示补配置。
+            if (Object.keys(config.packages).length === 0) {
+                issues.push(makeIssue({
+                    code: 'config',
+                    title: 'No packages configured',
+                    severity: 'warn',
+                    task: null,
+                    message: 'packages is empty: workloom_task_create rejects every task until at least one package is declared.',
+                    path: join(WORKLOOM_DIR, 'config.json'),
+                    fixable: false,
+                    hint: 'Declare a packages entry in .workloom/config.json (run workloom-packages-scan to generate the list).',
+                }));
+            }
         }
         catch (error) {
             issues.push(makeIssue({
@@ -454,6 +468,84 @@ export function checkConfig(root) {
                 hint: 'Fix the config error in .workloom/config.json or config.js.',
             }));
         }
+    }
+    return issues;
+}
+/**
+ * 检查⑩：worktree 一致性（design §7，第 12 类）：
+ * - `.workloom/.gitignore` 缺 `worktree/` 条目（存量项目不自动迁移 → 提示补条目，
+ *   迁移前主仓脏计数上升的副作用写入文案）；
+ * - `.workloom/worktree/` 目录与 git 注册不一致（目录在但未注册 / 注册在但目录失
+ *   或 prunable）→ 指引 `git worktree prune` + 人工检查（不自动破坏性修复）。
+ * 非 git 项目跳过注册比对（start 侧已 fail loud）；config 非法跳过（config 检查报告）。
+ * @param root 项目根
+ * @returns 检查出的 issue 列表
+ */
+export function checkWorktree(root) {
+    const issues = [];
+    // ① .gitignore 缺 worktree/ 条目（文件整体缺失时跳过：init 骨架总会生成该文件）。
+    const gitignorePath = join(root, WORKLOOM_DIR, '.gitignore');
+    const gitignore = readIfExists(gitignorePath);
+    if (gitignore !== null &&
+        !gitignore.split(/\r?\n/).some((line) => line.trim() === 'worktree/')) {
+        issues.push(makeIssue({
+            code: 'worktree',
+            title: 'Missing worktree gitignore entry',
+            severity: 'warn',
+            task: null,
+            message: '.workloom/.gitignore does not ignore worktree/ (task worktrees show up as untracked and raise the main-repo dirty count).',
+            path: join(WORKLOOM_DIR, '.gitignore'),
+            fixable: false,
+            hint: "Add a 'worktree/' line to .workloom/.gitignore (existing projects are not migrated automatically).",
+        }));
+    }
+    // ② 目录与 git 注册一致性（只读探测，经 domain/worktree.js → domain/git.js）。
+    let config;
+    try {
+        config = loadConfig(root);
+    }
+    catch {
+        return issues; // config 非法由 config 检查报告；无法解析 packages → 跳过比对
+    }
+    const [scanErr, scan] = scanWorktreeConsistencySync(root, config);
+    if (scanErr !== null) {
+        issues.push(makeIssue({
+            code: 'worktree',
+            title: 'Worktree inspection failed',
+            severity: 'warn',
+            task: null,
+            message: `cannot inspect task worktrees: ${messageOf(scanErr)}`,
+            path: null,
+            fixable: false,
+            hint: 'Inspect .workloom/worktree and `git worktree list` manually.',
+        }));
+        return issues;
+    }
+    if (scan === null)
+        return issues;
+    for (const rel of scan.unregistered) {
+        issues.push(makeIssue({
+            code: 'worktree',
+            title: 'Unregistered worktree directory',
+            severity: 'warn',
+            task: null,
+            message: `${rel} exists but is not a registered worktree (an empty directory would be silently reused by git worktree add).`,
+            path: rel,
+            fixable: false,
+            hint: `Inspect ${rel} and remove it manually; destructive cleanup is never automated.`,
+        }));
+    }
+    for (const rel of scan.missing) {
+        issues.push(makeIssue({
+            code: 'worktree',
+            title: 'Stale worktree registration',
+            severity: 'warn',
+            task: null,
+            message: `${rel} is registered as a worktree but its directory is missing or prunable.`,
+            path: rel,
+            fixable: false,
+            hint: 'Inspect the registration with `git worktree list`, then run `git worktree prune` to drop stale metadata.',
+        }));
     }
     return issues;
 }

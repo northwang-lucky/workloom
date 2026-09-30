@@ -1,5 +1,5 @@
 /**
- * doctor 模块单测：11 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
+ * doctor 模块单测：12 类检查 + 3 类机械修复 + 幂等 + 不可修拒绝 + schema。
  *
  * 设计意图：
  * - 全部用临时项目根构造「病态」任务目录，断言 runDoctor 输出 issue 及 schema 字段；
@@ -8,6 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -28,11 +29,14 @@ function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-doctor-'))
 }
 
-/** 初始化最小 .workloom：tasks 目录 + 合法 config.json + 会话目录。 */
+/** 初始化最小 .workloom：tasks 目录 + 合法 config.json（种子根包，避免空 packages 噪声）+ 会话目录。 */
 function initWorkloom(root) {
   mkdirSync(join(root, '.workloom', 'tasks'), { recursive: true })
   mkdirSync(join(root, '.workloom', '.runtime', 'sessions'), { recursive: true })
-  writeFileSync(join(root, '.workloom', 'config.json'), '{"session_auto_commit": false}')
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    '{"session_auto_commit": false, "packages": {"repo": {"path": "."}}}',
+  )
 }
 
 /** 构造一条 task.json 记录（默认 planning、无 hook/派发）。 */
@@ -420,7 +424,7 @@ test('check config：无 .workloom / config.json 非法 / 旧 executor.gate 残�
   const root3 = makeRoot()
   initWorkloom(root3)
   try {
-    writeFileSync(join(root3, '.workloom', 'config.json'), '{"executor": {"gate": false}}')
+    writeFileSync(join(root3, '.workloom', 'config.json'), '{"executor": {"gate": false}, "packages": {"repo": {"path": "."}}}')
     const [err3, report3] = runDoctor(root3, { fix: false })
     assert.equal(err3, null)
     const cfg = report3.checks.find((c) => c.code === 'config')
@@ -576,7 +580,7 @@ test('报告 schema：checks/summary/fixed/manual 字段齐全且每类检查必
     assert.equal(err, null)
     assert.ok(report)
     assert.ok(Array.isArray(report.checks))
-    assert.equal(report.checks.length, 11, 'all 11 checks always present')
+    assert.equal(report.checks.length, 12, 'all 12 checks always present')
     for (const check of report.checks) {
       for (const field of ['code', 'title', 'severity', 'issues', 'info']) {
         assert.ok(field in check, `check missing ${field}`)
@@ -820,6 +824,108 @@ test('check workflow-overlay：无 overlay / overlay 无旧引用 → 通过（�
     assert.equal(err2, null)
     const none2 = report2.checks.find((c) => c.code === 'workflow-overlay')
     assert.equal(none2.issues.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- S1 R5：worktree 检查（第 12 类）与 packages 空配置 ----------
+
+/** git 可用性探测（worktree 注册比对用例需要真实 git）。 */
+let workloomDoctorGitAvailable = true
+try {
+  execFileSync('git', ['--version'], { stdio: 'pipe' })
+} catch {
+  workloomDoctorGitAvailable = false
+}
+const gitSkip = workloomDoctorGitAvailable
+  ? {}
+  : { skip: 'git unavailable: git --version failed' }
+
+test('check config：packages 空配置提示 create 将拒绝（指引 workloom-packages-scan）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    writeFileSync(
+      join(root, '.workloom', 'config.json'),
+      '{"session_auto_commit": false, "packages": {}}',
+    )
+    const [err, report] = runDoctor(root, { fix: false })
+    assert.equal(err, null)
+    const cfg = report.checks.find((c) => c.code === 'config')
+    const issue = cfg.issues.find((i) => i.title === 'No packages configured')
+    assert.ok(issue, 'empty packages must be reported')
+    assert.match(issue.message, /rejects every task/)
+    assert.match(issue.hint, /workloom-packages-scan/)
+    assert.equal(issue.fixable, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check worktree：.gitignore 缺 worktree/ 条目告警；补条目后通过', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    // 文件存在但缺条目（存量项目不自动迁移）→ 告警。
+    writeFileSync(join(root, '.workloom', '.gitignore'), '.runtime/\nconfig.local.json\n')
+    const [, report] = runDoctor(root, { fix: false })
+    const wt = report.checks.find((c) => c.code === 'worktree')
+    const issue = wt.issues.find((i) => i.title === 'Missing worktree gitignore entry')
+    assert.ok(issue, 'missing worktree/ entry must be reported')
+    assert.equal(issue.fixable, false)
+    assert.match(issue.hint, /worktree\//)
+    // 补条目后通过（非 git 项目：注册比对跳过）。
+    writeFileSync(join(root, '.workloom', '.gitignore'), '.runtime/\nworktree/\n')
+    const [, report2] = runDoctor(root, { fix: false })
+    const wt2 = report2.checks.find((c) => c.code === 'worktree')
+    assert.deepEqual(wt2.issues, [], 'entry present must clear the worktree gitignore issue')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check worktree：目录与 git 注册不一致（未注册目录 / 失效注册）告警', gitSkip, () => {
+  const root = makeRoot()
+  try {
+    initWorkloom(root)
+    writeFileSync(join(root, '.workloom', '.gitignore'), '.runtime/\nworktree/\n')
+    const run = (args) =>
+      execFileSync(
+        'git',
+        ['-c', 'user.name=workloom-test', '-c', 'user.email=workloom-test@example.com', ...args],
+        { cwd: root, encoding: 'utf8', stdio: 'pipe' },
+      )
+    run(['init', '-b', 'main'])
+    run(['add', '--', '.workloom'])
+    run(['commit', '-m', 'chore: init'])
+
+    // 干净状态：注册一致 → 无 issue。
+    const [, clean] = runDoctor(root, { fix: false })
+    assert.deepEqual(clean.checks.find((c) => c.code === 'worktree').issues, [])
+
+    // 目录在但未注册（空目录残留，add 会静默复用的盲区）→ 告警。
+    mkdirSync(join(root, '.workloom', 'worktree', '09-30-ghost'), { recursive: true })
+    const [, second] = runDoctor(root, { fix: false })
+    const secondWt = second.checks.find((c) => c.code === 'worktree')
+    const unregistered = secondWt.issues.find(
+      (i) => i.title === 'Unregistered worktree directory',
+    )
+    assert.ok(unregistered, 'unregistered directory must be reported')
+    assert.match(unregistered.message, /09-30-ghost/)
+    assert.equal(unregistered.fixable, false)
+    rmSync(join(root, '.workloom', 'worktree'), { recursive: true, force: true })
+
+    // 注册在但目录失（prunable）→ 告警并指引 git worktree prune（不自动修）。
+    run(['worktree', 'add', '-b', 'task-stale', join(root, '.workloom', 'worktree', 'stale-task')])
+    rmSync(join(root, '.workloom', 'worktree', 'stale-task'), { recursive: true, force: true })
+    const [, third] = runDoctor(root, { fix: false })
+    const thirdWt = third.checks.find((c) => c.code === 'worktree')
+    const stale = thirdWt.issues.find((i) => i.title === 'Stale worktree registration')
+    assert.ok(stale, 'stale registration must be reported')
+    assert.match(stale.message, /stale-task/)
+    assert.match(stale.hint, /git worktree prune/)
+    assert.equal(stale.fixable, false)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

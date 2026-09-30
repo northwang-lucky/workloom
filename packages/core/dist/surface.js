@@ -50,7 +50,7 @@ export const TOOL_DESCRIPTIONS = {
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
 export const TOOL_SNIPPETS = {
-    taskCreate: 'workloom_task_create(title, slug?, priority?, description?, parent?) — create a task',
+    taskCreate: 'workloom_task_create(title, package, slug?, priority?, description?, parent?) — create a task',
     taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
     taskCheck: 'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.2 check pass',
     taskAlign: 'workloom_task_align(action, taskPath?, expectedPrdHash?, summary?) — review or confirm Phase 1.1 alignment',
@@ -70,6 +70,8 @@ export const PARAM_DESCRIPTIONS = {
     /** executor 工具的 taskPath 参数（措辞多了 of this session）。 */
     taskPathExecutor: 'Task directory relative to .workloom; defaults to the active task of this session',
     title: 'Task title',
+    /** create 工具的 package 参数（必填归属，与 worktree 开关无关）。 */
+    package: 'Required package key from the "packages" map in .workloom/config.json (the package this task belongs to)',
     slug: 'Optional kebab-case slug; derived from title when omitted',
     priority: 'Priority: P0/P1/P2/P3; defaults to P2',
     description: 'Optional task description',

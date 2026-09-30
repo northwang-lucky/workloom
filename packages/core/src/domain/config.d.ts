@@ -23,6 +23,8 @@ export interface WorkloomConfig {
   executor: {
     maxConcurrent: number
   }
+  /** worktree 生命周期（仅项目层）：start 建独立 worktree，archive 按 cleanup 模式清理。 */
+  worktree: WorktreeConfig
   /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
   subagentProfiles: SubagentProfile[]
   /**
@@ -36,6 +38,27 @@ export interface WorkloomConfig {
 
 /** 配置来源层（subagent_profiles / subagents 顶层 key 最后写入层）。 */
 export type ConfigSourceLayer = 'global' | 'project' | 'local'
+
+/**
+ * worktree 清理模式（archive 四模式）：merge-keep-branch 合并回 base + 删 worktree +
+ * 保留分支；merge-delete-branch 再删分支；keep-branch 不合并只删 worktree；
+ * manual 不动 worktree/分支。
+ */
+export type WorktreeCleanupMode =
+  | 'merge-keep-branch'
+  | 'merge-delete-branch'
+  | 'keep-branch'
+  | 'manual'
+
+/** worktree 配置节（仅项目层，全局层出现报项目字段错误）。 */
+export interface WorktreeConfig {
+  /** start 是否为任务创建独立 git worktree（false = 全链路零行为变化）。 */
+  enabled: boolean
+  /** 分支名模板（占位符白名单 <task-id>/<task-slug>/<date>；渲染结果在 start 期校验）。 */
+  branchTemplate: string
+  /** archive 清理模式。 */
+  cleanup: WorktreeCleanupMode
+}
 
 /**
  * subagent_profiles 条目：whenMain 为命中条件（string 对所有 runtime 同值，

@@ -110,7 +110,28 @@ export {
   gitAddCommit,
   gitStatusSync,
   gitCurrentBranchSync,
+  gitRevParse,
+  gitIsAncestor,
+  gitHasMergeHead,
+  gitMerge,
+  gitMergeAbort,
+  gitWorktreeAdd,
+  gitWorktreeRemove,
+  gitWorktreeList,
+  gitWorktreePrune,
+  gitBranchDelete,
+  gitBranchExists,
+  gitCheckRefFormat,
 } from './domain/git.js'
+
+export type { GitWorktreeEntry } from './domain/git.js'
+
+export {
+  createTaskWorktree,
+  cleanupTaskWorktree,
+  resolveTaskRepo,
+  renderBranchName,
+} from './domain/worktree.js'
 
 export { addSession, listJournals } from './domain/journal.js'
 
@@ -202,6 +223,8 @@ export type { ExecutorInjectionStats } from './surface.js'
 
 export type {
   WorkloomConfig,
+  WorktreeConfig,
+  WorktreeCleanupMode,
   SubagentConfigEntry,
   SubagentProfile,
   SubagentTools,
@@ -210,6 +233,13 @@ export type {
   ResolveSubagentDefaultsResult,
   ExecutorConflict,
 } from './domain/config.d.ts'
+
+export type {
+  TaskRepoResolution,
+  BranchNameContext,
+  CreateTaskWorktreeResult,
+  CleanupTaskWorktreeResult,
+} from './domain/worktree.d.ts'
 
 export type {
   AllowToolsConfig,
@@ -247,6 +277,7 @@ export type {
   StartTaskParams,
   FinishTaskParams,
   ArchiveTaskParams,
+  ArchiveTaskResult,
   ListTasksParams,
   CheckTaskParams,
   AlignmentCredentialInput,

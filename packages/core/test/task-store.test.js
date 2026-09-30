@@ -46,6 +46,12 @@ function makeRoot(options = {}) {
   if (options.config !== undefined) {
     writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify(options.config))
   }
+  // 非 git fixture：经本地层关闭 worktree（enabled=false 全链路零行为变化，
+  // 本文件聚焦状态机；worktree 生命周期由 worktree-lifecycle.test.js 集成覆盖）。
+  writeFileSync(
+    join(root, '.workloom', 'config.local.json'),
+    JSON.stringify({ worktree: { enabled: false } }),
+  )
   if (options.developer !== undefined) {
     writeFileSync(join(root, '.workloom', '.developer'), options.developer)
   }

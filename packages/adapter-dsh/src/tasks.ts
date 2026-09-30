@@ -50,12 +50,13 @@ export function registerTaskTools(ctx: Context): void {
       type: 'object',
       properties: {
         title: { type: 'string', description: PARAM_DESCRIPTIONS.title },
+        package: { type: 'string', description: PARAM_DESCRIPTIONS.package },
         slug: { type: 'string', description: PARAM_DESCRIPTIONS.slug },
         priority: { type: 'string', description: PARAM_DESCRIPTIONS.priority },
         description: { type: 'string', description: PARAM_DESCRIPTIONS.description },
         parent: { type: 'string', description: PARAM_DESCRIPTIONS.parent },
       },
-      required: ['title'],
+      required: ['title', 'package'],
       additionalProperties: false,
     },
     output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
@@ -208,6 +209,7 @@ async function createTaskTool(args: unknown, exec: ToolRunContext): Promise<unkn
   const cwd = cwdOf(exec)
   const [err, result] = await executeCreateTask(cwd, contextKeyOf(exec), {
     title: String(typed.title ?? ''),
+    package: stringOf(typed, 'package') ?? '',
     slug: typeof typed.slug === 'string' ? typed.slug : undefined,
     priority: typeof typed.priority === 'string' ? typed.priority : undefined,
     description: typeof typed.description === 'string' ? typed.description : undefined,

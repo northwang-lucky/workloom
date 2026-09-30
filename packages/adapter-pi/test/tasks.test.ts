@@ -4,7 +4,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -79,6 +79,16 @@ test('TASK_CREATE_PARAMS schema 含 parent 可选字符串（描述引用 PARAM_
   assert.ok(!def.parameters.required?.includes('parent'), 'parent must be optional')
 })
 
+test('TASK_CREATE_PARAMS schema：package 必填（描述引用 PARAM_DESCRIPTIONS.package）', () => {
+  const def = setupCreateTool()
+  const props = def.parameters.properties
+  const pkg = props.package as { type?: string } | undefined
+  assert.ok(pkg, 'package param must be present')
+  assert.equal(pkg.type, 'string')
+  assert.equal(readDescription(props.package), PARAM_DESCRIPTIONS.package)
+  assert.ok(def.parameters.required?.includes('package'), 'package must be required')
+})
+
 test('TASK_CHECK_PARAMS schema 不再含 phase/required（2.2 check 单一凭据）', () => {
   const { pi, registered } = makePi()
   registerTaskTools(pi)
@@ -123,14 +133,16 @@ test('archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.
 test('executeCreate 转发 parent：子任务落盘 parent 字段且父 children 联动', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-pi-tasks-'))
   mkdirSync(join(root, '.workloom'))
+  // 种子 packages（package 归属校验需要声明的键）。
+  writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify({ packages: { repo: { path: '.' } } }))
   try {
-    const [, parent] = await createTask(root, { title: 'Parent' })
+    const [, parent] = await createTask(root, { title: 'Parent', package: 'repo' })
     assert.ok(parent)
     const def = setupCreateTool()
     const ctx = makeCtx(root)
     const child = await def.execute(
       'call-1',
-      { title: 'Child', parent: parent.taskRelPath },
+      { title: 'Child', package: 'repo', parent: parent.taskRelPath },
       undefined,
       undefined,
       ctx,

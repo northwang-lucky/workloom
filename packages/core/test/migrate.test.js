@@ -165,8 +165,11 @@ test('config 全默认时不覆盖 init 模板', () => {
     )
     const [err] = migrateLegacyTrellis(root)
     assert.equal(err, null)
-    // 迁移产物为 config.json；全默认时不覆盖 init 模板（保持 {}）。
-    assert.equal(readFileSync(join(root, '.workloom/config.json'), 'utf8').trim(), '{}')
+    // 迁移产物为 config.json；全默认时不覆盖 init 模板（保持种子根包形态）。
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(root, '.workloom/config.json'), 'utf8')),
+      { packages: { repo: { path: '.' } } },
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

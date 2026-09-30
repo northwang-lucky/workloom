@@ -2,13 +2,13 @@
  * workloom-doctor 检查引擎的类型、检查元信息与共享常量（新增抽象，TypeScript）。
  *
  * 设计意图：
- * - 集中定义 DoctorReport 相关类型、11 类检查元信息（CHECK_META）与跨模块常量；
+ * - 集中定义 DoctorReport 相关类型、12 类检查元信息（CHECK_META）与跨模块常量；
  * - doctor-checks.ts / doctor-fixes.ts / doctor.ts 各自从此处引用类型与常量，避免循环依赖；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 import type { TaskRecordWithPath } from '../domain/task-store.d.ts';
 /** 检查项 code 枚举。 */
-export type DoctorIssueCode = 'task-lifecycle' | 'parent-child' | 'archive' | 'dispatch-audit' | 'stage-consistency' | 'active-pointer' | 'doc-completeness' | 'spec-ref' | 'config' | 'local-prompts' | 'workflow-overlay';
+export type DoctorIssueCode = 'task-lifecycle' | 'parent-child' | 'archive' | 'dispatch-audit' | 'stage-consistency' | 'active-pointer' | 'doc-completeness' | 'spec-ref' | 'config' | 'local-prompts' | 'workflow-overlay' | 'worktree';
 /** 严重级别。 */
 export type DoctorSeverity = 'error' | 'warn';
 /** 单条 issue（schema 固定字段）。 */
@@ -75,7 +75,7 @@ export declare const TASK_DIR = "tasks";
 export declare const ARCHIVE_DIR = "archive";
 /** task.json 写回缩进（保持 2 空格 + 尾换行）。 */
 export declare const JSON_INDENT = 2;
-/** 11 类检查的元信息（顺序即输出顺序；每类必出现）。 */
+/** 12 类检查的元信息（顺序即输出顺序；每类必出现）。 */
 export declare const CHECK_META: ReadonlyArray<{
     code: DoctorIssueCode;
     title: string;

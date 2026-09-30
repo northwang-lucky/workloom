@@ -29,6 +29,8 @@ import { initWorkloom } from '../dist/domain/init.js'
 function makeRoot() {
   const root = mkdtempSync(join(tmpdir(), 'workloom-taskops-'))
   initWorkloom(root)
+  // 非 git fixture：关闭 worktree（enabled=false 全链路零行为变化，本文件聚焦任务工具编排）。
+  writeFileSync(join(root, '.workloom', 'config.local.json'), JSON.stringify({ worktree: { enabled: false } }))
   return root
 }
 
@@ -68,6 +70,7 @@ test('executeCreateTask 空串 slug/priority/description 不传（默认值兜�
   try {
     const [err, result] = await executeCreateTask(root, 'dsh_t1', {
       title: 'Filter Empty',
+      package: 'repo',
       slug: '',
       priority: '',
       description: '',
@@ -115,7 +118,7 @@ test('create→start→check→finish→list→archive 全链（活跃任务 fal
   try {
     const contextKey = 'dsh_chain'
     // create：任务创建并设为活跃。
-    const [, created] = await executeCreateTask(root, contextKey, { title: 'Chain Task' })
+    const [, created] = await executeCreateTask(root, contextKey, { title: 'Chain Task', package: 'repo' })
     assert.ok(created.taskRelPath.startsWith('tasks/'))
     assert.equal(created.task.status, 'planning')
     // start 门禁：骨架 prd 与 seed jsonl 被拒绝。
@@ -157,7 +160,7 @@ test('executeCheckTask 无 check.jsonl 有效记录被拒绝，force 放行', as
   const root = makeRoot()
   try {
     const contextKey = 'dsh_check'
-    const [, created] = await executeCreateTask(root, contextKey, { title: 'Check Ops' })
+    const [, created] = await executeCreateTask(root, contextKey, { title: 'Check Ops', package: 'repo' })
     // force 越过 start 门禁（本用例聚焦 check 编排）。
     const [, started] = await executeStartTask(root, contextKey, {
       force: true,
@@ -202,7 +205,7 @@ test('executeArchiveTask 缺 taskPath 拒绝（必填，不回退活跃任务）
   const root = makeRoot()
   try {
     const contextKey = 'dsh_archive_required'
-    const [, created] = await executeCreateTask(root, contextKey, { title: 'Required Path' })
+    const [, created] = await executeCreateTask(root, contextKey, { title: 'Required Path', package: 'repo' })
     const [err, archived] = await executeArchiveTask(root, {})
     assert.ok(err)
     assert.match(err.message, /taskPath is required/)
@@ -219,7 +222,7 @@ test('executeArchiveTask 缺 taskPath 拒绝（必填，不回退活跃任务）
 test('executeListTasks 按 status 过滤', async () => {
   const root = makeRoot()
   try {
-    await executeCreateTask(root, 'dsh_l1', { title: 'Planning Only' })
+    await executeCreateTask(root, 'dsh_l1', { title: 'Planning Only', package: 'repo' })
     const [, planning] = await executeListTasks(root, 'planning')
     assert.equal(planning.tasks.length, 1)
     const [, completed] = await executeListTasks(root, 'completed')
@@ -232,9 +235,10 @@ test('executeListTasks 按 status 过滤', async () => {
 test('executeCreateTask 透传 parent 并写回父 children', async () => {
   const root = makeRoot()
   try {
-    const [, parent] = await executeCreateTask(root, 'dsh_parent', { title: 'Parent Ops' })
+    const [, parent] = await executeCreateTask(root, 'dsh_parent', { title: 'Parent Ops', package: 'repo' })
     const [err, child] = await executeCreateTask(root, 'dsh_child', {
       title: 'Child Ops',
+      package: 'repo',
       parent: parent.taskRelPath,
     })
     assert.equal(err, null)
@@ -253,6 +257,7 @@ test('executeCreateTask 空串 parent 视同未传', async () => {
   try {
     const [err, child] = await executeCreateTask(root, 'dsh_empty', {
       title: 'Empty Parent',
+      package: 'repo',
       parent: '',
     })
     assert.equal(err, null)
@@ -265,7 +270,7 @@ test('executeCreateTask 空串 parent 视同未传', async () => {
 test('executeCreateTask 返回 nextStepNote（Phase 1.1 行动指引）', async () => {
   const root = makeRoot()
   try {
-    const [err, result] = await executeCreateTask(root, 'dsh_note', { title: 'Note Task' })
+    const [err, result] = await executeCreateTask(root, 'dsh_note', { title: 'Note Task', package: 'repo' })
     assert.equal(err, null)
     assert.ok(
       typeof result.nextStepNote === 'string' && result.nextStepNote !== '',
@@ -281,7 +286,7 @@ test('executeCreateTask 返回 nextStepNote（Phase 1.1 行动指引）', async 
 test('executeStartTask 返回记录无 grillingPending/grillingNote（alignment 凭据语义）', async () => {
   const root = makeRoot()
   try {
-    const [, created] = await executeCreateTask(root, 'dsh_ap', { title: 'Align Start' })
+    const [, created] = await executeCreateTask(root, 'dsh_ap', { title: 'Align Start', package: 'repo' })
     satisfyStartGate(root, created.taskRelPath)
     // 未 alignment：planning start 被拦（指引 workloom_task_align）
     const [gateErr] = await executeStartTask(root, 'dsh_ap', {})
@@ -326,7 +331,7 @@ Do the thing.
 
 /** 创建任务并写入指定 prd 内容，返回 prd.md 绝对路径（骨架 prd 由 create 生成）。 */
 async function makeAlignTask(root, contextKey, prdContent) {
-  const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops' })
+  const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops', package: 'repo' })
   const prdPath = join(root, '.workloom', created.taskRelPath, 'prd.md')
   if (prdContent !== null) writeFileSync(prdPath, prdContent)
   return { taskRelPath: created.taskRelPath, prdPath }
@@ -504,7 +509,7 @@ test('align review/confirm：校验失败零写入、hash 冲突拒绝、同 has
   const root = makeRoot()
   try {
     const contextKey = 'dsh_align'
-    const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops' })
+    const [, created] = await executeCreateTask(root, contextKey, { title: 'Align Ops', package: 'repo' })
     const taskDir = join(root, '.workloom', created.taskRelPath)
     // 骨架 prd（占位符未填）→ confirm 拒绝且零写入（文案区分 missing 与 placeholder）
     const [rej1] = executeAlignTask(root, contextKey, {
@@ -578,6 +583,37 @@ test('align review/confirm：校验失败零写入、hash 冲突拒绝、同 has
     const [, taskFinal] = readTask(root, created.taskRelPath)
     assert.equal(taskFinal.alignment.passedAt, passedAt)
     assert.equal(taskFinal.alignment.summary, 'converged')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeCreateTask package 校验：缺失/未知 fail loud，合法值落 task.json', async () => {
+  const root = makeRoot()
+  try {
+    // 缺失 → execute 层拒绝（文案指引 packages 配置）。
+    const [missingErr] = await executeCreateTask(root, 'dsh_pkg_missing', { title: 'No Package' })
+    assert.ok(missingErr)
+    assert.match(missingErr.message, /package is required/)
+    // 未知值 → core 拒绝（列已声明包 + 指引 workloom-packages-scan）。
+    const [unknownErr] = await executeCreateTask(root, 'dsh_pkg_unknown', {
+      title: 'Unknown Package',
+      package: 'ghost',
+    })
+    assert.ok(unknownErr)
+    assert.match(unknownErr.message, /unknown package "ghost"/)
+    assert.match(unknownErr.message, /repo/)
+    assert.match(unknownErr.message, /workloom-packages-scan/)
+    // 合法值 → 落 task.json package。
+    const [okErr, ok] = await executeCreateTask(root, 'dsh_pkg_ok', {
+      title: 'With Package',
+      package: 'repo',
+    })
+    assert.equal(okErr, null, okErr?.message)
+    const saved = JSON.parse(
+      readFileSync(join(root, '.workloom', ok.taskRelPath, 'task.json'), 'utf8'),
+    )
+    assert.equal(saved.package, 'repo')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
