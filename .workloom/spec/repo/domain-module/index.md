@@ -2,6 +2,7 @@
 
 The core domain modules are the behavior-port modules.
 
+- git primitives: extending `domain/git.js` follows the execFile/`LC_ALL=C` discipline, `err.code`/`err.stderr` passthrough, boolean-primitive exit-code semantics, MERGE_HEAD-based merge classification and absolute worktree paths — see [git-primitives](git-primitives.md)
 - layout: `packages/core/src/domain/` holds pure JS + JSDoc modules that run without a build; new abstractions are TypeScript under `src/service`
 - data: field names and defaults keep the established data layout, compatible with existing data files; wording is written fresh
 - counter-example: renaming `task.json` fields and breaking existing task directories

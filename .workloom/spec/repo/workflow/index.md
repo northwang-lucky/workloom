@@ -4,3 +4,5 @@ Main-session task-lifecycle discipline for this repository.
 
 - archive-quiescence: before archiving a task, wait for every in-flight dispatch to settle; a child that finishes after the archive move backfills against the stale pre-move path (warning only, and the record stays `running` frozen at archive time)
 - effort-compat: a dispatch's `effort` must be inside the target model's supported range; an unsupported value (e.g. `low` on LongCat-2.0) produces a healthy-looking background receipt and then kills the child at its first model request with `UNSUPPORTED_REASONING_EFFORT`
+- asset-version-bump: bump the `packages/assets/workflow/workflow.md` front-matter `version` (together with `WORKFLOW_PROTOCOL_VERSION` in `domain/protocol.js`, which the handshake test pins to the real asset) only when the contract structure changes — the `states` list or the `####` step set/order; guidance-text additions inside existing steps keep both unchanged
+- counter-example: bumping the front-matter version for a one-sentence guidance addition, or editing the step set without bumping version and protocol constant together
