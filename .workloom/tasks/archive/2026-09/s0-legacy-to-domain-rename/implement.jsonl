@@ -1,0 +1,9 @@
+{"file":".workloom/spec/repo/code-style/index.md","reason":"编码原则与验证命令（本任务=纯机械重构，回归全绿为纲）"}
+{"file":".workloom/spec/repo/legacy-module/index.md","reason":"被更名目录的模块约定（更名后此 spec 目录同步改名为 repo/domain-module）"}
+{"file":".workloom/spec/repo/architecture/index.md","reason":"分层表述的权威来源（layering/executor-voice 中 legacy 措辞同步更新）"}
+{"file":".workloom/spec/repo/language/index.md","reason":"注释/文档语言分工（更名后的术语文案遵循同一约定）"}
+{"file":".workloom/spec/repo/commits/index.md","reason":"独立 refactor commit 的粒度与 message 规范"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"core dist 为 git 跟踪产物，重命名后同 commit 重建提交的部署纪律"}
+{"file":".workloom/tasks/09-29-worktree-native/prd.md","reason":"容器 PRD 需求 11 与 R5-Q4/Q5/Q6：重命名范围、文档指针边界、历史归档不动"}
+{"file":"packages/core/src/index.ts","reason":"导出面唯一入口：~30 处 ./legacy/ import 与头注释，AC4 要求导出符号零 diff"}
+{"file":"packages/core/package.json","reason":"exports 仅 '.' 的事实依据（adapter 对内部路径重命名透明，AC4 要求本文件不变）"}

@@ -1,0 +1,8 @@
+{"file":".workloom/spec/repo/code-style/index.md","reason":"复核验证命令全绿与零行为变化"}
+{"file":".workloom/spec/repo/domain-module/index.md","reason":"复核更名后的 spec 目录与内容术语一致（S0 交付物）"}
+{"file":".workloom/spec/repo/architecture/index.md","reason":"复核分层表述更新后依赖方向未破坏"}
+{"file":".workloom/spec/repo/language/index.md","reason":"复核术语文案语言分工"}
+{"file":".workloom/spec/repo/commits/index.md","reason":"复核独立 refactor commit 粒度与 message"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"复核 dist/domain 同 commit 重建、dist/legacy 无残留"}
+{"file":".workloom/tasks/09-29-worktree-native/prd.md","reason":"以容器需求 11 + R5-Q5 边界（历史归档不动、语义白名单）为验收基准"}
+{"file":"packages/core/src/index.ts","reason":"复核导出面零 diff（符号清单重命名前后一致）"}

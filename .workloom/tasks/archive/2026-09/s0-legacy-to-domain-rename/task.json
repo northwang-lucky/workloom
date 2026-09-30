@@ -1,0 +1,64 @@
+{
+  "id": "fc47592c-9c63-4ed9-9ddc-c18de1564d8e",
+  "name": "s0-legacy-to-domain-rename",
+  "title": "S0 core 目录重构：legacy/ → domain/（引用方与文档指针全量更新）",
+  "description": "容器 tasks/09-29-worktree-native 的前置子任务 S0（纯机械重构，零行为变化）：packages/core/src/legacy/ 整体更名 domain/（含 .d.ts 与 dist 产物路径），代码引用方全量更新（core imports/index 导出/测试/构建配置/两端 adapter 深路径核查），文档指针全量更新（spec repo/legacy-module → repo/domain-module、AGENTS.md、terminology、活跃任务活指针），历史归档不动。验收 = 验证命令全绿 + 全仓无 legacy/ 活引用残留。先于 S1/S2 执行。",
+  "status": "completed",
+  "priority": "P1",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": null,
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-09-30T03:18:32.940Z",
+  "completedAt": "2026-09-30T03:48:24.401Z",
+  "parent": "tasks/09-29-worktree-native",
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-09-30T03:47:30.076Z",
+    "summary": "S0（legacy/→domain/ 机械重命名）2.2 全量检查 PASS：check executor 独立重跑五件套全绿（lint 0 错、typecheck 4 项目、build、core 583/dsh 138/pi 192 全 pass）；AC2 交付面路径式 legacy 引用零命中、317 处剩余命中逐类抽验均归白名单（config 来源枚举/trellis 迁移/退役 YAML/workflow.md/doctor 旧资产语义等）；AC3 dist/domain 63 文件与 dist/legacy 63 删除一一对应、dist/index.js 仅 ./domain/；AC4 index.ts 导出符号逐符号 diff 为空、package.json 零 diff、adapter-dsh 零改动（透明性成立）；AC5 spec/AGENTS/terminology/jsonl 51 条指针 0 缺失、guidelines 已列 domain-module。rename 纯度：task-store R100 纯 rename（误改已确证回退）。P1 遗留（S1 prd spec 活指针）已由主会话修复并将重刷 S1 凭据；S1 research 内 src/legacy 行号锚定按历史研究记录接受不改。"
+  },
+  "alignment": {
+    "passedAt": "2026-09-30T03:21:58.659Z",
+    "summary": "S0 对齐一轮即空：全部决策继承容器 R5-Q4（前置子任务位置）/R5-Q5（文档指针全量、历史归档不动）/R5-Q6（名称 domain，用户从 domain/engine/kernel/modules/lib 候选池选定）。范围：git mv 目录重命名 + dist 同 commit 重建、core 全量引用更新、语义保留白名单（migrateLegacyTrellis/LEGACY_YAML/config 来源枚举 'legacy'/workflow.md 任务记录语义等防误改）、文档指针（spec legacy-module→domain-module、AGENTS.md、terminology、活跃任务活指针）、零行为变化（导出面零 diff、adapter 透明）。验收 5 条。用户明示免逐份确认直接推进（review readyToConfirm=true，blockers 空）。",
+    "prdHash": "e0952ce0aee100be3b38ca1f5466d2bf7a3daffc586c4b2cfe96ea31631dbf25"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-09-30T03:25:53.863Z",
+      "title": "S0 执行：legacy/ → domain/ 全量重命名",
+      "status": "completed",
+      "childId": "82d77954-dfc2-4c72-b70c-d5672dc14138",
+      "model": "xiaomi-token-plan-cn/mimo-v2.6-flash",
+      "effort": "medium",
+      "modelSource": "fallback"
+    },
+    {
+      "kind": "check",
+      "at": "2026-09-30T03:33:53.223Z",
+      "title": "S0 检查：重命名纯度、白名单纪律与全量回归",
+      "status": "completed",
+      "childId": "a1db8e21-dd07-48bd-bcdc-5d7306f49b51",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
