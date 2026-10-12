@@ -1,6 +1,12 @@
 # Runtime state (session pointers etc.), per-machine.
 .runtime/
 
+# Pi child session transcripts (adapter-pi runtime, per-machine).
+sessions/
+
+# Task worktrees (created by workloom start, per-machine).
+worktree/
+
 # Local developer identity (like AGENTS.local.md).
 .developer
 
