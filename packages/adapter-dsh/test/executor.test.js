@@ -1,5 +1,5 @@
 /**
- * executor 模块单测：continuable 后台派发（startContinuable）、续用（sendMessage
+ * executor 模块单测：continuable 后台派发（startActivation）、续用（sendMessage
  * 同一会话）、派发终态回填与 receipt 行。
  * 测试依赖 dist（test 脚本先 build 再跑 node --test）。
  */
@@ -174,12 +174,12 @@ function makeCtx(overrides = {}) {
       return []
     },
     // continuable 派发：resolve 即返回 durable childId。
-    // 用例可经 overrides.startContinuableDelay 注入延迟（Promise），模拟 startContinuable
+    // 用例可经 overrides.startContinuableDelay 注入延迟（Promise），模拟派发
     // 挂起期间 in-flight 竞态窗口（并发闸测试依赖此时序）。
     // 时序对齐真实宿主：子代理创建完成时同步发布 agent/created（早于本调用返回），
     // 且子代理身份是调用方预分配的 spec.childId；返回给生产代码的 id 仍用
     // child-N，让依赖短 id 的既有断言保持稳定。
-    async startContinuable(spec) {
+    async startActivation(spec) {
       if (overrides.startReject !== undefined) throw overrides.startReject
       startCalls.push(spec)
       const childId = `child-${startCalls.length}`
@@ -317,7 +317,7 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
   }
 })
 
-test('s1: 派发走 startContinuable（非 one-shot start），返回 durable childId + receipt', async () => {
+test('s1: 派发走 startActivation（delivery: parent），返回 durable childId + receipt', async () => {
   const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
   try {
     const { execute, startCalls } = setupExecutor()
@@ -327,7 +327,7 @@ test('s1: 派发走 startContinuable（非 one-shot start），返回 durable ch
       agent: parent,
       signal,
     })
-    // seam：调用的是 startContinuable（mock 未实现 one-shot start，误调用会 TypeError）
+    // seam：调用的是 startActivation（mock 未实现外部 start，误调用会 TypeError）
     assert.equal(startCalls.length, 1)
     const spec = startCalls[0]
     assert.equal(spec.provider, 'spawn')
@@ -1592,7 +1592,7 @@ test('s1-bg: 后台派发立即返回（不等 turn 结算），返回 {kind, ch
       agent: parent,
       signal: new AbortController().signal,
     })
-    // seam：startContinuable 仍被调用（后台也是派发），但不等 turn 结算。
+    // seam：startActivation 仍被调用（后台也是派发），但不等 turn 结算。
     assert.equal(startCalls.length, 1)
     assert.equal(result.kind, 'background')
     assert.equal(result.childId, 'child-1', 'background must return the child session id')
@@ -2721,8 +2721,8 @@ test('capacity: 配置解析报错（executor.max_concurrent 为负）', async (
 
 // ---------- 并发闸异步窗口（in-flight 竞态防治，P1-3） ----------
 
-test('capacity: 并发闸异步窗口——mock listDescendants 恒空 + 延迟 startContinuable，两连发第二笔必须 at capacity', async () => {
-  // 时序核心：DSH 同轮可并行多工具调用，第一笔闸放行后 startContinuable 尚未返回
+test('capacity: 并发闸异步窗口——mock listDescendants 恒空 + 延迟派发，两连发第二笔必须 at capacity', async () => {
+  // 时序核心：DSH 同轮可并行多工具调用，第一笔闸放行后派发尚未返回
   // （child 未进 native 视野），若无 in-flight 结构，第二笔会看到空 running 集合而过闸。
   // 修复后：第一笔同步登记 in-flight → 第二笔取数 = native(空) ∪ in-flight(1) → 达限拒绝。
   const { clearInFlightDispatches } = await import('../dist/executor-capacity.js')

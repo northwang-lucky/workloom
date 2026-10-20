@@ -268,14 +268,15 @@ async function executeTool(ctx, args, exec) {
         const dispatchSeq = generateDispatchSeq();
         registerInFlightDispatch(dispatchSeq, params.kind);
         try {
-            // 白名单必须在子代理创建前登记：agent/created 在 startContinuable 返回之前
+            // 白名单必须在子代理创建前登记：agent/created 在 startActivation 返回之前
             // 就触发，晚登记等于错过收窄窗口。childId 由本层预分配，让登记与身份一一
-            // 对应，不依赖创建后的产后匹配。
+            // 对应，不依赖创建后的产后匹配。delivery: 'parent' 保持后台派发语义——子代理
+            // 结算时向父会话投递通知，而不是只把结果交回本次调用。
             const reservedChildId = SessionId(randomUUID());
             registerExecutorToolfaceChild(reservedChildId, allowFilter.allow);
             let started;
             try {
-                started = await ctx.subagents.startContinuable({
+                started = await ctx.subagents.startActivation({
                     provider: SPAWN_PROVIDER,
                     label: buildChildLabel(root, taskRelPath, params.kind, params.title),
                     childId: reservedChildId,
@@ -286,6 +287,7 @@ async function executeTool(ctx, args, exec) {
                         maxDepth: 1,
                     },
                     signal: exec.signal,
+                    delivery: 'parent',
                 });
             }
             catch (error) {
