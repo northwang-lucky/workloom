@@ -12,11 +12,10 @@ import { join } from 'node:path'
 import { NATIVE_TOOLS_DSH, PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
 import { registerExecutor } from '../dist/executor.js'
 import {
-  assertToolFilterCapability,
+  assertAllowListNonEmpty,
   buildAllowFilter,
   hasLspTooling,
   SPAWN_PROVIDER,
-  toCapabilityError,
 } from '../dist/executor-dispatch.js'
 import {
   createResearchGuardState,
@@ -24,10 +23,16 @@ import {
   registerResearchChild,
   researchWriteGuard,
 } from '../dist/executor-guard.js'
+import {
+  createToolfaceIndex,
+  rebuildToolfaceIndex,
+  registerToolface,
+  releaseToolface,
+} from '../dist/executor-toolface.js'
 
 // 测试隔离：core 三层配置解析的全局层读 $HOME/.workloom/config（executor 链路内部
 // 调 loadConfig(root)，无 homeDir 注入缝）；本机真实全局配置（如机器级
-// subagent_profiles）会泄漏进单测，污染 agentOptions/receipt/toolFilter 断言。
+// subagent_profiles）会泄漏进单测，污染 agentOptions/receipt/工具白名单断言。
 // 重定向 HOME 到临时目录使全局层恒为空——与 core config.test.js 的 homeDir 注入
 // 同口径（os.homedir() 每次读取 $HOME，无缓存，文件级覆盖对全文件生效）。
 const ISOLATED_HOME = mkdtempSync(join(tmpdir(), 'workloom-dsh-exe-home-'))
@@ -104,6 +109,38 @@ function makeCtx(overrides = {}) {
   const listeners = []
   const guardRegistrations = []
   const schemasScopes = []
+  // 子代理工具面收窄记录：agent/created 命中白名单时由监听器调用 restrict。
+  const restrictCalls = []
+
+  /**
+   * 模拟宿主在子代理创建完成时同步发布 agent/created。
+   * 监听器拿到的 agent 提供最小面：id、会话 cwd 与工具服务（schemas/restrict）。
+   * @param childId 子代理 id（生产代码预分配的 reservedChildId）
+   */
+  function announceChildAgent(childId) {
+    const created = listeners.filter((entry) => entry.event === 'agent/created')
+    if (created.length === 0) return
+    const visible =
+      overrides.childVisibleTools ??
+      overrides.visibleTools ??
+      [...Object.values(TOOL_NAMES), ...NATIVE_DELEGATION_CANDIDATES, 'write', 'edit']
+    const childAgent = {
+      id: childId,
+      session: { header: { cwd: overrides.childCwd ?? '/tmp/workloom-child' } },
+      ctx: {
+        tools: {
+          schemas: () => visible.map((name) => ({ name })),
+          restrict: (filter) => {
+            restrictCalls.push({ childId, filter })
+            return () => {}
+          },
+        },
+      },
+    }
+    for (const { listener } of created) {
+      listener({ agent: childAgent, source: overrides.childSource ?? 'startup' })
+    }
+  }
 
   const tools = {
     register(def) {
@@ -130,22 +167,6 @@ function makeCtx(overrides = {}) {
   }
 
   const subagents = {
-    // spawn provider 查询：默认全 capability（toolFilter: true，现状用例零影响）；
-    // 用例可经 overrides.subagentProvider / overrides.getProvider 覆盖。
-    getProvider(name) {
-      if (overrides.getProvider !== undefined) return overrides.getProvider(name)
-      if (overrides.subagentProvider !== undefined) return overrides.subagentProvider
-      return {
-        name,
-        capabilities: {
-          outputSchema: true,
-          depthLimit: true,
-          toolFilter: true,
-          persona: true,
-        },
-        inheritsParentContext: true,
-      }
-    },
     // 会话级 running 枚举（DSH 原生 listDescendants 接缝）：用例可经 overrides.listDescendants
     // 注入 mock 返回值（SubagentListEntry 形状：kind/activity/id/label）；默认空集合。
     async listDescendants() {
@@ -155,12 +176,18 @@ function makeCtx(overrides = {}) {
     // continuable 派发：resolve 即返回 durable childId。
     // 用例可经 overrides.startContinuableDelay 注入延迟（Promise），模拟 startContinuable
     // 挂起期间 in-flight 竞态窗口（并发闸测试依赖此时序）。
+    // 时序对齐真实宿主：子代理创建完成时同步发布 agent/created（早于本调用返回），
+    // 且子代理身份是调用方预分配的 spec.childId；返回给生产代码的 id 仍用
+    // child-N，让依赖短 id 的既有断言保持稳定。
     async startContinuable(spec) {
       if (overrides.startReject !== undefined) throw overrides.startReject
       startCalls.push(spec)
       const childId = `child-${startCalls.length}`
       if (overrides.startContinuableDelay !== undefined) {
         await overrides.startContinuableDelay
+      }
+      if (overrides.skipAgentCreated !== true) {
+        announceChildAgent(spec.childId ?? childId)
       }
       return { childId }
     },
@@ -191,6 +218,7 @@ function makeCtx(overrides = {}) {
     listeners,
     guardRegistrations,
     schemasScopes,
+    restrictCalls,
   }
 }
 
@@ -208,6 +236,7 @@ function setupExecutor(overrides = {}) {
     listeners: made.listeners,
     guardRegistrations: made.guardRegistrations,
     schemasScopes: made.schemasScopes,
+    restrictCalls: made.restrictCalls,
   }
 }
 
@@ -1121,7 +1150,7 @@ test('无冲突（归一化等价）：正常派发且无 (forced) 标注', asyn
   }
 })
 
-test('continuable 请求携带 toolFilter allow：默认 = 原生候选 ∩ 可见集（未知名不入 allow）', async () => {
+test('工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 allow），经 agent/created 施加', async () => {
   const root = makeProject()
   try {
     // 运行时可见工具集：workloom 工具 + 部分委派候选 + 常规工具 + lsp（默认不授）。
@@ -1134,7 +1163,7 @@ test('continuable 请求携带 toolFilter allow：默认 = 原生候选 ∩ 可�
       'edit',
       'lsp_diagnostics',
     ]
-    const { execute, startCalls, schemasScopes } = setupExecutor({ visibleTools: visible })
+    const { execute, startCalls, schemasScopes, restrictCalls } = setupExecutor({ visibleTools: visible })
     const parent = makeAgent(root)
     await execute(execArgs({ title: 'toolfilter allow test' }), {
       agent: parent,
@@ -1149,26 +1178,30 @@ test('continuable 请求携带 toolFilter allow：默认 = 原生候选 ∩ 可�
     // /lsp_* 不入 allow（默认白名单不授编排/交互/任务工具）。
     const expectedAllow = [...NATIVE_TOOLS_DSH].filter((name) => visible.includes(name))
     assert.deepEqual(expectedAllow, ['write', 'edit'])
-    assert.deepEqual(startCalls[0].request.toolFilter, { allow: expectedAllow })
+    // 白名单经 agent/created 施加到子代理：restrict 收到求交后的清单。
+    assert.equal(restrictCalls.length, 1, 'agent/created must apply the whitelist once')
+    assert.deepEqual(restrictCalls[0].filter, { allow: expectedAllow })
+    // 请求体不再携带 toolFilter：DSH 0.2.1 取消该通道。
+    assert.equal(startCalls[0].request.toolFilter, undefined)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('toolFilter allow：config tools.includes 补入 lsp_* 前缀模式（可见集求交）', async () => {
+test('工具白名单：config tools.includes 补入 lsp_* 前缀模式（可见集求交）', async () => {
   const root = makeProject({
     subagent_profiles: [{ subagents: { implement: { tools: { includes: ['lsp_*'] } } } }],
   })
   try {
     const visible = [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics', 'lsp_symbols']
-    const { execute, startCalls } = setupExecutor({ visibleTools: visible })
+    const { execute, startCalls, restrictCalls } = setupExecutor({ visibleTools: visible })
     const parent = makeAgent(root)
     await execute(execArgs({ title: 'toolfilter include lsp test' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    assert.deepEqual(startCalls[0].request.toolFilter, {
+    assert.deepEqual(restrictCalls[0].filter, {
       allow: ['write', 'edit', 'lsp_diagnostics', 'lsp_symbols'],
     })
   } finally {
@@ -1176,14 +1209,14 @@ test('toolFilter allow：config tools.includes 补入 lsp_* 前缀模式（可�
   }
 })
 
-test('toolFilter allow：config tools.excludes 移除原生工具；未知名静默忽略', async () => {
+test('工具白名单：config tools.excludes 移除原生工具；未知名静默忽略', async () => {
   const root = makeProject({
     subagent_profiles: [{ subagents: { implement: { tools: { excludes: ['bash', 'nonexistent'] } } } }],
   })
   try {
     // 可见集含 bash（原生候选）与 write/edit。
     const visible = [...Object.values(TOOL_NAMES), 'write', 'edit', 'bash']
-    const { execute, startCalls } = setupExecutor({ visibleTools: visible })
+    const { execute, startCalls, restrictCalls } = setupExecutor({ visibleTools: visible })
     const parent = makeAgent(root)
     await execute(execArgs({ title: 'toolfilter exclude test' }), {
       agent: parent,
@@ -1191,7 +1224,7 @@ test('toolFilter allow：config tools.excludes 移除原生工具；未知名静
     })
     assert.equal(startCalls.length, 1)
     // bash 被 excludes 移除；未知名 nonexistent 静默忽略。
-    assert.deepEqual(startCalls[0].request.toolFilter, { allow: ['write', 'edit'] })
+    assert.deepEqual(restrictCalls[0].filter, { allow: ['write', 'edit'] })
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1200,7 +1233,7 @@ test('toolFilter allow：config tools.excludes 移除原生工具；未知名静
 test('receipt 行：新派发含 `, K tools allowed`（K = 实际下发 allow 集大小）', async () => {
   const root = makeProject()
   try {
-    const { execute, startCalls } = setupExecutor()
+    const { execute, startCalls, restrictCalls } = setupExecutor()
     const parent = makeAgent(root)
     const result = await execute(execArgs({ title: 'tools allowed receipt test' }), {
       agent: parent,
@@ -1208,7 +1241,7 @@ test('receipt 行：新派发含 `, K tools allowed`（K = 实际下发 allow �
     })
     assert.equal(startCalls.length, 1)
     // 默认可见集下 allow = ['write','edit']（仅这两个原生候选可见）。
-    assert.deepEqual(startCalls[0].request.toolFilter, { allow: ['write', 'edit'] })
+    assert.deepEqual(restrictCalls[0].filter, { allow: ['write', 'edit'] })
     assert.ok(
       result.receipt.includes(', 2 tools allowed'),
       'receipt must append ", K tools allowed" on the injection line',
@@ -1218,82 +1251,7 @@ test('receipt 行：新派发含 `, K tools allowed`（K = 实际下发 allow �
   }
 })
 
-test('provider 缺 toolFilter capability：派发前 fail loud（清晰英文错误，不静默丢弃）', async () => {
-  const root = makeProject()
-  try {
-    const { execute, startCalls } = setupExecutor({
-      subagentProvider: {
-        name: 'spawn',
-        capabilities: {
-          outputSchema: true,
-          depthLimit: true,
-          toolFilter: false,
-          persona: true,
-        },
-        inheritsParentContext: true,
-      },
-    })
-    const parent = makeAgent(root)
-    await assert.rejects(
-      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
-      /toolFilter/,
-    )
-    assert.equal(startCalls.length, 0, 'start must not be called when the capability is missing')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('provider 未注册（getProvider 返回 undefined）：派发前 fail loud', async () => {
-  const root = makeProject()
-  try {
-    const { execute, startCalls } = setupExecutor({ getProvider: () => undefined })
-    const parent = makeAgent(root)
-    await assert.rejects(
-      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
-      /toolFilter/,
-    )
-    assert.equal(startCalls.length, 0)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('provider 畸形（capabilities 缺失）：派发前 fail loud（清晰英文错误，非 TypeError）', async () => {
-  const root = makeProject()
-  try {
-    const { execute, startCalls } = setupExecutor({
-      subagentProvider: { name: 'spawn', inheritsParentContext: true },
-    })
-    const parent = makeAgent(root)
-    await assert.rejects(
-      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
-      /"toolFilter" capability/,
-    )
-    assert.equal(startCalls.length, 0)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('startContinuable reject（UNSUPPORTED_CAPABILITY）：转清晰英文错误兜底', async () => {
-  const root = makeProject()
-  try {
-    const capabilityError = new Error('capability missing')
-    capabilityError.code = 'UNSUPPORTED_CAPABILITY'
-    const { execute, startCalls } = setupExecutor({ startReject: capabilityError })
-    const parent = makeAgent(root)
-    await assert.rejects(
-      execute(execArgs(), { agent: parent, signal: new AbortController().signal }),
-      /"toolFilter" capability/,
-    )
-    assert.equal(startCalls.length, 0)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executor-dispatch 拆分面：allow 成形/capability 校验/错误兜底可直接导入且与工具路径一致', () => {
+test('executor-dispatch 拆分面：allow 成形与空清单兜底可直接导入且与工具路径一致', () => {
   // 模块拆分 seam：工具路径经由本模块组装 allow 与校验 capability，直接断言导出面
   // 与行为，防止拆分后 executor.ts 静默内联回退。
   const visible = new Set([
@@ -1314,28 +1272,12 @@ test('executor-dispatch 拆分面：allow 成形/capability 校验/错误兜底�
   // hasLspTooling 按 allow 集判定：含 lsp_ 前缀工具才具备 LSP 工具面。
   assert.equal(hasLspTooling(filter.allow), false)
   assert.equal(hasLspTooling(['write', 'edit', 'lsp_diagnostics']), true)
-  // capability 缺失 / provider 未注册 / 畸形 provider 均 fail loud 且指名 spawn provider。
+  // 空清单兜底：配置与运行时工具面完全错配时 fail loud，不派发无工具面的子代理。
+  assert.doesNotThrow(() => assertAllowListNonEmpty(filter.allow))
   assert.throws(
-    () => assertToolFilterCapability(undefined),
-    new RegExp(`"${SPAWN_PROVIDER}" is not registered`),
+    () => assertAllowListNonEmpty([]),
+    /tool whitelist is empty/,
   )
-  assert.throws(
-    () => assertToolFilterCapability({ capabilities: { toolFilter: false } }),
-    /does not support the "toolFilter" capability/,
-  )
-  // 畸形 provider（capabilities 整体缺失）与 toolFilter: false 同等 fail loud。
-  assert.throws(
-    () => assertToolFilterCapability({}),
-    /does not support the "toolFilter" capability/,
-  )
-  // UNSUPPORTED_CAPABILITY 兜底转清晰英文错误；其余错误原样透传。
-  const capabilityError = new Error('capability missing')
-  capabilityError.code = 'UNSUPPORTED_CAPABILITY'
-  const translated = toCapabilityError(capabilityError)
-  assert.ok(translated instanceof Error)
-  assert.match(String(translated.message), /"toolFilter" capability/)
-  const other = new Error('plain failure')
-  assert.equal(toCapabilityError(other), other)
 })
 
 test('s4: 跨 kind 续用被拒（返回提示，不派发不 sendMessage）', async () => {
@@ -1614,14 +1556,18 @@ test('S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律�
       subagent_profiles: [{ subagents: { implement: { tools: { includes: ['lsp_*'] } } } }],
     })
     try {
-      const { execute: execLsp, startCalls: lspCalls } = setupExecutor({
+      const {
+        execute: execLsp,
+        startCalls: lspCalls,
+        restrictCalls: lspRestrictCalls,
+      } = setupExecutor({
         visibleTools: [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics'],
       })
       await execLsp(execArgs({ title: 'lsp filter on test' }), {
         agent: makeAgent(lspRoot),
         signal: new AbortController().signal,
       })
-      assert.deepEqual(lspCalls[0].request.toolFilter, {
+      assert.deepEqual(lspRestrictCalls[0].filter, {
         allow: ['write', 'edit', 'lsp_diagnostics'],
       })
       const lspText = lspCalls[0].request.prompt[0].text
@@ -2815,6 +2761,61 @@ test('capacity: 并发闸异步窗口——mock listDescendants 恒空 + 延迟 
     // 释放第一笔的 startContinuable 锁，让它完成（child 进 native 视野，移除 in-flight）。
     releaseFirstStartContinuable()
     await firstPromise
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('工具面收窄：未登记的 agent 不施加限制（主会话与其他插件的子代理零影响）', async () => {
+  const { listeners, restrictCalls } = setupExecutor()
+  const created = listeners.filter((entry) => entry.event === 'agent/created')
+  assert.equal(created.length, 1, 'registerExecutor must wire exactly one agent/created listener')
+  let restricted = false
+  const outsider = {
+    id: 'outsider-agent',
+    session: { header: { cwd: '/tmp/not-a-workloom-project' } },
+    ctx: {
+      tools: {
+        schemas: () => [{ name: 'write' }],
+        restrict: () => {
+          restricted = true
+          return () => {}
+        },
+      },
+    },
+  }
+  const returned = await created[0].listener({ agent: outsider, source: 'startup' })
+  assert.equal(returned, undefined)
+  assert.equal(restricted, false, 'agent/created must not touch agents it did not register')
+  assert.equal(restrictCalls.length, 0)
+})
+
+test('工具面索引：登记与撤销按 childId 精确生效', () => {
+  const index = createToolfaceIndex()
+  registerToolface(index, 'child-a', ['write', 'edit'])
+  assert.deepEqual(index.byChild.get('child-a'), ['write', 'edit'])
+  releaseToolface(index, 'child-a')
+  assert.equal(index.byChild.get('child-a'), undefined)
+  // 撤销不存在的 id 是 no-op，不抛错。
+  assert.doesNotThrow(() => releaseToolface(index, 'child-missing'))
+})
+
+test('工具面索引：冷恢复能从任务记录读回白名单（旧记录缺字段时跳过）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-toolface-'))
+  const tasksDir = join(root, '.workloom', 'tasks')
+  try {
+    mkdirSync(join(tasksDir, 'task-a'), { recursive: true })
+    writeFileSync(join(tasksDir, 'task-a', 'task.json'), JSON.stringify({
+      dispatches: [
+        { kind: 'implement', title: 'with allow', childId: 'child-with-allow', toolsAllow: ['write', 'edit'] },
+        { kind: 'implement', title: 'legacy', childId: 'child-legacy' },
+        { kind: 'implement', title: 'empty allow', childId: 'child-empty', toolsAllow: [] },
+      ],
+    }))
+    const rebuilt = rebuildToolfaceIndex(root)
+    assert.deepEqual(rebuilt.get('child-with-allow'), ['write', 'edit'])
+    assert.equal(rebuilt.get('child-legacy'), undefined, 'records without toolsAllow cannot be rebuilt')
+    assert.equal(rebuilt.get('child-empty'), undefined, 'an empty whitelist is not a usable restriction')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

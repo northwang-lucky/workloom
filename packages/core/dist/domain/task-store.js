@@ -977,6 +977,14 @@ function buildDispatchRecord(entry) {
         throw new Error(`${ERR_PREFIX}: invalid dispatch modelSource: ${String(entry.modelSource)} ` +
             `(must be one of ${Object.values(DISPATCH_MODEL_SOURCES).join('/')})`);
     }
+    // toolsAllow 可选：提供时须为字符串数组（空数组合法但无意义，拒绝）；
+    // 它决定冷恢复时重新施加的工具面，形状错误会让限制静默失效。
+    if (entry.toolsAllow !== undefined) {
+        if (!Array.isArray(entry.toolsAllow) || entry.toolsAllow.length === 0
+            || entry.toolsAllow.some((name) => typeof name !== 'string' || name === '')) {
+            throw new Error(`${ERR_PREFIX}: dispatch entry toolsAllow must be a non-empty array of tool names when provided`);
+        }
+    }
     /** @type {import('./task-store.d.ts').DispatchRecord} */
     const record = {
         kind: entry.kind,
@@ -988,6 +996,7 @@ function buildDispatchRecord(entry) {
         ...(entry.model !== undefined ? { model: entry.model } : {}),
         ...(entry.effort !== undefined ? { effort: entry.effort } : {}),
         ...(entry.modelSource !== undefined ? { modelSource: entry.modelSource } : {}),
+        ...(entry.toolsAllow !== undefined ? { toolsAllow: [...entry.toolsAllow] } : {}),
         ...(entry.error !== undefined ? { error: entry.error } : {}),
     };
     return record;

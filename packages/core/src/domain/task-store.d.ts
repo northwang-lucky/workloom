@@ -105,13 +105,18 @@ export interface DispatchRecord {
    * 续派轮 spawn（沿用首次派发记录）。旧记录缺省读取为 undefined。
    */
   modelSource?: DispatchModelSource
+  /**
+   * 派发时刻施加给子代理的工具白名单（新派轮落值；旧记录缺省读取为 undefined）。
+   * 冷恢复时据此重建限制，不依赖内存索引。
+   */
+  toolsAllow?: string[]
 }
 
 /** recordExecutorDispatch 入参（at 由函数生成；绑定字段可选，续派轮传 spawn 语义值；
  *  status 可选，默认 'running'，失败派发留痕时传 'failed' + error）。 */
 export type DispatchRecordInput = Pick<
   DispatchRecord,
-  'kind' | 'title' | 'childId' | 'model' | 'effort' | 'modelSource' | 'status'
+  'kind' | 'title' | 'childId' | 'model' | 'effort' | 'modelSource' | 'status' | 'toolsAllow'
 > & { error?: string }
 
 /** settleExecutorDispatch 回填入参（只改 status/error，不动 stage、不新增记录）。 */

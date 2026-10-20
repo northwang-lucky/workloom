@@ -68,6 +68,8 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import { randomUUID } from 'node:crypto'
+
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 // Context 增强类型登记：tools/subagents 官方服务类型
@@ -104,11 +106,10 @@ import {
 
 import { CONTEXT_KEY_PREFIX } from './constants.js'
 import {
-  assertToolFilterCapability,
+  assertAllowListNonEmpty,
   buildAllowFilter,
   hasLspTooling,
   SPAWN_PROVIDER,
-  toCapabilityError,
 } from './executor-dispatch.js'
 import {
   collectRunningExecutors,
@@ -125,6 +126,11 @@ import {
 } from './executor-continuation.js'
 import type { TurnMeta } from './executor-continuation.js'
 import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
+import {
+  registerExecutorToolface,
+  registerExecutorToolfaceChild,
+  releaseExecutorToolfaceChild,
+} from './executor-toolface.js'
 import { readMainModel } from './main-model.js'
 import { buildExecutorSchema } from './executor-schema.js'
 import {
@@ -192,6 +198,9 @@ export function registerExecutor(ctx: Context): void {
   // 派发终态回填通道：全局 subagent/end 监听按 childId 自动回填 dispatches 终态
   // （register 自绑定 fiber 生命周期，插件卸载自动清理）。
   registerDispatchSettlement(ctx)
+  // 工具面收窄通道：agent/created 串行监听按 childId 施加白名单
+  // （DSH 0.2.1 起按次 toolFilter 通道取消后的官方替代路径）。
+  registerExecutorToolface(ctx)
 }
 
 /**
@@ -311,17 +320,16 @@ async function executeTool(
       }
     }
   }
-  // 工具面白名单：派发前校验 provider 的 toolFilter capability（缺失 fail loud，
-  // 不静默丢弃）；allow 清单 = 原生候选 ± tools 配置，与运行时可见工具名集合
+  // 工具面白名单：allow 清单 = 原生候选 ± tools 配置，与运行时可见工具名集合
   // 求交（未知名在 core 静默忽略，不得硬编码；编排/交互/任务工具与 lsp_* 默认
-  // 不入，经 subagent_profiles 的 tools.includes 补回）。
-  const provider = ctx.subagents.getProvider(SPAWN_PROVIDER)
-  assertToolFilterCapability(provider)
+  // 不入，经 subagent_profiles 的 tools.includes 补回）。清单的施加在
+  // executor-toolface.ts：子代理创建时经 agent/created 收窄工具面。
   // 可见集必须取父代理作用域视图：原生工具挂在 agent-plane（preset 层），
   // 无参全局视图枚举不到，会把基集整个丢出 allow（冒烟实证）；父代理视图
   // 即子代理的继承面，与 toolFilter allow 的过滤目标一致。
   const visibleNames = ctx.tools.schemas(parent).map((schema) => schema.name)
   const allowFilter = buildAllowFilter(visibleNames, effective.tools)
+  assertAllowListNonEmpty(allowFilter.allow)
   // LSP 工具面探测：交付时过滤纪律段 LSP 句——allow 清单含 lsp_ 工具才注入。
   const hasLsp = hasLspTooling(allowFilter.allow)
   // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
@@ -481,27 +489,37 @@ async function executeTool(
     const dispatchSeq = generateDispatchSeq()
     registerInFlightDispatch(dispatchSeq, params.kind)
     try {
-      const started = await ctx.subagents.startContinuable({
-        provider: SPAWN_PROVIDER,
-        label: buildChildLabel(root, taskRelPath, params.kind, params.title),
-        request: {
-          prompt: [{ type: 'text', text: sendText }],
-          parent,
-          agentOptions,
-          maxDepth: 1,
-          toolFilter: { allow: allowFilter.allow },
-        },
-        signal: exec.signal,
-      })
+      // 白名单必须在子代理创建前登记：agent/created 在 startContinuable 返回之前
+      // 就触发，晚登记等于错过收窄窗口。childId 由本层预分配，让登记与身份一一
+      // 对应，不依赖创建后的产后匹配。
+      const reservedChildId = SessionId(randomUUID())
+      registerExecutorToolfaceChild(reservedChildId, allowFilter.allow)
+      let started
+      try {
+        started = await ctx.subagents.startContinuable({
+          provider: SPAWN_PROVIDER,
+          label: buildChildLabel(root, taskRelPath, params.kind, params.title),
+          childId: reservedChildId,
+          request: {
+            prompt: [{ type: 'text', text: sendText }],
+            parent,
+            agentOptions,
+            maxDepth: 1,
+          },
+          signal: exec.signal,
+        })
+      } catch (error) {
+        // 启动失败：撤销白名单登记，避免 id 泄漏进索引。
+        releaseExecutorToolfaceChild(reservedChildId)
+        throw error
+      }
       childId = started.childId
       // child 已进 native 视野，移除 in-flight 本地项（native 记录接管计数）。
       releaseInFlightDispatch(dispatchSeq)
     } catch (error) {
       // startContinuable 失败/异常：释放 in-flight 槽位，不留永久占位。
       releaseInFlightDispatch(dispatchSeq)
-      // startContinuable reject 的 capability 错误兜底（如 provider 未注册/缺能力）
-      // 转清晰英文错误。
-      throw toCapabilityError(error)
+      throw error
     }
   }
   // 派发时刻初写 dispatches（status: running）：失败派发也留痕（缺口 A）；记录
@@ -513,6 +531,8 @@ async function executeTool(
     kind: params.kind,
     title: params.title,
     childId,
+    // 白名单落记录：冷恢复时据此重建限制，不依赖插件内存索引。
+    toolsAllow: allowFilter.allow,
     // 续派轮沿用 spawn 绑定（可能无绑定字段 → 不落）；新派轮落本次生效绑定。
     ...(reused ? buildSpawnEntryBinding(spawnBinding) : buildNewDispatchBinding(params, effective, mainModel)),
   })
