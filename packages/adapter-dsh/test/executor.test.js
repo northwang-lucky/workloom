@@ -111,6 +111,8 @@ function makeCtx(overrides = {}) {
   const schemasScopes = []
   // 子代理工具面收窄记录：agent/created 命中白名单时由监听器调用 restrict。
   const restrictCalls = []
+  // 子代理侧 schemas 的调用实参：必须是 agent 作用域，无参调用会退化成全局视图。
+  const toolfaceSchemaScopes = []
 
   /**
    * 模拟宿主在子代理创建完成时同步发布 agent/created。
@@ -129,7 +131,10 @@ function makeCtx(overrides = {}) {
       session: { header: { cwd: overrides.childCwd ?? '/tmp/workloom-child' } },
       ctx: {
         tools: {
-          schemas: () => visible.map((name) => ({ name })),
+          schemas: (scope) => {
+          toolfaceSchemaScopes.push(scope)
+          return visible.map((name) => ({ name }))
+        },
           restrict: (filter) => {
             restrictCalls.push({ childId, filter })
             return () => {}
@@ -219,6 +224,7 @@ function makeCtx(overrides = {}) {
     guardRegistrations,
     schemasScopes,
     restrictCalls,
+    toolfaceSchemaScopes,
   }
 }
 
@@ -237,6 +243,7 @@ function setupExecutor(overrides = {}) {
     guardRegistrations: made.guardRegistrations,
     schemasScopes: made.schemasScopes,
     restrictCalls: made.restrictCalls,
+    toolfaceSchemaScopes: made.toolfaceSchemaScopes,
   }
 }
 
@@ -1163,7 +1170,7 @@ test('工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 al
       'edit',
       'lsp_diagnostics',
     ]
-    const { execute, startCalls, schemasScopes, restrictCalls } = setupExecutor({ visibleTools: visible })
+    const { execute, startCalls, schemasScopes, restrictCalls, toolfaceSchemaScopes } = setupExecutor({ visibleTools: visible })
     const parent = makeAgent(root)
     await execute(execArgs({ title: 'toolfilter allow test' }), {
       agent: parent,
@@ -1180,6 +1187,10 @@ test('工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 al
     assert.deepEqual(expectedAllow, ['write', 'edit'])
     // 白名单经 agent/created 施加到子代理：restrict 收到求交后的清单。
     assert.equal(restrictCalls.length, 1, 'agent/created must apply the whitelist once')
+    // 求交必须用子代理自己的作用域视图：无参调用会退化为全局视图，把 agent 层注册的
+    // 原生工具全部判成不可见（回归：曾导致子代理只剩 lsp_* 工具）。
+    assert.equal(toolfaceSchemaScopes.length, 1, 'whitelist intersection must read one scoped view')
+    assert.ok(toolfaceSchemaScopes[0] !== undefined, 'scoped view must name the agent, never global')
     assert.deepEqual(restrictCalls[0].filter, { allow: expectedAllow })
     // 请求体不再携带 toolFilter：DSH 0.2.1 取消该通道。
     assert.equal(startCalls[0].request.toolFilter, undefined)

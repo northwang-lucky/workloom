@@ -51,6 +51,10 @@ export declare function registerToolface(index: ToolfaceIndex, childId: string, 
 export declare function releaseToolface(index: ToolfaceIndex, childId: string): void;
 /**
  * 按子代理自己的可见工具集求交后施加限制。
+ *
+ * 可见集必须按 agent 作用域视图取（`schemas(agent)`）：原生工具挂在 agent 自己的
+ * scope 层上，无参全局视图只看得到全局层注册的工具（例如 lsp-actions 的 lsp_*），
+ * 求交后会把整个执行面误判成不可见。
  * @param agent 刚创建完成的子代理
  * @param allow 允许清单
  * @throws 允许清单与可见集没有交集时抛错（配置严重不一致，拒绝静默放行）
