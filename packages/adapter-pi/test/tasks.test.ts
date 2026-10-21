@@ -156,6 +156,52 @@ test('executeCreate 转发 parent：子任务落盘 parent 字段且父 children
   }
 })
 
+test('TASK_CREATE_PARAMS schema 含 mode 可选（描述引用 PARAM_DESCRIPTIONS.mode，字面量 light）', () => {
+  const def = setupCreateTool()
+  const props = def.parameters.properties
+  const mode = props.mode as { description?: string; anyOf?: { const?: string }[] } | undefined
+  assert.ok(mode, 'mode param must be present')
+  assert.equal(readDescription(props.mode), PARAM_DESCRIPTIONS.mode)
+  assert.ok(!def.parameters.required?.includes('mode'), 'mode must be optional')
+  assert.ok(
+    JSON.stringify(mode).includes('"light"'),
+    'mode schema must accept only the light literal',
+  )
+})
+
+test('executeCreate 转发 mode：light 任务落 task.json，缺省 full', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-pi-tasks-'))
+  mkdirSync(join(root, '.workloom'))
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({ packages: { repo: { path: '.' } } }),
+  )
+  try {
+    const def = setupCreateTool()
+    const ctx = makeCtx(root)
+    const light = await def.execute(
+      'call-1',
+      { title: 'Light', package: 'repo', mode: 'light' },
+      undefined,
+      undefined,
+      ctx,
+    )
+    const lightRel = (light as { details: { taskRelPath: string } }).details.taskRelPath
+    assert.equal(readTaskJson(root, lightRel).mode, 'light')
+    const full = await def.execute(
+      'call-2',
+      { title: 'Full', package: 'repo' },
+      undefined,
+      undefined,
+      ctx,
+    )
+    const fullRel = (full as { details: { taskRelPath: string } }).details.taskRelPath
+    assert.equal(readTaskJson(root, fullRel).mode, 'full')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 // ---- R1: extractChildIds 对账 ----
 
 test('extractChildIds: 提取非空 childId，过滤 undefined/空串', () => {

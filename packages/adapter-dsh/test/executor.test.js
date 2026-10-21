@@ -2432,6 +2432,116 @@ test('stale 门禁 + force 缺 reason：拒绝（R14 空 reason 全拒，不留�
   }
 })
 
+// ---------- 轻量任务派发拒绝（light task mode） ----------
+
+/** 把测试任务改成 light 模式（其余字段保留最小形状）。 */
+function writeLightTask(root) {
+  writeFileSync(
+    join(root, '.workloom/tasks/test-task/task.json'),
+    JSON.stringify({
+      id: 'test-task',
+      name: 'test-task',
+      title: 'Test',
+      slug: 'test-task',
+      priority: 'P2',
+      status: 'in_progress',
+      mode: 'light',
+    }),
+  )
+}
+
+test('light 派发门禁：light 任务拒绝所有 kind（提示主会话包办，不 spawn）', async () => {
+  const root = makeProject({})
+  writeLightTask(root)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+      const result = await execute(execArgs({ kind, title: `light ${kind}` }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      })
+      const text = result.output[0].text
+      assert.match(text, /light task/, `${kind}: rejection must name light tasks`)
+      assert.match(text, /main session/, `${kind}: rejection must explain main-session ownership`)
+      assert.ok(
+        text.includes('force: true with a non-empty reason'),
+        `${kind}: rejection must carry the force guidance`,
+      )
+    }
+    assert.equal(startCalls.length, 0, 'light 任务不得 spawn 任何执行器')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('light 派发门禁 force：带 reason 放行并记录 light_dispatch override', async () => {
+  const root = makeProject({})
+  writeLightTask(root)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ title: 'light forced', force: true, reason: 'user asked to dispatch anyway' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1, 'force 放行应 spawn 执行器')
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.overrides.length, 1)
+    assert.equal(task.overrides[0].gate, 'light_dispatch')
+    assert.equal(task.overrides[0].tool, 'workloom_execute')
+    assert.equal(task.overrides[0].reason, 'user asked to dispatch anyway')
+    assert.equal(task.dispatches.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('light 派发门禁 force 缺 reason：拒绝且不 spawn、不留痕', async () => {
+  const root = makeProject({})
+  writeLightTask(root)
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await assert.rejects(
+      () =>
+        execute(execArgs({ title: 'light forced no reason', force: true }), {
+          agent: parent,
+          signal: new AbortController().signal,
+        }),
+      /non-empty reason/,
+    )
+    assert.equal(startCalls.length, 0)
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.overrides, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('light 派发门禁：full 任务（缺 mode 归一化 full）不受影响', async () => {
+  const root = makeProject({})
+  try {
+    const { execute, startCalls } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ title: 'full dispatch' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1)
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.deepEqual(task.overrides, [], 'full 任务派发不写 override')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 // ---------- 循环 settle 回归（对齐 Pi 缺陷 6 修复 f5080a6） ----------
 
 test('循环 settle：同 childId 两条 running 一次 end 全部回填 completed', async () => {

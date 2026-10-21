@@ -22,6 +22,7 @@ states:
 #### 1.0 Create task
 
 When the user expresses work worth doing, recommend whether it warrants a task; create the task (`workloom_task_create`) only after the user confirms. The task enters `planning`.
+Before recommending a task, apply the negative standard. Do not create a task when the change is already fully settled in the conversation, touches only a few files, is low risk, changes no external interface, and the user frames it as incidental ("by the way", "while you are there") — fix it directly instead. Recommend a light task instead of a full one when the change is still small but deserves an audit trail or cross-session continuity: create it with `mode: "light"`; the main session implements and self-checks it, no executor is dispatched, and the start/check gates are relaxed. Everything else is a full task.
 When recommending, roughly count the independently deliverable pieces: if there are 3 or more pieces that can be delivered and accepted independently, pre-announce in the recommendation that the task should be split into N subtasks, and never create them before the user confirms the split.
 Completion criteria: the task directory exists and `task.json` `status` is `planning`.
 
@@ -109,7 +110,7 @@ Load the `workloom-finish` skill: check dirty files → archive the task (`workl
 Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session. Do not consider the phase done with tool calls alone: session wrap-up requires loading the `workloom-finish` skill (it produces the journal record and the bookkeeping commit; the archive tool alone leaves no journal).
 
 [workflow-state:no_task]
-No active task right now. When the user expresses a need, answer direct questions outright without a task; for work touching files or documents, recommend whether it warrants a task and create it only after the user confirms (follow 1.0), then proceed by the planning guidance.
+No active task right now. When the user expresses a need, answer direct questions outright without a task; for work touching files or documents, apply the negative standard in 1.0 (fix a settled, low-risk change directly instead of creating a task) and recommend a light task when the change is small but deserves an audit trail or cross-session continuity; create any task only after the user confirms, then proceed by the planning guidance.
 [/workflow-state:no_task]
 
 [workflow-state:planning]
@@ -138,6 +139,7 @@ Dispatch (always-on):
 - Dispatch and continuation prompts must not restate the context the subagent already holds (spec, research, prd/design/implement, and the session history); send only the new work for this round, and use `reinject` only when compaction lost context.
 - Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.
 - Exception (stage `check`): while the task stage is `check`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the check executor for a full re-review afterwards.
+- Light-task exemption: light tasks (`mode: "light"`) are executed entirely by the main session — implementation, self-check, and commit — so the implement-stage dispatch constraint above does not apply, and `workloom_execute` rejects dispatching an executor for a light task unless forced with a recorded reason.
 - Loading protocol: Load in layers: read the plan artifact (implement.md) before acting; consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. Echo the injection marker token in the first line of your report as proof the protocol was read.
 
 Task decomposition (always-on):

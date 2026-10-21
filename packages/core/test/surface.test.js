@@ -206,6 +206,18 @@ test('PARAM_DESCRIPTIONS.parent 存在且非空（DSH/Pi 共用契约面文案�
   assert.ok(typeof parent === 'string' && parent !== '', 'parent description must be non-empty')
 })
 
+test('TOOL_SNIPPETS.taskCreate 签名含 mode?，PARAM_DESCRIPTIONS.mode 说明轻量任务', () => {
+  assert.match(
+    TOOL_SNIPPETS.taskCreate,
+    /mode\?/,
+    'taskCreate snippet must advertise the optional mode? argument',
+  )
+  const mode = PARAM_DESCRIPTIONS.mode
+  assert.ok(typeof mode === 'string' && mode !== '', 'mode description must be non-empty')
+  assert.match(mode, /"light"/, 'mode description must name the only accepted value')
+  assert.match(mode, /main session/, 'mode description must explain main-session ownership')
+})
+
 test('doctor 命令键对齐：COMMAND_NAMES.doctor / COMMAND_DESCRIPTIONS.doctor / --fix', () => {
   assert.equal(COMMAND_NAMES.doctor, 'workloom-doctor')
   assert.ok(COMMAND_DESCRIPTIONS.doctor !== '', 'doctor description must be non-empty')

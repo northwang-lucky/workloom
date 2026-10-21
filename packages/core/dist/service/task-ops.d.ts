@@ -51,6 +51,11 @@ export interface ExecuteCreateTaskParams {
     description?: string;
     /** 父任务相对路径（tasks/<id> 或 <id>）；空串视同未传。 */
     parent?: string;
+    /**
+     * 任务模式：工具面只接受 "light"（轻量任务，主会话包办实现与自查）；
+     * 缺省/空串视为 full，其他取值 fail loud（完整任务不需要显式传 full）。
+     */
+    mode?: string;
 }
 /** create 工具成功结果（task 为无 taskRelPath 的原始记录；nextStepNote 为下一步行动指引）。 */
 export interface ExecuteCreateTaskResult {

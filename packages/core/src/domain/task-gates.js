@@ -23,6 +23,7 @@ import {
 } from './alignment.js'
 import { insideWorkloom } from './locate.js'
 import { EXECUTOR_KINDS, parseJsonlEntries } from './executor-context.js'
+import { TASK_MODES } from './task-mode.js'
 
 /** 门禁消费的任务目录内文件名（与 task-store 数据布局一致）。 */
 const GATE_FILES = Object.freeze({
@@ -44,6 +45,8 @@ export const GATES = Object.freeze({
   EXECUTOR_MODEL_EFFORT: 'executor_model_effort',
   // alignment 凭据 stale 的 force 覆盖（in_progress 任务新派发/续用/check/archive 拦截门）。
   STALE_ALIGN: 'stale_alignment',
+  // 轻量任务派发拒绝的 force 覆盖（轻量任务由主会话包办，不需要执行器）。
+  LIGHT_DISPATCH: 'light_dispatch',
 })
 
 /**
@@ -59,6 +62,8 @@ export const GATE_TOOLS = Object.freeze({
   executor_model_effort: 'workloom_execute',
   // stale_alignment 由 workloom_execute 触发（新派发与续用共用，同 surface.TOOL_NAMES.executor）。
   stale_alignment: 'workloom_execute',
+  // light_dispatch 同由 workloom_execute 触发（轻量任务拒绝派发的 force 豁免留痕）。
+  light_dispatch: 'workloom_execute',
 })
 
 /**
@@ -133,6 +138,17 @@ const FRONTEND_DISPATCH_MISSING = 'no frontend dispatch recorded for a task with
 
 /** stale alignment 门禁只作用于 in_progress（旧任务与 planning 不在此门内）。 */
 const IN_PROGRESS_STATUS = 'in_progress'
+
+/**
+ * 轻量任务 start 门保留的 prd 小节：只要求 Goal（最低可审计性）。
+ * H1 校验独立于小节过滤，永远保留；其余小节/marker/对齐凭证/双 jsonl 一律跳过。
+ */
+const LIGHT_START_SECTION = 'Goal'
+
+/** 轻量任务派发拒绝文案（主会话包办语义；适配层据此给出提示与 force 指引）。 */
+export const LIGHT_DISPATCH_REJECT =
+  'light task: executor dispatch is not available because the main session handles ' +
+  'light tasks end to end (implementation, self-check, and commit)'
 
 /**
  * 判定 prd.md 是否缺一级标题（H1）：跳过开头空行后，首个非空行必须
@@ -266,8 +282,12 @@ export function evaluateStartGate(root, taskRelPath, task) {
   const taskDir = insideWorkloom(root, taskRelPath)
   const missing = []
   const prd = readIfExists(join(taskDir, GATE_FILES.prd))
+  const light = task?.mode === TASK_MODES.LIGHT
   if (prd === null) {
     missing.push(PRD_MISSING)
+  } else if (light) {
+    // 轻量任务：只保留 H1 与 Goal 两类拦截，其余小节/marker/对齐凭证全部跳过。
+    missing.push(...inspectLightStartPrd(prd))
   } else {
     // prd 内容门禁与 review/confirm 共用分类器：一次列出 H1/小节/marker 的全部问题。
     missing.push(...inspectPrdStructure(prd).map((issue) => issue.message))
@@ -275,11 +295,40 @@ export function evaluateStartGate(root, taskRelPath, task) {
     // 任务须重新 alignment；确认后 prd 再变即 stale，均指向 workloom_task_align）。
     missing.push(...evaluateAlignmentGate(task?.status ?? 'planning', task?.alignment ?? null, computePrdHash(prd)))
   }
-  for (const name of [GATE_FILES.implementLog, GATE_FILES.checkLog]) {
-    const item = evaluateJsonlGate(taskDir, name)
-    if (item !== null) missing.push(item)
+  // 轻量任务免 implement/check jsonl：没有执行器与 jsonl 记录，自查由 check.summary 承载。
+  if (!light) {
+    for (const name of [GATE_FILES.implementLog, GATE_FILES.checkLog]) {
+      const item = evaluateJsonlGate(taskDir, name)
+      if (item !== null) missing.push(item)
+    }
   }
   return missing
+}
+
+/**
+ * 轻量任务 prd 最低结构检查（内部）：从全量分类结果里只保留 H1 缺失与
+ * Goal 小节（缺失或 placeholder）问题；其余小节与 open-nodes marker 不拦截。
+ * @param {string} prdContent prd.md 全文
+ * @returns {string[]} 缺失项描述列表
+ */
+function inspectLightStartPrd(prdContent) {
+  return inspectPrdStructure(prdContent)
+    .filter(
+      (issue) =>
+        issue.code === PRD_STRUCTURE_CODES.PRD_TITLE_MISSING ||
+        issue.section === LIGHT_START_SECTION,
+    )
+    .map((issue) => issue.message)
+}
+
+/**
+ * 求值轻量任务派发门禁（纯函数，无 IO）：light 任务返回拒绝文案，full/旧任务放行。
+ * 适配层在 spawn/续用之前调用；force 豁免由适配层经 recordGateOverride 留痕。
+ * @param {import('./task-store.d.ts').TaskRecord | null | undefined} task 任务记录
+ * @returns {string[]} 缺失项描述列表（空数组表示放行）
+ */
+export function evaluateLightDispatchGate(task) {
+  return task?.mode === TASK_MODES.LIGHT ? [LIGHT_DISPATCH_REJECT] : []
 }
 
 /**

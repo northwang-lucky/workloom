@@ -124,12 +124,9 @@ test('composeMainLocalDirectives: main 与 all 片段都注入（无条件）', 
 test('assembleSessionContextText: 传 localDirectives → 快照含 Local directives 小节与内容（TC4）', () => {
   const root = makeRoot()
   try {
-    const [err, text] = assembleSessionContextText(
-      root,
-      'pi_sess-1',
-      CONTRACT_WITH_NORMS,
-      'MAIN-LOCAL-DIRECTIVE',
-    )
+    const [err, text] = assembleSessionContextText(root, 'pi_sess-1', CONTRACT_WITH_NORMS, {
+      localDirectives: 'MAIN-LOCAL-DIRECTIVE',
+    })
     assert.equal(err, null)
     assert.ok(text !== null)
     assert.ok(text.includes('Local directives:'))
@@ -195,13 +192,9 @@ test('session_start 注入：快照含 Local directives 小节与 main/all 片�
 test('assembleSessionContextText: mainModel 传参 → 画像节首行带主模型（provider/id）', () => {
   const root = makeRoot()
   try {
-    const [err, text] = assembleSessionContextText(
-      root,
-      'pi_sess-1',
-      CONTRACT_WITH_NORMS,
-      undefined,
-      'kimi-coding/k3',
-    )
+    const [err, text] = assembleSessionContextText(root, 'pi_sess-1', CONTRACT_WITH_NORMS, {
+      mainModel: 'kimi-coding/k3',
+    })
     assert.equal(err, null)
     assert.ok(text !== null)
     assert.ok(
@@ -291,6 +284,94 @@ test('session_start 注入（片段组装失败）：只告警不阻塞，快照
     assert.ok(!message.content.includes('MAIN-OK'))
   } finally {
     console.warn = originalWarn
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 主契约样本：完整步骤集 + norms（概览行 full 轨来源）。 */
+const MAIN_CONTRACT = `---
+version: 2
+states: []
+---
+
+#### 1.0 Create task
+Create the task.
+
+#### 1.1 Align requirements
+Align the requirements.
+
+#### 2.1 Implement
+Dispatch the implement executor.
+
+#### 2.2 Check
+Dispatch the check executor.
+
+[workflow-norms]
+Main-only norms.
+[/workflow-norms]
+`
+
+/** 轻量契约样本：精简步骤集，无 norms 块。 */
+const LIGHT_CONTRACT = `---
+version: 1
+states:
+  - planning
+  - in_progress
+  - completed
+---
+
+#### 1.0 Start task
+Fill the light prd, then start.
+
+#### 2.1 Implement
+The main session implements directly.
+
+#### 2.2 Self-check and record
+The main session self-checks and records.
+
+[workflow-state:planning]
+Light planning.
+[/workflow-state:planning]
+
+[workflow-state:in_progress]
+Light in progress.
+[/workflow-state:in_progress]
+
+[workflow-state:completed]
+Light task archived.
+[/workflow-state:completed]
+`
+
+test('assembleSessionContextText: light 任务概览行取轻量契约步骤，norms 仍出自主契约', () => {
+  const root = makeRoot()
+  try {
+    const taskDir = join(root, '.workloom', 'tasks', '08-25-light-demo')
+    mkdirSync(taskDir, { recursive: true })
+    writeFileSync(
+      join(taskDir, 'task.json'),
+      `${JSON.stringify({ title: 'Light demo', status: 'in_progress', mode: 'light' })}\n`,
+    )
+    const sessionsDir = join(root, '.workloom', '.runtime', 'sessions')
+    mkdirSync(sessionsDir, { recursive: true })
+    writeFileSync(
+      join(sessionsDir, 'pi_sess-light.json'),
+      `${JSON.stringify({ current_task: 'tasks/08-25-light-demo' })}\n`,
+    )
+    const [err, text] = assembleSessionContextText(
+      root,
+      'pi_sess-light',
+      MAIN_CONTRACT,
+      { lightContractText: LIGHT_CONTRACT },
+    )
+    assert.equal(err, null)
+    assert.ok(text !== null)
+    assert.ok(
+      text.includes('\nWorkflow: 1.0 Start task | 2.1 Implement | 2.2 Self-check and record\n'),
+      'light task overview must project the light contract steps',
+    )
+    assert.ok(!text.includes('1.1 Align requirements'), 'full-only steps must not render')
+    assert.ok(text.includes('Main-only norms.'), 'norms must still come from the main contract')
+  } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })

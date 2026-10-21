@@ -615,6 +615,7 @@ test('recordForceOverrides: 冲突 + stale 同存 → 一次调用落两条 over
     recordForceOverrides(root, taskRelPath, {
       conflictForced: true,
       staleMissing: true,
+      lightMissing: false,
       reason: 'user asked to bypass both gates',
     })
     const overrides = JSON.parse(
@@ -637,6 +638,7 @@ test('recordForceOverrides: 仅冲突绕过 → 只留 executor_model_effort', (
     recordForceOverrides(root, taskRelPath, {
       conflictForced: true,
       staleMissing: false,
+      lightMissing: false,
       reason: 'conflict only',
     })
     const overrides = JSON.parse(
@@ -658,6 +660,7 @@ test('recordForceOverrides: 仅 stale 绕过 → 只留 stale_alignment；都不
     recordForceOverrides(root, taskRelPath, {
       conflictForced: false,
       staleMissing: true,
+      lightMissing: false,
       reason: 'stale only',
     })
     let overrides = JSON.parse(
@@ -670,12 +673,36 @@ test('recordForceOverrides: 仅 stale 绕过 → 只留 stale_alignment；都不
     recordForceOverrides(root, taskRelPath, {
       conflictForced: false,
       staleMissing: false,
+      lightMissing: false,
       reason: 'no bypass',
     })
     overrides = JSON.parse(
       readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
     ).overrides
     assert.equal(overrides.length, 1, '无绕过时不追加 override')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordForceOverrides: 轻量任务派发 force 绕过 → 记 light_dispatch（与 stale 并存各一条）', () => {
+  const { root, taskRelPath } = makeTaskRoot()
+  try {
+    recordForceOverrides(root, taskRelPath, {
+      conflictForced: false,
+      staleMissing: true,
+      lightMissing: true,
+      reason: 'user asked to dispatch a light task anyway',
+    })
+    const overrides = JSON.parse(
+      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
+    ).overrides
+    assert.deepEqual(
+      overrides.map((o: { gate: string }) => o.gate),
+      ['stale_alignment', 'light_dispatch'],
+    )
+    assert.equal(overrides[1].tool, 'workloom_execute')
+    assert.equal(overrides[1].reason, 'user asked to dispatch a light task anyway')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

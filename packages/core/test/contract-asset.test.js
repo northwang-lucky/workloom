@@ -647,3 +647,63 @@ test('契约 v17 norms Dispatch 段含「续接只追加新工作、不取报告
     'norms 缺续接只追加新工作句',
   )
 })
+
+const lightAssetPath = fileURLToPath(
+  new URL('../../assets/workflow/workflow-light.md', import.meta.url),
+)
+
+test('assets 的 workflow-light.md 可被 parseContract 解析（三块齐全、无 norms、步骤 id 无重复）', () => {
+  const [err, contract] = parseContract(readFileSync(lightAssetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.deepEqual(contract.states, ['planning', 'in_progress', 'completed'])
+  for (const status of contract.states) {
+    assert.ok(contract.breadcrumbs.has(status), `轻量契约缺少 ${status} 的 tag 块`)
+  }
+  assert.deepEqual(contract.warnings, [])
+  // norms 恒出自主契约：轻量文件不得自带 norms 块（双份会漂移）。
+  assert.equal(contract.norms, null)
+  // 步骤 id 沿用主契约编号（workloom_step 行为一致），且无重复。
+  const ids = contract.steps.map((step) => step.id)
+  assert.deepEqual(ids, ['1.0', '2.1', '2.2', '2.3', '3.1'])
+  assert.equal(new Set(ids).size, ids.length)
+  // 每个状态块有实际指引正文
+  for (const status of contract.states) {
+    assert.ok(contract.breadcrumbs.get(status).trim() !== '')
+  }
+})
+
+test('主契约 1.0 含「何时不该建任务」否定标准与轻量轨说明（纯文本增补）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const createBody = contract.steps.find((step) => step.id === '1.0').body
+  assert.ok(createBody.includes('negative standard'), '1.0 缺否定标准')
+  assert.ok(createBody.includes('fix it directly'), '1.0 缺「直接修」指引')
+  assert.ok(createBody.includes('`mode: "light"`'), '1.0 缺轻量轨创建标记说明')
+  assert.ok(createBody.includes('main session implements and self-checks'), '1.0 缺主会话包办说明')
+  // 纯文本增补不升版本：主契约 version 仍与 protocol 常量一致。
+  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)
+})
+
+test('主契约 no_task 面包屑含否定标准与轻量轨推荐义务', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const crumb = contract.breadcrumbs.get('no_task')
+  assert.ok(crumb.includes('negative standard'), 'no_task 缺否定标准')
+  assert.ok(crumb.includes('recommend a light task'), 'no_task 缺轻量轨推荐义务')
+  assert.ok(crumb.includes('only after the user confirms'), 'no_task 缺用户确认前置')
+})
+
+test('主契约 norms 派发硬约束含轻量任务豁免句', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.ok(contract.norms.includes('Light-task exemption'), 'norms 缺轻量任务豁免句')
+  assert.ok(
+    contract.norms.includes('executed entirely by the main session'),
+    'norms 豁免句缺主会话包办语义',
+  )
+  // 派发硬约束本身仍在（full 轨零变化）。
+  assert.ok(
+    contract.norms.includes('Hard constraint (stage `implement`)'),
+    '完整任务的派发硬约束不得删除',
+  )
+})

@@ -98,6 +98,8 @@ export {
   settleExecutorDispatch,
 } from './domain/task-store.js'
 
+export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js'
+
 export {
   setActiveTask,
   clearActiveTask,
@@ -150,10 +152,16 @@ export {
   evaluateStaleAlignmentGate,
   evaluateCheckLogGate,
   evaluateFrontendDispatchGate,
+  evaluateLightDispatchGate,
+  LIGHT_DISPATCH_REJECT,
   makeOverride,
 } from './domain/task-gates.js'
 
-export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-service.js'
+export {
+  assembleBreadcrumb,
+  assembleBreadcrumbSync,
+  assembleWorkflowProjection,
+} from './service/workflow-service.js'
 
 export { assembleSessionContext } from './service/session-context.js'
 
@@ -217,6 +225,7 @@ export {
   buildSpawnBindingReceipt,
   TASK_ARCHIVE_NOTE,
   TASK_CREATE_NOTE,
+  TASK_CREATE_LIGHT_NOTE,
 } from './surface.js'
 
 export type { ExecutorInjectionStats } from './surface.js'
@@ -259,6 +268,11 @@ export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './d
 export type { WorkflowContract, WorkflowStep } from './workflow-contract-types.js'
 
 export type {
+  AssembleBreadcrumbParams,
+  WorkflowProjection,
+} from './service/workflow-service.js'
+
+export type {
   TaskStatusKey,
   TaskStatusValue,
   TaskPriorityKey,
@@ -288,6 +302,8 @@ export type {
   DispatchSettleInput,
 } from './domain/task-store.d.ts'
 
+export type { TaskModeKey, TaskModeValue } from './domain/task-mode.d.ts'
+
 export type {
   GateKey,
   GateValue,
@@ -306,8 +322,6 @@ export type {
 } from './service/alignment-service.js'
 
 export type { SessionPointer } from './domain/active-task.d.ts'
-
-export type { AssembleBreadcrumbParams } from './service/workflow-service.js'
 
 export type { SessionContextParams } from './service/session-context.js'
 

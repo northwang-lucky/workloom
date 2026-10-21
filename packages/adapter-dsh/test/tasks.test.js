@@ -145,3 +145,31 @@ test('createTaskTool 透传 parent：子任务落盘 parent 字段且父 childre
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('create 工具 schema 含 mode（可选，枚举 light，描述引用 PARAM_DESCRIPTIONS.mode）', () => {
+  const def = setupCreateTool()
+  const props = def.parameters.properties
+  assert.equal(props.mode.type, 'string')
+  assert.deepEqual(props.mode.enum, ['light'])
+  assert.equal(props.mode.description, PARAM_DESCRIPTIONS.mode)
+  assert.ok(!def.parameters.required.includes('mode'), 'mode must be optional')
+})
+
+test('createTaskTool 透传 mode：light 任务落 task.json，缺省 full', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-tasks-'))
+  mkdirSync(join(root, '.workloom'))
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({ packages: { repo: { path: '.' } } }),
+  )
+  try {
+    const def = setupCreateTool()
+    const exec = { agent: makeAgent(root), signal: new AbortController().signal }
+    const light = await def.execute({ title: 'Light', package: 'repo', mode: 'light' }, exec)
+    assert.equal(readTaskJson(root, light.taskRelPath).mode, 'light')
+    const full = await def.execute({ title: 'Full', package: 'repo' }, exec)
+    assert.equal(readTaskJson(root, full.taskRelPath).mode, 'full')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

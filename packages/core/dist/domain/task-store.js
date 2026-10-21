@@ -15,6 +15,7 @@ import { writeFileAtomic } from './file-atomic.js';
 import { findWorkloomRoot, insideWorkloom, WORKLOOM_DIR } from './locate.js';
 import { loadConfig } from './config.js';
 import { EXECUTOR_KINDS } from './executor-context.js';
+import { isTaskModeValue, TASK_MODES } from './task-mode.js';
 import { clearActiveTask, clearPointersToTask, resolveActiveTask, setActiveTask, } from './active-task.js';
 import { gitAddCommit } from './git.js';
 import { cleanupTaskWorktree, createTaskWorktree } from './worktree.js';
@@ -155,7 +156,8 @@ function normalizeDispatchRecord(entry) {
  * 归一化 task.json 记录：旧格式任务缺 hooks 字段时补齐空数组，
  * 保证 create/start/finish/archive 各 hook 调用点对旧数据安全；
  * 缺 check/overrides/dispatches 字段时补 null/空数组，保证门禁读取对旧数据安全；
- * 缺 stage 字段时补默认 implement（旧任务未进入 check 阶段，门禁维持拦截）。
+ * 缺 stage 字段时补默认 implement（旧任务未进入 check 阶段，门禁维持拦截）；
+ * 缺 mode 字段时补默认 full（存量任务一律按完整任务处理，读取视图不写回）。
  * @param {import('./task-store.d.ts').TaskRecord} parsed task.json 解析结果
  * @returns {import('./task-store.d.ts').TaskRecord} 归一化后的记录
  */
@@ -182,6 +184,9 @@ function normalizeTaskRecord(parsed) {
         overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
         // 任务阶段：旧任务缺 stage 归一化默认 implement（未进入 check 阶段，门禁维持拦截）。
         stage: parsed.stage ?? TaskStage.IMPLEMENT,
+        // 任务模式：存量任务缺 mode 读取为 full（读取视图补默认，不写回、不改名旧字段）；
+        // 非法取值同样按 full 处理，防止手改数据把任务误送进轻量轨。
+        mode: isTaskModeValue(parsed.mode) ? parsed.mode : TASK_MODES.FULL,
         // 派发记录归一化：存量无 status 字段视为 completed（读取视图，不迁移落盘）。
         dispatches: Array.isArray(parsed.dispatches) ? parsed.dispatches.map(normalizeDispatchRecord) : [],
         // parent/children 兜底：旧任务缺字段时补 null/空数组，保证父子校验与联动对旧数据安全。
@@ -284,6 +289,8 @@ function buildTaskRecord(input) {
         description: input.params.description ?? '',
         status: TaskStatus.PLANNING,
         priority: input.params.priority ?? DEFAULT_PRIORITY,
+        // 任务模式在创建时定死（full/light），后续没有转换通道。
+        mode: input.params.mode ?? TASK_MODES.FULL,
         creator: input.creator,
         assignee: '',
         // package 归属（create 传入时落值，存量直调面缺省 null；成员校验在 createTaskInternal）。
@@ -468,6 +475,7 @@ async function createTaskInternal(root, params) {
     const taskRelPath = join(DIR_NAMES.tasks, `${formatMonthDay(now)}-${slug}`);
     const taskDir = insideWorkloom(projectRoot, taskRelPath);
     assertPriority(params.priority);
+    assertTaskMode(params.mode);
     // parent 归一与校验：任一失败在写入前抛错（不产生任何目录/文件写入）。
     // 自引用（parent 与新任务路径一致）由校验 ② 拦截，故校验先于 existsSync 目录冲突检查。
     const parentRelPath = normalizeParentRelPath(params.parent);
@@ -527,6 +535,15 @@ async function createTaskInternal(root, params) {
 function assertPriority(priority) {
     if (priority !== undefined && !PRIORITY_SET.has(priority)) {
         throw new Error(`${ERR_PREFIX}: invalid priority: ${priority} (must be one of P0/P1/P2/P3)`);
+    }
+}
+/**
+ * 校验任务模式（内部）：缺省 full；显式值必须是合法枚举（fail loud，写入前拦截）。
+ * @param {import('./task-mode.d.ts').TaskModeValue | undefined} mode
+ */
+function assertTaskMode(mode) {
+    if (mode !== undefined && !isTaskModeValue(mode)) {
+        throw new Error(`${ERR_PREFIX}: invalid mode: ${JSON.stringify(mode)} (must be one of full/light)`);
     }
 }
 /**
@@ -677,6 +694,10 @@ function checkTaskInternal(root, params) {
  * @returns {string[]} 缺失项描述列表
  */
 function collectCheckGateMissing(root, taskRelPath, task) {
+    // 轻量任务：免 check.jsonl 有效记录（自查小结写入 check.summary），并豁免
+    // frontend 派发门（轻量任务按设计不承载 UI Design；若分类错误也不应被卡死）。
+    if (task.mode === TASK_MODES.LIGHT)
+        return [];
     const missing = evaluateCheckLogGate(root, taskRelPath);
     const prd = readTaskContent(insideWorkloom(root, taskRelPath), FILE_NAMES.prd);
     missing.push(...evaluateFrontendDispatchGate(prd, task.dispatches));

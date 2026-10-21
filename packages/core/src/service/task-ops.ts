@@ -22,7 +22,8 @@ import {
   listTasks,
   startTask,
 } from '../domain/task-store.js'
-import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE } from '../surface.js'
+import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_LIGHT_NOTE, TASK_CREATE_NOTE } from '../surface.js'
+import { TASK_MODES } from '../domain/task-mode.js'
 
 import type {
   StartedTaskRecord,
@@ -32,6 +33,7 @@ import type {
   TaskStatusValue,
   TaskSummary,
 } from '../domain/task-store.d.ts'
+import type { TaskModeValue } from '../domain/task-mode.d.ts'
 import type { CleanupTaskWorktreeResult } from '../domain/worktree.d.ts'
 
 /**
@@ -105,6 +107,11 @@ export interface ExecuteCreateTaskParams {
   description?: string
   /** 父任务相对路径（tasks/<id> 或 <id>）；空串视同未传。 */
   parent?: string
+  /**
+   * 任务模式：工具面只接受 "light"（轻量任务，主会话包办实现与自查）；
+   * 缺省/空串视为 full，其他取值 fail loud（完整任务不需要显式传 full）。
+   */
+  mode?: string
 }
 
 /** create 工具成功结果（task 为无 taskRelPath 的原始记录；nextStepNote 为下一步行动指引）。 */
@@ -154,9 +161,11 @@ async function executeCreateInternal(
         'run workloom-packages-scan if no package is declared)',
     )
   }
+  const mode = resolveCreateMode(params.mode)
   const [err, result] = await createTask(cwd, {
     title: params.title,
     package: params.package,
+    ...(mode !== undefined ? { mode } : {}),
     ...(typeof params.slug === 'string' && params.slug !== '' ? { slug: params.slug } : {}),
     ...(typeof params.priority === 'string' && params.priority !== ''
       ? { priority: params.priority as TaskPriorityValue }
@@ -170,8 +179,11 @@ async function executeCreateInternal(
   if (err || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)
   }
-  // 附 Phase 1.1 行动指引：引导模型立即加载 brainstorm 并问固定问题，消除时序迟滞。
-  return { ...result, nextStepNote: TASK_CREATE_NOTE }
+  // 附下一步行动指引：light 任务走轻量轨（免对齐/免 jsonl），其余引导 Phase 1.1。
+  return {
+    ...result,
+    nextStepNote: mode === TASK_MODES.LIGHT ? TASK_CREATE_LIGHT_NOTE : TASK_CREATE_NOTE,
+  }
 }
 
 /** start 工具编排入参（force 豁免 start 门禁并留痕）。 */
@@ -289,6 +301,23 @@ function forceOverride(params: { force?: boolean; reason?: string }): {
     ...(params.force !== undefined ? { force: params.force } : {}),
     ...(typeof params.reason === 'string' && params.reason !== '' ? { reason: params.reason } : {}),
   }
+}
+
+/**
+ * 解析 create 的 mode 入参（内部）：缺省/空串视为 full（返回 undefined），
+ * 工具面只接受 light；其他取值 fail loud（完整任务无需显式传 full）。
+ * @param mode 工具入参原值
+ * @returns 需要传给 core 的 mode（仅 light）或 undefined
+ */
+function resolveCreateMode(mode: string | undefined): TaskModeValue | undefined {
+  if (mode === undefined || mode === '') return undefined
+  if (mode !== TASK_MODES.LIGHT) {
+    throw new Error(
+      `${ERR_PREFIX.taskTool}: invalid mode: ${JSON.stringify(mode)} ` +
+        '(only "light" is accepted; omit it for a full task)',
+    )
+  }
+  return TASK_MODES.LIGHT
 }
 
 /** finish 工具成功结果（finished 恒 true，供 adapter 投影）。 */

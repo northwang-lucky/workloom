@@ -36,6 +36,14 @@ export function loadWorkflowContractText() {
   return readAssetText('workflow/workflow.md')
 }
 
+/**
+ * 读取轻量任务契约文档全文（workflow/workflow-light.md）。
+ * @returns {string | null} 契约全文；文件不存在返回 null
+ */
+export function loadWorkflowLightContractText() {
+  return readAssetText('workflow/workflow-light.md')
+}
+
 /** @param {unknown} error @returns {boolean} 是否文件不存在 */
 function isEnoent(error) {
   return /** @type {{ code?: unknown }} */ (error)?.code === 'ENOENT'

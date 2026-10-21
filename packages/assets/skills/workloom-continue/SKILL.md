@@ -11,8 +11,10 @@ Locate where work left off and resume from the matching Phase step. Do the routi
 
 1. Read the active task of this session and its `task.json` `status`. With no active task, tell the user to create or start one first (1.0).
 2. Read `git status` and the recent commits to see what actually changed. If the active task has a worktree, report its location and branch state (present, missing, or dirty) too, and run implement/check-stage work in that worktree.
-3. Route by `status` and artifacts (artifact files live inside the task directory):
+3. Re-evaluate whether the task is still warranted before routing. If the remaining work has shrunk below the light-task standard (a few files, settled requirements, low risk), recommend collapsing the task — finish it directly or archive it — instead of walking the full track; get the user's decision before changing the route.
+4. Route by `status` and artifacts (artifact files live inside the task directory):
 
+   - `planning` with `mode: "light"` → light 1.0 Start task (fill the light prd minimum, then start; no alignment credential or jsonl).
    - `planning` without prd.md → 1.1 Align requirements.
    - `planning` with prd.md but no design.md → 1.4 await review (lightweight task, PRD artifacts ready).
    - `planning` with prd.md and design.md → 1.4 await review (complex task, PRD/design/implement artifacts ready).
@@ -21,7 +23,7 @@ Locate where work left off and resume from the matching Phase step. Do the routi
    - Check passed → 2.3 Commit → 3.1 Wrap up.
    - `completed` → 3.1 Wrap up.
 
-4. Load the step details (`workloom_step` or the workflow contract) and continue from there.
+5. Load the step details (`workloom_step` or the workflow contract) and continue from there.
 
 ## Note
 

@@ -22,11 +22,11 @@ import type {
 import {
   assembleBreadcrumbSync,
   assembleSessionContext,
+  assembleWorkflowProjection,
   composeLocalDirectivesText,
   findWorkloomRoot,
-  parseContract,
 } from '@workloom-ai/core'
-import { loadWorkflowContractText } from '@workloom-ai/assets'
+import { loadWorkflowContractText, loadWorkflowLightContractText } from '@workloom-ai/assets'
 
 import { contextKeyOf, SESSION_CONTEXT_CUSTOM_TYPE } from './constants.ts'
 import { cleanupOrphans } from './pi-child-registry.ts'
@@ -85,13 +85,11 @@ function injectSessionContext(
   if (localErr !== null) {
     console.warn(`${CONTEXT_WARN_PREFIX} local directives: ${localErr.message}`)
   }
-  const [err, text] = assembleSessionContextText(
-    root,
-    contextKey,
-    contractText,
+  const [err, text] = assembleSessionContextText(root, contextKey, contractText, {
     localDirectives,
-    readMainModel(ctx),
-  )
+    mainModel: readMainModel(ctx),
+    lightContractText: loadWorkflowLightContractText(),
+  })
   if (err || text === null) {
     console.warn(
       `${CONTEXT_WARN_PREFIX} ${err?.message ?? 'session context assembly returned no text'}`,
@@ -111,40 +109,53 @@ export function composeMainLocalDirectives(root: string): [Error | null, string]
   return composeLocalDirectivesText(root, 'main')
 }
 
+/** assembleSessionContextText 的可选入参（对象封装，超过三个参数的可选维度）。 */
+export interface SessionContextBuildOptions {
+  /** 本机片段合成文本（主 agent 目标；空串/未传 = 不注入）。 */
+  localDirectives?: string
+  /** 主会话模型（"provider/id"；取不到传 undefined，画像走 main model unknown 分支）。 */
+  mainModel?: string | null
+  /** 轻量契约全文；活跃任务为 light 时必须提供。 */
+  lightContractText?: string | null
+}
+
 /**
  * 从契约文本组装注入快照文本。
  * 契约文本作为入参注入（导出供测试喂自定义契约，不依赖真实资产内容）：
- * norms 随快照每轮重组装，契约升级后下一轮即生效；解析/组装失败返回 err。
+ * steps 经 core 的 assembleWorkflowProjection 解析生效契约（light 任务取轻量
+ * 契约，其余取主契约），norms 恒出自主契约；解析/组装失败返回 err。
  * @param root 项目根
  * @param contextKey 会话 contextKey
- * @param contractText 契约全文
- * @param localDirectives 本机片段合成文本（主 agent 目标；空串/未传 = 不注入）
- * @param mainModel 主会话模型（"provider/id"；取不到传 undefined，画像走
- *   main model unknown 分支——whenMain 条目跳过、兜底正常解析，不 fail loud）
+ * @param contractText 主契约全文
+ * @param options 可选项（localDirectives/mainModel/lightContractText）
  * @returns [err, text]：成功时 text 为整块快照
  */
 export function assembleSessionContextText(
   root: string,
   contextKey: string,
   contractText: string,
-  localDirectives?: string,
-  mainModel?: string | null,
+  options: SessionContextBuildOptions = {},
 ): [Error | null, string | null] {
-  const [parseErr, contract] = parseContract(contractText)
-  if (parseErr || contract === null) {
+  const [projectionErr, projection] = assembleWorkflowProjection(
+    root,
+    contextKey,
+    contractText,
+    options.lightContractText ?? null,
+  )
+  if (projectionErr || projection === null) {
     return [
-      parseErr ?? new Error('workloom session context: contract parse returned no contract'),
+      projectionErr ??
+        new Error('workloom session context: workflow projection returned no projection'),
       null,
     ]
   }
-  // 契约 steps（core WorkflowStep[]）结构上含 id/title，可直接投影给 assembleSessionContext。
   return assembleSessionContext({
     root,
     contextKey,
-    workflowSteps: contract.steps,
-    norms: contract.norms,
-    localDirectives,
-    mainModel,
+    workflowSteps: projection.steps,
+    norms: projection.norms,
+    localDirectives: options.localDirectives,
+    mainModel: options.mainModel,
   })
 }
 
@@ -170,6 +181,7 @@ function injectBreadcrumb(
     root,
     contextKey,
     contractText,
+    lightContractText: loadWorkflowLightContractText(),
     userPrompt: event.prompt,
   })
   if (err || text === null) {

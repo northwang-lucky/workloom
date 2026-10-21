@@ -8,3 +8,6 @@ export declare function readAssetText(rel: string): string | null
 
 /** 读取工作流契约文档全文；文件不存在返回 null。 */
 export declare function loadWorkflowContractText(): string | null
+
+/** 读取轻量任务契约文档全文（workflow/workflow-light.md）；文件不存在返回 null。 */
+export declare function loadWorkflowLightContractText(): string | null

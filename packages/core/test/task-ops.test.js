@@ -85,6 +85,41 @@ test('executeCreateTask 空串 slug/priority/description 不传（默认值兜�
   }
 })
 
+test('executeCreateTask mode：仅接受 light（缺省 full），非法取值 fail loud', async () => {
+  const root = makeRoot()
+  try {
+    const [lightErr, light] = await executeCreateTask(root, 'dsh_mode_light', {
+      title: 'Light Ops',
+      package: 'repo',
+      mode: 'light',
+    })
+    assert.equal(lightErr, null)
+    assert.equal(light.task.mode, 'light')
+    // light 任务的下一步指引走轻量轨（免对齐/免 jsonl），不引导 Phase 1.1。
+    assert.match(light.nextStepNote, /Light task created/)
+    assert.match(light.nextStepNote, /skip Phase 1\.1 alignment/)
+    const [fullErr, full] = await executeCreateTask(root, 'dsh_mode_full', {
+      title: 'Full Ops',
+      package: 'repo',
+    })
+    assert.equal(fullErr, null)
+    assert.equal(full.task.mode, 'full')
+    assert.match(full.nextStepNote, /Phase 1\.1 alignment runs automatically/)
+    for (const mode of ['full', 'fast']) {
+      const [err, result] = await executeCreateTask(root, `dsh_mode_bad_${mode}`, {
+        title: `Bad ${mode}`,
+        package: 'repo',
+        mode,
+      })
+      assert.ok(err, `${mode} must be rejected`)
+      assert.match(err.message, /invalid mode/)
+      assert.equal(result, null)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('无活跃任务且无 taskPath 时报错', async () => {
   const root = makeRoot()
   try {

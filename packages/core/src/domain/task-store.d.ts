@@ -1,5 +1,6 @@
 /** workloom 任务数据：task-store 模块的公共类型（供 JSDoc 引用，快照字段）。 */
 import type { GateValue } from './task-gates.d.ts'
+import type { TaskModeValue } from './task-mode.d.ts'
 
 export type TaskStatusKey = 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED'
 
@@ -137,6 +138,8 @@ export interface TaskRecord {
   description: string
   status: TaskStatusValue
   priority: TaskPriorityValue
+  /** 任务模式（full | light）：创建时定死，存量任务读取归一化为 full（不写回）。 */
+  mode: TaskModeValue
   creator: string
   assignee: string
   package: string | null
@@ -183,6 +186,8 @@ export interface TaskSummary {
 /** createTask 参数。 */
 export interface CreateTaskParams {
   title: string
+  /** 任务模式（缺省 full）；light 标记轻量任务（主会话包办、闸门放松）。 */
+  mode?: TaskModeValue
   /**
    * package 归属（config.packages 的键；可选——直调面不下沉必填，成员校验在
    * createTaskInternal 传入即查；executeCreateTask 层强制非空）。缺省落 null。

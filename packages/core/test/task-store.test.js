@@ -127,6 +127,55 @@ test('createTask 创建完整布局与默认字段', async () => {
   }
 })
 
+test('createTask mode：light 落 task.json，缺省为 full', async () => {
+  const root = makeRoot()
+  try {
+    const [err, light] = await createTask(root, { title: 'Light Task', mode: 'light' })
+    assert.equal(err, null)
+    assert.ok(light)
+    assert.equal(readTaskJson(root, light.taskRelPath).mode, 'light')
+    const [fullErr, full] = await createTask(root, { title: 'Full Task' })
+    assert.equal(fullErr, null)
+    assert.ok(full)
+    assert.equal(readTaskJson(root, full.taskRelPath).mode, 'full')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask mode：非法取值返回 err 且不产生任务目录', async () => {
+  const root = makeRoot()
+  try {
+    const [err, result] = await createTask(root, { title: 'Bad Mode', mode: 'fast' })
+    assert.ok(err)
+    assert.match(err.message, /invalid mode/)
+    assert.equal(result, null)
+    assert.equal(existsSync(join(root, '.workloom', 'tasks')), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：存量 task.json 缺 mode 读取为 full（不写回）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-mode')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({ id: 'x', name: 'no-mode', title: 'Legacy', status: TaskStatus.PLANNING }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.mode, 'full')
+    // 读取视图只补默认值，不迁移落盘。
+    const raw = JSON.parse(readFileSync(join(root, '.workloom', rel, 'task.json'), 'utf8'))
+    assert.equal('mode' in raw, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('slug 生成规则与目录冲突返回 err', async () => {
   const root = makeRoot()
   try {
@@ -649,6 +698,17 @@ function writeEffectiveJsonl(root, taskRelPath, name) {
   )
 }
 
+/**
+ * 写轻量任务的最低 prd：H1 + Goal 实填，其余小节仍为骨架 placeholder，
+ * 且没有 open-nodes marker（轻量 start 门只保留 H1 + Goal）。
+ */
+function writeLightPrd(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'prd.md'),
+    '# Light fix\n\n## Goal\n\nRepair the shell file.\n\n## Requirements\n\n(placeholder: list the functional requirements)\n\n## Acceptance Criteria\n\n(placeholder: list the verifiable acceptance criteria)\n\n## Notes\n\n(placeholder: add notes and constraints)\n',
+  )
+}
+
 /** 记录 alignment 凭据（hash 取当前 prd.md；模拟 workloom_task_align confirm 成功）。 */
 function recordAlignment(root, taskRelPath) {
   const prd = readFileSync(join(root, '.workloom', taskRelPath, 'prd.md'), 'utf8')
@@ -836,6 +896,94 @@ test('start 门禁：凭据 stale（prd 变化）被拦截，重新 confirm 后�
     const [err2, started] = await startTask(root, { taskRelPath: created.taskRelPath })
     assert.equal(err2, null)
     assert.equal(started.status, TaskStatus.IN_PROGRESS)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 light：H1 + Goal 即可 start（免对齐凭证、双 jsonl 与 marker）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light Gate', mode: 'light' })
+    writeLightPrd(root, created.taskRelPath)
+    // 两个 jsonl 只有 seed 行、task.json 无 alignment 凭据。
+    const [err, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    assert.equal(started.mode, 'light')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 light：缺 H1 或 Goal placeholder 仍拦截', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light Gated', mode: 'light' })
+    const taskDir = join(root, '.workloom', created.taskRelPath)
+    // 缺 H1
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '## Goal\n\nRepair the shell file.\n\n## Requirements\n\n- req\n',
+    )
+    const [h1Err] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(h1Err)
+    assert.match(h1Err.message, /prd\.md missing H1 title/)
+    // Goal 仍是 placeholder
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '# Light fix\n\n## Goal\n\n(placeholder: describe the goal this task aims to achieve)\n',
+    )
+    const [goalErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(goalErr)
+    assert.match(goalErr.message, /section "Goal" is still a placeholder/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check 门禁 light：check.jsonl 无有效记录也直接记录自查小结', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light Check', mode: 'light' })
+    writeLightPrd(root, created.taskRelPath)
+    const [startErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(startErr, null)
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'self-check: lint/typecheck/tests green',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'self-check: lint/typecheck/tests green')
+    // check.jsonl 仍是 seed 行（轻量任务不写入该校验记录）。
+    const checkLog = readFileSync(join(root, '.workloom', created.taskRelPath, 'check.jsonl'), 'utf8')
+    assert.match(checkLog, /_example/)
+    assert.doesNotMatch(checkLog, /"file"/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check 门禁 light：含 UI Design 但无 frontend 派发也放行（前端门豁免）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light UI', mode: 'light' })
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'prd.md'),
+      '# Light UI\n\n## Goal\n\nChange a label.\n\n## UI Design\n\n- button label only\n',
+    )
+    const [startErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(startErr, null)
+    // check.jsonl 有有效记录（check 日志门可过），但没有 frontend 派发记录：
+    // 轻量任务的 check 仍放行，专门覆盖前端派发门豁免。
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'light ui self-check',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'light ui self-check')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

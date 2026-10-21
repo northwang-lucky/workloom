@@ -20,13 +20,14 @@ export { parseContract, WorkflowContractError } from './domain/workflow-contract
 export { WORKFLOW_PROTOCOL_VERSION, assertWorkflowProtocolVersion, } from './domain/protocol.js';
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './domain/breadcrumb.js';
 export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordExecutorDispatch, settleExecutorDispatch, } from './domain/task-store.js';
+export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js';
 export { setActiveTask, clearActiveTask, resolveActiveTask, clearPointersToTask, } from './domain/active-task.js';
 export { countDirtyLines, gitAddCommit, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitMerge, gitMergeAbort, gitWorktreeAdd, gitWorktreeRemove, gitWorktreeList, gitWorktreePrune, gitBranchDelete, gitBranchExists, gitCheckRefFormat, } from './domain/git.js';
 export { createTaskWorktree, cleanupTaskWorktree, resolveTaskRepo, renderBranchName, } from './domain/worktree.js';
 export { addSession, listJournals } from './domain/journal.js';
 export { DEVELOPER_PATTERN, assertDeveloper } from './domain/identity.js';
-export { GATES, GATE_TOOLS, PRD_SECTIONS, PRD_STRUCTURE_CODES, findMissingPrdTitle, findUnfilledPrdSections, inspectPrdStructure, countEffectiveJsonlRecords, evaluateStartGate, evaluateStaleAlignmentGate, evaluateCheckLogGate, evaluateFrontendDispatchGate, makeOverride, } from './domain/task-gates.js';
-export { assembleBreadcrumb, assembleBreadcrumbSync } from './service/workflow-service.js';
+export { GATES, GATE_TOOLS, PRD_SECTIONS, PRD_STRUCTURE_CODES, findMissingPrdTitle, findUnfilledPrdSections, inspectPrdStructure, countEffectiveJsonlRecords, evaluateStartGate, evaluateStaleAlignmentGate, evaluateCheckLogGate, evaluateFrontendDispatchGate, evaluateLightDispatchGate, LIGHT_DISPATCH_REJECT, makeOverride, } from './domain/task-gates.js';
+export { assembleBreadcrumb, assembleBreadcrumbSync, assembleWorkflowProjection, } from './service/workflow-service.js';
 export { assembleSessionContext } from './service/session-context.js';
 export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, filterAndOrderLocal, readLocalFragments, composeLocalDirectivesText, } from './service/local-prompts.js';
 export { parseInitArgs, readExistingDeveloper, migrationSummaryLines, executeInitCommand, executeJournalEntry, } from './service/command-ops.js';
@@ -35,5 +36,5 @@ export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStart
 export { lookupWorkflowStep } from './service/step-lookup.js';
 export { runDoctor, buildDoctorRelayText } from './service/doctor.js';
 export { ensureSpecTemplates } from './service/spec-templates.js';
-export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossKindReuseRejectText, PURGE_FLAG, DOCTOR_FIX_FLAG, DEVELOPER_FILE, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, } from './surface.js';
+export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossKindReuseRejectText, PURGE_FLAG, DOCTOR_FIX_FLAG, DEVELOPER_FILE, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, } from './surface.js';
 //# sourceMappingURL=index.js.map

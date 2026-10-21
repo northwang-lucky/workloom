@@ -42,20 +42,27 @@ export declare function apply(ctx: Context): void;
  * @returns 注入文本（可能为空串）
  */
 export declare function renderSessionContext(target: InjectionTarget): string;
+/** assembleSessionContextText 的可选入参（对象封装，超过三个参数的可选维度）。 */
+export interface SessionContextBuildOptions {
+    /** 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）。 */
+    delegationDepth?: number;
+    /** 本机片段合成文本（主 agent 目标；空串 = 不注入）。 */
+    localDirectives?: string;
+    /** 轻量契约全文；活跃任务为 light 时必须提供。 */
+    lightContractText?: string | null;
+}
 /**
  * 从契约文本组装 session-context 快照文本。
  * 契约文本作为入参注入（导出供测试喂自定义契约，不依赖真实资产内容）：
- * norms 随快照每轮重组装，契约升级后下一轮即生效；解析/组装失败只告警，不阻塞会话。
+ * steps 经 core 的 assembleWorkflowProjection 解析生效契约（light 任务取轻量
+ * 契约，其余取主契约），norms 恒出自主契约；解析/组装失败只告警，不阻塞会话。
  * 委派深度透传 core（缺省 0）：深度>0 时 norms 段整体替换为 executor 版。
- * localDirectives 为本机片段合成文本（缺省空串）：depth=0 时由 core 在 norms 后
- * 追加 Local directives 小节（depth>0 由 executor 首条 prompt 注入一次，不重复）。
  * mainModel 由 target.agent 的 requestHeader 快照读取（design §6）：Executor
  * profiles 节的 whenMain 条目按它匹配、首行标题展示；取不到时传 undefined（core
  * 走 main model unknown 分支，whenMain 条目跳过，不 fail loud）。
  * @param target 注入目标（agent + 项目根）
- * @param contractText 契约全文
- * @param delegationDepth 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）
- * @param localDirectives 本机片段合成文本（主 agent 目标；空串 = 不注入）
+ * @param contractText 主契约全文
+ * @param options 可选项（delegationDepth/localDirectives/lightContractText）
  * @returns 注入文本（可能为空串）
  */
-export declare function assembleSessionContextText(target: InjectionTarget, contractText: string, delegationDepth?: number, localDirectives?: string): string;
+export declare function assembleSessionContextText(target: InjectionTarget, contractText: string, options?: SessionContextBuildOptions): string;

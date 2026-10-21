@@ -53,6 +53,13 @@ export function evaluateStaleAlignmentGate(root: string, taskRelPath: string, ta
  */
 export function evaluateStartGate(root: string, taskRelPath: string, task: import("./task-store.d.ts").TaskRecord): string[];
 /**
+ * 求值轻量任务派发门禁（纯函数，无 IO）：light 任务返回拒绝文案，full/旧任务放行。
+ * 适配层在 spawn/续用之前调用；force 豁免由适配层经 recordGateOverride 留痕。
+ * @param {import('./task-store.d.ts').TaskRecord | null | undefined} task 任务记录
+ * @returns {string[]} 缺失项描述列表（空数组表示放行）
+ */
+export function evaluateLightDispatchGate(task: import("./task-store.d.ts").TaskRecord | null | undefined): string[];
+/**
  * 求值 check 门禁：check.jsonl 至少一条有效记录才允许写 check 字段。
  * @param {string} root 项目根（必须已是 findWorkloomRoot 的结果）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
@@ -115,3 +122,5 @@ export const PRD_STRUCTURE_CODES: Readonly<{
 }>;
 /** prd 文件缺失文案（start 门禁、review 诊断、confirm 拦截共用同一句）。 */
 export const PRD_MISSING: "prd.md is missing";
+/** 轻量任务派发拒绝文案（主会话包办语义；适配层据此给出提示与 force 指引）。 */
+export const LIGHT_DISPATCH_REJECT: string;

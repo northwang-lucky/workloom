@@ -50,7 +50,7 @@ export declare const TOOL_DESCRIPTIONS: {
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
 export declare const TOOL_SNIPPETS: {
-    readonly taskCreate: "workloom_task_create(title, package, slug?, priority?, description?, parent?) — create a task";
+    readonly taskCreate: "workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?) — create a task";
     readonly taskStart: "workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress";
     readonly taskCheck: "workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.2 check pass";
     readonly taskAlign: "workloom_task_align(action, taskPath?, expectedPrdHash?, summary?) — review or confirm Phase 1.1 alignment";
@@ -77,6 +77,8 @@ export declare const PARAM_DESCRIPTIONS: {
     readonly description: "Optional task description";
     /** create 工具的 parent 参数（父任务相对路径；模型记录子任务时挂载）。 */
     readonly parent: "Optional parent task relative path (tasks/<id> or <id>); the task is recorded as its child";
+    /** create 工具的 mode 参数（轻量任务标记；唯一取值 light，缺省 full）。 */
+    readonly mode: "Optional task mode: pass \"light\" for a lightweight task that the main session implements, self-checks, and commits itself (no executor dispatch, relaxed start/check gates); omit it for a full task";
     readonly autoCommit: "Override the config session_auto_commit for this archive";
     readonly status: "Filter: planning/in_progress/completed";
     /** check 工具的 summary 参数（2.2 通过摘要）。 */
@@ -170,6 +172,11 @@ export declare const TASK_ARCHIVE_NOTE = "Task archived. When the session ends, 
  * 清空并确认后才允许 start（不再问「是否需要 grilling」）。
  */
 export declare const TASK_CREATE_NOTE = "Task created. Next: Phase 1.1 alignment runs automatically \u2014 load workloom-alignment and converge the design tree until no open nodes remain, then confirm via workloom_task_align before start.";
+/**
+ * 轻量任务 create 工具返回的下一步行动指引：直接填轻量 prd 最低三件套并 start，
+ * 跳过 Phase 1.1 对齐与双 jsonl（与轻量契约 1.0 同口径）。
+ */
+export declare const TASK_CREATE_LIGHT_NOTE = "Light task created. Next: fill prd.md to the light minimum (H1 title, Goal, acceptance points) and start with workloom_task_start; skip Phase 1.1 alignment and the context jsonl files \u2014 light tasks are executed entirely by the main session.";
 /**
  * 注入体积统计（receipt 渲染用）：让主会话每次派发可见喂给子代理的上下文规模，
  * 大任务顶格预算时立即可察觉。

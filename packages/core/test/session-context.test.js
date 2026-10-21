@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { assembleSessionContext } from '../dist/service/session-context.js'
+import { assembleWorkflowProjection } from '../dist/service/workflow-service.js'
 import { setActiveTask } from '../dist/domain/active-task.js'
 
 /** git 提交所需的最小身份环境变量（不依赖全局 git config）。 */
@@ -809,6 +810,115 @@ test('Worktree 行降级：branch/base 空串 → 省略对应括注段', () => 
       ),
       'empty branch → base-only parenthetical',
     )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 主契约投影样本：完整步骤集 + norms（session-context 概览行的 full 轨来源）。 */
+const MAIN_CONTEXT_CONTRACT = [
+  '---',
+  'version: 2',
+  'states: []',
+  '---',
+  '',
+  '#### 1.0 Create task',
+  'Create the task.',
+  '',
+  '#### 1.1 Align requirements',
+  'Align the requirements.',
+  '',
+  '#### 2.1 Implement',
+  'Dispatch the implement executor.',
+  '',
+  '#### 2.2 Check',
+  'Dispatch the check executor.',
+  '',
+  '#### 2.3 Commit',
+  'Commit the change.',
+  '',
+  '#### 3.1 Archive and record',
+  'Archive and record the session.',
+  '',
+  '[workflow-norms]',
+  'Main-only norms.',
+  '[/workflow-norms]',
+  '',
+].join('\n')
+
+/** 轻量契约投影样本：精简步骤集，无 norms 块。 */
+const LIGHT_CONTEXT_CONTRACT = [
+  '---',
+  'version: 1',
+  'states:',
+  '  - planning',
+  '  - in_progress',
+  '  - completed',
+  '---',
+  '',
+  '#### 1.0 Start task',
+  'Fill the light prd, then start.',
+  '',
+  '#### 2.1 Implement',
+  'The main session implements directly.',
+  '',
+  '#### 2.2 Self-check and record',
+  'The main session self-checks and records.',
+  '',
+  '#### 2.3 Commit',
+  'Commit the change.',
+  '',
+  '#### 3.1 Archive and record',
+  'Archive and record the session.',
+  '',
+  '[workflow-state:planning]',
+  'Light planning.',
+  '[/workflow-state:planning]',
+  '',
+  '[workflow-state:in_progress]',
+  'Light in progress.',
+  '[/workflow-state:in_progress]',
+  '',
+  '[workflow-state:completed]',
+  'Light task archived.',
+  '[/workflow-state:completed]',
+  '',
+].join('\n')
+
+test('light 任务概览行来自轻量步骤集，norms 仍出自主契约', () => {
+  const root = makeProject()
+  try {
+    const taskDir = join(root, '.workloom', 'tasks', '08-25-light-demo')
+    mkdirSync(taskDir, { recursive: true })
+    writeFileSync(
+      join(taskDir, 'task.json'),
+      `${JSON.stringify({ title: 'Light demo', status: 'in_progress', mode: 'light' })}\n`,
+    )
+    setActiveTask(root, 'dsh_sess_light', 'tasks/08-25-light-demo')
+    const [projErr, projection] = assembleWorkflowProjection(
+      root,
+      'dsh_sess_light',
+      MAIN_CONTEXT_CONTRACT,
+      LIGHT_CONTEXT_CONTRACT,
+    )
+    assert.equal(projErr, null)
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({
+        root,
+        contextKey: 'dsh_sess_light',
+        workflowSteps: projection.steps,
+        norms: projection.norms,
+      }),
+    )
+    assert.equal(err, null)
+    assert.ok(
+      text.includes(
+        '\nWorkflow: 1.0 Start task | 2.1 Implement | 2.2 Self-check and record | 2.3 Commit | 3.1 Archive and record\n',
+      ),
+      'overview line must project the light contract steps',
+    )
+    assert.ok(!text.includes('1.1 Align requirements'), 'light track must not render full-only steps')
+    assert.ok(text.includes('Main-only norms.'), 'norms must still come from the main contract')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

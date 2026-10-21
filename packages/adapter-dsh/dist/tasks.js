@@ -9,7 +9,7 @@
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeStartTask, PARAM_DESCRIPTIONS, requireWorkloomCwd, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeStartTask, PARAM_DESCRIPTIONS, requireWorkloomCwd, TASK_MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from './constants.js';
 /**
  * 注册六个任务管理工具（create/start/check/finish/archive/list）。
@@ -29,6 +29,7 @@ export function registerTaskTools(ctx) {
                 priority: { type: 'string', description: PARAM_DESCRIPTIONS.priority },
                 description: { type: 'string', description: PARAM_DESCRIPTIONS.description },
                 parent: { type: 'string', description: PARAM_DESCRIPTIONS.parent },
+                mode: { type: 'string', enum: [TASK_MODES.LIGHT], description: PARAM_DESCRIPTIONS.mode },
             },
             required: ['title', 'package'],
             additionalProperties: false,
@@ -176,6 +177,7 @@ async function createTaskTool(args, exec) {
         priority: typeof typed.priority === 'string' ? typed.priority : undefined,
         description: typeof typed.description === 'string' ? typed.description : undefined,
         parent: stringOf(typed, 'parent'),
+        mode: stringOf(typed, 'mode'),
     });
     if (err !== null || result === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`);

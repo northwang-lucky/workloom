@@ -1,7 +1,7 @@
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
 import { randomUUID } from 'node:crypto';
 import { SessionId } from '@deepseek-ai/dsh-session';
-import { assertEffort, assertForceReason, buildConflictNotice, buildNewDispatchBinding, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, ERR_PREFIX, evaluateStaleAlignmentGate, EXECUTOR_KINDS, findWorkloomRoot, GATES, loadConfig, PARAM_DESCRIPTIONS, readTask, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, resolveSubagentDefaults, resolveTaskRelPath, splitProviderModel, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { assertEffort, assertForceReason, buildConflictNotice, buildNewDispatchBinding, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, ERR_PREFIX, evaluateStaleAlignmentGate, evaluateLightDispatchGate, EXECUTOR_KINDS, findWorkloomRoot, GATES, loadConfig, PARAM_DESCRIPTIONS, readTask, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, resolveSubagentDefaults, resolveTaskRelPath, splitProviderModel, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from './constants.js';
 import { assertAllowListNonEmpty, buildAllowFilter, hasLspTooling, SPAWN_PROVIDER, } from './executor-dispatch.js';
 import { collectRunningExecutors, evaluateCapacityGate, generateDispatchSeq, registerInFlightDispatch, releaseInFlightDispatch, } from './executor-capacity.js';
@@ -102,16 +102,38 @@ async function executeTool(ctx, args, exec) {
             console.warn(`${OVERRIDE_WARN_PREFIX} ${overrideErr}`);
         }
     }
-    // stale alignment 门禁（R13）：in_progress 且 alignment 凭据 stale 时拦截新派发
-    // 与续用（planning research 与旧 in_progress 空凭据任务不受此门影响）。阻断返回
-    // 提示文本而非抛错（模型可见可 force 重试）；force 放行按实际绕过的 gate 独立留
-    // 痕（stale_alignment override；与上方冲突 override 并存时同次调用写两条）。
-    const [staleTaskErr, staleTask] = readTask(root, taskRelPath);
-    if (staleTaskErr !== null || staleTask === null) {
-        console.warn(`${OVERRIDE_WARN_PREFIX} ${staleTaskErr?.message ?? 'readTask returned no task'}`);
+    // 派发门禁（共用同一次 readTask；阻断返回提示文本而非抛错，模型可见可 force 重试）：
+    // - 轻量任务拒绝：light 任务由主会话包办实现/自查/提交，任何 kind 都不派发
+    //   （含续用）；force 放行记 light_dispatch override；
+    // - stale alignment（R13）：in_progress 且 alignment 凭据 stale 时拦截新派发与
+    //   续用（planning research 与旧 in_progress 空凭据任务不受此门影响）；force
+    //   放行记 stale_alignment override；两项与上方冲突 override 并存时各记一条。
+    const [taskErr, task] = readTask(root, taskRelPath);
+    if (taskErr !== null || task === null) {
+        console.warn(`${OVERRIDE_WARN_PREFIX} ${taskErr?.message ?? 'readTask returned no task'}`);
     }
     else {
-        const staleMissing = evaluateStaleAlignmentGate(root, taskRelPath, staleTask);
+        const lightMissing = evaluateLightDispatchGate(task);
+        if (lightMissing.length > 0 && params.force !== true) {
+            return {
+                kind: 'notice',
+                output: [
+                    {
+                        type: 'text',
+                        text: `${lightMissing.join('; ')} ` +
+                            '(pass force: true with a non-empty reason to bypass; the override is recorded in task.json overrides)',
+                    },
+                ],
+            };
+        }
+        if (lightMissing.length > 0) {
+            assertForceReason(params.force, params.reason);
+            const [lightOverrideErr] = recordGateOverride(root, taskRelPath, GATES.LIGHT_DISPATCH, params.reason ?? '');
+            if (lightOverrideErr !== null) {
+                console.warn(`${OVERRIDE_WARN_PREFIX} ${lightOverrideErr}`);
+            }
+        }
+        const staleMissing = evaluateStaleAlignmentGate(root, taskRelPath, task);
         if (staleMissing.length > 0 && params.force !== true) {
             return {
                 kind: 'notice',

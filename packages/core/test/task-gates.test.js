@@ -15,6 +15,8 @@ import {
   inspectPrdStructure,
   countEffectiveJsonlRecords,
   evaluateFrontendDispatchGate,
+  evaluateLightDispatchGate,
+  evaluateStartGate,
   evaluateStaleAlignmentGate,
 } from '../src/domain/task-gates.js'
 import { computePrdHash } from '../src/domain/alignment.js'
@@ -318,6 +320,118 @@ Do the thing.
 
 - note
 `
+
+/**
+ * 轻量任务的最低 prd：H1 + Goal 实填，其余小节仍是骨架 placeholder，
+ * 且没有 open-nodes marker（轻量 start 门只要求 H1 + Goal）。
+ */
+const LIGHT_MIN_PRD = `# Light fix
+
+## Goal
+
+Repair the shell file.
+
+## Requirements
+
+(placeholder: list the functional requirements)
+
+## Acceptance Criteria
+
+(placeholder: list the verifiable acceptance criteria)
+
+## Notes
+
+(placeholder: add notes and constraints)
+`
+
+test('start 门禁 light：H1 + Goal 填写即放行（免 jsonl/凭证/marker）', () => {
+  const { root, rel } = makeTaskDir(LIGHT_MIN_PRD)
+  try {
+    const task = { mode: 'light', status: 'planning', alignment: null }
+    // 任务目录内没有 implement.jsonl/check.jsonl（makeTaskDir 只写 prd.md）。
+    assert.deepEqual(evaluateStartGate(root, rel, task), [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 light：缺 H1 仍拦截', () => {
+  const { root, rel } = makeTaskDir(LIGHT_MIN_PRD.replace('# Light fix\n\n', ''))
+  try {
+    const missing = evaluateStartGate(root, rel, { mode: 'light', status: 'planning' })
+    assert.deepEqual(missing, ['prd.md missing H1 title'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 light：Goal 是小节 placeholder 或缺失仍拦截', () => {
+  const placeholderGoal = LIGHT_MIN_PRD.replace(
+    'Repair the shell file.',
+    '(placeholder: describe the goal this task aims to achieve)',
+  )
+  const placeholderDir = makeTaskDir(placeholderGoal)
+  try {
+    const missing = evaluateStartGate(placeholderDir.root, placeholderDir.rel, {
+      mode: 'light',
+      status: 'planning',
+    })
+    assert.deepEqual(missing, ['prd.md section "Goal" is still a placeholder'])
+  } finally {
+    rmSync(placeholderDir.root, { recursive: true, force: true })
+  }
+  const missingGoal = LIGHT_MIN_PRD.replace('## Goal\n\nRepair the shell file.\n\n', '')
+  const missingDir = makeTaskDir(missingGoal)
+  try {
+    const missing = evaluateStartGate(missingDir.root, missingDir.rel, {
+      mode: 'light',
+      status: 'planning',
+    })
+    assert.deepEqual(missing, ['prd.md section "Goal" is missing'])
+  } finally {
+    rmSync(missingDir.root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 light：prd 缺失只报 prd.md is missing', () => {
+  const { root, rel } = makeTaskDir(LIGHT_MIN_PRD)
+  try {
+    rmSync(join(root, '.workloom', rel, 'prd.md'), { force: true })
+    assert.deepEqual(
+      evaluateStartGate(root, rel, { mode: 'light', status: 'planning' }),
+      ['prd.md is missing'],
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 full：同一份最低 prd 仍按完整门禁拦截（零变化护栏）', () => {
+  const { root, rel } = makeTaskDir(LIGHT_MIN_PRD)
+  try {
+    const missing = evaluateStartGate(root, rel, { mode: 'full', status: 'planning', alignment: null })
+    // 其余三个骨架小节、marker、双 jsonl 与对齐凭证都必须出现在拦截项里。
+    assert.ok(missing.some((item) => item.includes('"Requirements"')))
+    assert.ok(missing.some((item) => item.includes('"Acceptance Criteria"')))
+    assert.ok(missing.some((item) => item.includes('"Notes"')))
+    assert.ok(missing.some((item) => item.includes('open-nodes marker')))
+    assert.ok(missing.some((item) => item.includes('implement.jsonl')))
+    assert.ok(missing.some((item) => item.includes('check.jsonl')))
+    assert.ok(missing.some((item) => item.includes('alignment')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('light 派发门禁：light 任务拒绝（文案说明主会话包办），full 任务放行', () => {
+  const light = evaluateLightDispatchGate({ mode: 'light' })
+  assert.equal(light.length, 1)
+  assert.match(light[0], /light task/)
+  assert.match(light[0], /main session/)
+  assert.deepEqual(evaluateLightDispatchGate({ mode: 'full' }), [])
+  // 旧记录缺 mode 的读取归一化由 task-store 负责；门禁只认显式 light。
+  assert.deepEqual(evaluateLightDispatchGate({}), [])
+})
 
 test('stale alignment 门禁：in_progress + 凭据 hash 与当前 prd 一致 → 放行', () => {
   const { root, rel } = makeTaskDir(FILLED_PRD)

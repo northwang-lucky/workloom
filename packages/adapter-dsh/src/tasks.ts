@@ -24,6 +24,7 @@ import {
   executeStartTask,
   PARAM_DESCRIPTIONS,
   requireWorkloomCwd,
+  TASK_MODES,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
 } from '@workloom-ai/core'
@@ -55,6 +56,7 @@ export function registerTaskTools(ctx: Context): void {
         priority: { type: 'string', description: PARAM_DESCRIPTIONS.priority },
         description: { type: 'string', description: PARAM_DESCRIPTIONS.description },
         parent: { type: 'string', description: PARAM_DESCRIPTIONS.parent },
+        mode: { type: 'string', enum: [TASK_MODES.LIGHT], description: PARAM_DESCRIPTIONS.mode },
       },
       required: ['title', 'package'],
       additionalProperties: false,
@@ -214,6 +216,7 @@ async function createTaskTool(args: unknown, exec: ToolRunContext): Promise<unkn
     priority: typeof typed.priority === 'string' ? typed.priority : undefined,
     description: typeof typed.description === 'string' ? typed.description : undefined,
     parent: stringOf(typed, 'parent'),
+    mode: stringOf(typed, 'mode'),
   })
   if (err !== null || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)

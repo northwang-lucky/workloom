@@ -23,6 +23,7 @@ import {
   executeStartTask,
   PARAM_DESCRIPTIONS,
   requireWorkloomCwd,
+  TASK_MODES,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
   TOOL_SNIPPETS,
@@ -39,6 +40,9 @@ const TASK_CREATE_PARAMS = Type.Object({
   priority: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.priority })),
   description: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.description })),
   parent: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.parent })),
+  mode: Type.Optional(
+    Type.Union([Type.Literal(TASK_MODES.LIGHT)], { description: PARAM_DESCRIPTIONS.mode }),
+  ),
 })
 
 /** finish 工具参数 schema（仅可选 taskPath）。 */
@@ -195,6 +199,7 @@ async function executeCreate(
       priority: params.priority,
       description: params.description,
       parent: params.parent,
+      mode: params.mode,
     },
   )
   if (err !== null || result === null)

@@ -14,7 +14,8 @@
 import { resolveActiveTask } from '../domain/active-task.js';
 import { findWorkloomRoot } from '../domain/locate.js';
 import { archiveTask, checkTask, createTask, finishTask, listTasks, startTask, } from '../domain/task-store.js';
-import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE } from '../surface.js';
+import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_LIGHT_NOTE, TASK_CREATE_NOTE } from '../surface.js';
+import { TASK_MODES } from '../domain/task-mode.js';
 /**
  * 校验工具 cwd：空串直接抛错（消息含前缀，与下沉前 adapter 文案逐字一致）。
  * @param cwd 工具执行上下文的工作目录
@@ -96,9 +97,11 @@ async function executeCreateInternal(cwd, contextKey, params) {
         throw new Error(`${ERR_PREFIX.taskTool}: package is required (pass a declared "packages" key from .workloom/config.json; ` +
             'run workloom-packages-scan if no package is declared)');
     }
+    const mode = resolveCreateMode(params.mode);
     const [err, result] = await createTask(cwd, {
         title: params.title,
         package: params.package,
+        ...(mode !== undefined ? { mode } : {}),
         ...(typeof params.slug === 'string' && params.slug !== '' ? { slug: params.slug } : {}),
         ...(typeof params.priority === 'string' && params.priority !== ''
             ? { priority: params.priority }
@@ -112,8 +115,11 @@ async function executeCreateInternal(cwd, contextKey, params) {
     if (err || result === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`);
     }
-    // 附 Phase 1.1 行动指引：引导模型立即加载 brainstorm 并问固定问题，消除时序迟滞。
-    return { ...result, nextStepNote: TASK_CREATE_NOTE };
+    // 附下一步行动指引：light 任务走轻量轨（免对齐/免 jsonl），其余引导 Phase 1.1。
+    return {
+        ...result,
+        nextStepNote: mode === TASK_MODES.LIGHT ? TASK_CREATE_LIGHT_NOTE : TASK_CREATE_NOTE,
+    };
 }
 /**
  * start 工具编排：把任务从 planning 移到 in_progress。
@@ -193,6 +199,21 @@ function forceOverride(params) {
         ...(params.force !== undefined ? { force: params.force } : {}),
         ...(typeof params.reason === 'string' && params.reason !== '' ? { reason: params.reason } : {}),
     };
+}
+/**
+ * 解析 create 的 mode 入参（内部）：缺省/空串视为 full（返回 undefined），
+ * 工具面只接受 light；其他取值 fail loud（完整任务无需显式传 full）。
+ * @param mode 工具入参原值
+ * @returns 需要传给 core 的 mode（仅 light）或 undefined
+ */
+function resolveCreateMode(mode) {
+    if (mode === undefined || mode === '')
+        return undefined;
+    if (mode !== TASK_MODES.LIGHT) {
+        throw new Error(`${ERR_PREFIX.taskTool}: invalid mode: ${JSON.stringify(mode)} ` +
+            '(only "light" is accepted; omit it for a full task)');
+    }
+    return TASK_MODES.LIGHT;
 }
 /**
  * finish 工具编排：清除会话活跃任务指针（任务状态不变）。
