@@ -184,8 +184,12 @@ function makeCtx(overrides = {}) {
     // 且子代理身份是调用方预分配的 spec.childId；返回给生产代码的 id 仍用
     // child-N，让依赖短 id 的既有断言保持稳定。
     async startActivation(spec) {
-      if (overrides.startReject !== undefined) throw overrides.startReject
+      // 先记录尝试实参再判定 reject：失败转移用例需要断言每跳的模型/信号。
       startCalls.push(spec)
+      if (overrides.startRejections !== undefined && overrides.startRejections.length > 0) {
+        throw overrides.startRejections.shift()
+      }
+      if (overrides.startReject !== undefined) throw overrides.startReject
       const childId = `child-${startCalls.length}`
       if (overrides.startContinuableDelay !== undefined) {
         await overrides.startContinuableDelay
@@ -204,9 +208,31 @@ function makeCtx(overrides = {}) {
     },
   }
 
+  // 父会话通知通道（失败转移通知）：resolveAgent 回投递目标 agent，followup 收集
+  // 一行通知；sessions.flush 记录落盘确认。用例经 overrides.notificationAgent 指定
+  // 回投目标（缺省即执行派发的 parent agent）。
+  const followups = []
+  const flushCalls = []
+  const sessionController = {
+    async resolveAgent(sessionId) {
+      if (overrides.resolveAgentError !== undefined) throw overrides.resolveAgentError
+      const agent = overrides.notificationAgent
+      if (agent === undefined) throw new Error(`no notification agent for ${sessionId}`)
+      return { agent }
+    },
+  }
+  const sessions = {
+    async flush(session) {
+      flushCalls.push(session)
+      return overrides.flushResult ?? true
+    },
+  }
+
   const ctx = {
     tools,
     subagents,
+    sessionController,
+    sessions,
     // 事件注册面（registerExecutor 经 registerDispatchSettlement 注册 subagent/end 监听；
     // 测试经 listeners 手动触发终态回填）。
     on: (event, listener) => {
@@ -224,6 +250,8 @@ function makeCtx(overrides = {}) {
     schemasScopes,
     restrictCalls,
     toolfaceSchemaScopes,
+    followups,
+    flushCalls,
   }
 }
 
@@ -243,6 +271,8 @@ function setupExecutor(overrides = {}) {
     schemasScopes: made.schemasScopes,
     restrictCalls: made.restrictCalls,
     toolfaceSchemaScopes: made.toolfaceSchemaScopes,
+    followups: made.followups,
+    flushCalls: made.flushCalls,
   }
 }
 
@@ -2937,6 +2967,460 @@ test('工具面索引：冷恢复能从任务记录读回白名单（旧记录�
     assert.equal(rebuilt.get('child-legacy'), undefined, 'records without toolsAllow cannot be rebuilt')
     assert.equal(rebuilt.get('child-empty'), undefined, 'an empty whitelist is not a usable restriction')
   } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- 失败转移：派发时同步走链（design §3） ----------
+
+/** 构造带 DSH 错误码的同步失败（startActivation reject 形状）。 */
+function codedError(message, code) {
+  return Object.assign(new Error(message), { code })
+}
+
+test('failover-sync: 首跳 UNKNOWN_MODEL → 按链换模型重试，receipt 标注跳序号，dispatches 链式留痕', async () => {
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [
+          { model: 'provider-b/qwen', effort: 'high' },
+          { model: 'provider-c/deepseek' },
+        ],
+      },
+    },
+  })
+  try {
+    const { execute, startCalls } = setupExecutor({
+      startRejections: [codedError('unknown model', 'UNKNOWN_MODEL')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'sync failover test' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 第二次尝试：按链首条组装 provider/model/effort。
+    assert.equal(startCalls.length, 2)
+    assert.deepEqual(startCalls[1].request.agentOptions, {
+      provider: 'provider-b',
+      model: 'qwen',
+      reasoningEffort: 'high',
+    })
+    assert.equal(startCalls[1].provider, 'spawn')
+    assert.equal(startCalls[1].delivery, 'parent')
+    assert.equal(startCalls[1].request.maxDepth, 1)
+    assert.equal(result.kind, 'background')
+    assert.equal(result.childId, 'child-2')
+    assert.match(result.receipt, /\(failover attempt 2: provider-b\/qwen\)/)
+    const dispatches = readDispatches(root)
+    assert.equal(dispatches.length, 2)
+    // 首跳（主模型）失败留痕：failed + 真实错误 + 无链式关联字段。
+    assert.equal(dispatches[0].status, 'failed')
+    assert.equal(dispatches[0].model, 'provider-a/glm')
+    assert.equal(dispatches[0].error, 'unknown model (UNKNOWN_MODEL)')
+    assert.equal(dispatches[0].fallbackOf, undefined)
+    assert.equal(dispatches[0].fallbackAttempt, undefined)
+    // 第二跳成功：running + 实际生效模型 + 链式关联到首跳 childId。
+    assert.equal(dispatches[1].status, 'running')
+    assert.equal(dispatches[1].childId, 'child-2')
+    assert.equal(dispatches[1].model, 'provider-b/qwen')
+    assert.equal(dispatches[1].effort, 'high')
+    assert.equal(dispatches[1].modelSource, 'fallback')
+    assert.equal(dispatches[1].fallbackOf, dispatches[0].childId)
+    assert.equal(dispatches[1].fallbackAttempt, 2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-sync: 链穷尽 → 重抛最后一个错误（消息附完整尝试链），每跳各留一条 failed 记录', async () => {
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen' }, { model: 'provider-c/deepseek' }],
+      },
+    },
+  })
+  try {
+    const { execute, startCalls } = setupExecutor({
+      startRejections: [
+        codedError('connection error', 'TRANSPORT'),
+        codedError('unknown model', 'UNKNOWN_MODEL'),
+        codedError('request timed out', 'TIMEOUT'),
+      ],
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs({ title: 'sync exhausted test' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      (error) => {
+        assert.match(error.message, /request timed out/)
+        assert.match(
+          error.message,
+          /fallback chain exhausted: provider-a\/glm → provider-b\/qwen → provider-c\/deepseek/,
+        )
+        return true
+      },
+    )
+    assert.equal(startCalls.length, 3)
+    const dispatches = readDispatches(root)
+    assert.equal(dispatches.length, 3)
+    for (const record of dispatches) {
+      assert.equal(record.status, 'failed')
+    }
+    assert.equal(dispatches[1].fallbackOf, dispatches[0].childId)
+    assert.equal(dispatches[1].fallbackAttempt, 2)
+    assert.equal(dispatches[2].fallbackOf, dispatches[1].childId)
+    assert.equal(dispatches[2].fallbackAttempt, 3)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-sync: 白名单外 code 原样抛出（不走链、不写失败记录）', async () => {
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen' }],
+      },
+    },
+  })
+  try {
+    const rejection = codedError('the child broke an invariant', 'INVARIANT')
+    const { execute, startCalls } = setupExecutor({ startRejections: [rejection] })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs({ title: 'non accessible code' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      (error) => error === rejection,
+    )
+    assert.equal(startCalls.length, 1, 'no fallback attempt must be made')
+    assert.equal(readDispatches(root).length, 0, 'no dispatch record must be written')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-sync: 显式 model 参数时白名单失败也不走链（显式即明确意图）', async () => {
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen' }],
+      },
+    },
+  })
+  try {
+    const rejection = codedError('connection error', 'TRANSPORT')
+    const { execute, startCalls } = setupExecutor({ startRejections: [rejection] })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs({ model: 'provider-a/glm', title: 'explicit model' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      (error) => error === rejection,
+    )
+    assert.equal(startCalls.length, 1)
+    assert.equal(readDispatches(root).length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-sync: 未配置 fallback_models 时白名单失败零行为变化（原样抛出、不留痕）', async () => {
+  const root = makeProject({ subagents: { implement: { model: 'provider-a/glm' } } })
+  try {
+    const rejection = codedError('connection error', 'TRANSPORT')
+    const { execute, startCalls } = setupExecutor({ startRejections: [rejection] })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs({ title: 'no chain configured' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      (error) => error === rejection,
+    )
+    assert.equal(startCalls.length, 1)
+    assert.equal(readDispatches(root).length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- 失败转移：异步结算转移（design §4） ----------
+
+/** 重置失败转移进程内状态（模块级注册表跨用例累积，用例起始先清空并等待在途工作）。 */
+async function resetFailoverState(failoverModule) {
+  await failoverModule.flushFailoverWork()
+  failoverModule.clearFailoverContexts()
+}
+
+/** 挂父会话通知接收面（resolveAgent 回投目标 + followup 收集）。 */
+function makeNotifyingParent(root, followups) {
+  const parent = makeAgent(root)
+  parent.followup = (message) => {
+    followups.push(message)
+  }
+  return parent
+}
+
+/** 触发一次带结构化错误的轮次结算（session/event + subagent/end 双事件接缝）。 */
+function emitFailedTurn(setup, childId, code, message) {
+  emitSessionEvent(
+    setup,
+    { id: childId },
+    makeTurnEnd('error', 1, { error: { message, code } }),
+  )
+  emitSubagentEnd(setup, { id: childId, stopReason: 'error' })
+}
+
+test('failover-async: turn/end 白名单错误 → 新开会话换模型重试（全量注入 + 说明 + 通知 + 链式留痕）', async () => {
+  const failover = await import('../dist/executor-failover.js')
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen', effort: 'high' }],
+      },
+    },
+  })
+  try {
+    await resetFailoverState(failover)
+    const followups = []
+    const parent = makeNotifyingParent(root, followups)
+    const setup = setupExecutor({ notificationAgent: parent })
+    const first = await setup.execute(execArgs({ prompt: 'do the work', title: 'async failover' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(first.childId, 'child-1')
+    emitFailedTurn(setup, 'child-1', 'TRANSPORT', 'Connection error.')
+    await failover.flushFailoverWork()
+
+    // 重派：新会话、fallback 模型（provider 拆分 + 条目 effort）、后台语义。
+    assert.equal(setup.startCalls.length, 2)
+    const retry = setup.startCalls[1]
+    assert.deepEqual(retry.request.agentOptions, {
+      provider: 'provider-b',
+      model: 'qwen',
+      reasoningEffort: 'high',
+    })
+    assert.equal(retry.request.maxDepth, 1)
+    assert.equal(retry.delivery, 'parent')
+    assert.notEqual(retry.childId, setup.startCalls[0].childId)
+    // 全量注入 + failover 说明：仍含首次派发 prompt，说明含死掉的模型与错误码。
+    const prompt = retry.request.prompt[0].text
+    assert.match(prompt, /do the work/)
+    assert.match(prompt, /Failover:/)
+    assert.match(prompt, /provider-a\/glm/)
+    assert.match(prompt, /TRANSPORT/)
+    // dispatches：旧记录 failed + 新记录 running 且链式关联。
+    const dispatches = readDispatches(root)
+    assert.equal(dispatches.length, 2)
+    assert.equal(dispatches[0].status, 'failed')
+    assert.equal(dispatches[0].error, 'Connection error. (TRANSPORT)')
+    assert.equal(dispatches[1].status, 'running')
+    assert.equal(dispatches[1].childId, 'child-2')
+    assert.equal(dispatches[1].kind, 'implement')
+    assert.equal(dispatches[1].title, 'async failover')
+    assert.equal(dispatches[1].model, 'provider-b/qwen')
+    assert.equal(dispatches[1].effort, 'high')
+    assert.equal(dispatches[1].modelSource, 'fallback')
+    assert.equal(dispatches[1].fallbackOf, 'child-1')
+    assert.equal(dispatches[1].fallbackAttempt, 2)
+    // 父会话一行通知（失败模型 + 错误码 + 下一模型 + 第几跳）+ flush 落盘。
+    assert.equal(followups.length, 1)
+    const notice = followups[0]
+    assert.equal(notice.source.kind, 'workloom')
+    const noticeText = notice.content[0].text
+    assert.match(noticeText, /provider-a\/glm/)
+    assert.match(noticeText, /TRANSPORT/)
+    assert.match(noticeText, /provider-b\/qwen/)
+    assert.match(noticeText, /attempt 2 of 2/)
+    assert.doesNotMatch(noticeText, /\n/)
+    assert.equal(setup.flushCalls.length, 1)
+  } finally {
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-async: 链穷尽 → failed 记录 error 行接完整尝试链 + 穷尽通知（不再重派）', async () => {
+  const failover = await import('../dist/executor-failover.js')
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen' }],
+      },
+    },
+  })
+  try {
+    await resetFailoverState(failover)
+    const followups = []
+    const parent = makeNotifyingParent(root, followups)
+    const setup = setupExecutor({ notificationAgent: parent })
+    await setup.execute(execArgs({ prompt: 'do the work', title: 'async exhausted' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 第一跳失败 → 转移到 fallback 模型。
+    emitFailedTurn(setup, 'child-1', 'TRANSPORT', 'Connection error.')
+    await failover.flushFailoverWork()
+    // 第二跳（链最后一跳）失败 → 链穷尽。
+    emitFailedTurn(setup, 'child-2', 'TIMEOUT', 'Request timed out.')
+    await failover.flushFailoverWork()
+
+    assert.equal(setup.startCalls.length, 2, 'no third attempt after the chain is exhausted')
+    const dispatches = readDispatches(root)
+    assert.equal(dispatches.length, 2)
+    assert.equal(dispatches[1].status, 'failed')
+    assert.equal(
+      dispatches[1].error,
+      'Request timed out. (TIMEOUT) (fallback chain exhausted: provider-a/glm → provider-b/qwen)',
+    )
+    assert.equal(followups.length, 2)
+    const exhaustedText = followups[1].content[0].text
+    assert.match(exhaustedText, /exhausted/i)
+    // 穷尽通知标注最后一跳的失败模型与错误码（完整尝试链在 failed 记录的 error 行）。
+    assert.match(exhaustedText, /provider-b\/qwen/)
+    assert.match(exhaustedText, /TIMEOUT/)
+    assert.equal(setup.flushCalls.length, 2)
+  } finally {
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-async: 续用轮失败 → 按首次派发参数重注入，说明注明增量指令丢失', async () => {
+  const failover = await import('../dist/executor-failover.js')
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen' }],
+      },
+    },
+  })
+  try {
+    await resetFailoverState(failover)
+    const followups = []
+    const parent = makeNotifyingParent(root, followups)
+    const setup = setupExecutor({ notificationAgent: parent })
+    await setup.execute(execArgs({ prompt: 'do the work', title: 'continued failover' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 续用轮：sendMessage 投递增量指令（不新开子会话）。
+    await setup.execute(
+      execArgs({ continue_executor: 'child-1', prompt: 'increment only', title: 'continued failover' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(setup.sendMessageCalls.length, 1)
+    emitFailedTurn(setup, 'child-1', 'TRANSPORT', 'Connection error.')
+    await failover.flushFailoverWork()
+
+    assert.equal(setup.startCalls.length, 2)
+    const prompt = setup.startCalls[1].request.prompt[0].text
+    // 按首次派发参数重注入：首次 prompt 在，续用增量指令不在（随旧会话丢失）。
+    assert.match(prompt, /do the work/)
+    assert.doesNotMatch(prompt, /increment only/)
+    assert.match(prompt, /incremental instructions/i)
+    assert.match(prompt, /lost/i)
+  } finally {
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-async: 容量闸撞限 → 放弃转移、原 failed 记录不动、通知说明可人工重派', async () => {
+  const failover = await import('../dist/executor-failover.js')
+  const root = makeProject({
+    executor: { max_concurrent: 1 },
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen' }],
+      },
+    },
+  })
+  try {
+    await resetFailoverState(failover)
+    const followups = []
+    const parent = makeNotifyingParent(root, followups)
+    // 首次派发时无其它 running；结算转移重估时注入一个占满全局闸的 running child。
+    let occupancy = []
+    const setup = setupExecutor({
+      notificationAgent: parent,
+      listDescendants: async () => occupancy,
+    })
+    await setup.execute(execArgs({ prompt: 'do the work', title: 'capacity blocked' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    occupancy = [
+      { id: 'other-child', kind: 'child', depth: 1, activity: 'running', label: '[Implement] other' },
+    ]
+    emitFailedTurn(setup, 'child-1', 'TRANSPORT', 'Connection error.')
+    await failover.flushFailoverWork()
+
+    assert.equal(setup.startCalls.length, 1, 'capacity gate must block the retry')
+    const dispatches = readDispatches(root)
+    assert.equal(dispatches.length, 1)
+    assert.equal(dispatches[0].status, 'failed')
+    assert.equal(dispatches[0].error, 'Connection error. (TRANSPORT)')
+    assert.equal(followups.length, 1)
+    const noticeText = followups[0].content[0].text
+    assert.match(noticeText, /capacity/i)
+    assert.match(noticeText, /manually/i)
+  } finally {
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover-async: 白名单外 code 不触发转移（现状回报路径不变）', async () => {
+  const failover = await import('../dist/executor-failover.js')
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        fallback_models: [{ model: 'provider-b/qwen' }],
+      },
+    },
+  })
+  try {
+    await resetFailoverState(failover)
+    const followups = []
+    const parent = makeNotifyingParent(root, followups)
+    const setup = setupExecutor({ notificationAgent: parent })
+    await setup.execute(execArgs({ prompt: 'do the work', title: 'business failure' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    emitFailedTurn(setup, 'child-1', 'INVARIANT', 'the executor violated an invariant')
+    await failover.flushFailoverWork()
+
+    assert.equal(setup.startCalls.length, 1, 'business failures must not trigger fallback')
+    assert.equal(followups.length, 0)
+    const dispatches = readDispatches(root)
+    assert.equal(dispatches.length, 1)
+    assert.equal(dispatches[0].status, 'failed')
+    assert.equal(dispatches[0].error, 'the executor violated an invariant (INVARIANT)')
+  } finally {
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
     rmSync(root, { recursive: true, force: true })
   }
 })

@@ -31,6 +31,7 @@ import {
   recordAlignmentCredential,
   recordExecutorDispatch,
   recordGateOverride,
+  appendDispatchErrorSuffix,
   settleExecutorDispatch,
   runTaskHooks,
   computeTaskStage,
@@ -1857,6 +1858,117 @@ test('recordExecutorDispatch 失败留痕：显式 status=failed + error 直接�
     assert.equal(saved.dispatches[0].status, 'failed', '显式 status=failed 应直接写入')
     assert.equal(saved.dispatches[0].error, 'spawn ENOENT: binary not found')
     assert.equal(saved.dispatches[0].childId, undefined, '无 childId 时缺省')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 链式留痕：fallbackOf / fallbackAttempt 可选字段写入与读取（旧记录兼容）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Chain' })
+    // 首跳（主模型）失败记录：无 fallbackOf / fallbackAttempt 字段。
+    const [firstErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'primary hop',
+      childId: 'child-0',
+      status: 'failed',
+      error: 'connection error (TRANSPORT)',
+    })
+    assert.equal(firstErr, null)
+    // 第二跳：fallbackOf 指向前一跳 childId，fallbackAttempt 记本跳序号。
+    const [secondErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'fallback hop',
+      childId: 'child-1',
+      model: 'provider-b/m2',
+      modelSource: 'fallback',
+      fallbackOf: 'child-0',
+      fallbackAttempt: 2,
+    })
+    assert.equal(secondErr, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].fallbackOf, undefined, '首跳无链式关联字段')
+    assert.equal(saved.dispatches[0].fallbackAttempt, undefined)
+    assert.equal(saved.dispatches[1].fallbackOf, 'child-0')
+    assert.equal(saved.dispatches[1].fallbackAttempt, 2)
+    assert.equal(saved.dispatches[1].modelSource, 'fallback')
+    // 旧记录（无新字段）读取兼容：字段读取为 undefined，不迁移、不补默认。
+    const [, read] = readTask(root, created.taskRelPath)
+    assert.equal(read.dispatches[0].fallbackOf, undefined)
+    assert.equal(read.dispatches[1].fallbackAttempt, 2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 链式字段形状非法：返回 err（fail loud，不落盘）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Chain Invalid' })
+    const cases = [
+      { fallbackOf: '' },
+      { fallbackOf: 5 },
+      { fallbackAttempt: 0 },
+      { fallbackAttempt: 1 },
+      { fallbackAttempt: 1.5 },
+      { fallbackAttempt: '2' },
+    ]
+    for (const extra of cases) {
+      const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+        kind: 'implement',
+        title: 'invalid chain field',
+        ...extra,
+      })
+      assert.notEqual(err, null, `${JSON.stringify(extra)} must be rejected`)
+    }
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('appendDispatchErrorSuffix：向该 childId 最近一条 failed 记录 error 行追加后缀', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Suffix' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'hop 1',
+      childId: 'child-1',
+      status: 'failed',
+      error: 'connection error (TRANSPORT)',
+    })
+    // 同 childId 的后续 running 记录不应被误改（只追加 failed 记录）。
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'hop 2',
+      childId: 'child-1',
+      fallbackOf: 'child-0',
+      fallbackAttempt: 2,
+    })
+    const [err] = appendDispatchErrorSuffix(
+      root,
+      created.taskRelPath,
+      'child-1',
+      ' (fallback chain exhausted: m1 → m2)',
+    )
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(
+      saved.dispatches[0].error,
+      'connection error (TRANSPORT) (fallback chain exhausted: m1 → m2)',
+    )
+    assert.equal(saved.dispatches[1].error, undefined, 'running 记录不受影响')
+    // 无匹配 failed 记录：no-op（不报错），未知 childId 静默跳过。
+    const [noopErr] = appendDispatchErrorSuffix(root, created.taskRelPath, 'ghost', ' (x)')
+    assert.equal(noopErr, null)
+    // 非法后缀 / 不可读任务：返回 err（调用方只告警）。
+    assert.notEqual(
+      appendDispatchErrorSuffix(root, created.taskRelPath, 'child-1', '')?.[0],
+      null,
+    )
+    assert.notEqual(appendDispatchErrorSuffix(root, 'tasks/missing', 'child-1', ' (x)')?.[0], null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

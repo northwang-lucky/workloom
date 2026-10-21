@@ -36,6 +36,11 @@ export interface TurnMeta {
    * 回执渲染 (unrecorded spawn binding)。新派轮不设（undefined），走现状渲染。
    */
   spawnBinding?: { model?: string; effort?: string }
+  /**
+   * 失败转移标注（design §5）：派发时同步走链成功时传入实际生效模型与本跳序号，
+   * 回执尾追加 ` (failover attempt N: <model>)`；主模型直接成功时不设。
+   */
+  failover?: { attempt: number; model: string }
 }
 
 /** buildTurnReceiptText 消费的生效默认值形状（core ResolveSubagentDefaultsResult）。 */
@@ -74,7 +79,12 @@ export function buildTurnReceiptText(
         effortWhenMainValue: effective.whenMainValue,
         injection: meta.injection,
       })
-  return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}`
+  // 标注顺序：forced → reused → failover（各自独立，回执尾部追加，便于审计扫读）。
+  const failoverSuffix =
+    meta.failover !== undefined
+      ? ` (failover attempt ${meta.failover.attempt}: ${meta.failover.model})`
+      : ''
+  return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}${failoverSuffix}`
 }
 
 /**

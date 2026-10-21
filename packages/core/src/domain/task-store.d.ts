@@ -111,13 +111,29 @@ export interface DispatchRecord {
    * 冷恢复时据此重建限制，不依赖内存索引。
    */
   toolsAllow?: string[]
+  /**
+   * 失败转移链式关联：前一跳 childId（首跳无字段，旧记录缺省读取为 undefined）。
+   * 链由 fallbackOf 回溯重建（append-only dispatches）。
+   */
+  fallbackOf?: string
+  /** 失败转移本跳序号（首跳无字段；>= 2 的整数）。旧记录缺省读取为 undefined。 */
+  fallbackAttempt?: number
 }
 
 /** recordExecutorDispatch 入参（at 由函数生成；绑定字段可选，续派轮传 spawn 语义值；
  *  status 可选，默认 'running'，失败派发留痕时传 'failed' + error）。 */
 export type DispatchRecordInput = Pick<
   DispatchRecord,
-  'kind' | 'title' | 'childId' | 'model' | 'effort' | 'modelSource' | 'status' | 'toolsAllow'
+  | 'kind'
+  | 'title'
+  | 'childId'
+  | 'model'
+  | 'effort'
+  | 'modelSource'
+  | 'status'
+  | 'toolsAllow'
+  | 'fallbackOf'
+  | 'fallbackAttempt'
 > & { error?: string }
 
 /** settleExecutorDispatch 回填入参（只改 status/error，不动 stage、不新增记录）。 */
@@ -313,6 +329,17 @@ export function settleExecutorDispatch(
   root: string,
   taskRelPath: string,
   entry: DispatchSettleInput,
+): [Error | null]
+
+/**
+ * 向该 childId 最近一条 failed 记录的 error 行追加后缀（失败转移链穷尽留痕）：
+ * 只改 error 文本，无匹配 failed 记录时 no-op；读写失败返回 err 元组。
+ */
+export function appendDispatchErrorSuffix(
+  root: string,
+  taskRelPath: string,
+  childId: string,
+  suffix: string,
 ): [Error | null]
 
 /**

@@ -13,7 +13,7 @@ const ERROR_LINE_MAX = 200;
 const ERROR_TRUNCATION_SUFFIX = '…';
 /** childId → 派发所在任务（进程内注册表，派发时刻登记、结算时消费）。 */
 const pendingByChildId = new Map();
-/** childId → 最近一次 turn/end error 的单行文本（进程内登记表，派发时预置、结算时消费）。 */
+/** childId → 最近一次 turn/end 结构化错误（进程内登记表，派发时预置、结算时消费）。 */
 const lastTurnErrorByChildId = new Map();
 /**
  * 登记一次派发的回填定位（executor.ts 派发时刻调用）：childId 建立后记录所在
@@ -31,11 +31,13 @@ export function trackDispatchSettle(childId, root, taskRelPath) {
 /**
  * 注册终态回填两条全局监听（apply 激活时经 registerExecutor 调用）：
  * session/event 捕获登记表内 childId 的真实错误，subagent/end 按载荷 info.id
- * 关联 dispatches 记录回填终态（completed/failed + 一行错误摘要）。
+ * 关联 dispatches 记录回填终态（completed/failed + 一行错误摘要）；settle 完成后
+ * 可选调用失败转移钩子（同步边界内发起，钩子自行 fire-and-forget）。
  * @param ctx 插件作用域上下文（两事件均为全局事件，此处监听可见所有会话/子代理）
+ * @param onSettled 可选的结算完成钩子（失败转移入口；缺省零行为变化）
  * @returns 统一注销函数（fiber 生命周期自动清理）
  */
-export function registerDispatchSettlement(ctx) {
+export function registerDispatchSettlement(ctx, onSettled) {
     const disposeCapture = ctx.on('session/event', captureTurnEndError);
     const disposeSettle = ctx.on('subagent/end', (info) => {
         try {
@@ -44,13 +46,13 @@ export function registerDispatchSettlement(ctx) {
                 return;
             // 先消费条目（每 epoch 结算一次；后续续用轮派发时重新登记）。
             pendingByChildId.delete(info.id);
-            const capturedError = lastTurnErrorByChildId.get(info.id);
+            const captured = lastTurnErrorByChildId.get(info.id);
             lastTurnErrorByChildId.delete(info.id);
-            if (info.stopReason === 'error' && capturedError === undefined) {
+            if (info.stopReason === 'error' && captured === undefined) {
                 // 登记缺失/提取失败：回退泛化文案并记一条 WARNING，不阻塞结算。
                 console.warn(`${SETTLE_FALLBACK_WARN_PREFIX} ${info.id}; settled with the generic summary`);
             }
-            const terminal = settleTerminal(info.stopReason, capturedError);
+            const terminal = settleTerminal(info.stopReason, captured?.line);
             // 循环 settle：同 childId 可能有多条 running 条目（steering 续用追加第二条），
             // core settleExecutorDispatch 每次只回填最近一条 running；需循环直到该 childId
             // 无 running 条目为止（一次 end 事件 = 该 child 全部注入轮次工作完成）。
@@ -66,6 +68,22 @@ export function registerDispatchSettlement(ctx) {
                 }
                 if (!hasRunningDispatch(pending.root, pending.taskRelPath, info.id)) {
                     break;
+                }
+            }
+            // 结算完成后的失败转移钩子（同步边界内发起，钩子自行 fire-and-forget）；
+            // 钩子抛错只告警，不冒泡事件流、不影响已完成的结算。
+            if (onSettled !== undefined) {
+                try {
+                    onSettled({
+                        id: info.id,
+                        root: pending.root,
+                        taskRelPath: pending.taskRelPath,
+                        stopReason: info.stopReason,
+                        error: captured,
+                    });
+                }
+                catch (error) {
+                    console.warn(`${SETTLE_WARN_PREFIX} failover hook: ${String(error)}`);
                 }
             }
         }
@@ -102,10 +120,10 @@ function captureTurnEndError(session, event) {
             return;
         const data = event.data;
         const reason = data === null || typeof data !== 'object' ? undefined : data.reason;
-        const errorText = extractTurnErrorText(reason);
-        if (errorText === null)
+        const captured = extractTurnError(reason);
+        if (captured === null)
             return;
-        lastTurnErrorByChildId.set(childId, errorText);
+        lastTurnErrorByChildId.set(childId, captured);
     }
     catch (error) {
         console.warn(`${CAPTURE_WARN_PREFIX} ${String(error)}`);
@@ -122,6 +140,16 @@ function captureTurnEndError(session, event) {
  * @returns 单行真实错误，或 null（非 error 终态/解码失败）
  */
 export function extractTurnErrorText(reason) {
+    return extractTurnError(reason)?.line ?? null;
+}
+/**
+ * 提取 turn/end 错误载荷为结构化 { line, code }（纯函数，独立可测）：line 为
+ * `<message> (<code>)` 单行（内部空白折叠），code 保留原始值供失败转移分类；
+ * 形状不符/字段缺失返回 null（解码失败，调用方按登记缺失回退泛化文案）。
+ * @param reason turn/end 的终止原因（可能缺失/形状未知）
+ * @returns 结构化错误，或 null（非 error 终态/解码失败）
+ */
+export function extractTurnError(reason) {
     if (reason === null || typeof reason !== 'object')
         return null;
     const kind = reason.kind;
@@ -137,7 +165,8 @@ export function extractTurnErrorText(reason) {
     if (typeof code !== 'string' || code.trim() === '')
         return null;
     // 折叠内部空白为单行（dispatches.error 按行展示，注入/审计可读）。
-    return `${message.replace(/\s+/g, ' ').trim()} (${code.trim()})`;
+    const line = `${message.replace(/\s+/g, ' ').trim()} (${code.trim()})`;
+    return { line, code: code.trim() };
 }
 /**
  * 终态映射（纯函数）：completed → completed（不写 error）；error → 有登记真实

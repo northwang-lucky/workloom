@@ -8,6 +8,7 @@
  */
 export { WORKLOOM_DIR, LEGACY_TRELLIS_DIR, findWorkloomRoot, detectLegacyTrellis, insideWorkloom, } from './domain/locate.js';
 export { DEFAULT_CONFIG, resolveSubagentDefaults, splitProviderModel, detectExecutorConflicts, buildConflictNotice, assertForceReason, WorkloomConfigError, loadConfig, } from './domain/config.js';
+export { MODEL_INACCESSIBLE_CODES, isModelInaccessibleCode, extractFailureCode, buildFailoverNote, buildFailoverNotice, } from './domain/failover.js';
 export { buildNewDispatchBinding, resolveDispatchModelSource } from './domain/dispatch-binding.js';
 export { EFFORT_LEVELS, EXECUTOR_KINDS, assertEffort, assertKind, buildExecutorPrompt, } from './domain/executor-context.js';
 export { NATIVE_TOOLS_DSH, NATIVE_TOOLS_PI, buildAllowList, } from './domain/executor-tools.js';
@@ -19,7 +20,7 @@ export { writeFileAtomic } from './domain/file-atomic.js';
 export { parseContract, WorkflowContractError } from './domain/workflow-contract.js';
 export { WORKFLOW_PROTOCOL_VERSION, assertWorkflowProtocolVersion, } from './domain/protocol.js';
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './domain/breadcrumb.js';
-export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordExecutorDispatch, settleExecutorDispatch, } from './domain/task-store.js';
+export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordExecutorDispatch, settleExecutorDispatch, appendDispatchErrorSuffix, } from './domain/task-store.js';
 export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js';
 export { setActiveTask, clearActiveTask, resolveActiveTask, clearPointersToTask, } from './domain/active-task.js';
 export { countDirtyLines, gitAddCommit, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitMerge, gitMergeAbort, gitWorktreeAdd, gitWorktreeRemove, gitWorktreeList, gitWorktreePrune, gitBranchDelete, gitBranchExists, gitCheckRefFormat, } from './domain/git.js';

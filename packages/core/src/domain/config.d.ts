@@ -82,6 +82,18 @@ export interface SubagentTools {
 }
 
 /**
+ * 失败转移链条目（配置字段 `fallback_models[]`，内存形态 camelCase）：
+ * 主模型不可访问时按链顺序尝试；effort 省略即不传（用目标模型默认档位，
+ * 避开 effort-compat 坑）。
+ */
+export interface SubagentFallbackModel {
+  /** 模型字符串（provider/model 或裸 id；仅 string，不支持 runtime map）。 */
+  model: string
+  /** 该跳的 reasoning effort（可选；省略不传给子代理）。 */
+  effort?: string
+}
+
+/**
  * subagents 配置条目：model 支持 string（所有 runtime 同值）或按 runtime 取值的
  * map（如 `{ dsh: 'a/x', pi: 'b/y' }`）；map 的 key 为 runtime 名，不白名单。
  * tools 仅 subagent_profiles 内层条目携带（顶层 subagents 出现 tools 报错）。
@@ -95,6 +107,11 @@ export interface SubagentConfigEntry {
    * 仅 subagent_profiles 内层条目携带。
    */
   maxConcurrent?: number
+  /**
+   * 失败转移链（配置字段 `fallback_models`）：旧顶层 subagents 与
+   * subagent_profiles 内层同一语法；空数组等价缺省（不落字段）。
+   */
+  fallbackModels?: SubagentFallbackModel[]
 }
 
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
@@ -115,6 +132,8 @@ export interface ResolveSubagentDefaultsResult {
   configSources: {
     model?: SubagentConfigSource
     effort?: SubagentConfigSource
+    /** 失败转移链来源（未配置链时属性不定义）。 */
+    fallbackModels?: SubagentConfigSource
   }
   /** configSources 为 whenMain 时的匹配值（receipt 展示用，如 kimi-coding/k3）。 */
   whenMainValue?: string
@@ -126,6 +145,11 @@ export interface ResolveSubagentDefaultsResult {
    * 未配置时兜底缺省 3），> 0 = 该 kind 上限。仅全局闸生效的场景不再出现。
    */
   maxConcurrent?: number
+  /**
+   * 生效的失败转移链（解析后的模型字符串 + 可选 effort）：profile 命中条目优先，
+   * 未配置时回退旧 subagents 同 kind 条目；两处均未配置时属性不定义。
+   */
+  fallbackModels?: SubagentFallbackModel[]
 }
 
 /** 内置默认配置。 */

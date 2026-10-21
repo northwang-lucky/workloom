@@ -15,6 +15,8 @@
  * - 解析失败显式抛错（fail loud），不静默回退，符合"无灰区"哲学；
  * - 未知顶层字段容错忽略（channel/codex 等历史平台字段），向前兼容；
  * - 条目内 tools 字段仅 subagent_profiles 层支持（includes/excludes 数组，去重）；
+ * - 条目内 fallback_models（失败转移链）两层同语法：model 必填非空 string、effort
+ *   可选 string、元素未知字段与链内重复 model fail loud、空数组等价缺省；
  * - executor 派发参数与 subagents 配置的冲突检测（detectExecutorConflicts）。
  */
 
@@ -559,6 +561,7 @@ function parseSubagents(value) {
  * subagent_profiles 内层复用同一套 entry 校验）。条目内未知字段 fail loud
  * （两层一致）；tools 与 max_concurrent 字段仅 subagent_profiles 层支持
  * （allowTools / allowMaxConcurrent 开关，legacy 层出现即报错）。
+ * fallback_models（失败转移链）两层语法与语义完全一致，不受层开关约束。
  * @param {string} prefix 字段路径前缀（subagents 或 subagent_profiles[i].subagents）
  * @param {Record<string, unknown>} map 条目映射
  * @param {{allowTools: boolean, allowMaxConcurrent: boolean}} options 层间字段开关
@@ -582,11 +585,17 @@ function parseSubagentsEntries(prefix, map, { allowTools, allowMaxConcurrent }) 
           'is only supported under subagent_profiles',
         )
       }
-      if (key !== 'model' && key !== 'effort' && key !== 'tools' && key !== 'max_concurrent') {
+      if (
+        key !== 'model' &&
+        key !== 'effort' &&
+        key !== 'tools' &&
+        key !== 'max_concurrent' &&
+        key !== 'fallback_models'
+      ) {
         throw new WorkloomConfigError(
           `${prefix}.${name}.${key}`,
           // allowed 清单按层条件化：tools / max_concurrent 仅 profiles 层合法。
-          `unknown field (allowed: model, effort${allowMaxConcurrent ? ', max_concurrent' : ''}${allowTools ? ', tools' : ''})`,
+          `unknown field (allowed: model, effort, fallback_models${allowMaxConcurrent ? ', max_concurrent' : ''}${allowTools ? ', tools' : ''})`,
         )
       }
     }
@@ -597,6 +606,14 @@ function parseSubagentsEntries(prefix, map, { allowTools, allowMaxConcurrent }) 
     }
     if (spec.effort !== undefined) {
       parsed.effort = requireString(`${prefix}.${name}.effort`, spec.effort)
+    }
+    if (spec.fallback_models !== undefined) {
+      const fallbackModels = parseFallbackModels(
+        `${prefix}.${name}.fallback_models`,
+        spec.fallback_models,
+      )
+      // 空数组等价缺省：不落字段，分层合并时可回退到另一层。
+      if (fallbackModels.length > 0) parsed.fallbackModels = fallbackModels
     }
     if (spec.tools !== undefined) {
       parsed.tools = parseTools(`${prefix}.${name}.tools`, spec.tools)
@@ -628,6 +645,49 @@ function parseSubagentModel(field, value) {
   const result = {}
   for (const [runtime, model] of Object.entries(value)) {
     result[runtime] = requireString(`${field}.${runtime}`, model)
+  }
+  return result
+}
+
+/**
+ * 解析 fallback_models（失败转移链）：数组元素为 {model, effort?}，model 必填
+ * 非空 string（仅 string——链在 runtime 解析期消费，不支持按 runtime 取值的 map），
+ * effort 可选 string，元素内未知字段 fail loud，链内重复 model fail loud。
+ * 链顺序即尝试顺序，解析结果保持原序；空数组返回空链（调用方视为缺省）。
+ * @param {string} field 字段路径（...fallback_models）
+ * @param {unknown} value 用户文档值
+ * @returns {import('./config.d.ts').SubagentFallbackModel[]}
+ */
+function parseFallbackModels(field, value) {
+  if (!Array.isArray(value)) {
+    throw new WorkloomConfigError(field, 'must be an array of { model, effort? } entries')
+  }
+  /** @type {import('./config.d.ts').SubagentFallbackModel[]} */
+  const result = []
+  for (const [index, item] of value.entries()) {
+    const entryField = `${field}[${index}]`
+    const spec = requireMap(entryField, item)
+    for (const key of Object.keys(spec)) {
+      if (key !== 'model' && key !== 'effort') {
+        throw new WorkloomConfigError(`${entryField}.${key}`, 'unknown field (allowed: model, effort)')
+      }
+    }
+    if (typeof spec.model !== 'string' || spec.model.trim() === '') {
+      throw new WorkloomConfigError(`${entryField}.model`, 'must be a non-empty string')
+    }
+    /** @type {import('./config.d.ts').SubagentFallbackModel} */
+    const parsed = { model: spec.model }
+    if (spec.effort !== undefined) {
+      parsed.effort = requireString(`${entryField}.effort`, spec.effort)
+    }
+    // 链内重复 model 无意义且掩盖配置错误，fail loud（与主模型同值允许，属显式链语义）。
+    if (result.some((existing) => existing.model === parsed.model)) {
+      throw new WorkloomConfigError(
+        field,
+        `duplicate model in fallback chain: ${parsed.model} (each fallback model may appear once)`,
+      )
+    }
+    result.push(parsed)
   }
   return result
 }
@@ -817,8 +877,9 @@ function findMapOverlapWithString(str, map) {
  * 合并 executor 子代理默认 model/effort：工具调用参数优先，未出现的字段回退到
  * subagent_profiles 命中条目（按主会话模型匹配），再回退到旧 subagents 配置
  * （按 kind 对应条目）；全部缺失时字段为 undefined（继承父会话）。model 与
- * effort 独立合并。model 的 map 形式按 runtime 取值，缺当前 runtime 的 key 时
- * fail loud（避免静默用错模型）。纯同步、无副作用（不修改入参）。
+ * effort 独立合并，失败转移链（fallbackModels）同样字段级合并。model 的 map 形式
+ * 按 runtime 取值，缺当前 runtime 的 key 时 fail loud（避免静默用错模型）。
+ * 纯同步、无副作用（不修改入参）。
  * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
  * @param {string} kind executor 类型（research/implement/check/frontend）
  * @param {{model?: string, effort?: string}} overrides 工具调用参数（仅覆盖出现的字段）
@@ -879,6 +940,19 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
     effort = legacyLayer.effort
     effortConfigSource = 'legacy'
   }
+  // 失败转移链：字段级分层合并（命中 profile 条目的链优先于旧 subagents 链），
+  // 解析期已限定 string，无 runtime 解析；未配置时字段不出现（零行为变化）。
+  /** @type {import('./config.d.ts').SubagentFallbackModel[] | undefined} */
+  let fallbackModels
+  /** @type {import('./config.d.ts').SubagentConfigSource | undefined} */
+  let fallbackModelsSource
+  if (matched !== null && profileLayer.fallbackModels !== undefined) {
+    fallbackModels = profileLayer.fallbackModels
+    fallbackModelsSource = matched.source
+  } else if (legacyLayer?.fallbackModels !== undefined) {
+    fallbackModels = legacyLayer.fallbackModels
+    fallbackModelsSource = 'legacy'
+  }
   // kind 层并发上限：仅 subagent_profiles 命中条目携带（legacy 层不支持），
   // 未命中 / 未配置时兜底硬编码缺省 3（显式 0 = 该 kind 不限，?? 不吞 0）。
   const maxConcurrent = profileLayer.maxConcurrent ?? DEFAULT_KIND_MAX_CONCURRENT
@@ -890,13 +964,21 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
       effort:
         overrides.effort !== undefined ? 'param' : effort !== undefined ? 'config' : undefined,
     },
-    configSources: { model: modelConfigSource, effort: effortConfigSource },
+    configSources: {
+      model: modelConfigSource,
+      effort: effortConfigSource,
+      // 链来源仅在配置侧提供链时出现（未配置时字段不定义，兼容既有深比较断言）。
+      ...(fallbackModelsSource !== undefined ? { fallbackModels: fallbackModelsSource } : {}),
+    },
     // tools 仅 subagent_profiles 层支持（legacy 层无 tools）：命中条目的该 kind
     // tools 字段原样透出，未命中时为 undefined（调用方按 allow 清单组装消费）。
     tools: profileLayer.tools,
     // maxConcurrent：命中 profile 条目该 kind 的 max_concurrent 原样透出，
     // 未配置时兜底缺省 3（0 = 不限；> 0 = 该 kind 上限）。
     maxConcurrent,
+    // 失败转移链：解析后的模型字符串 + 可选 effort（adapter 按序消费）；
+    // 未配置时字段不出现（零行为变化）。
+    ...(fallbackModels !== undefined ? { fallbackModels } : {}),
     // whenMainValue 仅在字段实际来自 whenMain 条目时返回（receipt 展示用）。
     ...(matched?.whenMainValue !== undefined &&
     (modelConfigSource === 'whenMain' || effortConfigSource === 'whenMain')

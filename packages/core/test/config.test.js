@@ -1035,6 +1035,145 @@ test('resolveSubagentDefaults：显式参数覆盖 profile/map 配置（不触�
   })
 })
 
+// ---------- L5b：fallback_models 失败转移链解析 ----------
+
+test('fallback_models 合法解析：旧 subagents 与 profiles 内层同一入口，空数组等价缺省', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagents: {
+      implement: {
+        model: 'm-primary',
+        fallback_models: [{ model: 'provider-a/m2', effort: 'high' }, { model: 'm3' }],
+      },
+      research: { fallback_models: [] },
+    },
+    subagent_profiles: [
+      {
+        whenMain: 'kimi-coding/k3',
+        subagents: { check: { fallback_models: [{ model: 'profile-m2' }] } },
+      },
+    ],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.deepEqual(config.subagents.implement, {
+      model: 'm-primary',
+      fallbackModels: [{ model: 'provider-a/m2', effort: 'high' }, { model: 'm3' }],
+    })
+    // 空数组等价缺省：字段不出现（分层合并时可回退到另一层）。
+    assert.equal(config.subagents.research.fallbackModels, undefined)
+    assert.deepEqual(config.subagentProfiles[0].subagents.check.fallbackModels, [
+      { model: 'profile-m2' },
+    ])
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('fallback_models 非法形状按字段路径 fail loud', () => {
+  const cases = [
+    {
+      doc: { subagents: { implement: { fallback_models: 'm2' } } },
+      field: 'subagents.implement.fallback_models',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [5] } } },
+      field: 'subagents.implement.fallback_models[0]',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [{ effort: 'high' }] } } },
+      field: 'subagents.implement.fallback_models[0].model',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [{ model: 5 }] } } },
+      field: 'subagents.implement.fallback_models[0].model',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [{ model: { dsh: 'm2' } }] } } },
+      field: 'subagents.implement.fallback_models[0].model',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [{ model: '' }] } } },
+      field: 'subagents.implement.fallback_models[0].model',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [{ model: 'm2', effort: 5 }] } } },
+      field: 'subagents.implement.fallback_models[0].effort',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [{ model: 'm2', bogus: 1 }] } } },
+      field: 'subagents.implement.fallback_models[0].bogus',
+    },
+    {
+      doc: { subagents: { implement: { fallback_models: [{ model: 'm2' }, { model: 'm2' }] } } },
+      field: 'subagents.implement.fallback_models',
+    },
+    {
+      doc: {
+        subagent_profiles: [
+          { subagents: { implement: { fallback_models: [{ model: 'm2', effort: 5 }] } } },
+        ],
+      },
+      field: 'subagent_profiles[0].subagents.implement.fallback_models[0].effort',
+    },
+  ]
+  for (const { doc, field } of cases) {
+    const root = makeRoot()
+    const home = makeHome()
+    writeProjectFile(root, 'config.json', doc)
+    try {
+      assert.throws(
+        () => loadConfig(root, { homeDir: home }),
+        (error) => {
+          assert.ok(error instanceof WorkloomConfigError)
+          assert.equal(error.field, field)
+          return true
+        },
+      )
+    } finally {
+      cleanup(root, home)
+    }
+  }
+})
+
+test('resolveSubagentDefaults：fallbackModels 分层合并（profile 优先、legacy 回退、未配置不出现字段）', () => {
+  const config = {
+    subagents: { implement: { model: 'legacy-m', fallbackModels: [{ model: 'legacy-fb' }] } },
+    subagentProfiles: [
+      {
+        whenMain: 'kimi-coding/k3',
+        subagents: {
+          implement: {
+            model: 'profile-m',
+            fallbackModels: [{ model: 'profile-fb-1' }, { model: 'profile-fb-2', effort: 'high' }],
+          },
+        },
+      },
+      { subagents: { implement: { model: 'fallback-m' } } },
+    ],
+  }
+  const hit = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3')
+  assert.deepEqual(hit, {
+    model: 'profile-m',
+    effort: undefined,
+    sources: { model: 'config', effort: undefined },
+    configSources: { model: 'whenMain', effort: undefined, fallbackModels: 'whenMain' },
+    whenMainValue: 'kimi-coding/k3',
+    tools: undefined,
+    maxConcurrent: 3,
+    fallbackModels: [{ model: 'profile-fb-1' }, { model: 'profile-fb-2', effort: 'high' }],
+  })
+  // 命中兜底条目但该 kind 未配链 → 回退旧 subagents 的链（字段级合并）。
+  const legacy = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'other/x')
+  assert.deepEqual(legacy.fallbackModels, [{ model: 'legacy-fb' }])
+  assert.equal(legacy.configSources.fallbackModels, 'legacy')
+  // 全程未配置：字段不出现（与现状逐字一致，避免污染既有 deepEqual 断言）。
+  const none = resolveSubagentDefaults({ subagents: {} }, 'implement', {})
+  assert.equal(none.fallbackModels, undefined)
+  assert.equal('fallbackModels' in none.configSources, false)
+})
+
 // ---------- L6：model 拆分与冲突检测 ----------
 
 test('splitProviderModel：provider 前缀拆分与裸 id、非法输入抛错', () => {

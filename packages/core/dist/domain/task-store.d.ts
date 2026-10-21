@@ -99,6 +99,19 @@ export function recordExecutorDispatch(root: string, taskRelPath: string, entry:
  */
 export function settleExecutorDispatch(root: string, taskRelPath: string, entry: import("./task-store.d.ts").DispatchSettleInput): [Error | null];
 /**
+ * 向该 childId 最近一条 failed 记录的 error 行追加后缀（失败转移链穷尽留痕用）：
+ * 只改 error 文本，不动 status/stage、不新增记录；无匹配 failed 记录时 no-op
+ * （未知 childId / 已归档任务静默跳过）。后缀由调用方渲染，含前导空格（如
+ * ` (fallback chain exhausted: m1 → m2)`），本函数原样拼接。读写失败返回 err
+ * 元组，调用方只告警（与 settle 同一口径）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {string} childId 关联的子代理会话 id
+ * @param {string} suffix 追加到 error 行的后缀（含前导空格）
+ * @returns {[Error | null]}
+ */
+export function appendDispatchErrorSuffix(root: string, taskRelPath: string, childId: string, suffix: string): [Error | null];
+/**
  * 计算派发后的任务阶段（纯函数，独立可测）：research 保持 current；
  * implement/frontend → 'implement'；check → 'check'。
  * kind 非法（含 undefined）抛错（fail loud，与 assertKind 同语义）。

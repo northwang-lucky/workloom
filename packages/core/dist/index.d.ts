@@ -8,6 +8,7 @@
  */
 export { WORKLOOM_DIR, LEGACY_TRELLIS_DIR, findWorkloomRoot, detectLegacyTrellis, insideWorkloom, } from './domain/locate.js';
 export { DEFAULT_CONFIG, resolveSubagentDefaults, splitProviderModel, detectExecutorConflicts, buildConflictNotice, assertForceReason, WorkloomConfigError, loadConfig, } from './domain/config.js';
+export { MODEL_INACCESSIBLE_CODES, isModelInaccessibleCode, extractFailureCode, buildFailoverNote, buildFailoverNotice, } from './domain/failover.js';
 export { buildNewDispatchBinding, resolveDispatchModelSource } from './domain/dispatch-binding.js';
 export { EFFORT_LEVELS, EXECUTOR_KINDS, assertEffort, assertKind, buildExecutorPrompt, } from './domain/executor-context.js';
 export { NATIVE_TOOLS_DSH, NATIVE_TOOLS_PI, buildAllowList, } from './domain/executor-tools.js';
@@ -20,7 +21,7 @@ export { writeFileAtomic } from './domain/file-atomic.js';
 export { parseContract, WorkflowContractError } from './domain/workflow-contract.js';
 export { WORKFLOW_PROTOCOL_VERSION, assertWorkflowProtocolVersion, } from './domain/protocol.js';
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './domain/breadcrumb.js';
-export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordExecutorDispatch, settleExecutorDispatch, } from './domain/task-store.js';
+export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordExecutorDispatch, settleExecutorDispatch, appendDispatchErrorSuffix, } from './domain/task-store.js';
 export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js';
 export { setActiveTask, clearActiveTask, resolveActiveTask, clearPointersToTask, } from './domain/active-task.js';
 export { countDirtyLines, gitAddCommit, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitMerge, gitMergeAbort, gitWorktreeAdd, gitWorktreeRemove, gitWorktreeList, gitWorktreePrune, gitBranchDelete, gitBranchExists, gitCheckRefFormat, } from './domain/git.js';
@@ -40,7 +41,7 @@ export { runDoctor, buildDoctorRelayText } from './service/doctor.js';
 export { ensureSpecTemplates } from './service/spec-templates.js';
 export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossKindReuseRejectText, PURGE_FLAG, DOCTOR_FIX_FLAG, DEVELOPER_FILE, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, } from './surface.js';
 export type { ExecutorInjectionStats } from './surface.js';
-export type { WorkloomConfig, WorktreeConfig, WorktreeCleanupMode, SubagentConfigEntry, SubagentProfile, SubagentTools, SubagentDefaultSource, SubagentConfigSource, ResolveSubagentDefaultsResult, ExecutorConflict, } from './domain/config.d.ts';
+export type { WorkloomConfig, WorktreeConfig, WorktreeCleanupMode, SubagentConfigEntry, SubagentFallbackModel, SubagentProfile, SubagentTools, SubagentDefaultSource, SubagentConfigSource, ResolveSubagentDefaultsResult, ExecutorConflict, } from './domain/config.d.ts';
 export type { TaskRepoResolution, BranchNameContext, CreateTaskWorktreeResult, CleanupTaskWorktreeResult, } from './domain/worktree.d.ts';
 export type { AllowToolsConfig, BuildAllowListParams, } from './domain/executor-tools.d.ts';
 export type { BuildExecutorPromptParams, ExecutorPromptStats, ExecutorPromptResult, } from './domain/executor-context.d.ts';

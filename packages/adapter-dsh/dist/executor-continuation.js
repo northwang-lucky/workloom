@@ -39,7 +39,11 @@ export function buildTurnReceiptText(meta, effective) {
             effortWhenMainValue: effective.whenMainValue,
             injection: meta.injection,
         });
-    return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}`;
+    // 标注顺序：forced → reused → failover（各自独立，回执尾部追加，便于审计扫读）。
+    const failoverSuffix = meta.failover !== undefined
+        ? ` (failover attempt ${meta.failover.attempt}: ${meta.failover.model})`
+        : '';
+    return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}${failoverSuffix}`;
 }
 /**
  * 读取子会话首次派发记录的绑定（design §8.3，纯读取，无副作用）：dispatches 中

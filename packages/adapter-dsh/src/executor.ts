@@ -51,7 +51,12 @@
  *   write/edit 只允许落在其 cwd 的 .workloom/ 内（越界拒绝），派发成功时登记
  *   子会话身份，重启后守卫按任务记录懒重建；
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：后台 receipt
- *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨。
+ *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨；同步走链成功时追加
+ *   (failover attempt N: <model>) 标注实际生效模型。
+ * - 失败转移（executor-failover.ts）：配置 fallback_models 的 kind 在模型不可访问
+ *   （白名单 code）时自动换模型——派发时同步走链（本文件），运行中失败在结算后
+ *   fire-and-forget 新开会话重派（executor-settle 钩子）；未配置 / 显式 model /
+ *   非白名单错误一律维持现状（零行为变化）。
  * - 并发容量闸（executor-capacity.ts）：新派发与续用入口均先取本主会话 running 集合
  *   （DSH 原生 listDescendants(parentId) 直子级 running 行，会话级，不跨会话），
  *   结合 dispatches 记录 + label 解析补全 childId→kind 映射，调用 core 的
@@ -63,12 +68,12 @@
  * 模块边界：本文件负责工具注册（registerExecutor）与执行编排（executeTool）；
  * 参数 schema 装配在 executor-schema.ts，prompt 组装在 executor-injection.ts，
  * receipt 渲染在 executor-receipt.ts，continuable 会话操作在 executor-continuation.ts，
- * 终态回填在 executor-settle.ts，工具面白名单在 executor-dispatch.ts，research 守卫在
- * executor-guard.ts，并发容量闸在 executor-capacity.ts。
+ * 终态回填在 executor-settle.ts，失败转移编排在 executor-failover.ts，工具面白名单在
+ * executor-dispatch.ts，research 守卫在 executor-guard.ts，并发容量闸在
+ * executor-capacity.ts。
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import { randomUUID } from 'node:crypto'
 
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
@@ -86,6 +91,7 @@ import {
   composeLocalDirectivesText,
   CONTINUE_REBIND_REJECT_TEXT,
   detectExecutorConflicts,
+  DISPATCH_MODEL_SOURCES,
   ERR_PREFIX,
   evaluateStaleAlignmentGate,
   evaluateLightDispatchGate,
@@ -105,13 +111,8 @@ import {
   TOOL_NAMES,
 } from '@workloom-ai/core'
 
-import { CONTEXT_KEY_PREFIX } from './constants.js'
-import {
-  assertAllowListNonEmpty,
-  buildAllowFilter,
-  hasLspTooling,
-  SPAWN_PROVIDER,
-} from './executor-dispatch.js'
+import { CONTEXT_KEY_PREFIX, DISPATCH_WARN_PREFIX } from './constants.js'
+import { assertAllowListNonEmpty, buildAllowFilter, hasLspTooling } from './executor-dispatch.js'
 import {
   collectRunningExecutors,
   evaluateCapacityGate,
@@ -126,12 +127,16 @@ import {
   readSpawnBinding,
 } from './executor-continuation.js'
 import type { TurnMeta } from './executor-continuation.js'
-import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
 import {
-  registerExecutorToolface,
-  registerExecutorToolfaceChild,
-  releaseExecutorToolfaceChild,
-} from './executor-toolface.js'
+  handleSettledDispatch,
+  markFailoverContinued,
+  PARENT_MODEL_LABEL,
+  registerFailoverContext,
+  startDispatchWithFailover,
+} from './executor-failover.js'
+import type { FallbackModelEntry } from './executor-failover.js'
+import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.js'
+import { registerExecutorToolface } from './executor-toolface.js'
 import { readMainModel } from './main-model.js'
 import { buildExecutorSchema } from './executor-schema.js'
 import {
@@ -147,9 +152,6 @@ import {
 
 /** 覆盖审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor override:`
-
-/** 派发审计记录失败告警前缀（记录失败不阻塞派发）。 */
-const DISPATCH_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor dispatch:`
 
 /** 纯文本块最小形状（render 与返回值共用）。 */
 export interface TextBlockLike {
@@ -197,8 +199,9 @@ export function registerExecutor(ctx: Context): void {
   // research 写守卫：插件激活时注册一次（机制强制面：research 只能写 <cwd>/.workloom/）。
   registerResearchGuard(ctx)
   // 派发终态回填通道：全局 subagent/end 监听按 childId 自动回填 dispatches 终态
-  // （register 自绑定 fiber 生命周期，插件卸载自动清理）。
-  registerDispatchSettlement(ctx)
+  // （register 自绑定 fiber 生命周期，插件卸载自动清理）；settle 完成后接失败转移
+  // 钩子（模型不可访问时按 fallback_models 链新开会话重派）。
+  registerDispatchSettlement(ctx, (settled) => handleSettledDispatch(ctx, settled))
   // 工具面收窄通道：agent/created 串行监听按 childId 施加白名单
   // （DSH 0.2.1 起按次 toolFilter 通道取消后的官方替代路径）。
   registerExecutorToolface(ctx)
@@ -382,6 +385,12 @@ async function executeTool(
   // 续派轮的 spawn 绑定（design §8.3）：从 childId 首次派发记录读取的 model/effort，
   // 续派记录沿用该值、回执如实展示；新派轮为 null（绑定在派发后由本函数落盘）。
   let spawnBinding: { model?: string; effort?: string } | null = null
+  // 新派发的失败转移链（配置解析结果；续用轮不消费）与同步走链成功时的标注
+  //（本跳序号 + 实际生效模型 + 上一跳 childId，用于 dispatches 链式留痕）。
+  let failoverChain: FallbackModelEntry[] = []
+  let failover:
+    | { attempt: number; model: string; effort?: string; fallbackOf: string }
+    | undefined
   // 本轮实际发送内容与其注入统计：新派发/续接 reinject 走全量 buildExecutorPrompt
   // 产物；续接默认只发主会话增量指令（不重注入全量上下文），注入统计如实反映
   // 实际发送内容（增量时内联/截断/索引为 0、KB 为增量体积）。
@@ -480,6 +489,8 @@ async function executeTool(
       })
       // 投递成功：child 已在 native 视野，移除 in-flight 本地项。
       releaseInFlightDispatch(continueSeq)
+      // 续用轮标记：该 child 若之后死于白名单错误，转移说明需注明增量指令已丢失。
+      markFailoverContinued(childId)
     } catch (error) {
       // 投递失败：释放 in-flight 槽位，不留永久占位。
       releaseInFlightDispatch(continueSeq)
@@ -510,45 +521,41 @@ async function executeTool(
         output: [{ type: 'text', text: dispatchCapacity }],
       }
     }
+    // 失败转移链：仅新派发且未显式传 model 时启用（显式即明确意图）。
+    failoverChain = params.model === undefined ? (effective.fallbackModels ?? []) : []
+    const childLabel = buildChildLabel(root, taskRelPath, params.kind, params.title)
     // 闸放行后同步登记 in-flight 条目（占槽），关闭并行工具调用的异步窗口竞态；
     // startContinuable 成功返回后 child 已进 native 视野→移除本地项；失败/异常路径同样移除。
     const dispatchSeq = generateDispatchSeq()
     registerInFlightDispatch(dispatchSeq, params.kind)
     try {
-      // 白名单必须在子代理创建前登记：agent/created 在 startActivation 返回之前
-      // 就触发，晚登记等于错过收窄窗口。childId 由本层预分配，让登记与身份一一
-      // 对应，不依赖创建后的产后匹配。delivery: 'parent' 保持后台派发语义——子代理
-      // 结算时向父会话投递通知，而不是只把结果交回本次调用。
-      const reservedChildId = SessionId(randomUUID())
-      registerExecutorToolfaceChild(reservedChildId, allowFilter.allow)
-      let started
-      try {
-        started = await ctx.subagents.startActivation({
-          provider: SPAWN_PROVIDER,
-          label: buildChildLabel(root, taskRelPath, params.kind, params.title),
-          childId: reservedChildId,
-          request: {
-            prompt: [{ type: 'text', text: sendText }],
-            parent,
-            agentOptions,
-            maxDepth: 1,
-          },
-          signal: exec.signal,
-          delivery: 'parent',
-        })
-      } catch (error) {
-        // 启动失败：撤销白名单登记，避免 id 泄漏进索引。
-        releaseExecutorToolfaceChild(reservedChildId)
-        throw error
-      }
-      childId = started.childId
-      // child 已进 native 视野，移除 in-flight 本地项（native 记录接管计数）。
-      releaseInFlightDispatch(dispatchSeq)
+      // 主模型失败于白名单 code 时在本次工具调用内按链重试（executor-failover.ts）；
+      // 每跳预分配 childId、创建前登记工具白名单、失败撤销登记并留 failed 记录。
+      const outcome = await startDispatchWithFailover({
+        ctx,
+        parent,
+        signal: exec.signal,
+        root,
+        taskRelPath,
+        kind: params.kind,
+        title: params.title,
+        label: childLabel,
+        sendText,
+        allowNames: allowFilter.allow,
+        agentOptions,
+        chain: failoverChain,
+        primaryBinding: buildNewDispatchBinding(params, effective, mainModel),
+        primaryModel: effective.model ?? PARENT_MODEL_LABEL,
+      })
+      childId = outcome.started.childId
+      failover = outcome.failover
     } catch (error) {
-      // startContinuable 失败/异常：释放 in-flight 槽位，不留永久占位。
+      // 启动失败 / 链穷尽：释放 in-flight 槽位，不留永久占位（错误原样抛出）。
       releaseInFlightDispatch(dispatchSeq)
       throw error
     }
+    // child 已进 native 视野，移除 in-flight 本地项（native 记录接管计数）。
+    releaseInFlightDispatch(dispatchSeq)
   }
   // 派发时刻初写 dispatches（status: running）：失败派发也留痕（缺口 A）；记录
   // 失败仅告警不阻塞派发。终态由 executor-settle 的 subagent/end 监听回填。
@@ -563,12 +570,41 @@ async function executeTool(
     toolsAllow: allowFilter.allow,
     // 续派轮沿用 spawn 绑定（可能无绑定字段 → 不落）；新派轮落本次生效绑定。
     ...(reused ? buildSpawnEntryBinding(spawnBinding) : buildNewDispatchBinding(params, effective, mainModel)),
+    // 同步走链成功：覆盖为主模型之外的 fallback 绑定，并落链式关联（上一跳 childId）。
+    ...(failover !== undefined
+      ? {
+          model: failover.model,
+          ...(failover.effort !== undefined ? { effort: failover.effort } : {}),
+          modelSource: DISPATCH_MODEL_SOURCES.FALLBACK,
+          fallbackOf: failover.fallbackOf,
+          fallbackAttempt: failover.attempt,
+        }
+      : {}),
   })
   if (dispatchErr !== null) {
     console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`)
   }
   // 登记终态回填定位（subagent/end 按 childId 关联 dispatches 记录）。
   trackDispatchSettle(childId, root, taskRelPath)
+  // 失败转移上下文（结算后按链重派）：仅新派发、未显式传 model、链非空时登记；
+  // 显式 model / 未配置链不登记，转移天然不发生（零行为变化）。
+  if (!reused && params.model === undefined && failoverChain.length > 0) {
+    registerFailoverContext(childId, {
+      root,
+      taskRelPath,
+      kind: params.kind,
+      title: params.title,
+      firstPrompt: params.prompt,
+      continued: false,
+      chain: failoverChain,
+      attempt: failover?.attempt ?? 1,
+      currentModel: failover?.model ?? effective.model ?? PARENT_MODEL_LABEL,
+      primaryModel: effective.model ?? PARENT_MODEL_LABEL,
+      parent,
+      allowNames: allowFilter.allow,
+      hasLsp,
+    })
+  }
   // research 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
   if (params.kind === EXECUTOR_KINDS.research) {
     registerResearchChildId(root, childId)
@@ -582,6 +618,10 @@ async function executeTool(
     // 续派轮传 spawn 绑定（可能为 undefined = 记录无绑定，回执渲染 unrecorded）；
     // 新派轮不传（走现状 receipt，未绑定字段时仍显示 (param)/(config…) 现状）。
     ...(reused ? { spawnBinding: spawnBinding ?? undefined } : {}),
+    // 同步走链成功：回执如实标注实际生效模型与跳序号。
+    ...(failover !== undefined
+      ? { failover: { attempt: failover.attempt, model: failover.model } }
+      : {}),
   }
   return {
     kind: 'background',

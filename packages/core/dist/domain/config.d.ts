@@ -27,8 +27,9 @@ export function loadConfig(root: string, options?: {
  * 合并 executor 子代理默认 model/effort：工具调用参数优先，未出现的字段回退到
  * subagent_profiles 命中条目（按主会话模型匹配），再回退到旧 subagents 配置
  * （按 kind 对应条目）；全部缺失时字段为 undefined（继承父会话）。model 与
- * effort 独立合并。model 的 map 形式按 runtime 取值，缺当前 runtime 的 key 时
- * fail loud（避免静默用错模型）。纯同步、无副作用（不修改入参）。
+ * effort 独立合并，失败转移链（fallbackModels）同样字段级合并。model 的 map 形式
+ * 按 runtime 取值，缺当前 runtime 的 key 时 fail loud（避免静默用错模型）。
+ * 纯同步、无副作用（不修改入参）。
  * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
  * @param {string} kind executor 类型（research/implement/check/frontend）
  * @param {{model?: string, effort?: string}} overrides 工具调用参数（仅覆盖出现的字段）

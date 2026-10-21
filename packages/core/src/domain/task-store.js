@@ -1015,6 +1015,57 @@ function settleExecutorDispatchInternal(root, taskRelPath, entry) {
 }
 
 /**
+ * 向该 childId 最近一条 failed 记录的 error 行追加后缀（失败转移链穷尽留痕用）：
+ * 只改 error 文本，不动 status/stage、不新增记录；无匹配 failed 记录时 no-op
+ * （未知 childId / 已归档任务静默跳过）。后缀由调用方渲染，含前导空格（如
+ * ` (fallback chain exhausted: m1 → m2)`），本函数原样拼接。读写失败返回 err
+ * 元组，调用方只告警（与 settle 同一口径）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {string} childId 关联的子代理会话 id
+ * @param {string} suffix 追加到 error 行的后缀（含前导空格）
+ * @returns {[Error | null]}
+ */
+export function appendDispatchErrorSuffix(root, taskRelPath, childId, suffix) {
+  try {
+    appendDispatchErrorSuffixInternal(root, taskRelPath, childId, suffix)
+    return [null]
+  } catch (error) {
+    return [toError(error)]
+  }
+}
+
+/**
+ * 追加 failed 记录错误后缀（内部实现，失败抛错由外层转元组）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {string} childId 关联的子代理会话 id
+ * @param {string} suffix 追加后缀
+ */
+function appendDispatchErrorSuffixInternal(root, taskRelPath, childId, suffix) {
+  if (typeof childId !== 'string' || childId.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: append error suffix requires a non-empty childId`)
+  }
+  if (typeof suffix !== 'string' || suffix.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: append error suffix requires a non-empty suffix`)
+  }
+  const projectRoot = requireProjectRoot(root)
+  const task = requireTask(projectRoot, taskRelPath)
+  // 从尾部向前找该 childId 最近一条 failed 记录（同 childId 可能多轮派发）。
+  for (let i = task.dispatches.length - 1; i >= 0; i--) {
+    const record = task.dispatches[i]
+    if (record === undefined || record === null || typeof record !== 'object') continue
+    if (record.childId !== childId) continue
+    if (record.status !== 'failed') continue
+    const current = typeof record.error === 'string' ? record.error : ''
+    record.error = `${current}${suffix}`
+    writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task))
+    return
+  }
+  // 无匹配 failed 记录：no-op（任务已归档等场景由调用方只告警）。
+}
+
+/**
  * 校验并归一化回填条目（内部，fail loud）：childId 非空 string、status 为
  * completed/failed（拒绝 running——终态不回退到运行中）、error 可选非空 string。
  * @param {import('./task-store.d.ts').DispatchSettleInput} entry 回填条目
@@ -1055,6 +1106,9 @@ export const DISPATCH_MODEL_SOURCES = Object.freeze({
 
 /** DISPATCH_MODEL_SOURCES 取值集合（buildDispatchRecord 校验用）。 */
 const DISPATCH_MODEL_SOURCE_SET = new Set(Object.values(DISPATCH_MODEL_SOURCES))
+
+/** 链式留痕 fallbackAttempt 的最小合法值（跳序号 1 = 首跳，不落字段故从 2 起）。 */
+const MIN_FALLBACK_ATTEMPT = 2
 
 /**
  * 组装派发审计记录（内部）：补 at（ISO 时间）与 status（默认 'running'），并校验
@@ -1113,6 +1167,25 @@ function buildDispatchRecord(entry) {
         `(must be one of ${Object.values(DISPATCH_MODEL_SOURCES).join('/')})`,
     )
   }
+  // 链式留痕字段可选：fallbackOf 指向前一跳 childId（非空 string）；fallbackAttempt
+  // 为本跳序号（首跳无字段，故提供时必须 >= 2 的整数）。
+  if (
+    entry.fallbackOf !== undefined &&
+    (typeof entry.fallbackOf !== 'string' || entry.fallbackOf.trim() === '')
+  ) {
+    throw new Error(`${ERR_PREFIX}: dispatch entry fallbackOf must be a non-empty string when provided`)
+  }
+  if (
+    entry.fallbackAttempt !== undefined &&
+    (typeof entry.fallbackAttempt !== 'number' ||
+      !Number.isInteger(entry.fallbackAttempt) ||
+      entry.fallbackAttempt < MIN_FALLBACK_ATTEMPT)
+  ) {
+    throw new Error(
+      `${ERR_PREFIX}: dispatch entry fallbackAttempt must be an integer >= ${MIN_FALLBACK_ATTEMPT} ` +
+        'when provided (the first hop carries no field)',
+    )
+  }
   // toolsAllow 可选：提供时须为字符串数组（空数组合法但无意义，拒绝）；
   // 它决定冷恢复时重新施加的工具面，形状错误会让限制静默失效。
   if (entry.toolsAllow !== undefined) {
@@ -1132,6 +1205,8 @@ function buildDispatchRecord(entry) {
     ...(entry.model !== undefined ? { model: entry.model } : {}),
     ...(entry.effort !== undefined ? { effort: entry.effort } : {}),
     ...(entry.modelSource !== undefined ? { modelSource: entry.modelSource } : {}),
+    ...(entry.fallbackOf !== undefined ? { fallbackOf: entry.fallbackOf } : {}),
+    ...(entry.fallbackAttempt !== undefined ? { fallbackAttempt: entry.fallbackAttempt } : {}),
     ...(entry.toolsAllow !== undefined ? { toolsAllow: [...entry.toolsAllow] } : {}),
     ...(entry.error !== undefined ? { error: entry.error } : {}),
   }

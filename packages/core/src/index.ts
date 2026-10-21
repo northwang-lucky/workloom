@@ -26,6 +26,14 @@ export {
   loadConfig,
 } from './domain/config.js'
 
+export {
+  MODEL_INACCESSIBLE_CODES,
+  isModelInaccessibleCode,
+  extractFailureCode,
+  buildFailoverNote,
+  buildFailoverNotice,
+} from './domain/failover.js'
+
 export { buildNewDispatchBinding, resolveDispatchModelSource } from './domain/dispatch-binding.js'
 
 export {
@@ -96,6 +104,7 @@ export {
   recordAlignmentCredential,
   recordExecutorDispatch,
   settleExecutorDispatch,
+  appendDispatchErrorSuffix,
 } from './domain/task-store.js'
 
 export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js'
@@ -235,6 +244,7 @@ export type {
   WorktreeConfig,
   WorktreeCleanupMode,
   SubagentConfigEntry,
+  SubagentFallbackModel,
   SubagentProfile,
   SubagentTools,
   SubagentDefaultSource,

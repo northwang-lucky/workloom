@@ -40,7 +40,7 @@ export declare const TOOL_DESCRIPTIONS: {
     readonly taskFinish: "Clear the active-task pointer for this session (status unchanged)";
     readonly taskArchive: "Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)";
     readonly taskList: "List task summaries (optionally filtered by status)";
-    readonly executor: "Dispatch a workloom executor subagent (research/implement/check/frontend) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only)";
+    readonly executor: "Dispatch a workloom executor subagent (research/implement/check/frontend) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only); when the kind configures fallback_models, a model-access failure automatically retries the dispatch on the next fallback model in a new child session";
     readonly step: "Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract";
     readonly journal: "Record this session in the workloom journal (title + work commit hash + summary)";
 };
