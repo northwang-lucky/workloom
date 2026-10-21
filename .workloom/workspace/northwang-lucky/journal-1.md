@@ -328,3 +328,9 @@
 - Commit: b59003f
 - Summary: 实现轻量任务模式（mode=light）：task.json mode 字段与 create 参数、闸门放松（start 免凭证/jsonl/marker、check 免 jsonl、frontend 门豁免）、派发拒绝前移至双 adapter spawn 前（core 纯函数单源，force 记 light_dispatch）、workflow-light.md 动态注入切换（概览行与状态文案，norms 主契约单源）、契约 1.0 否定标准与 norms 豁免句、workloom-continue 必要性重估。adapter-pi 真机清单 5 项 PASS（主会话 tmux 执行）。glm 路由仍瘫，按 transport-failover 纪律全程 deepseek-flash。
 
+## subagent fallback_models 失败转移
+
+- Time: 2026-10-21T10:46:23.271Z
+- Commit: 7146af1
+- Summary: subagent 配置新增 fallback_models 失败转移：配置解析与白名单分类落 core，adapter-dsh 实现同步走链与结算后自动新会话重试（全量重注入 + 逐跳父会话通知 + dispatches 链式留痕）；glm TRANSPORT 抖动实证触发人工改派 deepseek，恰为本功能自动化对象；附带修复 doctor 测试 TMPDIR 隔离缺陷。
+
