@@ -38,7 +38,7 @@ Frontend UI presentation nodes consult the UI axes reference bundled with `workl
 
 Write settled conclusions into prd.md incrementally as you go. Keep a `## Alignment Decisions` section that records key choices, rejected alternatives, open nodes, and a convergence summary, ending with the machine-checkable marker `<!-- workloom:open-nodes=pending|none -->`. Convergence means the marker reads `none`.
 
-Convergence order is fixed: 1) the frontier is empty (no open node remains), 2) finalize prd.md, 3) run `workloom_task_align` with action=review, 4) read the review result: `readyToConfirm` must be `true` for the current prd.md — while it is false the review's `structureIssues` / `confirmBlockers` (missing prd.md, missing H1, a missing skeleton section such as `## Notes`, a section still on its placeholder, or a missing/non-`none` open-nodes marker) are content blockers you must fix in prd.md before re-running action=review; do not show the snapshot or hash to the user and never ask for confirmation while content blockers remain, 5) at `readyToConfirm` true, show the user the snapshot, its hash and the empty blocker list, 6) the user explicitly confirms, 7) run action=confirm to write the alignment credential (the same-hash repeat is idempotent and does not refresh the timestamp). The missing `expectedPrdHash` and `summary` are call parameters, not review content diagnostics. After confirm, any prd.md change makes the credential stale: re-enter alignment focused on the changed area, recompute the full frontier, and confirm again.
+Convergence order is fixed: 1) the frontier is empty (no open node remains), 2) for implementation work, fold the design/implement authoring question into the final alignment round as a plain numbered question (A. author both / B. author neither, with a recommendation and its reasoning), 3) finalize prd.md, 4) run `workloom_task_align` with action=review and require `readyToConfirm` true — while it is false the review's `structureIssues` / `confirmBlockers` (missing prd.md, missing H1, a missing skeleton section such as `## Notes`, a section still on its placeholder, or a missing/non-`none` open-nodes marker) are content blockers you must fix in prd.md before re-running action=review; do not show the snapshot or hash to the user while content blockers remain. The missing `expectedPrdHash` and `summary` are call parameters, not review content diagnostics. Do NOT ask the user to confirm the prd here and do not run action=confirm yet: the one and only user confirmation happens at 1.4 over the full review package, and action=confirm runs right after it, immediately before start. After confirm, any prd.md change makes the credential stale: re-enter alignment focused on the changed area, recompute the full frontier, and re-confirm with the user focused on the change before running action=confirm again. The same-hash repeat is idempotent and does not refresh the timestamp.
 
 Every question across the workflow — design-tree questions and exploratory questions alike — follows these rules:
 
@@ -47,7 +47,7 @@ Every question across the workflow — design-tree questions and exploratory que
 3. Never use an interactive question tool (ask_user_question and equivalents); pose questions as plain text output on any runtime.
 4. Never ask one question at a time: once per stage, list every open question identified so far as one numbered batch, and let the user answer them freely, in any order and any subset.
 
-Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, the frontier holds no open assumptions, and the alignment credential in task.json matches the finalized prd.md.
+Completion criteria (hard gate): the aligned requirements have no grey areas — every requirement is decidable, unambiguously worded, the frontier holds no open assumptions, and `workloom_task_align` action=review returns `readyToConfirm` true for the finalized prd.md. The credential itself is written at 1.4 after the single user confirmation, so it is fresh at start.
 
 #### 1.2 Research (optional)
 
@@ -61,13 +61,14 @@ Completion criteria: each jsonl has at least one real entry (the seeded `_exampl
 
 #### 1.4 Review and start
 
-Once prd.md is finalized, a task involving implementation work asks the user whether to author design.md/implement.md.
-Options:
-- A. author both.
-- B. author neither.
-On "author both", write design.md and implement.md first. Then hand all task documents to the user for review; after confirmation, run `workloom_task_start` and the task enters `in_progress`. The start tool is gated: it refuses while prd.md has no H1 title, any prd.md section is still the skeleton placeholder, or implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` with a non-empty `reason`, and the bypass is recorded in task.json `overrides` for audit.
-Before starting, run a scale self-check: judge precisely by the actual number of phases in prd.md/design.md/implement.md. When the work is large, recommend a candidate subtask list — for each candidate, its title, its scope, and the reason it is a separate deliverable. The user confirms the list; then create the subtasks one by one with `workloom_task_create`, each with `parent` set to the main task. Every subtask runs the full lifecycle (start → check → archive); the main task starts, checks, and archives only after every declared subtask is archived.
-Completion criteria: for a task involving implementation work, the design/implement question has been answered; `task.json` `status` is `in_progress`; and the user has confirmed the review.
+This step holds the one and only user confirmation before implementation. The review package is assembled once everything is ready: the finalized prd.md (re-run `workloom_task_align` action=review now to pin the current snapshot, hash, and an empty blocker list), the jsonl context lists, and design.md/implement.md when the final alignment round chose to author them. Present the package in one message — prd snapshot with its hash, the design/implement documents when present, and the context lists.
+
+Run the scale self-check while assembling the package: judge precisely by the actual number of phases in prd.md/design.md/implement.md. When the work is large, the package carries a candidate subtask list instead — for each candidate, its title, its scope, and the reason it is a separate deliverable — and the user's confirmation either starts the task or confirms the split (create the subtasks one by one with `workloom_task_create`, each with `parent` set to the main task; every subtask runs the full lifecycle; the main task starts, checks, and archives only after every declared subtask is archived).
+
+Escape hatch: for a large task the user may ask for stage-wise review instead — then confirm the prd first (run action=confirm after that confirmation) and review design.md/implement.md in a second pass before start.
+
+On the user's confirmation of the package: run `workloom_task_align` with action=confirm against the reviewed hash (writes the alignment credential), then `workloom_task_start` — the task enters `in_progress`. The start tool is gated: it refuses while prd.md has no H1 title, any prd.md section is still the skeleton placeholder, the alignment credential is missing or stale, or implement.jsonl/check.jsonl hold no real entries; tasks with no spec to reference may pass `force: true` with a non-empty `reason`, and the bypass is recorded in task.json `overrides` for audit.
+Completion criteria: `task.json` `status` is `in_progress`; and the user has confirmed the single review package (or the stage-wise passes under the escape hatch).
 
 ## Phase 2 Execute
 
@@ -114,7 +115,7 @@ No active task right now. When the user expresses a need, answer direct question
 [/workflow-state:no_task]
 
 [workflow-state:planning]
-The task is in planning. Phase 1.1 alignment runs automatically: load the workloom-alignment skill and drive the design tree (full-frontier rounds, recommended answers per decision node, fact checks on demand) to convergence; write conclusions into prd.md as you go. Then run `workloom_task_align`: action=review → require `readyToConfirm` true (fix every `confirmBlockers` entry and re-run review while it is false, without showing the snapshot or hash) → show the snapshot and hash to the user → user confirms → action=confirm. do not finalize prd.md before alignment converges, and do not start before the user confirmed the review. Then follow Phase 1: optional research → configure context → for implementation work, ask whether to author design/implement → user review, then start. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
+The task is in planning. Phase 1.1 alignment runs automatically: load the workloom-alignment skill and drive the design tree (full-frontier rounds, recommended answers per decision node, fact checks on demand) to convergence; write conclusions into prd.md as you go; do not finalize prd.md before alignment converges. For implementation work, fold the design/implement authoring question into the final alignment round. Convergence ends at `workloom_task_align` action=review returning `readyToConfirm` true (fix every `confirmBlockers` entry and re-run review while it is false, without showing the snapshot or hash) — do not ask for confirmation here. Then follow Phase 1: optional research → configure context → author design/implement when the final round chose to. At 1.4 present the single review package (re-run action=review to pin the current hash; include materials and, when the scale self-check trips, a split candidate list); the user's one confirmation then runs action=confirm and start back to back. For a large task the user may ask for stage-wise review; honor it. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]
@@ -150,7 +151,7 @@ Alignment (always-on):
 
 - Every task auto-enters Phase 1.1 alignment with the `workloom-alignment` skill only — never brainstorm/grilling/UI substages, and never the fixed grilling question.
 - After every user answer, recompute the design-tree frontier; new branches mean another round. Never declare convergence just because the user answered the current batch — claim it only when no open node remains and the `<!-- workloom:open-nodes=none -->` marker is in place.
-- In the planning phase, do not finalize prd.md before alignment converges, and confirm the review with `workloom_task_align` (review → user confirmation → confirm) before the task starts.
+- In the planning phase, do not finalize prd.md before alignment converges, and confirm the review with `workloom_task_align` before the task starts: review gates the single 1.4 user confirmation, and confirm runs right after it, immediately before start.
 - Treat a review with `readyToConfirm` false as a hard stop for user confirmation: fix every `structureIssues` / `confirmBlockers` entry in prd.md first (missing section, unfilled placeholder section, missing H1, missing or non-`none` open-nodes marker), then re-run `workloom_task_align` action=review; only a review with `readyToConfirm` true may be shown to the user for the explicit confirmation.
 
 LSP (always-on):

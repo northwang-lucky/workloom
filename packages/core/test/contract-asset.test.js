@@ -212,13 +212,14 @@ test('契约 v20 1.1 含技术决策边界、增量写入、开放节点标记�
     alignBody.includes('<!-- workloom:open-nodes=pending|none -->'),
     '缺开放节点可机检标记',
   )
-  // 收敛顺序：frontier 空 → finalize prd → review → 用户确认 → confirm
+  // 收敛顺序：frontier 空 → finalize prd → review → 此处不确认（唯一确认点在 1.4）→ stale 重入再 confirm
   const order = [
     'the frontier is empty',
     'finalize prd.md',
     'action=review',
-    'the user explicitly confirms',
-    'action=confirm',
+    'Do NOT ask the user to confirm the prd here',
+    'the one and only user confirmation happens at 1.4',
+    'action=confirm again',
   ]
   let cursor = -1
   for (const item of order) {
@@ -249,14 +250,14 @@ test('契约 v23 1.1 收敛顺序以 review 内容就绪为门禁（blocker 先�
   assert.ok(alignBody.includes('readyToConfirm'), '缺 readyToConfirm 就绪门禁')
   assert.ok(alignBody.includes('structureIssues'), '缺 structureIssues 诊断字段')
   assert.ok(alignBody.includes('confirmBlockers'), '缺 confirmBlockers 展示字段')
-  // 顺序：review → 检查 readyToConfirm → blocker 修复并重新 review → 才展示 snapshot/hash 给用户
+  // 顺序：review → 检查 readyToConfirm → blocker 修复并重新 review → 此处不确认 → 唯一确认点在 1.4 → stale 重入再 confirm
   const order = [
     'action=review',
     'readyToConfirm',
     'confirmBlockers',
     're-run',
-    'the user explicitly confirms',
-    'action=confirm',
+    'Do NOT ask the user to confirm the prd here',
+    'action=confirm again',
   ]
   let cursor = -1
   for (const item of order) {

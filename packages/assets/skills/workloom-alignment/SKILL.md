@@ -6,7 +6,7 @@ whenToUse: Use on any workloom task in Phase 1.1 (auto-entered at creation) or w
 
 # Workloom Alignment
 
-Phase 1.1 of the workloom workflow is one continuous alignment pass for the active task. You drive a single **design tree** to convergence, record every settled conclusion in `prd.md` as you go, and finish with a user-confirmed credential that gates the start.
+Phase 1.1 of the workloom workflow is one continuous alignment pass for the active task. You drive a single **design tree** to convergence, record every settled conclusion in `prd.md` as you go, and finish at a review-ready prd.md whose credential is written later — at the single 1.4 user confirmation that gates the start.
 
 This skill is the workloom-owned orchestration. Read `references/ui-design.md` only when the UI node applies and `references/test-first.md` only when the test-first node applies; keep the body lean and disclose branch knowledge on demand.
 
@@ -33,6 +33,8 @@ Every decision node gets your **recommendation with the reasoning** in the same 
 
 **Technical decision boundary**: only decisions that affect scope, acceptance, risk, external interfaces, or irreversible cost enter the alignment. Purely internal implementation choices are deferred to the implement executor.
 
+For implementation work, the final round also carries the design/implement authoring question as a plain numbered question (A. author both / B. author neither, with a recommendation and its reasoning), so 1.4 needs no separate question round.
+
 ## Recording
 
 Write every settled conclusion into the task's `prd.md` incrementally. Maintain a `## Alignment Decisions` section that records:
@@ -58,20 +60,19 @@ The order is fixed:
 2. Finalize `prd.md` (all skeleton sections filled, decisions recorded).
 3. Run `workloom_task_align` with `action=review`. It returns the prd snapshot, its SHA-256 hash, the open-node state, `structureIssues`, `confirmBlockers` and `readyToConfirm`.
 4. **Check `readyToConfirm` before involving the user.** While it is `false`, the current `prd.md` has content blockers — a missing `prd.md`, a missing H1, a missing skeleton section (for example `## Notes`), a section still holding its placeholder text, or a missing / non-`none` open-nodes marker. Fix every entry of `structureIssues` / `confirmBlockers` in `prd.md`, then re-run `action=review`. Do not show the snapshot or its hash to the user and do not request a confirmation while any content blocker remains.
-5. Only with `readyToConfirm` true, show the user the snapshot, its hash and the empty blocker list.
-6. The user explicitly confirms the reviewed version.
-7. Run `workloom_task_align` with `action=confirm`, passing `expectedPrdHash` from the review and a non-empty `summary` of the alignment (nodes covered, key decisions, confirmation result). The same-hash repeat is idempotent and does not refresh the timestamp.
+5. With `readyToConfirm` true, alignment is done. Do NOT ask the user to confirm the prd here and do not run `action=confirm`: the one and only user confirmation happens at 1.4 over the full review package (prd snapshot and hash, design/implement when authored, context lists), and `action=confirm` runs right after it, immediately before start.
+6. When the 1.4 confirmation lands, re-run `action=review` to pin the current hash, then run `workloom_task_align` with `action=confirm`, passing `expectedPrdHash` from that review and a non-empty `summary` of the alignment (nodes covered, key decisions, confirmation result). The same-hash repeat is idempotent and does not refresh the timestamp.
 
 `readyToConfirm` covers prd content only: the missing `expectedPrdHash` and `summary` are confirm call parameters, and a stale credential or task status is a separate gate — neither belongs to the review's content diagnostics.
 
-`workloom_task_align` runs only in the main session — alignment confirmation is a user decision, never a subagent one. If prd.md changes after a confirm, the credential becomes stale: re-enter alignment, focus on the changed area first, then recompute the full frontier and confirm again.
+`workloom_task_align` runs only in the main session — alignment confirmation is a user decision, never a subagent one. If prd.md changes after a confirm, the credential becomes stale: re-enter alignment, focus on the changed area first, recompute the full frontier, and re-confirm with the user focused on the change before running `action=confirm` again.
 
 ## Boundaries
 
-- Phase 1.1 confirms requirements. Phase 1.4 separately reviews the full execution package (research/context/design/implement) and authorizes the start — do not conflate the two.
+- Phase 1.1 converges requirements to a review-ready prd.md. The user confirmation of that prd is deliberately NOT a separate gate: it rides the single 1.4 review package (research/context/design/implement included) that authorizes the start.
 - Do not write implementation code during alignment.
 - When the work contains three or more pieces that could be delivered and accepted independently, raise the split once scope and acceptance are determined; never create subtask tasks before the user confirms the candidate list and the split itself.
 
 ## Completion criteria
 
-The frontier is empty, prd.md has no grey areas, the `<!-- workloom:open-nodes=none -->` marker is in place, and the user has confirmed the review so the alignment credential matches the finalized prd.md.
+The frontier is empty, prd.md has no grey areas, the `<!-- workloom:open-nodes=none -->` marker is in place, and `workloom_task_align` action=review returns `readyToConfirm` true. The credential is written later, right after the single 1.4 user confirmation, so it matches the finalized prd.md fresh at start.
