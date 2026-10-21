@@ -1,0 +1,8 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/domain-module/index.md", "reason": "task.json 新增 mode 字段的归一化纪律与 domain 纯 JS 模块约定"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令，闸门与注入分支的写法约束"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "中英文分工：workflow.md/workflow-light.md 等资产文本英文，任务文档中文"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "core 与受影响包的 dist 同 commit 重建纪律"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/assets/adapter 分层：mode 参数经 surface.ts 投影到两个 adapter，adapter 不承载业务逻辑"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "asset-version-bump 纪律（主契约纯文本增补不升版本）与 transport-failover（执行器路由健康处置）"}
+{"file": ".workloom/spec/adapter-pi/verify/index.md", "reason": "adapter-pi 侧 mode 参数投影的验证口径"}
