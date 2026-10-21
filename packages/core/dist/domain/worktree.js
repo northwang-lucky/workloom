@@ -1,5 +1,5 @@
 /**
- * 任务 worktree 生命周期编排（domain 纯 JS + JSDoc，err 元组、无 shell）。
+ * 任务 worktree 生命周期编排（domain 纯 JS + JSDoc，err 元组；git 动作无 shell）。
  *
  * 设计意图（design §3）：
  * - start 侧 createTaskWorktree：package→仓解析 → unborn/detached 探测 → base
@@ -7,6 +7,8 @@
  *   check-ref-format → 残留前置探测（prune + list，空目录也不放过——add 会静默
  *   复用空目录，§A1/§A3）→ 分支复用或新建（`add -b` 失败回滚游离分支，§A1）；
  *   任一失败返回 err，调用方在 status 写盘前中止 → 零部分状态；
+ * - 依赖准备（packages.setup）：worktree 创建或幂等复用成功后按序执行配置命令
+ *   （`/bin/sh -c`、cwd=worktree 根、stdio 透传），首败中止并保留现场（PRD R3-R6）；
  * - archive 侧 cleanupTaskWorktree：脏检查无条件（调用方不传 force，结构上无
  *   旁路）→ merge 模式（主检出 HEAD==base 校验、祖先判定跳过合并、以 MERGE_HEAD
  *   判别冲突并 abort、submodule gitlink 以 `HEAD:<path>` vs 子仓 HEAD 幂等联动
@@ -15,8 +17,10 @@
  * - 本模块所有 git 动作经 git.js 原语（execFile 无 shell、err.code/err.stderr
  *   消费约定见 git.js 文件头）；错误文案英文，前缀 `workloom worktree:`。
  */
+import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve, sep } from 'node:path';
+import { renderSetupCommand } from './config.js';
 import { gitAddCommit, gitBranchDelete, gitBranchExists, gitCheckRefFormat, gitConfig, gitHasMergeHead, gitIsAncestor, gitMerge, gitMergeAbort, gitRevParse, gitStatusSync, gitWorktreeAdd, gitWorktreeList, gitWorktreeListSync, gitWorktreePrune, gitWorktreeRemove, } from './git.js';
 import { WORKLOOM_DIR } from './locate.js';
 /** 错误消息前缀（运行时文案英文）。 */
@@ -136,8 +140,64 @@ export async function renderBranchName(template, ctx, root = process.cwd()) {
     return [null, name];
 }
 /**
+ * 执行 package 的 worktree 依赖准备命令（内部，PRD R3-R6）：命令取自
+ * `config.packages[<pkg>].setup`（缺省空数组 = 零行为），逐条渲染占位符后以
+ * worktree 根为 cwd 经 `/bin/sh -c` 串行执行；任一失败立即返回 err（worktree
+ * 现场保留，重跑 start 走幂等复用路径重新准备）。
+ * @param {{pkg: string, config: import('./config.d.ts').WorkloomConfig, worktreeAbs: string, sourceCheckout: string}} options
+ * @returns {Promise<Error | null>}
+ */
+async function runPackageSetup(options) {
+    const { pkg, config, worktreeAbs, sourceCheckout } = options;
+    const commands = config.packages[pkg]?.setup ?? [];
+    for (const command of commands) {
+        const rendered = renderSetupCommand(command, { worktree: worktreeAbs, sourceCheckout });
+        const error = await runSetupCommandOnce(worktreeAbs, rendered);
+        if (error !== null) {
+            return wtErr(`setup command failed (${errCode(error)}): ${JSON.stringify(rendered)}; ` +
+                `worktree ${JSON.stringify(worktreeAbs)} kept for retry — fix packages.${pkg}.setup ` +
+                'in .workloom/config.json and re-run start');
+        }
+    }
+    return null;
+}
+/**
+ * 执行单条渲染后的 setup 命令（内部）：`/bin/sh -c`，cwd 为 worktree 根；
+ * `stdio: inherit` 让 stdout/stderr 直达宿主进程日志（长安装命令可见进度）。
+ * 失败以退出码或终止信号构造 err，供上层带命令与码值报告。
+ * @param {string} worktreeAbs 命令工作目录（worktree 根绝对路径）
+ * @param {string} command 渲染后的命令串
+ * @returns {Promise<Error | null>}
+ */
+function runSetupCommandOnce(worktreeAbs, command) {
+    return new Promise((done) => {
+        const child = spawn('/bin/sh', ['-c', command], { cwd: worktreeAbs, stdio: 'inherit' });
+        child.on('error', (error) => done(error));
+        child.on('close', (code, signal) => {
+            if (code === 0) {
+                done(null);
+                return;
+            }
+            done(setupExitError(code, signal));
+        });
+    });
+}
+/**
+ * 构造 setup 子进程失败错误（内部）：`code` 沿用 execFile 错误形状，供 errCode
+ * 统一提取（信号终止时无数字退出码，改用信号名）。
+ * @param {number | null} code 退出码
+ * @param {NodeJS.Signals | null} signal 终止信号
+ * @returns {Error & {code: number | string}}
+ */
+function setupExitError(code, signal) {
+    const detail = code !== null ? `exit ${code}` : `terminated by signal ${String(signal)}`;
+    return Object.assign(new Error(detail), { code: code ?? String(signal) });
+}
+/**
  * start 侧创建任务 worktree（design §3.3）：任一失败返回 err，调用方在 status
  * 写盘前中止（零部分状态）；成功结果的 worktreePath 为项目根相对路径（S1-Q1）。
+ * worktree 创建或幂等复用成功后执行 packages.<name>.setup（PRD R3-R6），失败即
+ * 中止 start 并保留现场；重跑 start 走复用路径重新准备以自愈。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').TaskRecord} task 任务记录（package/parent/createdAt/name）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
@@ -145,9 +205,9 @@ export async function renderBranchName(template, ctx, root = process.cwd()) {
  * @returns {Promise<[Error | null, import('./worktree.d.ts').CreateTaskWorktreeResult | null]>}
  */
 export async function createTaskWorktree(root, task, taskRelPath, config) {
+    const pkg = /** @type {string} */ (task.package);
     // 1. package → 仓解析（非 git / 配置与磁盘不符 → 直接拒绝）。
-    const [repoErr, repo] = await resolveTaskRepo(root, config, 
-    /** @type {string} */ (task.package));
+    const [repoErr, repo] = await resolveTaskRepo(root, config, pkg);
     if (repoErr !== null || repo === null) {
         return [repoErr ?? wtErr('package resolution returned no repository'), null];
     }
@@ -203,6 +263,9 @@ export async function createTaskWorktree(root, task, taskRelPath, config) {
     //    再嵌套 package 名（布局为 PRD R4 裁定）。
     const relWorktreePath = join(WORKLOOM_DIR, WORKTREE_DIR, taskId, ...(repo.kind === 'root' ? [] : [String(task.package)]));
     const targetAbs = resolve(root, relWorktreePath);
+    // 依赖准备参数：命令 cwd 与 <worktree> 取 worktree 根；<source-checkout> 取
+    // 仓解析结果（root 布局 = 项目根，sub/submodule = package 目录）。
+    const setupOptions = { pkg, config, worktreeAbs: targetAbs, sourceCheckout: repoRoot };
     // 7. 残留前置探测（§A1/§A3）：add 会静默复用空目录、prune 不删目录——不能依赖
     //    add 退出码。目录存在 → prune 元数据 → 查注册：命中本任务分支则幂等复用。
     if (existsSync(targetAbs)) {
@@ -217,6 +280,10 @@ export async function createTaskWorktree(root, task, taskRelPath, config) {
         const entry = entries.find((item) => resolve(item.path) === targetAbs);
         if (entry !== undefined) {
             if (entry.branch === branch) {
+                // 幂等复用同样执行 setup（PRD R3）：否则首次准备失败后重跑永远无法自愈。
+                const setupErr = await runPackageSetup(setupOptions);
+                if (setupErr !== null)
+                    return [setupErr, null];
                 return [null, { branch, baseBranch, worktreePath: relWorktreePath }];
             }
             return [
@@ -264,6 +331,11 @@ export async function createTaskWorktree(root, task, taskRelPath, config) {
         }
         return [wtErr(`worktree add failed (${errCode(addErr)}): ${errText(addErr)}`), null];
     }
+    // 10. 依赖准备（PRD R3-R6）：新建路径同样在返回成功前执行；失败即中止 start，
+    //     但保留 worktree 与分支（现场供排查，重跑走复用路径自愈）。
+    const setupErr = await runPackageSetup(setupOptions);
+    if (setupErr !== null)
+        return [setupErr, null];
     return [null, { branch, baseBranch, worktreePath: relWorktreePath }];
 }
 /**

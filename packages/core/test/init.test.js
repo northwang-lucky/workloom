@@ -102,7 +102,7 @@ test('config.json 模板种子根包 repo，其余字段等于默认值', () => 
     initWorkloom(root)
     const config = loadConfig(root, { homeDir: home })
     // 种子根包：create/start 的 package 归属开箱可用（其余字段仍全默认）。
-    assert.deepEqual(config.packages, { repo: { path: '.' } })
+    assert.deepEqual(config.packages, { repo: { path: '.', setup: [] } })
     const expected = { ...DEFAULT_CONFIG }
     delete expected.packages
     const actual = { ...config }

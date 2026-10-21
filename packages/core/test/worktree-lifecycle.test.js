@@ -912,3 +912,173 @@ test('⑩ 存量 package=null 任务 start fail loud（提示手工编辑 task.j
   assert.match(startErr.message, /task\.json/)
   assert.equal(readTaskJson(root, created.taskRelPath).status, 'planning')
 })
+
+// ---------- ⑪ packages.setup（worktree 依赖准备，PRD R3-R6 + AC 1-6） ----------
+
+/**
+ * setup 组公共夹具：根仓项目 + 指定 setup 命令 + 建任务过门禁。
+ * @param {string} base 基目录
+ * @param {string[] | undefined} setup packages.repo.setup 命令列表
+ * @param {string} contextKey 会话标识
+ * @param {string} title 任务标题
+ * @param {Record<string, unknown>} [extraConfig] 其他顶层配置（如 worktree）
+ * @returns {Promise<{root: string, taskRelPath: string, wtAbs: string}>}
+ */
+async function createSetupProject(base, setup, contextKey, title, extraConfig = {}) {
+  const root = makeGitProject(base, 'project', {
+    packages: { repo: { path: '.', ...(setup === undefined ? {} : { setup }) } },
+    ...extraConfig,
+  })
+  const { taskRelPath, dirName } = await createGated(root, contextKey, title)
+  return { root, taskRelPath, wtAbs: join(root, '.workloom', 'worktree', dirName) }
+}
+
+test('⑪a setup 串行执行且 cwd=worktree 根（$PWD 验证）', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, wtAbs } = await createSetupProject(
+    base,
+    ['echo step1 > order.log', 'echo "$PWD" > pwd.log', 'echo step2 >> order.log'],
+    'dsh_setup_serial',
+    'Setup Serial',
+  )
+  const [startErr, started] = await executeStartTask(root, 'dsh_setup_serial', {})
+  assert.equal(startErr, null, startErr?.message)
+  assert.equal(started.status, 'in_progress')
+  // 顺序痕迹：两条命令按数组序串行写入同一日志。
+  assert.equal(readFileSync(join(wtAbs, 'order.log'), 'utf8'), 'step1\nstep2\n')
+  // cwd 验证：命令写出的 $PWD 即本次创建的 worktree 根绝对路径。
+  assert.equal(readFileSync(join(wtAbs, 'pwd.log'), 'utf8').trim(), wtAbs)
+})
+
+test('⑪b 占位符渲染：<worktree>/<source-checkout> 渲染为解析后的绝对路径', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, wtAbs } = await createSetupProject(
+    base,
+    ['echo <worktree> > wt-path.txt', 'echo <source-checkout> > src-path.txt'],
+    'dsh_setup_render',
+    'Setup Render',
+  )
+  const [startErr] = await executeStartTask(root, 'dsh_setup_render', {})
+  assert.equal(startErr, null, startErr?.message)
+  assert.equal(readFileSync(join(wtAbs, 'wt-path.txt'), 'utf8').trim(), wtAbs)
+  // root 布局：<source-checkout> = 项目根（仓解析结果）。
+  assert.equal(readFileSync(join(wtAbs, 'src-path.txt'), 'utf8').trim(), root)
+})
+
+test('⑪b2 子仓布局：<source-checkout>=package 检出、cwd=嵌套 worktree 根', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const root = makeSubmoduleProject(base)
+  const subAbs = join(root, 'libs', 'mymod')
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({
+      packages: {
+        repo: { path: '.' },
+        sub: {
+          path: 'libs/mymod',
+          git: true,
+          setup: ['echo <source-checkout> > src-path.txt', 'echo "$PWD" > pwd.txt'],
+        },
+      },
+    }),
+  )
+  const contextKey = 'dsh_setup_sub'
+  const { dirName } = await createGated(root, contextKey, 'Setup Sub', 'sub')
+  const [startErr] = await executeStartTask(root, contextKey, {})
+  assert.equal(startErr, null, startErr?.message)
+  const wtAbs = join(root, '.workloom', 'worktree', dirName, 'sub')
+  // submodule 布局：<source-checkout> 取仓解析结果（submodule 主检出），不是项目根。
+  assert.equal(readFileSync(join(wtAbs, 'src-path.txt'), 'utf8').trim(), subAbs)
+  assert.equal(readFileSync(join(wtAbs, 'pwd.txt'), 'utf8').trim(), wtAbs)
+})
+
+test('⑪c 任一命令失败：start 报错、保持 planning、后续命令未执行、现场保留', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, taskRelPath, wtAbs } = await createSetupProject(
+    base,
+    ['touch marker-1', 'exit 3', 'touch marker-2'],
+    'dsh_setup_fail',
+    'Setup Fail',
+  )
+  const [startErr] = await executeStartTask(root, 'dsh_setup_fail', {})
+  assert.ok(startErr, 'start must fail when a setup command fails')
+  assert.match(startErr.message, /setup command failed \(exit 3\): "exit 3"/, '报错须含失败命令本体与退出码')
+  // 任务保持 planning（不写状态，零部分状态）。
+  assert.equal(readTaskJson(root, taskRelPath).status, 'planning')
+  // 失败即停：前一条已执行、后一条未执行；worktree 目录保留（现场供重跑自愈）。
+  assert.equal(existsSync(join(wtAbs, 'marker-1')), true)
+  assert.equal(existsSync(join(wtAbs, 'marker-2')), false)
+  assert.equal(isRegisteredWorktree(root, wtAbs), true, 'worktree must be kept for retry')
+})
+
+test('⑪d 重跑 start（幂等复用路径）：setup 再次执行（配置修复后自愈）', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, taskRelPath, wtAbs } = await createSetupProject(
+    base,
+    ['printf a >> setup-trace.txt', 'exit 1'],
+    'dsh_setup_retry',
+    'Setup Retry',
+  )
+  const [firstErr] = await executeStartTask(root, 'dsh_setup_retry', {})
+  assert.ok(firstErr, 'first start must fail')
+  assert.equal(readFileSync(join(wtAbs, 'setup-trace.txt'), 'utf8'), 'a')
+  // 修复配置（重跑走幂等复用路径：worktree 已存在且分支匹配）。
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({ packages: { repo: { path: '.', setup: ['printf b >> setup-trace.txt'] } } }),
+  )
+  const [retryErr, started] = await executeStartTask(root, 'dsh_setup_retry', {})
+  assert.equal(retryErr, null, retryErr?.message)
+  assert.equal(started.status, 'in_progress')
+  assert.equal(readTaskJson(root, taskRelPath).status, 'in_progress')
+  // 复用路径再次执行 setup：痕迹文件累积为 ab。
+  assert.equal(readFileSync(join(wtAbs, 'setup-trace.txt'), 'utf8'), 'ab')
+})
+
+test('⑪e 未配置 setup：start 零行为变化', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, wtAbs } = await createSetupProject(base, undefined, 'dsh_setup_none', 'Setup None')
+  const [startErr, started] = await executeStartTask(root, 'dsh_setup_none', {})
+  assert.equal(startErr, null, startErr?.message)
+  assert.equal(started.status, 'in_progress')
+  assert.equal(existsSync(join(wtAbs, 'order.log')), false)
+})
+
+test('⑪f worktree.enabled=false：setup 不执行', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root } = await createSetupProject(
+    base,
+    ['touch setup-should-not-run'],
+    'dsh_setup_disabled',
+    'Setup Disabled',
+    { worktree: { enabled: false } },
+  )
+  const [startErr, started] = await executeStartTask(root, 'dsh_setup_disabled', {})
+  assert.equal(startErr, null, startErr?.message)
+  assert.equal(started.worktree_path, '')
+  assert.equal(existsSync(join(root, '.workloom', 'worktree')), false)
+  assert.equal(existsSync(join(root, 'setup-should-not-run')), false)
+})
+
+test('⑪g 非 git 项目：start 拒绝且 setup 不执行', async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const root = makePlainProject(base)
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({ packages: { repo: { path: '.', setup: ['touch setup-should-not-run'] } } }),
+  )
+  const { taskRelPath } = await createGated(root, 'dsh_setup_nongit', 'Setup Non Git')
+  const [startErr] = await executeStartTask(root, 'dsh_setup_nongit', {})
+  assert.ok(startErr, 'non-git project start must fail')
+  assert.match(startErr.message, /workloom worktree/)
+  assert.equal(readTaskJson(root, taskRelPath).status, 'planning')
+  assert.equal(existsSync(join(root, 'setup-should-not-run')), false)
+})

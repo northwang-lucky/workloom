@@ -290,8 +290,9 @@ function mapKnownFields(doc, droppedConfigFields) {
                 }
             }
             if (valid) {
-                config.packages =
-                    /** @type {Record<string, {path: string, type?: string, git?: boolean}>} */ (doc.packages);
+                // 旧 yaml 无 setup 字段：按 loadConfig 口径补空数组缺省，保持类型一致。
+                const specs = /** @type {Record<string, {path: string, type?: string, git?: boolean}>} */ (doc.packages);
+                config.packages = Object.fromEntries(Object.entries(specs).map(([name, spec]) => [name, { ...spec, setup: [] }]));
             }
             else {
                 droppedConfigFields.push('packages');

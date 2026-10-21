@@ -130,7 +130,7 @@ test('config 映射：已知字段迁移、no-trellis 改写、未知字段丢�
     assert.equal(config.contextInjection.maxFileBytes, 1024)
     assert.equal(config.promptInjection.skipKeyword, 'no-workloom')
     assert.deepEqual(config.hooks.afterCreate, ['echo hi'])
-    assert.deepEqual(config.packages, { cli: { path: 'packages/cli' } })
+    assert.deepEqual(config.packages, { cli: { path: 'packages/cli', setup: [] } })
     assert.equal('defaultPackage' in config, false, 'default_package must not be parsed')
   } finally {
     rmSync(root, { recursive: true, force: true })

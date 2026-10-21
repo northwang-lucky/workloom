@@ -1,4 +1,15 @@
 /**
+ * 渲染 setup 命令中的白名单占位符（纯函数）：按 token → 值键映射逐项替换。
+ * 白名单外片段已在加载期 fail loud，执行期不再扫描，渲染结果必然完整。
+ * @param {string} command 含占位符的命令串
+ * @param {{worktree: string, sourceCheckout: string}} values 占位符渲染值
+ * @returns {string}
+ */
+export function renderSetupCommand(command: string, values: {
+    worktree: string;
+    sourceCheckout: string;
+}): string;
+/**
  * 从项目根加载配置（三层流水线）：
  * 全局 $HOME/.workloom/config → 项目 .workloom/config → 本地 .workloom/config.local；
  * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；遗留 subagents WARNING。

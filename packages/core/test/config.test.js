@@ -172,7 +172,7 @@ test('三层优先级链：全局 → 项目 → local 逐层覆盖', () => {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.sessionCommitMessage, 'project') // 项目覆盖全局
     assert.equal(config.maxJournalLines, 300) // local 覆盖项目
-    assert.deepEqual(config.packages, { cli: { path: 'packages/cli' } }) // 项目字段保留
+    assert.deepEqual(config.packages, { cli: { path: 'packages/cli', setup: [] } }) // 项目字段保留
   } finally {
     cleanup(root, home)
   }
@@ -1521,6 +1521,73 @@ test('worktree 未知子字段 → WorkloomConfigError（fail loud）', () => {
   try {
     assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
       return err instanceof WorkloomConfigError && err.field === 'worktree.bogus'
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+// ---------- packages.<name>.setup（worktree 依赖准备配置） ----------
+
+test('packages.setup 合法数组解析（含白名单占位符）与缺省 []', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    packages: {
+      core: {
+        path: 'packages/core',
+        setup: ['pnpm install', 'cp -al <source-checkout>/node_modules <worktree>/node_modules'],
+      },
+      cli: { path: 'packages/cli' },
+    },
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.deepEqual(config.packages.core.setup, [
+      'pnpm install',
+      'cp -al <source-checkout>/node_modules <worktree>/node_modules',
+    ])
+    assert.deepEqual(config.packages.cli.setup, [])
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('packages.<name>.setup 非字符串数组 → WorkloomConfigError（字段名准确）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', { packages: { core: { path: '.', setup: 'pnpm install' } } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'packages.core.setup'
+    })
+  } finally {
+    cleanup(root)
+  }
+  const root2 = makeRoot()
+  writeProjectFile(root2, 'config.json', { packages: { core: { path: '.', setup: ['ok', 42] } } })
+  try {
+    assert.throws(() => loadConfig(root2, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && err.field === 'packages.core.setup'
+    })
+  } finally {
+    cleanup(root2, home)
+  }
+})
+
+test('packages.<name>.setup 白名单外占位符 → 加载期 fail loud', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    packages: { core: { path: '.', setup: ['echo <bogus>'] } },
+  })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return (
+        err instanceof WorkloomConfigError &&
+        err.field === 'packages.core.setup' &&
+        /<bogus>/.test(err.message)
+      )
     })
   } finally {
     cleanup(root, home)

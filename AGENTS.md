@@ -21,6 +21,7 @@ packages/
 | `repo/code-style` | 编码原则、验证命令（verify） |
 | `repo/domain-module` | domain 纯 JS + JSDoc 模块约定 |
 | `repo/deployment` | 构建产物部署同步纪律 |
+| `repo/worktree-setup` | 任务 worktree 依赖准备（packages.setup 配方与约束） |
 | `repo/language` | 中英文分工约定 |
 | `repo/commits` | 提交规范 |
 | `repo/terminology` | 术语表 |

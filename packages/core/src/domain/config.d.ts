@@ -17,7 +17,7 @@ export interface WorkloomConfig {
     afterFinish: string[]
     afterArchive: string[]
   }
-  packages: Record<string, { path: string; type?: string; git?: boolean }>
+  packages: Record<string, { path: string; type?: string; git?: boolean; setup: string[] }>
   subagents: Record<string, SubagentConfigEntry>
   /** 全局 executor 并发闸：max_concurrent 为全局上限（0 = 不限，缺省 = 0；按 kind 分闸缺省 3，全局闸保留作可选总量保险）。 */
   executor: {
@@ -196,3 +196,12 @@ export function buildConflictNotice(kind: string, conflicts: ExecutorConflict[])
 
 /** 校验 force 覆盖参数：force 为 true 时 reason 必须是非空字符串，否则抛错。 */
 export function assertForceReason(force: unknown, reason: unknown): void
+
+/** setup 占位符渲染值：worktree = worktree 根，sourceCheckout = package 所属仓主检出。 */
+export interface SetupPlaceholderValues {
+  worktree: string
+  sourceCheckout: string
+}
+
+/** 按白名单渲染 setup 命令中的占位符（纯函数，token 之外原样保留）。 */
+export function renderSetupCommand(command: string, values: SetupPlaceholderValues): string

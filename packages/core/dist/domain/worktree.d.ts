@@ -26,6 +26,8 @@ export function renderBranchName(template: string, ctx: import("./worktree.d.ts"
 /**
  * start 侧创建任务 worktree（design §3.3）：任一失败返回 err，调用方在 status
  * 写盘前中止（零部分状态）；成功结果的 worktreePath 为项目根相对路径（S1-Q1）。
+ * worktree 创建或幂等复用成功后执行 packages.<name>.setup（PRD R3-R6），失败即
+ * 中止 start 并保留现场；重跑 start 走复用路径重新准备以自愈。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').TaskRecord} task 任务记录（package/parent/createdAt/name）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径

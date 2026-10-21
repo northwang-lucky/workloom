@@ -99,6 +99,34 @@ const WORKTREE_CLEANUP_MODES = Object.freeze([
 /** worktree.branch_template 占位符白名单（加载期静态校验；渲染结果校验在 start）。 */
 const BRANCH_TEMPLATE_PLACEHOLDERS = new Set(['<task-id>', '<task-slug>', '<date>'])
 
+/**
+ * packages.<name>.setup 占位符白名单：token → 渲染值键（加载期校验与执行期渲染
+ * 共用同一来源，杜绝两处字面量漂移；值由 start 编排层提供）。
+ * @type {Readonly<Record<string, 'worktree' | 'sourceCheckout'>>}
+ */
+const SETUP_PLACEHOLDER_TOKENS = Object.freeze({
+  '<worktree>': 'worktree',
+  '<source-checkout>': 'sourceCheckout',
+})
+
+/** setup 命令白名单集合（由 SETUP_PLACEHOLDER_TOKENS 键推导）。 */
+const SETUP_PLACEHOLDERS = new Set(Object.keys(SETUP_PLACEHOLDER_TOKENS))
+
+/**
+ * 渲染 setup 命令中的白名单占位符（纯函数）：按 token → 值键映射逐项替换。
+ * 白名单外片段已在加载期 fail loud，执行期不再扫描，渲染结果必然完整。
+ * @param {string} command 含占位符的命令串
+ * @param {{worktree: string, sourceCheckout: string}} values 占位符渲染值
+ * @returns {string}
+ */
+export function renderSetupCommand(command, values) {
+  let rendered = command
+  for (const [token, key] of Object.entries(SETUP_PLACEHOLDER_TOKENS)) {
+    rendered = rendered.replaceAll(token, values[key])
+  }
+  return rendered
+}
+
 /** 布尔值合法写法（大小写不敏感），行为对齐原规格。 */
 const BOOLEAN_WORDS = new Map([
   ['true', true],
@@ -443,7 +471,7 @@ function mergeWithDefaults(doc) {
       if (template.trim() === '') {
         throw new WorkloomConfigError('worktree.branch_template', 'must not be empty')
       }
-      assertBranchTemplatePlaceholders(template)
+      assertPlaceholders('worktree.branch_template', template, BRANCH_TEMPLATE_PLACEHOLDERS)
       config.worktree.branchTemplate = template
     }
     if (wt.cleanup !== undefined) {
@@ -454,16 +482,18 @@ function mergeWithDefaults(doc) {
 }
 
 /**
- * 校验 branch_template 占位符白名单（内部）：正则扫描 `<…>` 片段，出现
- * `<task-id>`/`<task-slug>`/`<date>` 之外的占位符 fail loud。
- * @param {string} template 分支名模板
+ * 校验模板占位符白名单（内部）：正则扫描 `<…>` 片段，出现白名单外占位符
+ * fail loud（worktree.branch_template 与 packages.<name>.setup 共用）。
+ * @param {string} field 字段路径（报错归属）
+ * @param {string} template 含占位符的模板/命令串
+ * @param {Set<string>} allowed 占位符白名单
  */
-function assertBranchTemplatePlaceholders(template) {
+function assertPlaceholders(field, template, allowed) {
   for (const match of template.matchAll(/<[^>]*>/g)) {
-    if (!BRANCH_TEMPLATE_PLACEHOLDERS.has(match[0])) {
+    if (!allowed.has(match[0])) {
       throw new WorkloomConfigError(
-        'worktree.branch_template',
-        `unknown placeholder ${match[0]} (allowed: <task-id>, <task-slug>, <date>)`,
+        field,
+        `unknown placeholder ${match[0]} (allowed: ${[...allowed].join(', ')})`,
       )
     }
   }
@@ -486,21 +516,25 @@ function requireWorktreeCleanup(field, value) {
 }
 
 /**
- * 校验 packages 映射：每个值是含 path 字符串的对象，可带 type/git 标注。
+ * 校验 packages 映射：每个值是含 path 字符串的对象，可带 type/git 标注；
+ * setup 为字符串数组（缺省 []，worktree 依赖准备命令），逐条做占位符白名单校验。
  * @param {unknown} value 用户文档中的 packages 字段
- * @returns {Record<string, {path: string, type?: string, git?: boolean}>}
+ * @returns {Record<string, {path: string, type?: string, git?: boolean, setup: string[]}>}
  */
 function parsePackages(value) {
   const map = requireMap('packages', value)
-  /** @type {Record<string, {path: string, type?: string, git?: boolean}>} */
+  /** @type {Record<string, {path: string, type?: string, git?: boolean, setup: string[]}>} */
   const result = {}
   for (const [name, entry] of Object.entries(map)) {
     const spec = requireMap(`packages.${name}`, entry)
     const path = requireString(`packages.${name}.path`, spec.path ?? '.')
-    /** @type {{path: string, type?: string, git?: boolean}} */
-    const parsed = { path }
+    /** @type {{path: string, type?: string, git?: boolean, setup: string[]}} */
+    const parsed = { path, setup: requireStringList(`packages.${name}.setup`, spec.setup) }
     if (spec.type !== undefined) parsed.type = requireString(`packages.${name}.type`, spec.type)
     if (spec.git !== undefined) parsed.git = requireBoolean(`packages.${name}.git`, spec.git)
+    for (const command of parsed.setup) {
+      assertPlaceholders(`packages.${name}.setup`, command, SETUP_PLACEHOLDERS)
+    }
     result[name] = parsed
   }
   return result
