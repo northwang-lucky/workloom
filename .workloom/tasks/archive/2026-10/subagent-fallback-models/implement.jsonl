@@ -1,0 +1,7 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/domain-module/index.md", "reason": "fallback_models 解析与错误码白名单分类落在 core domain 纯 JS 模块，遵守纯度与 JSDoc 约定"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与验证命令，结算监听同步边界内 fire-and-forget 的写法约束"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "中英文分工：报错与 failover 说明文案英文，任务文档中文"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "core 与 adapter-dsh 的 dist 同 commit 重建纪律"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/assets/adapter 分层：配置解析与白名单在 core，adapter-dsh 只做编排与投影"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "transport-failover 条目本任务改写（人工流程降级为兜底）；effort-compat 约束 fallback 条目 effort 语义"}
