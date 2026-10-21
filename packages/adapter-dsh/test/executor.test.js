@@ -15,7 +15,6 @@ import {
   assertAllowListNonEmpty,
   buildAllowFilter,
   hasLspTooling,
-  SPAWN_PROVIDER,
 } from '../dist/executor-dispatch.js'
 import {
   createResearchGuardState,
