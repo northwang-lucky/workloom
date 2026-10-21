@@ -316,3 +316,9 @@
 - Commit: 3b24bde
 - Summary: 原生 git worktree 模式全量交付（容器 worktree-native + 三子任务严格串行）。对齐：5 轮 35 节点用户裁决（默认开启可配置关闭、start 建 .workloom/worktree/<task-id> + workloom/<task-id> 分支、元数据集中主 worktree、executor 统一 prompt 注入、archive 清理四模式缺省 merge-keep-branch、submodule gitlink 自动联动、package 恒必填、追加 legacy→domain 重命名）。交付：S0 重命名（567a6a1，R100 纯度+导出面零 diff）；S1 core 生命周期（42a1ec5，git.js 12 新原语+domain/worktree.js+start/archive 接线+init/doctor 配套+两端 create schema，先红 18 例接缝①-⑨ 含真实 submodule fixture）；S2 runtime 集成面（3b24bde，buildExecutorPrompt Worktree 纪律段+session-context Worktree 行+assets 2.1/2.3/finish/continue 指引，零 diff 回归）。验证：core 617/adapter-dsh 139/adapter-pi 193 全绿，dist 同 commit 入库。check 三方独立复核全 PASS。部署后续（push、profile 锁重钉、实例重启）归用户。
 
+## worktree 依赖准备机制（packages.setup）
+
+- Time: 2026-10-21T04:18:14.540Z
+- Commit: 5e405a7
+- Summary: 实现 packages.setup 依赖准备机制：per-package setup 命令数组（占位符 <worktree>/<source-checkout> 白名单渲染、加载期校验），createTaskWorktree 新建/复用双路径串行执行（/bin/sh -c、cwd=worktree 根、stdio 透传、无超时、首败即停），失败中止 start 并保留现场、重跑自愈；新增 repo/worktree-setup spec 条目并更新 AGENTS.md 索引；另带一独立的 adapter-dsh 未使用导入 lint 修复（c3395ff）。过程中 glm/qwen 路由连续传输层失败，探针隔离后改用 deepseek-flash 完成实现与复核。
+
