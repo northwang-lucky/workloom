@@ -322,3 +322,9 @@
 - Commit: 5e405a7
 - Summary: 实现 packages.setup 依赖准备机制：per-package setup 命令数组（占位符 <worktree>/<source-checkout> 白名单渲染、加载期校验），createTaskWorktree 新建/复用双路径串行执行（/bin/sh -c、cwd=worktree 根、stdio 透传、无超时、首败即停），失败中止 start 并保留现场、重跑自愈；新增 repo/worktree-setup spec 条目并更新 AGENTS.md 索引；另带一独立的 adapter-dsh 未使用导入 lint 修复（c3395ff）。过程中 glm/qwen 路由连续传输层失败，探针隔离后改用 deepseek-flash 完成实现与复核。
 
+## 轻量任务模式（light task mode）
+
+- Time: 2026-10-21T08:52:01.802Z
+- Commit: b59003f
+- Summary: 实现轻量任务模式（mode=light）：task.json mode 字段与 create 参数、闸门放松（start 免凭证/jsonl/marker、check 免 jsonl、frontend 门豁免）、派发拒绝前移至双 adapter spawn 前（core 纯函数单源，force 记 light_dispatch）、workflow-light.md 动态注入切换（概览行与状态文案，norms 主契约单源）、契约 1.0 否定标准与 norms 豁免句、workloom-continue 必要性重估。adapter-pi 真机清单 5 项 PASS（主会话 tmux 执行）。glm 路由仍瘫，按 transport-failover 纪律全程 deepseek-flash。
+
