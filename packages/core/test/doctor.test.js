@@ -23,6 +23,10 @@ import { checkLocalPrompts } from '../dist/service/doctor-local-prompts.js'
 // 每次读取 $HOME，无缓存，文件级覆盖对全文件生效）。
 const ISOLATED_HOME = mkdtempSync(join(tmpdir(), 'workloom-doctor-home-'))
 process.env.HOME = ISOLATED_HOME
+// TMPDIR 同样重定向进隔离家目录：本机 TMPDIR 位于真实 HOME 之下时，makeRoot()
+// 的临时项目根向上回溯会命中真实的 ~/.workloom，使「无 .workloom」分支恒假。
+// os.tmpdir() 每次读取 $TMPDIR，无缓存，与上方 HOME 重定向同口径。
+process.env.TMPDIR = ISOLATED_HOME
 
 /** 创建临时项目根（空目录，不含 .workloom）。 */
 function makeRoot() {
