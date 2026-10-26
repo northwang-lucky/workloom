@@ -1,107 +1,235 @@
-/**
- * 渲染 setup 命令中的白名单占位符（纯函数）：按 token → 值键映射逐项替换。
- * 白名单外片段已在加载期 fail loud，执行期不再扫描，渲染结果必然完整。
- * @param {string} command 含占位符的命令串
- * @param {{worktree: string, sourceCheckout: string}} values 占位符渲染值
- * @returns {string}
- */
-export function renderSetupCommand(command: string, values: {
-    worktree: string;
-    sourceCheckout: string;
-}): string;
-/**
- * 从项目根加载配置（三层流水线）：
- * 全局 $HOME/.workloom/config → 项目 .workloom/config → 本地 .workloom/config.local；
- * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；遗留 subagents WARNING。
- * 结果挂载只读来源层字段 subagentProfilesSource / subagentsSource（记录该 key 最后
- * 写入层，见 trackLayerProvenance；全程未出现时字段不定义、读取为 undefined）。
- * @param {string} root 项目根目录
- * @param {{homeDir?: string}} [options] 可选项：homeDir 覆盖全局层基准目录
- *   （测试/沙箱用，缺省取 os.homedir()）
- * @returns {import('./config.d.ts').WorkloomConfig} 合并默认后的配置对象（含来源层字段）
- */
-export function loadConfig(root: string, options?: {
-    homeDir?: string;
-}): import("./config.d.ts").WorkloomConfig;
-/**
- * 合并 executor 子代理默认 model/effort：工具调用参数优先，未出现的字段回退到
- * subagent_profiles 命中条目（按主会话模型匹配），再回退到旧 subagents 配置
- * （按 kind 对应条目）；全部缺失时字段为 undefined（继承父会话）。model 与
- * effort 独立合并，失败转移链（fallbackModels）同样字段级合并。model 的 map 形式
- * 按 runtime 取值，缺当前 runtime 的 key 时 fail loud（避免静默用错模型）。
- * 纯同步、无副作用（不修改入参）。
- * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
- * @param {string} kind executor 类型（research/implement/check/frontend）
- * @param {{model?: string, effort?: string}} overrides 工具调用参数（仅覆盖出现的字段）
- * @param {string} [runtime] 当前 runtime 名（entry.model 为 map 形式时必填）
- * @param {string} [mainModel] 主会话模型（provider/model 字符串；取不到时不传，
- *   全部 whenMain 条目跳过，走兜底/旧 subagents）
- * @returns {import('./config.d.ts').ResolveSubagentDefaultsResult} 合并结果与字段来源
- */
-export function resolveSubagentDefaults(config: import("./config.d.ts").WorkloomConfig, kind: string, overrides: {
-    model?: string;
-    effort?: string;
-}, runtime?: string, mainModel?: string): import("./config.d.ts").ResolveSubagentDefaultsResult;
-/**
- * 拆分 model 字符串的 provider 前缀：按首个 `/` 切分；无 `/` 时返回裸 model
- * （provider 为 undefined，语义 = 按父会话 provider 解析）。adapter 据此把
- * provider 一并传给运行时，跨 provider 派发才不会解析失败。
- * @param {string} model 模型标识（可带 provider/ 前缀）
- * @returns {{provider?: string, model: string}}
- */
-export function splitProviderModel(model: string): {
-    provider?: string;
-    model: string;
-};
-/**
- * 检测显式 executor 参数与 subagents 配置的冲突（纯函数，不修改入参）。
- *
- * 设计意图：
- * - 配置限定了某 kind 的 model/effort 时，工具显式传参与配置不一致等于静默
- *   绕过用户配置，需中断提示（force 放行须留痕审计）；
- * - 归一化比较：model 拆 provider/model 后各自相等才算一致；裸 id 与带前缀
- *   id 因 provider 一侧缺失视为冲突（跨 provider 派发语义不同）；
- * - 配置侧生效值按合并链解析（resolveSubagentDefaults 同口径：profile 命中
- *   条目 > 旧 subagents，model 的 map 形式按 runtime 解析，缺 key 走 fail
- *   loud）；model/effort 独立判定，配置未限定的字段不触发。
- * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
- * @param {string} kind executor 类型（research/implement/check/frontend）
- * @param {{model?: string, effort?: string}} overrides 工具显式参数
- * @param {string | undefined} runtime 当前 runtime 名（model 为 map 形式时必填）
- * @param {string} [mainModel] 主会话模型（provider/model；whenMain 匹配用）
- * @returns {import('./config.d.ts').ExecutorConflict[]} 冲突清单（空数组表示无冲突）
- */
-export function detectExecutorConflicts(config: import("./config.d.ts").WorkloomConfig, kind: string, overrides: {
-    model?: string;
-    effort?: string;
-}, runtime: string | undefined, mainModel?: string): import("./config.d.ts").ExecutorConflict[];
-/**
- * 组装冲突中断提示（英文运行时文案）：adapter 检测到冲突且未 force 时返回该
- * 文本、不派发；含该 kind 的配置值（带来源细分）、传入值与 force+reason 用法。
- * @param {string} kind executor 类型（research/implement/check/frontend）
- * @param {import('./config.d.ts').ExecutorConflict[]} conflicts 冲突清单（非空）
- * @returns {string} 提示文本
- */
-export function buildConflictNotice(kind: string, conflicts: import("./config.d.ts").ExecutorConflict[]): string;
-/**
- * 校验 force 覆盖参数：force 非 true 一律放行（非布尔按 false 处理，工具 schema
- * 已约束，此处仅防御）；force 为 true 时 reason 必须是非空字符串（覆盖须留痕，
- * 审计不可缺失），否则抛错。
- * @param {unknown} force 是否强制覆盖
- * @param {unknown} reason 覆盖原因
- */
-export function assertForceReason(force: unknown, reason: unknown): void;
-/** 内置默认配置（与规格一致）。 */
-/** @type {import('./config.d.ts').WorkloomConfig} */
-export const DEFAULT_CONFIG: import("./config.d.ts").WorkloomConfig;
-/**
- * 配置解析错误：携带字段路径，便于上层显式报告。
- */
-export class WorkloomConfigError extends Error {
-    /**
-     * @param {string} field 出错字段的路径（如 context_injection.max_file_bytes）
-     * @param {string} reason 具体原因
-     */
-    constructor(field: string, reason: string);
-    field: string;
+/** workloom 配置对象：loadConfig 的返回类型（快照字段，供 JSDoc 引用）。 */
+export interface WorkloomConfig {
+  sessionCommitMessage: string
+  maxJournalLines: number
+  sessionAutoCommit: boolean
+  contextInjection: {
+    maxFileBytes: number
+    maxArtifactBytes: number
+    maxTotalBytes: number
+  }
+  promptInjection: {
+    skipKeyword: string
+  }
+  hooks: {
+    afterCreate: string[]
+    afterStart: string[]
+    afterFinish: string[]
+    afterArchive: string[]
+  }
+  packages: Record<string, { path: string; type?: string; git?: boolean; setup: string[] }>
+  subagents: Record<string, SubagentConfigEntry>
+  /** 全局 executor 并发闸：max_concurrent 为全局上限（0 = 不限，缺省 = 0；按 kind 分闸缺省 3，全局闸保留作可选总量保险）。 */
+  executor: {
+    maxConcurrent: number
+  }
+  /** worktree 生命周期（仅项目层）：start 建独立 worktree，archive 按 cleanup 模式清理。 */
+  worktree: WorktreeConfig
+  /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
+  subagentProfiles: SubagentProfile[]
+  /**
+   * subagent_profiles 顶层 key 最后写入层（对象层看本层原始导出文档、工厂层看返回
+   * 文档）；全程未出现时属性不定义、读取为 undefined（只读字段，loadConfig 挂载）。
+   */
+  readonly subagentProfilesSource?: ConfigSourceLayer
+  /** 遗留 subagents 顶层 key 最后写入层（口径同上）；全程未出现时属性不定义。 */
+  readonly subagentsSource?: ConfigSourceLayer
 }
+
+/** 配置来源层（subagent_profiles / subagents 顶层 key 最后写入层）。 */
+export type ConfigSourceLayer = 'global' | 'project' | 'local'
+
+/**
+ * worktree 清理模式（archive 六模式）：merge-keep-branch 合并回 base + 删 worktree +
+ * 保留分支；merge-delete-branch 再删分支；keep-branch 不合并只删 worktree；
+ * manual 不动 worktree/分支；rebase-keep-branch 先把任务分支 rebase 到 base 之上
+ * 再 ff 合入（线性历史）+ 删 worktree + 保留分支；rebase-delete-branch 再删分支。
+ * 缺省 rebase-keep-branch。
+ */
+export type WorktreeCleanupMode =
+  | 'merge-keep-branch'
+  | 'merge-delete-branch'
+  | 'keep-branch'
+  | 'manual'
+  | 'rebase-keep-branch'
+  | 'rebase-delete-branch'
+
+/** worktree 配置节（仅项目层，全局层出现报项目字段错误）。 */
+export interface WorktreeConfig {
+  /** start 是否为任务创建独立 git worktree（false = 全链路零行为变化）。 */
+  enabled: boolean
+  /** 分支名模板（占位符白名单 <task-id>/<task-slug>/<date>；渲染结果在 start 期校验）。 */
+  branchTemplate: string
+  /** archive 清理模式。 */
+  cleanup: WorktreeCleanupMode
+}
+
+/**
+ * subagent_profiles 条目：whenMain 为命中条件（string 对所有 runtime 同值，
+ * 或按 runtime 取值的 map），缺省 = 兜底条目（无条件命中，最多一条）；
+ * subagents 沿用 SubagentConfigEntry 的 per-kind 形态。
+ */
+export interface SubagentProfile {
+  whenMain?: string | Record<string, string>
+  subagents: Record<string, SubagentConfigEntry>
+}
+
+/**
+ * tools 字段（仅 subagent_profiles 内层支持）：在默认工具白名单上扩充 / 移除；
+ * 成员为工具名或 `*` 尾缀前缀模式（如 `lsp_*`，仅前缀匹配），空数组合法、重复去重。
+ */
+export interface SubagentTools {
+  /** 在默认白名单上额外补入的工具名（含前缀模式）。 */
+  includes: string[]
+  /** 从默认白名单上移除的工具名（含前缀模式）。 */
+  excludes: string[]
+}
+
+/**
+ * 失败转移链条目（配置字段 `fallback_models[]`，内存形态 camelCase）：
+ * 主模型不可访问时按链顺序尝试；effort 省略即不传（用目标模型默认档位，
+ * 避开 effort-compat 坑）。
+ */
+export interface SubagentFallbackModel {
+  /** 模型字符串（provider/model 或裸 id；仅 string，不支持 runtime map）。 */
+  model: string
+  /** 该跳的 reasoning effort（可选；省略不传给子代理）。 */
+  effort?: string
+}
+
+/**
+ * subagents 配置条目：model 支持 string（所有 runtime 同值）或按 runtime 取值的
+ * map（如 `{ dsh: 'a/x', pi: 'b/y' }`）；map 的 key 为 runtime 名，不白名单。
+ * tools 仅 subagent_profiles 内层条目携带（顶层 subagents 出现 tools 报错）。
+ */
+export interface SubagentConfigEntry {
+  model?: string | Record<string, string>
+  effort?: string
+  tools?: SubagentTools
+  /**
+   * 该 kind 的并发上限（0 = 不限；条目未配置时由 resolveSubagentDefaults 兜底缺省 3）。
+   * 仅 subagent_profiles 内层条目携带。
+   */
+  maxConcurrent?: number
+  /**
+   * 失败转移链（配置字段 `fallback_models`）：旧顶层 subagents 与
+   * subagent_profiles 内层同一语法；空数组等价缺省（不落字段）。
+   */
+  fallbackModels?: SubagentFallbackModel[]
+}
+
+/** resolveSubagentDefaults 返回值中字段来源的标记。 */
+export type SubagentDefaultSource = 'param' | 'config'
+
+/** 配置侧字段来源细分：命中 subagent_profiles 的 whenMain 条目 / 兜底条目 / 旧 subagents。 */
+export type SubagentConfigSource = 'whenMain' | 'fallback' | 'legacy'
+
+/** resolveSubagentDefaults 的返回形状：合并后的 effective 值与各字段来源。 */
+export interface ResolveSubagentDefaultsResult {
+  model?: string
+  effort?: string
+  sources: {
+    model?: SubagentDefaultSource
+    effort?: SubagentDefaultSource
+  }
+  /** 配置侧字段来源细分（字段级；来自显式参数或未生效时为 undefined）。 */
+  configSources: {
+    model?: SubagentConfigSource
+    effort?: SubagentConfigSource
+    /** 失败转移链来源（未配置链时属性不定义）。 */
+    fallbackModels?: SubagentConfigSource
+  }
+  /** configSources 为 whenMain 时的匹配值（receipt 展示用，如 kimi-coding/k3）。 */
+  whenMainValue?: string
+  /** 命中 subagent_profiles 条目该 kind 的 tools 字段（includes/excludes；仅
+   *  profiles 层支持，legacy 层无 tools，未命中时 undefined）。 */
+  tools?: SubagentTools
+  /**
+   * 该 kind 的并发上限：命中 subagent_profiles 条目时为该条目值（0 = 不限；
+   * 未配置时兜底缺省 3），> 0 = 该 kind 上限。仅全局闸生效的场景不再出现。
+   */
+  maxConcurrent?: number
+  /**
+   * 生效的失败转移链（解析后的模型字符串 + 可选 effort）：profile 命中条目优先，
+   * 未配置时回退旧 subagents 同 kind 条目；两处均未配置时属性不定义。
+   */
+  fallbackModels?: SubagentFallbackModel[]
+}
+
+/** 内置默认配置。 */
+export const DEFAULT_CONFIG: WorkloomConfig
+
+/** 配置解析错误：携带字段路径。 */
+export class WorkloomConfigError extends Error {
+  constructor(field: string, reason: string)
+  field: string
+}
+
+/**
+ * 从项目根加载配置（三层流水线：全局 $HOME/.workloom/config → 项目
+ * .workloom/config → 本地 .workloom/config.local）：对象层顶层 key 覆盖、
+ * 函数工厂逐层传递、全局层白名单校验、遗留 subagents WARNING。options.homeDir
+ * 可覆盖全局层基准目录（缺省 os.homedir()）。
+ */
+export function loadConfig(root: string, options?: { homeDir?: string }): WorkloomConfig
+
+/**
+ * 合并 executor 子代理默认 model/effort：参数优先，未出现回退 subagent_profiles
+ * 命中条目（按主会话模型匹配），再回退旧 subagents 配置；model 的 map 形式按
+ * runtime 取值，缺当前 runtime 的 key 抛 WorkloomConfigError。
+ */
+export function resolveSubagentDefaults(
+  config: WorkloomConfig,
+  kind: string,
+  overrides: { model?: string; effort?: string },
+  runtime?: string,
+  mainModel?: string,
+): ResolveSubagentDefaultsResult
+
+/**
+ * 拆分 model 字符串的 provider 前缀（按首个 `/`）；裸 id 返回不含 provider 的结果
+ * （语义 = 按父会话 provider 解析）。
+ */
+export function splitProviderModel(model: string): { provider?: string; model: string }
+
+/** executor 参数与 subagents 配置的冲突条目（detectExecutorConflicts 返回元素）。 */
+export interface ExecutorConflict {
+  /** 冲突字段（model/effort，独立判定）。 */
+  field: 'model' | 'effort'
+  /** 配置侧生效值（map 形式已按 runtime 解析）。 */
+  configured: string
+  /** 工具显式传入值。 */
+  passed: string
+  /** 配置侧来源细分（whenMain 命中 / 兜底条目 / 旧 subagents）。 */
+  configuredSource?: SubagentConfigSource
+  /** configuredSource 为 whenMain 时的匹配值（提示文案展示用）。 */
+  whenMainValue?: string
+}
+
+/**
+ * 检测显式 executor 参数与 subagents 配置的冲突：配置侧生效值按合并链解析
+ * （profile 命中条目 > 旧 subagents）；model 归一化（provider/model 各自相等）
+ * 比较；无冲突返回空数组。
+ */
+export function detectExecutorConflicts(
+  config: WorkloomConfig,
+  kind: string,
+  overrides: { model?: string; effort?: string },
+  runtime?: string,
+  mainModel?: string,
+): ExecutorConflict[]
+
+/** 组装冲突中断提示（英文运行时文案，含配置值/传入值与 force+reason 引导）。 */
+export function buildConflictNotice(kind: string, conflicts: ExecutorConflict[]): string
+
+/** 校验 force 覆盖参数：force 为 true 时 reason 必须是非空字符串，否则抛错。 */
+export function assertForceReason(force: unknown, reason: unknown): void
+
+/** setup 占位符渲染值：worktree = worktree 根，sourceCheckout = package 所属仓主检出。 */
+export interface SetupPlaceholderValues {
+  worktree: string
+  sourceCheckout: string
+}
+
+/** 按白名单渲染 setup 命令中的占位符（纯函数，token 之外原样保留）。 */
+export function renderSetupCommand(command: string, values: SetupPlaceholderValues): string

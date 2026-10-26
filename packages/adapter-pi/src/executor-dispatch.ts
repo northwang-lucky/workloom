@@ -21,7 +21,7 @@ import {
   recordExecutorDispatch,
   settleExecutorDispatch,
 } from '@workloom-ai/core'
-import type { DispatchRecordInput, ExecutorInjectionStats } from '@workloom-ai/core'
+import type { DispatchRecordInput, ExecutorInjectionStats, ResolveSubagentDefaultsResult } from '@workloom-ai/core'
 
 import { checkExecutorCapacity } from './executor-capacity-gate.ts'
 
@@ -93,16 +93,7 @@ interface DispatchChildPiParams {
   tools?: string[]
   loadExtensions: string[]
   parentSessionId: string
-  effective: {
-    model?: string
-    effort?: string
-    sources: { model?: 'param' | 'config'; effort?: 'param' | 'config' }
-    configSources?: {
-      model?: 'whenMain' | 'fallback' | 'legacy'
-      effort?: 'whenMain' | 'fallback' | 'legacy'
-    }
-    whenMainValue?: string
-  }
+  effective: ResolveSubagentDefaultsResult
   gate: ConflictGateResult
   allowInfo: { allow: string[]; childHasLsp: boolean }
   mainModel?: string
@@ -295,16 +286,7 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
 /** buildBackgroundText 入参。 */
 interface BuildBackgroundTextParams {
   childId: string
-  effective: {
-    model?: string
-    effort?: string
-    sources: { model?: 'param' | 'config'; effort?: 'param' | 'config' }
-    configSources?: {
-      model?: 'whenMain' | 'fallback' | 'legacy'
-      effort?: 'whenMain' | 'fallback' | 'legacy'
-    }
-    whenMainValue?: string
-  }
+  effective: ResolveSubagentDefaultsResult
   gate: ConflictGateResult
   allowInfo: { allow: string[]; childHasLsp: boolean }
   piBuilt: PiExecutorPromptResult

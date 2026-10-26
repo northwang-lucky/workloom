@@ -134,6 +134,9 @@ function makeConfig(subagents: WorkloomConfig['subagents']): WorkloomConfig {
     hooks: { afterCreate: [], afterStart: [], afterFinish: [], afterArchive: [] },
     packages: {},
     subagents,
+    executor: { maxConcurrent: 0 },
+    worktree: { enabled: false, branchTemplate: 'workloom/<task-id>', cleanup: 'merge-keep-branch' },
+    subagentProfiles: [],
   }
 }
 
@@ -327,7 +330,7 @@ test('派发记录落绑定：配置命中时 dispatches 含 model/effort/modelS
       {
         model: 'p/m',
         effort: 'high',
-        sources: { model: 'fallback', effort: 'fallback' },
+        sources: { model: 'config', effort: 'config' },
         configSources: { model: 'fallback', effort: 'fallback' },
       },
       'main/model',
@@ -516,7 +519,7 @@ test('buildPiToolAllow: 默认 allow = 内置 4 件；父会话有 lsp 但未配
 })
 
 test('buildPiToolAllow: config tools.includes lsp_* 补入 → childHasLsp true（父会话无 lsp 则不可见）', () => {
-  const withLsp = buildPiToolAllow({ includes: ['lsp_*'] }, true)
+  const withLsp = buildPiToolAllow({ includes: ['lsp_*'], excludes: [] }, true)
   assert.deepEqual(withLsp.allow, [
     'read',
     'bash',
@@ -527,13 +530,13 @@ test('buildPiToolAllow: config tools.includes lsp_* 补入 → childHasLsp true�
   ])
   assert.equal(withLsp.childHasLsp, true)
   // 父会话无 pi-lsp：理论可见集无 lsp，即使配置 includes 也不进 allow。
-  const noParent = buildPiToolAllow({ includes: ['lsp_*'] }, false)
+  const noParent = buildPiToolAllow({ includes: ['lsp_*'], excludes: [] }, false)
   assert.deepEqual(noParent.allow, ['read', 'bash', 'edit', 'write'])
   assert.equal(noParent.childHasLsp, false)
 })
 
 test('buildPiToolAllow: excludes 全移除 → allow 空（dispatch 空交集前兆）', () => {
-  const empty = buildPiToolAllow({ excludes: ['read', 'bash', 'edit', 'write'] }, false)
+  const empty = buildPiToolAllow({ includes: [], excludes: ['read', 'bash', 'edit', 'write'] }, false)
   assert.deepEqual(empty.allow, [])
   assert.equal(empty.childHasLsp, false)
   // 空集经 buildChildPiArgs fail loud（指明 kind）。
@@ -550,7 +553,7 @@ test('接线：childHasLsp 驱动 PI_LSP_SOURCE 的 -e 按需加载（allow 含 
   const missArgs = buildChildPiArgs({ kind: 'implement', root: '/tmp/test', title: 't', tools: miss.allow })
   assert.ok(!missArgs.includes('npm:@narumitw/pi-lsp'))
   // 配置 includes lsp_*：allow 含 lsp → 加载 pi-lsp。
-  const hit = buildPiToolAllow({ includes: ['lsp_*'] }, true)
+  const hit = buildPiToolAllow({ includes: ['lsp_*'], excludes: [] }, true)
   assert.equal(hit.childHasLsp, true)
   const hitArgs = buildChildPiArgs({
     kind: 'implement',

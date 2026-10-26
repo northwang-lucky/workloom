@@ -1,166 +1,385 @@
+/** workloom 任务数据：task-store 模块的公共类型（供 JSDoc 引用，快照字段）。 */
+import type { GateValue } from './task-gates.d.ts'
+import type { TaskModeValue } from './task-mode.d.ts'
+
+export type TaskStatusKey = 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED'
+
+/** 任务状态取值（task.json.status）。 */
+export type TaskStatusValue = 'planning' | 'in_progress' | 'completed'
+
+/** 优先级枚举键。 */
+export type TaskPriorityKey = 'P0' | 'P1' | 'P2' | 'P3'
+
+/** 优先级取值（task.json.priority）。 */
+export type TaskPriorityValue = 'P0' | 'P1' | 'P2' | 'P3'
+
+/** 任务阶段枚举键。 */
+export type TaskStageKey = 'IMPLEMENT' | 'CHECK'
+
+/** 任务阶段取值（task.json.stage；implement/check 二相，旧任务归一化默认 implement）。 */
+export type TaskStageValue = 'implement' | 'check'
+
+/** 状态枚举常量对象（键为枚举名）。 */
+export const TaskStatus: Readonly<Record<TaskStatusKey, TaskStatusValue>>
+
+/** 优先级枚举常量对象。 */
+export const TaskPriority: Readonly<Record<TaskPriorityKey, TaskPriorityValue>>
+
+/** 任务阶段枚举常量对象。 */
+export const TaskStage: Readonly<Record<TaskStageKey, TaskStageValue>>
+
+/** 任务 hooks（task.json.hooks，snake_case 字段）。 */
+export interface TaskHooks {
+  after_create: string[]
+  after_start: string[]
+  after_finish: string[]
+  after_archive: string[]
+}
+
+/** 2.2 check 通过凭据（workloom_task_check 写入 task.json.check）。 */
+export interface TaskCheckRecord {
+  passedAt: string
+  summary: string
+}
+
 /**
- * 由标题生成 kebab-case slug：非字母数字转连字符、去首尾连字符、全小写、截断 40 字符。
- * @param {string} title 任务标题
- * @returns {string}
+ * alignment 凭据（workloom_task_align action=confirm 原子写入 task.json.alignment）。
+ * 无 alignment 字段 = 未对齐（planning 任务 start 前必须完成确认；旧任务读 null）。
  */
-export function slugify(title: string): string;
+export interface TaskAlignmentRecord {
+  /** 用户明确确认时间（相同 hash 重复 confirm 幂等，不刷新）。 */
+  passedAt: string
+  /** 收敛摘要（覆盖节点、关键决策及确认结果，由 alignment skill 提供）。 */
+  summary: string
+  /** 确认时含 Alignment Decisions 的完整 PRD SHA-256（CRLF/CR 归一为 LF）。 */
+  prdHash: string
+}
+
+/** force 豁免留痕（task.json.overrides 元素）。 */
+export interface GateOverride {
+  gate: GateValue
+  tool: string
+  at: string
+  reason?: string
+}
+
+/** executor 派发记录的生命周期状态（派发初写 running；终态由回填 API 写 completed/failed）。 */
+export type DispatchStatus = 'running' | 'completed' | 'failed'
+
 /**
- * 读取任务记录：task.json 缺失或损坏返回 err；成功时对象附带 taskRelPath。
- * 导出供 workflow-service 编排使用（读取只读任务状态）。
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
+ * 派发记录的 model 绑定来源（dispatches[].modelSource）。
+ * 新派轮：param（显式参数）/ whenMain / fallback / legacy（配置命中）/ inherit（继承主会话模型）；
+ * 续派轮：spawn（沿用 childId 首次派发记录的绑定，审计可查）。
  */
-export function readTask(root: string, taskRelPath: string): [Error | null, import("./task-store.d.ts").TaskRecordWithPath | null];
-/**
- * 执行 hooks：注入 TASK_JSON_PATH 环境变量；单个失败收集为 WARNING，不抛错。
- * @param {string} root 项目根（作为 hooks 的工作目录）
- * @param {string} taskJsonPath task.json 绝对路径
- * @param {string[]} commands shell 命令列表
- * @returns {Promise<string[]>} WARNING 消息列表（空数组表示全部成功）
- */
-export function runTaskHooks(root: string, taskJsonPath: string, commands: string[]): Promise<string[]>;
-/**
- * 创建任务：建目录、写 task.json/prd.md/两个 jsonl，可选激活会话并执行 after_create hooks。
- * @param {string} root 项目根（或根下任意目录）
- * @param {import('./task-store.d.ts').CreateTaskParams} params
- * @returns {Promise<[Error | null, import('./task-store.d.ts').CreateTaskResult | null]>}
- */
-export function createTask(root: string, params: import("./task-store.d.ts").CreateTaskParams): Promise<[Error | null, import("./task-store.d.ts").CreateTaskResult | null]>;
-/**
- * 启动任务：planning → in_progress，可选激活会话并执行 after_start hooks。
- * @param {string} root 项目根
- * @param {import('./task-store.d.ts').StartTaskParams} params
- * @returns {Promise<[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]>}
- */
-export function startTask(root: string, params: import("./task-store.d.ts").StartTaskParams): Promise<[Error | null, import("./task-store.d.ts").TaskRecordWithPath | null]>;
-/**
- * 记录 2.2 check 通过凭据（task.json check 字段，同步）。
- * 前置：in_progress、summary 非空；force 豁免见 checkTaskInternal。
- * @param {string} root 项目根
- * @param {import('./task-store.d.ts').CheckTaskParams} params
- * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
- */
-export function checkTask(root: string, params: import("./task-store.d.ts").CheckTaskParams): [Error | null, import("./task-store.d.ts").TaskRecordWithPath | null];
+export type DispatchModelSource = 'param' | 'whenMain' | 'fallback' | 'legacy' | 'inherit' | 'spawn'
+
+/** 派发记录 model 绑定来源枚举常量对象（键为枚举名）。 */
+export const DISPATCH_MODEL_SOURCES: Readonly<Record<
+  'PARAM' | 'WHEN_MAIN' | 'FALLBACK' | 'LEGACY' | 'INHERIT' | 'SPAWN',
+  DispatchModelSource
+>>
+
+/** executor 派发审计条目（task.json.dispatches 元素）。 */
+export interface DispatchRecord {
+  kind: string
+  at: string
+  title: string
+  /** continuable 子代理的 durable session id（旧记录缺省；续用定位与同 kind 校验的依据）。 */
+  childId?: string
+  /**
+   * 派发生命周期状态：初写（recordExecutorDispatch）写 running；终态由
+   * settleExecutorDispatch 回填 completed/failed。存量无 status 字段的记录
+   * 读取时视为 completed（不迁移落盘）。
+   */
+  status?: DispatchStatus
+  /** 失败一行摘要（终态原因 stopReason 的一行映射；仅 status=failed 时由回填写入）。 */
+  error?: string
+  /**
+   * 派发时刻实际生效（解析后）的 model（新派轮落值；续派轮沿用 childId 首次派发记录；
+   * inherit 且主模型可读时落主会话模型快照）。旧记录缺省读取为 undefined。
+   */
+  model?: string
+  /** 派发时刻实际生效的 effort（同上；未配置/未显式传参时缺省）。 */
+  effort?: string
+  /**
+   * model 绑定来源：新派轮 param/whenMain/fallback/legacy/inherit；
+   * 续派轮 spawn（沿用首次派发记录）。旧记录缺省读取为 undefined。
+   */
+  modelSource?: DispatchModelSource
+  /**
+   * 派发时刻施加给子代理的工具白名单（新派轮落值；旧记录缺省读取为 undefined）。
+   * 冷恢复时据此重建限制，不依赖内存索引。
+   */
+  toolsAllow?: string[]
+  /**
+   * 失败转移链式关联：前一跳 childId（首跳无字段，旧记录缺省读取为 undefined）。
+   * 链由 fallbackOf 回溯重建（append-only dispatches）。
+   */
+  fallbackOf?: string
+  /** 失败转移本跳序号（首跳无字段；>= 2 的整数）。旧记录缺省读取为 undefined。 */
+  fallbackAttempt?: number
+}
+
+/** recordExecutorDispatch 入参（at 由函数生成；绑定字段可选，续派轮传 spawn 语义值；
+ *  status 可选，默认 'running'，失败派发留痕时传 'failed' + error）。 */
+export type DispatchRecordInput = Pick<
+  DispatchRecord,
+  | 'kind'
+  | 'title'
+  | 'childId'
+  | 'model'
+  | 'effort'
+  | 'modelSource'
+  | 'status'
+  | 'toolsAllow'
+  | 'fallbackOf'
+  | 'fallbackAttempt'
+> & { error?: string }
+
+/** settleExecutorDispatch 回填入参（只改 status/error，不动 stage、不新增记录）。 */
+export interface DispatchSettleInput {
+  /** 关联的 continuable 子代理 id（与 dispatches 记录的 childId 匹配）。 */
+  childId: string
+  /** 终态：completed 或 failed。 */
+  status: Exclude<DispatchStatus, 'running'>
+  /** 失败一行摘要（仅 status=failed 时提供）。 */
+  error?: string
+}
+
+/** task.json 单条记录（快照字段，与数据布局一致）。 */
+export interface TaskRecord {
+  id: string
+  name: string
+  title: string
+  description: string
+  status: TaskStatusValue
+  priority: TaskPriorityValue
+  /** 任务模式（full | light）：创建时定死，存量任务读取归一化为 full（不写回）。 */
+  mode: TaskModeValue
+  creator: string
+  assignee: string
+  package: string | null
+  branch: string
+  base_branch: string
+  createdAt: string
+  completedAt: string | null
+  parent: string | null
+  children: string[]
+  subtasks: string[]
+  scope: string
+  commit: string
+  pr_url: string
+  worktree_path: string
+  relatedFiles: string[]
+  notes: string
+  meta: Record<string, unknown>
+  check: TaskCheckRecord | null
+  /** Phase 1.1 alignment 凭据（确认后非空；旧 grilling 字段为惰性历史数据，不参与语义）。 */
+  alignment: TaskAlignmentRecord | null
+  overrides: GateOverride[]
+  /** 任务执行期阶段（implement | check）：派发时与 dispatches 同点写入，旧任务归一化默认 implement。 */
+  stage: TaskStageValue
+  dispatches: DispatchRecord[]
+  hooks: TaskHooks
+}
+
+/** 附带 taskRelPath 的任务记录（readTask 返回）。 */
+export type TaskRecordWithPath = TaskRecord & { taskRelPath: string }
+
+/** startTask 返回的任务记录（planning → in_progress，无软提醒字段；凭据语义在 alignment）。 */
+export type StartedTaskRecord = TaskRecordWithPath
+
+/** 任务摘要（listTasks 返回）。 */
+export interface TaskSummary {
+  name: string
+  title: string
+  status: TaskStatusValue
+  priority: TaskPriorityValue
+  createdAt: string
+  parent: string | null
+}
+
+/** createTask 参数。 */
+export interface CreateTaskParams {
+  title: string
+  /** 任务模式（缺省 full）；light 标记轻量任务（主会话包办、闸门放松）。 */
+  mode?: TaskModeValue
+  /**
+   * package 归属（config.packages 的键；可选——直调面不下沉必填，成员校验在
+   * createTaskInternal 传入即查；executeCreateTask 层强制非空）。缺省落 null。
+   */
+  package?: string | null
+  slug?: string
+  parent?: string | null
+  priority?: TaskPriorityValue
+  description?: string
+  contextKey?: string
+}
+
+/** createTask 结果。 */
+export interface CreateTaskResult {
+  taskRelPath: string
+  task: TaskRecord
+}
+
+/** startTask 参数。 */
+export interface StartTaskParams {
+  taskRelPath: string
+  contextKey?: string
+  /** 豁免 start 门禁（留痕 overrides）。 */
+  force?: boolean
+  /** force 豁免原因（审计用）。 */
+  reason?: string
+}
+
+/** checkTask 参数。 */
+export interface CheckTaskParams {
+  taskRelPath: string
+  /** 2.2 check 通过摘要（必填非空）。 */
+  summary?: string
+  /** 豁免 check 门禁（留痕 overrides；仅在实际绕过 gate 时记录）。 */
+  force?: boolean
+  /** force 豁免原因（force=true 时必填非空，审计用）。 */
+  reason?: string
+}
+
+/** finishTask 参数。 */
+export interface FinishTaskParams {
+  taskRelPath: string
+  contextKey?: string
+}
+
+/** archiveTask 参数。 */
+export interface ArchiveTaskParams {
+  taskRelPath: string
+  autoCommit?: boolean
+  /** 豁免 archive 门禁（留痕 overrides）。 */
+  force?: boolean
+  /** force 豁免原因（审计用）。 */
+  reason?: string
+}
+
+/** listTasks 参数。 */
+export interface ListTasksParams {
+  status?: TaskStatusValue
+}
+
+/** 由标题生成 kebab-case slug。 */
+export function slugify(title: string): string
+
+/** 创建任务并返回任务目录相对路径与记录。 */
+export function createTask(
+  root: string,
+  params: CreateTaskParams,
+): Promise<[Error | null, CreateTaskResult | null]>
+
+/** 启动任务：planning → in_progress。 */
+export function startTask(
+  root: string,
+  params: StartTaskParams,
+): Promise<[Error | null, StartedTaskRecord | null]>
+
+/** 记录 2.2 check 通过凭据（task.json check 字段；stale alignment 在 force 外硬拦）。 */
+export function checkTask(
+  root: string,
+  params: CheckTaskParams,
+): [Error | null, TaskRecordWithPath | null]
+
 /**
  * 记录 alignment 凭据（workloom_task_align confirm 的窄写口，同步全链路）：
- * 校验入参与任务状态后，经同目录临时文件 + renameSync 原子写 task.json
- * alignment；相同 prdHash 重复 confirm 幂等早退（不刷新 passedAt，R11）。
- * 校验失败零写入；服务层负责 PRD 结构/hash/开放节点等前置校验，本口只落凭据。
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').AlignmentCredentialInput} entry 凭据入参（summary/prdHash）
- * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
+ * 校验 summary/prdHash 非空与任务状态，通过同目录临时文件 + renameSync 原子写
+ * task.json.alignment；相同 prdHash 重复 confirm 幂等早退（不刷新 passedAt）。
  */
-export function recordAlignmentCredential(root: string, taskRelPath: string, entry: import("./task-store.d.ts").AlignmentCredentialInput): [Error | null, import("./task-store.d.ts").TaskRecordWithPath | null];
-/**
- * 记录 executor 参数覆盖（adapter 在 force 放行后调用）：向 task.json overrides
- * 追加 EXECUTOR_MODEL_EFFORT 条目（gate/tool/at/reason?，空串不记）。
- * 记录失败只返回 err（调用方 WARNING 不阻塞派发），不涉及状态迁移与 hooks。
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {string | undefined} reason 覆盖原因（审计用）
- * @returns {[Error | null]}
- */
-export function recordExecutorOverride(root: string, taskRelPath: string, reason: string | undefined): [Error | null];
+export function recordAlignmentCredential(
+  root: string,
+  taskRelPath: string,
+  entry: AlignmentCredentialInput,
+): [Error | null, TaskRecordWithPath | null]
+
+/** recordAlignmentCredential 入参（passedAt 由函数生成；summary/prdHash 由调用方校验后传入）。 */
+export type AlignmentCredentialInput = Pick<TaskAlignmentRecord, 'summary' | 'prdHash'>
+
+/** 记录 executor 参数覆盖（force 放行后调用）：向 overrides 追加 EXECUTOR_MODEL_EFFORT 条目。 */
+export function recordExecutorOverride(
+  root: string,
+  taskRelPath: string,
+  reason?: string,
+): [Error | null]
+
 /**
  * 记录指定 gate 的 force 豁免（R14：每个实际绕过的 gate 独立留痕；reason 必填非空）。
- * stale_alignment 等非 executor_model_effort 门禁的 force 审计由适配层调用。
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-gates.d.ts').GateValue} gate 被绕过的 gate
- * @param {string} reason 覆盖原因（审计用）
- * @returns {[Error | null]}
+ * 用于 stale_alignment 等非 executor_model_effort 门禁的 force 审计（适配层调用）。
  */
-export function recordGateOverride(root: string, taskRelPath: string, gate: import("./task-gates.d.ts").GateValue, reason: string): [Error | null];
+export function recordGateOverride(
+  root: string,
+  taskRelPath: string,
+  gate: import('./task-gates.d.ts').GateValue,
+  reason: string,
+): [Error | null]
+
+/** 记录一次 executor 派发（初写，派发时刻调用）：向 dispatches 追加 { kind, at, title, childId?, status: 'running' }（at 自动生成）。 */
+export function recordExecutorDispatch(
+  root: string,
+  taskRelPath: string,
+  entry: DispatchRecordInput,
+): [Error | null]
+
+/** 回填一次 executor 派发的终态：按 childId 关联最近一条 running 记录，只改 status/error，不动 stage、不新增记录。 */
+export function settleExecutorDispatch(
+  root: string,
+  taskRelPath: string,
+  entry: DispatchSettleInput,
+): [Error | null]
+
 /**
- * 记录一次 executor 派发（初写，派发时刻调用）：向 task.json dispatches 追加
- * { kind, at, title, childId?, status: 'running' } 条目（at 自动生成；childId 为
- * continuable 子代理的 durable session id，续用定位与终态回填关联的依据，旧记录缺省）。
- * 初写即记 running——即使后续未结算（子代理未回填）也留痕可见（缺口 A：失败派发在
- * task.json 可见）。终态由 settleExecutorDispatch 按 childId 回填 completed/failed，
- * 主会话不参与。记录失败只返回 err（调用方 WARNING 不阻塞派发），与
- * recordExecutorOverride 同一「元组 + WARNING」口径。
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').DispatchRecordInput} entry 派发条目（kind/title/childId?，at 由函数生成）
- * @returns {[Error | null]}
+ * 向该 childId 最近一条 failed 记录的 error 行追加后缀（失败转移链穷尽留痕）：
+ * 只改 error 文本，无匹配 failed 记录时 no-op；读写失败返回 err 元组。
  */
-export function recordExecutorDispatch(root: string, taskRelPath: string, entry: import("./task-store.d.ts").DispatchRecordInput): [Error | null];
+export function appendDispatchErrorSuffix(
+  root: string,
+  taskRelPath: string,
+  childId: string,
+  suffix: string,
+): [Error | null]
+
 /**
- * 回填一次 executor 派发的终态（adapter 监听 subagent/end 后调用）：按 childId
- * 关联 dispatches 中最近一条仍为 running 的记录，只改 status/error——不动 stage、
- * 不新增记录（不重复计数）。无匹配 running 记录时 no-op（返回成功，不报错：
- * 监听对非 workloom 子代理也会触发，未知 childId 静默跳过）。记录失败只返回 err。
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').DispatchSettleInput} entry 回填条目（childId + status + error?）
- * @returns {[Error | null]}
+ * 计算派发后的任务阶段（纯函数）：research 保持 current；implement/frontend → implement；check → check。
+ * kind 非法（含 undefined）抛错（fail loud）。
  */
-export function settleExecutorDispatch(root: string, taskRelPath: string, entry: import("./task-store.d.ts").DispatchSettleInput): [Error | null];
+export function computeTaskStage(current: TaskStageValue, kind: string): TaskStageValue
+
+/** 结束任务会话（清指针，不改状态）。 */
+export function finishTask(root: string, params: FinishTaskParams): Promise<[Error | null]>
+
 /**
- * 向该 childId 最近一条 failed 记录的 error 行追加后缀（失败转移链穷尽留痕用）：
- * 只改 error 文本，不动 status/stage、不新增记录；无匹配 failed 记录时 no-op
- * （未知 childId / 已归档任务静默跳过）。后缀由调用方渲染，含前导空格（如
- * ` (fallback chain exhausted: m1 → m2)`），本函数原样拼接。读写失败返回 err
- * 元组，调用方只告警（与 settle 同一口径）。
- * @param {string} root 项目根
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {string} childId 关联的子代理会话 id
- * @param {string} suffix 追加到 error 行的后缀（含前导空格）
- * @returns {[Error | null]}
+ * 归档任务结果（三元组）：成功时第三元素为 worktree 清理摘要（cleanup 内的
+ * rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped，供
+ * archive 回执展示）；失败时第三元素缺省。
  */
-export function appendDispatchErrorSuffix(root: string, taskRelPath: string, childId: string, suffix: string): [Error | null];
-/**
- * 计算派发后的任务阶段（纯函数，独立可测）：research 保持 current；
- * implement/frontend → 'implement'；check → 'check'。
- * kind 非法（含 undefined）抛错（fail loud，与 assertKind 同语义）。
- * @param {import('./task-store.d.ts').TaskStageValue} current 当前阶段（readTask 归一化后必有值）
- * @param {string} kind executor 类型
- * @returns {import('./task-store.d.ts').TaskStageValue}
- */
-export function computeTaskStage(current: import("./task-store.d.ts").TaskStageValue, kind: string): import("./task-store.d.ts").TaskStageValue;
-/**
- * 结束任务会话：清指针（若该 contextKey 指向本任务）并执行 after_finish hooks；不改状态。
- * @param {string} root 项目根
- * @param {import('./task-store.d.ts').FinishTaskParams} params
- * @returns {Promise<[Error | null]>}
- */
-export function finishTask(root: string, params: import("./task-store.d.ts").FinishTaskParams): Promise<[Error | null]>;
-/**
- * 归档任务：清理任务 worktree（失败即阻断）、置 completed、移动目录、清理会话指针、
- * 执行 after_archive hooks，可选 git 自动提交。
- * @param {string} root 项目根
- * @param {import('./task-store.d.ts').ArchiveTaskParams} params
- * @returns {Promise<import('./task-store.d.ts').ArchiveTaskResult>} 三元组：
- *   [err, 归档后记录, worktree 清理摘要（成功时携带）]
- */
-export function archiveTask(root: string, params: import("./task-store.d.ts").ArchiveTaskParams): Promise<import("./task-store.d.ts").ArchiveTaskResult>;
-/**
- * 列出任务摘要（不含 archive/），可按状态过滤；缺失或损坏的目录跳过。
- * @param {string} root 项目根
- * @param {import('./task-store.d.ts').ListTasksParams} [params]
- * @returns {[Error | null, import('./task-store.d.ts').TaskSummary[] | null]}
- */
-export function listTasks(root: string, params?: import("./task-store.d.ts").ListTasksParams): [Error | null, import("./task-store.d.ts").TaskSummary[] | null];
-/**
- * 任务状态枚举（task.json.status 取值）。
- * @type {Readonly<Record<import('./task-store.d.ts').TaskStatusKey, import('./task-store.d.ts').TaskStatusValue>>}
- */
-export const TaskStatus: Readonly<Record<import("./task-store.d.ts").TaskStatusKey, import("./task-store.d.ts").TaskStatusValue>>;
-/**
- * 优先级枚举（task.json.priority 取值）。
- * @type {Readonly<Record<import('./task-store.d.ts').TaskPriorityKey, import('./task-store.d.ts').TaskPriorityValue>>}
- */
-export const TaskPriority: Readonly<Record<import("./task-store.d.ts").TaskPriorityKey, import("./task-store.d.ts").TaskPriorityValue>>;
-/**
- * 任务阶段枚举（task.json.stage 取值；implement/check 二相）。
- * @type {Readonly<Record<import('./task-store.d.ts').TaskStageKey, import('./task-store.d.ts').TaskStageValue>>}
- */
-export const TaskStage: Readonly<Record<import("./task-store.d.ts").TaskStageKey, import("./task-store.d.ts").TaskStageValue>>;
-/**
- * 派发记录 model 绑定来源枚举值（dispatches[].modelSource 合法值域）。
- * 新派轮：param/whenMain/fallback/legacy/inherit；续派轮：spawn。
- * @type {Readonly<Record<'PARAM' | 'WHEN_MAIN' | 'FALLBACK' | 'LEGACY' | 'INHERIT' | 'SPAWN', import('./task-store.d.ts').DispatchModelSource>>}
- */
-export const DISPATCH_MODEL_SOURCES: Readonly<Record<"PARAM" | "WHEN_MAIN" | "FALLBACK" | "LEGACY" | "INHERIT" | "SPAWN", import("./task-store.d.ts").DispatchModelSource>>;
+export type ArchiveTaskResult = [
+  Error | null,
+  TaskRecordWithPath | null,
+  import('./worktree.d.ts').CleanupTaskWorktreeResult?,
+]
+
+/** 归档任务（先清理任务 worktree，失败即阻断；置 completed、移动目录、可选 git 提交）；返回记录的 taskRelPath 为归档后新路径。 */
+export function archiveTask(root: string, params: ArchiveTaskParams): Promise<ArchiveTaskResult>
+
+/** 列出任务摘要（可按状态过滤）。 */
+export function listTasks(
+  root: string,
+  params?: ListTasksParams,
+): [Error | null, TaskSummary[] | null]
+
+/** 执行 hooks：注入 TASK_JSON_PATH，失败收集为 WARNING。 */
+export function runTaskHooks(
+  root: string,
+  taskJsonPath: string,
+  commands: string[],
+): Promise<string[]>
+
+/** 读取任务记录；成功时对象附带 taskRelPath。 */
+export function readTask(
+  root: string,
+  taskRelPath: string,
+): [Error | null, TaskRecordWithPath | null]

@@ -1,9 +1,18 @@
-/**
- * 收集 spec 索引路径列表（同步）。
- * @param {string} root 项目根（必须已是 findWorkloomRoot 的结果）
- * @param {import('./config.d.ts').WorkloomConfig} config loadConfig 产物
- * @returns {[Error | null, import('./spec-index.d.ts').SpecIndexResult | null]}
- */
-export function collectSpecIndexes(root: string, config: import("./config.d.ts").WorkloomConfig): [Error | null, import("./spec-index.d.ts").SpecIndexResult | null];
-/** guidelines 段累计字节上限，超限停止收集。 */
-export const MAX_GUIDELINES_BYTES: 8192;
+import type { WorkloomConfig } from './config.d.ts'
+
+/** guidelines 段累计字节上限。 */
+export declare const MAX_GUIDELINES_BYTES: number
+
+/** spec 索引收集结果（.workloom/spec/ 两级布局的折叠）。 */
+export interface SpecIndexResult {
+  /** 索引路径列表（.workloom 相对，按 (package, layer) 字典序）。 */
+  indexes: string[]
+  /** 因字节预算（MAX_GUIDELINES_BYTES）被截断的条数。 */
+  truncated: number
+}
+
+/** 收集 spec 索引路径列表（同步）。 */
+export declare function collectSpecIndexes(
+  root: string,
+  config: WorkloomConfig,
+): [Error | null, SpecIndexResult | null]
