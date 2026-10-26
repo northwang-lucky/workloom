@@ -1,19 +1,28 @@
 {
   "packages": {
     "core": {
-      "path": "packages/core"
+      "path": "packages/core",
+      "type": "workspace",
+      "setup": ["pnpm install"]
     },
     "assets": {
-      "path": "packages/assets"
+      "path": "packages/assets",
+      "type": "workspace",
+      "setup": []
     },
     "adapter-dsh": {
-      "path": "packages/adapter-dsh"
+      "path": "packages/adapter-dsh",
+      "type": "workspace",
+      "setup": ["pnpm install"]
     },
     "adapter-pi": {
-      "path": "packages/adapter-pi"
+      "path": "packages/adapter-pi",
+      "type": "workspace",
+      "setup": ["pnpm install"]
     },
     "repo": {
-      "path": "."
+      "path": ".",
+      "setup": ["pnpm install"]
     }
   }
 }
