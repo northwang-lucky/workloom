@@ -37,9 +37,10 @@ export function renderBranchName(template: string, ctx: import("./worktree.d.ts"
 export function createTaskWorktree(root: string, task: import("./task-store.d.ts").TaskRecord, taskRelPath: string, config: import("./config.d.ts").WorkloomConfig): Promise<[Error | null, import("./worktree.d.ts").CreateTaskWorktreeResult | null]>;
 /**
  * archive 侧清理任务 worktree（design §3.4）：失败即阻断归档（调用方不落档）；
- * 结果并入 archive 回执（merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。
+ * 结果并入 archive 回执（rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。
  * 中段失败容忍（R5-Q2）：本函数成功后的 rename 失败接受为中间态，重跑时
- * 已 merged 跳过合并、gitlink 无 diff 跳过提交、无注册跳过 remove（幂等续做）。
+ * 已 rebase 跳过 rebase、已 merged 跳过合并、gitlink 无 diff 跳过提交、无注册
+ * 跳过 remove（幂等续做）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').TaskRecord} task 任务记录
  * @param {import('./config.d.ts').WorkloomConfig} config 项目配置

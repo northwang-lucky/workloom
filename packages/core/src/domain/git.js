@@ -275,6 +275,63 @@ export async function gitMergeAbort(root) {
 }
 
 /**
+ * rebase 分支到上游之上（`rebase <upstream>`，cwd = 任务 worktree 根：任务分支
+ * 检出于此，git 不允许跨检出 rebase）。失败 err.code 透出 git 退出码——1 = 冲突
+ * 中断或拒绝（untracked 覆盖等）、128 = 身份缺失等；exit code 不可靠，冲突与否
+ * 以 rebase 中断态探测（gitHasRebaseHead）判别，不以 exit code 定性。
+ * @param {string} root 任务 worktree 根（工作目录）
+ * @param {string} upstream 上游 ref（base 分支）
+ * @returns {Promise<[GitCommandError | null, string | null]>}
+ */
+export async function gitRebase(root, upstream) {
+  const [err, stdout] = await runGit(root, ['rebase', upstream])
+  if (err !== null) return [err, null]
+  return [null, stdout]
+}
+
+/**
+ * rebase 中断态判定（`rev-parse -q --verify REBASE_HEAD`）：abort 的唯一可靠判据
+ * （exit 1 = 无中断，是业务结果）。与 MERGE_HEAD 探测同构（§A7.2）；REBASE_HEAD
+ * 在 linked worktree 内按 worktree 隔离生效（主检出不受任务 worktree 中断态牵连）。
+ * @param {string} root 工作目录
+ * @returns {Promise<[GitCommandError | null, boolean | null]>} 0→true、1→false、其余→err
+ */
+export async function gitHasRebaseHead(root) {
+  const [err] = await runGit(root, ['rev-parse', '-q', '--verify', 'REBASE_HEAD'])
+  if (err === null) return [null, true]
+  if (err.code === 1) return [null, false]
+  return [err, null]
+}
+
+/**
+ * 中止进行中的 rebase（`rebase --abort`）：调用前必须先经 gitHasRebaseHead 确认
+ * 存在中断态（无中断态时 abort 语义不可靠，同 merge abort 纪律 §A7.2）。
+ * @param {string} root 工作目录
+ * @returns {Promise<[GitCommandError | null, string | null]>}
+ */
+export async function gitRebaseAbort(root) {
+  const [err, stdout] = await runGit(root, ['rebase', '--abort'])
+  if (err !== null) return [err, null]
+  return [null, stdout]
+}
+
+/**
+ * 快进合并（`merge --ff-only --no-edit <branch>`，cwd = 仓主检出）。失败 err.code
+ * 透出 git 退出码（128 = 非 fast-forward 拒绝，fatal 文案 "Not possible to
+ * fast-forward"；1 = 冲突/untracked 拒绝等，§A7.1）。ff 拒绝不建 MERGE_HEAD
+ * （无合并态），失败直接以 err 透出 git 原始文案（竞态场景：rebase 完成后 base
+ * 又被推进；重跑归档会重判祖先关系并再次 rebase，天然自愈）。
+ * @param {string} root 工作目录（仓主检出）
+ * @param {string} branch 要合入的分支
+ * @returns {Promise<[GitCommandError | null, string | null]>}
+ */
+export async function gitMergeFfOnly(root, branch) {
+  const [err, stdout] = await runGit(root, ['merge', '--ff-only', '--no-edit', branch])
+  if (err !== null) return [err, null]
+  return [null, stdout]
+}
+
+/**
  * 创建 linked worktree：base 提供 → `worktree add -b <branch> <path> <base>`
  * （新分支）；否则 `worktree add <path> <branch>`（复用已存在分支）。
  * path 必须为绝对路径（相对路径按各自仓工作目录解析，跨仓调用有歧义，§A5）。

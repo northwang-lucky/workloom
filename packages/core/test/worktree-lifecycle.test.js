@@ -1,10 +1,11 @@
 /**
- * worktree 生命周期集成测试（先红后绿，design §8 映射表 ①-⑨ + 补充组）：
+ * worktree 生命周期集成测试（先红后绿，design 映射表 ①-⑨、⑫ rebase 组 + 补充组）：
  * 以真实 git 临时仓在 core 公开导出接缝上验证 start 创建任务 worktree、
- * archive 清理四模式、submodule gitlink 联动与各项 fail-loud 纪律。
+ * archive 清理模式（merge 系 / rebase 系 / keep / manual）、submodule gitlink
+ * 联动与各项 fail-loud 纪律。
  *
  * 红绿约定（S1 R2/R3）：
- * - 新导出（design §9：worktree 生命周期 4 个 + git 新原语 12 个）经命名空间
+ * - 新导出（design §9：worktree 生命周期 4 个 + git 新原语 16 个）经命名空间
  *   导入取用：R3 落盘前，导出面用例红因 = 导出缺失、其余用例红因 = 行为未实现；
  * - 行为断言一律以 git 事实（worktree list --porcelain / show-ref / rev-parse 对）
  *   为独立真值源，不复用被测实现自身的输出。
@@ -262,7 +263,7 @@ function readTaskJson(root, taskRelPath) {
 
 // ---------- 0. 导出面（design §9；R3 前红因 = 导出缺失） ----------
 
-test('design §9 导出面：worktree 生命周期 4 个 + git 新原语 12 个', () => {
+test('design §9 导出面：worktree 生命周期 4 个 + git 新原语 16 个', () => {
   const expected = [
     'createTaskWorktree',
     'cleanupTaskWorktree',
@@ -273,6 +274,10 @@ test('design §9 导出面：worktree 生命周期 4 个 + git 新原语 12 个'
     'gitHasMergeHead',
     'gitMerge',
     'gitMergeAbort',
+    'gitRebase',
+    'gitHasRebaseHead',
+    'gitRebaseAbort',
+    'gitMergeFfOnly',
     'gitWorktreeAdd',
     'gitWorktreeRemove',
     'gitWorktreeList',
@@ -440,12 +445,15 @@ test('④c add 失败回滚（占用路径 + -b）：游离分支被删、err �
   assert.equal(existsSync(join(root, '.workloom', 'worktree')), true)
 })
 
-// ---------- ⑤ archive 缺省策略（merge-keep-branch） ----------
+// ---------- ⑤ archive merge 系策略（显式 pin merge-keep-branch） ----------
 
 test('⑤ archive merge-keep-branch：合并回 base + 删 worktree + 保留分支', gitSkip, async (t) => {
   const base = makeBase()
   t.after(() => rmSync(base, { recursive: true, force: true }))
-  const root = makeGitProject(base)
+  const root = makeGitProject(base, 'project', {
+    packages: { repo: { path: '.' } },
+    worktree: { cleanup: 'merge-keep-branch' },
+  })
   const contextKey = 'dsh_wtl_keep'
   const { taskRelPath, dirName } = await createGated(root, contextKey, 'Keep Branch Task')
   const branch = `workloom/${dirName}`
@@ -488,7 +496,10 @@ test('⑤ archive merge-keep-branch：合并回 base + 删 worktree + 保留分�
 test('⑥ archive 冲突：abort + 冲突通知 + 不落档；手工合并后续做清理', gitSkip, async (t) => {
   const base = makeBase()
   t.after(() => rmSync(base, { recursive: true, force: true }))
-  const root = makeGitProject(base)
+  const root = makeGitProject(base, 'project', {
+    packages: { repo: { path: '.' } },
+    worktree: { cleanup: 'merge-keep-branch' },
+  })
   const contextKey = 'dsh_wtl_conflict'
   const { taskRelPath, dirName } = await createGated(root, contextKey, 'Conflict Task')
   const branch = `workloom/${dirName}`
@@ -545,7 +556,10 @@ test('⑥ archive 冲突：abort + 冲突通知 + 不落档；手工合并后续
 test('⑦ archive：主检出 HEAD ≠ base_branch 拒绝清理', gitSkip, async (t) => {
   const base = makeBase()
   t.after(() => rmSync(base, { recursive: true, force: true }))
-  const root = makeGitProject(base)
+  const root = makeGitProject(base, 'project', {
+    packages: { repo: { path: '.' } },
+    worktree: { cleanup: 'merge-keep-branch' },
+  })
   const contextKey = 'dsh_wtl_head'
   const { taskRelPath, dirName } = await createGated(root, contextKey, 'Head Mismatch Task')
 
@@ -633,9 +647,10 @@ test('⑧b 无 worktree 任务清理 no-op（worktree_path 空）', gitSkip, asy
  * 建 submodule 项目：upstream 源仓 → super 根仓（骨架 + 自定义 packages）→
  * `submodule add`（file 协议需显式放开，§A5）→ 提交。
  * @param {string} base 基目录
+ * @param {string | null} [cleanup] 显式 pin 的 worktree.cleanup（缺省 null = 默认模式）
  * @returns {string} super 项目根绝对路径
  */
-function makeSubmoduleProject(base) {
+function makeSubmoduleProject(base, cleanup = null) {
   const upstream = join(base, 'upstream')
   mkdirSync(upstream, { recursive: true })
   runGit(upstream, ['init', '-b', 'main'])
@@ -645,6 +660,7 @@ function makeSubmoduleProject(base) {
 
   const root = makeGitProject(base, 'project', {
     packages: { repo: { path: '.' }, sub: { path: 'libs/mymod', git: true } },
+    ...(cleanup !== null ? { worktree: { cleanup } } : {}),
   })
   runGit(root, ['submodule', 'add', upstream, 'libs/mymod'], [
     '-c',
@@ -675,7 +691,7 @@ function makeNestedProject(base) {
 test('⑨a submodule：start 在 submodule 建 worktree；archive 合并后 gitlink 窄提交', gitSkip, async (t) => {
   const base = makeBase()
   t.after(() => rmSync(base, { recursive: true, force: true }))
-  const root = makeSubmoduleProject(base)
+  const root = makeSubmoduleProject(base, 'merge-keep-branch')
   const subAbs = join(root, 'libs', 'mymod')
   const contextKey = 'dsh_wtl_sub'
   const { taskRelPath, dirName } = await createGated(root, contextKey, 'Submodule Task', 'sub')
@@ -728,7 +744,7 @@ test('⑨a submodule：start 在 submodule 建 worktree；archive 合并后 gitl
 test('⑨b 中段失败容忍：清理成功 + 归档移动失败 → 重跑幂等（无 diff 跳提交）', gitSkip, async (t) => {
   const base = makeBase()
   t.after(() => rmSync(base, { recursive: true, force: true }))
-  const root = makeSubmoduleProject(base)
+  const root = makeSubmoduleProject(base, 'merge-keep-branch')
   const subAbs = join(root, 'libs', 'mymod')
   const contextKey = 'dsh_wtl_mid'
   const { taskRelPath, dirName } = await createGated(root, contextKey, 'Mid State Task', 'sub')
@@ -811,6 +827,229 @@ test('⑨c nested repo 对照：未注册 submodule 无 gitlink 联动', gitSkip
     'no gitlink commit for unregistered nested repo',
   )
   assert.match(gitProbe(root, ['status', '--porcelain']).stdout, /\?\? nested\//)
+})
+
+// ---------- ⑫ rebase 清理模式（默认模式 + 真实生效 + 冲突 + delete + 门禁 + submodule） ----------
+
+/**
+ * start 一个项目并返回任务分支与 worktree 绝对路径（⑫ 组公共前置）。
+ * @param {string} base 基目录
+ * @param {string} contextKey 会话标识
+ * @param {string} title 任务标题
+ * @param {Record<string, unknown> | null} [config] 项目配置覆盖（缺省 null = 不写 cleanup，走默认模式）
+ * @returns {Promise<{root: string, wtAbs: string, branch: string, taskRelPath: string}>}
+ */
+async function makeRebaseTask(base, contextKey, title, config = null) {
+  const root = makeGitProject(base, 'project', config)
+  const { taskRelPath, dirName } = await createGated(root, contextKey, title)
+  const branch = `workloom/${dirName}`
+  const [startErr] = await executeStartTask(root, contextKey, {})
+  assert.equal(startErr, null, startErr?.message)
+  const wtAbs = join(root, '.workloom', 'worktree', dirName)
+  assert.ok(existsSync(wtAbs), 'worktree must exist after start')
+  return { root, wtAbs, branch, taskRelPath }
+}
+
+test('⑫a 默认即 rebase-keep-branch：归档线性合入 + 删 worktree + 保留分支', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  // 无 cleanup 配置 → 新默认 rebase-keep-branch 生效（AC3）。
+  const { root, wtAbs, branch, taskRelPath } = await makeRebaseTask(base, 'dsh_wtl_rb_a', 'Rebase Default Task')
+
+  writeFileSync(join(wtAbs, 'c.txt'), 'line1\nline2\ntask-work\n')
+  runGit(wtAbs, ['add', 'c.txt'])
+  runGit(wtAbs, ['commit', '-m', 'feat: task work'])
+
+  const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_a', { summary: 'ok' })
+  assert.equal(checkErr, null, checkErr?.message)
+  const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
+  assert.equal(archErr, null, archErr?.message)
+  assert.equal(archived.task.status, 'completed')
+  // 回执：任务分支未偏离 base（base 是祖先）→ 幂等判据跳过 rebase；仅补 ff 合并。
+  assert.equal(archived.worktreeCleanup.rebased, false)
+  assert.equal(archived.worktreeCleanup.merged, true)
+
+  // 线性历史：主检出无 merge commit（AC1；merge 模式在同场景会建 merge commit）。
+  assert.equal(runGit(root, ['rev-list', '--merges', 'HEAD']), '', 'no merge commit allowed')
+  // 任务提交在 HEAD、内容落地。
+  assert.equal(gitProbe(root, ['merge-base', '--is-ancestor', branch, 'HEAD']).status, 0)
+  assert.match(readFileSync(join(root, 'c.txt'), 'utf8'), /task-work/)
+  // worktree 删除、分支保留、任务落档。
+  assert.equal(existsSync(wtAbs), false, 'worktree must be removed')
+  assert.equal(branchExists(root, branch), true, 'branch must be kept')
+  assert.equal(existsSync(join(root, '.workloom', taskRelPath)), false)
+  assert.equal(existsSync(join(root, '.workloom', archived.taskRelPath)), true)
+})
+
+test('⑫b rebase 真实生效：base 推进后归档把任务提交重写到新 tip 之上', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, wtAbs, branch, taskRelPath } = await makeRebaseTask(base, 'dsh_wtl_rb_b', 'Rebase Effect Task')
+
+  const baseTipBefore = runGit(root, ['rev-parse', 'HEAD'])
+  writeFileSync(join(wtAbs, 't.txt'), 'task work\n')
+  runGit(wtAbs, ['add', 't.txt'])
+  runGit(wtAbs, ['commit', '-m', 'feat: task work'])
+  const taskTipBefore = runGit(wtAbs, ['rev-parse', 'HEAD'])
+
+  // start 后推进 base（主检出先行提交）。
+  writeFileSync(join(root, 'c.txt'), 'line1\nline2\nmain-advance\n')
+  runGit(root, ['add', 'c.txt'])
+  runGit(root, ['commit', '-m', 'main advance'])
+
+  const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_b', { summary: 'ok' })
+  assert.equal(checkErr, null, checkErr?.message)
+  const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
+  assert.equal(archErr, null, archErr?.message)
+  assert.equal(archived.worktreeCleanup.rebased, true)
+
+  // 任务分支 tip 哈希已改写（rebase 重写，非原 tip）。
+  const taskTipAfter = runGit(root, ['rev-parse', branch])
+  assert.notEqual(taskTipAfter, taskTipBefore, 'task tip must be rewritten by rebase')
+  // 原 base tip 仍在 HEAD 祖先链上（任务提交落在 base 新 tip 之上）。
+  assert.equal(gitProbe(root, ['merge-base', '--is-ancestor', baseTipBefore, 'HEAD']).status, 0)
+  assert.equal(runGit(root, ['rev-list', '--merges', 'HEAD']), '')
+  assert.equal(gitProbe(root, ['merge-base', '--is-ancestor', taskTipAfter, 'HEAD']).status, 0)
+  assert.match(readFileSync(join(root, 't.txt'), 'utf8'), /task work/)
+})
+
+test('⑫c rebase 冲突：abort 恢复 + 手工指引 + 重跑跳 rebase 续做', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, wtAbs, taskRelPath } = await makeRebaseTask(base, 'dsh_wtl_rb_c', 'Rebase Conflict Task')
+
+  // 双侧改 c.txt 同一行 → rebase 真冲突。
+  writeFileSync(join(root, 'c.txt'), 'line1\nMAIN-side\n')
+  runGit(root, ['add', 'c.txt'])
+  runGit(root, ['commit', '-m', 'main side'])
+  writeFileSync(join(wtAbs, 'c.txt'), 'line1\nTASK-side\n')
+  runGit(wtAbs, ['add', 'c.txt'])
+  runGit(wtAbs, ['commit', '-m', 'task side'])
+  const taskTipBefore = runGit(wtAbs, ['rev-parse', 'HEAD'])
+
+  const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_c', { summary: 'ok' })
+  assert.equal(checkErr, null, checkErr?.message)
+  const [archErr] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
+  assert.ok(archErr, 'archive must fail on rebase conflict')
+  // 文案含冲突与手工解决指引（design 失败矩阵）。
+  assert.match(archErr.message, /conflict/i)
+  assert.match(archErr.message, /rebase/i)
+  assert.match(archErr.message, /re-run archive/)
+
+  // 现场已 abort：无 REBASE_HEAD、无冲突标记、HEAD 复原为任务原 tip。
+  assert.equal(gitProbe(wtAbs, ['rev-parse', '-q', '--verify', 'REBASE_HEAD']).status, 1, 'REBASE_HEAD must be absent after abort')
+  const wtText = readFileSync(join(wtAbs, 'c.txt'), 'utf8')
+  assert.doesNotMatch(wtText, /<<<<<<</)
+  assert.match(wtText, /TASK-side/)
+  assert.equal(runGit(wtAbs, ['rev-parse', 'HEAD']), taskTipBefore)
+  // 任务未落档、worktree 原样保留。
+  assert.equal(readTaskJson(root, taskRelPath).status, 'in_progress')
+  assert.equal(existsSync(join(root, '.workloom', taskRelPath)), true)
+  assert.equal(existsSync(wtAbs), true)
+
+  // 手工解决：任务 worktree 内 rebase → 解冲突 → continue（core.editor=true 防编辑器）。
+  const manual = runGitTry(wtAbs, ['rebase', 'main'])
+  assert.equal(manual.status, 1, 'manual rebase must reproduce the conflict')
+  writeFileSync(join(wtAbs, 'c.txt'), 'line1\nresolved\n')
+  runGit(wtAbs, ['add', 'c.txt'])
+  runGit(wtAbs, ['rebase', '--continue'], ['-c', 'core.editor=true'])
+
+  // 重跑归档成功：已 rebase 跳 rebase（rebased=false），仅补 ff 合并（幂等续做，AC4/AC5）。
+  const [archErr2, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
+  assert.equal(archErr2, null, archErr2?.message)
+  assert.equal(archived.task.status, 'completed')
+  assert.equal(archived.worktreeCleanup.rebased, false, 'rerun must skip the already-done rebase')
+  assert.equal(archived.worktreeCleanup.merged, true)
+  assert.match(readFileSync(join(root, 'c.txt'), 'utf8'), /resolved/)
+  assert.equal(runGit(root, ['rev-list', '--merges', 'HEAD']), '')
+  assert.equal(existsSync(wtAbs), false, 'worktree must be removed after rerun')
+})
+
+test('⑫d rebase-delete-branch：归档后任务分支被删（remove 之后）', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, wtAbs, branch, taskRelPath } = await makeRebaseTask(base, 'dsh_wtl_rb_d', 'Rebase Delete Task', {
+    packages: { repo: { path: '.' } },
+    worktree: { cleanup: 'rebase-delete-branch' },
+  })
+
+  writeFileSync(join(wtAbs, 'c.txt'), 'line1\nline2\ntask-work\n')
+  runGit(wtAbs, ['add', 'c.txt'])
+  runGit(wtAbs, ['commit', '-m', 'feat: task work'])
+
+  const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_d', { summary: 'ok' })
+  assert.equal(checkErr, null, checkErr?.message)
+  const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
+  assert.equal(archErr, null, archErr?.message)
+  assert.equal(archived.task.status, 'completed')
+  // 任务分支未偏离 base → 幂等判据跳过 rebase；ff 合并 + 分支删除（AC2）。
+  assert.equal(archived.worktreeCleanup.rebased, false)
+  assert.equal(archived.worktreeCleanup.merged, true)
+  assert.equal(archived.worktreeCleanup.worktreeRemoved, true)
+  assert.equal(archived.worktreeCleanup.branchDeleted, true)
+  // worktree 删除 + 分支删除（AC2）。
+  assert.equal(existsSync(wtAbs), false, 'worktree must be removed')
+  assert.equal(branchExists(root, branch), false, 'branch must be deleted')
+})
+
+test('⑫e rebase 模式：主检出 HEAD ≠ base_branch 拒绝清理', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  const { root, wtAbs, taskRelPath } = await makeRebaseTask(base, 'dsh_wtl_rb_e', 'Rebase Head Task')
+
+  // 主检出切走（base_branch=main，HEAD=dev）。
+  runGit(root, ['checkout', '-b', 'dev'])
+  const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_e', { summary: 'ok' })
+  assert.equal(checkErr, null, checkErr?.message)
+  const [archErr] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
+  assert.ok(archErr, 'archive must reject HEAD != base_branch in rebase mode')
+  assert.match(archErr.message, /base branch/i)
+  // 不落档、不删 worktree（失败矩阵：现场原样）。
+  assert.equal(readTaskJson(root, taskRelPath).status, 'in_progress')
+  assert.equal(existsSync(wtAbs), true)
+})
+
+test('⑫f submodule：rebase 模式归档线性合入 + 根仓 gitlink 窄提交', gitSkip, async (t) => {
+  const base = makeBase()
+  t.after(() => rmSync(base, { recursive: true, force: true }))
+  // 默认 cleanup（rebase-keep-branch）走 submodule rebase 路径。
+  const root = makeSubmoduleProject(base)
+  const subAbs = join(root, 'libs', 'mymod')
+  const contextKey = 'dsh_wtl_rb_f'
+  const { taskRelPath, dirName } = await createGated(root, contextKey, 'Rebase Submodule Task', 'sub')
+  const branch = `workloom/${dirName}`
+
+  const [startErr] = await executeStartTask(root, contextKey, {})
+  assert.equal(startErr, null, startErr?.message)
+  const wtAbs = join(root, '.workloom', 'worktree', dirName, 'sub')
+  assert.ok(existsSync(wtAbs), 'submodule worktree must exist after start')
+
+  // 任务侧提交（submodule 的 linked worktree 内推进任务分支）。
+  writeFileSync(join(wtAbs, 's.txt'), 'base\ntask-work\n')
+  runGit(wtAbs, ['add', 's.txt'])
+  runGit(wtAbs, ['commit', '-m', 'feat: sub task work'])
+
+  const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
+  assert.equal(checkErr, null, checkErr?.message)
+  const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
+  assert.equal(archErr, null, archErr?.message)
+  // 任务分支未偏离 submodule base → 跳过 rebase；ff 合入子仓主检出。
+  assert.equal(archived.worktreeCleanup.rebased, false)
+  assert.equal(archived.worktreeCleanup.merged, true)
+
+  // 子仓主检出线性合入（无 merge commit）+ 任务内容落地。
+  assert.equal(runGit(subAbs, ['rev-list', '--merges', 'HEAD']), '', 'no merge commit allowed')
+  assert.equal(gitProbe(subAbs, ['merge-base', '--is-ancestor', branch, 'HEAD']).status, 0)
+  assert.match(readFileSync(join(subAbs, 's.txt'), 'utf8'), /task-work/)
+  // 根仓 gitlink 窄提交：只含 submodule 路径 + 权威对相等。
+  const headFiles = runGit(root, ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'])
+    .split('\n')
+    .filter(Boolean)
+  assert.deepEqual(headFiles, ['libs/mymod'])
+  assert.equal(runGit(root, ['rev-parse', 'HEAD:libs/mymod']), runGit(subAbs, ['rev-parse', 'HEAD']))
+  // worktree 删除、submodule 内任务分支保留。
+  assert.equal(existsSync(wtAbs), false, 'worktree must be removed')
+  assert.equal(branchExists(subAbs, branch), true, 'submodule task branch must be kept')
 })
 
 // ---------- 补充组（脏 / 残留目录 / 非法 ref） ----------

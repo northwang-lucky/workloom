@@ -10,10 +10,13 @@
  * - 依赖准备（packages.setup）：worktree 创建或幂等复用成功后按序执行配置命令
  *   （`/bin/sh -c`、cwd=worktree 根、stdio 透传），首败中止并保留现场（PRD R3-R6）；
  * - archive 侧 cleanupTaskWorktree：脏检查无条件（调用方不传 force，结构上无
- *   旁路）→ merge 模式（主检出 HEAD==base 校验、祖先判定跳过合并、以 MERGE_HEAD
- *   判别冲突并 abort、submodule gitlink 以 `HEAD:<path>` vs 子仓 HEAD 幂等联动
- *   ——禁用 `rev-parse <path>` 原样回显陷阱，§A6）→ worktree remove →
- *   merge-delete-branch 才删分支（顺序必须 remove 先于 branch -D，§A2 互锁）；
+ *   旁路）→ 整合模式共用主检出 HEAD==base 校验 → merge 模式（祖先判定跳过合并、
+ *   以 MERGE_HEAD 判别冲突并 abort）或 rebase 模式（祖先判定跳过 rebase、任务
+ *   worktree 内 rebase 到 base 之上、以 REBASE_HEAD 判别冲突并 abort、主检出
+ *   ff-only 合入保持线性历史）→ submodule gitlink 以 `HEAD:<path>` vs 子仓 HEAD
+ *   幂等联动（两整合模式共用，禁用 `rev-parse <path>` 原样回显陷阱，§A6）→
+ *   worktree remove → delete 语义模式才删分支（顺序必须 remove 先于 branch -D，
+ *   §A2 互锁）；
  * - 本模块所有 git 动作经 git.js 原语（execFile 无 shell、err.code/err.stderr
  *   消费约定见 git.js 文件头）；错误文案英文，前缀 `workloom worktree:`。
  */
@@ -30,9 +33,13 @@ import {
   gitCheckRefFormat,
   gitConfig,
   gitHasMergeHead,
+  gitHasRebaseHead,
   gitIsAncestor,
   gitMerge,
   gitMergeAbort,
+  gitMergeFfOnly,
+  gitRebase,
+  gitRebaseAbort,
   gitRevParse,
   gitStatusSync,
   gitWorktreeAdd,
@@ -49,8 +56,20 @@ const ERR_PREFIX = 'workloom worktree'
 /** worktree 根目录名（项目根下，`.workloom/worktree/…`）。 */
 const WORKTREE_DIR = 'worktree'
 
-/** archive 清理中的合并模式（design §3.4 步 4 的适用范围）。 */
+/** archive 清理中的合并模式（no-edit 合并回 base）。 */
 const MERGE_MODES = new Set(['merge-keep-branch', 'merge-delete-branch'])
+
+/** archive 清理中的 rebase 整合模式（rebase 到 base 之上再 ff 合入，线性历史）。 */
+const REBASE_MODES = new Set(['rebase-keep-branch', 'rebase-delete-branch'])
+
+/**
+ * archive 清理中的整合模式（把任务分支整合进 base）：merge 与 rebase 共用
+ * 主检出 HEAD==base 门禁与 submodule gitlink 联动。
+ */
+const INTEGRATE_MODES = new Set([...MERGE_MODES, ...REBASE_MODES])
+
+/** archive 清理中的分支删除模式（delete 语义集合；删除顺序在 worktree remove 之后）。 */
+const DELETE_BRANCH_MODES = new Set(['merge-delete-branch', 'rebase-delete-branch'])
 
 /**
  * 组装 worktree 错误（内部）。
@@ -401,10 +420,32 @@ export async function createTaskWorktree(root, task, taskRelPath, config) {
 }
 
 /**
+ * 校验主检出 HEAD == base_branch（内部，merge 与 rebase 整合路径共用）：
+ * git 自身不拦 detached（§A7.3），显式比对是唯一防线。
+ * @param {string} repoRoot 仓根（主检出所在目录）
+ * @param {import('./task-store.d.ts').TaskRecord} task 任务记录（base_branch）
+ * @returns {Promise<Error | null>} 不一致或探测失败时返回 err（含对齐指引）
+ */
+async function assertMainHeadOnBaseBranch(repoRoot, task) {
+  const [headErr, headBranch] = await gitRevParse(repoRoot, ['--abbrev-ref', 'HEAD'])
+  if (headErr !== null) {
+    return wtErr(`cannot determine current branch at ${repoRoot}: ${errText(headErr)}`)
+  }
+  if (headBranch !== task.base_branch) {
+    return wtErr(
+      `main checkout HEAD is ${JSON.stringify(headBranch)}, expected base branch ` +
+        `${JSON.stringify(task.base_branch)} at ${repoRoot}; align the checkout before re-running archive`,
+    )
+  }
+  return null
+}
+
+/**
  * archive 侧清理任务 worktree（design §3.4）：失败即阻断归档（调用方不落档）；
- * 结果并入 archive 回执（merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。
+ * 结果并入 archive 回执（rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。
  * 中段失败容忍（R5-Q2）：本函数成功后的 rename 失败接受为中间态，重跑时
- * 已 merged 跳过合并、gitlink 无 diff 跳过提交、无注册跳过 remove（幂等续做）。
+ * 已 rebase 跳过 rebase、已 merged 跳过合并、gitlink 无 diff 跳过提交、无注册
+ * 跳过 remove（幂等续做）。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').TaskRecord} task 任务记录
  * @param {import('./config.d.ts').WorkloomConfig} config 项目配置
@@ -443,28 +484,21 @@ export async function cleanupTaskWorktree(root, task, config) {
     }
   }
 
+  // 4. 主检出 HEAD == base_branch 校验（merge 与 rebase 整合路径共用；git 自身不拦
+  //    detached，§A7.3 → 唯一防线）。
+  if (INTEGRATE_MODES.has(config.worktree.cleanup)) {
+    const headCheckErr = await assertMainHeadOnBaseBranch(repoRoot, task)
+    if (headCheckErr !== null) return [headCheckErr, null]
+  }
+
   if (MERGE_MODES.has(config.worktree.cleanup)) {
-    // 4a. 主检出 HEAD == base_branch 校验（git 自身不拦 detached，§A7.3 → 唯一防线）。
-    const [headErr, headBranch] = await gitRevParse(repoRoot, ['--abbrev-ref', 'HEAD'])
-    if (headErr !== null) {
-      return [wtErr(`cannot determine current branch at ${repoRoot}: ${errText(headErr)}`), null]
-    }
-    if (headBranch !== task.base_branch) {
-      return [
-        wtErr(
-          `main checkout HEAD is ${JSON.stringify(headBranch)}, expected base branch ` +
-            `${JSON.stringify(task.base_branch)} at ${repoRoot}; align the checkout before re-running archive`,
-        ),
-        null,
-      ]
-    }
-    // 4b. 已合并判定（祖先关系与 ff/非 ff 无关，S1-Q2）→ 幂等重跑直接跳过合并。
+    // 4a. 已合并判定（祖先关系与 ff/非 ff 无关，S1-Q2）→ 幂等重跑直接跳过合并。
     const [ancErr, alreadyMerged] = await gitIsAncestor(repoRoot, task.branch, 'HEAD')
     if (ancErr !== null) {
       return [wtErr(`cannot check merge state of ${JSON.stringify(task.branch)}: ${errText(ancErr)}`), null]
     }
     if (alreadyMerged !== true) {
-      // 4c. 合并 + 三态判别：exit code 不可靠（冲突/untracked 同为 1），以 MERGE_HEAD
+      // 4b. 合并 + 三态判别：exit code 不可靠（冲突/untracked 同为 1），以 MERGE_HEAD
       //     为唯一判据——存在 → 冲突，abort 恢复现场后返回冲突通知（不落档）；
       //     不存在 → untracked/脏拒绝或身份缺失（§A7.1/A7.5），现场原样保留。
       const [mergeErr] = await gitMerge(repoRoot, task.branch)
@@ -503,19 +537,97 @@ export async function cleanupTaskWorktree(root, task, config) {
       }
       result.merged = true
     }
-    // 4d. submodule gitlink 联动（仅注册 submodule；probe 幂等，与 4b 是否跳过合并
-    //     无关——覆盖「合并成功但提交失败」的重跑）。权威对：根仓 `HEAD:<path>` vs
-    //     子仓主检出 HEAD（禁用 `rev-parse <path>`，原样回显陷阱 §A6）。
-    if (repo.kind === 'submodule') {
-      const [linkErr, committed] = await syncGitlink(root, repo, task)
-      if (linkErr !== null || committed === null) {
-        return [linkErr ?? wtErr('gitlink sync returned no result'), null]
+  }
+
+  if (REBASE_MODES.has(config.worktree.cleanup)) {
+    // 5a. 已 rebase 判定（base 已是任务分支祖先，含相等）→ 幂等重跑跳过 rebase。
+    const [rebasedErr, alreadyRebased] = await gitIsAncestor(repoRoot, task.base_branch, task.branch)
+    if (rebasedErr !== null) {
+      return [
+        wtErr(
+          `cannot check rebase state of ${JSON.stringify(task.branch)} against ` +
+            `${JSON.stringify(task.base_branch)}: ${errText(rebasedErr)}`,
+        ),
+        null,
+      ]
+    }
+    if (alreadyRebased !== true) {
+      // 5b. 任务 worktree 内 rebase 到 base 之上（任务分支检出于此，git 不允许跨检出
+      //     rebase）。失败三态判别：exit code 不可靠（冲突/untracked 拒绝同为 1），以
+      //     REBASE_HEAD 中断态为唯一判据——存在 → 冲突，abort 恢复现场后返回手工解决
+      //     通知（不落档）；不存在 → 身份缺失等非中断失败（§A7.5），现场原样保留。
+      const [rebaseErr] = await gitRebase(wtAbs, task.base_branch)
+      if (rebaseErr !== null) {
+        const [rhErr, interrupted] = await gitHasRebaseHead(wtAbs)
+        if (rhErr !== null) {
+          return [wtErr(`cannot probe REBASE_HEAD at ${wtAbs}: ${errText(rhErr)}`), null]
+        }
+        if (interrupted === true) {
+          const [abortErr] = await gitRebaseAbort(wtAbs)
+          if (abortErr !== null) {
+            return [
+              wtErr(
+                `rebase conflict while rebasing ${JSON.stringify(task.branch)} but abort failed at ` +
+                  `${wtAbs}: ${errText(abortErr)}`,
+              ),
+              null,
+            ]
+          }
+          return [
+            wtErr(
+              `rebase conflict while rebasing ${JSON.stringify(task.branch)} onto ` +
+                `${JSON.stringify(task.base_branch)}; resolve manually: run ` +
+                `\`git rebase ${task.base_branch}\` in the task worktree ${wtAbs}, ` +
+                'continue it, then re-run archive',
+            ),
+            null,
+          ]
+        }
+        return [
+          wtErr(
+            `rebase of ${JSON.stringify(task.branch)} failed at ${wtAbs} (${errCode(rebaseErr)}): ` +
+              `${errText(rebaseErr)}`,
+          ),
+          null,
+        ]
       }
-      result.gitlinkCommitted = committed
+      result.rebased = true
+    }
+    // 5c. 已合入判定（任务分支已是主检出 HEAD 祖先）→ 幂等重跑跳过 ff 合并。
+    const [mergedErr, alreadyMerged] = await gitIsAncestor(repoRoot, task.branch, 'HEAD')
+    if (mergedErr !== null) {
+      return [wtErr(`cannot check merge state of ${JSON.stringify(task.branch)}: ${errText(mergedErr)}`), null]
+    }
+    if (alreadyMerged !== true) {
+      // 5d. 主检出 ff-only 合入（线性历史）：失败 fail loud 透传（ff 拒绝不建合并态，
+      //     不 abort 不重试——重跑归档重判祖先关系并再次 rebase，天然自愈）。
+      const [ffErr] = await gitMergeFfOnly(repoRoot, task.branch)
+      if (ffErr !== null) {
+        return [
+          wtErr(
+            `fast-forward merge of ${JSON.stringify(task.branch)} failed at ${repoRoot} (${errCode(ffErr)}): ` +
+              `${errText(ffErr)}`,
+          ),
+          null,
+        ]
+      }
+      result.merged = true
     }
   }
 
-  // 5. worktree 删除：先确认注册再 remove（未注册但目录存在 → 残留非法，人工处理；
+  // 5e. submodule gitlink 联动（仅注册 submodule；merge 与 rebase 整合路径共用；
+  //     probe 幂等，与是否跳过整合无关——覆盖「整合成功但提交失败」的重跑）。
+  //     权威对：根仓 `HEAD:<path>` vs 子仓主检出 HEAD（禁用 `rev-parse <path>`，
+  //     原样回显陷阱 §A6）。
+  if (repo.kind === 'submodule' && INTEGRATE_MODES.has(config.worktree.cleanup)) {
+    const [linkErr, committed] = await syncGitlink(root, repo, task)
+    if (linkErr !== null || committed === null) {
+      return [linkErr ?? wtErr('gitlink sync returned no result'), null]
+    }
+    result.gitlinkCommitted = committed
+  }
+
+  // 6. worktree 删除：先确认注册再 remove（未注册但目录存在 → 残留非法，人工处理；
   //    目录与注册均无 → 跳过，中段失败重跑幂等，R5-Q2）。locked → err 透传（不自动 -f -f）。
   const [listErr, entries] = await gitWorktreeList(repoRoot)
   if (listErr !== null) return [wtErr(`worktree list failed: ${errText(listErr)}`), null]
@@ -540,8 +652,9 @@ export async function cleanupTaskWorktree(root, task, config) {
     ]
   }
 
-  // 6. merge-delete-branch 才删分支；顺序必须在 remove 之后（分支被检出时删除互锁，§A2）。
-  if (config.worktree.cleanup === 'merge-delete-branch') {
+  // 7. delete 语义模式（merge-delete-branch / rebase-delete-branch）才删分支；顺序必须
+  //    在 remove 之后（分支被检出时删除互锁，§A2）。
+  if (DELETE_BRANCH_MODES.has(config.worktree.cleanup)) {
     const [delErr] = await gitBranchDelete(repoRoot, task.branch)
     if (delErr !== null) {
       return [wtErr(`branch delete failed for ${JSON.stringify(task.branch)}: ${errText(delErr)}`), null]
@@ -586,13 +699,14 @@ async function syncGitlink(root, repo, task) {
 }
 
 /**
- * 组装清理结果（内部）：统一四个布尔字段，skipped 仅在提前跳过时携带。
+ * 组装清理结果（内部）：统一五个布尔字段，skipped 仅在提前跳过时携带。
  * @param {'no-worktree' | 'manual' | null} skipped 提前跳过原因（未跳过传 null）
  * @returns {import('./worktree.d.ts').CleanupTaskWorktreeResult}
  */
 function emptyResult(skipped) {
   /** @type {import('./worktree.d.ts').CleanupTaskWorktreeResult} */
   const result = {
+    rebased: false,
     merged: false,
     gitlinkCommitted: false,
     worktreeRemoved: false,

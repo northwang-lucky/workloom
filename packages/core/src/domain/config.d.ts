@@ -40,15 +40,19 @@ export interface WorkloomConfig {
 export type ConfigSourceLayer = 'global' | 'project' | 'local'
 
 /**
- * worktree 清理模式（archive 四模式）：merge-keep-branch 合并回 base + 删 worktree +
+ * worktree 清理模式（archive 六模式）：merge-keep-branch 合并回 base + 删 worktree +
  * 保留分支；merge-delete-branch 再删分支；keep-branch 不合并只删 worktree；
- * manual 不动 worktree/分支。
+ * manual 不动 worktree/分支；rebase-keep-branch 先把任务分支 rebase 到 base 之上
+ * 再 ff 合入（线性历史）+ 删 worktree + 保留分支；rebase-delete-branch 再删分支。
+ * 缺省 rebase-keep-branch。
  */
 export type WorktreeCleanupMode =
   | 'merge-keep-branch'
   | 'merge-delete-branch'
   | 'keep-branch'
   | 'manual'
+  | 'rebase-keep-branch'
+  | 'rebase-delete-branch'
 
 /** worktree 配置节（仅项目层，全局层出现报项目字段错误）。 */
 export interface WorktreeConfig {

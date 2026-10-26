@@ -369,7 +369,7 @@ export interface ExecuteArchiveTaskResult {
   taskRelPath: string
   task: TaskRecord
   note: string
-  /** 本次归档的 worktree 清理摘要（merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。 */
+  /** 本次归档的 worktree 清理摘要（rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。 */
   worktreeCleanup?: CleanupTaskWorktreeResult
 }
 

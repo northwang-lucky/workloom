@@ -1575,7 +1575,7 @@ test('legacy subagents 层 max_concurrent → WorkloomConfigError（仅 profiles
 
 // ---------- worktree 节配置解析（S1 R1） ----------
 
-test('worktree 缺省值：enabled=true / branch_template=workloom/<task-id> / cleanup=merge-keep-branch', () => {
+test('worktree 缺省值：enabled=true / branch_template=workloom/<task-id> / cleanup=rebase-keep-branch', () => {
   const root = makeRoot()
   const home = makeHome()
   try {
@@ -1583,14 +1583,14 @@ test('worktree 缺省值：enabled=true / branch_template=workloom/<task-id> / c
     assert.deepEqual(config.worktree, {
       enabled: true,
       branchTemplate: 'workloom/<task-id>',
-      cleanup: 'merge-keep-branch',
+      cleanup: 'rebase-keep-branch',
     })
   } finally {
     cleanup(root, home)
   }
 })
 
-test('worktree 显式值解析（enabled=false、自定义模板含白名单占位符、四枚举值）', () => {
+test('worktree 显式值解析（enabled=false、自定义模板含白名单占位符、六枚举值）', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
@@ -1610,7 +1610,23 @@ test('worktree 显式值解析（enabled=false、自定义模板含白名单占�
   }
 })
 
-test('worktree.cleanup 四枚举之外的值 → WorkloomConfigError', () => {
+test('worktree.cleanup 六枚举：rebase-keep-branch / rebase-delete-branch 合法加载', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  try {
+    // 两个 rebase 模式值逐个加载：合法值原样透出，不报枚举错误。
+    writeProjectFile(root, 'config.json', { worktree: { cleanup: 'rebase-keep-branch' } })
+    const keep = loadConfig(root, { homeDir: home })
+    assert.equal(keep.worktree.cleanup, 'rebase-keep-branch')
+    writeProjectFile(root, 'config.json', { worktree: { cleanup: 'rebase-delete-branch' } })
+    const del = loadConfig(root, { homeDir: home })
+    assert.equal(del.worktree.cleanup, 'rebase-delete-branch')
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('worktree.cleanup 六枚举之外的值 → WorkloomConfigError', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', { worktree: { cleanup: 'rebase' } })

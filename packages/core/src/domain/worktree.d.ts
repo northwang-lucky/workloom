@@ -37,13 +37,18 @@ export interface CreateTaskWorktreeResult {
 
 /** cleanupTaskWorktree 成功结果（archive 回执展示用）。 */
 export interface CleanupTaskWorktreeResult {
-  /** 本次是否执行了向 base 的合并。 */
+  /** 本次是否执行了 rebase（rebase 模式把任务分支重写到 base 新 tip 之上）。 */
+  rebased: boolean
+  /**
+   * 本次是否把任务分支整合进 base（merge 模式 = no-edit 合并；
+   * rebase 模式 = ff-only 合入，线性历史）。
+   */
   merged: boolean
   /** 本次是否提交了 submodule gitlink 更新。 */
   gitlinkCommitted: boolean
   /** 本次是否删除了 worktree。 */
   worktreeRemoved: boolean
-  /** 本次是否删除了任务分支（merge-delete-branch）。 */
+  /** 本次是否删除了任务分支（merge-delete-branch / rebase-delete-branch）。 */
   branchDeleted: boolean
   /** 提前跳过原因（no-worktree / manual；未跳过时不出现）。 */
   skipped?: 'no-worktree' | 'manual'

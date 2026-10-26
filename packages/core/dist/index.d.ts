@@ -24,7 +24,7 @@ export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './domain/br
 export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordExecutorDispatch, settleExecutorDispatch, appendDispatchErrorSuffix, } from './domain/task-store.js';
 export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js';
 export { setActiveTask, clearActiveTask, resolveActiveTask, clearPointersToTask, } from './domain/active-task.js';
-export { countDirtyLines, gitAddCommit, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitMerge, gitMergeAbort, gitWorktreeAdd, gitWorktreeRemove, gitWorktreeList, gitWorktreePrune, gitBranchDelete, gitBranchExists, gitCheckRefFormat, } from './domain/git.js';
+export { countDirtyLines, gitAddCommit, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitMerge, gitMergeAbort, gitRebase, gitHasRebaseHead, gitRebaseAbort, gitMergeFfOnly, gitWorktreeAdd, gitWorktreeRemove, gitWorktreeList, gitWorktreePrune, gitBranchDelete, gitBranchExists, gitCheckRefFormat, } from './domain/git.js';
 export type { GitWorktreeEntry } from './domain/git.js';
 export { createTaskWorktree, cleanupTaskWorktree, resolveTaskRepo, renderBranchName, } from './domain/worktree.js';
 export { addSession, listJournals } from './domain/journal.js';

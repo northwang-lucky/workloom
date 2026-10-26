@@ -353,8 +353,8 @@ export function finishTask(root: string, params: FinishTaskParams): Promise<[Err
 
 /**
  * 归档任务结果（三元组）：成功时第三元素为 worktree 清理摘要（cleanup 内的
- * merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped，供 archive
- * 回执展示）；失败时第三元素缺省。
+ * rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped，供
+ * archive 回执展示）；失败时第三元素缺省。
  */
 export type ArchiveTaskResult = [
   Error | null,

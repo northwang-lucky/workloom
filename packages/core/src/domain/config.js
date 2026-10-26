@@ -56,8 +56,9 @@ export const DEFAULT_CONFIG = {
     enabled: true,
     // 分支名模板（占位符白名单：<task-id>/<task-slug>/<date>，渲染结果在 start 期校验）。
     branchTemplate: 'workloom/<task-id>',
-    // archive 清理模式：合并回 base / 是否删分支 / 不动（manual）。
-    cleanup: 'merge-keep-branch',
+    // archive 清理模式：merge 系（no-edit 合并回 base）/ rebase 系（rebase 到 base
+    // 之上再 ff 合入，线性历史）/ 是否删分支 / 不动（manual）。缺省 rebase 系。
+    cleanup: 'rebase-keep-branch',
   },
   packages: {},
   subagents: {},
@@ -90,12 +91,14 @@ const GLOBAL_ALLOWED_TOP_FIELDS = new Set([
 /** 全局层禁止出现的项目级字段（报专属错误）。 */
 const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree'])
 
-/** worktree.cleanup 合法枚举（archive 清理四模式，缺省首项）。 */
+/** worktree.cleanup 合法枚举（archive 清理六模式，缺省 rebase-keep-branch）。 */
 const WORKTREE_CLEANUP_MODES = Object.freeze([
   'merge-keep-branch',
   'merge-delete-branch',
   'keep-branch',
   'manual',
+  'rebase-keep-branch',
+  'rebase-delete-branch',
 ])
 
 /** worktree.branch_template 占位符白名单（加载期静态校验；渲染结果校验在 start）。 */
@@ -502,7 +505,7 @@ function assertPlaceholders(field, template, allowed) {
 }
 
 /**
- * 校验 worktree.cleanup 枚举（内部）：四模式之外 fail loud。
+ * 校验 worktree.cleanup 枚举（内部）：六模式之外 fail loud。
  * @param {string} field 字段路径
  * @param {unknown} value 用户文档值
  * @returns {import('./config.d.ts').WorktreeCleanupMode}
