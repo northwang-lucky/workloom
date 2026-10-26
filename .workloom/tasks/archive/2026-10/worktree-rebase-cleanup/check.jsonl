@@ -1,0 +1,4 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/verify.md", "reason": "验收以 lint/typecheck/build/测试全绿为准"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则复核"}
+{"file": ".workloom/spec/repo/domain-module/git-primitives.md", "reason": "复核新原语是否符合 execFile/LC_ALL=C/布尔探测纪律"}
