@@ -334,3 +334,9 @@
 - Commit: 7146af1
 - Summary: subagent 配置新增 fallback_models 失败转移：配置解析与白名单分类落 core，adapter-dsh 实现同步走链与结算后自动新会话重试（全量重注入 + 逐跳父会话通知 + dispatches 链式留痕）；glm TRANSPORT 抖动实证触发人工改派 deepseek，恰为本功能自动化对象；附带修复 doctor 测试 TMPDIR 隔离缺陷。
 
+## worktree 归档 rebase 清理模式与 d.ts 分发修复
+
+- Time: 2026-10-26T09:04:58.528Z
+- Commit: fa8731a,0164167
+- Summary: 为 worktree.cleanup 新增 rebase-keep-branch / rebase-delete-branch 清理模式并改为默认：任务 worktree 内 rebase base 分支 + 主检出 ff-only 合入，冲突以 REBASE_HEAD 判别并 abort 恢复，双向祖先判定幂等续跑；git.js 新增四原语。检查阶段经用户决策并入存量 P1 修复：core build 增 copy-domain-dts 步骤把 17 个手写 domain d.ts 分发进 dist（导出名子集校验 fail loud），adapter-pi 夹具与内联类型对齐权威类型。两轮检查全过，core 678/678、adapter-dsh 155/155、adapter-pi 197/197；手工 rebase+ff 线性整合后归档。
+
