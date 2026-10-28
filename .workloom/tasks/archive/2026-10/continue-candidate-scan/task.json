@@ -1,0 +1,40 @@
+{
+  "id": "ef1e76e5-54e0-45d0-b980-315c62678e82",
+  "name": "continue-candidate-scan",
+  "title": "workloom-continue 无活跃任务扫描接续与会话上下文候选注入",
+  "description": "修复 workloom-continue 技能在无活跃任务时的死路分支（扫描既有任务并推荐接续候选），并增强 core session-context 在无活跃任务时注入候选任务列表。",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "light",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": "repo",
+  "branch": "workloom/10-28-continue-candidate-scan",
+  "base_branch": "main",
+  "createdAt": "2026-10-28T03:13:27.342Z",
+  "completedAt": "2026-10-28T03:29:39.172Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/10-28-continue-candidate-scan",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-10-28T03:29:02.903Z",
+    "summary": "Light 任务自查通过：(1) pnpm lint 无 error/warning；(2) pnpm -r typecheck 通过（修复一处 TS2739：状态权重表由计算键对象改为 ReadonlyMap）；(3) pnpm -r build 通过，core dist 同轮重建；(4) 测试全绿：core 684 通过（含新增 6 个候选节单测与 listTasks 摘要键校验）、adapter-dsh 155 通过（SKILL.md 短语检查不破坏）、adapter-pi 197 通过；(5) 冒烟验证：dist 产物在无活跃任务快照中正确渲染候选节（in_progress > completed > planning，含标题/状态/taskRelPath）；(6) diff 逐行审阅：技能第 2/3 步补\"或所选任务\"措辞，消除字面执行歧义；executor 白名单（depth>0）不受影响。"
+  },
+  "alignment": null,
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
