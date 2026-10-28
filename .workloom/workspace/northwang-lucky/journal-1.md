@@ -346,3 +346,9 @@
 - Commit: 41283dc,9e41dc6
 - Summary: 修复 workloom-continue 技能无活跃任务死路：第 1 步改为 workloom_task_list 扫描接续候选（in_progress 直接接续/多个给推荐、completed 路由 3.1、全 planning 按依赖推荐子任务待确认），指针建立前显式传 taskPath；core session-context 无活跃任务且 depth=0 时注入候选任务节（状态优先级排序、上限 8 条截断、整体降级），TaskSummary 增加 taskRelPath。lint/typecheck/build 全过，core 684 + adapter-dsh 155 + adapter-pi 197 测试全绿，dist 同 commit 重建，归档时已合并回 main。
 
+## fallback_models 同类并发轮换（rotate_on_busy）交付
+
+- Time: 2026-10-28T11:08:40.910Z
+- Commit: 1df4c03
+- Summary: 完成 fallback_models 同类并发轮换特性全流程：三轮对齐收敛 prd（rotate_on_busy 开关、首个未占用选取、全占用回绕、环形物化转移链、modelSource rotate 留痕），主会话编写 design/implement，implement 与 check 执行器各一轮派发，检查通过（含 3 处 P2 修复复核），主会话独立复跑全部门禁后提交并归档。附带发现：prd「UI Design 不适用」小节会误触发前端派发门禁，以 force 留痕绕过，待沉淀规范或改进门禁。
+
