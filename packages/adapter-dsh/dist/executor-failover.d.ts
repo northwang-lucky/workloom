@@ -50,7 +50,7 @@ export interface StartDispatchWithFailoverParams {
     /** 失败转移链（显式 model / 未配置时为空，走零行为变化路径）。 */
     chain: readonly FallbackModelEntry[];
     primaryBinding: PrimaryDispatchBinding;
-    /** 主模型展示名（穷尽消息的链起点）。 */
+    /** 派发起点模型 label（穷尽消息链起点；轮换起点时为选中的链条目模型）。 */
     primaryModel: string;
 }
 /** 同步派发走链结果：成功的启动结果 + 走链成功时的实际生效模型与跳序号。 */
@@ -71,17 +71,20 @@ export interface FailoverContext {
     taskRelPath: string;
     kind: string;
     title: string;
-    /** 首次派发的用户 prompt（重派时重新全量注入的正文）。 */
+    /** 首次派发用户 prompt（重派时重新全量注入的正文）。 */
     firstPrompt: string;
     /** 失败轮是否为续用轮（续用增量指令随旧会话丢失，说明里要注明）。 */
     continued: boolean;
-    /** 首次派发解析出的完整 fallback 链。 */
+    /**
+     * 派发时刻登记的转移链：非轮换派发为配置解析链；同类并发轮换派发为环形物化
+     * 后的线性链（起点之后按环形顺序，回绕段含主模型位条目）。
+     */
     chain: readonly FallbackModelEntry[];
-    /** 当前跳序号（主模型 = 1，链首条 = 2）。 */
+    /** 当前跳序号（起点 = 1，链首条 = 2）。 */
     attempt: number;
     /** 当前子会话实际生效的模型（通知/说明里的失败模型）。 */
     currentModel: string;
-    /** 首次派发的主模型（穷尽时完整尝试链的起点）。 */
+    /** 派发起点模型（轮换起点或主模型位；穷尽时完整尝试链的起点）。 */
     primaryModel: string;
     /** 父会话 agent（重派与通知的发起方）。 */
     parent: Agent;

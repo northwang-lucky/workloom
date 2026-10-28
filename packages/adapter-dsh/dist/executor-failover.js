@@ -2,7 +2,7 @@ import { SessionId } from '@deepseek-ai/dsh-session';
 import { randomUUID } from 'node:crypto';
 import { appendDispatchErrorSuffix, buildFailoverNote, buildFailoverNotice, composeLocalDirectivesText, DISPATCH_MODEL_SOURCES, ERR_PREFIX, EXECUTOR_KINDS, extractFailureCode, isModelInaccessibleCode, loadConfig, readTask, recordExecutorDispatch, resolveSubagentDefaults, } from '@workloom-ai/core';
 import { DISPATCH_WARN_PREFIX } from './constants.js';
-import { collectRunningExecutors, evaluateCapacityGate, } from './executor-capacity.js';
+import { collectRunningExecutors, consumeChildModelBinding, evaluateCapacityGate, registerChildModelBinding, } from './executor-capacity.js';
 import { SPAWN_PROVIDER } from './executor-dispatch.js';
 import { assertFallbackChainEfforts, buildFallbackAgentOptions, CHAIN_EXHAUSTED_PREFIX, CHAIN_SEPARATOR, FallbackChainExhaustedError, recordFailedDispatchAttempt, runFallbackChain, } from './executor-failover-chain.js';
 import { notifyFailoverParent } from './executor-failover-notify.js';
@@ -52,7 +52,10 @@ export async function startDispatchWithFailover(params) {
         }
     };
     try {
-        return { started: await startAttempt(agentOptions) };
+        const started = await startAttempt(agentOptions);
+        // 直接成功：登记起点绑定模型（轮换占用取数的第一优先级来源）。
+        registerChildModelBinding(started.childId, kind, primaryModel);
+        return { started };
     }
     catch (error) {
         // 未配置链 / 显式 model（调用方已置空链）/ 白名单外错误：维持现状（原样抛出、不留痕）。
@@ -96,6 +99,9 @@ export async function startDispatchWithFailover(params) {
                 previousChildId = reservedChildId;
             },
         });
+        // 转移成功：childId 换新，按实际生效跳登记绑定（轮换占用取数的第一优先级
+        // 来源；同步走链的失败跳从未成功启动，不落登记）。
+        registerChildModelBinding(outcome.result.childId, kind, outcome.model);
         return {
             started: outcome.result,
             failover: {
@@ -162,6 +168,9 @@ function trackFailoverWork(work) {
  * @param settled 结算信息（childId/任务/stopReason/结构化错误）
  */
 export function handleSettledDispatch(ctx, settled) {
+    // 结算消费进程内绑定登记（成功/失败终态均消费：child 已不在 running 视野，
+    // 登记随之失效；占用统计回退 dispatches 记录 → 主模型位归一）。
+    consumeChildModelBinding(settled.id);
     const context = failoverContexts.get(settled.id);
     if (context === undefined)
         return;
@@ -308,7 +317,9 @@ async function runAsyncFailover(ctx, context, settled) {
         return;
     }
     // 留痕与登记：新 child 一条 running 记录（链式关联上一跳）、结算定位、research 守卫、
-    // 以及派生新的转移上下文（跳序号 +1，续用标记重置）。
+    // 进程内绑定登记（重派 childId 换新，按实际生效模型登记）、以及派生新的转移上下文
+    // （跳序号 +1，续用标记重置）。
+    registerChildModelBinding(outcome.result.childId, context.kind, outcome.model);
     const [recordErr] = recordExecutorDispatch(context.root, context.taskRelPath, {
         kind: context.kind,
         title: context.title,

@@ -8,6 +8,8 @@
  * - 全部 `as const`：类型即字面量，注册面与 adapter 消费处共享同一文本。
  */
 
+import { PARENT_MODEL_LABEL } from './domain/dispatch-binding.js'
+
 /** 两个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。
  * continue/finish 已改造为同名 skill（skills/workloom-*），不再注册为命令。 */
 export const COMMAND_NAMES = {
@@ -50,7 +52,7 @@ export const TOOL_DESCRIPTIONS = {
     'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
   taskList: 'List task summaries (optionally filtered by status)',
   executor:
-    'Dispatch a workloom executor subagent (research/implement/check/frontend) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only); when the kind configures fallback_models, a model-access failure automatically retries the dispatch on the next fallback model in a new child session',
+    'Dispatch a workloom executor subagent (research/implement/check/frontend) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only); when the kind configures fallback_models, a model-access failure automatically retries the dispatch on the next fallback model in a new child session; with rotate_on_busy enabled, dispatching a kind that already has a running session starts on the next unused model of the fallback pool',
   step: 'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
   journal: 'Record this session in the workloom journal (title + work commit hash + summary)',
 } as const
@@ -310,7 +312,7 @@ export function buildExecutorReceipt(params: {
   effortWhenMainValue?: string
   injection?: ExecutorInjectionStats
 }): string {
-  const modelLabel = params.model ?? '<parent session>'
+  const modelLabel = params.model ?? PARENT_MODEL_LABEL
   const modelSrc = formatSource(
     params.modelSource,
     params.modelConfigSource,

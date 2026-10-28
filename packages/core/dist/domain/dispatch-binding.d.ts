@@ -1,16 +1,4 @@
 /**
- * 新派轮派发记录绑定构造（行为移植模块，纯函数）。
- *
- * 设计意图：
- * - 派发记录（dispatches[]）的审计价值不分 runtime：记录必须回答"子会话实际
- *   跑在什么模型上"。DSH 与 Pi 的新派绑定构造语义相同，抽到 core 共用，
- *   禁止各 adapter 私造（续派沿用绑定为 DSH 专属，不入此模块）。
- * - modelSource 恒有值：param（显式参数）> whenMain/fallback/legacy（配置命中
- *   细分）> inherit（全部未命中，子会话继承主会话模型；绑定值取主模型快照，
- *   不可读时不落 model，审计仍可辨来源）。
- * - 纯同步、无副作用（不修改入参）。
- */
-/**
  * 解析新派轮的 model 来源层（design §8.2）：显式参数优先记为 param；
  * 否则按配置命中来源细分 whenMain/fallback/legacy；全部未命中记 inherit。
  * @param {{model?: string}} params 工具调用参数（仅显式 model 参与判定）
@@ -39,3 +27,20 @@ export function buildNewDispatchBinding(params: {
     effort?: string;
     modelSource: "param" | "whenMain" | "fallback" | "legacy" | "inherit";
 };
+/**
+ * 新派轮派发记录绑定构造（行为移植模块，纯函数）。
+ *
+ * 设计意图：
+ * - 派发记录（dispatches[]）的审计价值不分 runtime：记录必须回答"子会话实际
+ *   跑在什么模型上"。DSH 与 Pi 的新派绑定构造语义相同，抽到 core 共用，
+ *   禁止各 adapter 私造（续派沿用绑定为 DSH 专属，不入此模块）。
+ * - modelSource 恒有值：param（显式参数）> whenMain/fallback/legacy（配置命中
+ *   细分）> inherit（全部未命中，子会话继承主会话模型；绑定值取主模型快照，
+ *   不可读时不落 model，审计仍可辨来源）。
+ * - 纯同步、无副作用（不修改入参）。
+ */
+/**
+ * 模型继承父会话时的展示标签：receipt 主模型位、失败转移文案与轮换池主模型位
+ * 共用同一口径（单一来源，adapter 转发消费，禁止各处私造字面量）。
+ */
+export const PARENT_MODEL_LABEL: "<parent session>";

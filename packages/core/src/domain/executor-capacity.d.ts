@@ -6,6 +6,11 @@ export interface RunningExecutorRecord {
   childId: string
   /** executor 类型（research/implement/check/frontend）。 */
   kind: string
+  /**
+   * 该 child 绑定的模型 label（同类并发轮换的占用统计用；容量判定不读该字段，
+   * 容量语义零变化）。读不到（无登记 / 旧记录无 model）时缺省 undefined。
+   */
+  model?: string
 }
 
 /** evaluateExecutorCapacity 入参。 */

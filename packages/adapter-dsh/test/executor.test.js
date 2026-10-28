@@ -2659,17 +2659,19 @@ function makeRunningChild(childId, kindLabel) {
 }
 
 /**
- * 在 task.json 预写 running dispatches（供 collectRunningExecutors 读取 childId→kind 映射），
- * 并返回各 childId 对应的 kindLabel 文案（构造 listDescendants mock 用）。
+ * 在 task.json 预写 running dispatches（供 collectRunningExecutors 读取 childId→kind/model
+ * 映射），并返回各 childId 对应的 kindLabel 文案（构造 listDescendants mock 用）。
+ * entry 可带 model（轮换占用统计的记录级来源；不带 = 旧记录形态，读不到）。
  */
 function seedRunningDispatches(root, entries) {
   const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
-  task.dispatches = entries.map(({ childId, kind }) => ({
+  task.dispatches = entries.map(({ childId, kind, model }) => ({
     kind,
     childId,
     title: 'seed',
     status: 'running',
     at: new Date().toISOString(),
+    ...(model !== undefined ? { model } : {}),
   }))
   writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task))
 }
@@ -3421,6 +3423,613 @@ test('failover-async: 白名单外 code 不触发转移（现状回报路径不�
   } finally {
     await failover.flushFailoverWork()
     failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- 同类并发轮换（rotate_on_busy，design §9 边界表逐行覆盖） ----------
+
+/** 三模型池的轮换基线配置（主模型位 + 两个链条目 + 开关开）。 */
+const ROTATION_POOL_CONFIG = (rotate = true) => ({
+  subagents: {
+    implement: {
+      model: 'provider-a/glm',
+      fallback_models: [{ model: 'provider-b/qwen' }, { model: 'provider-c/deepseek' }],
+      ...(rotate ? { rotate_on_busy: true } : {}),
+    },
+  },
+})
+
+/** 每个轮换用例开始前清空进程内登记（in-flight 与绑定登记都是模块级单例）。 */
+async function clearRotationRegistries() {
+  const { clearInFlightDispatches } = await import('../dist/executor-capacity.js')
+  const { clearChildModelBindings } = await import('../dist/executor-capacity.js')
+  clearInFlightDispatches()
+  clearChildModelBindings()
+}
+
+test('rotate: 开关关（默认）——同类在跑仍用主模型位，全链路与现状一致（零行为变化）', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG(false))
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'rotation off regression' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 主模型位起步：现状 agentOptions + 现状留痕（legacy 配置命中）+ 无 rotated 标注。
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-a',
+      model: 'glm',
+    })
+    assert.equal(result.kind, 'background')
+    assert.doesNotMatch(result.receipt, /rotated/)
+    const dispatches = readDispatches(root)
+    const record = dispatches[dispatches.length - 1]
+    assert.equal(record.model, 'provider-a/glm')
+    assert.equal(record.modelSource, 'legacy')
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 开关开、无同类在跑——用主模型位，回执与记录同现状（AC2）', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    const { execute, startCalls } = setupExecutor({ listDescendants: async () => [] })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'rotation no peer' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-a',
+      model: 'glm',
+    })
+    assert.doesNotMatch(result.receipt, /rotated/)
+    const record = readDispatches(root)[0]
+    assert.equal(record.model, 'provider-a/glm')
+    assert.equal(record.modelSource, 'legacy')
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 一个同类绑主模型——新派发用 fb1（回执 rotated + 留痕 rotate + agentOptions）（AC3）', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'rotation picks fb1' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 起始绑定 = 池首未占用条目 fb1（agentOptions 按链条目组装）。
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-b',
+      model: 'qwen',
+    })
+    assert.match(result.receipt, /\(rotated: provider-b\/qwen\)/)
+    const record = readDispatches(root)[1]
+    assert.equal(record.model, 'provider-b/qwen')
+    assert.equal(record.modelSource, 'rotate')
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 两个同类在跑（主模型、fb1）——新派发顺延 fb2（AC4 前半）', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+      { childId: 'child-b', kind: 'implement', model: 'provider-b/qwen' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [
+        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-b', 'Implement'),
+      ],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'rotation picks fb2' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-c',
+      model: 'deepseek',
+    })
+    assert.match(result.receipt, /\(rotated: provider-c\/deepseek\)/)
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 池全占用——回绕主模型位照常派发（不拒绝、无 rotated 标注）（AC4 后半）', async () => {
+  await clearRotationRegistries()
+  // 池 3 模型全被同类占用：kind 闸须抬到 4，让本笔派发过闸（轮换只改选模型，
+  // 不改槽位计数；此处只验证回绕，不验证闸）。
+  const root = makeProject({
+    subagents: ROTATION_POOL_CONFIG().subagents,
+    subagent_profiles: [{ subagents: { implement: { max_concurrent: 4 } } }],
+  })
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+      { childId: 'child-b', kind: 'implement', model: 'provider-b/qwen' },
+      { childId: 'child-c', kind: 'implement', model: 'provider-c/deepseek' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [
+        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-b', 'Implement'),
+        makeRunningChild('child-c', 'Implement'),
+      ],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'rotation wraps around' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 1, 'wrap-around must still dispatch')
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-a',
+      model: 'glm',
+    })
+    assert.doesNotMatch(result.receipt, /rotated/)
+    const dispatches = readDispatches(root)
+    const record = dispatches[dispatches.length - 1]
+    assert.equal(record.modelSource, 'legacy', 'wrap-around keeps the current binding record')
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 同轮并行两笔同类派发——第二笔经 in-flight 看到第一笔选择，不撞同一模型（AC5）', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    // 挂起两笔 startActivation：保证两笔派发都停在 in-flight 窗口内再放行。
+    let releaseBoth
+    const startDelay = new Promise((resolve) => {
+      releaseBoth = resolve
+    })
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+      startContinuableDelay: startDelay,
+    })
+    const parent = makeAgent(root)
+    const signal = new AbortController().signal
+    const first = execute(execArgs({ title: 'parallel rotation first' }), { agent: parent, signal })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const second = execute(execArgs({ title: 'parallel rotation second' }), {
+      agent: parent,
+      signal,
+    })
+    releaseBoth()
+    await Promise.all([first, second])
+    // 第一笔顺延 fb1（qwen）；第二笔在同步段看到 in-flight 的 qwen → 顺延 fb2（deepseek）。
+    assert.equal(startCalls.length, 2)
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-b',
+      model: 'qwen',
+    })
+    assert.deepEqual(startCalls[1].request.agentOptions, {
+      provider: 'provider-c',
+      model: 'deepseek',
+    })
+    const dispatches = readDispatches(root)
+    assert.equal(dispatches.length, 3)
+    assert.equal(dispatches[1].modelSource, 'rotate')
+    assert.equal(dispatches[2].modelSource, 'rotate')
+    assert.notEqual(dispatches[1].model, dispatches[2].model)
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 轮换起点不可访问——按物化链环形转移（同步白名单路径），回执叠加标注（AC6 同步）', async () => {
+  await clearRotationRegistries()
+  const failover = await import('../dist/executor-failover.js')
+  await resetFailoverState(failover)
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    // 起点 fb1（qwen）不可访问 → 物化链 [deepseek, glm, qwen] 续走，glm 成功。
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+      startRejections: [
+        codedError('unknown model qwen', 'UNKNOWN_MODEL'),
+        codedError('unknown model deepseek', 'UNKNOWN_MODEL'),
+      ],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'rotation ring transfer' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 3)
+    assert.deepEqual(startCalls[0].request.agentOptions, { provider: 'provider-b', model: 'qwen' })
+    assert.deepEqual(startCalls[1].request.agentOptions, { provider: 'provider-c', model: 'deepseek' })
+    // 绕回主模型位（显式配置形态）：按池条目携带 provider/model。
+    assert.deepEqual(startCalls[2].request.agentOptions, { provider: 'provider-a', model: 'glm' })
+    assert.match(result.receipt, /\(rotated: provider-b\/qwen\)/)
+    assert.match(result.receipt, /\(failover attempt 3: provider-a\/glm\)/)
+    const dispatches = readDispatches(root)
+    // 种子记录（child-a）+ 起步跳失败 + 两个转移跳 = 4 条。
+    assert.equal(dispatches.length, 4)
+    // 轮换起步跳失败：failed + rotate 来源；转移跳：fallback + 链式关联。
+    assert.equal(dispatches[1].status, 'failed')
+    assert.equal(dispatches[1].model, 'provider-b/qwen')
+    assert.equal(dispatches[1].modelSource, 'rotate')
+    assert.equal(dispatches[2].model, 'provider-c/deepseek')
+    assert.equal(dispatches[2].modelSource, 'fallback')
+    assert.equal(dispatches[2].fallbackAttempt, 2)
+    assert.equal(dispatches[3].model, 'provider-a/glm')
+    assert.equal(dispatches[3].fallbackAttempt, 3)
+  } finally {
+    await clearRotationRegistries()
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 整环穷尽——尝试链按实际环形顺序（起点 + 物化链绕回）（AC6 穷尽）', async () => {
+  await clearRotationRegistries()
+  const failover = await import('../dist/executor-failover.js')
+  await resetFailoverState(failover)
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    // 起点 qwen 不可访问 → 物化链 [deepseek, glm]（环的剩余部分，起点不重试）。
+    // 两跳均白名单失败：穷尽链 = 起点模型 + 物化链按序 = 实际环形顺序（每个池内
+    // 条目恰好一次）。
+    const { execute } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+      startRejections: [
+        codedError('unknown model qwen', 'UNKNOWN_MODEL'),
+        codedError('unknown model deepseek', 'UNKNOWN_MODEL'),
+        codedError('unknown model glm', 'UNKNOWN_MODEL'),
+      ],
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs({ title: 'rotation ring exhausted' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      (error) => {
+        assert.match(
+          error.message,
+          /fallback chain exhausted: provider-b\/qwen → provider-c\/deepseek → provider-a\/glm/,
+        )
+        return true
+      },
+    )
+    assert.equal(readDispatches(root).length, 4)
+  } finally {
+    await clearRotationRegistries()
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 结算后异步重派沿物化链续走（通知与留痕口径不变）（AC6 异步）', async () => {
+  await clearRotationRegistries()
+  const failover = await import('../dist/executor-failover.js')
+  await resetFailoverState(failover)
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    const followups = []
+    const parent = makeNotifyingParent(root, followups)
+    const setup = setupExecutor({
+      notificationAgent: parent,
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    // 首派轮换起步 fb1（qwen）；结算白名单失败 → 沿物化链 [deepseek, glm] 重派 deepseek。
+    const first = await setup.execute(execArgs({ prompt: 'do the work', title: 'rotation async' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(first.childId, 'child-1')
+    assert.match(first.receipt, /\(rotated: provider-b\/qwen\)/)
+    emitFailedTurn(setup, 'child-1', 'UNKNOWN_MODEL', 'unknown model qwen')
+    await failover.flushFailoverWork()
+
+    assert.equal(setup.startCalls.length, 2)
+    assert.deepEqual(setup.startCalls[1].request.agentOptions, {
+      provider: 'provider-c',
+      model: 'deepseek',
+    })
+    const dispatches = readDispatches(root)
+    // 种子记录（child-a）+ 轮换起步 + 异步重派 = 3 条。
+    assert.equal(dispatches.length, 3)
+    assert.equal(dispatches[1].model, 'provider-b/qwen')
+    assert.equal(dispatches[1].modelSource, 'rotate')
+    assert.equal(dispatches[2].model, 'provider-c/deepseek')
+    assert.equal(dispatches[2].modelSource, 'fallback')
+    assert.equal(dispatches[2].fallbackOf, 'child-1')
+    assert.equal(dispatches[2].fallbackAttempt, 2)
+    // 通知：死掉的模型 = 轮换起点（qwen），下一跳 = 物化链首条（deepseek）。
+    assert.equal(followups.length, 1)
+    const noticeText = followups[0].content[0].text
+    assert.match(noticeText, /provider-b\/qwen/)
+    assert.match(noticeText, /provider-c\/deepseek/)
+  } finally {
+    await clearRotationRegistries()
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 显式传 model——不轮换、不启用转移链（现状语义）（AC7）', async () => {
+  await clearRotationRegistries()
+  const failover = await import('../dist/executor-failover.js')
+  await resetFailoverState(failover)
+  // 继承形态配置（无主模型）：显式 model 与配置无冲突，白名单失败原样抛出（不走链）。
+  const root = makeProject({
+    subagents: {
+      implement: {
+        fallback_models: [{ model: 'provider-b/qwen' }, { model: 'provider-c/deepseek' }],
+        rotate_on_busy: true,
+      },
+    },
+  })
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    // 显式 model 撞白名单错误：不走链（链被置空），原样抛出。
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+      startRejections: [codedError('unknown model explicit', 'UNKNOWN_MODEL')],
+    })
+    const parent = makeAgent(root)
+    await assert.rejects(
+      execute(execArgs({ title: 'explicit model no rotation', model: 'provider-x/custom' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      }),
+      /unknown model explicit/,
+    )
+    assert.equal(startCalls.length, 1)
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-x',
+      model: 'custom',
+    })
+  } finally {
+    await clearRotationRegistries()
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 续用轮不受影响——sendMessage 投递、无轮换副作用（AC7 续用）', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    const { execute, sendMessageCalls, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(
+      execArgs({ title: 'rotation continue unaffected', continue_executor: 'child-a' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(startCalls.length, 0, 'continue must not spawn a new child')
+    assert.equal(sendMessageCalls.length, 1)
+    assert.equal(sendMessageCalls[0].targetId, 'child-a')
+    assert.match(result.receipt, /\(reused\)/)
+    assert.doesNotMatch(result.receipt, /rotated/)
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 同类绑定读不到——按占用主模型位归一（保守，不顺延错位）（AC8）', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    // 旧记录形态（无 model 字段）+ 无进程内登记：视为占用主模型位 → 顺延 fb1。
+    seedRunningDispatches(root, [{ childId: 'child-a', kind: 'implement' }])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    await execute(execArgs({ title: 'unreadable binding normalizes' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-b',
+      model: 'qwen',
+    })
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 同类绑定池外模型——主模型位视为空闲，不轮换', async () => {
+  await clearRotationRegistries()
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-x/outside' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'out-of-pool binding' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-a',
+      model: 'glm',
+    })
+    assert.doesNotMatch(result.receipt, /rotated/)
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 绑定三级优先——进程内登记压过 dispatches 记录（AC8 取数顺序）', async () => {
+  await clearRotationRegistries()
+  const { registerChildModelBinding } = await import('../dist/executor-capacity.js')
+  const root = makeProject(ROTATION_POOL_CONFIG())
+  try {
+    // dispatches 记录写 fb1；进程内登记写主模型位：登记优先 → 占用集 {glm} → 轮换到
+    // fb1（若按记录取数则占用集 {qwen} → 主模型位不轮换，两条路径可区分）。
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-b/qwen' },
+    ])
+    registerChildModelBinding('child-a', 'implement', 'provider-a/glm')
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'registry beats record' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-b',
+      model: 'qwen',
+    })
+    assert.match(result.receipt, /\(rotated: provider-b\/qwen\)/)
+  } finally {
+    await clearRotationRegistries()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 继承主模型位绕回——PARENT_MODEL_LABEL 条目特判（不携带 provider/model，仅 effort）', async () => {
+  await clearRotationRegistries()
+  const failover = await import('../dist/executor-failover.js')
+  await resetFailoverState(failover)
+  // 继承形态：无显式主模型，仅 effort + 链；同类占用继承位（无 model 记录归一
+  // 为 PARENT_MODEL_LABEL）→ 轮换起步 fb1，fb1 失败后绕回继承位。
+  const root = makeProject({
+    subagents: {
+      implement: {
+        effort: 'high',
+        fallback_models: [{ model: 'provider-b/qwen' }],
+        rotate_on_busy: true,
+      },
+    },
+  })
+  try {
+    seedRunningDispatches(root, [{ childId: 'child-a', kind: 'implement' }])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+      startRejections: [codedError('unknown model qwen', 'UNKNOWN_MODEL')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'inherit wrap-around' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(startCalls.length, 2)
+    // 起步 fb1：正常 provider/model（条目无 effort 则不携带）。
+    assert.deepEqual(startCalls[0].request.agentOptions, { provider: 'provider-b', model: 'qwen' })
+    // 绕回继承位：不携带 provider/model（保持继承父会话），仅本次解析的 effective effort。
+    assert.deepEqual(startCalls[1].request.agentOptions, { reasoningEffort: 'high' })
+    assert.match(result.receipt, /\(rotated: provider-b\/qwen\)/)
+    assert.match(result.receipt, /\(failover attempt 2: <parent session>\)/)
+    const record = readDispatches(root)[1]
+    assert.equal(record.model, 'provider-b/qwen')
+    assert.equal(record.modelSource, 'rotate')
+  } finally {
+    await clearRotationRegistries()
+    await failover.flushFailoverWork()
+    failover.clearFailoverContexts()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('rotate: 轮到链条目时用条目自带 effort（不继承主模型 effort）', async () => {
+  await clearRotationRegistries()
+  // 主模型 effort=low，fb1 自带 effort=high：轮换起步 fb1 必须携带条目 effort，
+  // 不能沿用本次解析的 effective.effort（PRD 要求 8 的链条目一支）。
+  const root = makeProject({
+    subagents: {
+      implement: {
+        model: 'provider-a/glm',
+        effort: 'low',
+        fallback_models: [
+          { model: 'provider-b/qwen', effort: 'high' },
+          { model: 'provider-c/deepseek' },
+        ],
+        rotate_on_busy: true,
+      },
+    },
+  })
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/glm' },
+    ])
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    const result = await execute(execArgs({ title: 'rotation entry effort' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.deepEqual(startCalls[0].request.agentOptions, {
+      provider: 'provider-b',
+      model: 'qwen',
+      reasoningEffort: 'high',
+    })
+    assert.match(result.receipt, /\(rotated: provider-b\/qwen\)/)
+    const record = readDispatches(root)[1]
+    assert.equal(record.model, 'provider-b/qwen')
+    assert.equal(record.effort, 'high')
+    assert.equal(record.modelSource, 'rotate')
+  } finally {
+    await clearRotationRegistries()
     rmSync(root, { recursive: true, force: true })
   }
 })

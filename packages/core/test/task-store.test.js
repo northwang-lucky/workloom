@@ -2185,6 +2185,39 @@ test('recordExecutorDispatch 绑定字段非法值 fail loud（不落盘）', as
   }
 })
 
+test('recordExecutorDispatch 轮换起步：modelSource rotate 放行并落盘（值域只增不减）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Rotate Binding' })
+    // 轮换选中链条目起步：绑定值写实际选定 model/effort，来源记 rotate。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'rotated start',
+      childId: 'child-1',
+      model: 'provider-b/qwen',
+      effort: 'high',
+      modelSource: 'rotate',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].model, 'provider-b/qwen')
+    assert.equal(saved.dispatches[0].effort, 'high')
+    assert.equal(saved.dispatches[0].modelSource, 'rotate')
+    // 非法值仍拒：rotate 已入值域，其余越界值不变。
+    const [badErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'still bad',
+      childId: 'child-2',
+      modelSource: 'rotated',
+    })
+    assert.ok(badErr instanceof Error)
+    assert.match(badErr.message, /invalid dispatch modelSource/)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('readTask 归一化：旧派发记录缺绑定字段读取为 undefined（不炸）', async () => {
   const root = makeRoot()
   try {

@@ -64,6 +64,13 @@
  *   续用路径先把目标 childId 从 running 集合排除（其槽不重复计）；拒绝时返回英文
  *   at capacity 回执文案（注明撞限层级与计数），不写 dispatches、不 spawn，主会话稍后
  *   自行重试；不引入队列与 pending 态。
+ * - 同类并发轮换（rotate_on_busy，core executor-rotation 纯函数 + 本文件编排）：
+ *   开关开且未显式 model 且链非空时，闸放行后的同步段把 [主模型位, fallback_models…]
+ *   池按「同 kind 已占用模型」顺延取首个未占用条目作起始绑定（全占用回绕主模型位），
+ *   并把环形顺序物化为线性转移链（起点之后的环序，绕回段含主模型位条目）；留痕
+ *   modelSource 记 rotate，回执追加 (rotated: <model>)；占用取数三级优先：进程内
+ *   绑定登记 → 本任务 dispatches 记录 → 读不到按主模型位归一（保守）。开关关 /
+ *   显式 model / 续用轮 / 容量拒绝路径零行为变化。
  *
  * 模块边界：本文件负责工具注册（registerExecutor）与执行编排（executeTool）；
  * 参数 schema 装配在 executor-schema.ts，prompt 组装在 executor-injection.ts，

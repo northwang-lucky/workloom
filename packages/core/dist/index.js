@@ -9,7 +9,8 @@
 export { WORKLOOM_DIR, LEGACY_TRELLIS_DIR, findWorkloomRoot, detectLegacyTrellis, insideWorkloom, } from './domain/locate.js';
 export { DEFAULT_CONFIG, resolveSubagentDefaults, splitProviderModel, detectExecutorConflicts, buildConflictNotice, assertForceReason, WorkloomConfigError, loadConfig, } from './domain/config.js';
 export { MODEL_INACCESSIBLE_CODES, isModelInaccessibleCode, extractFailureCode, buildFailoverNote, buildFailoverNotice, } from './domain/failover.js';
-export { buildNewDispatchBinding, resolveDispatchModelSource } from './domain/dispatch-binding.js';
+export { PARENT_MODEL_LABEL, buildNewDispatchBinding, resolveDispatchModelSource, } from './domain/dispatch-binding.js';
+export { materializeRingChain, selectRotationStartIndex, } from './domain/executor-rotation.js';
 export { EFFORT_LEVELS, EXECUTOR_KINDS, assertEffort, assertKind, buildExecutorPrompt, } from './domain/executor-context.js';
 export { NATIVE_TOOLS_DSH, NATIVE_TOOLS_PI, buildAllowList, } from './domain/executor-tools.js';
 export { evaluateExecutorCapacity, formatAtCapacityReceipt, } from './domain/executor-capacity.js';

@@ -44,7 +44,9 @@ import type { DispatchModelSource } from '@workloom-ai/core'
 import { DISPATCH_WARN_PREFIX } from './constants.js'
 import {
   collectRunningExecutors,
+  consumeChildModelBinding,
   evaluateCapacityGate,
+  registerChildModelBinding,
 } from './executor-capacity.js'
 import { SPAWN_PROVIDER } from './executor-dispatch.js'
 import {
@@ -104,7 +106,7 @@ export interface StartDispatchWithFailoverParams {
   /** 失败转移链（显式 model / 未配置时为空，走零行为变化路径）。 */
   chain: readonly FallbackModelEntry[]
   primaryBinding: PrimaryDispatchBinding
-  /** 主模型展示名（穷尽消息的链起点）。 */
+  /** 派发起点模型 label（穷尽消息链起点；轮换起点时为选中的链条目模型）。 */
   primaryModel: string
 }
 
@@ -120,17 +122,20 @@ export interface FailoverContext {
   taskRelPath: string
   kind: string
   title: string
-  /** 首次派发的用户 prompt（重派时重新全量注入的正文）。 */
+  /** 首次派发用户 prompt（重派时重新全量注入的正文）。 */
   firstPrompt: string
   /** 失败轮是否为续用轮（续用增量指令随旧会话丢失，说明里要注明）。 */
   continued: boolean
-  /** 首次派发解析出的完整 fallback 链。 */
+  /**
+   * 派发时刻登记的转移链：非轮换派发为配置解析链；同类并发轮换派发为环形物化
+   * 后的线性链（起点之后按环形顺序，回绕段含主模型位条目）。
+   */
   chain: readonly FallbackModelEntry[]
-  /** 当前跳序号（主模型 = 1，链首条 = 2）。 */
+  /** 当前跳序号（起点 = 1，链首条 = 2）。 */
   attempt: number
   /** 当前子会话实际生效的模型（通知/说明里的失败模型）。 */
   currentModel: string
-  /** 首次派发的主模型（穷尽时完整尝试链的起点）。 */
+  /** 派发起点模型（轮换起点或主模型位；穷尽时完整尝试链的起点）。 */
   primaryModel: string
   /** 父会话 agent（重派与通知的发起方）。 */
   parent: Agent
@@ -195,7 +200,10 @@ export async function startDispatchWithFailover(
     }
   }
   try {
-    return { started: await startAttempt(agentOptions) }
+    const started = await startAttempt(agentOptions)
+    // 直接成功：登记起点绑定模型（轮换占用取数的第一优先级来源）。
+    registerChildModelBinding(started.childId, kind, primaryModel)
+    return { started }
   } catch (error) {
     // 未配置链 / 显式 model（调用方已置空链）/ 白名单外错误：维持现状（原样抛出、不留痕）。
     if (chain.length === 0 || !isModelInaccessibleCode(extractFailureCode(error))) throw error
@@ -237,6 +245,9 @@ export async function startDispatchWithFailover(
         previousChildId = reservedChildId
       },
     })
+    // 转移成功：childId 换新，按实际生效跳登记绑定（轮换占用取数的第一优先级
+    // 来源；同步走链的失败跳从未成功启动，不落登记）。
+    registerChildModelBinding(outcome.result.childId, kind, outcome.model)
     return {
       started: outcome.result,
       failover: {
@@ -310,6 +321,9 @@ function trackFailoverWork(work: Promise<void>): void {
  * @param settled 结算信息（childId/任务/stopReason/结构化错误）
  */
 export function handleSettledDispatch(ctx: Context, settled: SettledDispatch): void {
+  // 结算消费进程内绑定登记（成功/失败终态均消费：child 已不在 running 视野，
+  // 登记随之失效；占用统计回退 dispatches 记录 → 主模型位归一）。
+  consumeChildModelBinding(settled.id)
   const context = failoverContexts.get(settled.id)
   if (context === undefined) return
   failoverContexts.delete(settled.id)
@@ -499,7 +513,9 @@ async function runAsyncFailover(
     return
   }
   // 留痕与登记：新 child 一条 running 记录（链式关联上一跳）、结算定位、research 守卫、
-  // 以及派生新的转移上下文（跳序号 +1，续用标记重置）。
+  // 进程内绑定登记（重派 childId 换新，按实际生效模型登记）、以及派生新的转移上下文
+  // （跳序号 +1，续用标记重置）。
+  registerChildModelBinding(outcome.result.childId, context.kind, outcome.model)
   const [recordErr] = recordExecutorDispatch(context.root, context.taskRelPath, {
     kind: context.kind,
     title: context.title,

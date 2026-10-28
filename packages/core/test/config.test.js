@@ -1174,6 +1174,98 @@ test('resolveSubagentDefaults：fallbackModels 分层合并（profile 优先、l
   assert.equal('fallbackModels' in none.configSources, false)
 })
 
+// ---------- L5c：rotate_on_busy 同类并发轮换开关 ----------
+
+test('rotate_on_busy 合法解析：两层同语法，仅 true 落内存字段', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagents: {
+      implement: { rotate_on_busy: false },
+      research: { rotate_on_busy: true },
+    },
+    subagent_profiles: [
+      { subagents: { check: { rotate_on_busy: true }, frontend: { rotate_on_busy: false } } },
+    ],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    // false/缺省不落字段（与 fallbackModels 空数组等价缺省同模式）。
+    assert.equal(config.subagents.implement.rotateOnBusy, undefined)
+    assert.equal(config.subagents.research.rotateOnBusy, true)
+    assert.equal(config.subagentProfiles[0].subagents.check.rotateOnBusy, true)
+    assert.equal(config.subagentProfiles[0].subagents.frontend.rotateOnBusy, undefined)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('rotate_on_busy 非布尔按字段路径 fail loud（两层与非法形状全覆盖）', () => {
+  const cases = [
+    {
+      doc: { subagents: { implement: { rotate_on_busy: 'true' } } },
+      field: 'subagents.implement.rotate_on_busy',
+    },
+    {
+      doc: { subagents: { implement: { rotate_on_busy: 1 } } },
+      field: 'subagents.implement.rotate_on_busy',
+    },
+    {
+      doc: { subagents: { implement: { rotate_on_busy: null } } },
+      field: 'subagents.implement.rotate_on_busy',
+    },
+    {
+      doc: {
+        subagent_profiles: [{ subagents: { implement: { rotate_on_busy: 'yes' } } }],
+      },
+      field: 'subagent_profiles[0].subagents.implement.rotate_on_busy',
+    },
+  ]
+  for (const { doc, field } of cases) {
+    const root = makeRoot()
+    const home = makeHome()
+    writeProjectFile(root, 'config.json', doc)
+    try {
+      assert.throws(
+        () => loadConfig(root, { homeDir: home }),
+        (error) => {
+          assert.ok(error instanceof WorkloomConfigError)
+          assert.equal(error.field, field)
+          assert.match(error.message, /must be a boolean/)
+          return true
+        },
+      )
+    } finally {
+      cleanup(root, home)
+    }
+  }
+})
+
+test('resolveSubagentDefaults：rotateOnBusy 分层合并（profile 优先、legacy 回退、未配置不出现字段）', () => {
+  const config = {
+    subagents: { implement: { model: 'legacy-m', rotateOnBusy: true } },
+    subagentProfiles: [
+      {
+        whenMain: 'kimi-coding/k3',
+        subagents: { implement: { model: 'profile-m', rotateOnBusy: true } },
+      },
+      { subagents: {} },
+    ],
+  }
+  // 命中 profile 条目：开关与来源记 whenMain。
+  const hit = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3')
+  assert.equal(hit.rotateOnBusy, true)
+  assert.equal(hit.configSources.rotateOnBusy, 'whenMain')
+  // 命中无该 kind 配置的兜底条目：回退旧 subagents，来源记 legacy。
+  const legacy = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'other/x')
+  assert.equal(legacy.rotateOnBusy, true)
+  assert.equal(legacy.configSources.rotateOnBusy, 'legacy')
+  // 全程未配置：字段不出现（与现状逐字一致，避免污染既有 deepEqual 断言）。
+  const none = resolveSubagentDefaults({ subagents: {} }, 'implement', {})
+  assert.equal(none.rotateOnBusy, undefined)
+  assert.equal('rotateOnBusy' in none.configSources, false)
+})
+
 // ---------- L6：model 拆分与冲突检测 ----------
 
 test('splitProviderModel：provider 前缀拆分与裸 id、非法输入抛错', () => {

@@ -116,6 +116,12 @@ export interface SubagentConfigEntry {
    * subagent_profiles 内层同一语法；空数组等价缺省（不落字段）。
    */
   fallbackModels?: SubagentFallbackModel[]
+  /**
+   * 同类并发轮换开关（配置字段 `rotate_on_busy`）：true = 本 kind 已有同类在跑时
+   * 新派发按 [主模型位, fallback_models…] 池顺延取首个未占用模型。仅显式 true 落
+   * 字段（false/缺省不落）；两层同语法。
+   */
+  rotateOnBusy?: boolean
 }
 
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
@@ -138,6 +144,8 @@ export interface ResolveSubagentDefaultsResult {
     effort?: SubagentConfigSource
     /** 失败转移链来源（未配置链时属性不定义）。 */
     fallbackModels?: SubagentConfigSource
+    /** 同类并发轮换开关来源（未配置时属性不定义）。 */
+    rotateOnBusy?: SubagentConfigSource
   }
   /** configSources 为 whenMain 时的匹配值（receipt 展示用，如 kimi-coding/k3）。 */
   whenMainValue?: string
@@ -154,6 +162,11 @@ export interface ResolveSubagentDefaultsResult {
    * 未配置时回退旧 subagents 同 kind 条目；两处均未配置时属性不定义。
    */
   fallbackModels?: SubagentFallbackModel[]
+  /**
+   * 同类并发轮换开关（配置字段 `rotate_on_busy`）：仅显式 true 时出现
+   * （profile 命中条目优先、legacy 回退；未配置时属性不定义，零行为变化）。
+   */
+  rotateOnBusy?: boolean
 }
 
 /** 内置默认配置。 */

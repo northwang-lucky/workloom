@@ -34,7 +34,21 @@ export {
   buildFailoverNotice,
 } from './domain/failover.js'
 
-export { buildNewDispatchBinding, resolveDispatchModelSource } from './domain/dispatch-binding.js'
+export {
+  PARENT_MODEL_LABEL,
+  buildNewDispatchBinding,
+  resolveDispatchModelSource,
+} from './domain/dispatch-binding.js'
+
+export {
+  materializeRingChain,
+  selectRotationStartIndex,
+} from './domain/executor-rotation.js'
+
+export type {
+  MaterializedRingChain,
+  RotationPoolEntry,
+} from './domain/executor-rotation.d.ts'
 
 export {
   EFFORT_LEVELS,

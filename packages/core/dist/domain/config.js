@@ -17,6 +17,9 @@
  * - 条目内 tools 字段仅 subagent_profiles 层支持（includes/excludes 数组，去重）；
  * - 条目内 fallback_models（失败转移链）两层同语法：model 必填非空 string、effort
  *   可选 string、元素未知字段与链内重复 model fail loud、空数组等价缺省；
+ * - 条目内 rotate_on_busy（同类并发轮换开关）两层同语法：值必须为 boolean
+ *   （宽化的字符串/数字布尔不收，fail loud），仅 true 落内存字段 rotateOnBusy
+ *   （false/缺省不落，同 fallbackModels 空数组等价缺省模式）；
  * - executor 派发参数与 subagents 配置的冲突检测（detectExecutorConflicts）。
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -518,10 +521,11 @@ function parseSubagentsEntries(prefix, map, { allowTools, allowMaxConcurrent }) 
                 key !== 'effort' &&
                 key !== 'tools' &&
                 key !== 'max_concurrent' &&
-                key !== 'fallback_models') {
+                key !== 'fallback_models' &&
+                key !== 'rotate_on_busy') {
                 throw new WorkloomConfigError(`${prefix}.${name}.${key}`, 
                 // allowed 清单按层条件化：tools / max_concurrent 仅 profiles 层合法。
-                `unknown field (allowed: model, effort, fallback_models${allowMaxConcurrent ? ', max_concurrent' : ''}${allowTools ? ', tools' : ''})`);
+                `unknown field (allowed: model, effort, fallback_models, rotate_on_busy${allowMaxConcurrent ? ', max_concurrent' : ''}${allowTools ? ', tools' : ''})`);
             }
         }
         /** @type {import('./config.d.ts').SubagentConfigEntry} */
@@ -537,6 +541,16 @@ function parseSubagentsEntries(prefix, map, { allowTools, allowMaxConcurrent }) 
             // 空数组等价缺省：不落字段，分层合并时可回退到另一层。
             if (fallbackModels.length > 0)
                 parsed.fallbackModels = fallbackModels;
+        }
+        if (spec.rotate_on_busy !== undefined) {
+            // 严格 boolean（宽化写法不收）：开关语义只有开/关两态，宽容隐式转换会掩盖
+            // 配置笔误（如 "true" 字符串）。
+            if (typeof spec.rotate_on_busy !== 'boolean') {
+                throw new WorkloomConfigError(`${prefix}.${name}.rotate_on_busy`, 'must be a boolean');
+            }
+            // 仅 true 落内存字段（false/缺省不落，同 fallbackModels 空数组等价缺省模式）。
+            if (spec.rotate_on_busy)
+                parsed.rotateOnBusy = true;
         }
         if (spec.tools !== undefined) {
             parsed.tools = parseTools(`${prefix}.${name}.tools`, spec.tools);
@@ -782,8 +796,9 @@ function findMapOverlapWithString(str, map) {
  * 合并 executor 子代理默认 model/effort：工具调用参数优先，未出现的字段回退到
  * subagent_profiles 命中条目（按主会话模型匹配），再回退到旧 subagents 配置
  * （按 kind 对应条目）；全部缺失时字段为 undefined（继承父会话）。model 与
- * effort 独立合并，失败转移链（fallbackModels）同样字段级合并。model 的 map 形式
- * 按 runtime 取值，缺当前 runtime 的 key 时 fail loud（避免静默用错模型）。
+ * effort 独立合并，失败转移链（fallbackModels）与同类并发轮换开关
+ * （rotateOnBusy）同样字段级合并。model 的 map 形式按 runtime 取值，缺当前
+ * runtime 的 key 时 fail loud（避免静默用错模型）。
  * 纯同步、无副作用（不修改入参）。
  * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
  * @param {string} kind executor 类型（research/implement/check/frontend）
@@ -860,6 +875,19 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
         fallbackModels = legacyLayer.fallbackModels;
         fallbackModelsSource = 'legacy';
     }
+    // 同类并发轮换开关：字段级分层合并（命中 profile 条目优先于旧 subagents），
+    // 解析期限定 boolean 且仅 true 落字段；未配置时字段不出现（零行为变化）。
+    let rotateOnBusy;
+    /** @type {import('./config.d.ts').SubagentConfigSource | undefined} */
+    let rotateOnBusySource;
+    if (matched !== null && profileLayer.rotateOnBusy !== undefined) {
+        rotateOnBusy = profileLayer.rotateOnBusy;
+        rotateOnBusySource = matched.source;
+    }
+    else if (legacyLayer?.rotateOnBusy !== undefined) {
+        rotateOnBusy = legacyLayer.rotateOnBusy;
+        rotateOnBusySource = 'legacy';
+    }
     // kind 层并发上限：仅 subagent_profiles 命中条目携带（legacy 层不支持），
     // 未命中 / 未配置时兜底硬编码缺省 3（显式 0 = 该 kind 不限，?? 不吞 0）。
     const maxConcurrent = profileLayer.maxConcurrent ?? DEFAULT_KIND_MAX_CONCURRENT;
@@ -875,6 +903,8 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
             effort: effortConfigSource,
             // 链来源仅在配置侧提供链时出现（未配置时字段不定义，兼容既有深比较断言）。
             ...(fallbackModelsSource !== undefined ? { fallbackModels: fallbackModelsSource } : {}),
+            // 轮换开关来源同链来源模式（未配置时字段不定义）。
+            ...(rotateOnBusySource !== undefined ? { rotateOnBusy: rotateOnBusySource } : {}),
         },
         // tools 仅 subagent_profiles 层支持（legacy 层无 tools）：命中条目的该 kind
         // tools 字段原样透出，未命中时为 undefined（调用方按 allow 清单组装消费）。
@@ -885,6 +915,8 @@ export function resolveSubagentDefaults(config, kind, overrides, runtime, mainMo
         // 失败转移链：解析后的模型字符串 + 可选 effort（adapter 按序消费）；
         // 未配置时字段不出现（零行为变化）。
         ...(fallbackModels !== undefined ? { fallbackModels } : {}),
+        // 同类并发轮换开关：仅显式 true 时出现（零行为变化）。
+        ...(rotateOnBusy === true ? { rotateOnBusy: true } : {}),
         // whenMainValue 仅在字段实际来自 whenMain 条目时返回（receipt 展示用）。
         ...(matched?.whenMainValue !== undefined &&
             (modelConfigSource === 'whenMain' || effortConfigSource === 'whenMain')

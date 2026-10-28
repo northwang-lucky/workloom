@@ -12,6 +12,12 @@
  */
 
 /**
+ * 模型继承父会话时的展示标签：receipt 主模型位、失败转移文案与轮换池主模型位
+ * 共用同一口径（单一来源，adapter 转发消费，禁止各处私造字面量）。
+ */
+export const PARENT_MODEL_LABEL = '<parent session>'
+
+/**
  * 解析新派轮的 model 来源层（design §8.2）：显式参数优先记为 param；
  * 否则按配置命中来源细分 whenMain/fallback/legacy；全部未命中记 inherit。
  * @param {{model?: string}} params 工具调用参数（仅显式 model 参与判定）

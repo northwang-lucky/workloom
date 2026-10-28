@@ -68,16 +68,30 @@ export type DispatchStatus = 'running' | 'completed' | 'failed'
 
 /**
  * 派发记录的 model 绑定来源（dispatches[].modelSource）。
- * 新派轮：param（显式参数）/ whenMain / fallback / legacy（配置命中）/ inherit（继承主会话模型）；
- * 续派轮：spawn（沿用 childId 首次派发记录的绑定，审计可查）。
+ * 新派轮：param（显式参数）/ whenMain / fallback / legacy（配置命中，fallback =
+ * 无 whenMain 的 profile 兜底条目命中）/ inherit（继承主会话模型）/ rotate（同类
+ * 并发轮换选中链条目起步）；失败转移跳：fallback；续派轮：spawn（沿用 childId
+ * 首次派发记录的绑定，审计可查）。
  */
-export type DispatchModelSource = 'param' | 'whenMain' | 'fallback' | 'legacy' | 'inherit' | 'spawn'
+export type DispatchModelSource =
+  | 'param'
+  | 'whenMain'
+  | 'fallback'
+  | 'legacy'
+  | 'inherit'
+  | 'rotate'
+  | 'spawn'
 
-/** 派发记录 model 绑定来源枚举常量对象（键为枚举名）。 */
-export const DISPATCH_MODEL_SOURCES: Readonly<Record<
-  'PARAM' | 'WHEN_MAIN' | 'FALLBACK' | 'LEGACY' | 'INHERIT' | 'SPAWN',
-  DispatchModelSource
->>
+/** 派发记录 model 绑定来源枚举常量对象（键为枚举名，值精确到字面量，消费侧免收窄）。 */
+export const DISPATCH_MODEL_SOURCES: Readonly<{
+  PARAM: 'param'
+  WHEN_MAIN: 'whenMain'
+  FALLBACK: 'fallback'
+  LEGACY: 'legacy'
+  INHERIT: 'inherit'
+  ROTATE: 'rotate'
+  SPAWN: 'spawn'
+}>
 
 /** executor 派发审计条目（task.json.dispatches 元素）。 */
 export interface DispatchRecord {
@@ -102,8 +116,9 @@ export interface DispatchRecord {
   /** 派发时刻实际生效的 effort（同上；未配置/未显式传参时缺省）。 */
   effort?: string
   /**
-   * model 绑定来源：新派轮 param/whenMain/fallback/legacy/inherit；
-   * 续派轮 spawn（沿用首次派发记录）。旧记录缺省读取为 undefined。
+   * model 绑定来源：新派轮 param/whenMain/fallback/legacy/inherit/rotate（rotate =
+   * 同类并发轮换选中链条目起步）；转移跳 fallback；续派轮 spawn（沿用首次派发记录）。
+   * 旧记录缺省读取为 undefined。
    */
   modelSource?: DispatchModelSource
   /**

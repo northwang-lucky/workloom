@@ -989,8 +989,9 @@ function assertSettleEntry(entry) {
 }
 /**
  * 派发记录 model 绑定来源枚举值（dispatches[].modelSource 合法值域）。
- * 新派轮：param/whenMain/fallback/legacy/inherit；续派轮：spawn。
- * @type {Readonly<Record<'PARAM' | 'WHEN_MAIN' | 'FALLBACK' | 'LEGACY' | 'INHERIT' | 'SPAWN', import('./task-store.d.ts').DispatchModelSource>>}
+ * 新派轮：param/whenMain/fallback/legacy/inherit/rotate（rotate = 同类并发轮换
+ * 选中链条目起步）；转移跳：fallback；续派轮：spawn。
+ * @type {Readonly<Record<'PARAM' | 'WHEN_MAIN' | 'FALLBACK' | 'LEGACY' | 'INHERIT' | 'ROTATE' | 'SPAWN', import('./task-store.d.ts').DispatchModelSource>>}
  */
 export const DISPATCH_MODEL_SOURCES = Object.freeze({
     PARAM: 'param',
@@ -998,6 +999,7 @@ export const DISPATCH_MODEL_SOURCES = Object.freeze({
     FALLBACK: 'fallback',
     LEGACY: 'legacy',
     INHERIT: 'inherit',
+    ROTATE: 'rotate',
     SPAWN: 'spawn',
 });
 /** DISPATCH_MODEL_SOURCES 取值集合（buildDispatchRecord 校验用）。 */

@@ -7,12 +7,15 @@
  *   本模块只管「一次派发如何按链换模型重试」——每跳的实际启动动作由调用方注入，
  *   派发时同步走链与结算后重派共用同一循环与穷尽语义；
  * - 分类与文案全部来自 core（isModelInaccessibleCode / extractFailureCode），
- *   adapter 不私造错误码口径；失败尝试即时写 failed dispatches 记录（审计可溯）。
+ *   adapter 不私造错误码口径；失败尝试即时写 failed dispatches 记录（审计可溯）；
+ * - PARENT_MODEL_LABEL 单一来源在 core（dispatch-binding）：本模块转发保持既有
+ *   转出口径；buildFallbackAgentOptions 对该 label 特判（继承主模型位条目不携带
+ *   provider/model，仅 effort）——同类并发轮换绕回继承位时的走链消费分支。
  */
 import type { AgentOptions } from '@deepseek-ai/dsh-agent';
+import { PARENT_MODEL_LABEL } from '@workloom-ai/core';
 import type { DispatchModelSource } from '@workloom-ai/core';
-/** 模型继承父会话时的展示标签（与 receipt 的 <parent session> 同口径）。 */
-export declare const PARENT_MODEL_LABEL = "<parent session>";
+export { PARENT_MODEL_LABEL };
 /** 尝试链展示分隔符（与 core 穷尽文案同形：m1 → m2；失败转移各模块共用）。 */
 export declare const CHAIN_SEPARATOR = " \u2192 ";
 /** 链穷尽文案前缀（错误消息与 dispatches error 后缀共用同一字面量）。 */
@@ -60,12 +63,17 @@ export declare class FallbackChainExhaustedError extends Error {
  */
 export declare function runFallbackChain<T>(params: RunFallbackChainParams<T>): Promise<FallbackChainOutcome<T>>;
 /**
- * 组装 fallback 条目的 agentOptions：provider 前缀拆分 + 有条目 effort 才携带
- * （省略则用目标模型默认档位，避开 effort-compat 坑）。
- * @param step 走链的一跳
+ * 组装链条目的 agentOptions：provider 前缀拆分 + 有条目 effort 才携带（省略则用
+ * 目标模型默认档位，避开 effort-compat 坑）。继承主模型位条目（PARENT_MODEL_LABEL，
+ * 轮换绕回继承形态的主模型位）特判：不携带 provider/model（保持继承父会话），
+ * 仅携带条目 effort——走链模块唯一的 label 特判分支。
+ * @param step 链条目（{model, effort?} 形状；FallbackChainStep 结构兼容）
  * @returns DSH agentOptions
  */
-export declare function buildFallbackAgentOptions(step: FallbackChainStep): AgentOptions;
+export declare function buildFallbackAgentOptions(step: {
+    model: string;
+    effort?: string;
+}): AgentOptions;
 /**
  * 逐条校验 fallback 条目 effort 合法档位（fail loud 在首次尝试之前，避免转到一半
  * 才发现配置坏）。

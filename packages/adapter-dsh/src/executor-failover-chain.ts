@@ -7,7 +7,10 @@
  *   本模块只管「一次派发如何按链换模型重试」——每跳的实际启动动作由调用方注入，
  *   派发时同步走链与结算后重派共用同一循环与穷尽语义；
  * - 分类与文案全部来自 core（isModelInaccessibleCode / extractFailureCode），
- *   adapter 不私造错误码口径；失败尝试即时写 failed dispatches 记录（审计可溯）。
+ *   adapter 不私造错误码口径；失败尝试即时写 failed dispatches 记录（审计可溯）；
+ * - PARENT_MODEL_LABEL 单一来源在 core（dispatch-binding）：本模块转发保持既有
+ *   转出口径；buildFallbackAgentOptions 对该 label 特判（继承主模型位条目不携带
+ *   provider/model，仅 effort）——同类并发轮换绕回继承位时的走链消费分支。
  */
 import type { AgentOptions } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
@@ -16,6 +19,7 @@ import {
   assertEffort,
   extractFailureCode,
   isModelInaccessibleCode,
+  PARENT_MODEL_LABEL,
   recordExecutorDispatch,
   splitProviderModel,
 } from '@workloom-ai/core'
@@ -23,8 +27,9 @@ import type { DispatchModelSource } from '@workloom-ai/core'
 
 import { DISPATCH_WARN_PREFIX } from './constants.js'
 
-/** 模型继承父会话时的展示标签（与 receipt 的 <parent session> 同口径）。 */
-export const PARENT_MODEL_LABEL = '<parent session>'
+// 继承主模型位的展示标签单一来源在 core（dispatch-binding 模块）：本模块转发
+// 供既有 executor-failover.ts → executor.ts 的转出口径不变。
+export { PARENT_MODEL_LABEL }
 
 /** 尝试链展示分隔符（与 core 穷尽文案同形：m1 → m2；失败转移各模块共用）。 */
 export const CHAIN_SEPARATOR = ' → '
@@ -118,12 +123,19 @@ export async function runFallbackChain<T>(
 }
 
 /**
- * 组装 fallback 条目的 agentOptions：provider 前缀拆分 + 有条目 effort 才携带
- * （省略则用目标模型默认档位，避开 effort-compat 坑）。
- * @param step 走链的一跳
+ * 组装链条目的 agentOptions：provider 前缀拆分 + 有条目 effort 才携带（省略则用
+ * 目标模型默认档位，避开 effort-compat 坑）。继承主模型位条目（PARENT_MODEL_LABEL，
+ * 轮换绕回继承形态的主模型位）特判：不携带 provider/model（保持继承父会话），
+ * 仅携带条目 effort——走链模块唯一的 label 特判分支。
+ * @param step 链条目（{model, effort?} 形状；FallbackChainStep 结构兼容）
  * @returns DSH agentOptions
  */
-export function buildFallbackAgentOptions(step: FallbackChainStep): AgentOptions {
+export function buildFallbackAgentOptions(step: { model: string; effort?: string }): AgentOptions {
+  if (step.model === PARENT_MODEL_LABEL) {
+    return step.effort !== undefined
+      ? { reasoningEffort: ReasoningEffortId(step.effort) }
+      : {}
+  }
   const split = splitProviderModel(step.model)
   return {
     ...split,

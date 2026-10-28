@@ -41,6 +41,12 @@ export interface TurnMeta {
    * 回执尾追加 ` (failover attempt N: <model>)`；主模型直接成功时不设。
    */
   failover?: { attempt: number; model: string }
+  /**
+   * 同类并发轮换标注（design §6）：rotate_on_busy 选中链条目起步时传入实际选定
+   * 模型，回执尾追加 ` (rotated: <model>)`；主模型位起步（开关关/无同类/全占用
+   * 回绕/显式 model）不设。与 failover 标注独立并存，以实际生效模型为准。
+   */
+  rotation?: { model: string }
 }
 
 /** buildTurnReceiptText 消费的生效默认值形状（core ResolveSubagentDefaultsResult）。 */
@@ -79,12 +85,15 @@ export function buildTurnReceiptText(
         effortWhenMainValue: effective.whenMainValue,
         injection: meta.injection,
       })
-  // 标注顺序：forced → reused → failover（各自独立，回执尾部追加，便于审计扫读）。
+  // 标注顺序：forced → reused → rotated → failover（各自独立，回执尾部追加，
+  // 便于审计扫读；rotated 在 failover 前 = 派发时刻选模先于失败转移的时序）。
+  const rotationSuffix =
+    meta.rotation !== undefined ? ` (rotated: ${meta.rotation.model})` : ''
   const failoverSuffix =
     meta.failover !== undefined
       ? ` (failover attempt ${meta.failover.attempt}: ${meta.failover.model})`
       : ''
-  return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}${failoverSuffix}`
+  return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}${rotationSuffix}${failoverSuffix}`
 }
 
 /**

@@ -1,8 +1,9 @@
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
-import { assertEffort, extractFailureCode, isModelInaccessibleCode, recordExecutorDispatch, splitProviderModel, } from '@workloom-ai/core';
+import { assertEffort, extractFailureCode, isModelInaccessibleCode, PARENT_MODEL_LABEL, recordExecutorDispatch, splitProviderModel, } from '@workloom-ai/core';
 import { DISPATCH_WARN_PREFIX } from './constants.js';
-/** 模型继承父会话时的展示标签（与 receipt 的 <parent session> 同口径）。 */
-export const PARENT_MODEL_LABEL = '<parent session>';
+// 继承主模型位的展示标签单一来源在 core（dispatch-binding 模块）：本模块转发
+// 供既有 executor-failover.ts → executor.ts 的转出口径不变。
+export { PARENT_MODEL_LABEL };
 /** 尝试链展示分隔符（与 core 穷尽文案同形：m1 → m2；失败转移各模块共用）。 */
 export const CHAIN_SEPARATOR = ' → ';
 /** 链穷尽文案前缀（错误消息与 dispatches error 后缀共用同一字面量）。 */
@@ -59,12 +60,19 @@ export async function runFallbackChain(params) {
     throw new FallbackChainExhaustedError(lastError, attempted);
 }
 /**
- * 组装 fallback 条目的 agentOptions：provider 前缀拆分 + 有条目 effort 才携带
- * （省略则用目标模型默认档位，避开 effort-compat 坑）。
- * @param step 走链的一跳
+ * 组装链条目的 agentOptions：provider 前缀拆分 + 有条目 effort 才携带（省略则用
+ * 目标模型默认档位，避开 effort-compat 坑）。继承主模型位条目（PARENT_MODEL_LABEL，
+ * 轮换绕回继承形态的主模型位）特判：不携带 provider/model（保持继承父会话），
+ * 仅携带条目 effort——走链模块唯一的 label 特判分支。
+ * @param step 链条目（{model, effort?} 形状；FallbackChainStep 结构兼容）
  * @returns DSH agentOptions
  */
 export function buildFallbackAgentOptions(step) {
+    if (step.model === PARENT_MODEL_LABEL) {
+        return step.effort !== undefined
+            ? { reasoningEffort: ReasoningEffortId(step.effort) }
+            : {};
+    }
     const split = splitProviderModel(step.model);
     return {
         ...split,
