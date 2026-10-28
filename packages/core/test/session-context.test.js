@@ -1,7 +1,8 @@
 /**
  * session-context 单测：assembleSessionContext 快照组装（临时项目目录）。
  *
- * 覆盖：developer 默认 unknown 与读取；无活跃任务行；活跃任务行（标题/状态/路径）；
+ * 覆盖：developer 默认 unknown 与读取；无活跃任务行与候选任务节（排序/截断/降级/白名单）；
+ * 活跃任务行（标题/状态/路径）；
  * git 分支与脏计数及非 git 降级；workflow 概览拼接与空数组省略；块包裹格式；
  * delegationDepth>0 的 executor 版白名单（仅 Active task / Guidelines / Executor norms）。
  */
@@ -48,6 +49,13 @@ function addTaskWithDispatches(root, contextKey, title, status, dispatches) {
     `${JSON.stringify({ title, status, dispatches })}\n`,
   )
   setActiveTask(root, contextKey, 'tasks/08-24-demo')
+}
+
+/** 在项目内落一个裸任务（仅 task.json，不写会话指针；候选任务节测试用）。 */
+function addBareTask(root, dirName, fields) {
+  const taskDir = join(root, '.workloom', 'tasks', dirName)
+  mkdirSync(taskDir, { recursive: true })
+  writeFileSync(join(taskDir, 'task.json'), `${JSON.stringify(fields)}\n`)
 }
 
 /** 写入项目 .workloom 下的配置文件（对象 → JSON；隔离全局层用）。 */
@@ -919,6 +927,126 @@ test('light 任务概览行来自轻量步骤集，norms 仍出自主契约', ()
     )
     assert.ok(!text.includes('1.1 Align requirements'), 'light track must not render full-only steps')
     assert.ok(text.includes('Main-only norms.'), 'norms must still come from the main contract')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('无活跃任务且有既有任务：候选节紧跟 No active task.，按 in_progress > completed > planning 排序', () => {
+  const root = makeProject()
+  try {
+    addBareTask(root, '10-01-plan-early', { title: 'Plan Early', status: 'planning' })
+    addBareTask(root, '10-02-running', { title: 'Running One', status: 'in_progress' })
+    addBareTask(root, '10-03-done', { title: 'Done One', status: 'completed' })
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_cand_1',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.match(
+      text,
+      /\nNo active task\.\nCandidate tasks \(in_progress first; workloom_task_list for all\):\n/,
+    )
+    const runningIdx = text.indexOf('  - "Running One" (in_progress) at tasks/10-02-running')
+    const doneIdx = text.indexOf('  - "Done One" (completed) at tasks/10-03-done')
+    const planIdx = text.indexOf('  - "Plan Early" (planning) at tasks/10-01-plan-early')
+    assert.ok(runningIdx >= 0 && doneIdx >= 0 && planIdx >= 0, '三条候选行都必须渲染')
+    assert.ok(runningIdx < doneIdx && doneIdx < planIdx, '排序必须是 in_progress > completed > planning')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('无活跃任务且项目无任务：只输出 No active task.，无候选节', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_cand_2',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.match(text, /\nNo active task\.\n/)
+    assert.ok(!text.includes('Candidate tasks'), '无任务时不得输出候选节')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('有活跃任务：不输出候选节', () => {
+  const root = makeProject()
+  try {
+    addTask(root, 'dsh_sess_cand_3', 'Active One', 'in_progress')
+    addBareTask(root, '10-04-other', { title: 'Other Plan', status: 'planning' })
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_cand_3',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.match(text, /\nActive task: "Active One" \(in_progress\) at tasks\/08-24-demo\.\n/)
+    assert.ok(!text.includes('Candidate tasks'), '有活跃任务时不得输出候选节')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('depth>0 且无活跃任务：候选节不进 executor 白名单', () => {
+  const root = makeProject()
+  try {
+    addBareTask(root, '10-05-plan', { title: 'Plan One', status: 'planning' })
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_cand_4',
+      workflowSteps: [],
+      delegationDepth: 1,
+    })
+    assert.equal(err, null)
+    assert.match(text, /\nNo active task\.\n/)
+    assert.ok(!text.includes('Candidate tasks'), 'executor 快照不得注入候选节')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('候选超过上限：截断为 8 条并输出 more 提示行', () => {
+  const root = makeProject()
+  try {
+    for (let i = 0; i < 10; i += 1) {
+      addBareTask(root, `10-06-plan-${String(i).padStart(2, '0')}`, {
+        title: `Plan ${i}`,
+        status: 'planning',
+      })
+    }
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_cand_5',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    const entryCount = (text.match(/\n {2}- "/g) ?? []).length
+    assert.equal(entryCount, 8, '候选条目必须截断到上限 8 条')
+    assert.match(text, /\n {2}\(… 2 more; run workloom_task_list\)\n/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('损坏任务目录跳过：不报错、不进候选节、不阻塞其余条目', () => {
+  const root = makeProject()
+  try {
+    addBareTask(root, '10-07-good', { title: 'Good Task', status: 'planning' })
+    // 伪造无 task.json 的目录（listTasks 跳过损坏目录）。
+    mkdirSync(join(root, '.workloom', 'tasks', '10-07-broken'), { recursive: true })
+    const [err, text] = assembleSessionContext({
+      root,
+      contextKey: 'dsh_sess_cand_6',
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.ok(text.includes('  - "Good Task" (planning) at tasks/10-07-good'))
+    assert.ok(!text.includes('10-07-broken'), '损坏目录不得出现在候选节')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

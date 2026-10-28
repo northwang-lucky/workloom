@@ -581,8 +581,11 @@ test('listTasks 摘要与状态过滤，归档后不再出现', async () => {
       'parent',
       'priority',
       'status',
+      'taskRelPath',
       'title',
     ])
+    // taskRelPath 必须是可定位的任务目录相对路径（name 只是 slug，不等价）。
+    assert.equal(list[0].taskRelPath, t1.taskRelPath)
     const [err2, filtered] = listTasks(root, { status: TaskStatus.IN_PROGRESS })
     assert.equal(err2, null)
     assert.equal(filtered.length, 1)

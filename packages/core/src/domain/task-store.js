@@ -1426,6 +1426,7 @@ function listTasksInternal(root, params) {
       priority: task.priority,
       createdAt: task.createdAt,
       parent: task.parent ?? null,
+      taskRelPath,
     })
   }
   return summaries

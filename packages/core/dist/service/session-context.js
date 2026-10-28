@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { insideWorkloom } from '../domain/locate.js';
 import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from '../domain/git.js';
 import { resolveActiveTask } from '../domain/active-task.js';
-import { readTask } from '../domain/task-store.js';
+import { listTasks, readTask, TaskStatus } from '../domain/task-store.js';
 import { loadConfig } from '../domain/config.js';
 import { collectSpecIndexes } from '../domain/spec-index.js';
 import { renderExecutorProfilesSection } from '../domain/executor-profiles.js';
@@ -31,6 +31,18 @@ const DEVELOPER_REL_PATH = '.developer';
 const UNKNOWN_VALUE = 'unknown';
 /** 无活跃任务行（整行固定文案）。 */
 const NO_ACTIVE_TASK_LINE = 'No active task.';
+/** 候选任务节标签行（无活跃任务且 depth=0 时输出，指引会话接续既有任务）。 */
+const CANDIDATE_LABEL = 'Candidate tasks (in_progress first; workloom_task_list for all):';
+/** 候选任务条目缩进。 */
+const CANDIDATE_INDENT = '  ';
+/** 候选任务节条目上限（注入预算；超出截断并输出提示行）。 */
+const CANDIDATE_TASK_LIMIT = 8;
+/** 候选状态排序权重：接续优先 in_progress，其次 completed 待收尾，planning 待推进。 */
+const CANDIDATE_STATUS_RANK = new Map([
+    [TaskStatus.IN_PROGRESS, 0],
+    [TaskStatus.COMPLETED, 1],
+    [TaskStatus.PLANNING, 2],
+]);
 /** Last dispatch 行前缀（派发记录展示，无记录不输出）。 */
 const LAST_DISPATCH_PREFIX = 'Last dispatch: ';
 /** 各行的固定标签前缀。 */
@@ -82,8 +94,9 @@ export function assembleSessionContext(params) {
     }
 }
 /**
- * 组装实现（内部）：depth=0 按 Developer / Active task / Last dispatch / Executor
- * profiles / Git / Worktree / 工作流 / guidelines 顺序拼行，结尾按需追加 norms 小节（always-on
+ * 组装实现（内部）：depth=0 按 Developer / Active task / 候选任务（无活跃任务时）/
+ * Last dispatch / Executor profiles / Git / Worktree / 工作流 / guidelines 顺序拼行，
+ * 结尾按需追加 norms 小节（always-on
  * 规范原文）；depth>0（executor 等叶子子代理）按白名单只拼 Active task / guidelines /
  * executor norms——Developer / Last dispatch / Executor profiles / Git / 工作流概览
  * 对执行器无价值，裁剪省注入体积。整体包进块标记。配置一次读取、两节消费（画像节
@@ -101,7 +114,7 @@ function assembleInternal(params) {
     }
     lines.push(active.line);
     if (depth === 0) {
-        lines.push(...lastDispatchLines(active.task), ...executorProfilesLines(params, config), gitLine(params.root), ...worktreeLines(params.root, active.task));
+        lines.push(...candidateTaskLines(params.root, active.task), ...lastDispatchLines(active.task), ...executorProfilesLines(params, config), gitLine(params.root), ...worktreeLines(params.root, active.task));
         if (params.workflowSteps.length > 0) {
             const overview = params.workflowSteps
                 .map((step) => `${step.id} ${step.title}`)
@@ -228,6 +241,59 @@ function activeTaskContext(params) {
         line: `${LINE_LABELS.activeTask}${task.title}" (${task.status}) at ${task.taskRelPath}.`,
         task,
     };
+}
+/**
+ * 组装候选任务节（内部）：无活跃任务时列出项目内既有任务，按接续优先级排序
+ * （in_progress > completed > planning，组内保持 listTasks 的目录遍历序，目录名
+ * 带日期前缀即创建序），让新会话开局就能定位可接续的工作；有活跃任务、listTasks
+ * 失败或无可渲染任务时输出空列表。信息节整体降级（与 developer/git 降级同策），
+ * 不拖垮快照。
+ * @param root 项目根
+ * @param task 活跃任务记录（无任务为 null）
+ * @returns 节行列表（空数组 = 不输出）
+ */
+function candidateTaskLines(root, task) {
+    if (task !== null)
+        return [];
+    const [listErr, summaries] = listTasks(root);
+    if (listErr || summaries === null)
+        return [];
+    const renderable = summaries.filter(isRenderableSummary);
+    if (renderable.length === 0)
+        return [];
+    // sort 稳定排序：同状态内保持目录遍历序（filter 已产出新数组，原地排序安全）。
+    const ordered = renderable.sort((a, b) => candidateRank(a.status) - candidateRank(b.status));
+    const shown = ordered.slice(0, CANDIDATE_TASK_LIMIT);
+    const lines = [
+        CANDIDATE_LABEL,
+        ...shown.map((summary) => `${CANDIDATE_INDENT}- "${summary.title}" (${summary.status}) at ${summary.taskRelPath}`),
+    ];
+    const rest = ordered.length - shown.length;
+    if (rest > 0) {
+        lines.push(`${CANDIDATE_INDENT}(… ${rest} more; run workloom_task_list)`);
+    }
+    return lines;
+}
+/**
+ * 摘要是否可渲染（内部）：防御手改 task.json 导致字段缺失（与活跃任务行的字段
+ * 校验同策）；不可渲染的条目跳过，不阻塞整节。
+ * @param summary 任务摘要
+ * @returns 是否可渲染
+ */
+function isRenderableSummary(summary) {
+    return (typeof summary.title === 'string' &&
+        summary.title !== '' &&
+        typeof summary.status === 'string' &&
+        typeof summary.taskRelPath === 'string' &&
+        summary.taskRelPath !== '');
+}
+/**
+ * 状态排序权重（内部）：未知状态排最后（防御手改记录），保证排序比较不产出 NaN。
+ * @param status 任务状态
+ * @returns 排序权重
+ */
+function candidateRank(status) {
+    return CANDIDATE_STATUS_RANK.get(status) ?? Number.MAX_SAFE_INTEGER;
 }
 /**
  * 组装 Last dispatch 行（内部）：活跃任务 dispatches 非空时取最新一条（append-only，

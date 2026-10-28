@@ -197,6 +197,8 @@ export interface TaskSummary {
   priority: TaskPriorityValue
   createdAt: string
   parent: string | null
+  /** 任务目录相对 .workloom 的路径（如 tasks/10-28-demo）；name 是 slug，定位任务目录用本字段。 */
+  taskRelPath: string
 }
 
 /** createTask 参数。 */
