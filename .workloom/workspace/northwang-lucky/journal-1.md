@@ -340,3 +340,9 @@
 - Commit: fa8731a,0164167
 - Summary: 为 worktree.cleanup 新增 rebase-keep-branch / rebase-delete-branch 清理模式并改为默认：任务 worktree 内 rebase base 分支 + 主检出 ff-only 合入，冲突以 REBASE_HEAD 判别并 abort 恢复，双向祖先判定幂等续跑；git.js 新增四原语。检查阶段经用户决策并入存量 P1 修复：core build 增 copy-domain-dts 步骤把 17 个手写 domain d.ts 分发进 dist（导出名子集校验 fail loud），adapter-pi 夹具与内联类型对齐权威类型。两轮检查全过，core 678/678、adapter-dsh 155/155、adapter-pi 197/197；手工 rebase+ff 线性整合后归档。
 
+## workloom-continue 无活跃任务扫描接续与会话上下文候选注入
+
+- Time: 2026-10-28T03:30:35.367Z
+- Commit: 41283dc,9e41dc6
+- Summary: 修复 workloom-continue 技能无活跃任务死路：第 1 步改为 workloom_task_list 扫描接续候选（in_progress 直接接续/多个给推荐、completed 路由 3.1、全 planning 按依赖推荐子任务待确认），指针建立前显式传 taskPath；core session-context 无活跃任务且 depth=0 时注入候选任务节（状态优先级排序、上限 8 条截断、整体降级），TaskSummary 增加 taskRelPath。lint/typecheck/build 全过，core 684 + adapter-dsh 155 + adapter-pi 197 测试全绿，dist 同 commit 重建，归档时已合并回 main。
+
