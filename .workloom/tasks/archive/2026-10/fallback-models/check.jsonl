@@ -1,0 +1,4 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "复查 verify 门禁（eslint/tsc/node --test 全绿）与枚举常量、卫语句、并发无 await 间隙等编码原则"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "复查 core 与 adapter-dsh 的 dist 是否与 src 同 commit 重建，部署链无陈旧产物"}
+{"file": ".workloom/spec/repo/domain-module/index.md", "reason": "复查数据兼容：modelSource 值域新增 rotate、config 新增 rotateOnBusy 均不破坏旧任务目录与旧配置文件"}

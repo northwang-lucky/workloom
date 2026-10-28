@@ -1,0 +1,120 @@
+{
+  "id": "8132280e-e5bd-4c65-918e-4929c6f50a9c",
+  "name": "fallback-models",
+  "title": "fallback_models 增加同类并发轮换用法",
+  "description": "派发同 kind executor 时，若本主会话已有同类子会话在跑且配置开启轮换，新派发按 fallback_models 池顺延取下一个未被占用的模型，分散单一模型压力；全占用回绕主模型。失败转移链在轮换起点上按环形顺序走。仅 adapter-dsh + core 纯函数，adapter-pi 不动。",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": "adapter-dsh",
+  "branch": "workloom/10-28-fallback-models",
+  "base_branch": "main",
+  "createdAt": "2026-10-28T09:50:31.969Z",
+  "completedAt": "2026-10-28T11:07:46.559Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/10-28-fallback-models",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-10-28T11:03:55.198Z",
+    "summary": "check 执行器全量复查结论 PASS（check.md，无 P0/P1，Open issues none）。主会话独立核验：复跑 pnpm lint（exit 0）、pnpm -r typecheck（3 包 Done）、core node --test 698 pass、adapter-dsh node --test 171 pass、pnpm -r build 重建后 diff 统计零变化（dist 与 src 同源）；抽查三处 P2 修复原始 diff（surface.ts 常量单一来源、executor-rotation JSDoc 注释、新增链条目 effort 用例）均无行为语义变化；PRD 验收 10 条与 design §9 边界表逐条有测试证据映射。前端派发门禁以 force 绕过并留痕：UI Design 小节为不适用声明，门禁按小节存在性误触发。"
+  },
+  "alignment": {
+    "passedAt": "2026-10-28T10:12:01.059Z",
+    "summary": "对齐覆盖根族八节点：目标（同类并发时按 fallback_models 池轮换分散模型压力）、范围（仅 adapter-dsh + core，adapter-pi 不动）、验收（10 条可观察标准）、关键决策 11 项（开关 rotate_on_busy 默认关零行为变化、首个未占用选取、全占用回绕主模型、会话级统计口径、环形物化转移链、modelSource rotate 与 (rotated) 回执标注、显式 model/续用轮不轮换、不测试先行、主会话编写 design/implement）。用户分三轮确认：预对齐问答“3A 其他按推荐”、最终轮“全按推荐”、1.4 评审包“确认”。open-nodes=none，review readyToConfirm=true。",
+    "prdHash": "22e0701997f24b04a7b736d7591a6580c0d797021357dc0fe2322519d5f537db"
+  },
+  "overrides": [
+    {
+      "gate": "check",
+      "tool": "workloom_task_check",
+      "at": "2026-10-28T11:03:55.197Z",
+      "reason": "prd.md 的「UI Design」小节内容为明确的不适用声明（无前端界面改动，仅工具回执文本增加英文标注）；该门禁按小节存在性判定 UI 需求、不读取内容意图，属结构性误触发。任务范围内无任何前端文件改动（check.md 复查确认 adapter-pi 零改动、无前端触点），不存在应经 frontend executor 派发的实现，故绕过前端派发要求。"
+    }
+  ],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-10-28T10:13:05.184Z",
+      "title": "同类并发轮换实现",
+      "status": "completed",
+      "childId": "6a265127-3727-45c9-bdb1-dde7f5e21f13",
+      "model": "zai-coding-cn/glm-5.3-flash",
+      "effort": "max",
+      "modelSource": "fallback",
+      "toolsAllow": [
+        "read",
+        "write",
+        "edit",
+        "bash",
+        "glob",
+        "grep",
+        "read_image",
+        "todo_write",
+        "job_output",
+        "job_list",
+        "job_kill",
+        "web_search",
+        "web_fetch",
+        "skill",
+        "lsp_diagnostics",
+        "lsp_completion",
+        "lsp_format",
+        "lsp_code_action",
+        "lsp_symbols",
+        "lsp_signature",
+        "lsp_inlay_hints",
+        "lsp_rename"
+      ]
+    },
+    {
+      "kind": "check",
+      "at": "2026-10-28T10:48:11.015Z",
+      "title": "同类并发轮换复查",
+      "status": "completed",
+      "childId": "5fcfb81f-7216-4437-ba0c-0be752c78538",
+      "model": "deepseek-official/deepseek-flash",
+      "effort": "max",
+      "modelSource": "fallback",
+      "toolsAllow": [
+        "read",
+        "write",
+        "edit",
+        "bash",
+        "glob",
+        "grep",
+        "read_image",
+        "todo_write",
+        "job_output",
+        "job_list",
+        "job_kill",
+        "web_search",
+        "web_fetch",
+        "skill",
+        "lsp_diagnostics",
+        "lsp_completion",
+        "lsp_format",
+        "lsp_code_action",
+        "lsp_symbols",
+        "lsp_signature",
+        "lsp_inlay_hints",
+        "lsp_rename"
+      ]
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

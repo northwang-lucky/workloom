@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "分层约束：轮换选取与环形物化纯函数下沉 core domain，adapter-dsh 只做编排，不得在 adapter 私造业务逻辑"}
+{"file": ".workloom/spec/repo/domain-module/index.md", "reason": "新增 core domain 模块遵循纯 JS + JSDoc + d.ts 锚点约定；config/dispatches 数据布局只做增量扩展，不破坏既有数据文件"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify 门禁；concurrency 段直接约束容量判定→轮换选取→in-flight 登记之间不得有 await 间隙"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "回执 (rotated: …) 标注与工具 description 属英文 runtime 文案；源码注释与任务文档用中文"}
