@@ -1,0 +1,40 @@
+{
+  "id": "454f8bc5-5be9-4e37-8e00-6fe830bbaae0",
+  "name": "ui-design",
+  "title": "前端派发门禁识别 UI Design 不适用声明",
+  "description": "evaluateFrontendDispatchGate 目前只按「prd.md 存在 ## UI Design 小节」判定前端需求，小节内容明确声明不适用时仍要求 frontend 派发记录，导致 check 门禁误拦（上一任务以 force 留痕绕过）。改为识别小节正文中的显式不适用声明：声明成立时视同无 UI 需求放行，不再要求 frontend 派发；实质内容仍维持机制强制。含 core 纯函数改动与测试。",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "light",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": "core",
+  "branch": "workloom/10-29-ui-design",
+  "base_branch": "main",
+  "createdAt": "2026-10-29T00:56:42.164Z",
+  "completedAt": "2026-10-29T01:06:48.769Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/10-29-ui-design",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-10-29T01:06:21.189Z",
+    "summary": "轻量任务主会话自查通过：门禁函数改为识别 UI Design 小节正文首行的显式不适用声明（词表常量：不适用/n/a/not applicable/none，英文小写归一，只认首行前缀；空正文不认定、维持现状拦截），声明成立视同无 UI 需求放行，实质内容仍强制 frontend 派发。新增 4 组测试用例（声明变体放行、多段声明、中部词不认定、空正文拦截），task-gates.test.js 35 条全过；core 全量 702 pass（含 dist-dts 锚点一致性，中途 1 失败为构建前预期态，重建后消除）；adapter-dsh 171 pass（对重建后 dist 复跑）；pnpm lint exit 0；pnpm -r typecheck 3 包 Done；pnpm -r build 重建 dist 且 UI_NOT_APPLICABLE_PREFIXES 已进入产物。prd 验收 6 条全部满足。"
+  },
+  "alignment": null,
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
