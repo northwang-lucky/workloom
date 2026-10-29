@@ -13,6 +13,7 @@
 3. 原文件处置：迁移完成（plan.md 写就并经用户确认）后删除 design.md 与 implement.md；内容以重写形态保存在 plan.md，git 跟踪 .workloom 的项目历史可查。
 4. 执行主体：迁移由主会话执行（计划写作权在主会话），技能是主会话的指引文档，不新增执行器类型。
 5. 波及面（预计，事实核查为对齐开放节点）：assets 新技能目录 + workloom-continue 指针句、adapter-dsh src/skills.ts 的 SKILL_ASSETS 注册与注释计数、adapter-pi scripts/sync-skills.mjs 的 SKILL_SOURCES 清单与注释计数、两 adapter 相关测试、dist。
+6. prd.md 同属迁移范围（用户 2026-10-30 补充确认）：存量任务的 prd.md 按子任务 C 的编号溯源格式重写——Requirements 逐条 R 编号且可判定，Acceptance Criteria 逐条 AC 编号且每条补验证方法，Alignment Decisions 与 open-nodes 标记结构保留。重写是格式升级 + 验证方法补全，不得改变原需求语义（补验证方法需依据原文推导，必要时读代码核实）。派生机制要求：prd.md 重写会使已 confirm 任务的对齐凭据 stale，迁移流程必须包含 stale 重入路径（聚焦变化区域与用户重新确认 → action=confirm 固定新 hash → 已启动任务按既有 stale 拦截规则处理后续派发）。
 
 ## Acceptance Criteria
 
@@ -20,7 +21,7 @@
 
 1. 新技能注册后在两个 runtime 均可被发现和加载（dsh 技能注册面、pi skills 同步产物），技能文档含：扫描模式、单任务迁移流程（读旧文档 → 核当前代码 → 按规定式标准重写 → 用户确认 → 删原件）、in_progress 任务的执行状态标注规则。
 2. workloom-continue 路由判定含旧制品检测指针句，contract/技能文本固定测试同步。
-3. 对本仓库构造的存量样例任务（fixture 或临时任务目录）完成一次端到端迁移演练：产出的 plan.md 符合 Authoring bar，原文件删除，扫描模式清单正确（归档任务不出现在清单）。
+3. 对本仓库构造的存量样例任务（fixture 或临时任务目录）完成一次端到端迁移演练：产出的 plan.md 符合 Authoring bar，prd.md 重写为 R/AC 编号格式且语义与原文件逐条对应，已确认任务的凭据 stale 重确认路径走通，原文件删除，扫描模式清单正确（归档任务不出现在清单）。
 4. 全链验证绿（pnpm lint、pnpm -r typecheck、pnpm -r build、各包测试），相关包 dist 同 commit 重建，push 后 profile repin，实例重启经用户授权。
 
 ## Notes
@@ -47,5 +48,7 @@
 5. test-first 适用性与接缝清单。
 6. UI 适用性（预判不适用，对齐轮正式确认）。
 7. Authoring 问题（最终轮固定问题）。
+8. prd 重写与对齐凭据的交互细节：批量迁移时逐任务触发 stale 重确认的交互形态；重写后 prd 的用户确认时机（迁移中逐任务确认，还是清单式一次确认）。
+9. prd 重写的语义保真核对方式：逐条 R/AC 与原 prd 内容的对应关系是否需要留迁移注记（如文档头“由原 prd 迁移”标注）。
 
 <!-- workloom:open-nodes=pending -->
