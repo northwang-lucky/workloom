@@ -14,3 +14,4 @@ Coding principles for this repository.
 - private: functions unused outside their module stay private
 - verify: eslint clean (no error/warning, no disables), tsc clean for changed TS, tests green — see verify.md
 - subagents: every dispatched subagent gets complete context; no free-reign prompts
+- absence-assertions: a "must not contain X" assertion on injected or generated text uses the full structural form (task path, pointer-line format), never the bare substring — shared copy (discipline sentences, templates) may legitimately contain it; in rename-style red-green tasks the red-phase verification covers the post-build combination too, not just the red-moment state
