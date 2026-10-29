@@ -358,3 +358,9 @@
 - Commit: 75aa589
 - Summary: 轻量任务全流程由主会话完成：前端派发门禁 evaluateFrontendDispatchGate 改为识别 UI Design 小节正文首行的显式不适用声明（词表常量 不适用/n/a/not applicable/none，只认首行前缀，空正文维持现状拦截），消除上一任务 check 门禁被误拦、需 force 绕过的问题。新增 4 组用例，core 702 / adapter-dsh 171 全绿，lint/typecheck/build 通过，dist 同 commit 重建。已提交、归档。
 
+## A 任务交付：plan.md 合并与规定式写作标准（新标准首个全流程实例）
+
+- Time: 2026-10-29T15:16:24.587Z
+- Commit: 5c0ee38
+- Summary: A 子任务全流程走完：对齐收敛（8 项决策 + 三接缝 test-first）→ 1.4 审阅包确认 → implement 派发（glm-5.3-flash/max，首轮在阶段 2.11 撞计划自相矛盾停机上报，主会话裁决修订 1 后续跑同一子会话完成阶段 3–7）→ 主会话独立复核（门禁复跑 + 载荷抽查 + 白名单裁决修订 2）→ check 派发（deepseek-flash/max，五条逐字同源链字节级比对、清扫 26 处全落白名单、全量门禁绿，Open issues none）→ 单原子提交 22 文件 → 归档合并回 main。产物：plan.md 制品口径全链落地、1.4 Authoring bar、plan-authoring reference、PRESCRIPTIVE_PLAN_DISCIPLINE 执行纪律、词数预算 260→300。dist 与源码同 commit。部署链（push/repin/重启）待用户授权。
+
