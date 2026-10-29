@@ -29,6 +29,21 @@ Work the tree in **rounds**. The **frontier** is every node whose prerequisites 
 
 Every decision node gets your **recommendation with the reasoning** in the same round, so the user is choosing between an informed default and an explicit alternative — never answering an open-ended prompt alone.
 
+Present every question with the same visual template so a long batch stays skimmable:
+
+```text
+**1. 🔐 <question title>?**
+
+**Source:** <where the question comes from — parent doc, code, or an earlier answer — with file links>.
+
+- A. **<option label> (recommended)**: <content>.
+- B. **<option label>**: <content>.
+
+**Why:** <the one-sentence tradeoff behind the recommendation>.
+```
+
+The title line is numbered, carries one topic emoji, and stays plain bold text — no `#` heading. Labels and content follow the user's language.
+
 **Fact nodes** are investigated by you — file, LSP, and web retrieval — only when a decision is blocked on a fact. Deep implementation research is not Phase 1.1 work: it belongs to Phase 1.2's research executor after the PRD converges.
 
 **Technical decision boundary**: only decisions that affect scope, acceptance, risk, external interfaces, or irreversible cost enter the alignment. Purely internal implementation choices are deferred to the implement executor.
