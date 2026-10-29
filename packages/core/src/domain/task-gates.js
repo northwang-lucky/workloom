@@ -69,14 +69,21 @@ export const GATE_TOOLS = Object.freeze({
 /**
  * prd.md 骨架：各小节标题与占位说明（顺序即文档顺序）。
  * task-store 生成骨架与本模块 placeholder 判定共用此常量。
+ * Requirements/Acceptance Criteria 的占位文本承载 R/AC 编号溯源格式指引；
+ * 细则在契约 1.1、alignment 技能 Recording 节与 plan-authoring reference。
  * @type {readonly import('./task-gates.d.ts').PrdSection[]}
  */
 export const PRD_SECTIONS = Object.freeze([
   { heading: 'Goal', placeholder: '(placeholder: describe the goal this task aims to achieve)' },
-  { heading: 'Requirements', placeholder: '(placeholder: list the functional requirements)' },
+  {
+    heading: 'Requirements',
+    placeholder:
+      '(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)',
+  },
   {
     heading: 'Acceptance Criteria',
-    placeholder: '(placeholder: list the verifiable acceptance criteria)',
+    placeholder:
+      '(placeholder: list the acceptance criteria as numbered items AC1, AC2, ...; each item carries its verification method and the R items it covers)',
   },
   { heading: 'Notes', placeholder: '(placeholder: add notes and constraints)' },
 ])

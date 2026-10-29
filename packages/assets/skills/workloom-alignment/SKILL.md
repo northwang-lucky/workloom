@@ -52,7 +52,7 @@ For implementation work, the final round also carries the plan.md authoring ques
 
 ## Recording
 
-Write every settled conclusion into the task's `prd.md` incrementally. Maintain a `## Alignment Decisions` section that records:
+Write every settled conclusion into the task's `prd.md` incrementally. Number Requirements as R1, R2, ... (each a single decidable statement) and Acceptance Criteria as AC1, AC2, ... (each with its verification method — a runnable command or an observable action plus expected result — and the R items it covers); the plan's steps later declare the AC numbers they cover, keeping the prd → plan → review → check chain traceable by number. Maintain a `## Alignment Decisions` section that records:
 
 - the key choices and their recommended alternatives,
 - rejected options and why,

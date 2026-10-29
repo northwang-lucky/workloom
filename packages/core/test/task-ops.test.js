@@ -503,7 +503,7 @@ test('align confirm：多个内容问题只抛一个 Error，消息按固定顺�
     const contextKey = 'dsh_confirm_multi'
     const broken = `## Requirements
 
-(placeholder: list the functional requirements)
+(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)
 
 ## Acceptance Criteria
 

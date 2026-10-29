@@ -335,7 +335,7 @@ test('check doc-completeness：缺小节与 placeholder 小节分别生成独立
     writeTask(root, 'doc-sections', rec('doc-sections', { status: 'in_progress' }))
     writeFileSync(
       join(root, '.workloom', 'tasks', 'doc-sections', 'prd.md'),
-      '# Title\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
+      '# Title\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
     )
     writeFileSync(
       join(root, '.workloom', 'tasks', 'doc-sections', 'implement.jsonl'),

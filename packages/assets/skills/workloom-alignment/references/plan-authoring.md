@@ -15,6 +15,7 @@ Why prescriptive: the implement executor treats the plan as its script. Every de
 
 Each step carries, in this order:
 
+- **Covers** — the prd Acceptance Criteria numbers this step delivers (for example `AC1, AC3`); a step serving only other steps writes `(internal)`.
 - **Target** — repo-relative file path plus the symbol (function / class / constant) being changed; for a new file, its full path.
 - **Edit** — the exact change, in one of two forms:
   - modify: a fenced before-snippet copied from the current file, locating uniquely in it, and a fenced after-snippet replacing it. Line numbers may accompany as aids; the snippet is the anchor.
@@ -33,4 +34,4 @@ Order the steps so each one is independently verifiable when it completes, and l
 
 ## Completion criteria
 
-The plan is 1.4-ready when, for every step, a reader can name the file, the symbol, the exact code, and the verification — without making a single design decision of their own. A decision the executor would still have to make is a gap: close it in the plan, or take it back to the alignment round.
+The plan is 1.4-ready when, for every step, a reader can name the file, the symbol, the exact code, and the verification — without making a single design decision of their own, and every AC in prd.md appears in at least one step's Covers list. A decision the executor would still have to make is a gap: close it in the plan, or take it back to the alignment round.

@@ -761,3 +761,41 @@ test('契约 1.1 与 planning 面包屑：authoring 问题改单文档 plan.md �
     'planning 面包屑缺规定式写作硬性要求引用',
   )
 })
+
+test('契约 1.1 与 planning 面包屑含 R/AC 编号溯源格式要求', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  assert.ok(alignBody.includes('Number Requirements as R1, R2, ...'), '1.1 缺 R 编号要求句')
+  assert.ok(
+    alignBody.includes('number Acceptance Criteria as AC1, AC2, ...'),
+    '1.1 缺 AC 编号要求句',
+  )
+  assert.ok(alignBody.includes('its verification method'), '1.1 缺 AC 验证方法要求')
+  assert.ok(alignBody.includes('trace coverage by number'), '1.1 缺编号溯源目的句')
+  const crumb = contract.breadcrumbs.get('planning')
+  assert.ok(crumb.includes('Requirements numbered R1, R2, ...'), 'planning 面包屑缺 R 编号短括注')
+  assert.ok(
+    crumb.includes('Acceptance Criteria numbered AC1, AC2, ...'),
+    'planning 面包屑缺 AC 编号短括注',
+  )
+})
+
+test('alignment 技能与 plan-authoring reference 含编号溯源文案（逐字固定）', () => {
+  const skillPath = fileURLToPath(
+    new URL('../../assets/skills/workloom-alignment/SKILL.md', import.meta.url),
+  )
+  const skill = readFileSync(skillPath, 'utf8')
+  assert.ok(skill.includes('Number Requirements as R1, R2, ...'), 'Recording 节缺 R 编号要求')
+  assert.ok(skill.includes('Acceptance Criteria as AC1, AC2, ...'), 'Recording 节缺 AC 编号要求')
+  const planRefPath = fileURLToPath(
+    new URL('../../assets/skills/workloom-alignment/references/plan-authoring.md', import.meta.url),
+  )
+  const planRef = readFileSync(planRefPath, 'utf8')
+  assert.ok(planRef.includes('- **Covers** —'), 'plan-authoring 步骤模板缺 Covers bullet')
+  assert.ok(planRef.includes('`(internal)`'), 'plan-authoring 缺内部步骤 Covers 约定')
+  assert.ok(
+    planRef.includes("every AC in prd.md appears in at least one step's Covers list"),
+    'plan-authoring 完成判据缺 AC 覆盖要求',
+  )
+})

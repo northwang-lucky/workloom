@@ -28,11 +28,11 @@ const SKELETON_PRD = `## Goal
 
 ## Requirements
 
-(placeholder: list the functional requirements)
+(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)
 
 ## Acceptance Criteria
 
-(placeholder: list the verifiable acceptance criteria)
+(placeholder: list the acceptance criteria as numbered items AC1, AC2, ...; each item carries its verification method and the R items it covers)
 
 ## Notes
 
@@ -93,11 +93,11 @@ Ship the gate.
 
 ## Requirements
 
-(placeholder: list the functional requirements)
+(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)
 
 ## Acceptance Criteria
 
-  (placeholder: list the verifiable acceptance criteria)  
+  (placeholder: list the acceptance criteria as numbered items AC1, AC2, ...; each item carries its verification method and the R items it covers)  
 
 ## Notes
 
@@ -216,7 +216,7 @@ test('inspectPrdStructure：marker 缺失与非 none 状态分别报不同 code'
 test('inspectPrdStructure：多问题一次返回且顺序固定（H1 → 骨架小节 → open nodes）', () => {
   const prd = `## Requirements
 
-(placeholder: list the functional requirements)
+(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)
 
 ## Acceptance Criteria
 
@@ -368,11 +368,11 @@ Repair the shell file.
 
 ## Requirements
 
-(placeholder: list the functional requirements)
+(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)
 
 ## Acceptance Criteria
 
-(placeholder: list the verifiable acceptance criteria)
+(placeholder: list the acceptance criteria as numbered items AC1, AC2, ...; each item carries its verification method and the R items it covers)
 
 ## Notes
 

@@ -709,7 +709,7 @@ function writeEffectiveJsonl(root, taskRelPath, name) {
 function writeLightPrd(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'prd.md'),
-    '# Light fix\n\n## Goal\n\nRepair the shell file.\n\n## Requirements\n\n(placeholder: list the functional requirements)\n\n## Acceptance Criteria\n\n(placeholder: list the verifiable acceptance criteria)\n\n## Notes\n\n(placeholder: add notes and constraints)\n',
+    '# Light fix\n\n## Goal\n\nRepair the shell file.\n\n## Requirements\n\n(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)\n\n## Acceptance Criteria\n\n(placeholder: list the acceptance criteria as numbered items AC1, AC2, ...; each item carries its verification method and the R items it covers)\n\n## Notes\n\n(placeholder: add notes and constraints)\n',
   )
 }
 
@@ -831,7 +831,7 @@ test('start 门禁：缺小节与 placeholder 小节文案不同，且一次列�
     // 缺 H1 + 缺 Notes 标题 + Requirements 仍为 placeholder + marker 仍 pending
     writeFileSync(
       join(taskDir, 'prd.md'),
-      '## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
+      '## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
     )
     writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
     writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
