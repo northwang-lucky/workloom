@@ -66,8 +66,7 @@ function makeProject(configDoc = {}) {
     JSON.stringify({ status: 'planning', title: 'Test', slug: 'test-task', priority: 'P2' }),
   )
   writeFileSync(join(taskDir, 'prd.md'), '# PRD\n')
-  writeFileSync(join(taskDir, 'design.md'), '# Design\n')
-  writeFileSync(join(taskDir, 'implement.md'), '# Implement\n')
+  writeFileSync(join(taskDir, 'plan.md'), '# Plan\n')
   return root
 }
 
@@ -610,8 +609,8 @@ test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数
     assert.equal(startCalls.length, 1)
     assert.equal(typeof built, 'string')
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
-    // makeProject 只写 prd/design/implement 三个 artifact（无 jsonl）：implement 不内联
-    // artifact（内联 0），三个文件均走指针行（pointed 3）、截断 0、索引 0。
+    // makeProject 只写 prd/plan 两个 artifact（无 jsonl）：implement 不内联
+    // artifact（内联 0），两个文件均走指针行（pointed 2）、截断 0、索引 0。
     assert.ok(
       text.includes(`; injection: ${kb}KB, 0 inlined, 0 truncated, 0 indexed`),
       'new dispatch receipt must carry the injection 4-tuple',

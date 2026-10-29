@@ -3,11 +3,11 @@
  *
  * 设计意图（注入瘦身任务 09-22：段落白名单 + 分层加载协议）：
  * - 子代理派发前组装首条 prompt，段落按 kind 白名单统一排序：任务标注 + 注入
- *   marker → （check/research：prd 全文节块）→ Pointer list（research 无；前两行为
- *   design/implement 纯指针行，后接 jsonl 条目）→ Research materials → （implement/
+ *   marker → （check/research：prd 全文节块）→ Pointer list（research 无；首行为
+ *   plan.md 纯指针行，后接 jsonl 条目）→ Research materials → （implement/
  *   frontend：prd 软指针行）→ （worktree_path 非空：`## Worktree` 纪律段）→
  *   Local directives → Task prompt → Executor contract；
- * - 指针化（体积压到指针级）：jsonl 条目、research/*.md、design/implement 均只给
+ * - 指针化（体积压到指针级）：jsonl 条目、research/*.md、plan.md 均只给
  *   「路径 + reason」指针行，无逐行读后判后缀；prd 仅 check/research 物化
  *   Requirements/Acceptance 全文 + 其余节标题指针（验收基线/问题框架，职责必需），
  *   implement/frontend 只出软指针行（有歧义时按需查阅，非必读）；
@@ -46,15 +46,15 @@ const ERR_PREFIX = 'workloom executor context'
 /** prd 文件名（唯一物化 artifact：check/research 内联全文节块，implement/frontend 软指针）。 */
 const PRD_ARTIFACT = 'prd.md'
 
-/** Pointer list 前两行的 artifact 指针文件名（按顺序；文件缺失不出行）。 */
-const ARTIFACT_POINTER_FILES = Object.freeze(['design.md', 'implement.md'])
+/** Pointer list 首部的 artifact 指针文件名（按顺序；文件缺失不出行）。 */
+const ARTIFACT_POINTER_FILES = Object.freeze(['plan.md'])
 
 /** jsonl 文件名（相对任务目录），按 executor kind 取。 */
 /** @type {Record<string, string>} */
 const JSONL_FILES = Object.freeze({
   [EXECUTOR_KINDS.implement]: 'implement.jsonl',
   [EXECUTOR_KINDS.check]: 'check.jsonl',
-  // frontend 上下文同 implement：design/implement 指针 + implement.jsonl。
+  // frontend 上下文同 implement：plan.md 指针 + implement.jsonl。
   [EXECUTOR_KINDS.frontend]: 'implement.jsonl',
 })
 
@@ -191,9 +191,19 @@ const COMPACT_OUTPUT_DISCIPLINE =
  * 同源；后半句回声协议与契约逐字一致（check 逐字核对）。
  */
 const INJECTION_PROTOCOL_DISCIPLINE =
-  'Load in layers: read the plan artifact (implement.md) before acting; consult every other pointer ' +
+  'Load in layers: read the plan artifact (plan.md) before acting; consult every other pointer ' +
   'only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. ' +
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
+
+/**
+ * 规定式计划执行纪律句（implement/frontend 纪律段共用，命令式、无弱化词）：
+ * 计划是指令性的——严格按其文件/符号/片段锚点与代码块执行；现实与锚点不符
+ * （锚点落空、上下文不成立）时禁止即兴发挥，停下并把偏差作为阻塞项写进最终
+ * 报告（主会话按契约 2.1 处置句成批交用户决断）。
+ */
+const PRESCRIPTIVE_PLAN_DISCIPLINE =
+  'The plan is prescriptive: follow its file, symbol, and snippet anchors and its code blocks exactly. ' +
+  'When reality diverges from an anchor, stop and report the divergence as a blocking item; never improvise.'
 
 /**
  * 无用户通道纪律句（终极权威段共用部分，全 kind 生效，命令式、无弱化词）：
@@ -248,7 +258,8 @@ Structure the report in research-facts blocks (see the research-facts spec and i
 - Anchor every conclusion: cite its source as 'path:line', with the path relative to the task repo root.
 - Quote the key code in fenced code blocks.
 ${INJECTION_PROTOCOL_DISCIPLINE}`,
-  [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/design/implement) in order.
+  [EXECUTOR_KINDS.implement]: `Implement the plan step by step, following the task artifacts (prd/plan) in order.
+${PRESCRIPTIVE_PLAN_DISCIPLINE}
 Make the smallest change that satisfies the requirement; do not touch unrelated code.
 Verify with the project's checks (lint / typecheck / tests) before wrapping up, then report the changed files.
 ${LSP_BASELINE_SENTENCE}
@@ -271,6 +282,7 @@ ${COMPACT_OUTPUT_DISCIPLINE}
 ${CONSULT_MATERIALS_ON_DEMAND_RULE}
 ${INJECTION_PROTOCOL_DISCIPLINE}`,
   [EXECUTOR_KINDS.frontend]: `Follow the PRD's '## UI Design' section as the baseline and deliver all seven UI axes it asks for.
+${PRESCRIPTIVE_PLAN_DISCIPLINE}
 Touch frontend files only; verify with the project's frontend checks (lint / typecheck / build / relevant tests).
 When a backend interface is missing, use an annotated mock or placeholder and mark it for later wiring.
 ${LSP_BASELINE_SENTENCE}
@@ -394,8 +406,8 @@ function buildInternal(params) {
   if (params.kind === EXECUTOR_KINDS.check || params.kind === EXECUTOR_KINDS.research) {
     inlinePrdArtifact(parts, params.taskRelPath, taskDir, ci, stats)
   }
-  // Pointer list（research 无此段）：前两行固定 design/implement 纯指针行（文件
-  // 缺失不出行），后接当前 kind 的 jsonl 条目指针行；文件不存在不指向空。
+  // Pointer list（research 无此段）：首行固定 plan.md 纯指针行（文件缺失
+  // 不出行），后接当前 kind 的 jsonl 条目指针行；文件不存在不指向空。
   if (params.kind !== EXECUTOR_KINDS.research) {
     const pointerLines = ARTIFACT_POINTER_FILES.filter((name) =>
       existsSync(join(taskDir, name)),

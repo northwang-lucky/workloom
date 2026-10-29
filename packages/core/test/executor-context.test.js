@@ -70,8 +70,7 @@ test('S1 jsonl 纯指针：implement/check 注入只含「路径 + reason」指�
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    writeTaskFile(root, 'design.md', '# Design\n')
-    writeTaskFile(root, 'implement.md', '# Implement\n')
+    writeTaskFile(root, 'plan.md', '# Plan\n')
     const entries = [
       '{"_example": "seed line"}',
       '{"file": "packages/a.js", "reason": "spec"}',
@@ -82,19 +81,18 @@ test('S1 jsonl 纯指针：implement/check 注入只含「路径 + reason」指�
     writeRootFile(root, 'packages/a.js', 'const a = 1\nFULL_CONTENT_A_MARKER\n')
     writeRootFile(root, 'packages/b.md', '# B\nFULL_CONTENT_B_MARKER\n')
     const expected = {
-      // implement：不内联任何 artifact（prd 走软指针），指针 = prd 软指针 + design + implement + jsonl×2
-      implement: { filesInlined: 0, filesPointed: 5, truncated: 0 },
-      // check：内联 prd 块，指针 = design + implement + jsonl×2
-      check: { filesInlined: 1, filesPointed: 4, truncated: 0 },
+      // implement：不内联任何 artifact（prd 走软指针），指针 = prd 软指针 + plan + jsonl×2
+      implement: { filesInlined: 0, filesPointed: 4, truncated: 0 },
+      // check：内联 prd 块，指针 = plan + jsonl×2
+      check: { filesInlined: 1, filesPointed: 3, truncated: 0 },
     }
     for (const kind of ['implement', 'check']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       const text = result.text
-      // 指针清单段带标题（前两行固定为 design/implement 纯指针行，后接 jsonl 条目）
+      // 指针清单段带标题（首行固定为 plan.md 纯指针行，后接 jsonl 条目）
       assert.ok(text.includes(POINTER_LIST_HEADING))
-      assert.ok(text.includes('- .workloom/tasks/08-24-demo/design.md\n'))
-      assert.ok(text.includes('- .workloom/tasks/08-24-demo/implement.md\n'))
+      assert.ok(text.includes('- .workloom/tasks/08-24-demo/plan.md\n'))
       // 两角色统一纯指针：指针行含路径 + reason，无「— read before acting」逐行后缀
       assert.ok(text.includes('- packages/a.js (spec)\n'))
       assert.ok(text.includes('- packages/b.md (research)\n'))
@@ -112,7 +110,7 @@ test('S1 jsonl 纯指针：implement/check 注入只含「路径 + reason」指�
   }
 })
 
-test('S2 artifacts 提取：check/research 物化 prd 全文节块；design/implement 仅纯指针行（无 H2 目录预览）；implement 软指针不进 prd 全文', () => {
+test('S2 artifacts 提取：check/research 物化 prd 全文节块；plan.md 仅纯指针行（无 H2 目录预览）；implement 软指针不进 prd 全文', () => {
   const root = makeProject()
   try {
     writeTaskFile(
@@ -137,9 +135,9 @@ test('S2 artifacts 提取：check/research 物化 prd 全文节块；design/impl
     )
     writeTaskFile(
       root,
-      'design.md',
+      'plan.md',
       [
-        '# Design',
+        '# Plan',
         '',
         '## 1. 决策一',
         '设计正文 DESIGN_BODY_MARKER',
@@ -149,7 +147,6 @@ test('S2 artifacts 提取：check/research 物化 prd 全文节块；design/impl
         '',
       ].join('\n'),
     )
-    writeTaskFile(root, 'implement.md', '# Implement\n')
     // check：Requirements/Acceptance 两节全文保留，其余节标题指针（prd 块职责必需）
     const [checkErr, checkResult] = buildExecutorPrompt(baseParams(root, 'check'))
     assert.equal(checkErr, null)
@@ -161,13 +158,13 @@ test('S2 artifacts 提取：check/research 物化 prd 全文节块；design/impl
     assert.ok(checkText.includes('Read in file: ## Goal, ## Notes'))
     assert.ok(!checkText.includes('GOAL_BODY_MARKER'))
     assert.ok(!checkText.includes('NOTES_BODY_MARKER'))
-    // design/implement：纯指针行，无 H2 目录预览、无正文、无目录尾注指针
+    // plan.md：纯指针行，无 H2 目录预览、无正文、无目录尾注指针
     assert.ok(!checkText.includes('## 1. 决策一'))
     assert.ok(!checkText.includes('DESIGN_BODY_MARKER'))
     assert.ok(!checkText.includes('BODY2_MARKER'))
     assert.ok(!checkText.includes('Read the full document in the file.'))
     assert.ok(checkText.endsWith(CONTRACT_TAIL))
-    // implement：prd 不再全文内联（软指针独立一行），design/implement 同为纯指针行
+    // implement：prd 不再全文内联（软指针独立一行），plan.md 同为纯指针行
     const [implErr, implResult] = buildExecutorPrompt(baseParams(root, 'implement'))
     assert.equal(implErr, null)
     const implText = implResult.text
@@ -191,8 +188,7 @@ test('jsonl 纯指针：指针行不受文件/总量预算影响（无截断、�
   try {
     writeConfig(root, { context_injection: { max_file_bytes: 16, max_total_bytes: 1 } })
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    writeTaskFile(root, 'design.md', '# D\n')
-    writeTaskFile(root, 'implement.md', '# I\n')
+    writeTaskFile(root, 'plan.md', '# P\n')
     writeTaskFile(
       root,
       'implement.jsonl',
@@ -210,8 +206,8 @@ test('jsonl 纯指针：指针行不受文件/总量预算影响（无截断、�
     assert.ok(!text.includes('[...truncated'))
     assert.ok(!text.includes('[indexed]'))
     assert.ok(!text.includes('x'.repeat(500)))
-    // 指针行不受预算影响：prd 软指针 + design + implement + jsonl×2 共 5 条
-    assert.deepEqual(result.stats, { filesInlined: 0, filesPointed: 5, truncated: 0 })
+    // 指针行不受预算影响：prd 软指针 + plan + jsonl×2 共 4 条
+    assert.deepEqual(result.stats, { filesInlined: 0, filesPointed: 4, truncated: 0 })
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -221,12 +217,12 @@ test('research 只内联 prd，无 jsonl 引用行', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    // 不建 design/implement 与 jsonl，验证 research 不读 jsonl、缺失 artifact 跳过
+    // 不建 plan.md 与 jsonl，验证 research 不读 jsonl、缺失 artifact 跳过
     const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
     assert.equal(err, null)
     const text = result.text
     assert.ok(text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
-    assert.ok(!text.includes('design.md'))
+    assert.ok(!text.includes('.workloom/tasks/08-24-demo/plan.md'))
     assert.ok(!text.includes('implement.jsonl'))
     assert.deepEqual(result.stats, {
       filesInlined: 1,
@@ -915,7 +911,7 @@ const COMPACT_OUTPUT_DISCIPLINE =
 
 /** 分层加载协议 + marker 回声纪律句（contract 定稿，与契约 assets workflow.md 逐字同源；后半句回声协议逐字不动）。 */
 const INJECTION_PROTOCOL_DISCIPLINE =
-  'Load in layers: read the plan artifact (implement.md) before acting; consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. ' +
+  'Load in layers: read the plan artifact (plan.md) before acting; consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. ' +
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
 
 /** 注入标记行前缀（与实现一致，测试自给自足）。 */
@@ -930,6 +926,40 @@ const NO_USER_CHANNEL_DISCIPLINE =
 /** research 写/编辑路径限制告知句（research 纪律段专属，逐字，机制强制前置告知）。 */
 const RESEARCH_WRITE_SCOPE_DISCIPLINE =
   'Your write/edit reach is confined to the .workloom/ directory: paths ' + 'outside it are denied.'
+
+/** 规定式计划执行纪律句（implement/frontend 纪律段共用，与实现逐字同源）。 */
+const PRESCRIPTIVE_PLAN_DISCIPLINE =
+  'The plan is prescriptive: follow its file, symbol, and snippet anchors and its code blocks exactly. ' +
+  'When reality diverges from an anchor, stop and report the divergence as a blocking item; never improvise.'
+
+test('implement/frontend 纪律段各含规定式计划执行句（逐字），research/check 不含', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    for (const kind of ['implement', 'frontend']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
+      assert.ok(
+        section.includes(PRESCRIPTIVE_PLAN_DISCIPLINE),
+        `${kind} discipline must carry the prescriptive-plan sentence verbatim`,
+      )
+    }
+    for (const kind of ['research', 'check']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
+      assert.ok(
+        !section.includes(PRESCRIPTIVE_PLAN_DISCIPLINE),
+        `${kind} discipline must not carry the prescriptive-plan sentence`,
+      )
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
 
 test('implement/check 纪律段各含批处理与工具输出紧凑两句纪律（逐字），research/frontend 不含', () => {
   const root = makeProject()
@@ -993,8 +1023,7 @@ test('S5 护栏：四种 kind 纪律段均含强制加载协议句（逐字）�
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    writeTaskFile(root, 'design.md', '# Design\n')
-    writeTaskFile(root, 'implement.md', '# Implement\n')
+    writeTaskFile(root, 'plan.md', '# Plan\n')
     writeTaskFile(root, 'implement.jsonl', '{"file": "packages/a.js", "reason": "spec"}\n')
     writeRootFile(root, 'packages/a.js', 'const a = 1\n')
     for (const kind of ['research', 'implement', 'check', 'frontend']) {
@@ -1084,8 +1113,11 @@ function writeFullFixture(root) {
       '\n',
     ),
   )
-  writeTaskFile(root, 'design.md', ['# Design', '', '## 决策', 'DESIGN_BODY_MARKER'].join('\n'))
-  writeTaskFile(root, 'implement.md', ['# Implement', '', '## 步骤', 'IMPL_BODY_MARKER'].join('\n'))
+  writeTaskFile(
+    root,
+    'plan.md',
+    ['# Plan', '', '## 决策', 'DESIGN_BODY_MARKER', '', '## 步骤', 'IMPL_BODY_MARKER'].join('\n'),
+  )
   const entries = '{"file": "packages/a.js", "reason": "spec"}\n'
   writeTaskFile(root, 'implement.jsonl', entries)
   writeTaskFile(root, 'check.jsonl', entries)
@@ -1146,21 +1178,17 @@ test('段落白名单与顺序：四种 kind 按 prd Requirements 1 组装，Tas
         assert.equal(pointerAt, -1, 'research has no pointer list section')
         assert.equal(softAt, -1, 'research has no prd soft pointer')
       } else {
-        // Pointer list：前两行固定 design.md / implement.md 纯指针行，后接 jsonl 条目
+        // Pointer list：首行固定 plan.md 纯指针行，后接 jsonl 条目
         assert.ok(pointerAt !== -1 && pointerAt > prdBlockAt && pointerAt < materialsAt, kind)
         const pointerBlock = text.slice(pointerAt, materialsAt)
         const lines = pointerBlock.split('\n').filter((line) => line.startsWith('- '))
         assert.deepEqual(
-          lines.slice(0, 3),
-          [
-            '- .workloom/tasks/08-24-demo/design.md',
-            '- .workloom/tasks/08-24-demo/implement.md',
-            '- packages/a.js (spec)',
-          ],
-          `${kind} pointer list must lead with design/implement then jsonl entries`,
+          lines.slice(0, 2),
+          ['- .workloom/tasks/08-24-demo/plan.md', '- packages/a.js (spec)'],
+          `${kind} pointer list must lead with plan.md then jsonl entries`,
         )
       }
-      // H2 目录预览全灭：design/implement 正文与标题均不进注入
+      // H2 目录预览全灭：plan.md 正文与标题均不进注入
       assert.ok(!text.includes('## 决策') && !text.includes('DESIGN_BODY_MARKER'), kind)
       assert.ok(!text.includes('## 步骤') && !text.includes('IMPL_BODY_MARKER'), kind)
       assert.ok(!text.includes('NOTES_BODY_MARKER'), kind)
@@ -1173,13 +1201,12 @@ test('段落白名单与顺序：四种 kind 按 prd Requirements 1 组装，Tas
 test('prd 软指针行缺失保护：prd.md 不存在时 implement/frontend 不出软指针行', () => {
   const root = makeProject()
   try {
-    writeTaskFile(root, 'design.md', '# Design\n')
-    writeTaskFile(root, 'implement.md', '# Implement\n')
+    writeTaskFile(root, 'plan.md', '# Plan\n')
     for (const kind of ['implement', 'frontend']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       assert.ok(!result.text.includes('consult .workloom/'), `${kind} must omit the soft pointer`)
-      assert.deepEqual(result.stats, { filesInlined: 0, filesPointed: 2, truncated: 0 })
+      assert.deepEqual(result.stats, { filesInlined: 0, filesPointed: 1, truncated: 0 })
     }
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -1196,7 +1223,7 @@ test('分层加载协议句：四种 kind contract 段均含分层语义 + 回�
       const section = result.text.slice(result.text.indexOf('## Executor contract'))
       assert.ok(section.includes('Load in layers'), `${kind} must carry layered loading`)
       assert.ok(
-        section.includes('read the plan artifact (implement.md) before acting'),
+        section.includes('read the plan artifact (plan.md) before acting'),
         `${kind} must keep the plan-first mandate`,
       )
       assert.ok(
@@ -1215,7 +1242,7 @@ test('分层加载协议句：四种 kind contract 段均含分层语义 + 回�
   }
 })
 
-test('implement 版 contract 段词数 ≤ 260（定稿压缩，空白分隔的英文词元口径）', () => {
+test('implement 版 contract 段词数 ≤ 300（定稿压缩 + 规定式执行句 33 词，空白分隔的英文词元口径）', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
@@ -1227,8 +1254,8 @@ test('implement 版 contract 段词数 ≤ 260（定稿压缩，空白分隔的�
     // 口径：空白分隔后仅计含英文字母的词元（###、/ 等 markdown/标点符号不计）
     const words = section.split(/\s+/).filter((word) => /[A-Za-z]/.test(word))
     assert.ok(
-      words.length <= 260,
-      `implement contract section is ${words.length} words, must be <= 260`,
+      words.length <= 300,
+      `implement contract section is ${words.length} words, must be <= 300`,
     )
   } finally {
     rmSync(root, { recursive: true, force: true })

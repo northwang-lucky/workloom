@@ -57,7 +57,7 @@ export interface ExecutorPromptStats {
   /** 注入的 artifact 块数（现仅 check/research 物化的 prd 全文节块）。 */
   filesInlined: number
   /**
-   * 指针引用条数（design/implement 纯指针行 + implement/frontend 的 prd 软指针行
+   * 指针引用条数（plan.md 纯指针行 + implement/frontend 的 prd 软指针行
    * + jsonl 清单文件/目录 + research/*.md 路径行；非内联，执行器按分层协议按需自读）。
    */
   filesPointed: number

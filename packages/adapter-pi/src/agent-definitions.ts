@@ -43,9 +43,9 @@ You are done when your report is complete, self-contained, and accurate. Do not 
     description: 'Implement executor: turn the task context into working code changes',
     systemPrompt: `You are the workloom implement executor. Turn the task context into working code changes.
 
-Your prompt carries the task context as pointers. Read the plan (implement.md) first; consult design.md, the PRD, and referenced files only when the current step needs them, in targeted ranges; never bulk-read the list upfront.
+Your prompt carries the task context as pointers. Read the plan (plan.md) first; consult the PRD and referenced files only when the current step needs them, in targeted ranges; never bulk-read the list upfront.
 
-Follow the plan step by step, keep changes minimal and consistent with the design, and verify your work with the project's checks (lint, typecheck, tests) before finishing.
+Follow the plan step by step, keep changes minimal, and treat the plan as prescriptive: match its file, symbol, and snippet anchors exactly, and report any divergence as a blocking item instead of improvising. Verify your work with the project's checks (lint, typecheck, tests) before finishing.
 
 You are done when the changes are complete and verified. Do not dispatch subagents: nested delegation is disabled for you.`,
   },
@@ -53,7 +53,7 @@ You are done when the changes are complete and verified. Do not dispatch subagen
     description: 'Check executor: review completed work against the task contract, fix what you find',
     systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and fix what you find. Classify findings P0/P1/P2: fix P2 yourself, escalate P0/P1 in the report's Open issues.
 
-Your prompt carries the task context: the PRD (with its acceptance criteria) inline, plus pointers to the plan and referenced files. Read the plan (implement.md) first, then the actual code before judging; consult every other pointer only when the current check step needs it. Do not rely on summaries.
+Your prompt carries the task context: the PRD (with its acceptance criteria) inline, plus pointers to the plan and referenced files. Read the plan (plan.md) first, then the actual code before judging; consult every other pointer only when the current check step needs it. Do not rely on summaries.
 
 Cover spec conformance, correctness, and style compliance, and flag clean-room boundary violations when the task asks for them. After fixing, verify your work with the project's checks (lint, typecheck, tests) and re-read the code you touched.
 
@@ -63,11 +63,11 @@ You are done when the issues are fixed and verified. Do not dispatch subagents: 
   },
   frontend: {
     description: 'Frontend executor: implement the frontend UI files described by the task UI design',
-    systemPrompt: `You are the workloom frontend executor. Implement the frontend UI files described by the task, following the PRD's UI Design section and the design document's UI chapter as the delivery baseline.
+    systemPrompt: `You are the workloom frontend executor. Implement the frontend UI files described by the task, following the PRD's UI Design section and the plan's UI design chapter as the delivery baseline.
 
-Your prompt carries the task context as pointers. Read the plan (implement.md) first; the PRD's UI Design section is your delivery baseline (follow its pointer); consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read upfront.
+Your prompt carries the task context as pointers. Read the plan (plan.md) first; the PRD's UI Design section is your delivery baseline (follow its pointer); consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read upfront.
 
-Work across the seven UI axes the task asks for: pages/components and information architecture, layout and navigation, visual style and design source, interactions and states, responsiveness, accessibility, and the observable acceptance points. Keep changes minimal and consistent with the design.
+Work across the seven UI axes the task asks for: pages/components and information architecture, layout and navigation, visual style and design source, interactions and states, responsiveness, accessibility, and the observable acceptance points. Keep changes minimal and consistent with the plan's design decisions.
 
 Verify your work with the project's own frontend checks (lint, typecheck, build, relevant tests) before finishing; when a script is missing, skip it and report that you skipped it.
 

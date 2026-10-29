@@ -79,7 +79,7 @@
     {
       "id": "align-grill-routing",
       "name": "grill-request-inside-workloom-routes-here",
-      "prompt": "While in an active workloom planning task the user says: 'grill this requirement set before we write design.md'.",
+      "prompt": "While in an active workloom planning task the user says: 'grill this requirement set before we write plan.md'.",
       "expected_output": "The request routes to workloom-alignment: design-tree rounds with recommendations inside the Phase 1.1 alignment, not to the generic grilling skill.",
       "assertions": [
         "treats the request as a design-tree round inside Phase 1.1",
@@ -96,7 +96,7 @@
     { "query": "this task has a settings screen with dark mode — settle the UI requirements in alignment", "should_trigger": true, "rationale": "UI applicability node inside workloom alignment" },
     { "query": "we need tests first on this workloom task; confirm which seams are under test", "should_trigger": true, "rationale": "test-first applicability node in workloom alignment" },
     { "query": "finish Phase 1.1: frontier looks empty, run review and confirm after I approve", "should_trigger": true, "rationale": "convergence protocol on workloom planning task" },
-    { "query": "pressure-test the acceptance criteria of this planning task before design.md", "should_trigger": true, "rationale": "design-tree pressure test in workloom planning" },
+    { "query": "pressure-test the acceptance criteria of this planning task before plan.md", "should_trigger": true, "rationale": "design-tree pressure test in workloom planning" },
     { "query": "standalone discussion: should I rename the product to X? play devil's advocate", "should_trigger": false, "rationale": "no workloom task; generic grilling territory" },
     { "query": "grill my startup idea before I pitch it to investors", "should_trigger": false, "rationale": "non-workloom idea stress test" },
     { "query": "review this pull request for correctness and naming", "should_trigger": false, "rationale": "code review, not requirement alignment" },

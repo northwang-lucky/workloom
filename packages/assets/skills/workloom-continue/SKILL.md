@@ -24,8 +24,8 @@ Locate where work left off and resume from the matching Phase step. Do the routi
 
    - `planning` with `mode: "light"` → light 1.0 Start task (fill the light prd minimum, then start; no alignment credential or jsonl).
    - `planning` without prd.md → 1.1 Align requirements.
-   - `planning` with prd.md but no design.md → 1.4 await review (lightweight task, PRD artifacts ready).
-   - `planning` with prd.md and design.md → 1.4 await review (complex task, PRD/design/implement artifacts ready).
+   - `planning` with prd.md but no plan.md → 1.4 await review (lightweight task, PRD artifacts ready).
+   - `planning` with prd.md and plan.md → 1.4 await review (complex task, PRD/plan artifacts ready).
    - `in_progress`, not yet implemented → 2.1 Implement.
    - `in_progress`, implemented but unchecked → 2.2 Check.
    - Check passed → 2.3 Commit → 3.1 Wrap up.

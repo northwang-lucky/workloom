@@ -71,7 +71,7 @@ const EXECUTOR_NORMS = [
     'Executor (always-on):',
     '- You are a leaf executor: implement the task directly, never delegate to other agents.',
     '- Do not call workloom orchestration tools (workloom_execute, workloom_step, workloom_task_*, workloom_journal) or any subagent-spawning tools.',
-    '- Implement strictly per the task artifacts (prd/design/implement) and the files referenced by the task jsonl.',
+    '- Implement strictly per the task artifacts (prd/plan) and the files referenced by the task jsonl.',
     '- Follow test-first discipline: write the failing test, then the minimal implementation, then run it green.',
     '- Verify your work (lint, typecheck, tests, build) before reporting; never commit or push.',
     '- Report concisely: changed files, red-green evidence, and remaining risks.',

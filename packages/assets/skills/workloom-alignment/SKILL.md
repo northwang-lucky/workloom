@@ -8,7 +8,7 @@ whenToUse: Use on any workloom task in Phase 1.1 (auto-entered at creation) or w
 
 Phase 1.1 of the workloom workflow is one continuous alignment pass for the active task. You drive a single **design tree** to convergence, record every settled conclusion in `prd.md` as you go, and finish at a review-ready prd.md whose credential is written later — at the single 1.4 user confirmation that gates the start.
 
-This skill is the workloom-owned orchestration. Read `references/ui-design.md` only when the UI node applies and `references/test-first.md` only when the test-first node applies; keep the body lean and disclose branch knowledge on demand.
+This skill is the workloom-owned orchestration. Read `references/ui-design.md` only when the UI node applies, `references/test-first.md` only when the test-first node applies, and `references/plan-authoring.md` before authoring plan.md; keep the body lean and disclose branch knowledge on demand.
 
 ## Root family
 
@@ -48,7 +48,7 @@ The title line numbers the question as `❓ **Q<n>**` followed by a bold title; 
 
 **Technical decision boundary**: only decisions that affect scope, acceptance, risk, external interfaces, or irreversible cost enter the alignment. Purely internal implementation choices are deferred to the implement executor.
 
-For implementation work, the final round also carries the design/implement authoring question as a plain numbered question (A. author both / B. author neither, with a recommendation and its reasoning), so 1.4 needs no separate question round.
+For implementation work, the final round also carries the plan.md authoring question as a plain numbered question (A. author the plan / B. author neither, with a recommendation and its reasoning), so 1.4 needs no separate question round. When the answer is author, read `references/plan-authoring.md` before writing: the plan meets the prescriptive bar — every step anchored to a concrete file, symbol, and exact code change — before 1.4 presents it.
 
 ## Recording
 
@@ -75,7 +75,7 @@ The order is fixed:
 2. Finalize `prd.md` (all skeleton sections filled, decisions recorded).
 3. Run `workloom_task_align` with `action=review`. It returns the prd snapshot, its SHA-256 hash, the open-node state, `structureIssues`, `confirmBlockers` and `readyToConfirm`.
 4. **Check `readyToConfirm` before involving the user.** While it is `false`, the current `prd.md` has content blockers — a missing `prd.md`, a missing H1, a missing skeleton section (for example `## Notes`), a section still holding its placeholder text, or a missing / non-`none` open-nodes marker. Fix every entry of `structureIssues` / `confirmBlockers` in `prd.md`, then re-run `action=review`. Do not show the snapshot or its hash to the user and do not request a confirmation while any content blocker remains.
-5. With `readyToConfirm` true, alignment is done. Do NOT ask the user to confirm the prd here and do not run `action=confirm`: the one and only user confirmation happens at 1.4 over the full review package (prd snapshot and hash, design/implement when authored, context lists), and `action=confirm` runs right after it, immediately before start.
+5. With `readyToConfirm` true, alignment is done. Do NOT ask the user to confirm the prd here and do not run `action=confirm`: the one and only user confirmation happens at 1.4 over the full review package (prd snapshot and hash, plan.md when authored, context lists), and `action=confirm` runs right after it, immediately before start.
 6. When the 1.4 confirmation lands, re-run `action=review` to pin the current hash, then run `workloom_task_align` with `action=confirm`, passing `expectedPrdHash` from that review and a non-empty `summary` of the alignment (nodes covered, key decisions, confirmation result). The same-hash repeat is idempotent and does not refresh the timestamp.
 
 `readyToConfirm` covers prd content only: the missing `expectedPrdHash` and `summary` are confirm call parameters, and a stale credential or task status is a separate gate — neither belongs to the review's content diagnostics.
@@ -84,7 +84,7 @@ The order is fixed:
 
 ## Boundaries
 
-- Phase 1.1 converges requirements to a review-ready prd.md. The user confirmation of that prd is deliberately NOT a separate gate: it rides the single 1.4 review package (research/context/design/implement included) that authorizes the start.
+- Phase 1.1 converges requirements to a review-ready prd.md. The user confirmation of that prd is deliberately NOT a separate gate: it rides the single 1.4 review package (research/context/plan included) that authorizes the start.
 - Do not write implementation code during alignment.
 - When the work contains three or more pieces that could be delivered and accepted independently, raise the split once scope and acceptance are determined; never create subtask tasks before the user confirms the candidate list and the split itself.
 

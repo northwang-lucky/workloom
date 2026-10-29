@@ -34,7 +34,7 @@ test('契约 v20 的全部 force 路径都要求 non-empty reason', () => {
 
 /** 分层加载协议 + marker 回声纪律句（契约 norms Dispatch 段，与 executor-context 纪律段逐字同源；回声句后半为组件级不变量）。 */
 const INJECTION_PROTOCOL_DISCIPLINE =
-  'Load in layers: read the plan artifact (implement.md) before acting; consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. ' +
+  'Load in layers: read the plan artifact (plan.md) before acting; consult every other pointer only when the current step needs it, in targeted ranges; never bulk-read the whole list upfront. ' +
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
 
 /** 主会话处置句（契约 2.1 末尾，覆盖 implement 与 check，逐字）。 */
@@ -610,7 +610,7 @@ test('契约 v17 norms Dispatch 段含后台默认说明与「不复述」句（
   // 「不复述」句：派发/续接 prompt 不复述子会话已持有的上下文（纪律对象是主会话）。
   assert.ok(
     contract.norms.includes(
-      'Dispatch and continuation prompts must not restate the context the subagent already holds (spec, research, prd/design/implement, and the session history); send only the new work for this round',
+      'Dispatch and continuation prompts must not restate the context the subagent already holds (spec, research, prd/plan, and the session history); send only the new work for this round',
     ),
     'norms 缺「不复述子会话已有上下文」句',
   )
@@ -706,5 +706,58 @@ test('主契约 norms 派发硬约束含轻量任务豁免句', () => {
   assert.ok(
     contract.norms.includes('Hard constraint (stage `implement`)'),
     '完整任务的派发硬约束不得删除',
+  )
+})
+
+test('契约 plan.md 口径：制品引用合并为 plan.md，无 design.md/implement.md 残留', () => {
+  const raw = readFileSync(assetPath, 'utf8')
+  const [err, contract] = parseContract(raw)
+  assert.equal(err, null)
+  // 加载协议句与 executor-context 同源（plan.md 口径，norms 段逐字）
+  assert.ok(contract.norms.includes('read the plan artifact (plan.md) before acting'))
+  // 制品引用统一为 plan.md；旧文件名全文不再出现（implement.jsonl 不含 implement.md 子串，不受影响）
+  assert.ok(!raw.includes('design.md'), '契约不得再引用 design.md')
+  assert.ok(!raw.includes('implement.md'), '契约不得再引用 implement.md')
+  assert.ok(raw.includes('plan.md'), '契约必须引用 plan.md')
+})
+
+test('契约 1.4 含 plan.md 规定式写作硬性要求段（Authoring bar 关键句逐字）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const reviewBody = contract.steps.find((step) => step.id === '1.4').body
+  assert.ok(reviewBody.includes('Authoring bar for plan.md'), '1.4 缺 Authoring bar 段首句')
+  assert.ok(
+    reviewBody.includes('every step names its target file path and symbol'),
+    '1.4 Authoring bar 缺文件 + 符号锚点要求',
+  )
+  assert.ok(
+    reviewBody.includes('every edit carries the exact before/after code'),
+    '1.4 Authoring bar 缺精确前后代码要求',
+  )
+  assert.ok(
+    reviewBody.includes('every step ends with its verification command and expected result'),
+    '1.4 Authoring bar 缺每步验证命令要求',
+  )
+  assert.ok(
+    reviewBody.includes('references/plan-authoring.md'),
+    '1.4 Authoring bar 缺 plan-authoring reference 指针',
+  )
+})
+
+test('契约 1.1 与 planning 面包屑：authoring 问题改单文档 plan.md 口径', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  assert.ok(alignBody.includes('plan.md authoring question'), '1.1 缺 plan.md authoring question 口径')
+  assert.ok(
+    alignBody.includes('A. author the plan / B. author neither'),
+    '1.1 缺单文档选项文案',
+  )
+  assert.ok(!alignBody.includes('author both'), '1.1 不得保留双文档 author both 文案')
+  const crumb = contract.breadcrumbs.get('planning')
+  assert.ok(crumb.includes('author plan.md'), 'planning 面包屑缺 author plan.md 指令')
+  assert.ok(
+    crumb.includes('prescriptive authoring bar'),
+    'planning 面包屑缺规定式写作硬性要求引用',
   )
 })

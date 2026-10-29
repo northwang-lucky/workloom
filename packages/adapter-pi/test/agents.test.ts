@@ -74,3 +74,22 @@ test('agent definitions: check role classifies findings P0/P1/P2, fixes P2, esca
   assert.ok(check.systemPrompt.includes('[P0|P1|P2]'))
   assert.ok(!check.systemPrompt.includes('[<severity>]'))
 })
+
+test('agent definitions: role copy reads the merged plan.md; stale artifact names are gone', () => {
+  for (const kind of Object.values(EXECUTOR_KINDS)) {
+    const definition: ExecutorAgentDefinition | undefined = EXECUTOR_AGENT_DEFINITIONS[kind]
+    assert.ok(definition !== undefined, `missing definition for ${kind}`)
+    assert.ok(
+      !definition.systemPrompt.includes('implement.md'),
+      `stale implement.md reference in ${kind}`,
+    )
+    assert.ok(
+      !definition.systemPrompt.includes('design.md'),
+      `stale design.md reference in ${kind}`,
+    )
+  }
+  const implement = EXECUTOR_AGENT_DEFINITIONS[EXECUTOR_KINDS.implement]
+  assert.ok(implement !== undefined)
+  assert.ok(implement.systemPrompt.includes('Read the plan (plan.md) first'))
+  assert.ok(implement.systemPrompt.includes('prescriptive'))
+})

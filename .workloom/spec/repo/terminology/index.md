@@ -18,7 +18,7 @@ Shared vocabulary for this repository. Use these terms; avoid the listed alterna
 - workloom alignment: the single Phase 1.1 design tree — fixed root nodes, full-frontier rounds, recommended answers, incremental prd.md recording, and review → user confirmation → confirm; use `workloom-alignment` for the skill name
 - grilling: generic design-tree pressure-testing for non-workloom plans and standalone discussions; an active workloom planning task routes grill-style requests to workloom alignment
 - requirement alignment: the Phase 1.1 completion state — every requirement decidable, unambiguous, no open nodes, and the finalized prd.md hash confirmed; the hard gate before document writing
-- task: one task directory (task.json, prd/design/implement, research/, jsonl lists) — avoid "issue", "ticket"
+- task: one task directory (task.json, prd/plan, research/, jsonl lists) — avoid "issue", "ticket"
 - spec: coding standards organized as `spec/<package>/<layer>/index.md`
 - spec index: the spec index path list injected at session start (the guidelines section of the session-context snapshot, filtered by configured packages)
 - journal: the per-developer session log forming cross-session project memory (workspace) — avoid "log", "diary"
