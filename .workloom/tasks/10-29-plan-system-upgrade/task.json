@@ -1,0 +1,41 @@
+{
+  "id": "fa0e68ff-0d95-41c7-9572-4fbd4525621c",
+  "name": "plan-system-upgrade",
+  "title": "计划文档体系升级：plan.md 合并 + 规定式写作标准 + review 执行器",
+  "description": "容器任务：design/implement 合并为 plan.md、完全规定式写作标准（写作侧+执行侧）、新增 review 执行器（开工前计划审查）。整体验收后最后归档。",
+  "status": "planning",
+  "priority": "P1",
+  "mode": "full",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-10-29T13:04:25.223Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [
+    "tasks/10-29-plan-md-prescriptive",
+    "tasks/10-29-review-executor",
+    "tasks/10-29-prd-traceability"
+  ],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": null,
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
