@@ -1,1 +1,4 @@
-{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "骨架占位文本与契约文案是运行时英文文本，任务 prd 正文是中文，两侧分工按此 spec"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "asset-version-bump 规则：workflow 1.1 文本增补不改步骤集合，不升协议版本"}
+{"file": ".workloom/spec/repo/domain-module/index.md", "reason": "PRD_SECTIONS 属 domain 纯 JS 模块 task-gates.js 的常量，注释与 JSDoc 约定"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "core dist 同 commit 重建入库，push 后 profile repin 流程"}

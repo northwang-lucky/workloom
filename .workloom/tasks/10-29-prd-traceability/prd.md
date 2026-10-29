@@ -17,17 +17,21 @@
 
 ## Acceptance Criteria
 
-（草案；本任务自身的 test-first 与 authoring 节点，推迟到本任务轮次的对齐轮确认）
+1. PRD_SECTIONS 常量占位指引文本更新：Requirements 要求逐条 R 编号且为可判定语句，Acceptance Criteria 要求逐条 AC 编号且每条带验证方法；骨架生成与占位检测经共用常量自动同步，task-gates 判定逻辑不改。
+2. workflow 1.1 正文、alignment SKILL.md Recording 节、plan-authoring reference 三处同步体现编号溯源要求；plan-authoring 的 Step template 在 Target 之前新增首个 bullet `- **Covers**: AC1, AC3`（纯内部步骤写 `Covers: (internal)`）。
+3. 骨架兼容性：新建任务填写后 action=review 正常通过，未填写的骨架照旧被拒（占位检测与新文案自洽）；骨架文案固定测试（task-gates.test.js 等）同步更新。
+4. 全链验证绿（pnpm lint、pnpm -r typecheck、pnpm -r build、各包测试），core 的 dist 同 commit 重建，push 后 profile repin，实例重启经用户授权。
+5. 本任务的计划文档按规定式标准写作（形态按已定第 5 条条件规则），若重启先于 authoring，则成为 plan.md 单文档形态的第一个实战实例。
 
-1. 新建任务的 prd 骨架指引文本体现 R/AC 编号与验证方法要求；alignment 技能 Recording 节与 workflow 1.1 文本同步更新。
-2. plan-authoring reference 含“每步标注覆盖的 AC 编号”的写作要求。
-3. 骨架占位文本的改动与 task-gates 占位检测兼容：新建任务填写后 action=review 正常通过，未填写的骨架照旧被拒。
-4. 全链验证绿（pnpm lint、pnpm -r typecheck、pnpm -r build、各包测试），dist 同 commit 重建，push 后 profile repin，实例重启经用户授权。
+Test-first 接缝（已确认，红绿推进，测试只放在下列公开边界）：
+
+- 接缝① core 骨架面：PRD_SECTIONS 占位指引文本、buildPrdContent 骨架输出、门禁占位判定自洽，测试固定骨架文案。
+- 接缝② assets 契约面：workflow 1.1 的 R/AC 写作要求句、alignment SKILL.md Recording 节、plan-authoring reference 的 Covers 标注要求句，contract 测试逐字固定。
 
 ## Notes
 
 - 依赖子任务 A 的交付物（plan-authoring reference、plan.md 形态），执行顺序 A → C → B；容器任务 tasks/10-29-plan-system-upgrade。
-- 本任务的对齐开放节点（test-first 与接缝、authoring、骨架文本与 task-gates 占位检测的兼容细节、步骤标注 AC 的语法细节）在 A 归档后计算——它们的前置条件是 A 的实际交付形态，现在不提前问。
+- 对齐开放节点已在 A 归档后全部计算并经本轮问答清零（见 Alignment Decisions 4–8）；下一步为 authoring（形态按已定第 5 条条件规则）→ 1.4 审阅包。
 
 ## Alignment Decisions
 
@@ -42,10 +46,12 @@
 4. 骨架/门禁兼容机制：PRD_SECTIONS 单一常量同时供骨架生成与占位检测，改文案即两侧同步；本任务不改 task-gates 的判定逻辑，只改常量文案（及其固定测试）。
 5. C 的计划文档形态按条件执行：authoring 时若实例已重启（新契约生效）写 plan.md 单文档；若尚未重启，按 A 的过渡形态（design.md + implement.md 两文件，内容按规定式标准）。UI 适用性：不适用。
 
-开放节点（本轮批量提问，待用户回答）：
+已定（C 对齐轮，用户答复“全按推荐”）：
 
-1. 本任务是否 test-first 交付及接缝清单（建议两接缝：core 骨架面、assets 契约面）。
-2. 步骤标注 AC 的语法（建议步骤模板首行固定 `Covers:` 标记，机器可核对）。
-3. 本任务是否 authoring 计划文档。
+6. test-first 交付：是；两接缝（core 骨架面、assets 契约面）确认并写入 Acceptance Criteria。否决：只锁接缝②（骨架文案同为“文案即行为”，驱动生成与门禁两侧）、常规实现。
+7. Covers 标注语法：步骤模板首个 bullet `- **Covers**: AC1, AC3`，纯内部步骤写 `Covers: (internal)`；review 维度二按固定前缀逐行解析核对覆盖。否决：标题内嵌（标题承担双职责、解析要切标题）、不固定语法（丢失编号核对的机器可查收益）。
+8. Authoring：是；形态按已定第 5 条条件规则（重启先于 authoring 则写 plan.md 单文档）。否决：不 authoring（同源文案链多，且是新标准第一次实战机会）。
 
-<!-- workloom:open-nodes=pending -->
+开放节点：无。
+
+<!-- workloom:open-nodes=none -->
