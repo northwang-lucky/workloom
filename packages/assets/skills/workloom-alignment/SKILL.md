@@ -32,7 +32,7 @@ Every decision node gets your **recommendation with the reasoning** in the same 
 Present every question with the same visual template so a long batch stays skimmable:
 
 ```text
-**1. 🔐 <question title>?**
+**1. ⭕️ <question title>?**
 
 **Source:** <where the question comes from — parent doc, code, or an earlier answer — with file links>.
 
@@ -42,7 +42,7 @@ Present every question with the same visual template so a long batch stays skimm
 **Why:** <the one-sentence tradeoff behind the recommendation>.
 ```
 
-The title line is numbered, carries one topic emoji, and stays plain bold text — no `#` heading. Labels and content follow the user's language.
+The title line is numbered, prefixed with the fixed `⭕️` marker on every question, and stays plain bold text — no `#` heading, no per-topic emoji. Labels and content follow the user's language.
 
 **Fact nodes** are investigated by you — file, LSP, and web retrieval — only when a decision is blocked on a fact. Deep implementation research is not Phase 1.1 work: it belongs to Phase 1.2's research executor after the PRD converges.
 
