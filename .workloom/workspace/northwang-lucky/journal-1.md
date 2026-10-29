@@ -364,3 +364,9 @@
 - Commit: 5c0ee38
 - Summary: A 子任务全流程走完：对齐收敛（8 项决策 + 三接缝 test-first）→ 1.4 审阅包确认 → implement 派发（glm-5.3-flash/max，首轮在阶段 2.11 撞计划自相矛盾停机上报，主会话裁决修订 1 后续跑同一子会话完成阶段 3–7）→ 主会话独立复核（门禁复跑 + 载荷抽查 + 白名单裁决修订 2）→ check 派发（deepseek-flash/max，五条逐字同源链字节级比对、清扫 26 处全落白名单、全量门禁绿，Open issues none）→ 单原子提交 22 文件 → 归档合并回 main。产物：plan.md 制品口径全链落地、1.4 Authoring bar、plan-authoring reference、PRESCRIPTIVE_PLAN_DISCIPLINE 执行纪律、词数预算 260→300。dist 与源码同 commit。部署链（push/repin/重启）待用户授权。
 
+## C 任务交付：R/AC 编号溯源链（plan.md 单文档形态首个全流程实例）
+
+- Time: 2026-10-29T17:26:43.436Z
+- Commit: 39ad79d
+- Summary: C 子任务全流程：对齐收敛（9 项决策、两接缝 test-first、Covers 语法、prd 本体自排 R/AC 格式为首个实例）→ 1.4 确认（用户追加要求先配全局 review 模型条目，已完成并验证加载）→ implement 派发（首轮在步骤 1.5 撞预期红名单缺口停机：LIGHT_MIN_PRD 的 full 门禁消费者未追踪，主会话裁决修订 1 红名单 6→7，续跑同子会话完成阶段 2–5）→ 主会话独立复核（11 文件、14 处文案链抽点、门禁复跑全绿）→ check 派发（七项复核全过、代码面零缺陷；唯一 P1 为 LSP 对 worktree 的环境性误报，按 check 给出的路径采纳修正计划验证项，修订 2 落账）→ 单原子提交 → 归档合并。产物：PRD_SECTIONS 编号溯源占位指引、workflow 1.1/面包屑 R/AC 要求句、SKILL Recording 句、plan-authoring Covers bullet 与 AC 覆盖完成判据、两个 contract 固定测试。经验：预期红名单须按 fixture/常量全部消费者推导（spec 候选已备）。
+
