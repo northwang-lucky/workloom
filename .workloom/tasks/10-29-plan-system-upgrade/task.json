@@ -17,7 +17,8 @@
   "children": [
     "tasks/10-29-plan-md-prescriptive",
     "tasks/10-29-review-executor",
-    "tasks/10-29-prd-traceability"
+    "tasks/10-29-prd-traceability",
+    "tasks/10-30-plan-migration-skill"
   ],
   "subtasks": [],
   "scope": "",

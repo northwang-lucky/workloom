@@ -44,7 +44,7 @@ Test-first 接缝（已确认，红绿推进，测试只放在下列公开边界
 
 ## Notes
 
-- 依赖子任务 A（tasks/10-29-plan-md-prescriptive）与子任务 C（tasks/10-29-prd-traceability），执行顺序 A → C → B；容器任务 tasks/10-29-plan-system-upgrade。
+- 依赖子任务 A（tasks/10-29-plan-md-prescriptive，已归档）与子任务 C（tasks/10-29-prd-traceability），执行顺序 A → C → D → B（D 为存量迁移技能任务，排在本任务之前以避免 assets 文本改动冲突）；容器任务 tasks/10-29-plan-system-upgrade。
 - 改动预计涉及：core（EXECUTOR_KINDS 注册、EXECUTOR_CONTRACT_BY_KIND 纪律段、executor-context 上下文注入、init 配置模板、doctor 检查、workloom_execute 类型校验）、adapter-dsh、adapter-pi（agent-definitions）、assets（workflow 1.4 文本）、各包测试、dist 重建。
 - 本任务的 1.2 调研、1.3 上下文配置、plan.md 写作与 1.4 审阅确认，全部推迟到 A、C 归档后本任务轮到启动时进行——计划锚点必须建立在 A/C 合并后的代码状态上，提前写作必然对不上。
 - 已知限制：本任务自身的 1.4 时 review 执行器尚未部署，本任务的 plan.md 由用户人工审阅；review 机制在本任务交付后的下一个任务首次实战。
