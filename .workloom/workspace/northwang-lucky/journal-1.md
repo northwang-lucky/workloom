@@ -352,3 +352,9 @@
 - Commit: 1df4c03
 - Summary: 完成 fallback_models 同类并发轮换特性全流程：三轮对齐收敛 prd（rotate_on_busy 开关、首个未占用选取、全占用回绕、环形物化转移链、modelSource rotate 留痕），主会话编写 design/implement，implement 与 check 执行器各一轮派发，检查通过（含 3 处 P2 修复复核），主会话独立复跑全部门禁后提交并归档。附带发现：prd「UI Design 不适用」小节会误触发前端派发门禁，以 force 留痕绕过，待沉淀规范或改进门禁。
 
+## 前端派发门禁识别 UI Design 不适用声明（轻量任务）
+
+- Time: 2026-10-29T01:07:03.366Z
+- Commit: 75aa589
+- Summary: 轻量任务全流程由主会话完成：前端派发门禁 evaluateFrontendDispatchGate 改为识别 UI Design 小节正文首行的显式不适用声明（词表常量 不适用/n/a/not applicable/none，只认首行前缀，空正文维持现状拦截），消除上一任务 check 门禁被误拦、需 force 绕过的问题。新增 4 组用例，core 702 / adapter-dsh 171 全绿，lint/typecheck/build 通过，dist 同 commit 重建。已提交、归档。
+
