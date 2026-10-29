@@ -2,6 +2,11 @@
 
 按 test-first 红绿推进（两接缝：core 骨架面 / assets 契约面）。需求与验收以 [prd.md](prd.md) 的 R1–R6 / AC1–AC5 为准；实现前读 prd.md + implement.jsonl 列出的 spec 条目。全部改动与验证命令在任务代码根执行（task.json `worktree_path` 非空时即 worktree 根，注入纪律已指向）。改前片段均已对当前文件核对唯一命中；子串替换类编辑给出预期命中数，命中数不符即停止上报。
 
+## 修订记录
+
+- 修订 2（check 阶段唯一 P1 发现处置，主会话裁决）：步骤 5.2 第 10 条由「LSP 可用时跑 lsp_diagnostics 预期无 Error」改为以命令行 typecheck 为准。依据：LSP 对 worktree 路径产生环境性误报（@types/node 解析失败；main 未改动文件同样复现；全局 AGENTS.md 已记载该限制与 tsc/eslint 兜底路线）；check 执行器复跑确认代码零缺陷（pnpm -r typecheck exit 0，七项复核全过），并给出「修 LSP 环境」或「修正计划验证项」两个处置路径——采后者，LSP 环境修复属宿主层事务、不在本任务范围。零代码改动，不触发重新检查。
+- 修订 1（开工后，步骤 1.5 阻塞项处置，主会话裁决并经实现执行器取证复核）：预期红名单由 6 项扩为 7 项——补入 task-gates.test.js 行 444「start 门禁 full：同一份最低 prd 仍按完整门禁拦截（零变化护栏）」。根因：计划只核对了 LIGHT_MIN_PRD 的字面量替换位置（行 371/375）并以“轻量门禁只消费 H1 + Goal”为由断言相关测试保持绿，未追踪该常量的全部消费者——行 444 的 full 门禁用例同样消费它，并断言 R/AC 占位项进入拦截清单，红阶段（新 fixture 文案对旧常量）暂时性红，阶段 2 常量同步后自动转绿，fixture 无需改动。步骤 1.1 注②与 1.5 保持绿名单同步更正。教训根因类：预期红名单必须按 fixture/常量的全部消费者推导（grep 常量名引用逐一定性），不能只看被替换文本所在的断言点。
+
 ## Design decisions
 
 1. **占位文本只承载短指引，细则放文本落点**：骨架占位文本是每个新任务 prd 的初始状态，塞长细则会膨胀骨架；占位只保留“编号 + 可判定 + 验证方法”提示，完整规则在 workflow 1.1（按需取用）、SKILL Recording 节（对齐时加载）、plan-authoring reference（authoring 时加载）。
@@ -50,7 +55,7 @@ OLD-AC = (placeholder: list the verifiable acceptance criteria)
 
 - Covers: AC1, AC3
 - Target: packages/core/test/task-gates.test.js —— SKELETON_PRD 常量（R、AC 两行）、「逐小节判定」fixture（R 行、带首尾各两空格的 AC 行）、「多问题一次返回且顺序固定」fixture（R 行）与 LIGHT_MIN_PRD 常量（R、AC 两行）
-- Edit: OLD-R → NEW-R，预期命中 4 处；OLD-AC → NEW-AC，预期命中 3 处。注意两点：①「逐小节判定」fixture 的 AC 行带前导两空格与尾随两空格（该用例的 trim 判定点），子串替换只动括号内文案、必须保留行首尾空格原样；② LIGHT_MIN_PRD 的更新属语义同步（轻量 start 门禁只消费 H1 + Goal，该常量相关测试在红绿两阶段均保持绿，不进红名单）。
+- Edit: OLD-R → NEW-R，预期命中 4 处；OLD-AC → NEW-AC，预期命中 3 处。注意两点：①「逐小节判定」fixture 的 AC 行带前导两空格与尾随两空格（该用例的 trim 判定点），子串替换只动括号内文案、必须保留行首尾空格原样；② LIGHT_MIN_PRD 的更新属语义同步；其消费者中 light 模式的四个用例（行 382/393/403/431）只触发 H1 + Goal 判定，红绿两阶段均保持绿，而行 444 的 full 门禁护栏用例消费同一常量并断言 R/AC 占位拦截，红阶段暂时性红、阶段 2 后自动转绿（修订记录 1）。
 - Verify: `grep -cF "(placeholder: list the functional requirements)" packages/core/test/task-gates.test.js` 输出 0；`grep -cF "(placeholder: list the verifiable acceptance criteria)" packages/core/test/task-gates.test.js` 输出 0；`grep -cF "numbered items R1" packages/core/test/task-gates.test.js` 输出 4；`grep -cF "numbered items AC1" packages/core/test/task-gates.test.js` 输出 3；`grep -n "  (placeholder: list the acceptance criteria" packages/core/test/task-gates.test.js` 能看到带前导空格的那一行仍在。
 
 #### 步骤 1.2 task-store.test.js 字面量同步
@@ -80,14 +85,15 @@ OLD-AC = (placeholder: list the verifiable acceptance criteria)
 - Target: 无文件改动（验证步骤）
 - Edit: 无
 - Verify: `cd packages/core && node --test test/task-gates.test.js test/task-store.test.js test/task-ops.test.js test/doctor.test.js`（dist 未重建，src 常量仍旧文案）。
-  预期失败名单（6 个，逐一对照记入报告）：
+  预期失败名单（7 个，逐一对照记入报告；第 7 项为修订 1 补入）：
   1. task-gates.test.js「骨架 prd 四小节全部判定为未填」（新字面量不等于旧常量，R/AC 被判已填，deepEqual 失败）
   2. task-gates.test.js「逐小节判定：只有正文 trim 后与 placeholder 完全一致才算未填」
   3. task-gates.test.js「inspectPrdStructure：多问题一次返回且顺序固定（H1 → 骨架小节 → open nodes）」（期望清单含 Requirements placeholder 项，新字面量下该项消失，deepEqual 失败）
   4. task-store.test.js「start 门禁：缺小节与 placeholder 小节文案不同，且一次列出全部 prd 内容问题」（assert.match Requirements placeholder 失败）
   5. task-ops.test.js「align confirm：多个内容问题只抛一个 Error，消息按固定顺序聚合全部 blocker」（聚合清单 deepEqual 缺 Requirements placeholder 行）
   6. doctor.test.js「check doc-completeness：缺小节与 placeholder 小节分别生成独立 issue 与 hint」（placeholderIssue 不存在）
-  预期保持绿（不是漏改）：task-gates 的 findMissingPrdTitle 两测试（只消费标题逻辑）、task-gates 的轻量 start 门禁系列（LIGHT_MIN_PRD 只触发 H1 + Goal 判定）、task-store 轻量任务系列（writeLightPrd 同理）、doctor「prd 缺 H1/占位符」测试（Goal 占位未变）、task-ops 的 Notes fixture 测试。
+  7. task-gates.test.js「start 门禁 full：同一份最低 prd 仍按完整门禁拦截（零变化护栏）」（行 444 full 门禁消费 LIGHT_MIN_PRD，新 fixture 文案不等于旧常量，R/AC 被判已填致拦截项缺失；暂时性红，阶段 2 常量同步后自动转绿，见修订记录 1）
+  预期保持绿（不是漏改）：task-gates 的 findMissingPrdTitle 两测试（只消费标题逻辑）、task-gates 轻量 start 门禁四个 light 模式用例（行 382/393/403/431，只触发 H1 + Goal 判定）、task-store 轻量任务系列（writeLightPrd 同理）、doctor「prd 缺 H1/占位符」测试（Goal 占位未变）、task-ops 的 Notes fixture 测试。
   失败集与预期不符（多红或少红）：停止，把实际失败清单写进报告阻塞项。
 
 ### 阶段 2（绿，接缝①）：PRD_SECTIONS 常量
@@ -322,7 +328,7 @@ Each step carries, in this order:
   7. `cd packages/assets && pnpm run test`（全绿）
   8. `grep -c "numbered items R1" packages/core/dist/domain/task-gates.js` 输出 ≥ 1（dist 同步）
   9. `grep -c '\*\*Covers\*\*' packages/adapter-pi/skills/workloom-alignment/references/plan-authoring.md` 输出 1（pi 同步产物含新 bullet）
-  10. LSP 可用时对 packages/core/src/domain/task-gates.js 跑 lsp_diagnostics，预期无 Error
+  10. 类型正确性以命令行为准：`pnpm -r typecheck` exit 0（修订 2：worktree 路径的 lsp_diagnostics 存在 @types/node 解析环境性误报，不作为验证判据，见修订记录 2）
 
 #### 步骤 5.3 报告
 
