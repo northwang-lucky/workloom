@@ -293,6 +293,41 @@ test('前端派发门禁：prd 缺失（null）且无派发 → 通过（缺失�
   assert.deepEqual(missing, [])
 })
 
+test('前端派发门禁：UI Design 小节首行为不适用声明 → 通过（不要求 frontend 派发）', () => {
+  const declarations = [
+    '不适用：本任务无前端界面改动，仅工具回执文本增加标注。',
+    'N/A',
+    'n/a: backend only',
+    'Not applicable — 无前端触点',
+    'NOT APPLICABLE',
+    'None',
+    '  不适用  ',
+  ]
+  for (const declaration of declarations) {
+    const prd = `# Task\n\n## UI Design\n\n${declaration}\n`
+    const missing = evaluateFrontendDispatchGate(prd, [])
+    assert.deepEqual(missing, [], `declaration should pass: ${declaration}`)
+  }
+})
+
+test('前端派发门禁：不适用声明带后续说明段 → 仍按首行认定通过', () => {
+  const prd = `# Task\n\n## UI Design\n\n不适用：无前端界面。\n\n仅回执文本变化，属 runtime 文案。\n`
+  const missing = evaluateFrontendDispatchGate(prd, [])
+  assert.deepEqual(missing, [])
+})
+
+test('前端派发门禁：声明词只出现在正文中部 → 不认定声明，仍拦截', () => {
+  const prd = `# Task\n\n## UI Design\n\n- 新增设置页\n- 旧布局说明：不适用\n`
+  const missing = evaluateFrontendDispatchGate(prd, [])
+  assert.deepEqual(missing, ['no frontend dispatch recorded for a task with UI requirements'])
+})
+
+test('前端派发门禁：UI Design 小节正文为空 → 维持现状拦截（空正文不是声明）', () => {
+  const prd = `# Task\n\n## UI Design\n\n## Notes\n\n- x\n`
+  const missing = evaluateFrontendDispatchGate(prd, [])
+  assert.deepEqual(missing, ['no frontend dispatch recorded for a task with UI requirements'])
+})
+
 /** 构造临时项目根（含 .workloom）与一个带 prd 的任务目录。 */
 function makeTaskDir(prdContent) {
   const root = mkdtempSync(join(tmpdir(), 'workloom-gates-'))

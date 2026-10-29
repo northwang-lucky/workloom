@@ -133,6 +133,15 @@ const PRD_TITLE_LINE_RE = /^#\s+\S+/
 /** prd.md 中标识「涉及前端展示」的小节标题（与 alignment 的 UI 适用性节点一致）。 */
 const UI_DESIGN_SECTION = 'UI Design'
 
+/**
+ * UI Design 小节「不适用」声明词表（前端派发门禁的放行口径）：小节正文首个
+ * 非空行以其一为前缀（英文按小写归一）即认定为显式声明不适用，视同无 UI 需求。
+ * 中英双语对齐任务文档语言纪律（开发者填写的任务文档可为中文）；只认首行前缀，
+ * 声明词出现在正文中部不触发（防实质内容误放行）。
+ * @type {readonly string[]}
+ */
+const UI_NOT_APPLICABLE_PREFIXES = Object.freeze(['不适用', 'n/a', 'not applicable', 'none'])
+
 /** 前端派发门禁缺失项文案（涉及前端展示但无 frontend 派发，机制强制）。 */
 const FRONTEND_DISPATCH_MISSING = 'no frontend dispatch recorded for a task with UI requirements'
 
@@ -344,22 +353,42 @@ export function evaluateCheckLogGate(root, taskRelPath) {
 }
 
 /**
- * 求值前端派发门禁（纯函数，无 IO，只求值不读写）：prd.md 含「UI Design」小节
+ * 求值前端派发门禁（纯函数，无 IO，只求值不读写）：prd.md 含「UI Design」小节、
+ * 正文不是显式「不适用」声明（首行前缀命中 UI_NOT_APPLICABLE_PREFIXES），
  * 但 dispatches 无 `kind === 'frontend'` 条目时返回缺失项（机制强制：涉及前端
  * 展示的任务，其前端文件实现必须经 frontend executor 派发；逻辑/后端仍走
- * implement）；否则返回空数组。prd 内容与派发记录由调用方（checkTaskInternal）
- * 喂入，维持「任务读写仍在 task-store」的分层。
+ * implement）；小节缺失或正文声明不适用时视同无 UI 需求，返回空数组。
+ * prd 内容与派发记录由调用方（checkTaskInternal）喂入，维持「任务读写仍在
+ * task-store」的分层。
  * @param {string | null} prdContent prd.md 全文（缺失传 null）
  * @param {import('./task-store.d.ts').DispatchRecord[]} dispatches 派发记录数组
  * @returns {string[]} 缺失项描述列表（空数组表示通过）
  */
 export function evaluateFrontendDispatchGate(prdContent, dispatches) {
-  if (prdContent === null || !splitSectionBodies(prdContent).has(UI_DESIGN_SECTION)) {
+  const body =
+    prdContent === null ? undefined : splitSectionBodies(prdContent).get(UI_DESIGN_SECTION)
+  if (body === undefined || isUiNotApplicableDeclaration(body)) {
     return []
   }
   const hasFrontend =
     Array.isArray(dispatches) && dispatches.some((entry) => entry.kind === EXECUTOR_KINDS.frontend)
   return hasFrontend ? [] : [FRONTEND_DISPATCH_MISSING]
+}
+
+/**
+ * 判定 UI Design 小节正文是否为显式「不适用」声明（内部）：取首个非空行，
+ * trim 并按英文小写归一后匹配词表前缀；无首个非空行（空正文）不认定为声明，
+ * 维持「小节存在即要求 frontend 派发」的现状口径（不静默放宽）。
+ * @param {string} body 小节正文（splitSectionBodies 产物，已 trim）
+ * @returns {boolean} 是否为不适用声明
+ */
+function isUiNotApplicableDeclaration(body) {
+  for (const line of body.split('\n')) {
+    const normalized = line.trim().toLowerCase()
+    if (normalized === '') continue
+    return UI_NOT_APPLICABLE_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+  }
+  return false
 }
 
 /**

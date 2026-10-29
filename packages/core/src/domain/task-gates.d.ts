@@ -104,7 +104,10 @@ export function evaluateStaleAlignmentGate(
 /** 求值 check 门禁（check.jsonl 有效记录）：返回缺失项描述列表（空数组表示通过）。 */
 export function evaluateCheckLogGate(root: string, taskRelPath: string): string[]
 
-/** 求值前端派发门禁（纯函数）：prd 含「UI Design」且无 frontend 派发时返回缺失项。 */
+/**
+ * 求值前端派发门禁（纯函数）：prd 含「UI Design」实质内容小节（正文首行非显式
+ * 不适用声明）且无 frontend 派发时返回缺失项；正文声明不适用视同无 UI 需求放行。
+ */
 export function evaluateFrontendDispatchGate(
   prdContent: string | null,
   dispatches: DispatchRecord[],
