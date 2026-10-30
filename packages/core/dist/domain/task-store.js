@@ -24,6 +24,13 @@ import { GATES, PRD_SECTIONS, evaluateCheckLogGate, evaluateFrontendDispatchGate
 const ERR_PREFIX = 'workloom task';
 /** slug 最大长度（目录名的一部分）。 */
 const SLUG_MAX_LENGTH = 40;
+/** 显式 slug 的合法形态：小写字母数字段以单连字符相连，首尾不带连字符。 */
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/**
+ * slug 自带日期前缀的形态（MM-DD，月 01-12、日 01-31，后接连字符或到此为止）。
+ * 目录名的日期段由 createTask 生成，slug 再带一段就得到 `10-30-10-30-x` 这种双前缀。
+ */
+const SLUG_DATE_PREFIX_PATTERN = /^(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])(?:-|$)/;
 /** 两位数字补零宽度。 */
 const PAD_WIDTH = 2;
 /** task.json 写入缩进。 */
@@ -92,6 +99,33 @@ export function slugify(title) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
         .slice(0, SLUG_MAX_LENGTH);
+}
+/**
+ * 校验创建任务用的 slug，不合法即抛错（与 assertPriority/assertTaskMode 同风格）。
+ *
+ * 设计意图：目录名恒为 `{MM-DD}-{slug}`，日期段归工具，所以 slug 自带日期前缀一律
+ * 拒绝而不是静默剥离——剥离会误改 `12-25-release-notes` 这类合法命名，报错则把改写
+ * 决定留给调用方。显式 slug 另需满足 kebab-case 与长度上限（超长不截断，截断会让
+ * 调用方拿到的目录名与传入值不一致）；标题派生的 slug 已由 slugify 归一字符集与长度，
+ * 只查日期前缀，文案指向「改传显式 slug」。
+ * @param {string} slug 待校验 slug（调用前已保证非空）
+ * @param {boolean} explicit true 表示调用方显式传入，false 表示由标题派生
+ * @returns {void}
+ */
+function assertValidSlug(slug, explicit) {
+    if (explicit && slug.length > SLUG_MAX_LENGTH) {
+        throw new Error(`${ERR_PREFIX}: slug is longer than ${SLUG_MAX_LENGTH} characters ` +
+            `(${slug.length}): ${JSON.stringify(slug)}`);
+    }
+    if (explicit && !SLUG_PATTERN.test(slug)) {
+        throw new Error(`${ERR_PREFIX}: slug must be kebab-case (lowercase letters and digits joined by ` +
+            `single hyphens, no leading or trailing hyphen): ${JSON.stringify(slug)}`);
+    }
+    if (SLUG_DATE_PREFIX_PATTERN.test(slug)) {
+        const hint = explicit ? 'pass the slug without that prefix' : 'pass an explicit slug instead';
+        throw new Error(`${ERR_PREFIX}: slug must not carry a MM-DD date prefix, the task directory already ` +
+            `gets one: ${JSON.stringify(slug)}; ${hint}`);
+    }
 }
 /**
  * 解析并校验项目根（向上查找 .workloom）。
@@ -466,10 +500,16 @@ export async function createTask(root, params) {
  */
 async function createTaskInternal(root, params) {
     const projectRoot = requireProjectRoot(root);
-    const slug = params.slug ?? slugify(params.title);
+    // 显式 slug 与标题派生 slug 共用同一校验入口；空值按来源分别报错（显式空串不再
+    // 误报成「标题无法派生」）。校验全部前置于任何写盘，失败即零部分状态。
+    const hasExplicitSlug = params.slug !== undefined && params.slug !== null;
+    const slug = hasExplicitSlug ? String(params.slug) : slugify(params.title);
     if (slug.length === 0) {
-        throw new Error(`${ERR_PREFIX}: title cannot produce a valid slug: ${JSON.stringify(params.title)}`);
+        throw new Error(hasExplicitSlug
+            ? `${ERR_PREFIX}: slug cannot be empty`
+            : `${ERR_PREFIX}: title cannot produce a valid slug: ${JSON.stringify(params.title)}`);
     }
+    assertValidSlug(slug, hasExplicitSlug);
     // 单次取 now：目录前缀与 createdAt 时间戳共用同一时刻，避免跨日/跨月不一致。
     const now = new Date();
     const taskRelPath = join(DIR_NAMES.tasks, `${formatMonthDay(now)}-${slug}`);

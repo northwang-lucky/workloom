@@ -72,7 +72,8 @@ export declare const PARAM_DESCRIPTIONS: {
     readonly title: "Task title";
     /** create 工具的 package 参数（必填归属，与 worktree 开关无关）。 */
     readonly package: "Required package key from the \"packages\" map in .workloom/config.json (the package this task belongs to)";
-    readonly slug: "Optional kebab-case slug; derived from title when omitted";
+    /** create 工具的 slug 参数（目录名的 MM-DD 段由工具生成，调用方不得自带）。 */
+    readonly slug: "Optional kebab-case slug; derived from title when omitted. Do not include the MM-DD date prefix: the task directory adds it automatically";
     readonly priority: "Priority: P0/P1/P2/P3; defaults to P2";
     readonly description: "Optional task description";
     /** create 工具的 parent 参数（父任务相对路径；模型记录子任务时挂载）。 */

@@ -226,6 +226,10 @@ export interface CreateTaskParams {
    * createTaskInternal 传入即查；executeCreateTask 层强制非空）。缺省落 null。
    */
   package?: string | null
+  /**
+   * 显式 slug（缺省由标题 slugify 派生）：kebab-case、不超过 40 字符，且不得自带
+   * MM-DD 日期前缀——目录名的日期段由 createTask 生成，违反任一条即返回 err。
+   */
   slug?: string
   parent?: string | null
   priority?: TaskPriorityValue

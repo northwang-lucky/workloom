@@ -206,6 +206,14 @@ test('PARAM_DESCRIPTIONS.parent 存在且非空（DSH/Pi 共用契约面文案�
   assert.ok(typeof parent === 'string' && parent !== '', 'parent description must be non-empty')
 })
 
+test('PARAM_DESCRIPTIONS.slug 声明日期前缀由工具生成（防双前缀目录）', () => {
+  const slug = PARAM_DESCRIPTIONS.slug
+  assert.ok(typeof slug === 'string' && slug !== '', 'slug description must be non-empty')
+  assert.match(slug, /Do not include/, 'slug description must forbid the date prefix explicitly')
+  assert.match(slug, /MM-DD/, 'slug description must name the prefix shape the tool adds')
+  assert.match(slug, /automatically/, 'slug description must say the tool adds the prefix')
+})
+
 test('TOOL_SNIPPETS.taskCreate 签名含 mode?，PARAM_DESCRIPTIONS.mode 说明轻量任务', () => {
   assert.match(
     TOOL_SNIPPETS.taskCreate,

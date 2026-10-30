@@ -59,6 +59,13 @@ function makeRoot(options = {}) {
   return root
 }
 
+/** 列出 tasks/ 下的目录名（不存在时为空数组）；断言创建失败发生在任何写入之前。 */
+function listTaskDirs(root) {
+  const dir = join(root, '.workloom', 'tasks')
+  if (!existsSync(dir)) return []
+  return readdirSync(dir).sort()
+}
+
 /** 读取任务目录下的 task.json（目录相对 .workloom）。 */
 function readTaskJson(root, taskRelPath) {
   return JSON.parse(readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'))
@@ -194,6 +201,64 @@ test('slug 生成规则与目录冲突返回 err', async () => {
     assert.equal(err3, null)
     assert.ok(r3)
     assert.equal(r3.taskRelPath.endsWith('custom-name'), true)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('slug 入口校验：日期前缀/字符集/长度非法均返回 err 且零写入', async () => {
+  const root = makeRoot()
+  try {
+    const before = listTaskDirs(root)
+    const now = new Date()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const todayPrefix = `${month}-${day}`
+    // 日期前缀：当天前缀、其它日期前缀、slug 恰好等于 MM-DD，以及按设计一并拒绝的
+    // `12-30-day-guarantee`（无法与日期前缀区分，文案给出改写指引）。
+    const datedSlugs = [
+      `${todayPrefix}-center-stability`,
+      '10-29-provider-compat',
+      '12-25',
+      '12-30-day-guarantee',
+    ]
+    for (const slug of datedSlugs) {
+      const [err, result] = await createTask(root, { title: 'Dated', slug })
+      assert.ok(err, `slug ${slug} 必须被拒绝`)
+      assert.match(err.message, /date prefix/)
+      assert.equal(result, null)
+    }
+    // 字符集与长度：大写、下划线、空格、首尾连字符、超过 40 字符。
+    const malformedSlugs = [
+      'Bad-Case',
+      'with_underscore',
+      'with space',
+      '-lead',
+      'trail-',
+      'x'.repeat(41),
+    ]
+    for (const slug of malformedSlugs) {
+      const [err, result] = await createTask(root, { title: 'Malformed', slug })
+      assert.ok(err, `slug ${slug} 必须被拒绝`)
+      assert.equal(result, null)
+    }
+    const [longErr] = await createTask(root, { title: 'Long', slug: 'x'.repeat(41) })
+    assert.match(longErr.message, /longer than 40 characters/)
+    // 显式空串单独报错，不再误报成「标题无法派生 slug」。
+    const [emptyErr] = await createTask(root, { title: 'Empty', slug: '' })
+    assert.match(emptyErr.message, /slug cannot be empty/)
+    // 标题派生的 slug 撞上日期前缀时，文案指向改传显式 slug。
+    const [derivedErr] = await createTask(root, { title: '12-25 发布说明' })
+    assert.match(derivedErr.message, /explicit slug/)
+    // 上述失败全部发生在写盘之前：tasks/ 目录内容不变。
+    assert.deepEqual(listTaskDirs(root), before)
+    // 合法 slug 正常创建：数字开头、单字母段、日期形态出现在非开头位置都不误伤。
+    for (const slug of ['2fa-support', 'q3-okr', 'release-12-30']) {
+      const [err, result] = await createTask(root, { title: 'Valid', slug })
+      assert.equal(err, null)
+      assert.ok(result)
+      assert.equal(result.taskRelPath.endsWith(`-${slug}`), true)
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
