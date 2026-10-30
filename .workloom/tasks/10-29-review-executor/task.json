@@ -27,7 +27,40 @@
   "alignment": null,
   "overrides": [],
   "stage": "implement",
-  "dispatches": [],
+  "dispatches": [
+    {
+      "kind": "research",
+      "at": "2026-10-30T02:06:27.963Z",
+      "title": "B 前置调研：review 执行器全链落点事实基线",
+      "status": "completed",
+      "childId": "46ef66db-f30e-4ad4-9ff4-a5c3b43bb280",
+      "model": "deepseek-official/deepseek-flash",
+      "effort": "high",
+      "modelSource": "fallback",
+      "toolsAllow": [
+        "read",
+        "write",
+        "edit",
+        "bash",
+        "glob",
+        "grep",
+        "read_image",
+        "todo_write",
+        "job_output",
+        "job_list",
+        "job_kill",
+        "web_search",
+        "web_fetch",
+        "skill",
+        "lsp_diagnostics",
+        "lsp_symbols",
+        "lsp_completion",
+        "lsp_signature",
+        "lsp_code_action",
+        "lsp_inlay_hints"
+      ]
+    }
+  ],
   "hooks": {
     "after_create": [],
     "after_start": [],

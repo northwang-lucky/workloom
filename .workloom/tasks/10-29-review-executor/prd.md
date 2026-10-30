@@ -33,20 +33,22 @@
 4. 未写 plan.md 的任务、或对齐轮选择跳过的任务，不派发 review。
 5. review 执行器写 `.workloom/` 之外的文件被机制拒绝。
 6. 全链验证绿（pnpm lint、pnpm -r typecheck、pnpm -r build、各包测试），core 与相关包的 dist 同 commit 重建，push 后 profile repin 完成，实例重启经用户授权。
+7. 机制面验收（1.2 调研事实修正补充）：local-prompts 片段目标注册 review（review 派发不再于注入组装抛错，prompts/review.md 被 doctor 正确识别）；computeTaskStage 对 review 不改变 stage（纯函数单测覆盖 planning 与 check 两场景）；写入范围守卫按守卫 kind 集合对 review 生效（dsh 守卫拒绝文案参数化、pi 扩展条件泛化）；三份 kind 标签文案副本（core surface.ts 两处、dsh executor-injection、pi pi-args）同步含 review。
+　验证：对应单测全绿（core task-store / local-prompts / doctor 测试、dsh executor 测试、pi pi-args 与 agents 测试）；旧四 kind 文案枚举在标签与描述位清扫 0 残留。
 
 Test-first 接缝（已确认，红绿推进，测试只放在下列公开边界）：
 
-- 接缝① core 类型面：EXECUTOR_KINDS 含 review；assertKind 与派发校验接受 review；配置解析出 review 的模型与 effort（含 fallback 条目）。
+- 接缝① core 类型面：EXECUTOR_KINDS 含 review；assertKind 与派发校验接受 review；配置解析出 review 的模型与 effort（含 fallback 条目）；computeTaskStage 的 review 分支不改变 stage（与 research 同语义）；local-prompts 片段目标注册 review（LOCAL_FRAGMENT_TARGETS 与 TARGET_BY_FILE 两处）。
 - 接缝② core 注入面：review kind 的注入文本全文——纪律段（四维职责、只写报告不改 plan 不改代码、报告文件约定、与 check 的边界声明、写入范围限 .workloom/）、prd 全文节（Requirements/Acceptance）、plan.md 与 implement.jsonl spec 指针、research 指针、注入 marker。
-- 接缝③ core 配置面：init 配置模板 seeding 出 subagents.review 默认条目；doctor 认识 review 类型。
-- 接缝④ adapter 面：adapter-dsh 的 executor 注册与 receipt 含 review；adapter-pi 的 agent-definitions 含 review 角色文案（测试固定）。
+- 接缝③ core 配置面（事实修正：种子 config.json 模板本无 subagents 段，doctor 无 kind 白名单检查）：CONFIG_EXAMPLE_JSON_TEMPLATE 补齐 frontend 与 review 示范条目，init.test.js 路径断言清单同步；doctor 面为 doctor-local-prompts 片段文件名 message/hint 认识 review.md。
+- 接缝④ adapter 面：adapter-dsh 的 executor 注册与 receipt 含 review、executor-guard 写范围守卫泛化为守卫 kind 集合（research + review）、executor-injection KIND_LABELS 含 review；adapter-pi 的 agent-definitions 含 review 角色文案、pi-args KIND_LABELS 含 review、写范围扩展条件含 review（测试固定标签数组与角色文案）。
 - 接缝⑤ assets 契约面：workflow 1.4 的 review 指引句（触发时机、默认派发与对齐跳过、复审循环与同子会话续接、上限三轮、剩余处置）被 contract 测试逐字固定。
 
 ## Notes
 
 - 依赖子任务 A（tasks/10-29-plan-md-prescriptive，已归档）与子任务 C（tasks/10-29-prd-traceability），执行顺序 A → C → D → B（D 为存量迁移技能任务，排在本任务之前以避免 assets 文本改动冲突）；容器任务 tasks/10-29-plan-system-upgrade。
-- 改动预计涉及：core（EXECUTOR_KINDS 注册、EXECUTOR_CONTRACT_BY_KIND 纪律段、executor-context 上下文注入、init 配置模板、doctor 检查、workloom_execute 类型校验）、adapter-dsh、adapter-pi（agent-definitions）、assets（workflow 1.4 文本）、各包测试、dist 重建。
-- 本任务的 1.2 调研、1.3 上下文配置、plan.md 写作与 1.4 审阅确认，全部推迟到 A、C 归档后本任务轮到启动时进行——计划锚点必须建立在 A/C 合并后的代码状态上，提前写作必然对不上。
+- 改动面（以 research/ 下 7 份调研事实基线为准）：core（EXECUTOR_KINDS 与 d.ts 类型面、EXECUTOR_CONTRACT_BY_KIND 纪律段、executor-context 四处 kind 分支、task-store 的 computeTaskStage、local-prompts 片段目标、doctor-local-prompts 文案、surface.ts 两处文案、init 示例模板）、adapter-dsh（executor-injection 标签、executor-guard 守卫集合化、executor.ts 与 executor-failover.ts 登记接线、executor-capacity 反解）、adapter-pi（agent-definitions review 角色、pi-args 标签、executor.ts 扩展条件与文案）、assets（workflow 1.4 review 指引句）、各包测试、dist 重建。
+- 1.2 调研已完成：research/ 七份文件为 plan authoring 的事实基线（含阻断项实测复现与意外发现清单）；1.3 上下文已配置（implement 5 条 / check 4 条）。
 - 已知限制：本任务自身的 1.4 时 review 执行器尚未部署，本任务的 plan.md 由用户人工审阅；review 机制在本任务交付后的下一个任务首次实战。
 
 ## Alignment Decisions
@@ -78,6 +80,14 @@ Test-first 接缝（已确认，红绿推进，测试只放在下列公开边界
 已定（最终轮 authoring 问题，用户确认“全按推荐”）：
 
 16. Authoring：本任务 authoring 计划文档 plan.md，写作时机在本任务启动轮（A、C 归档后），锚点建立在合并后的代码状态上；本任务自身 1.4 时 review 执行器尚未部署，plan.md 由用户人工审阅。否决：不 authoring（跨 core + 两个 adapter + assets 的结构性改动没有规定式计划保护）。
+
+已定（1.2 调研后事实裁决，主会话，随 1.4 审阅包呈报）：
+
+17. 阻断 1 处置（local-prompts 片段机制对未知 kind 抛错，调研实测复现）：注册 review 片段目标（LOCAL_FRAGMENT_TARGETS 与 TARGET_BY_FILE 两处 + doctor-local-prompts 文案），并入接缝①与 AC7；交付即支持，不存在“先建 prompts/review.md 连累全 kind 派发”的窗口期。
+18. 阻断 2 处置（computeTaskStage 无 review 分支，stage=check 后派发 review 会静默回退 implement 且 doctor 不报）：加 review → stage 不变分支（与 research 同语义），补纯函数单测。依据：review 是规划期动作，不应驱动执行阶段迁移。
+19. 阻断 3 处置（prd 原文“init 模板 seeding review 默认条目”与事实不符）：实际落点为 CONFIG_EXAMPLE_JSON_TEMPLATE（种子 config.json 模板本无 subagents 段），示例模板同时补齐 frontend 与 review 两条——frontend 缺失属既有缺口，按 check 纪律“非本次引入问题”必升 P1，顺手补齐消除确定性返工；config.example.js 工厂示例保持现状（profile 用法示范，非 kind 全集清单）。接缝③文本已按事实修正。
+20. 开放问题裁决：① doctor 只补片段文件名文案，不新增“有 plan 无 review 派发”检查——与“不加机器门禁”一致，且硬检查与“对齐可跳过”冲突、无现成判定字段；② 写范围守卫合并为守卫 kind 集合机制，拒绝文案参数化去 research 化——code-style“抽象通用机制、禁按单样本打补丁”原则，否决复制专用模块；③ plan-review.md 随任务目录归档，不加 ignore、不改归档逻辑；④ 复审轮次留痕复用现有 dispatches 记录（每轮续接自然追加同 kind 条目）+ 报告文件分节，不新增轮次字段；⑤ plan-review.md 不进自动注入与设计一致（报告由主会话在 1.4 人工呈现），注入面零改动。
+21. kind 标签文案三份副本（core surface.ts 工具与参数描述、dsh executor-injection KIND_LABELS、pi pi-args KIND_LABELS）同步含 review 并显式补测——标签遗漏是静默退化（不报错、测试不自然捕获，调研意外发现 4），必须靠显式固定。DSH 侧无 schema 枚举校验（意外发现 6）：红测试的失败点设计在 core assertKind/注入组装层，不期待 schema 拦截。
 
 开放节点：无。
 
