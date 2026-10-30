@@ -370,3 +370,9 @@
 - Commit: 39ad79d
 - Summary: C 子任务全流程：对齐收敛（9 项决策、两接缝 test-first、Covers 语法、prd 本体自排 R/AC 格式为首个实例）→ 1.4 确认（用户追加要求先配全局 review 模型条目，已完成并验证加载）→ implement 派发（首轮在步骤 1.5 撞预期红名单缺口停机：LIGHT_MIN_PRD 的 full 门禁消费者未追踪，主会话裁决修订 1 红名单 6→7，续跑同子会话完成阶段 2–5）→ 主会话独立复核（11 文件、14 处文案链抽点、门禁复跑全绿）→ check 派发（七项复核全过、代码面零缺陷；唯一 P1 为 LSP 对 worktree 的环境性误报，按 check 给出的路径采纳修正计划验证项，修订 2 落账）→ 单原子提交 → 归档合并。产物：PRD_SECTIONS 编号溯源占位指引、workflow 1.1/面包屑 R/AC 要求句、SKILL Recording 句、plan-authoring Covers bullet 与 AC 覆盖完成判据、两个 contract 固定测试。经验：预期红名单须按 fixture/常量全部消费者推导（spec 候选已备）。
 
+## D 任务交付：workloom-migrate-plan 存量计划迁移技能
+
+- Time: 2026-10-30T01:59:58.945Z
+- Commit: 3d6c6f7
+- Summary: D 子任务全流程：对齐收敛（13 项决策：迁移即重写、逐任务节拍 + research 辅助、迁移注记、命名 workloom-migrate-plan、注释去硬编码计数策略；红集合按 red-green-expectations spec 完成消费者全量追踪）→ 1.4 确认（期间用户质询 review 未派发，答复为 B 未交付的既定排期）→ implement 一次派发完成全部 6 阶段（无停机；两处计划 Verify 预期文案误差经执行器如实记录、主会话复核追认为修订 1，教训：Verify grep 模式须从计划自身改后文案推导自查）→ 主会话独立复核（11+1 变更面、载荷抽查、门禁复跑全绿）→ check 八项复核全过（SKILL.md 与计划围栏 SHA-256 逐字节一致、AC4 演练独立复跑、Open issues none）→ 单原子提交 → 归档合并。产物：workloom-migrate-plan 技能（扫描 + 四步迁移流程 + 凭据三态重确认 + in_progress 执行标注）、continue legacy 路由分支、双端注册链 8→9、计数注释单一来源化。部署链 push/repin 已完成，重启待用户授权。容器仅剩 B。
+
