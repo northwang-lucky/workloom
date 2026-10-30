@@ -1,12 +1,12 @@
 /**
- * research executor 的 write/edit 范围限定扩展（随 adapter-pi 包发布）。
+ * 受限写执行器（research/review）的 write/edit 范围限定扩展（随 adapter-pi 包发布）。
  *
  * 设计意图：
  * - 同名覆盖（实证 2026-09-03：child pi 带 `-t write,edit` 时
  *   registerTool({name: 'write'}) 完整替换内置 write，allow 未含时完全不可见）：
- *   research 派发时经 `-e` 加载本扩展，write/edit 被本扩展的路径受限副本覆盖，
+ *   受限写 kind 派发时经 `-e` 加载本扩展，write/edit 被本扩展的路径受限副本覆盖，
  *   越界（<cwd>/.workloom/ 外）抛英文错误，域内落盘/替换行为与内置一致；
- * - 与 DSH 侧 executor-guard 的 researchWriteGuard 同语义：write/edit 只允许
+ * - 与 DSH 侧 executor-guard 的 confinedWriteGuard 同语义：write/edit 只允许
  *   落在子会话 cwd 的 .workloom/ 目录内；bash 路径绕过记为已知边界，不根治；
  * - 只注册 write/edit 两个副本（同名覆盖内置），read/bash 等其余工具保持内置；
  *   -t allow 未含 write/edit 时本扩展注册的工具同样不可见（allow 清单治理）。
@@ -45,7 +45,7 @@ function insideWorkloom(cwd: string, target: string): boolean {
  */
 function denialError(toolName: string, cwd: string, target: string): Error {
   return new Error(
-    `${ERR_PREFIX}: ${toolName} denied for the research executor: ${resolve(cwd, target)} is outside the allowed ${join(cwd, WORKLOOM_DIR)}/ directory`,
+    `${ERR_PREFIX}: ${toolName} denied for this workloom executor: ${resolve(cwd, target)} is outside the allowed ${join(cwd, WORKLOOM_DIR)}/ directory`,
   )
 }
 
@@ -67,12 +67,12 @@ const editSchema = Type.Object({
 })
 
 /** 扩展默认导出（pi 扩展工厂：注册受限的 write/edit 副本）。 */
-export default function researchScope(pi: ExtensionAPI): void {
+export default function writeScope(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'write',
     label: 'Write',
     description:
-      'Write content to a file. Restricted to the project .workloom/ directory for the research executor; paths outside it are denied.',
+      'Write content to a file. Restricted to the project .workloom/ directory for this executor; paths outside it are denied.',
     promptSnippet: 'write(path, content)',
     parameters: writeSchema,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -89,7 +89,7 @@ export default function researchScope(pi: ExtensionAPI): void {
     name: 'edit',
     label: 'Edit',
     description:
-      'Edit a file using exact text replacement. Restricted to the project .workloom/ directory for the research executor; paths outside it are denied.',
+      'Edit a file using exact text replacement. Restricted to the project .workloom/ directory for this executor; paths outside it are denied.',
     promptSnippet: 'edit(path, edits)',
     parameters: editSchema,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

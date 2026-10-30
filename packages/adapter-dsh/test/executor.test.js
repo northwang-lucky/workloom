@@ -17,10 +17,10 @@ import {
   hasLspTooling,
 } from '../dist/executor-dispatch.js'
 import {
-  createResearchGuardState,
-  rebuildResearchChildIds,
-  registerResearchChild,
-  researchWriteGuard,
+  createWriteGuardState,
+  rebuildWriteGuardChildIds,
+  registerWriteGuardChild,
+  confinedWriteGuard,
 } from '../dist/executor-guard.js'
 import {
   createToolfaceIndex,
@@ -777,7 +777,7 @@ test('主模型 provider/model 为空串：whenMain 按取不到跳过，回退�
   }
 })
 
-test('label 组装：四种 kind 均为 [<KindLabel>] <task title>（title 缺省回退）', async () => {
+test('label 组装：五种 kind 均为 [<KindLabel>] <task title>（title 缺省回退）', async () => {
   const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
@@ -787,6 +787,7 @@ test('label 组装：四种 kind 均为 [<KindLabel>] <task title>（title 缺�
       ['implement', 'Implement'],
       ['check', 'Check'],
       ['frontend', 'Frontend'],
+      ['review', 'Review'],
     ]
     for (const [kind, kindLabel] of cases) {
       // title 缺省（undefined）：回退 task title「Test」
@@ -796,7 +797,7 @@ test('label 组装：四种 kind 均为 [<KindLabel>] <task title>（title 缺�
       })
       assert.equal(startCalls[startCalls.length - 1].label, `[${kindLabel}] Test`)
     }
-    assert.equal(startCalls.length, 4)
+    assert.equal(startCalls.length, 5)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -838,7 +839,7 @@ test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', a
   }
 })
 
-test('label 组装：title 传入时四种 kind 均为 [<KindLabel>] <title>', async () => {
+test('label 组装：title 传入时五种 kind 均为 [<KindLabel>] <title>', async () => {
   const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
@@ -848,6 +849,7 @@ test('label 组装：title 传入时四种 kind 均为 [<KindLabel>] <title>', a
       ['implement', 'Implement'],
       ['check', 'Check'],
       ['frontend', 'Frontend'],
+      ['review', 'Review'],
     ]
     for (const [kind, kindLabel] of cases) {
       await execute(execArgs({ kind, title: 'fix executor label prefix' }), {
@@ -859,7 +861,7 @@ test('label 组装：title 传入时四种 kind 均为 [<KindLabel>] <title>', a
         `[${kindLabel}] fix executor label prefix`,
       )
     }
-    assert.equal(startCalls.length, 4)
+    assert.equal(startCalls.length, 5)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1866,7 +1868,7 @@ test('s3-listener-guard: session/event 监听器内部异常只告警不冒泡',
   }
 })
 
-// ---------- research 写守卫（executor-guard.ts） ----------
+// ---------- 受限写执行器守卫（executor-guard.ts，WRITE_GUARDED_KINDS） ----------
 
 /** 构造最小可工作的项目根（仅含 .workloom 目录，守卫根解析用）。 */
 function makeGuardRoot() {
@@ -1875,7 +1877,7 @@ function makeGuardRoot() {
   return root
 }
 
-test('executor-guard：rebuildResearchChildIds 从任务 task.json dispatches 重建（排除 archive）', () => {
+test('executor-guard：rebuildWriteGuardChildIds 从任务 task.json dispatches 重建（排除 archive）', () => {
   const root = makeGuardRoot()
   try {
     const tasksDir = join(root, '.workloom', 'tasks')
@@ -1887,6 +1889,7 @@ test('executor-guard：rebuildResearchChildIds 从任务 task.json dispatches �
         dispatches: [
           { kind: 'research', childId: 'res-1' },
           { kind: 'implement', childId: 'impl-1' },
+          { kind: 'review', childId: 'rev-1' },
           { kind: 'research' },
         ],
       }),
@@ -1902,8 +1905,8 @@ test('executor-guard：rebuildResearchChildIds 从任务 task.json dispatches �
       join(tasksDir, 'archive', '2026-09', 't3', 'task.json'),
       JSON.stringify({ dispatches: [{ kind: 'research', childId: 'archived-res' }] }),
     )
-    const ids = rebuildResearchChildIds(root)
-    assert.deepEqual([...ids].sort(), ['res-1', 'res-2'])
+    const ids = rebuildWriteGuardChildIds(root)
+    assert.deepEqual([...ids].sort(), ['res-1', 'res-2', 'rev-1'])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1921,11 +1924,11 @@ test('executor-guard：重启后新派发先登记时先重建再加入新 id（
     )
     // 重启后新 research 派发先到：登记路径集合缺失时须先重建再加入新 id，
     // 否则仅含新 id 的集合占位后懒重建永不触发（旧子会话失守）。
-    const state = createResearchGuardState()
-    registerResearchChild(state, root, 'res-new')
+    const state = createWriteGuardState()
+    registerWriteGuardChild(state, root, 'res-new')
     assert.deepEqual([...state.byRoot.get(root)].sort(), ['res-new', 'res-old'])
     // 毒化场景闭环：旧 research 子会话越界 write 仍被守卫拒绝。
-    const guard = researchWriteGuard(state)
+    const guard = confinedWriteGuard(state)
     const denied = guard({
       name: 'write',
       arguments: { file_path: '/tmp/escape.md' },
@@ -1938,12 +1941,12 @@ test('executor-guard：重启后新派发先登记时先重建再加入新 id（
   }
 })
 
-test('executor-guard：researchWriteGuard 拒绝越界 write/edit、放行域内与非 research', () => {
+test('executor-guard：confinedWriteGuard 拒绝越界 write/edit、放行域内与非受守卫 kind', () => {
   const root = makeGuardRoot()
   try {
-    const state = createResearchGuardState()
-    registerResearchChild(state, root, 'res-child')
-    const guard = researchWriteGuard(state)
+    const state = createWriteGuardState()
+    registerWriteGuardChild(state, root, 'res-child')
+    const guard = confinedWriteGuard(state)
     const child = (name, filePath) => ({
       name,
       arguments: filePath !== undefined ? { file_path: filePath } : {},
@@ -1962,7 +1965,7 @@ test('executor-guard：researchWriteGuard 拒绝越界 write/edit、放行域内
     assert.equal(guard(child('edit', '.workloom/config.json')), undefined)
     // 非 write/edit 工具：放行。
     assert.equal(guard(child('bash', undefined)), undefined)
-    // 非 research 子代理：放行。
+    // 非受守卫 kind 子代理：放行。
     assert.equal(
       guard({
         name: 'write',
@@ -2011,7 +2014,41 @@ test('executor-guard 接线：research 派发登记子会话 id，守卫拒绝�
   }
 })
 
-test('executor-guard 接线：仅 research 派发登记（implement 派发不登记，越界 write 放行）', async () => {
+test('executor-guard 接线：review 派发登记子会话 id，守卫拒绝越界 write、放行域内', async () => {
+  const root = makeProject()
+  try {
+    const setup = setupExecutor()
+    const parent = makeAgent(root)
+    await setup.execute(
+      execArgs({ kind: 'review', title: 'review guard integration test' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(setup.guardRegistrations.length, 1)
+    const guard = setup.guardRegistrations[0]
+    const reviewChild = { id: 'child-1', session: { header: { cwd: root } } }
+    // review 子会话越界 write：拒绝（英文）。
+    const denied = guard({
+      name: 'write',
+      arguments: { file_path: '/tmp/escape.md' },
+      agent: reviewChild,
+    })
+    assert.ok(typeof denied === 'string', 'review child out-of-domain write must be denied')
+    assert.match(denied, /denied/)
+    // review 子会话域内 write（审查报告路径）：放行。
+    assert.equal(
+      guard({
+        name: 'write',
+        arguments: { file_path: '.workloom/tasks/test-task/plan-review.md' },
+        agent: reviewChild,
+      }),
+      undefined,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executor-guard 接线：仅受守卫 kind 派发登记（implement 派发不登记，越界 write 放行）', async () => {
   const root = makeProject()
   try {
     const setup = setupExecutor()

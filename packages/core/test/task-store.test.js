@@ -1276,7 +1276,7 @@ test('recordExecutorDispatch 同点更新 stage（implement/frontend→implement
   }
 })
 
-test('computeTaskStage 纯函数：四 kind 映射、research 保持 current、非法 kind 抛错', () => {
+test('computeTaskStage 纯函数：五 kind 映射、research/review 保持 current、非法 kind 抛错', () => {
   // implement/frontend → implement（无论 current）
   assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.implement), TaskStage.IMPLEMENT)
   assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.implement), TaskStage.IMPLEMENT)
@@ -1285,9 +1285,11 @@ test('computeTaskStage 纯函数：四 kind 映射、research 保持 current、�
   // check → check（无论 current）
   assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.check), TaskStage.CHECK)
   assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.check), TaskStage.CHECK)
-  // research 保持 current
+  // research/review 保持 current（规划期动作，不驱动阶段迁移）
   assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.research), TaskStage.IMPLEMENT)
   assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.research), TaskStage.CHECK)
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.review), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.review), TaskStage.CHECK)
   // 非法 kind（含 undefined）抛错（fail loud）
   assert.throws(() => computeTaskStage(TaskStage.IMPLEMENT, 'bogus'), /invalid kind/)
   assert.throws(() => computeTaskStage(TaskStage.IMPLEMENT, undefined), /invalid kind/)

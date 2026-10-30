@@ -1,8 +1,8 @@
 /**
  * executor-context 单测：上下文注入组装的段落白名单/分层协议/统计/报错行为（临时项目目录）。
  *
- * 覆盖：四种 kind 段落白名单与顺序（Task prompt 在 Local directives 之后、contract 末段）；
- * check/research 物化 prd 块、implement/frontend 物化 prd 软指针（无全文、无 H2 目录预览）；
+ * 覆盖：五种 kind 段落白名单与顺序（Task prompt 在 Local directives 之后、contract 末段）；
+ * check/research/review 物化 prd 块、implement/frontend 物化 prd 软指针（无全文、无 H2 目录预览）；
  * `## Involved files` 段全 kind 删除；指针行无「read before acting」后缀；
  * 分层按需加载协议句（回声句后半逐字保留、禁 upfront 通读）；research 只含 prd；
  * 末尾终极权威段（kind 纪律段 + leaf 规则 + 权威声明）的注入位置/去重/分级语义；
@@ -63,6 +63,7 @@ test('常量导出：effort 档位与 executor kind 枚举', () => {
     implement: 'implement',
     check: 'check',
     frontend: 'frontend',
+    review: 'review',
   })
 })
 
@@ -392,7 +393,7 @@ function directiveHeading(kind) {
   return `### ${kind.charAt(0).toUpperCase()}${kind.slice(1)} executor directives`
 }
 
-test('四种 kind 纪律段均并入末尾权威段（kind 子标题 + 正文硬指令）', () => {
+test('五种 kind 纪律段均并入末尾权威段（kind 子标题 + 正文硬指令）', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
@@ -400,6 +401,7 @@ test('四种 kind 纪律段均并入末尾权威段（kind 子标题 + 正文硬
       research: 'Ground every conclusion in the real source',
       implement: 'Make the smallest change that satisfies the requirement',
       check: 'Classify every finding by severity',
+      review: 'Audit the plan (plan.md) before implementation starts',
       frontend: 'Touch frontend files only',
     }
     for (const kind of Object.keys(bodyKeywords)) {
@@ -923,8 +925,8 @@ const NO_USER_CHANNEL_DISCIPLINE =
   'On a gap you cannot resolve, stop and list every open question as a blocking item in your final report; ' +
   'the main session batches them to the user.'
 
-/** research 写/编辑路径限制告知句（research 纪律段专属，逐字，机制强制前置告知）。 */
-const RESEARCH_WRITE_SCOPE_DISCIPLINE =
+/** 写/编辑路径限制告知句（research/review 纪律段共用，与实现逐字同源，机制强制前置告知）。 */
+const WRITE_SCOPE_DISCIPLINE =
   'Your write/edit reach is confined to the .workloom/ directory: paths ' + 'outside it are denied.'
 
 /** 规定式计划执行纪律句（implement/frontend 纪律段共用，与实现逐字同源）。 */
@@ -1019,14 +1021,14 @@ function stripMarkerLine(text) {
     .join('\n')
 }
 
-test('S5 护栏：四种 kind 纪律段均含强制加载协议句（逐字）；注入含唯一 marker token（两次派发不同）', () => {
+test('S5 护栏：五种 kind 纪律段均含强制加载协议句（逐字）；注入含唯一 marker token（两次派发不同）', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     writeTaskFile(root, 'plan.md', '# Plan\n')
     writeTaskFile(root, 'implement.jsonl', '{"file": "packages/a.js", "reason": "spec"}\n')
     writeRootFile(root, 'packages/a.js', 'const a = 1\n')
-    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+    for (const kind of ['research', 'implement', 'check', 'frontend', 'review']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       // 纪律段含强制加载协议句（逐字断言，与契约 assets 同句）
@@ -1057,11 +1059,11 @@ test('S5 护栏：四种 kind 纪律段均含强制加载协议句（逐字）�
   }
 })
 
-test('纪律两句：四种 kind 纪律段均含「无用户通道」共用句（逐字，命令式无弱化词）', () => {
+test('纪律两句：五种 kind 纪律段均含「无用户通道」共用句（逐字，命令式无弱化词）', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+    for (const kind of ['research', 'implement', 'check', 'frontend', 'review']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       // 纪律段并入末尾权威段：从 `## Executor contract` 起提取全文逐字断言
@@ -1077,26 +1079,28 @@ test('纪律两句：四种 kind 纪律段均含「无用户通道」共用句�
   }
 })
 
-test('research 路径句：research 纪律段含 .workloom/ 路径限制告知句（逐字），其余 kind 不含', () => {
+test('写范围句：research/review 纪律段含 .workloom/ 路径限制告知句（逐字），其余 kind 不含', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
-    assert.equal(err, null)
-    const contractAt = result.text.indexOf('## Executor contract')
-    const section = result.text.slice(contractAt)
-    assert.ok(
-      section.includes(RESEARCH_WRITE_SCOPE_DISCIPLINE),
-      'research discipline must carry the write-scope sentence verbatim',
-    )
+    for (const kind of ['research', 'review']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+      assert.equal(err, null)
+      const contractAt = result.text.indexOf('## Executor contract')
+      const section = result.text.slice(contractAt)
+      assert.ok(
+        section.includes(WRITE_SCOPE_DISCIPLINE),
+        `${kind} discipline must carry the write-scope sentence verbatim`,
+      )
+    }
     for (const kind of ['implement', 'check', 'frontend']) {
       const [kErr, kResult] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(kErr, null)
       const kContractAt = kResult.text.indexOf('## Executor contract')
       const kSection = kResult.text.slice(kContractAt)
       assert.ok(
-        !kSection.includes(RESEARCH_WRITE_SCOPE_DISCIPLINE),
-        `${kind} discipline must not carry the research write-scope sentence`,
+        !kSection.includes(WRITE_SCOPE_DISCIPLINE),
+        `${kind} discipline must not carry the write-scope sentence`,
       )
     }
   } finally {
@@ -1129,7 +1133,7 @@ function writeFullFixture(root) {
 const ECHO_PROTOCOL_HALF =
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
 
-test('段落白名单与顺序：四种 kind 按 prd Requirements 1 组装，Task prompt 在 Local directives 之后、contract 恒末段', () => {
+test('段落白名单与顺序：五种 kind 按 prd Requirements 1 组装，Task prompt 在 Local directives 之后、contract 恒末段', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
@@ -1138,7 +1142,7 @@ test('段落白名单与顺序：四种 kind 按 prd Requirements 1 组装，Tas
       assert.ok(at !== -1, `missing section: ${needle}`)
       return at
     }
-    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+    for (const kind of ['research', 'implement', 'check', 'frontend', 'review']) {
       const [err, result] = buildExecutorPrompt({
         ...baseParams(root, kind),
         localDirectives: 'LOCAL_FRAGMENT',
@@ -1164,8 +1168,8 @@ test('段落白名单与顺序：四种 kind 按 prd Requirements 1 组装，Tas
       const prdBlockAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
       const pointerAt = text.indexOf(POINTER_LIST_HEADING)
       const softAt = text.indexOf(PRD_SOFT_POINTER_LINE)
-      if (kind === 'check' || kind === 'research') {
-        // prd 块物化（check/research），位于 pointer list（research 无此段）之前
+      if (kind === 'check' || kind === 'research' || kind === 'review') {
+        // prd 块物化（check/research/review），位于 pointer list（research 无此段）之前
         assert.ok(prdBlockAt !== -1 && prdBlockAt < materialsAt, kind)
         assert.ok(text.includes('REQ_BODY_MARKER'), kind)
       } else {
@@ -1213,11 +1217,11 @@ test('prd 软指针行缺失保护：prd.md 不存在时 implement/frontend 不�
   }
 })
 
-test('分层加载协议句：四种 kind contract 段均含分层语义 + 回声句后半逐字保留', () => {
+test('分层加载协议句：五种 kind contract 段均含分层语义 + 回声句后半逐字保留', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+    for (const kind of ['research', 'implement', 'check', 'frontend', 'review']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, kind))
       assert.equal(err, null)
       const section = result.text.slice(result.text.indexOf('## Executor contract'))
@@ -1359,5 +1363,38 @@ test('S2 worktree 零 diff：worktree_path 空串 / task.json 损坏（readTask 
     for (const root of Object.values(roots)) {
       rmSync(root, { recursive: true, force: true })
     }
+  }
+})
+
+/** review 纪律段关键句（与实现逐字同源：四维职责、分级口径、报告约定、边界句）。 */
+const REVIEW_DISCIPLINE_PINS = [
+  'Audit the plan (plan.md) before implementation starts',
+  "code review after implementation is the check executor's job, and you never fix code",
+  '- Conformance:',
+  '- Fidelity:',
+  '- Feasibility:',
+  '- Quality:',
+  'P0 = executing the plan as written must fail or violates acceptance',
+  'Write the report to plan-review.md in the task directory (append a new section per round)',
+  'The plan, the prd, and all code files stay untouched by you.',
+]
+
+test('review 纪律段：四维审查、分级口径、报告约定与不改文件边界句逐字固定', () => {
+  const root = makeProject()
+  try {
+    writeTaskFile(root, 'prd.md', '# PRD\n')
+    writeTaskFile(root, 'plan.md', '# Plan\n')
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'review'))
+    assert.equal(err, null)
+    const section = result.text.slice(result.text.indexOf('## Executor contract'))
+    for (const pin of REVIEW_DISCIPLINE_PINS) {
+      assert.ok(section.includes(pin), `review discipline must carry: ${pin}`)
+    }
+    // review 属 prd 内联组且带 Pointer list（plan.md 指针），无 prd 软指针
+    assert.ok(result.text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
+    assert.ok(result.text.includes('- .workloom/tasks/08-24-demo/plan.md'))
+    assert.ok(!result.text.includes('consult .workloom/'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
   }
 })

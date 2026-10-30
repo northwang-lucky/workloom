@@ -3,7 +3,7 @@
  *
  * 设计意图：
  * - 会话上下文注入把「当前生效的执行器配置」摊给主会话看（本任务的治理盲区）：
- *   四个 kind 全量展示；配置命中的行给出 model/effort/tools 摘要与来源层标注，
+ *   五个 kind 全量展示；配置命中的行给出 model/effort/tools 摘要与来源层标注，
  *   未配置的行标注继承父会话模型；首行带主会话模型，取不到时 whenMain 条目跳过；
  * - 画像解析复用 config.js 的 resolveSubagentDefaults（单一解析链，不造第二套）；
  *   tools 仅随命中 subagent_profiles 条目透出（legacy 层不支持 tools）；
@@ -70,7 +70,7 @@ function normalizeMainModel(mainModel) {
 /**
  * 组装单个 kind 的画像行（内部）：配置命中（model/effort 任一来自配置，或 tools
  * 任一侧非空）时拼 model/effort/tools/source 四段；全部未配置时输出继承文案。
- * @param {string} kind executor 类型（research/implement/check/frontend）
+ * @param {string} kind executor 类型（research/implement/check/frontend/review）
  * @param {import('./config.d.ts').ResolveSubagentDefaultsResult} resolved 解析结果
  * @param {import('./config.d.ts').WorkloomConfig} config 配置对象（含来源层字段）
  * @returns {string} 画像行

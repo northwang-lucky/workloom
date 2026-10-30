@@ -31,7 +31,7 @@ import {
 } from '../src/executor.ts'
 import { buildChildPiArgs } from '../src/pi-args.ts'
 import { PI_LSP_SOURCE } from '../src/pi-tools.ts'
-import researchScope from '../assets/research-scope.ts'
+import writeScope from '../assets/write-scope.ts'
 
 test('appendExecutorReceipt: 非空文本尾部追加 receipt 行', () => {
   const text = '子代理输出内容'
@@ -397,6 +397,7 @@ function makeLspFragmentsRoot(): string {
   writeFileSync(join(promptsDir, 'implement.md'), 'IMPLEMENT-LSP-FRAGMENT')
   writeFileSync(join(promptsDir, 'check.md'), 'CHECK-LSP-FRAGMENT')
   writeFileSync(join(promptsDir, 'frontend.md'), 'FRONTEND-LSP-FRAGMENT')
+  writeFileSync(join(promptsDir, 'review.md'), 'REVIEW-LSP-FRAGMENT')
   return root
 }
 
@@ -424,13 +425,14 @@ test('buildExecutorPromptWithPi: hasLsp=true → 产物含 Local directives 与 
   }
 })
 
-test('buildExecutorPromptWithPi: 命中时 check/frontend kind 各自注入对应片段（TC3）', () => {
+test('buildExecutorPromptWithPi: 命中时 check/frontend/review kind 各自注入对应片段（TC3）', () => {
   const root = makeLspFragmentsRoot()
   try {
     for (const [kind, mark] of [
       ['implement', 'IMPLEMENT-LSP-FRAGMENT'],
       ['check', 'CHECK-LSP-FRAGMENT'],
       ['frontend', 'FRONTEND-LSP-FRAGMENT'],
+      ['review', 'REVIEW-LSP-FRAGMENT'],
     ] as const) {
       const [err, result] = buildExecutorPromptWithPi(
         {
@@ -565,18 +567,18 @@ test('接线：childHasLsp 驱动 PI_LSP_SOURCE 的 -e 按需加载（allow 含 
   assert.ok(hitArgs.includes('npm:@narumitw/pi-lsp'))
 })
 
-test('research-scope 扩展：同名 write/edit 副本，域内成功、越界拒绝（英文）', async () => {
+test('write-scope 扩展：同名 write/edit 副本，域内成功、越界拒绝（英文）', async () => {
   const registered: Record<string, { execute: (...args: unknown[]) => Promise<unknown> }> = {}
   const mockPi = {
     registerTool: (tool: { name: string; execute: (...args: unknown[]) => Promise<unknown> }) => {
       registered[tool.name] = tool
     },
   } as unknown as ExtensionAPI
-  researchScope(mockPi)
+  writeScope(mockPi)
   const write = registered['write']
   const edit = registered['edit']
   assert.ok(write && edit, 'same-name write/edit must be registered')
-  const root = mkdtempSync(join(tmpdir(), 'pi-research-scope-'))
+  const root = mkdtempSync(join(tmpdir(), 'pi-write-scope-'))
   try {
     const ctx = { cwd: root }
     // 域内 write：成功落盘。

@@ -163,6 +163,10 @@ test('config.example.json 覆盖 DEFAULT_CONFIG 全部字段键（含 tools，�
       'subagents.implement.effort',
       'subagents.check.model',
       'subagents.check.effort',
+      'subagents.frontend.model',
+      'subagents.frontend.effort',
+      'subagents.review.model',
+      'subagents.review.effort',
     ]) {
       assert.ok(examplePaths.has(path), `missing ${path} in config.example.json`)
     }

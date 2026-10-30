@@ -41,12 +41,13 @@ test('buildChildPiArgs: frontend 角色注入 frontend 系统提示词', () => {
   assert.equal(args[8], EXECUTOR_AGENT_DEFINITIONS.frontend?.systemPrompt)
 })
 
-test('buildChildPiArgs: title 语义化（四种 kind 标签）', () => {
+test('buildChildPiArgs: title 语义化（五种 kind 标签）', () => {
   for (const [kind, label] of [
     ['research', 'Research'],
     ['implement', 'Implement'],
     ['check', 'Check'],
     ['frontend', 'Frontend'],
+    ['review', 'Review'],
   ] as const) {
     const args = buildChildPiArgs({ kind, root: TEST_ROOT, title: 'my task' })
     assert.equal(args[6], `[${label}] my task`)

@@ -25,7 +25,7 @@ export interface ChildRegistryEntry {
   connection?: RpcConnection
   /** 子进程句柄 */
   child: ChildProcess
-  /** executor 类型（research/implement/check/frontend） */
+  /** executor 类型（research/implement/check/frontend/review） */
   kind: string
   /** 项目根 */
   root: string

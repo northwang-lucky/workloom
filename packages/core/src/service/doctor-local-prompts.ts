@@ -120,10 +120,10 @@ function scanPromptDir(
           title: 'Unknown prompt file',
           severity: 'warn',
           task: null,
-          message: `Unknown prompt file name: ${entry.name}; only main/research/implement/check/frontend/all .md files are injected.`,
+          message: `Unknown prompt file name: ${entry.name}; only main/research/implement/check/frontend/review/all .md files are injected.`,
           path: relPath,
           fixable: false,
-          hint: 'Rename the file to one of main.md, research.md, implement.md, check.md, frontend.md, all.md, or move it elsewhere.',
+          hint: 'Rename the file to one of main.md, research.md, implement.md, check.md, frontend.md, review.md, all.md, or move it elsewhere.',
         }),
       )
       continue

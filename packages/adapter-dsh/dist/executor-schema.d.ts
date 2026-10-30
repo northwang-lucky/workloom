@@ -19,7 +19,7 @@ export declare function buildExecutorSchema(desc: typeof PARAM_DESCRIPTIONS): {
     properties: {
         kind: {
             type: string;
-            description: "Executor role: research, implement, check, or frontend";
+            description: "Executor role: research, implement, check, frontend, or review";
         };
         taskPath: {
             type: string;

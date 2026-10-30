@@ -4,7 +4,7 @@
 export interface RunningExecutorRecord {
   /** 子代理唯一标识（同一 childId 多条记录合并占 1 槽）。 */
   childId: string
-  /** executor 类型（research/implement/check/frontend）。 */
+  /** executor 类型（research/implement/check/frontend/review）。 */
   kind: string
   /**
    * 该 child 绑定的模型 label（同类并发轮换的占用统计用；容量判定不读该字段，

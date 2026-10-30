@@ -111,9 +111,9 @@ export const EXECUTOR_PARAMS = Type.Object({
 /** 当前 runtime 名（subagents.model map 形式的取值 key，与 core 的 runtime 参数对齐）。 */
 const PI_RUNTIME = 'pi'
 
-/** research 子代理的 write/edit 范围限定扩展（随包发布，-e 显式加载用绝对路径）。 */
-const RESEARCH_SCOPE_EXTENSION = fileURLToPath(
-  new URL('../assets/research-scope.ts', import.meta.url),
+/** 受限写 kind（research/review）的 write/edit 范围限定扩展（随包发布，-e 显式加载用绝对路径）。 */
+const WRITE_SCOPE_EXTENSION = fileURLToPath(
+  new URL('../assets/write-scope.ts', import.meta.url),
 )
 
 /** force 覆盖记录失败告警前缀（记录失败只 WARNING，不阻塞派发）。 */
@@ -468,7 +468,7 @@ async function executeTool(
   }
   const loadExtensions: string[] = []
   if (allowInfo.childHasLsp) loadExtensions.push(PI_LSP_SOURCE)
-  if (params.kind === 'research') loadExtensions.push(RESEARCH_SCOPE_EXTENSION)
+  if (params.kind === 'research' || params.kind === 'review') loadExtensions.push(WRITE_SCOPE_EXTENSION)
   // 续用（M2 continue_executor）：定位 → 三分支投递（存活 idle→prompt；存活
   // streaming→steer；不存活→--session 重启续接后 prompt）。
   if (params.continue_executor !== undefined) {

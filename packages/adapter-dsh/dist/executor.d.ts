@@ -2,7 +2,7 @@
  * adapter-dsh 的 executor 工具：把 workloom 任务上下文组装成子代理首条 prompt 并派发。
  *
  * 设计意图：
- * - 暴露一个模型可见工具 workloom_execute：按 kind（research/implement/check/frontend）用
+ * - 暴露一个模型可见工具 workloom_execute：按 kind（research/implement/check/frontend/review）用
  *   core 的 buildExecutorPrompt 组装上下文，经 ctx.subagents.startContinuable（spawn，
  *   in-process）派发 continuable 子代理；
  * - 派发只有后台语义：startContinuable 接受初始 prompt 后立即返回
@@ -47,9 +47,9 @@
  *   派发前校验 provider 的 toolFilter capability，缺失时 fail loud（不静默丢弃），
  *   startContinuable reject 的 UNSUPPORTED_CAPABILITY 同样转为清晰英文错误兜底；
  *   回执注入统计同行追加 `, K tools allowed`（K = 实际下发 allow 集大小）；
- * - research 写守卫（executor-guard.ts）：插件激活时注册一次，research 子代理的
- *   write/edit 只允许落在其 cwd 的 .workloom/ 内（越界拒绝），派发成功时登记
- *   子会话身份，重启后守卫按任务记录懒重建；
+ * - 受限写执行器守卫（executor-guard.ts，WRITE_GUARDED_KINDS = research/review）：
+ *   插件激活时注册一次，受限 kind 子代理的 write/edit 只允许落在其 cwd 的
+ *   .workloom/ 内（越界拒绝），派发成功时登记子会话身份，重启后守卫按任务记录懒重建；
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：后台 receipt
  *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨；同步走链成功时追加
  *   (failover attempt N: <model>) 标注实际生效模型。

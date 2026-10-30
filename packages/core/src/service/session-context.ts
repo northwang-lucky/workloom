@@ -213,7 +213,7 @@ function loadConfigSafely(root: string): WorkloomConfig | null {
 }
 
 /**
- * 组装 Executor profiles 节（内部）：复用 renderExecutorProfilesSection 渲染四个
+ * 组装 Executor profiles 节（内部）：复用 renderExecutorProfilesSection 渲染五个
  * kind 画像；配置缺失（解析失败已降级为 null）或画像解析失败（如 per-runtime
  * model 缺 runtime）时整节不输出。
  * @param params 入参（mainModel 供 whenMain 匹配与标题展示）

@@ -1,10 +1,10 @@
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
 import { SessionId } from '@deepseek-ai/dsh-session';
-import { assertEffort, assertForceReason, buildConflictNotice, buildNewDispatchBinding, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, DISPATCH_MODEL_SOURCES, ERR_PREFIX, evaluateStaleAlignmentGate, evaluateLightDispatchGate, EXECUTOR_KINDS, findWorkloomRoot, GATES, loadConfig, materializeRingChain, PARENT_MODEL_LABEL, PARAM_DESCRIPTIONS, readTask, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, resolveSubagentDefaults, resolveTaskRelPath, selectRotationStartIndex, splitProviderModel, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { assertEffort, assertForceReason, buildConflictNotice, buildNewDispatchBinding, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, DISPATCH_MODEL_SOURCES, ERR_PREFIX, evaluateStaleAlignmentGate, evaluateLightDispatchGate, findWorkloomRoot, GATES, loadConfig, materializeRingChain, PARENT_MODEL_LABEL, PARAM_DESCRIPTIONS, readTask, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, resolveSubagentDefaults, resolveTaskRelPath, selectRotationStartIndex, splitProviderModel, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX, DISPATCH_WARN_PREFIX } from './constants.js';
 import { assertAllowListNonEmpty, buildAllowFilter, hasLspTooling } from './executor-dispatch.js';
 import { collectRunningExecutors, collectUsedModels, evaluateCapacityGate, generateDispatchSeq, registerInFlightDispatch, releaseInFlightDispatch, } from './executor-capacity.js';
-import { registerResearchChildId, registerResearchGuard } from './executor-guard.js';
+import { registerWriteGuard, registerWriteGuardChildId, WRITE_GUARDED_KINDS } from './executor-guard.js';
 import { buildTurnReceiptText, locateContinueChildId, readSpawnBinding, } from './executor-continuation.js';
 import { handleSettledDispatch, markFailoverContinued, registerFailoverContext, startDispatchWithFailover, } from './executor-failover.js';
 import { buildFallbackAgentOptions } from './executor-failover-chain.js';
@@ -32,8 +32,8 @@ export function registerExecutor(ctx) {
         isConcurrencySafe: () => true,
         execute: (args, exec) => executeTool(ctx, args, exec),
     });
-    // research 写守卫：插件激活时注册一次（机制强制面：research 只能写 <cwd>/.workloom/）。
-    registerResearchGuard(ctx);
+    // 受限写执行器守卫：插件激活时注册一次（机制强制面：受限 kind 只能写 <cwd>/.workloom/）。
+    registerWriteGuard(ctx);
     // 派发终态回填通道：全局 subagent/end 监听按 childId 自动回填 dispatches 终态
     // （register 自绑定 fiber 生命周期，插件卸载自动清理）；settle 完成后接失败转移
     // 钩子（模型不可访问时按 fallback_models 链新开会话重派）。
@@ -438,9 +438,9 @@ async function executeTool(ctx, args, exec) {
             hasLsp,
         });
     }
-    // research 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
-    if (params.kind === EXECUTOR_KINDS.research) {
-        registerResearchChildId(root, childId);
+    // 受限写 kind 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
+    if (WRITE_GUARDED_KINDS.includes(params.kind)) {
+        registerWriteGuardChildId(root, childId);
     }
     // 派发只有后台语义：返回子代理标识 + 完整 receipt（注入统计派发前已就绪），
     // 不等待 turn 结算；完成报告由 subagent-settled 通知异步送达。

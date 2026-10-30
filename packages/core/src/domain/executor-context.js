@@ -3,12 +3,12 @@
  *
  * 设计意图（注入瘦身任务 09-22：段落白名单 + 分层加载协议）：
  * - 子代理派发前组装首条 prompt，段落按 kind 白名单统一排序：任务标注 + 注入
- *   marker → （check/research：prd 全文节块）→ Pointer list（research 无；首行为
+ *   marker → （check/research/review：prd 全文节块）→ Pointer list（research 无；首行为
  *   plan.md 纯指针行，后接 jsonl 条目）→ Research materials → （implement/
  *   frontend：prd 软指针行）→ （worktree_path 非空：`## Worktree` 纪律段）→
  *   Local directives → Task prompt → Executor contract；
  * - 指针化（体积压到指针级）：jsonl 条目、research/*.md、plan.md 均只给
- *   「路径 + reason」指针行，无逐行读后判后缀；prd 仅 check/research 物化
+ *   「路径 + reason」指针行，无逐行读后判后缀；prd 仅 check/research/review 物化
  *   Requirements/Acceptance 全文 + 其余节标题指针（验收基线/问题框架，职责必需），
  *   implement/frontend 只出软指针行（有歧义时按需查阅，非必读）；
  * - 分层加载协议（取代开工前强制全读）：开工前必读计划 artifact，其余指针步骤
@@ -38,12 +38,13 @@ export const EXECUTOR_KINDS = Object.freeze({
   implement: 'implement',
   check: 'check',
   frontend: 'frontend',
+  review: 'review',
 })
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom executor context'
 
-/** prd 文件名（唯一物化 artifact：check/research 内联全文节块，implement/frontend 软指针）。 */
+/** prd 文件名（唯一物化 artifact：check/research/review 内联全文节块，implement/frontend 软指针）。 */
 const PRD_ARTIFACT = 'prd.md'
 
 /** Pointer list 首部的 artifact 指针文件名（按顺序；文件缺失不出行）。 */
@@ -56,6 +57,8 @@ const JSONL_FILES = Object.freeze({
   [EXECUTOR_KINDS.check]: 'check.jsonl',
   // frontend 上下文同 implement：plan.md 指针 + implement.jsonl。
   [EXECUTOR_KINDS.frontend]: 'implement.jsonl',
+  // review 审计划：与 implement 阶段消费同一批 spec（复用 implement.jsonl）。
+  [EXECUTOR_KINDS.review]: 'implement.jsonl',
 })
 
 /** 文件块分隔模板：--- <path> ---（path 相对项目根）。 */
@@ -216,11 +219,11 @@ const NO_USER_CHANNEL_DISCIPLINE =
   'the main session batches them to the user.'
 
 /**
- * research 写/编辑路径限制告知句（research 纪律段专属，机制强制的前置告知）：
- * DSH 守卫与 Pi 同名副本扩展（均为同名覆盖）把 research 的 write/edit 限定在
- * <cwd>/.workloom/ 内，越界拒绝。
+ * 写/编辑路径限制告知句（research/review 纪律段共用，机制强制的前置告知）：
+ * DSH 守卫（WRITE_GUARDED_KINDS 集合）与 Pi write-scope 副本扩展（同名覆盖）
+ * 把受限写 kind 的 write/edit 限定在 <cwd>/.workloom/ 内，越界拒绝。
  */
-const RESEARCH_WRITE_SCOPE_DISCIPLINE =
+const WRITE_SCOPE_DISCIPLINE =
   'Your write/edit reach is confined to the .workloom/ directory: paths ' + 'outside it are denied.'
 
 /** 注入标记行前缀（行内 token 唯一标识一次派发注入，随指针清单注入）。 */
@@ -251,7 +254,7 @@ export const EXECUTOR_CONTRACT_BY_KIND = Object.freeze({
 Ground every conclusion in the real source: read the actual files or data before claiming a fact; cite file paths.
 Separate verified findings from suggestions, and mark anything unverified as such.
 ${LSP_RESEARCH_BASELINE_SENTENCE}
-${RESEARCH_WRITE_SCOPE_DISCIPLINE}
+${WRITE_SCOPE_DISCIPLINE}
 
 Structure the report in research-facts blocks (see the research-facts spec and its template asset):
 - Use '##' section headings, each heading stating the section's takeaway in one sentence.
@@ -276,6 +279,20 @@ Fix P2 yourself — an unfixed P2 is a dereliction of duty. Do not fix P0/P1; es
 - <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>
 Write "- none" when no issue remains.
 After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
+${LSP_BASELINE_SENTENCE}
+${BATCHING_DISCIPLINE}
+${COMPACT_OUTPUT_DISCIPLINE}
+${CONSULT_MATERIALS_ON_DEMAND_RULE}
+${INJECTION_PROTOCOL_DISCIPLINE}`,
+  [EXECUTOR_KINDS.review]: `Audit the plan (plan.md) before implementation starts; code review after implementation is the check executor's job, and you never fix code.
+Audit in four dimensions, item by item:
+- Conformance: the plan meets the prescriptive authoring bar — every step anchored to a file, a symbol, and exact code, and every step verifiable.
+- Fidelity: every prd acceptance criterion is covered by the steps' Covers lines; alignment decisions are honored; nothing drifts beyond scope; prd format gaps (missing R/AC numbers or verification methods) are findings.
+- Feasibility: verify anchors against the real code — files exist, symbols resolve, before-snippets locate uniquely, after-code fits its context, and verification commands run; read the actual files (LSP first where available) before claiming a fact.
+- Quality: the planned approach complies with the referenced specs, reuses existing utilities, and weighs better alternatives.
+Classify every finding: P0 = executing the plan as written must fail or violates acceptance; P1 = feasibility risk or a clearly better approach not adopted; P2 = imprecise wording or incomplete references.
+Write the report to plan-review.md in the task directory (append a new section per round); every finding carries its severity, the plan anchor, and a fix suggestion. The plan, the prd, and all code files stay untouched by you.
+${WRITE_SCOPE_DISCIPLINE}
 ${LSP_BASELINE_SENTENCE}
 ${BATCHING_DISCIPLINE}
 ${COMPACT_OUTPUT_DISCIPLINE}
@@ -401,9 +418,13 @@ function buildInternal(params) {
     `${ACTIVE_TASK_PREFIX}${params.taskRelPath}\n${buildInjectionMarkerLine(params.taskRelPath)}`,
   ]
   const taskDir = insideWorkloom(params.root, params.taskRelPath)
-  // check/research 物化 prd 全文节块（验收基线/问题框架，职责必需）；implement/
-  // frontend 不物化 prd（下方软指针行代替，正文按需查阅）。
-  if (params.kind === EXECUTOR_KINDS.check || params.kind === EXECUTOR_KINDS.research) {
+  // check/research/review 物化 prd 全文节块（验收基线/问题框架/审查对象，职责必需）；
+  // implement/frontend 不物化 prd（下方软指针行代替，正文按需查阅）。
+  if (
+    params.kind === EXECUTOR_KINDS.check ||
+    params.kind === EXECUTOR_KINDS.research ||
+    params.kind === EXECUTOR_KINDS.review
+  ) {
     inlinePrdArtifact(parts, params.taskRelPath, taskDir, ci, stats)
   }
   // Pointer list（research 无此段）：首行固定 plan.md 纯指针行（文件缺失
@@ -494,7 +515,7 @@ function buildWorktreeSection(root, taskRelPath) {
 }
 
 /**
- * 内联 prd.md 全文节块（check/research 专有；验收基线与偏差判定依据，职责必需）：
+ * 内联 prd.md 全文节块（check/research/review 共用；验收基线/偏差判定/审查对象，职责必需）：
  * 按节提取注入，文件缺失跳过；块文本写入 parts；返回实际写入的字节数（缺失为 0）。
  * Requirements/Acceptance 两节全文保留，其余节只留标题指针；按 maxArtifactBytes
  * 截断（预算兜底）。

@@ -3,14 +3,14 @@
 /** effort 合法档位（low/medium/high/xhigh/max）。 */
 export const EFFORT_LEVELS: readonly string[]
 
-/** executor 类型枚举（research/implement/check/frontend）。 */
+/** executor 类型枚举（research/implement/check/frontend/review）。 */
 export const EXECUTOR_KINDS: Readonly<
-  Record<'research' | 'implement' | 'check' | 'frontend', string>
+  Record<'research' | 'implement' | 'check' | 'frontend' | 'review', string>
 >
 
 /** 按 kind 的执行器纪律段正文（硬指令，并入注入文本末尾的终极权威段）。 */
 export const EXECUTOR_CONTRACT_BY_KIND: Readonly<
-  Record<'research' | 'implement' | 'check' | 'frontend', string>
+  Record<'research' | 'implement' | 'check' | 'frontend' | 'review', string>
 >
 
 /** 校验 effort 档位；undefined 通过；非法值抛 Error。 */
@@ -35,7 +35,7 @@ export interface BuildExecutorPromptParams {
   root: string
   /** 任务目录相对 .workloom 的路径（如 tasks/08-24-demo）。 */
   taskRelPath: string
-  /** executor 类型（research/implement/check/frontend）。 */
+  /** executor 类型（research/implement/check/frontend/review）。 */
   kind: string
   /** 用户任务正文（拼在 prompt 末尾的 ## Task prompt 节）。 */
   userPrompt: string
@@ -54,7 +54,7 @@ export interface BuildExecutorPromptParams {
 
 /** 组装统计：内联/指针/截断计数。 */
 export interface ExecutorPromptStats {
-  /** 注入的 artifact 块数（现仅 check/research 物化的 prd 全文节块）。 */
+  /** 注入的 artifact 块数（现仅 check/research/review 物化的 prd 全文节块）。 */
   filesInlined: number
   /**
    * 指针引用条数（plan.md 纯指针行 + implement/frontend 的 prd 软指针行

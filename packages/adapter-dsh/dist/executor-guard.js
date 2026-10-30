@@ -1,12 +1,12 @@
 /**
- * adapter-dsh 的 research 子代理 write/edit 范围守卫（机制强制面）。
+ * adapter-dsh 的受限写执行器 write/edit 范围守卫（机制强制面）。
  *
  * 设计意图：
- * - research 子代理只允许写 `<cwd>/.workloom/` 内路径：插件激活时经
- *   ctx.tools.guard 注册一次守卫，按派发登记的 research 子会话身份识别
- *   （executor.ts 派发成功时加入，不移除）；
+ * - 受限写 kind（WRITE_GUARDED_KINDS：research/review）只允许写 `<cwd>/.workloom/`
+ *   内路径：插件激活时经 ctx.tools.guard 注册一次守卫，按派发登记的子会话身份
+ *   识别（executor.ts 派发成功时加入，不移除）；
  * - dsh 重启后内存身份集为空：任一触发点（守卫判定或派发登记）按项目懒
- *   重建——遍历非归档任务全部 research dispatches，不区分活跃/已结算；
+ *   重建——遍历非归档任务全部受守卫 kind 的 dispatches，不区分活跃/已结算；
  *   登记路径缺失集合时先重建再加入新 id，防止新派发先到以空集占位导致
  *   旧子会话失守（等价「插件激活时重建」的持久化语义）；
  * - write/edit 均判 execution.arguments.file_path（DSH 文件工具参数名）；
@@ -25,18 +25,23 @@ const WORKLOOM_DIR = '.workloom';
 const TASKS_DIR = 'tasks';
 /** 归档目录名（重建时排除 archive 目录下的任务）。 */
 const ARCHIVE_DIR = 'archive';
+/** 受写守卫的 kind 集合（research 写调研产物、review 写审查报告，均限 .workloom/ 内）。 */
+export const WRITE_GUARDED_KINDS = Object.freeze([
+    EXECUTOR_KINDS.research,
+    EXECUTOR_KINDS.review,
+]);
 /** 创建空的守卫状态（每插件激活一份；重启后按项目懒重建）。 */
-export function createResearchGuardState() {
+export function createWriteGuardState() {
     return { byRoot: new Map() };
 }
 /**
- * 从项目 task.json dispatches 重建 research 子代理 id 集（纯函数，可单测）。
+ * 从项目 task.json dispatches 重建受限写子代理 id 集（纯函数，可单测）。
  * 扫描项目 `<root>/.workloom/tasks/` 下各任务目录的 task.json（archive 目录
- * 排除），收集 dispatches 中 kind === 'research' 且 childId 非空的 childId。
+ * 排除），收集 dispatches 中 kind ∈ WRITE_GUARDED_KINDS 且 childId 非空的 childId。
  * @param root 项目根
- * @returns 重建的 research 子代理 id 集（可能为空集）
+ * @returns 重建的受限写子代理 id 集（可能为空集）
  */
-export function rebuildResearchChildIds(root) {
+export function rebuildWriteGuardChildIds(root) {
     const ids = new Set();
     const tasksDir = join(root, WORKLOOM_DIR, TASKS_DIR);
     let entries;
@@ -68,7 +73,9 @@ export function rebuildResearchChildIds(root) {
         if (!Array.isArray(dispatches))
             continue;
         for (const dispatch of dispatches) {
-            if (dispatch?.kind === EXECUTOR_KINDS.research && typeof dispatch.childId === 'string' && dispatch.childId !== '') {
+            if (WRITE_GUARDED_KINDS.includes(dispatch?.kind) &&
+                typeof dispatch.childId === 'string' &&
+                dispatch.childId !== '') {
                 ids.add(dispatch.childId);
             }
         }
@@ -76,27 +83,27 @@ export function rebuildResearchChildIds(root) {
     return ids;
 }
 /**
- * 登记一次 research 派发成功的子代理 id（不移除）。
+ * 登记一次受限写 kind 派发成功的子代理 id（不移除）。
  * 集合缺失时先按任务记录重建再加入新 id——防止重启后新派发先到、
  * 以仅含新 id 的空集占位导致懒重建永不触发（旧子会话失守）。
  */
-export function registerResearchChild(state, root, childId) {
+export function registerWriteGuardChild(state, root, childId) {
     let ids = state.byRoot.get(root);
     if (ids === undefined) {
-        ids = rebuildResearchChildIds(root);
+        ids = rebuildWriteGuardChildIds(root);
         state.byRoot.set(root, ids);
     }
     ids.add(childId);
 }
 /**
- * 组装 research write/edit 守卫（ToolGuard 形状）：仅当 execution.name ∈
- * {write, edit} 且 execution.agent.id 属于该项目 research 子代理集时判定；
+ * 组装受限写执行器的 write/edit 守卫（ToolGuard 形状）：仅当 execution.name ∈
+ * {write, edit} 且 execution.agent.id 属于该项目受限写子代理集时判定；
  * file_path 按子会话 cwd resolve 后必须落在 `<cwd>/.workloom/` 内，否则返回
  * 英文拒绝串；其余调用返回 undefined（放行）。
  * @param state 守卫状态
  * @returns ToolGuard 形状函数
  */
-export function researchWriteGuard(state) {
+export function confinedWriteGuard(state) {
     return (execution) => {
         if (execution.name !== WRITE_TOOL && execution.name !== EDIT_TOOL)
             return undefined;
@@ -114,7 +121,7 @@ export function researchWriteGuard(state) {
         // 重启存活：项目身份集缺失时按任务记录懒重建（不区分活跃/已结算）。
         let ids = state.byRoot.get(root);
         if (ids === undefined) {
-            ids = rebuildResearchChildIds(root);
+            ids = rebuildWriteGuardChildIds(root);
             state.byRoot.set(root, ids);
         }
         if (!ids.has(agentId))
@@ -122,25 +129,25 @@ export function researchWriteGuard(state) {
         // 越界判定：file_path 按子会话 cwd resolve，必须落在 <cwd>/.workloom/ 内。
         const filePath = execution.arguments?.file_path;
         if (typeof filePath !== 'string' || filePath === '') {
-            return `${ERR_PREFIX.executor}: research write/edit requires a file_path argument; paths outside the project .workloom/ directory are denied`;
+            return `${ERR_PREFIX.executor}: write/edit requires a file_path argument; paths outside the project .workloom/ directory are denied`;
         }
         const resolved = resolve(cwd, filePath);
         const domain = join(cwd, WORKLOOM_DIR);
         if (resolved !== domain && !resolved.startsWith(domain + sep)) {
-            return `${ERR_PREFIX.executor}: write/edit denied for the research executor: ${resolved} is outside the allowed ${domain}/ directory`;
+            return `${ERR_PREFIX.executor}: write/edit denied for this workloom executor: ${resolved} is outside the allowed ${domain}/ directory`;
         }
         return undefined;
     };
 }
 /* ---- 插件激活时注册一次（模块级状态；executor.ts 接线） ---- */
 /** 插件级守卫状态（模块单例；重启后按项目懒重建，不移除登记）。 */
-const pluginGuardState = createResearchGuardState();
-/** 插件激活时注册 research 写守卫（一次；卸载由 ctx.tools.guard 的 disposer 处理）。 */
-export function registerResearchGuard(ctx) {
-    ctx.tools.guard(researchWriteGuard(pluginGuardState));
+const pluginGuardState = createWriteGuardState();
+/** 插件激活时注册受限写守卫（一次；卸载由 ctx.tools.guard 的 disposer 处理）。 */
+export function registerWriteGuard(ctx) {
+    ctx.tools.guard(confinedWriteGuard(pluginGuardState));
 }
-/** research 派发成功时登记子会话 id（executor.ts 派发路径；不移除）。 */
-export function registerResearchChildId(root, childId) {
-    registerResearchChild(pluginGuardState, root, childId);
+/** 受限写 kind 派发成功时登记子会话 id（executor.ts/failover 派发路径；不移除）。 */
+export function registerWriteGuardChildId(root, childId) {
+    registerWriteGuardChild(pluginGuardState, root, childId);
 }
 //# sourceMappingURL=executor-guard.js.map

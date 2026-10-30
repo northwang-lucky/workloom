@@ -861,7 +861,7 @@ function recordExecutorDispatchInternal(root, taskRelPath, entry) {
     const projectRoot = requireProjectRoot(root);
     const task = requireTask(projectRoot, taskRelPath);
     task.dispatches.push(buildDispatchRecord(entry));
-    // 与 dispatches 同点更新 stage：research 保持，implement/frontend → implement，check → check。
+    // 与 dispatches 同点更新 stage：research/review 保持，implement/frontend → implement，check → check。
     task.stage = computeTaskStage(task.stage, entry.kind);
     writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task));
 }
@@ -1095,8 +1095,8 @@ function buildDispatchRecord(entry) {
     return record;
 }
 /**
- * 计算派发后的任务阶段（纯函数，独立可测）：research 保持 current；
- * implement/frontend → 'implement'；check → 'check'。
+ * 计算派发后的任务阶段（纯函数，独立可测）：research/review 保持 current
+ * （调研与计划审查不驱动阶段迁移）；implement/frontend → 'implement'；check → 'check'。
  * kind 非法（含 undefined）抛错（fail loud，与 assertKind 同语义）。
  * @param {import('./task-store.d.ts').TaskStageValue} current 当前阶段（readTask 归一化后必有值）
  * @param {string} kind executor 类型
@@ -1107,6 +1107,8 @@ export function computeTaskStage(current, kind) {
         throw new Error(`${ERR_PREFIX}: invalid kind: ${String(kind)} (must be one of ${Object.values(EXECUTOR_KINDS).join('/')})`);
     }
     if (kind === EXECUTOR_KINDS.research)
+        return current;
+    if (kind === EXECUTOR_KINDS.review)
         return current;
     if (kind === EXECUTOR_KINDS.check)
         return TaskStage.CHECK;

@@ -801,7 +801,7 @@ function findMapOverlapWithString(str, map) {
  * runtime 的 key 时 fail loud（避免静默用错模型）。
  * 纯同步、无副作用（不修改入参）。
  * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
- * @param {string} kind executor 类型（research/implement/check/frontend）
+ * @param {string} kind executor 类型（research/implement/check/frontend/review）
  * @param {{model?: string, effort?: string}} overrides 工具调用参数（仅覆盖出现的字段）
  * @param {string} [runtime] 当前 runtime 名（entry.model 为 map 形式时必填）
  * @param {string} [mainModel] 主会话模型（provider/model 字符串；取不到时不传，
@@ -1002,7 +1002,7 @@ const ERR_PREFIX = 'workloom executor';
  *   条目 > 旧 subagents，model 的 map 形式按 runtime 解析，缺 key 走 fail
  *   loud）；model/effort 独立判定，配置未限定的字段不触发。
  * @param {import('./config.d.ts').WorkloomConfig} config 配置对象
- * @param {string} kind executor 类型（research/implement/check/frontend）
+ * @param {string} kind executor 类型（research/implement/check/frontend/review）
  * @param {{model?: string, effort?: string}} overrides 工具显式参数
  * @param {string | undefined} runtime 当前 runtime 名（model 为 map 形式时必填）
  * @param {string} [mainModel] 主会话模型（provider/model；whenMain 匹配用）
@@ -1051,7 +1051,7 @@ function sameProviderModel(configured, passed) {
 /**
  * 组装冲突中断提示（英文运行时文案）：adapter 检测到冲突且未 force 时返回该
  * 文本、不派发；含该 kind 的配置值（带来源细分）、传入值与 force+reason 用法。
- * @param {string} kind executor 类型（research/implement/check/frontend）
+ * @param {string} kind executor 类型（research/implement/check/frontend/review）
  * @param {import('./config.d.ts').ExecutorConflict[]} conflicts 冲突清单（非空）
  * @returns {string} 提示文本
  */

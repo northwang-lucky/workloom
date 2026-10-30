@@ -744,6 +744,27 @@ test('check local-prompts：unknown 文件名 warn、坏 front-matter error（�
   }
 })
 
+test('check local-prompts：review.md 是合法片段目标（loaded info，不报 unknown）', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  writeLocalFragment(root, 'review.md', 'REVIEW-FRAGMENT')
+  try {
+    const [err, report] = runDoctor(root, { fix: false })
+    assert.equal(err, null)
+    const check = localPromptsCheck(report)
+    assert.ok(
+      !check.issues.some((i) => i.path.endsWith('review.md')),
+      'review.md must not be reported as unknown',
+    )
+    assert.ok(
+      check.info.some((l) => l.includes('review.md') && l.includes('[target=review]')),
+      'review.md must be listed as loaded with target=review',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('check local-prompts：requiresTools 残留 front-matter 报 error（机制已移除）', () => {
   const root = makeRoot()
   initWorkloom(root)

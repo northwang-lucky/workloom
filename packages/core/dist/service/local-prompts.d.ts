@@ -14,20 +14,20 @@
  * - requiresTools 机制已整体移除：front-matter 出现 requiresTools / requires_tools
  *   残留 → fail loud（错误文案指明该机制已废止），不再参与注入条件；
  * - 本模块 runtime 无关（core 承载），注入落地由两 adapter 负责；主 agent 目标为
- *   main，executor 子代理目标为各自 kind（research/implement/check/frontend），
+ *   main，executor 子代理目标为各自 kind（research/implement/check/frontend/review），
  *   all 对两者通用。
  */
 /** 项目共享片段目录相对 .workloom 的路径（可入库，doctor 侧复用同一约定）。 */
 export declare const SHARED_PROMPTS_REL = "prompts";
 /** 项目本机片段目录相对 .workloom 的路径（gitignore，doctor 侧复用同一约定）。 */
 export declare const LOCAL_PROMPTS_REL = "prompts.local";
-/** 片段目标枚举：文件名 → 目标（main 为主 agent，research/implement/check/frontend 为 executor kind，all 通用）。 */
-export declare const LOCAL_FRAGMENT_TARGETS: readonly ["main", "research", "implement", "check", "frontend", "all"];
+/** 片段目标枚举：文件名 → 目标（main 为主 agent，research/implement/check/frontend/review 为 executor kind，all 通用）。 */
+export declare const LOCAL_FRAGMENT_TARGETS: readonly ["main", "research", "implement", "check", "frontend", "review", "all"];
 /** LocalFragmentTarget 类型（合法片段目标）。 */
 export type LocalFragmentTarget = (typeof LOCAL_FRAGMENT_TARGETS)[number];
 /** 解析后的本机片段（target 来自文件名映射；正文为 front-matter 剥离后的文本）。 */
 export interface LocalFragment {
-    /** 片段目标（main 为主 agent，research/implement/check/frontend 为 executor kind，all 通用）。 */
+    /** 片段目标（main 为主 agent，research/implement/check/frontend/review 为 executor kind，all 通用）。 */
     target: LocalFragmentTarget;
     /** Markdown 正文（front-matter 剥离，trim 保留原文）。 */
     text: string;

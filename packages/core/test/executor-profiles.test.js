@@ -77,6 +77,7 @@ test('whenMain 命中行：model/effort/tools 摘要 + project 层来源，tools
         '  implement: deepseek/deepseek-v4-pro | effort max | tools: includes [lsp_diagnostics, lsp_symbols, lsp_completion, lsp_signature, … +2], excludes [web_fetch] | source: project config (whenMain match)',
         '  check: not configured (inherits parent session model)',
         '  frontend: not configured (inherits parent session model)',
+        '  review: not configured (inherits parent session model)',
       ].join('\n'),
     )
   } finally {
@@ -114,6 +115,7 @@ test('fallback 与 legacy 行：来源层分别取 profiles/subagents 最后写�
         '  implement: deepseek/deepseek-v4-pro | effort medium | tools: includes [lsp_*] | source: project config (fallback entry)',
         '  check: deepseek-official/deepseek-v4-flash | effort low | source: local config (legacy subagents)',
         '  frontend: not configured (inherits parent session model)',
+        '  review: not configured (inherits parent session model)',
       ].join('\n'),
     )
   } finally {
@@ -148,6 +150,7 @@ test('mainModel 缺省：标题标注 unknown、whenMain 条目跳过、兜底/l
         '  implement: deepseek/deepseek-v4-pro | tools: includes [lsp_*] | source: project config (fallback entry)',
         '  check: effort medium | source: project config (legacy subagents)',
         '  frontend: not configured (inherits parent session model)',
+        '  review: not configured (inherits parent session model)',
       ].join('\n'),
     )
     // whenMain 命中条件与未知 mainModel 互斥：已知 mainModel 时 whenMain 条目恢复
@@ -187,6 +190,7 @@ test('tools 摘要：单侧配置只出单段；两侧为空省略 tools 段；e
         '  implement: deepseek/deepseek-v4-pro | source: project config (fallback entry)',
         '  check: effort low | source: project config (fallback entry)',
         '  frontend: not configured (inherits parent session model)',
+        '  review: not configured (inherits parent session model)',
       ].join('\n'),
     )
   } finally {
@@ -216,6 +220,7 @@ test('model 命中且 tools 未配置：行不含 tools 段，来源随 model（
         '  implement: deepseek/deepseek-v4-pro | effort max | source: project config (whenMain match)',
         '  check: not configured (inherits parent session model)',
         '  frontend: not configured (inherits parent session model)',
+        '  review: not configured (inherits parent session model)',
       ].join('\n'),
     )
   } finally {
@@ -223,7 +228,7 @@ test('model 命中且 tools 未配置：行不含 tools 段，来源随 model（
   }
 })
 
-test('配置文件为空时四 kind 全部 not configured（未配置回退文案）', () => {
+test('配置文件为空时五 kind 全部 not configured（未配置回退文案）', () => {
   const root = makeRoot()
   try {
     assert.equal(
@@ -234,6 +239,7 @@ test('配置文件为空时四 kind 全部 not configured（未配置回退文�
         '  implement: not configured (inherits parent session model)',
         '  check: not configured (inherits parent session model)',
         '  frontend: not configured (inherits parent session model)',
+        '  review: not configured (inherits parent session model)',
       ].join('\n'),
     )
   } finally {

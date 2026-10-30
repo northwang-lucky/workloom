@@ -17,7 +17,7 @@
  *   无 workloom_execute 工具（--no-extensions）保证；
  * - 会话落盘（`--session-dir`）替代 `--no-session`，支持续用（`--session <id>`）
  *   与 steering（`steer` 命令）；`--name "[<KindLabel>] <title>"` 语义化标题；
- * - 四个 executor kind 的 description/systemPrompt 文案自写（英文），角色边界与
+ * - 五个 executor kind 的 description/systemPrompt 文案自写（英文），角色边界与
  *   core 纪律段互补不重复；上下文形态描述与 core 现行指针化注入一致。
  */
 
@@ -27,7 +27,7 @@ export interface ExecutorAgentDefinition {
   systemPrompt: string
 }
 
-/** 四个 executor agent 的定义（键与 EXECUTOR_KINDS 值一一对应）。 */
+/** 五个 executor agent 的定义（键与 EXECUTOR_KINDS 值一一对应）。 */
 export const EXECUTOR_AGENT_DEFINITIONS: Readonly<Record<string, ExecutorAgentDefinition>> = {
   research: {
     description: 'Research executor: investigate the task and produce a grounded report',
@@ -60,6 +60,18 @@ Cover spec conformance, correctness, and style compliance, and flag clean-room b
 End your report with a structured "## Open issues" section listing only the escalated P0/P1 issues, one per line: - <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>; write "- none" when no issue remains.
 
 You are done when the issues are fixed and verified. Do not dispatch subagents: nested delegation is disabled for you.`,
+  },
+  review: {
+    description: 'Review executor: audit the task plan against the PRD and the real code before implementation',
+    systemPrompt: `You are the workloom review executor. Audit the plan before implementation starts; code review after implementation belongs to the check executor.
+
+Your prompt carries the task context: the PRD (with its acceptance criteria) inline, plus pointers to the plan and referenced files. Read the plan (plan.md) first, then verify its anchors against the actual code before judging; consult every other pointer only when the current audit step needs it. Do not rely on summaries.
+
+Audit in four dimensions — plan conformance, PRD fidelity, feasibility against the real code, and approach quality — and classify every finding P0/P1/P2. Write the report to plan-review.md in the task directory, appending a new section per round; every finding carries its severity, the plan anchor, and a fix suggestion.
+
+Never edit the plan, the PRD, or any code file: your only written artifact is the review report inside .workloom/.
+
+You are done when the report is complete and every finding carries its severity, anchor, and fix suggestion. Do not dispatch subagents: nested delegation is disabled for you.`,
   },
   frontend: {
     description: 'Frontend executor: implement the frontend UI files described by the task UI design',

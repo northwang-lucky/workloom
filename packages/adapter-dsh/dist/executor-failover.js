@@ -1,12 +1,12 @@
 import { SessionId } from '@deepseek-ai/dsh-session';
 import { randomUUID } from 'node:crypto';
-import { appendDispatchErrorSuffix, buildFailoverNote, buildFailoverNotice, composeLocalDirectivesText, DISPATCH_MODEL_SOURCES, ERR_PREFIX, EXECUTOR_KINDS, extractFailureCode, isModelInaccessibleCode, loadConfig, readTask, recordExecutorDispatch, resolveSubagentDefaults, } from '@workloom-ai/core';
+import { appendDispatchErrorSuffix, buildFailoverNote, buildFailoverNotice, composeLocalDirectivesText, DISPATCH_MODEL_SOURCES, ERR_PREFIX, extractFailureCode, isModelInaccessibleCode, loadConfig, readTask, recordExecutorDispatch, resolveSubagentDefaults, } from '@workloom-ai/core';
 import { DISPATCH_WARN_PREFIX } from './constants.js';
 import { collectRunningExecutors, consumeChildModelBinding, evaluateCapacityGate, registerChildModelBinding, } from './executor-capacity.js';
 import { SPAWN_PROVIDER } from './executor-dispatch.js';
 import { assertFallbackChainEfforts, buildFallbackAgentOptions, CHAIN_EXHAUSTED_PREFIX, CHAIN_SEPARATOR, FallbackChainExhaustedError, recordFailedDispatchAttempt, runFallbackChain, } from './executor-failover-chain.js';
 import { notifyFailoverParent } from './executor-failover-notify.js';
-import { registerResearchChildId } from './executor-guard.js';
+import { registerWriteGuardChildId, WRITE_GUARDED_KINDS } from './executor-guard.js';
 import { buildChildLabel, buildFullInjection } from './executor-injection.js';
 import { readMainModel } from './main-model.js';
 import { trackDispatchSettle } from './executor-settle.js';
@@ -335,8 +335,8 @@ async function runAsyncFailover(ctx, context, settled) {
         console.warn(`${DISPATCH_WARN_PREFIX} ${recordErr}`);
     }
     trackDispatchSettle(outcome.result.childId, context.root, context.taskRelPath);
-    if (context.kind === EXECUTOR_KINDS.research) {
-        registerResearchChildId(context.root, outcome.result.childId);
+    if (WRITE_GUARDED_KINDS.includes(context.kind)) {
+        registerWriteGuardChildId(context.root, outcome.result.childId);
     }
     registerFailoverContext(outcome.result.childId, {
         ...context,

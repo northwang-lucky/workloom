@@ -24,6 +24,7 @@ const KIND_LABELS = {
   implement: 'Implement',
   check: 'Check',
   frontend: 'Frontend',
+  review: 'Review',
 } as const
 
 /** KIND_LABELS 的键类型。 */
@@ -31,7 +32,7 @@ type KindLabelKey = keyof typeof KIND_LABELS
 
 /** buildChildPiArgs 入参（executor 工具参数中与 child pi 派发相关的投影）。 */
 export interface BuildChildPiArgsParams {
-  /** executor 类型（research/implement/check/frontend，取角色说明 + 标题标签用）。 */
+  /** executor 类型（research/implement/check/frontend/review，取角色说明 + 标题标签用）。 */
   kind: string
   /** 项目根（--session-dir 用）。 */
   root: string

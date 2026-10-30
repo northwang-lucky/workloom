@@ -5,6 +5,7 @@ export const KIND_LABELS = {
     implement: 'Implement',
     check: 'Check',
     frontend: 'Frontend',
+    review: 'Review',
 };
 /**
  * 组装全量注入 prompt（新派发/reinject 续接共用）：本机片段已由调用方探测，此处
@@ -57,7 +58,7 @@ export function injectionStats(built, toolsAllowed) {
  * 元数据异常阻塞派发）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型（research/implement/check/frontend）
+ * @param kind executor 类型（research/implement/check/frontend/review）
  * @param title 模型传入的语义标题（schema 必填非空；可选类型仅作纯函数防御回退）
  * @returns 子会话标题
  */

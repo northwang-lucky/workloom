@@ -1,5 +1,5 @@
 /**
- * agent 定义数据单测：四个 kind 与 EXECUTOR_KINDS 一致、文案完整
+ * agent 定义数据单测：kind 键集合与 EXECUTOR_KINDS 一致、文案完整
  * （角色说明自写，含 workloom 身份与「禁止再派发」约束）。
  * 注意：定义数据从 agent-definitions.ts 导入（纯数据模块，本地类型
  * ExecutorAgentDefinition，无 pi-subagents 运行时依赖）。
@@ -92,4 +92,15 @@ test('agent definitions: role copy reads the merged plan.md; stale artifact name
   assert.ok(implement !== undefined)
   assert.ok(implement.systemPrompt.includes('Read the plan (plan.md) first'))
   assert.ok(implement.systemPrompt.includes('prescriptive'))
+})
+
+test('agent definitions: review 角色审计划、只写报告、不碰计划与代码', () => {
+  const review = EXECUTOR_AGENT_DEFINITIONS[EXECUTOR_KINDS.review]
+  assert.ok(review !== undefined, 'missing definition for review')
+  assert.ok(review.systemPrompt.includes('workloom review executor'))
+  assert.ok(review.systemPrompt.includes('Read the plan (plan.md) first'))
+  assert.ok(review.systemPrompt.includes('belongs to the check executor'))
+  assert.ok(review.systemPrompt.includes('plan-review.md'))
+  assert.ok(review.systemPrompt.includes('Never edit the plan, the PRD, or any code file'))
+  assert.ok(review.systemPrompt.includes('P0/P1/P2'))
 })

@@ -799,3 +799,35 @@ test('alignment 技能与 plan-authoring reference 含编号溯源文案（逐�
     'plan-authoring 完成判据缺 AC 覆盖要求',
   )
 })
+
+test('契约 1.4 含 review 派发指引段（关键句逐字）', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const reviewBody = contract.steps.find((step) => step.id === '1.4').body
+  assert.ok(reviewBody.includes('Plan review dispatch (default on)'), '1.4 缺 review 派发段首句')
+  assert.ok(
+    reviewBody.includes('dispatch the review executor with `workloom_execute` (kind: review)'),
+    '1.4 缺 review 派发指令',
+  )
+  assert.ok(reviewBody.includes('plan-review.md'), '1.4 缺审查报告文件约定')
+  assert.ok(reviewBody.includes('may explicitly skip the review'), '1.4 缺对齐轮显式跳过语义')
+  assert.ok(
+    reviewBody.includes('continuing the same review child session'),
+    '1.4 缺同子会话续接复审要求',
+  )
+  assert.ok(reviewBody.includes('three rounds are reached'), '1.4 缺三轮上限')
+  assert.ok(
+    reviewBody.includes(
+      'P0 must be resolved (fix the plan, or take prd-level findings to the user), P1 fixed or recorded with a reason, P2 all fixed',
+    ),
+    '1.4 缺 P0/P1/P2 逐级处置规则',
+  )
+  assert.ok(
+    reviewBody.includes('leftover findings then enter the package with their disposal notes'),
+    '1.4 缺剩余发现连同处置说明进包',
+  )
+  assert.ok(
+    reviewBody.includes('review report and the disposal of every finding are part of the review package'),
+    '1.4 缺报告与处置进审阅包句',
+  )
+})

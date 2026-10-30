@@ -165,7 +165,7 @@ test('未知 .md 文件名 fail loud（文案含合法清单）；非 .md / 隐�
     assert.equal(err.file, 'weird.md')
     assert.match(
       err.message,
-      /main\.md, research\.md, implement\.md, check\.md, frontend\.md, all\.md/,
+      /main\.md, research\.md, implement\.md, check\.md, frontend\.md, review\.md, all\.md/,
     )
   } finally {
     cleanup(root, home)
@@ -254,4 +254,20 @@ test('composeLocalDirectivesText：target=all 时只注入各层 all 片段', ()
   } finally {
     cleanup(root, home)
   }
+})
+
+test('review 片段目标：filterAndOrderLocal 接受 review，未知 target 报错文案列出 review', () => {
+  const fragments = [
+    { target: 'all', text: 'ALL' },
+    { target: 'review', text: 'REVIEW' },
+    { target: 'check', text: 'CHECK' },
+  ]
+  assert.deepEqual(filterAndOrderLocal(fragments, 'review'), [
+    { target: 'all', text: 'ALL' },
+    { target: 'review', text: 'REVIEW' },
+  ])
+  assert.throws(
+    () => filterAndOrderLocal(fragments, 'bogus'),
+    /unknown target "bogus" \(must be one of main\/research\/implement\/check\/frontend\/review\/all\)/,
+  )
 })

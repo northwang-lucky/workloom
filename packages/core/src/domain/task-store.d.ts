@@ -360,7 +360,7 @@ export function appendDispatchErrorSuffix(
 ): [Error | null]
 
 /**
- * 计算派发后的任务阶段（纯函数）：research 保持 current；implement/frontend → implement；check → check。
+ * 计算派发后的任务阶段（纯函数）：research/review 保持 current；implement/frontend → implement；check → check。
  * kind 非法（含 undefined）抛错（fail loud）。
  */
 export function computeTaskStage(current: TaskStageValue, kind: string): TaskStageValue

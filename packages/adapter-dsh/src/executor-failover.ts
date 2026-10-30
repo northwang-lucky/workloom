@@ -31,7 +31,6 @@ import {
   composeLocalDirectivesText,
   DISPATCH_MODEL_SOURCES,
   ERR_PREFIX,
-  EXECUTOR_KINDS,
   extractFailureCode,
   isModelInaccessibleCode,
   loadConfig,
@@ -63,7 +62,7 @@ import type {
   FallbackModelEntry,
 } from './executor-failover-chain.js'
 import { notifyFailoverParent } from './executor-failover-notify.js'
-import { registerResearchChildId } from './executor-guard.js'
+import { registerWriteGuardChildId, WRITE_GUARDED_KINDS } from './executor-guard.js'
 import { buildChildLabel, buildFullInjection } from './executor-injection.js'
 import { readMainModel } from './main-model.js'
 import type { SettledDispatch } from './executor-settle.js'
@@ -531,8 +530,8 @@ async function runAsyncFailover(
     console.warn(`${DISPATCH_WARN_PREFIX} ${recordErr}`)
   }
   trackDispatchSettle(outcome.result.childId, context.root, context.taskRelPath)
-  if (context.kind === EXECUTOR_KINDS.research) {
-    registerResearchChildId(context.root, outcome.result.childId)
+  if (WRITE_GUARDED_KINDS.includes(context.kind)) {
+    registerWriteGuardChildId(context.root, outcome.result.childId)
   }
   registerFailoverContext(outcome.result.childId, {
     ...context,

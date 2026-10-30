@@ -14,7 +14,7 @@
  * - requiresTools 机制已整体移除：front-matter 出现 requiresTools / requires_tools
  *   残留 → fail loud（错误文案指明该机制已废止），不再参与注入条件；
  * - 本模块 runtime 无关（core 承载），注入落地由两 adapter 负责；主 agent 目标为
- *   main，executor 子代理目标为各自 kind（research/implement/check/frontend），
+ *   main，executor 子代理目标为各自 kind（research/implement/check/frontend/review），
  *   all 对两者通用。
  */
 import { readFileSync, readdirSync } from 'node:fs';
@@ -28,13 +28,14 @@ const ERR_PREFIX = 'workloom local prompts';
 export const SHARED_PROMPTS_REL = 'prompts';
 /** 项目本机片段目录相对 .workloom 的路径（gitignore，doctor 侧复用同一约定）。 */
 export const LOCAL_PROMPTS_REL = 'prompts.local';
-/** 片段目标枚举：文件名 → 目标（main 为主 agent，research/implement/check/frontend 为 executor kind，all 通用）。 */
+/** 片段目标枚举：文件名 → 目标（main 为主 agent，research/implement/check/frontend/review 为 executor kind，all 通用）。 */
 export const LOCAL_FRAGMENT_TARGETS = Object.freeze([
     'main',
     'research',
     'implement',
     'check',
     'frontend',
+    'review',
     'all',
 ]);
 /** 文件名 → 目标映射（合法文件名清单，错误文案按此列出）。 */
@@ -44,6 +45,7 @@ const TARGET_BY_FILE = Object.freeze({
     'implement.md': 'implement',
     'check.md': 'check',
     'frontend.md': 'frontend',
+    'review.md': 'review',
     'all.md': 'all',
 });
 /** front-matter 分隔行（开头与结尾均为此行）。 */
