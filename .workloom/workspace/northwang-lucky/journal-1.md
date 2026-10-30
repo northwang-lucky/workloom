@@ -388,3 +388,9 @@
 - Commit: f799cc1
 - Summary: 容器任务最终验收与归档，计划文档体系升级整体收官。验收五项细目全部实测通过并写入 prd「最终验收细目与结果」节：① plan.md 命名五处口径统一（契约/对齐技能/plan-authoring/执行器注入/pi 角色）；② R/AC 溯源四处同源（PRD_SECTIONS 占位符、workflow 1.1 逐字句、Covers 判据、review 纪律段 Fidelity）；③ design/implement 残留 13 处命中逐条判定全部合法、非法残留 0；④ review 全链存在性（dist 枚举五 kind、1.4 指引段 version 24、重启后画像区 review 行现场证明）；⑤ 四子任务归档凭据齐（A 5c0ee38、C 39ad79d、D 3d6c6f7、B 170b8ba）、profile repin 304bde4 并经授权重启、全链验证双重复跑全绿。协调容器走 force start/check（理由链记录 overrides）。交付全景：prd R/AC 编号 → plan 规定式锚点 → review 开工前四维审查（P0/P1/P2 处置 + 同子会话复审循环上限三轮）→ implement 零自由发挥执行 → check 分级复核，另有 workloom-migrate-plan 存量迁移通道。遗留观察项：新体系第一个任务全程走通（下一个任务运行时核验，重点观察 review 首次真实派发与 pi 侧 -e write-scope.ts 加载参数）。
 
+## 任务 slug 校验与日期前缀防重
+
+- Time: 2026-10-30T15:58:25.722Z
+- Commit: 79e69d2
+- Summary: 起因是 zephyra 仓一次会话把 slug 写成 10-30-center-stability，工具再拼一次日期前缀，7 个任务目录变成 10-30-10-30-*。本轮在 core 补入口校验：createTaskInternal 拼目录名前调用 assertValidSlug，显式 slug 需 kebab-case 且不超 40 字符，任何来源的 slug 都不得自带合法 MM-DD 前缀，报错而不是静默剥离（剥离会误改 12-25-release-notes 这类命名）；显式空串改报 slug cannot be empty；PARAM_DESCRIPTIONS.slug 补日期前缀由工具生成的说明，DSH 与 Pi 运行时共用该常量，adapter 无需改动。校验全部前置于写盘，失败零部分状态。新增 core 用例两条（拒绝形态加零写入、文案锚点）。门禁：build、typecheck、lint 全绿，core 714、adapter-dsh 173、adapter-pi 199 用例全通过。已归档并合入 main，分支保留，未 push；生效还需用户 push、profile 重钉与授权重启。
+
