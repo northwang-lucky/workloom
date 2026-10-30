@@ -2,6 +2,13 @@
 
 按 test-first 红绿推进（三接缝：dsh 注册面 / pi 同步面 / assets 文本面）。需求与验收以 [prd.md](prd.md) 的 R1–R6 / AC1–AC6 为准；实现前读 prd.md + implement.jsonl 列出的 spec 条目。全部改动与验证命令在任务代码根执行（task.json `worktree_path` 非空时即 worktree 根，注入纪律已指向）。改前片段均已对当前文件核对唯一命中；子串/块替换命中数不符即停止上报。
 
+## 修订记录
+
+- 修订 1（实现交付后主会话复核落账；两处均为计划 Verify 预期的文案误差，非实现缺陷，执行器“实质门槛达标、记录后继续”的判定予以追认）：
+  1. 步骤 2.1 的 Verify `grep -c "workloom-migrate-plan"` 预期由 ≥ 2 更正为 1：规定文案中仅清单项一行含完整字面串，头注释与测试名为斜杠连接形式 `packages-scan/migrate-plan`（无 workloom- 前缀），原预期在计划自身文案下不可达成；实质门槛（阶段 2 恰 1 红、绿后产物 9 目录）均达标。
+  2. 步骤 3.1 的 Verify `grep -c "## Step"` 预期由 4 更正为「行首锚定 `grep -c "^## Step"` 输出 4」：未锚定模式会多命中 SKILL.md 正文 Step 3 内联的 `## Steps` 字样（合计 5）；行首锚定计数 4 为正确口径，结构实质达标。
+  教训（与 A/C 修订同根因类）：计划的 Verify grep 模式与预期计数必须从计划自身的改后文案推导并自查相容（子串误命中、字面前缀形态），不能凭记忆书写。
+
 ## Design decisions
 
 1. **技能命名 workloom-migrate-plan**（prd 已定 8）：动宾结构与 update-spec / packages-scan 家族一致；frontmatter 只含 name/description/whenToUse 三键（dsh 解析器只认这三键）。
