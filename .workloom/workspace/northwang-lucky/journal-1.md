@@ -382,3 +382,9 @@
 - Commit: 7fbce66
 - Summary: B 子任务（容器最后一子任务）全流程交付：1.2 调研派 research 执行器产出 7 份事实基线（3 阻断 + 5 开放问题 + 8 意外发现，全部带锚点与实测复现）→ 主会话裁决为 prd 已定 17–21（片段目标注册、computeTaskStage review 分支、示例模板补齐 frontend+review、守卫合并 WRITE_GUARDED_KINDS 集合、标签三副本显式补测）→ 1.3 配置（implement 5 条 / check 4 条）→ prd 自排 R1–R10/AC1–AC7 → plan.md 1856 行 40 步 6 阶段（21 个预期红逐一列名，跨包暂态红与直绿固定分类标注，全部改前片段实地核对，Verify 计数从改后文案反推自查）→ 用户“确认B”→ implement 一次派发 + 三次续接：三次计划外差异全部停机上报、主会话以修订 1/2/3 显式处置（①画像小节与报错文案两个枚举生成物消费者测试面漏列，12 红名单外多出 7 红；②红名单推演漏了守卫懒重建入口，3 红实为 2 红 + 1 直绿；③清扫门扫出 11 处计划外注释文案），执行器零静默漂移 → 主会话独立复核（变更面 65M+1RM、载荷抽查、门禁复跑 712/173/199/27、build 幂等）→ check 十项复核：P0/P1 零、P2 八项自修复验（含宽口径扫描新发现的 7 处旧措辞注释与两条 1.4 处置规则加强断言）、四段关键文本与计划围栏字节一致、注入组合 dist 实际组装抽样吻合 → 单原子提交 66 文件 → 归档合并。产物：review 执行器全链（core 枚举/纪律段/注入组合/阶段函数/片段目标/文案面、dsh 守卫集合化与接线、pi 角色/标签/write-scope 扩展、workflow 1.4 指引段 version 保持 24）。部署链 push/repin 完成，重启待用户授权；容器任务进入最终验收。
 
+## 容器收官：计划文档体系升级最终验收与归档
+
+- Time: 2026-10-30T06:01:53.938Z
+- Commit: f799cc1
+- Summary: 容器任务最终验收与归档，计划文档体系升级整体收官。验收五项细目全部实测通过并写入 prd「最终验收细目与结果」节：① plan.md 命名五处口径统一（契约/对齐技能/plan-authoring/执行器注入/pi 角色）；② R/AC 溯源四处同源（PRD_SECTIONS 占位符、workflow 1.1 逐字句、Covers 判据、review 纪律段 Fidelity）；③ design/implement 残留 13 处命中逐条判定全部合法、非法残留 0；④ review 全链存在性（dist 枚举五 kind、1.4 指引段 version 24、重启后画像区 review 行现场证明）；⑤ 四子任务归档凭据齐（A 5c0ee38、C 39ad79d、D 3d6c6f7、B 170b8ba）、profile repin 304bde4 并经授权重启、全链验证双重复跑全绿。协调容器走 force start/check（理由链记录 overrides）。交付全景：prd R/AC 编号 → plan 规定式锚点 → review 开工前四维审查（P0/P1/P2 处置 + 同子会话复审循环上限三轮）→ implement 零自由发挥执行 → check 分级复核，另有 workloom-migrate-plan 存量迁移通道。遗留观察项：新体系第一个任务全程走通（下一个任务运行时核验，重点观察 review 首次真实派发与 pi 侧 -e write-scope.ts 加载参数）。
+
