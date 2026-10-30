@@ -139,7 +139,7 @@ function setupSkills() {
   return registered.map((def) => def.name)
 }
 
-test('skill 清单契约：注册 continue/finish/alignment/update-spec/packages-scan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
+test('skill 清单契约：注册 continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
   const names = setupSkills()
   assert.deepEqual(names.sort(), [
     'grilling',
@@ -147,12 +147,42 @@ test('skill 清单契约：注册 continue/finish/alignment/update-spec/packages
     'workloom-alignment',
     'workloom-continue',
     'workloom-finish',
+    'workloom-migrate-plan',
     'workloom-packages-scan',
     'workloom-update-spec',
     'writing-for-agents',
   ])
   assert.ok(!names.includes('workloom-brainstorm'), '旧 brainstorm 不再注册')
   assert.ok(!names.includes('workloom-ui-design'), '旧 ui-design 不再注册')
+})
+
+test('workloom-migrate-plan 资产可解析：迁移流程与边界关键句 + continue legacy 路由指针', () => {
+  const doc = readFileSync(
+    new URL('../../assets/skills/workloom-migrate-plan/SKILL.md', import.meta.url),
+    'utf8',
+  )
+  const [err, parsed] = parseSkillFrontmatter(doc)
+  assert.equal(err, null)
+  assert.equal(parsed.name, 'workloom-migrate-plan')
+  assert.ok(parsed.description !== '', 'description must be non-empty')
+  // 迁移四步流程标题齐全（扫描 → 重写 prd → 重写 plan → 确认删原件）
+  assert.match(parsed.body, /## Step 1: Scan/)
+  assert.match(parsed.body, /## Step 2: Rewrite prd\.md/)
+  assert.match(parsed.body, /## Step 3: Rewrite the plan as plan\.md/)
+  assert.match(parsed.body, /## Step 4: Confirm, then remove the originals/)
+  // 凭据重确认路径、research 辅助、归档不扫边界、Covers 标注、in_progress 执行标注
+  assert.match(parsed.body, /workloom_task_align/)
+  assert.match(parsed.body, /action=confirm/)
+  assert.match(parsed.body, /dispatch `research`/)
+  assert.match(parsed.body, /never scan, never migrate/)
+  assert.match(parsed.body, /Covers/)
+  assert.match(parsed.body, /\[executed <commit\/date> — <verification state>\]/)
+  // continue 路由表含 legacy 分支指针句
+  const cont = readFileSync(
+    new URL('../../assets/skills/workloom-continue/SKILL.md', import.meta.url),
+    'utf8',
+  )
+  assert.match(cont, /workloom-migrate-plan skill \(legacy artifacts/)
 })
 
 test('workloom-continue/workloom-finish 资产可解析：路由表与收尾五步 + taskPath 必填指引', () => {

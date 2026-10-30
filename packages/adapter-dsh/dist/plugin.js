@@ -49,7 +49,7 @@ export const inject = [
 ];
 /**
  * 插件入口：注册 session-context 与 breadcrumb 两个注入、三个 workloom slash
- * 命令、executor 工具、6 个 runtime skills（含统一 alignment 与 packages-scan）
+ * 命令、executor 工具、runtime skills（skills.ts 的 SKILL_ASSETS 清单为单一来源）
  * 与步骤详情工具。
  * @param ctx 插件作用域上下文
  */
