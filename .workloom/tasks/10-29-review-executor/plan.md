@@ -1878,6 +1878,29 @@ Run the scale self-check while assembling the package:
   4. `grep -rn "research-scope\|researchScope\|RESEARCH_SCOPE_EXTENSION" packages/adapter-pi`
   5. `grep -rn "researchWriteGuard\|registerResearchGuard\|registerResearchChildId\|rebuildResearchChildIds\|createResearchGuardState\|ResearchGuardState\|ResearchExecutionLike" packages/adapter-dsh/src packages/adapter-dsh/test`
 
+#### 步骤 6.1a 11 处旧文案注释补齐五 kind 口径（修订 3 新增）
+
+- Covers: AC7
+- Target: 9 个文件的纯注释文案（JSDoc 与文件头，无行为影响）：`research/implement/check/frontend` → `research/implement/check/frontend/review`
+- Edit 按文件替换表（子串替换，命中数为预期值，命中数不符即停止上报）：
+
+| 文件 | 预期命中 |
+| --- | --- |
+| packages/core/src/domain/config.js | 3 |
+| packages/core/src/domain/executor-profiles.js | 1 |
+| packages/core/src/domain/executor-context.d.ts | 1（第 38 行 BuildExecutorPromptParams.kind 注释） |
+| packages/core/src/domain/executor-capacity.d.ts | 1 |
+| packages/core/src/service/local-prompts.ts | 1（仅第 17 行文件头注释——同文件 38/53 行已是五 kind 文案，禁止全文件盲替换） |
+| packages/adapter-dsh/src/executor-injection.ts | 1 |
+| packages/adapter-dsh/src/executor.ts | 1（第 5 行文件头注释） |
+| packages/adapter-pi/src/pi-args.ts | 1 |
+| packages/adapter-pi/src/pi-child-registry.ts | 1 |
+
+- Verify:
+  1. 步骤 6.1 五条清扫全部重跑，均 0 命中。
+  2. `grep -rn "frontend/review/review" packages/*/src | grep -v dist` 输出 0 行（防双重替换）。
+  3. 步骤 6.2 全量重跑（lint/typecheck/build exit 0；core 712、dsh 173、pi 199、assets 27 全绿；dist 三项 grep 命中）——d.ts 注释变更随 build 分发，字节一致性由 core 套件覆盖。
+
 #### 步骤 6.2 全量验证
 
 - Covers: AC6
@@ -1905,3 +1928,4 @@ Run the scale self-check while assembling the package:
 
 - 修订 1（主会话，implement 停机于 2.12 后处置）：三处更正。① executor-profiles.test.js 未列入计划——renderExecutorProfilesSection 遍历 EXECUTOR_KINDS 渲染画像小节，阶段 2.1 后 6 个测试的全节 strictEqual 期望各多一行 review（行为正确；research 01「会话画像每 kind 一行」已记载该自动行为，计划编制红绿名单时漏掉了这个消费者）——新增步骤 2.13（命中 6 的统一替换 + 标题四→五 kind）；② local-prompts.test.js「未知 .md 文件名 fail loud」的正则固定旧六文件文案——该文案按 TARGET_BY_FILE 键自动生成，2.8 后自动含 review.md，步骤 2.9 只同步了 doctor 文案、漏了这条既有断言——新增步骤 2.14；③ 步骤 2.5 Verify 计数算术笔误——`EXECUTOR_KINDS.review]:` 模式同时命中 JSONL_FILES 映射行，预期 1 更正为 2（步骤 2.6 的总数预期 3 恰好印证终态正确，执行器差异记录 1 的口径予以追认）。7 红处置 = 更新断言为五 kind 口径（采纳执行器建议），复跑承载于新增步骤 2.15（预期 711 通过 / 0 失败）。教训（B 收口时补进 red-green-expectations spec 条目）：消费者追踪必须覆盖两类隐性消费者——由枚举常量渲染或生成的输出（画像小节、自动生成的报错文案），以及固定这些输出的全节断言测试；只列常量的直接引用点不够。
 - 修订 2（主会话，implement 停机于 3.2 后处置）：两处更正 + 一处追认。① 3.2 红名单由 3 条更正为 2 条，第 3 条（review 接线测试）移入直绿固定——原预判只推演了显式登记一个入口（3.3 前接线条件仍 research-only），漏了守卫懒重建入口在 3.1a 已按 WRITE_GUARDED_KINDS 集合过滤：review 派发记录先落 task.json，判定时懒重建收编子会话 id，拒绝真实发生、测试为绿。这也是 Design decisions 9（已把 dsh 守卫 review 覆盖用例归入直绿固定）与 3.2 红名单的自相矛盾，更正后以步骤清单为准；② 3.1b 的 researchWriteGuard 改名计数由 2 处更正为 3 处（标题 1 + 调用 2），与 2.5 同属算术笔误，终态由「旧符号残留 0 行」清扫门保证；③ 执行器的停机判断与机制分析予以追认（绿是真实拒绝取得的，非跳过、非弱化断言）。教训合并：红名单推演必须穷尽机制的全部入口（集合维护 = 显式登记 + 懒重建两个入口），与修订 1 的「枚举生成物也是消费者」一并写入 red-green-expectations spec 条目。
+- 修订 3（主会话，implement 停机于 6.1 后处置）：清扫第 1 条命中 11 处，为 9 个文件的 JSDoc/文件头纯注释旧四 kind 文案（executor-context.d.ts 第 38 行属步骤 2.2 真实漏改——2.2 只改了两处 Record 联合与 stats 注释；其余 8 处所在文件不在计划编辑清单内），裁决采纳执行器建议全部补齐五 kind 口径，新增步骤 6.1a（按文件命中数表 + local-prompts.ts 单行定向约束防双重替换 + 重扫五条 + 6.2 全量重跑）。同步追认执行器两项口径：① 实际源文件数 27 = 计划 26 + 修订 1 新增 executor-profiles.test.js；② 步骤 2.14 的 Verify grep 因反斜杠转义在普通模式不匹配，改用 -F 固定串复核成立，取证口径有效。教训归并：Design decisions 6 的「kind 文案枚举副本清单」本身是枚举产物，会有记忆盲区；清扫门才是文案面的全集判定，注释与描述位一律以清扫结果为准补齐。
