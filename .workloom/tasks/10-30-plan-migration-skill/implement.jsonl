@@ -1,1 +1,4 @@
-{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "新技能 SKILL.md 与 continue 指针句为运行时英文文本，迁移注记语言跟随任务文档口径"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "assets 内容层 / adapter 注册层的分层边界（新技能内容在 assets，注册与同步在两 adapter）"}
+{"file": ".workloom/spec/adapter-pi/verify/index.md", "reason": "pi 的 skills 测试依赖先 build（sync-skills）再 bun test 的验证口径"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "dist 同 commit 重建入库，push 后 profile repin 流程"}
