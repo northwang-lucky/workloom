@@ -762,7 +762,7 @@ ${INJECTION_PROTOCOL_DISCIPLINE}`,
   [EXECUTOR_KINDS.frontend]: `Follow the PRD's '## UI Design' section as the baseline and deliver all seven UI axes it asks for.
 ```
 
-- Verify: `grep -c "EXECUTOR_KINDS.review\]:" packages/core/src/domain/executor-context.js` 输出 1；`grep -c "RESEARCH_WRITE_SCOPE_DISCIPLINE" packages/core/src/domain/executor-context.js` 输出 0。
+- Verify: `grep -c "EXECUTOR_KINDS.review\]:" packages/core/src/domain/executor-context.js` 输出 2（JSONL_FILES 映射行与纪律段键各命中一次；修订 1 更正原预期 1——漏算 JSONL 行的算术笔误）；`grep -c "RESEARCH_WRITE_SCOPE_DISCIPLINE" packages/core/src/domain/executor-context.js` 输出 0。
 
 #### 步骤 2.6 executor-context.js —— prd 全文物化条件扩 review（含三处注释同步）
 
@@ -1045,6 +1045,53 @@ const TARGET_BY_FILE = Object.freeze({
   3. `node --test test/*.test.js` 全绿（含 dist-dts 字节一致性）。
   4. `grep -c "review: 'review'" packages/core/dist/domain/executor-context.js` 输出 ≥ 1。
   预期暂态（不处理，阶段 4 消除）：adapter-pi 的 agents 键集合测试自本阶段 build 后进入暂态红（core dist 含 review、pi 角色表未补），本阶段不跑 pi 套件。
+
+#### 步骤 2.13 executor-profiles.test.js —— 画像小节五 kind 口径同步（修订 1 新增）
+
+- Covers: AC7
+- Target: packages/core/test/executor-profiles.test.js —— 6 个 strictEqual 全节断言测试的期望输出数组（renderExecutorProfilesSection 遍历 EXECUTOR_KINDS，阶段 2.1 后每节自动多出 review 行，属预期行为，research 01「会话画像每 kind 一行」条目记载）
+- Edit 子串替换（预期命中 6——六个测试的期望数组末行均为 frontend 未配置行 + join 收尾）：
+
+改前：
+```js
+        '  frontend: not configured (inherits parent session model)',
+      ].join('\n'),
+```
+改后：
+```js
+        '  frontend: not configured (inherits parent session model)',
+        '  review: not configured (inherits parent session model)',
+      ].join('\n'),
+```
+
+- Edit 测试标题（唯一命中）：`test('配置文件为空时四 kind 全部 not configured（未配置回退文案）', () => {` → `test('配置文件为空时五 kind 全部 not configured（未配置回退文案）', () => {`
+- Verify: `grep -c "review: not configured" packages/core/test/executor-profiles.test.js` 输出 6；`grep -c "四 kind" packages/core/test/executor-profiles.test.js` 输出 0。
+- 说明：session-context.test.js 对画像行用 includes 子串断言（宽容口径），无需改动——停机时的 7 红名单不含它，已实证保持绿。
+
+#### 步骤 2.14 local-prompts.test.js —— 未知文件名报错文案断言补 review.md（修订 1 新增）
+
+- Covers: AC7
+- Target: packages/core/test/local-prompts.test.js —— 「未知 .md 文件名 fail loud」测试的正则（该报错文案按 TARGET_BY_FILE 键自动生成，阶段 2.8 后自动含 review.md）
+- Edit 改前（唯一命中）：
+
+```js
+      /main\.md, research\.md, implement\.md, check\.md, frontend\.md, all\.md/,
+```
+
+- Edit 改后：
+
+```js
+      /main\.md, research\.md, implement\.md, check\.md, frontend\.md, review\.md, all\.md/,
+```
+
+- Verify: `grep -c "frontend\\.md, review\\.md" packages/core/test/local-prompts.test.js` 输出 1。
+
+#### 步骤 2.15 core 全量复跑绿验证（修订 1 新增）
+
+- Covers: AC6, AC7
+- Target: 无文件改动（验证步骤）
+- Edit: 无
+- Verify: `cd packages/core && node --test test/*.test.js` 全绿（711 通过 / 0 失败 = 基线 708 + 本任务新增 3 测试；停机时的 7 红全部转绿）。contract-asset 的 +1 属阶段 5，不计入此处。
 
 ### 阶段 3（接缝④ dsh 面）：守卫模块集合化改名（零行为）→ 红 → 绿
 
@@ -1854,3 +1901,7 @@ Run the scale self-check while assembling the package:
 - Target: 无文件改动（报告步骤）
 - Edit: 无
 - Verify: 报告按固定格式返回：改动文件清单（预期源文件 26 个：core src 7——executor-context.js/.d.ts、task-store.js、local-prompts.ts、doctor-local-prompts.ts、surface.ts、init.js；core 测试 6——executor-context/task-store/local-prompts/doctor/init/contract-asset；assets 1——workflow.md；dsh src 4——executor-guard.ts、executor.ts、executor-failover.ts、executor-injection.ts + dsh 测试 1；pi src 3——agent-definitions.ts、pi-args.ts、executor.ts + pi assets 1（write-scope.ts 改名）+ pi 测试 3——agents/pi-args/executor；另有 core 与 dsh 的 dist 再生）、各阶段红绿证据（阶段 1 的 12 红、阶段 3 的 3 红、阶段 4 的 5 红、阶段 5 的 1 红，与预期逐一对照）、直绿固定与暂态红清单核对、清扫五条结果、全量验证输出摘要、剩余风险。dist 与源码同 commit、push、repin 与重启由主会话在交付环节处理；执行器不 commit、不 push。
+
+## 修订记录
+
+- 修订 1（主会话，implement 停机于 2.12 后处置）：三处更正。① executor-profiles.test.js 未列入计划——renderExecutorProfilesSection 遍历 EXECUTOR_KINDS 渲染画像小节，阶段 2.1 后 6 个测试的全节 strictEqual 期望各多一行 review（行为正确；research 01「会话画像每 kind 一行」已记载该自动行为，计划编制红绿名单时漏掉了这个消费者）——新增步骤 2.13（命中 6 的统一替换 + 标题四→五 kind）；② local-prompts.test.js「未知 .md 文件名 fail loud」的正则固定旧六文件文案——该文案按 TARGET_BY_FILE 键自动生成，2.8 后自动含 review.md，步骤 2.9 只同步了 doctor 文案、漏了这条既有断言——新增步骤 2.14；③ 步骤 2.5 Verify 计数算术笔误——`EXECUTOR_KINDS.review]:` 模式同时命中 JSONL_FILES 映射行，预期 1 更正为 2（步骤 2.6 的总数预期 3 恰好印证终态正确，执行器差异记录 1 的口径予以追认）。7 红处置 = 更新断言为五 kind 口径（采纳执行器建议），复跑承载于新增步骤 2.15（预期 711 通过 / 0 失败）。教训（B 收口时补进 red-green-expectations spec 条目）：消费者追踪必须覆盖两类隐性消费者——由枚举常量渲染或生成的输出（画像小节、自动生成的报错文案），以及固定这些输出的全节断言测试；只列常量的直接引用点不够。

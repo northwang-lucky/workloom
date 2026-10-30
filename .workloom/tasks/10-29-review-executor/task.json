@@ -68,7 +68,7 @@
       "kind": "implement",
       "at": "2026-10-30T03:51:59.762Z",
       "title": "review 执行器：六阶段红绿实现（core/dsh/pi/assets 全链）",
-      "status": "running",
+      "status": "completed",
       "childId": "3e00cf79-9454-4698-9549-97fd8e4b0fce",
       "model": "zai-coding-cn/glm-5.3-flash",
       "effort": "max",
