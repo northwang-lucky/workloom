@@ -8,17 +8,16 @@
 
 已定（继承容器级讨论，用户已确认）：
 
-1. 新增执行器类型 review，与 research/implement/check/frontend 并列。边界写明：review 审计划、在开工前；check 审代码、在实现后。
-2. 触发时机：plan.md 写完之后、1.4 组审阅包之前。默认策略是写了 plan 就派发 review，对齐轮允许显式跳过。作为 workflow 1.4 正文的指引文本写入，不加新步骤编号，不升协议版本。
-3. review 执行器只写审查报告（任务目录下，暂定 plan-review.md，多轮审查以节追加），不改 plan、不改代码；写入范围限 `.workloom/` 内（复用 research 的机制）。
-4. 审查报告与主会话的逐条处置结果一起进 1.4 审阅包。
-5. 默认配置拟与 check 相同（deepseek-flash + effort max），工具面为读取 + LSP + 受限写入；用户可按需调整。
-6. 发现分级与处置（复用 P0/P1/P2，计划口径）：P0 = 按计划执行必然失败或违背验收（锚点落空、片段无法唯一定位、验收判据未覆盖），必须处置完才进 1.4；P1 = 可行性风险或明显更优方案未采纳，修或记录理由；P2 = 措辞不精确、引用不全，全修。
-7. 复审机制：主会话修完 plan 后，复用同一个 review 子会话续接复审（不新开子会话），循环直到无 P0/P1 发现，上限三轮；到顶仍有剩余时停止循环，剩余发现连同处置说明进 1.4 审阅包交用户裁决。
-8. 建议性发现的采纳权属：审查发现附带的更优方案或修复建议，由主会话评估决定——采纳即改 plan，不采纳记录理由，1.4 时方案与理由一起对用户可见。
-9. spec 上下文来源：复用 implement.jsonl，不新增 review.jsonl；1.3 配置面不变。
-
-审查内容四维度（21 项细目全采纳，已确认）：
+R1. 新增执行器类型 review，与 research/implement/check/frontend 并列。边界写明：review 审计划、在开工前；check 审代码、在实现后。
+R2. 触发时机：plan.md 写完之后、1.4 组审阅包之前。默认策略是写了 plan 就派发 review，对齐轮允许显式跳过。作为 workflow 1.4 正文的指引文本写入，不加新步骤编号，不升协议版本。
+R3. review 执行器只写审查报告（任务目录下，暂定 plan-review.md，多轮审查以节追加），不改 plan、不改代码；写入范围限 `.workloom/` 内（复用 research 的机制，按已定 20 升级为守卫 kind 集合）。
+R4. 审查报告与主会话的逐条处置结果一起进 1.4 审阅包。
+R5. 默认配置拟与 check 相同（deepseek-flash + effort max），工具面为读取 + LSP + 受限写入；用户可按需调整（全局配置 review 条目已由用户提前配好）。
+R6. 发现分级与处置（复用 P0/P1/P2，计划口径）：P0 = 按计划执行必然失败或违背验收（锚点落空、片段无法唯一定位、验收判据未覆盖），必须处置完才进 1.4；P1 = 可行性风险或明显更优方案未采纳，修或记录理由；P2 = 措辞不精确、引用不全，全修。
+R7. 复审机制：主会话修完 plan 后，复用同一个 review 子会话续接复审（不新开子会话），循环直到无 P0/P1 发现，上限三轮；到顶仍有剩余时停止循环，剩余发现连同处置说明进 1.4 审阅包交用户裁决。
+R8. 建议性发现的采纳权属：审查发现附带的更优方案或修复建议，由主会话评估决定——采纳即改 plan，不采纳记录理由，1.4 时方案与理由一起对用户可见。
+R9. spec 上下文来源：复用 implement.jsonl，不新增 review.jsonl；1.3 配置面不变。
+R10. 审查内容四维度（21 项细目全采纳，已确认）：
 
 - 维度一 规范符合性：plan 是否符合完全规定式写作标准（每步有文件 + 符号 + 片段锚点、改动有前后代码块、新文件给全文、每步带验证命令、无模糊指令）。
 - 维度二 忠实性：按 AC 编号逐条核对步骤覆盖（依赖子任务 C 交付的 R/AC 溯源链）、对齐决策被体现、边界与失败路径有处理、无范围偏移、UI/test-first 特殊小节有对应结构；同时顺带审 prd 自身格式合规（R/AC 编号缺失、AC 无验证方法等报 P2，主会话补齐）。
@@ -27,13 +26,19 @@
 
 ## Acceptance Criteria
 
-1. 对写了 plan.md 的任务派发 review 执行器，任务目录生成审查报告（暂定 plan-review.md，多轮以节追加）：每条发现带级别、plan 内锚点（文件 + 行号或引文）、修复建议；可行性维度的发现附 LSP 或读文件证据。
-2. 报告覆盖四维度 21 项清单；维度二按 AC 编号核对覆盖，并含 prd 格式合规发现；主会话逐条记录处置（改 plan 或记录理由），处置结果与报告一起出现在 1.4 审阅包。
-3. 复审循环：主会话修完 plan 后复用同一 review 子会话续接复审，循环直到无 P0/P1 或达上限三轮；到顶剩余的发现连同处置说明进 1.4 审阅包交用户裁决。
-4. 未写 plan.md 的任务、或对齐轮选择跳过的任务，不派发 review。
-5. review 执行器写 `.workloom/` 之外的文件被机制拒绝。
-6. 全链验证绿（pnpm lint、pnpm -r typecheck、pnpm -r build、各包测试），core 与相关包的 dist 同 commit 重建，push 后 profile repin 完成，实例重启经用户授权。
-7. 机制面验收（1.2 调研事实修正补充）：local-prompts 片段目标注册 review（review 派发不再于注入组装抛错，prompts/review.md 被 doctor 正确识别）；computeTaskStage 对 review 不改变 stage（纯函数单测覆盖 planning 与 check 两场景）；写入范围守卫按守卫 kind 集合对 review 生效（dsh 守卫拒绝文案参数化、pi 扩展条件泛化）；三份 kind 标签文案副本（core surface.ts 两处、dsh executor-injection、pi pi-args）同步含 review。
+AC1. 对写了 plan.md 的任务派发 review 执行器，任务目录生成审查报告（暂定 plan-review.md，多轮以节追加）：每条发现带级别、plan 内锚点（文件 + 行号或引文）、修复建议；可行性维度的发现附 LSP 或读文件证据。
+　验证：review 纪律段与 pi 角色文案的关键句被 executor-context / agents 测试逐字固定并全绿；派发通道本身由接缝①④的枚举与标签测试覆盖。机制上线后的首次真实派发产出由容器任务的后续任务实战检验（不在本任务门禁内）。
+AC2. 报告覆盖四维度 21 项清单；维度二按 AC 编号核对覆盖，并含 prd 格式合规发现；主会话逐条记录处置（改 plan 或记录理由），处置结果与报告一起出现在 1.4 审阅包。
+　验证：纪律段四维标题（Conformance/Fidelity/Feasibility/Quality）与分级口径句由新增 pin 测试逐字固定；处置流程语义由 workflow 1.4 指引段承载并被契约测试固定。
+AC3. 复审循环：主会话修完 plan 后复用同一 review 子会话续接复审，循环直到无 P0/P1 或达上限三轮；到顶剩余的发现连同处置说明进 1.4 审阅包交用户裁决。
+　验证：contract-asset 新测试对 1.4 review 指引段的关键句（同子会话续接、三轮上限、剩余处置进包）逐字固定，全绿。
+AC4. 未写 plan.md 的任务、或对齐轮选择跳过的任务，不派发 review。
+　验证：契约测试固定跳过语义句（may explicitly skip）；无机器门禁为既定决策（research 03 确认无可挂求值点，硬门禁与可跳过冲突），文本承载即验收。
+AC5. review 执行器写 `.workloom/` 之外的文件被机制拒绝。
+　验证：dsh 守卫 review 接线测试（越界拒绝、域内放行）与 pi write-scope 扩展测试（域内成功、越界英文拒绝）全绿。
+AC6. 全链验证绿（pnpm lint、pnpm -r typecheck、pnpm -r build、各包测试），core 与相关包的 dist 同 commit 重建，push 后 profile repin 完成，实例重启经用户授权。
+　验证：plan 阶段 6.2 的九项命令依次 exit 0 / 全绿，dist 同步 grep 三项命中；部署链记录在交付报告。
+AC7. 机制面验收（1.2 调研事实修正补充）：local-prompts 片段目标注册 review（review 派发不再于注入组装抛错，prompts/review.md 被 doctor 正确识别）；computeTaskStage 对 review 不改变 stage（纯函数单测覆盖 planning 与 check 两场景）；写入范围守卫按守卫 kind 集合对 review 生效（dsh 守卫拒绝文案参数化、pi 扩展条件泛化）；三份 kind 标签文案副本（core surface.ts 两处、dsh executor-injection、pi pi-args）同步含 review。
 　验证：对应单测全绿（core task-store / local-prompts / doctor 测试、dsh executor 测试、pi pi-args 与 agents 测试）；旧四 kind 文案枚举在标签与描述位清扫 0 残留。
 
 Test-first 接缝（已确认，红绿推进，测试只放在下列公开边界）：
