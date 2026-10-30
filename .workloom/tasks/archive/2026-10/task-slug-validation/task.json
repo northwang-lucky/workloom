@@ -1,0 +1,40 @@
+{
+  "id": "6546dc36-ffd3-4782-8fe5-f98578e2b0d4",
+  "name": "task-slug-validation",
+  "title": "任务 slug 校验与日期前缀防重",
+  "description": "createTask 对调用方传入的 slug 零校验，导致目录出现双日期前缀（zephyra 仓 7 个任务目录曾变成 10-30-10-30-*）。补 slug 校验并在工具参数描述里说明日期前缀由工具自动添加。",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "light",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": "core",
+  "branch": "workloom/10-30-task-slug-validation",
+  "base_branch": "main",
+  "createdAt": "2026-10-30T13:38:48.832Z",
+  "completedAt": "2026-10-30T15:57:45.215Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/10-30-task-slug-validation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-10-30T13:52:51.667Z",
+    "summary": "slug 入口校验实现完成并自检通过。验证项：pnpm -r build、pnpm -r typecheck、pnpm lint（eslint 零输出、退出码 0）全绿；packages/core node --test 714 pass / 0 fail（含新增用例「slug 入口校验：日期前缀/字符集/长度非法均返回 err 且零写入」与「PARAM_DESCRIPTIONS.slug 声明日期前缀由工具生成」）；packages/adapter-dsh node --test 173 pass / 0 fail；packages/adapter-pi bun test 199 pass / 0 fail。AC1-AC4 逐条对齐：日期前缀（当天/其它日期/恰好 MM-DD/12-30-day-guarantee）、字符集（大写、下划线、空格、首尾连字符）、41 字符超长、显式空串、标题派生撞前缀全部返回 err 且 tasks/ 目录零新增；2fa-support、q3-okr、release-12-30 正常创建。dist 已同轮重建（surface.js/surface.d.ts 含新文案，domain/task-store.js 含校验逻辑）。LSP 诊断：surface.ts 零问题，JS 文件仅剩主 workspace 锚定导致的既有 node 类型噪声，非本次引入。未跑 adapter-pi 真机清单：本次未改动 adapter-pi executor 行为。"
+  },
+  "alignment": null,
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
