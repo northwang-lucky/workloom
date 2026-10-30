@@ -21,6 +21,16 @@
 3. 生产 profile 已 repin 到包含全部三个子任务的提交，经用户授权重启后生效：新体系下的第一个任务全程按新规范走通（plan.md 写作 → review 派发 → 编号核对 → 规定式执行）。
 4. 全链验证命令全绿（pnpm lint、pnpm -r typecheck、pnpm -r build、各包测试）。
 
+## 最终验收细目与结果
+
+细目按 AC2 在全部子任务归档后计算（2026-10-30，主会话实测，命令与命中数可复现）：
+
+1. plan.md 命名一致性：workflow.md、workloom-alignment SKILL、plan-authoring reference、executor-context.js（指针常量与注入组装）、agent-definitions.ts（pi 角色文案）五处均含 plan.md 口径——通过。
+2. R/AC 溯源口径一致性：task-gates.js 的 PRD_SECTIONS 占位符（R1, R2… 编号 + AC 带验证方法指引）、workflow 1.1 正文逐字句（Number Requirements as R1）、plan-authoring reference（Covers bullet 与 AC 覆盖完成判据）、review 纪律段 Fidelity 维度（R/AC 编号缺失即发现）——四处同口径——通过。
+3. design.md/implement.md 残留扫描：src 与 assets 面 grep 共 13 处命中，逐条判定全部合法——2 处本机提示词片段文件名命名空间（prompts/implement.md，与任务制品同名不同物）、1 处 workloom-continue 故意保留的 legacy 路由分支（D 交付物）、9 处 workloom-migrate-plan 技能正文（迁移技能必须指名迁移对象，D 交付物）、1 处 ui-design.md 引用文件名子串误中；非法残留 0——通过。
+4. review 全链存在性：core dist 枚举实测输出 research/implement/check/frontend/review；executor-context.js 含 review 12 处；workflow 1.4 含 Plan review dispatch 段且版本保持 24；实例经授权重启后执行器画像出现 review 行（画像段按枚举驱动渲染，即 B 机制上线的现场证明）——通过。
+5. AC1/AC3/AC4：四个子任务全部归档且各有 check 通过凭据（A 5c0ee38、C 39ad79d、D 3d6c6f7、B 170b8ba）；生产 profile repin 到 304bde4（含全部交付）并经用户授权重启；全链验证在 B 交付提交处由 check 执行器与主会话双重复跑（lint/typecheck/build exit 0，core 712、dsh 173、pi 199、assets 27 全绿），此后 main 仅 .workloom 元数据提交、无代码变更——通过。AC3 末句「新体系第一个任务全程走通」为容器归档后的观察项，在下一个任务运行时核验（plan.md 写作 → review 派发 → 编号核对 → 规定式执行）。
+
 ## Notes
 
 - 跨切面决策的完整记录在各子任务 prd.md 的 Alignment Decisions；容器只记索引，不复述细则。
@@ -33,8 +43,6 @@
 1. 拆分方案：容器 + 子任务 A、C、D、B，执行顺序 A → C → D → B（用户确认候选清单与拆分本身；D 为容器交付后经用户提问“其他项目的存量任务怎么办”补充确认）。
 2. 跨切面决策索引：plan.md 合并与改名、完全规定式标准、双向约束、不加机器门禁（A）；R/AC 编号溯源、AC 带验证方法、plan 步骤 Covers 标注、review 顺带审 prd 格式（C）；独立迁移技能、迁移即重写（按新标准重写步骤并实地核锚点）、prd.md 同属迁移范围（按 C 格式重写 + 凭据 stale 重确认路径，用户 2026-10-30 补充）、迁移后删除原文件、continue 只留指针句、技能自带批量扫描（D）；review 四维 21 项、P0/P1/P2 计划口径、复审循环上限三轮同子会话续接、复用 implement.jsonl、test-first 五接缝（B）。
 
-开放节点：
+开放节点：无（原唯一开放节点——最终验收细目——已在全部子任务归档后计算并实测，结果见「最终验收细目与结果」节，随归档确认呈报用户）。
 
-1. 暂无独立开放节点；容器的最终验收细目在全部子任务归档前计算并确认。
-
-<!-- workloom:open-nodes=pending -->
+<!-- workloom:open-nodes=none -->

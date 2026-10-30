@@ -1,0 +1,62 @@
+{
+  "id": "fa0e68ff-0d95-41c7-9572-4fbd4525621c",
+  "name": "plan-system-upgrade",
+  "title": "计划文档体系升级：plan.md 合并 + 规定式写作标准 + review 执行器",
+  "description": "容器任务：design/implement 合并为 plan.md、完全规定式写作标准（写作侧+执行侧）、新增 review 执行器（开工前计划审查）。整体验收后最后归档。",
+  "status": "completed",
+  "priority": "P1",
+  "mode": "full",
+  "creator": "northwang-lucky",
+  "assignee": "",
+  "package": "repo",
+  "branch": "workloom/10-29-plan-system-upgrade",
+  "base_branch": "main",
+  "createdAt": "2026-10-29T13:04:25.223Z",
+  "completedAt": "2026-10-30T05:59:58.201Z",
+  "parent": null,
+  "children": [
+    "tasks/10-29-plan-md-prescriptive",
+    "tasks/10-29-review-executor",
+    "tasks/10-29-prd-traceability",
+    "tasks/10-30-plan-migration-skill"
+  ],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/10-29-plan-system-upgrade",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-10-30T05:59:40.175Z",
+    "summary": "容器最终验收由主会话完成（协调任务，无执行器派发、无实现代码，五项细目全部实测通过，证据写入 prd「最终验收细目与结果」节）：① plan.md 命名一致性——workflow.md、alignment SKILL、plan-authoring reference、executor-context.js、agent-definitions.ts 五处口径统一；② R/AC 溯源口径一致性——task-gates.js PRD_SECTIONS 占位符（R1, R2… + AC 验证方法指引）、workflow 1.1 逐字句、plan-authoring Covers 判据、review 纪律段 Fidelity 维度四处同源；③ design/implement 制品残留——src 与 assets 面 13 处命中逐条判定全部合法（本机提示词片段命名空间 2、continue legacy 路由分支 1、migrate-plan 技能正文 9、ui-design.md 子串误中 1），非法残留 0；④ review 全链存在性——core dist 枚举实测输出五 kind（research/implement/check/frontend/review）、workflow 1.4 含 Plan review dispatch 段且版本保持 24、用户授权重启后执行器画像区出现 review 行（枚举驱动渲染的现场证明）；⑤ AC1/AC3/AC4——四个子任务全部归档且各有 check 通过凭据（A 5c0ee38、C 39ad79d、D 3d6c6f7、B 170b8ba），生产 profile repin 到 304bde4（含全部交付）并经授权重启生效，全链验证在 B 交付提交处由 check 执行器与主会话双重复跑全绿（lint/typecheck/build exit 0，core 712、dsh 173、pi 199、assets 27），此后 main 仅 .workloom 元数据提交。AC3 末句「新体系第一个任务全程走通」为容器归档后观察项，下一个任务运行时核验。验收结果完整呈报后用户明确回复「归档容器」。Open issues: none。"
+  },
+  "alignment": {
+    "passedAt": "2026-10-30T05:58:23.765Z",
+    "summary": "容器对齐收口（薄收敛）：原唯一开放节点「最终验收细目在全部子任务归档前计算并确认」已按约定关闭——四个子任务 A/C/D/B 全部归档后，主会话按 AC2 计算细目并实测五项（plan.md 命名五处一致、R/AC 口径四处同源、design/implement 残留 13 处命中逐条判定全部合法且非法残留 0、review 全链存在性含重启后画像区 review 行现场证明、AC1/AC3/AC4 凭据齐备），结果写入 prd「最终验收细目与结果」节，开放节点标记置 none。AC3 末句「新体系第一个任务全程走通」如实标注为容器归档后观察项。验收结果已向用户完整呈报，用户明确回复「归档容器」。容器自身不写实现代码、不派发执行器，无新增决策节点。",
+    "prdHash": "7aa51beef00a167f8bff153f6fcbacc8a4e229e3ace64a1b0a8f14740c8a2980"
+  },
+  "overrides": [
+    {
+      "gate": "start",
+      "tool": "workloom_task_start",
+      "at": "2026-10-30T05:58:33.474Z",
+      "reason": "协调容器任务：不派发执行器、不写实现代码，implement.jsonl/check.jsonl 无条目属设计使然；整体验收由主会话按 prd「最终验收细目与结果」节完成（五项全过，用户已确认归档）。"
+    },
+    {
+      "gate": "check",
+      "tool": "workloom_task_check",
+      "at": "2026-10-30T05:59:40.175Z",
+      "reason": "协调容器任务：验收由主会话直接完成，未派发 check 执行器，check.jsonl 无条目属设计使然（与 start force 同一理由链）；验收五项细目全部实测通过并写入 prd「最终验收细目与结果」节，用户已确认归档。"
+    }
+  ],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}
