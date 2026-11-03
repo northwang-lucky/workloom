@@ -9,6 +9,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { markTaskLegacy } from './fixtures/task-artifacts.js'
+
 import {
   computePrdHash,
   executeAlignTask,
@@ -43,6 +45,11 @@ function satisfyStartGate(root, taskRelPath) {
   writeFileSync(
     join(taskDir, 'prd.md'),
     '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
+  )
+  // 完整实施任务 start 还要求 PLAN（夹具 prd 无 AC 编号，最小 plan 即可通过）。
+  writeFileSync(
+    join(taskDir, 'plan.md'),
+    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit: add implementation\n- Verify: pnpm lint\n',
   )
   writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
@@ -166,6 +173,8 @@ test('create→start→check→finish→list→archive 全链（活跃任务 fal
     const [, started] = await executeStartTask(root, contextKey, {})
     assert.equal(started.taskRelPath, created.taskRelPath)
     assert.equal(started.status, 'in_progress')
+    // 旧任务形态（case=null）：本测试聚焦编排链路，CASE 链路在 case.test.js。
+    markTaskLegacy(root, created.taskRelPath)
     // check：写 check 凭据（archive 门禁的前提）。
     const [checkErr, checked] = await executeCheckTask(root, contextKey, {
       summary: 'chain check passed',
@@ -202,6 +211,8 @@ test('executeCheckTask 无 check.jsonl 有效记录被拒绝，force 放行', as
       reason: 'test bypass',
     })
     assert.equal(started.status, 'in_progress')
+    // 旧任务形态（case=null）：本测试聚焦 check/archive 编排与 force 留痕。
+    markTaskLegacy(root, created.taskRelPath)
     const saved = JSON.parse(
       readFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), 'utf8'),
     )

@@ -20,6 +20,8 @@ import { clearActiveTask, clearPointersToTask, resolveActiveTask, setActiveTask,
 import { gitAddCommit } from './git.js';
 import { cleanupTaskWorktree, createTaskWorktree } from './worktree.js';
 import { GATES, PRD_SECTIONS, evaluateCheckLogGate, evaluateFrontendDispatchGate, evaluateStartGate, evaluateStaleAlignmentGate, makeOverride, } from './task-gates.js';
+// CASE 生命周期（与 alignment 凭据同构的门禁与窄写口，import 紧随其门禁来源之后）。
+import { CASE_FILES, CASE_PURPOSES, computeCaseHash, createCaseRecord, evaluateCaseOutcomeGate, } from './case.js';
 /** 错误消息前缀。 */
 const ERR_PREFIX = 'workloom task';
 /** slug 最大长度（目录名的一部分）。 */
@@ -215,6 +217,10 @@ function normalizeTaskRecord(parsed) {
         // alignment 凭据缺失补 null：与 check 同策，保证门禁对旧数据安全。
         // 旧 grilling 字段经 ...parsed 原样透传（惰性历史数据，不参与新语义、不迁移）。
         alignment: parsed.alignment ?? null,
+        // CASE 生命周期记录：缺字段读 null（旧任务），有记录归一补默认键（三态保留）。
+        case: typeof parsed.case === 'object' && parsed.case !== null
+            ? createCaseRecord(parsed.case.required === true, parsed.case)
+            : null,
         overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
         // 任务阶段：旧任务缺 stage 归一化默认 implement（未进入 check 阶段，门禁维持拦截）。
         stage: parsed.stage ?? TaskStage.IMPLEMENT,
@@ -344,6 +350,9 @@ function buildTaskRecord(input) {
         notes: '',
         meta: {},
         check: null,
+        // CASE 生命周期（required/designSession/confirmedAt/caseHash/summary/result）：
+        // 新建任务落 null；start 完整任务时才转换（旧任务保留既有确认数据）。
+        case: null,
         // alignment 凭据（passedAt/summary/prdHash）：planning 阶段经 workloom_task_align
         // action=confirm 原子写入；新建任务仅落 null（旧 grilling 不再写入新任务）。
         alignment: null,
@@ -647,6 +656,11 @@ async function startTaskInternal(root, params) {
         task.base_branch = wt.baseBranch;
         task.worktree_path = wt.worktreePath;
     }
+    // 完整任务进入 in_progress 即启用新 CASE 通过条件（旧确认数据随 createCaseRecord
+    // 保留；轻量任务无 CASE 流程，保持 null）。
+    if (task.mode !== TASK_MODES.LIGHT) {
+        task.case = createCaseRecord(true, task.case);
+    }
     task.status = TaskStatus.IN_PROGRESS;
     writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task));
     if (params.contextKey !== undefined) {
@@ -695,6 +709,12 @@ function checkTaskInternal(root, params) {
     if (typeof summary !== 'string' || summary.trim() === '') {
         throw new Error(`${ERR_PREFIX}: checkTask requires a non-empty summary`);
     }
+    // CASE 核心门禁（不可 force）：未确认/过期 CASE 或无效 RESULT 一律拒绝写凭据。
+    const caseIssues = evaluateCaseOutcomeGate(projectRoot, params.taskRelPath, task);
+    if (caseIssues.length > 0) {
+        throw new Error(`${ERR_PREFIX}: CASE gate failed: ${caseIssues.map((item) => item.message).join('; ')} ` +
+            '(core CASE failures cannot be bypassed with force)');
+    }
     const forced = params.force === true;
     if (forced) {
         // force 豁免（R14）：reason 必填非空；仅对实际会拦的门禁逐项留痕。
@@ -722,6 +742,21 @@ function checkTaskInternal(root, params) {
         }
     }
     task.check = { passedAt: new Date().toISOString(), summary };
+    // 通过凭据落盘前记录 CASE RESULT 摘要（归档 requireResultRecord 再校验用）。
+    if (task.case?.required === true) {
+        const caseHash = task.case.caseHash;
+        const resultContent = readTaskContent(insideWorkloom(projectRoot, params.taskRelPath), CASE_FILES.result);
+        if (resultContent === null)
+            throw new Error(`${ERR_PREFIX}: case-result.md is missing`);
+        // 前置 CASE 门禁已确保 caseHash 非空，此处仅满足类型收窄（fail loud 防御）。
+        if (caseHash === null)
+            throw new Error(`${ERR_PREFIX}: case.md has not been confirmed`);
+        task.case.result = {
+            caseHash,
+            resultHash: computeCaseHash(resultContent),
+            passedAt: task.check.passedAt,
+        };
+    }
     writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task));
     return task;
 }
@@ -797,6 +832,44 @@ function recordAlignmentCredentialInternal(root, taskRelPath, entry) {
     // 凭据写口全程同步 + 原子替换（temp + renameSync；失败清理残留）。
     writeFileAtomic(join(insideWorkloom(projectRoot, taskRelPath), FILE_NAMES.taskJson), serializeTask(stripTaskPath(task)));
     return task;
+}
+/**
+ * CASE 确认窄写口：校验摘要/摘要值、拒绝 completed、同 hash 幂等，写入
+ * required/confirmedAt/caseHash/summary 并清空 result（与 alignment 凭据同构）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务相对路径
+ * @param {import('./task-store.d.ts').CaseConfirmationInput} entry 确认摘要与 CASE 摘要值
+ * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]} 写入结果
+ */
+export function recordCaseConfirmation(root, taskRelPath, entry) {
+    try {
+        const projectRoot = requireProjectRoot(root);
+        const task = requireTask(projectRoot, taskRelPath);
+        if (task.status === TaskStatus.COMPLETED) {
+            throw new Error(`${ERR_PREFIX}: completed tasks cannot confirm CASE`);
+        }
+        if (typeof entry.summary !== 'string' || entry.summary.trim() === '') {
+            throw new Error(`${ERR_PREFIX}: CASE confirmation requires a non-empty summary`);
+        }
+        if (typeof entry.caseHash !== 'string' || entry.caseHash.trim() === '') {
+            throw new Error(`${ERR_PREFIX}: CASE confirmation requires a non-empty caseHash`);
+        }
+        if (task.case?.required === true && task.case.caseHash === entry.caseHash)
+            return [null, task];
+        const confirmedAt = new Date().toISOString();
+        task.case = {
+            ...createCaseRecord(true, task.case),
+            confirmedAt,
+            caseHash: entry.caseHash,
+            summary: entry.summary,
+            result: null,
+        };
+        writeFileAtomic(join(insideWorkloom(projectRoot, taskRelPath), FILE_NAMES.taskJson), serializeTask(stripTaskPath(task)));
+        return [null, task];
+    }
+    catch (error) {
+        return [toError(error), null];
+    }
 }
 /**
  * 校验 force 豁免 reason（内部）：force=true 必须带非空 reason（R14），
@@ -901,8 +974,20 @@ function recordExecutorDispatchInternal(root, taskRelPath, entry) {
     const projectRoot = requireProjectRoot(root);
     const task = requireTask(projectRoot, taskRelPath);
     task.dispatches.push(buildDispatchRecord(entry));
+    // CASE 设计轮：首次派发创建 required=false 的记录并落 designSession；换新会话
+    // 必须经 fallbackOf 链关联旧会话（防无链漂移），同 child 续用只覆盖为同值。
+    if (entry.kind === EXECUTOR_KINDS.check && entry.purpose === CASE_PURPOSES.DESIGN) {
+        task.case = createCaseRecord(task.case?.required === true, task.case);
+        if (entry.childId !== undefined) {
+            const previous = task.case.designSession;
+            if (previous !== null && previous !== entry.childId && entry.fallbackOf !== previous) {
+                throw new Error(`${ERR_PREFIX}: a new CASE design session requires a fallbackOf link`);
+            }
+            task.case.designSession = entry.childId;
+        }
+    }
     // 与 dispatches 同点更新 stage：research/review 保持，implement/frontend → implement，check → check。
-    task.stage = computeTaskStage(task.stage, entry.kind);
+    task.stage = computeTaskStage(task.stage, entry.kind, entry.purpose);
     writeTaskJson(insideWorkloom(projectRoot, taskRelPath), stripTaskPath(task));
 }
 /**
@@ -1065,6 +1150,16 @@ function buildDispatchRecord(entry) {
     if (!Object.values(EXECUTOR_KINDS).includes(entry.kind)) {
         throw new Error(`${ERR_PREFIX}: invalid dispatch kind: ${String(entry.kind)} (must be one of ${Object.values(EXECUTOR_KINDS).join('/')})`);
     }
+    // purpose 可选（仅 check）：CASE 设计轮保持 stage，最终执行轮进入 check；
+    // 其他 kind 携带 purpose 视为脏入参，fail loud。
+    if (entry.purpose !== undefined) {
+        if (entry.kind !== EXECUTOR_KINDS.check) {
+            throw new Error(`${ERR_PREFIX}: dispatch purpose is only valid for check`);
+        }
+        if (!Object.values(CASE_PURPOSES).includes(entry.purpose)) {
+            throw new Error(`${ERR_PREFIX}: invalid check purpose: ${String(entry.purpose)}`);
+        }
+    }
     // childId 可选：提供时必须是可用的 session id 形状（非空 string），否则 fail loud
     // （错误 childId 会污染续用定位依据，宁可拒绝记录）。
     if (entry.childId !== undefined) {
@@ -1123,6 +1218,10 @@ function buildDispatchRecord(entry) {
         title: entry.title,
         // status 默认 running；失败派发留痕时显式传 'failed' + error。
         status: entry.status ?? 'running',
+        // purpose 仅 check 记录（缺省 execution，兼容旧调用方）；case-design 不推进 stage。
+        ...(entry.kind === EXECUTOR_KINDS.check
+            ? { purpose: entry.purpose ?? CASE_PURPOSES.EXECUTION }
+            : {}),
         ...(entry.childId !== undefined ? { childId: entry.childId } : {}),
         ...(entry.model !== undefined ? { model: entry.model } : {}),
         ...(entry.effort !== undefined ? { effort: entry.effort } : {}),
@@ -1140,9 +1239,10 @@ function buildDispatchRecord(entry) {
  * kind 非法（含 undefined）抛错（fail loud，与 assertKind 同语义）。
  * @param {import('./task-store.d.ts').TaskStageValue} current 当前阶段（readTask 归一化后必有值）
  * @param {string} kind executor 类型
- * @returns {import('./task-store.d.ts').TaskStageValue}
+ * @param {import('./case.d.ts').CasePurpose} [purpose] CASE 设计或最终执行
+ * @returns {import('./task-store.d.ts').TaskStageValue} 新阶段
  */
-export function computeTaskStage(current, kind) {
+export function computeTaskStage(current, kind, purpose = CASE_PURPOSES.EXECUTION) {
     if (typeof kind !== 'string' || !Object.values(EXECUTOR_KINDS).includes(kind)) {
         throw new Error(`${ERR_PREFIX}: invalid kind: ${String(kind)} (must be one of ${Object.values(EXECUTOR_KINDS).join('/')})`);
     }
@@ -1150,8 +1250,9 @@ export function computeTaskStage(current, kind) {
         return current;
     if (kind === EXECUTOR_KINDS.review)
         return current;
-    if (kind === EXECUTOR_KINDS.check)
-        return TaskStage.CHECK;
+    if (kind === EXECUTOR_KINDS.check) {
+        return purpose === CASE_PURPOSES.DESIGN ? current : TaskStage.CHECK;
+    }
     return TaskStage.IMPLEMENT;
 }
 /**
@@ -1220,6 +1321,14 @@ async function archiveTaskInternal(root, params) {
     // 门禁先于任何写盘：无 check 凭据一律拒绝（不区分新旧任务）；stale alignment
     // 在 in_progress 任务上同样拒绝（R13）。force 豁免按实际绕过的 gate 逐项留痕，
     // 记录随归档写入移动后的 task.json。
+    // CASE 核心门禁（不可 force）：归档要求 RESULT 已记录且当前 RESULT 与记录一致。
+    const caseIssues = evaluateCaseOutcomeGate(projectRoot, params.taskRelPath, task, {
+        requireResultRecord: true,
+    });
+    if (caseIssues.length > 0) {
+        throw new Error(`${ERR_PREFIX}: CASE archive gate failed: ${caseIssues.map((item) => item.message).join('; ')} ` +
+            '(core CASE failures cannot be bypassed with force)');
+    }
     const forced = params.force === true;
     if (forced) {
         // force 豁免（R14）：reason 必填非空；仅对确实会拦的 gate 留痕。

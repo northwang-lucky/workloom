@@ -50,6 +50,11 @@ export function buildExecutorSchema(desc) {
                 type: 'boolean',
                 description: desc.reinjectExecutor,
             },
+            purpose: {
+                type: 'string',
+                enum: ['case-design', 'execution'],
+                description: desc.executorPurpose,
+            },
         },
         required: ['kind', 'prompt', 'title'],
         additionalProperties: false,

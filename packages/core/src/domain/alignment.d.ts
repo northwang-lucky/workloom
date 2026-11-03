@@ -14,10 +14,14 @@ export const ALIGNMENT_MISSING: string
 /** alignment 门禁缺失项文案：凭据 hash 与当前 prd 不一致（stale）。 */
 export const ALIGNMENT_STALE: string
 
-/** 归一化 prd.md 全文行尾：CRLF/CR 一律转 LF。 */
+/** 归一化任意文本行尾：CRLF/CR 一律转 LF。 */
+export declare function normalizeContentEol(content: string): string
+export declare function computeContentHash(content: string): string
+
+/** 兼容 PRD 调用方的行尾归一化包装。 */
 export function normalizePrdEol(content: string): string
 
-/** 对归一化后的 prd 全文计算 SHA-256（hex 小写）。 */
+/** 兼容 PRD 调用方的全文摘要包装（对归一化后的全文计算 SHA-256，hex 小写）。 */
 export function computePrdHash(content: string): string
 
 /** 扫描全文中的开放节点标记：无标记 null；任一 pending → pending；全 none → none。 */

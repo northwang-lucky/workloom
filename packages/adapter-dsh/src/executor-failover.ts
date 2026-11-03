@@ -104,6 +104,8 @@ export interface StartDispatchWithFailoverParams {
   agentOptions: AgentOptions | undefined
   /** 失败转移链（显式 model / 未配置时为空，走零行为变化路径）。 */
   chain: readonly FallbackModelEntry[]
+  /** CASE 设计或最终执行（失败留痕与重派注入沿用；仅 check 消费）。 */
+  purpose?: 'case-design' | 'execution'
   primaryBinding: PrimaryDispatchBinding
   /** 派发起点模型 label（穷尽消息链起点；轮换起点时为选中的链条目模型）。 */
   primaryModel: string
@@ -142,6 +144,8 @@ export interface FailoverContext {
   allowNames: readonly string[]
   /** 首次派发是否具备 LSP 工具面（重派注入沿用）。 */
   hasLsp: boolean
+  /** CASE 设计或最终执行（重派注入与记录沿用；仅 check 消费）。 */
+  purpose?: 'case-design' | 'execution'
 }
 
 /**
@@ -170,6 +174,7 @@ export async function startDispatchWithFailover(
     chain,
     primaryBinding,
     primaryModel,
+    purpose,
   } = params
   // 条目 effort 在首次尝试前整体校验（fail loud 于派发前，不在转到一半才发现配置坏）。
   assertFallbackChainEfforts(chain)
@@ -216,6 +221,7 @@ export async function startDispatchWithFailover(
       error,
       ...primaryBinding,
       toolsAllow: [...allowNames],
+      purpose,
     })
     let previousChildId = reservedChildId
     const outcome = await runFallbackChain({
@@ -240,6 +246,7 @@ export async function startDispatchWithFailover(
           fallbackOf: previousChildId,
           fallbackAttempt: step.attempt,
           toolsAllow: [...allowNames],
+          purpose,
         })
         previousChildId = reservedChildId
       },
@@ -451,6 +458,7 @@ async function runAsyncFailover(
           `${context.firstPrompt}\n\n${note}`,
           localDirectives,
           context.hasLsp,
+          context.purpose,
         )
         pendingChildId = SessionId(randomUUID())
         registerExecutorToolfaceChild(pendingChildId, context.allowNames)
@@ -495,6 +503,7 @@ async function runAsyncFailover(
           fallbackOf: previousChildId,
           fallbackAttempt: step.attempt,
           toolsAllow: [...context.allowNames],
+          purpose: context.purpose,
         })
         lastFailedChildId = failedChildId
         previousChildId = failedChildId

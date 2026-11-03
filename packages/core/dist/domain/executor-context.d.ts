@@ -29,6 +29,12 @@ export interface JsonlEntry {
 /** 解析 jsonl 全文为有效条目列表；坏行/无 file 非 seed 行抛错。 */
 export function parseJsonlEntries(content: string, jsonlName: string): JsonlEntry[]
 
+/** 注入的合成 artifact（adapter 从 assets 读取后传入：路径 + 全文）。 */
+export interface ExecutorArtifactContent {
+  path: string
+  content: string
+}
+
 /** buildExecutorPrompt 入参。 */
 export interface BuildExecutorPromptParams {
   /** 项目根（必须已是 findWorkloomRoot 的结果，不再向上查找）。 */
@@ -39,6 +45,16 @@ export interface BuildExecutorPromptParams {
   kind: string
   /** 用户任务正文（拼在 prompt 末尾的 ## Task prompt 节）。 */
   userPrompt: string
+  /**
+   * check 派发目的（CASE 设计轮保持 stage；execution 轮要求确认有效）。
+   * 缺省 execution，向后兼容。
+   */
+  purpose?: import('./case.d.ts').CasePurpose
+  /**
+   * CASE 模板正文（adapter 从 assets 读取后传入；仅 check kind 注入，
+   * 紧跟 CASE 块、Pointer list 之前）。缺省不注入。
+   */
+  caseTemplates?: ExecutorArtifactContent[]
   /**
    * 本机片段合成文本（三层 prompts 叠加后经 core composeLocalDirectivesText
    * 组装；在 prd 软指针之后、Task prompt 之前、终极权威段之前以 ## Local directives
@@ -77,3 +93,9 @@ export interface ExecutorPromptResult {
 export function buildExecutorPrompt(
   params: BuildExecutorPromptParams,
 ): [Error | null, ExecutorPromptResult | null]
+
+/**
+ * 组装普通增量续用文本：只追加确认摘要值；check + execution 轮先校验当前
+ * 确认仍然有效（未确认/过期抛错）；非 check kind 原文返回。
+ */
+export declare function buildExecutorIncrementalPrompt(params: BuildExecutorPromptParams): string

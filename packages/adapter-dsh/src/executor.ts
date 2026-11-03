@@ -104,6 +104,7 @@ import {
   evaluateLightDispatchGate,
   findWorkloomRoot,
   GATES,
+  buildExecutorIncrementalPrompt,
   loadConfig,
   materializeRingChain,
   PARENT_MODEL_LABEL,
@@ -183,6 +184,8 @@ interface ExecutorArgs {
   continue_executor?: string
   /** 续接全量重注入开关（默认关：续接只发增量指令；true = 恢复全量上下文注入）。 */
   reinject?: boolean
+  /** CASE 设计或最终执行（仅 check 消费；缺省 execution）。 */
+  purpose?: 'case-design' | 'execution'
 }
 
 /** 工具成功返回的 canonical 值形状（后台派发：childId + receipt；提示面：输出文本）。 */
@@ -491,14 +494,22 @@ async function executeTool(
         params.prompt,
         localDirectives,
         hasLsp,
+        params.purpose,
       )
       sendText = built.text
       injection = injectionStats(built, allowFilter.allow.length)
     } else {
-      // 增量续接：只发主会话增量指令（params.prompt），不复述子会话已持有上下文。
-      sendText = params.prompt
+      // 增量续接：只发主会话增量指令（params.prompt）；check + execution 轮由 core
+      // 先校验确认有效，再追加确认摘要值行（不重复 CASE 全文）。
+      sendText = buildExecutorIncrementalPrompt({
+        root,
+        taskRelPath,
+        kind: params.kind,
+        userPrompt: params.prompt,
+        purpose: params.purpose,
+      })
       injection = {
-        bytes: Buffer.byteLength(params.prompt, 'utf8'),
+        bytes: Buffer.byteLength(sendText, 'utf8'),
         inlined: 0,
         truncated: 0,
         indexed: 0,
@@ -535,6 +546,7 @@ async function executeTool(
       params.prompt,
       localDirectives,
       hasLsp,
+      params.purpose,
     )
     sendText = built.text
     injection = injectionStats(built, allowFilter.allow.length)
@@ -621,6 +633,7 @@ async function executeTool(
               }
             : buildNewDispatchBinding(params, effective, mainModel),
         primaryModel: selectedModel,
+        purpose: params.purpose,
       })
       childId = outcome.started.childId
       failover = outcome.failover
@@ -639,6 +652,7 @@ async function executeTool(
   // childId 首次派发记录的绑定、modelSource 记 spawn（审计可查，回执据此展示）。
   const [dispatchErr] = recordExecutorDispatch(root, taskRelPath, {
     kind: params.kind,
+    purpose: params.purpose,
     title: params.title,
     childId,
     // 白名单落记录：冷恢复时据此重建限制，不依赖插件内存索引。
@@ -688,6 +702,7 @@ async function executeTool(
       parent,
       allowNames: allowFilter.allow,
       hasLsp,
+      purpose: params.purpose,
     })
   }
   // 受限写 kind 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。

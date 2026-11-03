@@ -44,6 +44,18 @@ test('agent definitions: check role is fix-oriented, not report-only', () => {
   assert.match(check.systemPrompt, /verify/i)
 })
 
+test('agent definitions: check persona defers rules to the core discipline (no duplicated rule text)', () => {
+  const check = EXECUTOR_AGENT_DEFINITIONS[EXECUTOR_KINDS.check]
+  assert.ok(check !== undefined, 'missing definition for check')
+  // persona 只保留验证工程师身份 + 互补句：两阶段 CASE 流程与规则来源指向 core 纪律段
+  assert.ok(check.systemPrompt.includes('verification engineer'))
+  assert.ok(check.systemPrompt.includes('purpose case-design'))
+  assert.ok(check.systemPrompt.includes('purpose execution'))
+  assert.ok(check.systemPrompt.includes('single source of rules'))
+  // 与 core 重复的 P0/P1/P2 规则全文已删（行格式字面量是 core 纪律段的唯一载体）
+  assert.ok(!check.systemPrompt.includes('- <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>'))
+})
+
 test('agent definitions: systemPrompt describes pointer-based context, not the retired inline mechanism', () => {
   const kinds = Object.values(EXECUTOR_KINDS)
   for (const kind of kinds) {
@@ -65,13 +77,11 @@ test('agent definitions: systemPrompt describes pointer-based context, not the r
 test('agent definitions: check role classifies findings P0/P1/P2, fixes P2, escalates P0/P1', () => {
   const check = EXECUTOR_AGENT_DEFINITIONS[EXECUTOR_KINDS.check]
   assert.ok(check !== undefined, 'missing definition for check')
-  // 分级导向：发现按 P0/P1/P2 分级，P2 自修、P0/P1 上报（分级定义以 core
-  // 纪律段与契约 §2.2 为单一来源，角色总述只引用动作、不重复定义）。
+  // 分级导向保留为互补句（P0/P1/P2 提及 + P2 自修 + P0/P1 上报）；分级定义与
+  // Open issues 行格式以 core 纪律段为唯一来源（persona 不再重复规则全文）。
   assert.ok(check.systemPrompt.includes('P0/P1/P2'))
-  assert.ok(check.systemPrompt.includes('fix P2'))
-  assert.ok(check.systemPrompt.includes('escalate'))
-  // Open issues 行格式与 core 纪律段一致：[P0|P1|P2] 占位，不再用 [<severity>]。
-  assert.ok(check.systemPrompt.includes('[P0|P1|P2]'))
+  assert.ok(check.systemPrompt.includes('fix-P2-yourself'))
+  assert.ok(check.systemPrompt.includes('escalation of P0/P1'))
   assert.ok(!check.systemPrompt.includes('[<severity>]'))
 })
 

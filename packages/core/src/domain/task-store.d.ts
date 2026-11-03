@@ -1,4 +1,5 @@
 /** workloom 任务数据：task-store 模块的公共类型（供 JSDoc 引用，快照字段）。 */
+import type { CasePurpose, TaskCaseRecord } from './case.d.ts'
 import type { GateValue } from './task-gates.d.ts'
 import type { TaskModeValue } from './task-mode.d.ts'
 
@@ -98,6 +99,11 @@ export interface DispatchRecord {
   kind: string
   at: string
   title: string
+  /**
+   * 派发目的（仅 check 使用）：case-design 保持当前 stage 并记录设计会话，
+   * execution 运行已确认 CASE 并进入 check。缺省 execution（旧记录与旧调用方兼容）。
+   */
+  purpose?: DispatchPurpose
   /** continuable 子代理的 durable session id（旧记录缺省；续用定位与同 kind 校验的依据）。 */
   childId?: string
   /**
@@ -141,6 +147,7 @@ export type DispatchRecordInput = Pick<
   DispatchRecord,
   | 'kind'
   | 'title'
+  | 'purpose'
   | 'childId'
   | 'model'
   | 'effort'
@@ -150,6 +157,27 @@ export type DispatchRecordInput = Pick<
   | 'fallbackOf'
   | 'fallbackAttempt'
 > & { error?: string }
+
+/** DispatchRecord 与 DispatchRecordInput 均增加的 purpose 可选字段类型。 */
+export type DispatchPurpose = CasePurpose
+
+/** TaskRecord 增加的 case 字段载体；旧任务读取为 null。 */
+export interface TaskCaseRecordCarrier {
+  case: TaskCaseRecord | null
+}
+
+/** recordCaseConfirmation 的窄写入参。 */
+export interface CaseConfirmationInput {
+  summary: string
+  caseHash: string
+}
+
+/** 记录 CASE 确认（同 hash 幂等，写入 required/confirmedAt/caseHash/summary 并清空 result）。 */
+export declare function recordCaseConfirmation(
+  root: string,
+  taskRelPath: string,
+  entry: CaseConfirmationInput,
+): [Error | null, TaskRecordWithPath | null]
 
 /** settleExecutorDispatch 回填入参（只改 status/error，不动 stage、不新增记录）。 */
 export interface DispatchSettleInput {
@@ -189,6 +217,11 @@ export interface TaskRecord {
   notes: string
   meta: Record<string, unknown>
   check: TaskCheckRecord | null
+  /**
+   * CASE 生命周期记录（required/designSession/confirmedAt/caseHash/summary/result）：
+   * 旧任务读取为 null；start 完整任务转换 required=true；confirm 后记录摘要值。
+   */
+  case: TaskCaseRecord | null
   /** Phase 1.1 alignment 凭据（确认后非空；旧 grilling 字段为惰性历史数据，不参与语义）。 */
   alignment: TaskAlignmentRecord | null
   overrides: GateOverride[]

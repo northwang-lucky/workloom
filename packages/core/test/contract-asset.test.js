@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
+import { CASE_STRUCTURE } from '../src/domain/case.js'
 import { parseContract } from '../src/domain/workflow-contract.js'
 import { WORKFLOW_PROTOCOL_VERSION } from '../src/domain/protocol.js'
 
@@ -25,7 +26,7 @@ test('assets 的 workflow.md 可被 parseContract 解析', () => {
 test('契约 v20 的全部 force 路径都要求 non-empty reason', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  for (const stepId of ['1.4', '2.2', '3.1']) {
+  for (const stepId of ['1.4', '2.3', '3.1']) {
     const body = contract.steps.find((step) => step.id === stepId).body
     assert.match(body, /`force: true` with a non-empty `reason`/, `${stepId} 缺强制 reason`)
   }
@@ -124,10 +125,10 @@ test('契约 v17 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2�
     implementBody.includes('must go through a `workloom_execute` dispatch with `kind: frontend`'),
     '2.1 正文缺 frontend 派发强制措辞',
   )
-  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
   assert.ok(
     checkBody.includes('it additionally refuses unless a `frontend` dispatch has been recorded'),
-    '2.2 正文缺 UI 门禁措辞',
+    '2.3 正文缺 UI 门禁措辞',
   )
 })
 
@@ -313,7 +314,7 @@ test('契约 v20 norms Alignment 条目含补强句（自动进入、frontier �
 test('契约步骤节覆盖 Phase 1/2/3 全部编号', () => {
   const [, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   const ids = contract.steps.map((step) => step.id)
-  assert.deepEqual(ids, ['1.0', '1.1', '1.2', '1.3', '1.4', '2.1', '2.2', '2.3', '3.1'])
+  assert.deepEqual(ids, ['1.0', '1.1', '1.2', '1.3', '1.4', '2.1', '2.2', '2.3', '2.4', '3.1'])
   // 关键步骤含完成判据（no grey areas gate 文案在 1.1）
   const alignStep = contract.steps.find((step) => step.id === '1.1')
   assert.match(alignStep.body, /no grey areas/)
@@ -338,119 +339,119 @@ test('契约 1.3 步骤文案含最小条目指引（只放当前阶段真正需
 test('契约 v17 §2.2 含 check 分级发现即修（P2 自修）与结构化 Open issues 仅存问题段', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
   assert.ok(
     checkBody.includes('fixes P2 findings itself — leaving one unfixed is a dereliction of duty'),
-    '2.2 正文缺 check P2 自修措辞',
+    '2.3 正文缺 check P2 自修措辞',
   )
-  assert.ok(checkBody.includes('## Open issues'), '2.2 正文缺结构化仅存问题段名')
+  assert.ok(checkBody.includes('## Open issues'), '2.3 正文缺结构化仅存问题段名')
   assert.ok(
     checkBody.includes('<file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>'),
-    '2.2 正文缺仅存问题行格式 [P0|P1|P2]',
+    '2.3 正文缺仅存问题行格式 [P0|P1|P2]',
   )
-  assert.ok(checkBody.includes('`- none`'), '2.2 正文缺无仅存问题时写 - none')
+  assert.ok(checkBody.includes('`- none`'), '2.3 正文缺无仅存问题时写 - none')
 })
 
 test('契约 v17 §2.2 含 P0/P1/P2 分级定义（单一来源）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
   // P0 阻断：验收判据不满足 / 构建或测试红线失败 / 安全或数据风险
   assert.ok(
     checkBody.includes('- P0 (blocking): acceptance criteria unmet'),
-    '2.2 正文缺 P0 定义（验收判据不满足）',
+    '2.3 正文缺 P0 定义（验收判据不满足）',
   )
   assert.ok(
     checkBody.includes('hard lint / typecheck / build / tests failures'),
-    '2.2 正文缺 P0 定义（构建或测试红线失败）',
+    '2.3 正文缺 P0 定义（构建或测试红线失败）',
   )
   assert.ok(
     checkBody.includes('security or data-integrity risks'),
-    '2.2 正文缺 P0 定义（安全或数据风险）',
+    '2.3 正文缺 P0 定义（安全或数据风险）',
   )
   // P1 重要：行为或正确性缺陷 / 设计或 spec 偏离（含跨文件语义变更）/ 非本次引入问题（即使机械性）
   assert.ok(
     checkBody.includes('- P1 (important): behavioral or correctness defects'),
-    '2.2 正文缺 P1 定义（行为或正确性缺陷）',
+    '2.3 正文缺 P1 定义（行为或正确性缺陷）',
   )
   assert.ok(
     checkBody.includes('design or spec deviations (including cross-file semantic changes)'),
-    '2.2 正文缺 P1 定义（设计或 spec 偏离含跨文件语义变更）',
+    '2.3 正文缺 P1 定义（设计或 spec 偏离含跨文件语义变更）',
   )
   assert.ok(
     checkBody.includes('issues that pre-date the current task, even mechanical ones'),
-    '2.2 正文缺 P1 定义（非本次引入问题即使机械性）',
+    '2.3 正文缺 P1 定义（非本次引入问题即使机械性）',
   )
   // P2 次要：机械性 / 单文件局部小缺陷 / 无取舍合规修复
-  assert.ok(checkBody.includes('- P2 (minor): mechanical issues'), '2.2 正文缺 P2 定义（机械性）')
+  assert.ok(checkBody.includes('- P2 (minor): mechanical issues'), '2.3 正文缺 P2 定义（机械性）')
   assert.ok(
     checkBody.includes('small local defects confined to a single file'),
-    '2.2 正文缺 P2 定义（单文件局部小缺陷）',
+    '2.3 正文缺 P2 定义（单文件局部小缺陷）',
   )
   assert.ok(
     checkBody.includes('compliance fixes with no trade-offs'),
-    '2.2 正文缺 P2 定义（无取舍合规修复）',
+    '2.3 正文缺 P2 定义（无取舍合规修复）',
   )
 })
 
 test('契约 v17 §2.2 含主会话派发指引（禁只读审查、禁引导分级、prompt 必含小修大上报）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
   // 派发 prompt 必须含「发现即修（P2）+ 分级上报（P0/P1）」语义
   assert.ok(
     checkBody.includes('"fix small findings (P2) yourself, escalate big ones (P0/P1)"'),
-    '2.2 正文缺派发 prompt 必含小修大上报语义',
+    '2.3 正文缺派发 prompt 必含小修大上报语义',
   )
   // 禁止「只读审查 / 仅报告 / 不要改代码」类约束（用户级指令会覆盖注入纪律）
   assert.ok(
     checkBody.includes('"read-only review", "report only", or "do not change code"'),
-    '2.2 正文缺禁止只读审查类约束措辞',
+    '2.3 正文缺禁止只读审查类约束措辞',
   )
   // 不得在 prompt 中引导分级——分级是 check 标准职责
   assert.ok(
     checkBody.includes("classification is the check executor's standard duty"),
-    '2.2 正文缺禁止引导分级措辞',
+    '2.3 正文缺禁止引导分级措辞',
   )
   // 冲突中性告知句：派发指令与执行器纪律相抵时，执行器按纪律执行并在报告首行声明
   assert.ok(
     checkBody.includes(
       'If a dispatch prompt conflicts with the executor discipline anyway, the executor follows the discipline and states the conflict in the first line of its report.',
     ),
-    '2.2 正文缺冲突中性告知句',
+    '2.3 正文缺冲突中性告知句',
   )
 })
 
 test('契约 v17 §2.2 含 P0 处理权属（只能修或用户确认后调基线，不得记不修原因豁免）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
   // P0 只有两条路：直接修 / 向用户提议调整验收基线；不得记「不修原因」豁免
   assert.ok(
     checkBody.includes('For a P0 finding the "record why not" path does not apply'),
-    '2.2 正文缺 P0 不得记不修原因豁免措辞',
+    '2.3 正文缺 P0 不得记不修原因豁免措辞',
   )
   assert.ok(
     checkBody.includes(
       'the main session may only fix it or propose adjusting the acceptance baseline to the user',
     ),
-    '2.2 正文缺 P0 只能修或提议调基线措辞',
+    '2.3 正文缺 P0 只能修或提议调基线措辞',
   )
   // 基线调整闭环：用户确认 → 改 prd → 重派 check 按新基线复核
   assert.ok(
     checkBody.includes(
       'only after the user confirms may it amend prd.md and re-dispatch the check executor against the new baseline',
     ),
-    '2.2 正文缺「用户确认后改 prd 并重派 check」措辞',
+    '2.3 正文缺「用户确认后改 prd 并重派 check」措辞',
   )
 })
 
-test('契约 v17 principle 4 含 check 阶段修复权属句（修复窗口归主会话，按 2.2）', () => {
+test('契约 v17 principle 4 含 check 阶段修复权属句（修复窗口归主会话，按 2.3）', () => {
   const raw = readFileSync(assetPath, 'utf8')
-  // principle 4：子代理实现与检查、主会话修复 check 阶段发现（按 2.2）、提交权留在主会话
+  // principle 4：子代理实现与检查、主会话修复 check 阶段发现（按 2.3）、提交权留在主会话
   assert.ok(
     raw.includes(
-      "Commit authority stays in the main session: subagents implement and check; the main session fixes check-stage findings per 2.2; git commits happen only in the main session's Phase 2.3 and Phase 3.",
+      "Commit authority stays in the main session: subagents implement and check; the main session fixes check-stage findings per 2.3; git commits happen only in the main session's Phase 2.4 and Phase 3.",
     ),
     'principle 4 缺 check 阶段修复权属句',
   )
@@ -480,20 +481,20 @@ test('契约 v17 principle 5 澄清子任务 check 非只读（容器验收 ≠ 
 test('契约 v17 §2.2 含主会话修复窗口与重派 check 复核闭环', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
-  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
   assert.ok(
     checkBody.includes('the task stage is `check`, the main session may fix issues directly'),
-    '2.2 正文缺主会话修复窗口措辞',
+    '2.3 正文缺主会话修复窗口措辞',
   )
   assert.ok(
     checkBody.includes('re-dispatch the check executor for a full re-review'),
-    '2.2 正文缺修复后重派 check 全量复核措辞',
+    '2.3 正文缺修复后重派 check 全量复核措辞',
   )
-  assert.ok(checkBody.includes('fix it or record why not'), '2.2 正文缺仅存问题逐条处理措辞')
+  assert.ok(checkBody.includes('fix it or record why not'), '2.3 正文缺仅存问题逐条处理措辞')
   assert.match(
     checkBody,
     /any change after the pass is recorded requires a fresh check/i,
-    '2.2 正文缺通过后改动须重派 check 措辞',
+    '2.3 正文缺通过后改动须重派 check 措辞',
   )
 })
 
@@ -589,8 +590,8 @@ test('契约 v17 含 LSP 软基线：norms（always-on）、in_progress 面包�
   // 2.1/2.2 完成标准（软句一次性落于完成判据）。
   const implementStep = contract.steps.find((step) => step.id === '2.1')
   assert.ok(implementStep.body.includes(LSP_BASELINE_SENTENCE), '2.1 完成标准缺 LSP 软基线句')
-  const checkStep = contract.steps.find((step) => step.id === '2.2')
-  assert.ok(checkStep.body.includes(LSP_BASELINE_SENTENCE), '2.2 完成标准缺 LSP 软基线句')
+  const checkStep = contract.steps.find((step) => step.id === '2.3')
+  assert.ok(checkStep.body.includes(LSP_BASELINE_SENTENCE), '2.3 完成标准缺 LSP 软基线句')
 })
 
 test('契约 v17 norms Dispatch 段含后台默认说明与「不复述」句（逐字断言）', () => {
@@ -616,26 +617,26 @@ test('契约 v17 norms Dispatch 段含后台默认说明与「不复述」句（
   )
 })
 
-test('契约 v17 §2.1/§2.2 含后台流程叙述（派发即返回→继续其他工作→完成通知收报告）', () => {
+test('契约 v17 §2.1/§2.3 含后台流程叙述（派发即返回→不阻塞主会话→完成通知收报告）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(
-      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives asynchronously in the main session',
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately and does not block the main session. The completion report arrives asynchronously in the main session',
     ),
     '2.1 正文缺后台流程叙述',
   )
-  const checkBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
   assert.ok(
     checkBody.includes(
-      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately, and the main session continues other work; the completion report arrives asynchronously in the main session',
+      'Dispatch is background by default: `workloom_execute` returns the child session id and the receipt immediately and does not block the main session; the main session continues other work; the completion report arrives asynchronously in the main session',
     ),
-    '2.2 正文缺后台流程叙述',
+    '2.3 正文缺后台流程叙述',
   )
-  // 派发面只剩后台语义：2.1/2.2 正文不得再指导前台阻塞（foreground 参数已删除）。
+  // 派发面只剩后台语义：2.1/2.3 正文不得再指导前台阻塞（foreground 参数已删除）。
   assert.ok(!implementBody.includes('foreground'), '2.1 正文不得再指导前台阻塞派发')
-  assert.ok(!checkBody.includes('foreground'), '2.2 正文不得再指导前台阻塞派发')
+  assert.ok(!checkBody.includes('foreground'), '2.3 正文不得再指导前台阻塞派发')
 })
 
 test('契约 v17 norms Dispatch 段含「续接只追加新工作、不取报告」句', () => {
@@ -830,4 +831,37 @@ test('契约 1.4 含 review 派发指引段（关键句逐字）', () => {
     reviewBody.includes('review report and the disposal of every finding are part of the review package'),
     '1.4 缺报告与处置进审阅包句',
   )
+})
+
+test('CASE 模板资产覆盖公共 CASE_STRUCTURE 全部章节、字段与状态值', () => {
+  const caseTemplate = readFileSync(
+    fileURLToPath(new URL('../../assets/templates/case.md', import.meta.url)),
+    'utf8',
+  )
+  const resultTemplate = readFileSync(
+    fileURLToPath(new URL('../../assets/templates/case-result.md', import.meta.url)),
+    'utf8',
+  )
+  // 结构常量是模板消费方（adapter 注入、core 校验）的唯一值域来源，漂移即 fail。
+  for (const section of CASE_STRUCTURE.caseSections) {
+    assert.ok(caseTemplate.includes(`## ${section}`), `case 模板缺章节 ${section}`)
+  }
+  for (const section of CASE_STRUCTURE.resultSections) {
+    assert.ok(resultTemplate.includes(`## ${section}`), `result 模板缺章节 ${section}`)
+  }
+  for (const field of CASE_STRUCTURE.srFields) {
+    assert.ok(caseTemplate.includes(`- ${field}:`), `case 模板缺 SR 字段 ${field}`)
+  }
+  for (const field of CASE_STRUCTURE.cFields) {
+    assert.ok(caseTemplate.includes(`- ${field}:`), `case 模板缺 C 字段 ${field}`)
+  }
+  for (const field of CASE_STRUCTURE.coverageFields) {
+    assert.ok(caseTemplate.includes(`- ${field}:`), `case 模板缺 Coverage 字段 ${field}`)
+  }
+  for (const status of CASE_STRUCTURE.resultStatuses) {
+    assert.ok(resultTemplate.includes(status), `result 模板缺条目状态 ${status}`)
+  }
+  for (const status of CASE_STRUCTURE.coverageStatuses) {
+    assert.ok(resultTemplate.includes(status), `result 模板缺覆盖率状态 ${status}`)
+  }
 })

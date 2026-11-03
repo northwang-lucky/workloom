@@ -2,7 +2,7 @@
  * adapter-pi 的任务管理工具注册（薄投影层，registerTool）。
  *
  * 设计意图：
- * - 六个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
+ * - 八个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
  *   core task-ops，本文件只做宿主投影：从 ExtensionContext 取 cwd 与会话 id
  *   组装 contextKey，返回 {content: 文本, details: 结构化值}；
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致；
@@ -21,6 +21,7 @@ import {
   executeFinishTask,
   executeListTasks,
   executeStartTask,
+  executeTaskCase,
   PARAM_DESCRIPTIONS,
   requireWorkloomCwd,
   TASK_MODES,
@@ -77,6 +78,16 @@ const TASK_ALIGN_PARAMS = Type.Object({
   summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.alignmentSummary })),
 })
 
+/** case 工具参数 schema（action 必填 review/confirm；confirm 需 expectedCaseHash + summary）。 */
+const TASK_CASE_PARAMS = Type.Object({
+  action: Type.Union([Type.Literal('review'), Type.Literal('confirm')], {
+    description: PARAM_DESCRIPTIONS.caseAction,
+  }),
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
+  expectedCaseHash: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.expectedCaseHash })),
+  summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.caseSummary })),
+})
+
 /** archive 工具参数 schema（taskPath 必填 + autoCommit + force/reason 门禁豁免）。 */
 const TASK_ARCHIVE_PARAMS = Type.Object({
   taskPath: Type.String({ description: PARAM_DESCRIPTIONS.taskPathRequired }),
@@ -97,7 +108,7 @@ interface ToolContextLike {
 }
 
 /**
- * 注册六个任务管理工具（create/start/check/finish/archive/list）。
+ * 注册八个任务管理工具（create/start/check/align/case/finish/archive/list）。
  * @param pi Extension API
  */
 export function registerTaskTools(pi: ExtensionAPI): void {
@@ -141,6 +152,26 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     // 主会话经 review/confirm 两步与用户确认，本注册面无需额外深度检查。
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeAlign(ctx, params)
+    },
+  })
+  pi.registerTool({
+    name: TOOL_NAMES.taskCase,
+    label: 'Workloom Task Case',
+    description: TOOL_DESCRIPTIONS.taskCase,
+    promptSnippet: TOOL_SNIPPETS.taskCase,
+    parameters: TASK_CASE_PARAMS,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const cwd = requireWorkloomCwd(ctx.cwd)
+      const [err, result] = executeTaskCase(cwd, contextKeyOf(ctx.sessionManager.getSessionId()), {
+        action: params.action,
+        taskPath: params.taskPath,
+        expectedCaseHash: params.expectedCaseHash,
+        summary: params.summary,
+      })
+      if (err !== null || result === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: case returned no result`)
+      }
+      return resultOf(result)
     },
   })
   pi.registerTool({

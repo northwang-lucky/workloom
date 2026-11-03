@@ -79,6 +79,8 @@ interface DispatchChildPiParams {
   title: string
   root: string
   taskRelPath: string
+  /** CASE 设计或最终执行（仅 check 消费；缺省 execution）。 */
+  purpose?: 'case-design' | 'execution'
   /**
    * 原始工具参数（用户显式传入，仅用于审计绑定来源判定）。
    * buildNewDispatchBinding 靠它区分 param vs config/default 来源；
@@ -215,6 +217,7 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     // 绑定字段使用原始工具参数（rawModel/rawEffort）以正确判定 param vs config 来源。
     recordDispatch(root, taskRelPath, {
       kind,
+      purpose: params.purpose,
       title,
       childId: sessionId,
       ...buildNewDispatchBinding(
@@ -247,6 +250,7 @@ export async function dispatchChildPi(params: DispatchChildPiParams): Promise<Di
     } else {
       recordDispatch(root, taskRelPath, {
         kind,
+        purpose: params.purpose,
         title,
         ...(sessionId !== undefined && sessionId !== '' ? { childId: sessionId } : {}),
         ...buildNewDispatchBinding({ model: rawModel, effort: rawEffort } as Static<typeof EXECUTOR_PARAMS>, effective, mainModel),

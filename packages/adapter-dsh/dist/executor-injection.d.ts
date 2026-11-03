@@ -28,7 +28,7 @@ export declare const KIND_LABELS: {
  * @param hasLsp 目标环境是否具备 LSP 工具面
  * @returns 组装结果（text + stats）
  */
-export declare function buildFullInjection(root: string, taskRelPath: string, kind: string, userPrompt: string, localDirectives: string, hasLsp: boolean): ExecutorPromptResult;
+export declare function buildFullInjection(root: string, taskRelPath: string, kind: string, userPrompt: string, localDirectives: string, hasLsp: boolean, purpose?: 'case-design' | 'execution'): ExecutorPromptResult;
 /**
  * 从 buildExecutorPrompt 结果投影注入统计（receipt 渲染用）：总字节取注入文本长度
  * （KB 一位小数由 core 渲染），计数来自 stats——可见喂给子代理的上下文规模。

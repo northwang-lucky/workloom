@@ -11,3 +11,9 @@ export declare function loadWorkflowContractText(): string | null
 
 /** 读取轻量任务契约文档全文（workflow/workflow-light.md）；文件不存在返回 null。 */
 export declare function loadWorkflowLightContractText(): string | null
+
+/** 读取 CASE 文档模板全文（templates/case.md）；文件不存在返回 null。 */
+export declare function loadCaseTemplateText(): string | null
+
+/** 读取 CASE 执行结果模板全文（templates/case-result.md）；文件不存在返回 null。 */
+export declare function loadCaseResultTemplateText(): string | null

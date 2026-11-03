@@ -55,6 +55,7 @@ export {
   EXECUTOR_KINDS,
   assertEffort,
   assertKind,
+  buildExecutorIncrementalPrompt,
   buildExecutorPrompt,
 } from './domain/executor-context.js'
 
@@ -80,13 +81,38 @@ export { initWorkloom } from './domain/init.js'
 export { migrateLegacyTrellis } from './domain/migrate.js'
 
 export {
+  computeContentHash,
   computePrdHash,
   findOpenNodeState,
+  normalizeContentEol,
   normalizePrdEol,
   evaluateAlignmentGate,
   ALIGNMENT_MISSING,
   ALIGNMENT_STALE,
 } from './domain/alignment.js'
+
+// CASE 领域导出（生命周期、结构校验、门禁与文件范围）。
+export {
+  CASE_FILES,
+  CASE_PURPOSES,
+  CASE_STRUCTURE,
+  CASE_MISSING,
+  createCaseRecord,
+  computeCaseHash,
+  inspectCaseStructure,
+  evaluateCaseExecutionGate,
+  evaluateCaseOutcomeGate,
+  listCaseChangedFiles,
+} from './domain/case.js'
+
+export type {
+  CaseOutcomeOptions,
+  CasePurpose,
+  CaseStructureIssue,
+  CaseStructureOptions,
+  TaskCaseRecord,
+  TaskCaseResultRecord,
+} from './domain/case.d.ts'
 
 export { writeFileAtomic } from './domain/file-atomic.js'
 
@@ -116,6 +142,7 @@ export {
   recordExecutorOverride,
   recordGateOverride,
   recordAlignmentCredential,
+  recordCaseConfirmation,
   recordExecutorDispatch,
   settleExecutorDispatch,
   appendDispatchErrorSuffix,
@@ -133,6 +160,7 @@ export {
 export {
   countDirtyLines,
   gitAddCommit,
+  gitChangedFilesSync,
   gitStatusSync,
   gitCurrentBranchSync,
   gitRevParse,
@@ -210,6 +238,14 @@ export {
 } from './service/command-ops.js'
 
 export { executeAlignTask } from './service/alignment-service.js'
+
+export { executeTaskCase } from './service/case-service.js'
+export type {
+  CaseConfirmResult,
+  CaseReviewResult,
+  ExecuteTaskCaseParams,
+  ExecuteTaskCaseResult,
+} from './service/case-service.js'
 
 export {
   requireWorkloomCwd,
@@ -323,6 +359,9 @@ export type {
   ListTasksParams,
   CheckTaskParams,
   AlignmentCredentialInput,
+  CaseConfirmationInput,
+  DispatchPurpose,
+  TaskCaseRecordCarrier,
   DispatchRecord,
   DispatchRecordInput,
   DispatchStatus,

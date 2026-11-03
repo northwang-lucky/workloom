@@ -44,6 +44,22 @@ export function loadWorkflowLightContractText() {
   return readAssetText('workflow/workflow-light.md')
 }
 
+/**
+ * 读取 CASE 文档模板全文（templates/case.md）。
+ * @returns {string | null} 模板全文；文件不存在返回 null
+ */
+export function loadCaseTemplateText() {
+  return readAssetText('templates/case.md')
+}
+
+/**
+ * 读取 CASE 执行结果模板全文（templates/case-result.md）。
+ * @returns {string | null} 模板全文；文件不存在返回 null
+ */
+export function loadCaseResultTemplateText() {
+  return readAssetText('templates/case-result.md')
+}
+
 /** @param {unknown} error @returns {boolean} 是否文件不存在 */
 function isEnoent(error) {
   return /** @type {{ code?: unknown }} */ (error)?.code === 'ENOENT'

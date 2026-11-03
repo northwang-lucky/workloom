@@ -76,6 +76,24 @@ export function findUnfilledPrdSections(prdContent: string): string[]
 /** 检查 prd.md 结构与内容门禁，一次性返回全部问题（顺序：H1 → 小节 → open nodes）。 */
 export function inspectPrdStructure(prdContent: string | null): PrdStructureIssue[]
 
+/** PLAN 文件缺失文案（完整实施任务 start 门禁拦截）。 */
+export const PLAN_MISSING: string
+
+/** 单条 PLAN 结构问题：稳定 code + 英文运行时文案。 */
+export interface PlanStructureIssue {
+  code:
+    | 'plan_missing'
+    | 'plan_title_missing'
+    | 'plan_steps_missing'
+    | 'plan_steps_empty'
+    | 'plan_step_field'
+    | 'plan_ac_missing'
+  message: string
+}
+
+/** 校验完整实施任务的 PLAN：步骤四要素齐全，且 PRD 的每个 AC 至少被 Covers 一次。 */
+export function inspectPlanStructure(planContent: string | null, prdContent: string): PlanStructureIssue[]
+
 /** 统计 jsonl 内容中的有效记录数（有 file 字段的行；坏行抛错）。 */
 export function countEffectiveJsonlRecords(content: string, jsonlName: string): number
 

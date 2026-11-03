@@ -20,6 +20,7 @@ import { TASK_MODES } from './task-mode.js';
 /** 门禁消费的任务目录内文件名（与 task-store 数据布局一致）。 */
 const GATE_FILES = Object.freeze({
     prd: 'prd.md',
+    plan: 'plan.md',
     implementLog: 'implement.jsonl',
     checkLog: 'check.jsonl',
 });
@@ -273,6 +274,12 @@ export function evaluateStartGate(root, taskRelPath, task) {
     else {
         // prd 内容门禁与 review/confirm 共用分类器：一次列出 H1/小节/marker 的全部问题。
         missing.push(...inspectPrdStructure(prd).map((issue) => issue.message));
+        // PLAN 门禁：完整实施任务必须有结构完整的 plan.md（父任务豁免，改由 children 的
+        // PLAN 在 CASE 校验中消费；轻量任务走 light 分支天然不受影响）。
+        if (!Array.isArray(task?.children) || task.children.length === 0) {
+            const plan = readIfExists(join(taskDir, GATE_FILES.plan));
+            missing.push(...inspectPlanStructure(plan, prd).map((issue) => issue.message));
+        }
         // alignment 门禁：planning 必须有凭据且 hash 与当前 prd 一致（旧 planning
         // 任务须重新 alignment；确认后 prd 再变即 stale，均指向 workloom_task_align）。
         missing.push(...evaluateAlignmentGate(task?.status ?? 'planning', task?.alignment ?? null, computePrdHash(prd)));
@@ -286,6 +293,65 @@ export function evaluateStartGate(root, taskRelPath, task) {
         }
     }
     return missing;
+}
+/** PLAN 门禁缺失项文案：plan.md 不存在（完整实施任务 start 拦截）。 */
+export const PLAN_MISSING = 'plan.md is missing';
+/** PLAN 一级标题匹配（trimStart 后必须以 `# ` 开头）。 */
+const PLAN_TITLE_RE = /^#\s+\S/;
+/** PLAN 每个实施步骤的必需字段（依 plan-authoring 顺序）。 */
+const PLAN_REQUIRED_FIELDS = Object.freeze(['Covers', 'Target', 'Edit', 'Verify']);
+/**
+ * 校验完整实施任务的 PLAN：步骤四要素齐全，且 PRD 的每个 AC 至少被 Covers 一次。
+ * @param {string | null} planContent plan.md 全文或 null
+ * @param {string} prdContent prd.md 全文
+ * @returns {{code: string, message: string}[]} 结构问题列表
+ */
+export function inspectPlanStructure(planContent, prdContent) {
+    if (planContent === null)
+        return [{ code: 'plan_missing', message: PLAN_MISSING }];
+    const issues = [];
+    if (!PLAN_TITLE_RE.test(planContent.trimStart())) {
+        issues.push({ code: 'plan_title_missing', message: 'plan.md missing H1 title' });
+    }
+    if (!/^## Steps$/m.test(planContent)) {
+        issues.push({ code: 'plan_steps_missing', message: 'plan.md section "Steps" is missing' });
+        return issues;
+    }
+    const blocks = planContent.split(/(?=^####\s+步骤\s+\S+)/m).slice(1);
+    if (blocks.length === 0) {
+        issues.push({ code: 'plan_steps_empty', message: 'plan.md must contain at least one implementation step' });
+    }
+    const covered = new Set();
+    for (const [index, block] of blocks.entries()) {
+        const body = block.split('\n').slice(1).join('\n');
+        for (const name of PLAN_REQUIRED_FIELDS) {
+            if (!new RegExp(`^- ${name}(?:\\s|:)`, 'm').test(body)) {
+                issues.push({ code: 'plan_step_field', message: `plan.md step ${index + 1} missing ${name}` });
+            }
+        }
+        const covers = /^- Covers:\s*(.+)$/m.exec(body)?.[1] ?? '';
+        for (const ac of covers.match(/AC\d+/g) ?? [])
+            covered.add(ac);
+    }
+    const acceptance = sectionBody(prdContent, 'Acceptance Criteria').match(/AC\d+/g) ?? [];
+    for (const ac of new Set(acceptance)) {
+        if (!covered.has(ac))
+            issues.push({ code: 'plan_ac_missing', message: `${ac} is not covered by any plan step` });
+    }
+    return issues;
+}
+/**
+ * 读取一个二级标题正文（PLAN 校验内部复用，不消费代码围栏中的标题）。
+ * @param {string} content Markdown 全文
+ * @param {string} heading 二级标题名
+ * @returns {string} 标题正文
+ */
+function sectionBody(content, heading) {
+    const match = new RegExp(`^## ${heading}\\s*$`, 'm').exec(content);
+    if (match === null)
+        return '';
+    const rest = content.slice(match.index + match[0].length);
+    return rest.split(/^##\s+/m)[0] ?? '';
 }
 /**
  * 轻量任务 prd 最低结构检查（内部）：从全量分类结果里只保留 H1 缺失与

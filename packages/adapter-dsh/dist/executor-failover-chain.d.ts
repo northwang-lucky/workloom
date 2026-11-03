@@ -101,6 +101,8 @@ export interface FailedDispatchAttempt {
     fallbackOf?: string;
     fallbackAttempt?: number;
     toolsAllow?: string[];
+    /** CASE 设计或最终执行（仅 check 消费；缺省 execution）。 */
+    purpose?: 'case-design' | 'execution';
 }
 /**
  * 为一次失败尝试写 failed dispatches 记录（记录失败只 WARNING，不阻断转移）。

@@ -19,8 +19,10 @@ import {
   EXECUTOR_KINDS,
   assertEffort,
   assertKind,
+  buildExecutorIncrementalPrompt,
   buildExecutorPrompt,
 } from '../dist/domain/executor-context.js'
+import { computeCaseHash } from '../dist/domain/case.js'
 
 /** 任务目录相对 .workloom 的路径（测试统一使用）。 */
 const TASK_REL_PATH = 'tasks/08-24-demo'
@@ -1129,6 +1131,27 @@ function writeFullFixture(root) {
   writeRootFile(root, 'packages/a.js', 'const a = 1\n')
 }
 
+/** 写带已确认 CASE 记录的 task.json（CASE 注入用例共用；CASE 全文参与 hash）。 */
+function writeCaseTask(root, caseText) {
+  writeTaskFile(root, 'task.json', JSON.stringify({
+    title: 'Demo',
+    status: 'in_progress',
+    mode: 'full',
+    case: {
+      required: true,
+      designSession: 'child-design',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+      caseHash: computeCaseHash(caseText),
+      summary: 'approved',
+      result: null,
+    },
+    children: [],
+    dispatches: [],
+    overrides: [],
+    hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
+  }))
+}
+
 /** 回声协议后半句（与实现/契约逐字一致，后半句为组件级不变量）。 */
 const ECHO_PROTOCOL_HALF =
   'Echo the injection marker token in the first line of your report as proof the protocol was read.'
@@ -1394,6 +1417,128 @@ test('review 纪律段：四维审查、分级口径、报告约定与不改文�
     assert.ok(result.text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
     assert.ok(result.text.includes('- .workloom/tasks/08-24-demo/plan.md'))
     assert.ok(!result.text.includes('consult .workloom/'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('CASE 注入顺序与 purpose：CASE 位于 prd 之后、模板之前，模板位于 Pointer list 之前', () => {
+  const root = makeProject()
+  try {
+    writeFullFixture(root)
+    writeTaskFile(root, 'case.md', 'CASE_BODY_MARKER\n')
+    writeCaseTask(root, 'CASE_BODY_MARKER\n')
+    const [err, result] = buildExecutorPrompt({
+      ...baseParams(root, 'check'),
+      purpose: 'case-design',
+      caseTemplates: [
+        { path: 'packages/assets/templates/case.md', content: 'TEMPLATE_CASE_MARKER' },
+        { path: 'packages/assets/templates/case-result.md', content: 'TEMPLATE_RESULT_MARKER' },
+      ],
+    })
+    assert.equal(err, null)
+    const text = result.text
+    const prdAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
+    const caseAt = text.indexOf('--- .workloom/tasks/08-24-demo/case.md ---')
+    const templateCaseAt = text.indexOf('--- packages/assets/templates/case.md ---')
+    const templateResultAt = text.indexOf('--- packages/assets/templates/case-result.md ---')
+    const pointerAt = text.indexOf(POINTER_LIST_HEADING)
+    assert.ok(prdAt !== -1, 'prd 块必须存在')
+    assert.ok(caseAt !== -1, 'CASE 块必须存在')
+    assert.ok(prdAt < caseAt, 'CASE 必须位于 prd 之后')
+    assert.ok(caseAt < templateCaseAt && templateCaseAt < templateResultAt, '模板必须位于 CASE 之后且按序')
+    assert.ok(templateResultAt < pointerAt, '模板必须位于 Pointer list 之前')
+    assert.ok(text.includes('CASE_BODY_MARKER') && text.includes('TEMPLATE_CASE_MARKER'), '全文注入')
+    // 非 check kind 不注入 CASE 与模板
+    const [, implement] = buildExecutorPrompt({
+      ...baseParams(root, 'implement'),
+      purpose: 'case-design',
+      caseTemplates: [{ path: 't.md', content: 'TEMPLATE_CASE_MARKER' }],
+    })
+    assert.ok(!implement.text.includes('TEMPLATE_CASE_MARKER'), 'implement 不注入模板')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('CASE 超预算直接抛错，不做静默截断', () => {
+  const root = makeProject()
+  try {
+    writeFullFixture(root)
+    writeTaskFile(root, 'case.md', 'X'.repeat(64))
+    writeCaseTask(root, 'X'.repeat(64))
+    writeConfig(root, { context_injection: { max_artifact_bytes: 8 } })
+    // core 层预算失败走元组 err（DSH/Pi 的 buildFullInjection 包装层再抛错）。
+    const [err] = buildExecutorPrompt({ ...baseParams(root, 'check'), purpose: 'case-design' })
+    assert.ok(err)
+    assert.match(err.message, /exceeding maxArtifactBytes=8/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('增量续用只追加确认摘要值，execution 未确认先拒绝', () => {
+  const root = makeProject()
+  try {
+    writeFullFixture(root)
+    const caseText = '# CASE\n'
+    writeTaskFile(root, 'case.md', caseText)
+    writeTaskFile(root, 'task.json', JSON.stringify({
+      title: 'Demo',
+      status: 'in_progress',
+      mode: 'full',
+      case: {
+        required: true,
+        designSession: 'child-design',
+        confirmedAt: null,
+        caseHash: null,
+        summary: null,
+        result: null,
+      },
+      children: [],
+      dispatches: [],
+      overrides: [],
+      hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
+    }))
+    // execution 未确认（required=true 且 caseHash 为空）→ 拒绝且不发增量
+    assert.throws(
+      () => buildExecutorIncrementalPrompt({ ...baseParams(root, 'check'), purpose: 'execution' }),
+      /CASE execution rejected: case.md has not been confirmed/,
+    )
+    // 设计轮无确认要求，增量原文返回
+    assert.equal(
+      buildExecutorIncrementalPrompt({ ...baseParams(root, 'check'), purpose: 'case-design' }),
+      'Do the thing',
+    )
+    // 确认后 execution 追加摘要值行
+    writeTaskFile(root, 'task.json', JSON.stringify({
+      title: 'Demo',
+      status: 'in_progress',
+      mode: 'full',
+      case: {
+        required: true,
+        designSession: 'child-design',
+        confirmedAt: '2026-01-01T00:00:00.000Z',
+        caseHash: computeCaseHash(caseText),
+        summary: 'approved',
+        result: null,
+      },
+      children: [],
+      dispatches: [],
+      overrides: [],
+      hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
+    }))
+    const incremental = buildExecutorIncrementalPrompt({
+      ...baseParams(root, 'check'),
+      purpose: 'execution',
+    })
+    assert.ok(incremental.startsWith('Do the thing\n\nConfirmed CASE hash: '))
+    assert.ok(!incremental.includes('# CASE'), '增量不得重复 CASE 全文')
+    // 非 check kind：增量原文返回，不做 CASE 校验
+    assert.equal(
+      buildExecutorIncrementalPrompt({ ...baseParams(root, 'implement'), purpose: 'execution' }),
+      'Do the thing',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

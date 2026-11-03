@@ -59,6 +59,7 @@ import {
   loadConfig,
   PARAM_DESCRIPTIONS,
   readTask,
+  buildExecutorIncrementalPrompt,
   recordExecutorDispatch,
   recordExecutorOverride,
   recordGateOverride,
@@ -75,6 +76,8 @@ import type {
   SubagentTools,
   WorkloomConfig,
 } from '@workloom-ai/core'
+
+import { loadCaseResultTemplateText, loadCaseTemplateText } from '@workloom-ai/assets'
 
 import { contextKeyOf } from './constants.ts'
 import { readMainModel } from './main-model.ts'
@@ -106,6 +109,12 @@ export const EXECUTOR_PARAMS = Type.Object({
   continue_executor: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.continueExecutor })),
   // 续接全量重注入开关（M2 默认关：续接只发增量指令；true = 恢复全量上下文注入）。
   reinject: Type.Optional(Type.Boolean({ description: PARAM_DESCRIPTIONS.reinjectExecutor })),
+  // CASE 设计或最终执行（仅 check 消费；缺省 execution）。
+  purpose: Type.Optional(
+    Type.Union([Type.Literal('case-design'), Type.Literal('execution')], {
+      description: PARAM_DESCRIPTIONS.executorPurpose,
+    }),
+  ),
 }, { additionalProperties: false })
 
 /** 当前 runtime 名（subagents.model map 形式的取值 key，与 core 的 runtime 参数对齐）。 */
@@ -292,12 +301,28 @@ export interface ExecutorPromptAssemblyParams {
   taskRelPath: string
   kind: string
   userPrompt: string
+  /** CASE 设计或最终执行（仅 check 消费；缺省 execution）。 */
+  purpose?: 'case-design' | 'execution'
 }
 
 /** buildExecutorPromptWithPi 结果（组装与工具面探测共用一次 hasLsp 结论）。 */
 export interface PiExecutorPromptResult {
   hasLsp: boolean
   result: ExecutorPromptResult
+}
+
+/**
+ * 读取两份 CASE 模板正文（Pi 接线：与 DSH 共用资产路径，不复制模板正文）。
+ * 模板缺资产属部署残缺，fail loud。
+ */
+function loadPiCaseTemplates() {
+  return [
+    { path: 'packages/assets/templates/case.md', content: loadCaseTemplateText() },
+    { path: 'packages/assets/templates/case-result.md', content: loadCaseResultTemplateText() },
+  ].map((artifact) => {
+    if (artifact.content === null) throw new Error(`${ERR_PREFIX.executor}: missing ${artifact.path}`)
+    return { path: artifact.path, content: artifact.content }
+  })
 }
 
 /**
@@ -311,6 +336,8 @@ export function buildExecutorPromptWithPi(
   if (localErr !== null) return [localErr, null]
   const [promptErr, built] = buildExecutorPrompt({
     ...params,
+    purpose: params.purpose,
+    caseTemplates: params.kind === 'check' ? loadPiCaseTemplates() : [],
     localDirectives,
     hasLsp,
   })
@@ -460,6 +487,9 @@ async function executeTool(
       taskRelPath,
       kind: params.kind,
       userPrompt: params.prompt,
+      // CASE 轮次必须透传：core 缺省按 execution 处理，首轮 case-design 会被
+      // CASE 执行前置拦下（case.md 尚未存在），设计派发永远起不来。
+      purpose: params.purpose,
     },
     allowInfo.childHasLsp,
   )
@@ -501,7 +531,14 @@ async function executeTool(
       allowInfo,
       piBuilt,
       childId,
-      incrementalPrompt: params.prompt,
+      incrementalPrompt: buildExecutorIncrementalPrompt({
+        root,
+        taskRelPath,
+        kind: params.kind,
+        userPrompt: params.prompt,
+        purpose: params.purpose,
+      }),
+      purpose: params.purpose,
       reinject,
       signal: ctx.signal,
       globalLimit,
@@ -520,6 +557,7 @@ async function executeTool(
     cwd,
     prompt: piBuilt.result.text,
     kind: params.kind,
+    purpose: params.purpose,
     title: params.title,
     root,
     taskRelPath,

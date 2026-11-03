@@ -303,8 +303,13 @@ function activeTaskContext(params: SessionContextParams): ActiveTaskContext {
   if (typeof task.title !== 'string' || typeof task.status !== 'string') {
     throw new Error(`${ERR_PREFIX}: task record missing title or status: ${taskRelPath}`)
   }
+  // 旧任务迁移提示（AC22）：本功能前开始的完整任务（case=null）指路 workloom-case-active。
+  const legacyCase =
+    task.status === 'in_progress' && task.mode === 'full' && task.case === null
+      ? ' CASE migration: use workloom-case-active to design and confirm case.md before the final check.'
+      : ''
   return {
-    line: `${LINE_LABELS.activeTask}${task.title}" (${task.status}) at ${task.taskRelPath}.`,
+    line: `${LINE_LABELS.activeTask}${task.title}" (${task.status}) at ${task.taskRelPath}.${legacyCase}`,
     task,
   }
 }

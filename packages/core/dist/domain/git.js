@@ -47,6 +47,10 @@ const GIT_ENV = { ...process.env, LC_ALL: 'C', LANG: 'C' };
 const GIT_STATUS_ARGS = ['status', '--porcelain'];
 /** branch 固定参数：输出当前分支名（未检出分支时输出为空串）。 */
 const GIT_BRANCH_ARGS = ['branch', '--show-current'];
+/** diff 固定参数：相对 HEAD 的变更文件名（--diff-filter=d 排除删除项）。 */
+const GIT_DIFF_CHANGED_ARGS = Object.freeze(['diff', '--name-only', '--no-renames', '--diff-filter=d', 'HEAD', '--']);
+/** ls-files 固定参数：未跟踪文件（不读 .gitignore 排除规则之外的文件）。 */
+const GIT_UNTRACKED_ARGS = Object.freeze(['ls-files', '--others', '--exclude-standard']);
 /**
  * 同步查询的 stdio 配置：stdout 仍 pipe 取输出；stdin/stderr ignore，
  * 默认 stdio 下 execFileSync 失败会把子进程 stderr 打到宿主 stderr，
@@ -122,6 +126,31 @@ export function gitStatusSync(root) {
             null,
             execFileSync(GIT_BIN, GIT_STATUS_ARGS, { cwd: root, encoding: 'utf8', stdio: GIT_SYNC_STDIO }).trim(),
         ];
+    }
+    catch (error) {
+        return [toError(error), null];
+    }
+}
+/**
+ * 同步列出工作区相对 HEAD 的变更文件（排除删除）与未跟踪文件。
+ * CASE 文件范围计算用（实施任务的实际变更事实源）；非 git 目录静默返回 err。
+ * @param {string} root 工作目录
+ * @returns {[Error | null, string[] | null]} 排序去重后的 repo 相对路径
+ */
+export function gitChangedFilesSync(root) {
+    try {
+        const changed = execFileSync(GIT_BIN, [...GIT_DIFF_CHANGED_ARGS], {
+            cwd: root,
+            encoding: 'utf8',
+            stdio: GIT_SYNC_STDIO,
+        }).trim();
+        const untracked = execFileSync(GIT_BIN, [...GIT_UNTRACKED_ARGS], {
+            cwd: root,
+            encoding: 'utf8',
+            stdio: GIT_SYNC_STDIO,
+        }).trim();
+        const files = [...changed.split('\n'), ...untracked.split('\n')].filter((file) => file !== '');
+        return [null, [...new Set(files)].sort()];
     }
     catch (error) {
         return [toError(error), null];

@@ -26,6 +26,7 @@ import { join, resolve } from 'node:path';
 import { insideWorkloom, WORKLOOM_DIR } from './locate.js';
 import { loadConfig } from './config.js';
 import { readTask } from './task-store.js';
+import { CASE_FILES, CASE_PURPOSES, evaluateCaseExecutionGate } from './case.js';
 /** effort 合法档位（低 → 高）。 */
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
 /** executor 类型枚举（子代理角色）。 */
@@ -362,6 +363,10 @@ function buildInternal(params) {
         params.kind === EXECUTOR_KINDS.review) {
         inlinePrdArtifact(parts, params.taskRelPath, taskDir, ci, stats);
     }
+    // CASE 全文与模板（仅 check）：CASE 紧跟 prd（验收基线之后、指针之前），模板在
+    // Pointer list 之前；execution 轮先校验确认状态，超预算直接抛错不静默截断。
+    inlineCurrentCase(parts, params, taskDir, ci, stats);
+    inlineCaseTemplates(parts, params, stats);
     // Pointer list（research 无此段）：首行固定 plan.md 纯指针行（文件缺失
     // 不出行），后接当前 kind 的 jsonl 条目指针行；文件不存在不指向空。
     if (params.kind !== EXECUTOR_KINDS.research) {
@@ -415,6 +420,81 @@ function buildInternal(params) {
         `${renderKindDiscipline(params.kind, params.hasLsp)}\n\n` +
         `${NO_USER_CHANNEL_DISCIPLINE}\n\n${leafRule}${AUTHORITY_DECLARATION}`);
     return { text: parts.join('\n\n'), stats };
+}
+/**
+ * 普通增量续用文本：只追加确认摘要值，不重复 CASE 全文；execution 轮先校验
+ * 当前确认仍然有效（未确认/摘要过期直接抛错，拒绝发送增量）；非 check kind
+ * 原文返回，不做 CASE 校验。
+ * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params 增量参数
+ * @returns {string} 发送给原会话的增量指令
+ */
+export function buildExecutorIncrementalPrompt(params) {
+    const [taskErr, task] = readTask(params.root, params.taskRelPath);
+    if (taskErr !== null || task === null)
+        throw taskErr ?? new Error('executor task not found');
+    if (params.kind !== EXECUTOR_KINDS.check)
+        return params.userPrompt;
+    const purpose = params.purpose ?? CASE_PURPOSES.EXECUTION;
+    if (purpose === CASE_PURPOSES.EXECUTION) {
+        const missing = evaluateCaseExecutionGate(params.root, params.taskRelPath, task);
+        if (missing.length > 0)
+            throw new Error(`CASE execution rejected: ${missing.join('; ')}`);
+    }
+    const caseHash = task.case?.caseHash;
+    return typeof caseHash === 'string' && caseHash !== ''
+        ? `${params.userPrompt}\n\nConfirmed CASE hash: ${caseHash}`
+        : params.userPrompt;
+}
+/**
+ * 内联当前 CASE 全文（内部，仅 check）：紧跟 prd 块。execution 轮先校验执行
+ * 前置（未确认/摘要过期抛错，拒绝启动 child）；文件缺失静默跳过（case-design
+ * 首轮尚未写 case.md）；超预算直接抛错——CASE 是验收基线，不允许静默截断。
+ * @param {string[]} parts prompt 段落列表
+ * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params 注入参数
+ * @param {string} taskDir 任务目录绝对路径
+ * @param {import('./config.d.ts').WorkloomConfig['contextInjection']} ci 注入预算
+ * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 注入统计
+ */
+function inlineCurrentCase(parts, params, taskDir, ci, stats) {
+    if (params.kind !== EXECUTOR_KINDS.check)
+        return;
+    const [taskErr, task] = readTask(params.root, params.taskRelPath);
+    // 任务记录缺失/损坏静默降级（与 worktree 段同口径：prompt 组装对坏记录宽容，
+    // S2 零 diff 用例钉死该不变量）；记录可读时 execution 轮才做确认校验（fail loud）。
+    if (taskErr !== null || task === null)
+        return;
+    const purpose = params.purpose ?? CASE_PURPOSES.EXECUTION;
+    if (purpose === CASE_PURPOSES.EXECUTION) {
+        const missing = evaluateCaseExecutionGate(params.root, params.taskRelPath, task);
+        if (missing.length > 0)
+            throw new Error(`CASE execution rejected: ${missing.join('; ')}`);
+    }
+    const path = join(taskDir, CASE_FILES.document);
+    const text = readTaskFile(path);
+    if (text === null)
+        return;
+    const bytes = byteLength(text);
+    if (ci.maxArtifactBytes > 0 && bytes > ci.maxArtifactBytes) {
+        throw new Error(`case.md is ${bytes} bytes, exceeding maxArtifactBytes=${ci.maxArtifactBytes}; reduce the CASE or raise the project budget`);
+    }
+    const relPath = join(WORKLOOM_DIR, params.taskRelPath, CASE_FILES.document);
+    parts.push(`${BLOCK_SEPARATOR}${relPath}${BLOCK_SEPARATOR_END}\n${text}`);
+    stats.filesInlined += 1;
+}
+/**
+ * 内联 CASE 模板（内部，仅 check）：adapter 从 assets 读取两份模板正文传入
+ * （core 不 import assets），按传入顺序紧随 CASE 块、Pointer list 之前。
+ * @param {string[]} parts prompt 段落列表
+ * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params 注入参数
+ * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 注入统计
+ */
+function inlineCaseTemplates(parts, params, stats) {
+    if (params.kind !== EXECUTOR_KINDS.check)
+        return;
+    for (const artifact of params.caseTemplates ?? []) {
+        parts.push(`${BLOCK_SEPARATOR}${artifact.path}${BLOCK_SEPARATOR_END}\n${artifact.content}`);
+        stats.filesInlined += 1;
+    }
 }
 /**
  * 组装 `## Worktree` 纪律段（内部）：task.worktree_path 非空时产出（绝对路径 +

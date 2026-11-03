@@ -403,7 +403,7 @@ test('delegationDepth>0：快照仅含块标记 + Active task 行 + Guidelines �
     assert.ok(text.startsWith('<workloom-session-context>\n'))
     assert.ok(text.endsWith('\n</workloom-session-context>'))
     // 白名单三件套齐全且按序：Active task → Guidelines → Executor norms
-    const activeAt = text.indexOf('\nActive task: "Implement X" (in_progress) at tasks/08-24-demo.\n')
+    const activeAt = text.indexOf('\nActive task: "Implement X" (in_progress) at tasks/08-24-demo. CASE migration: use workloom-case-active to design and confirm case.md before the final check.\n')
     const guidelinesAt = text.indexOf('\nGuidelines (spec index — read files as needed):\n')
     const normsStart = text.indexOf('\nAlways-on norms:\n')
     assert.ok(activeAt > 0, 'active task line must render for depth > 0')
@@ -751,7 +751,7 @@ test('Worktree 行：活跃任务带 worktree → 输出于 Git 行之后（绝�
       ),
       `worktree line must follow the git line, got:\n${text}`,
     )
-    assert.ok(text.includes('\nActive task: "WT task" (in_progress) at tasks/08-24-demo.\n'))
+    assert.ok(text.includes('\nActive task: "WT task" (in_progress) at tasks/08-24-demo. CASE migration: use workloom-case-active to design and confirm case.md before the final check.\n'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -985,7 +985,7 @@ test('有活跃任务：不输出候选节', () => {
       workflowSteps: [],
     })
     assert.equal(err, null)
-    assert.match(text, /\nActive task: "Active One" \(in_progress\) at tasks\/08-24-demo\.\n/)
+    assert.match(text, /\nActive task: "Active One" \(in_progress\) at tasks\/08-24-demo\. CASE migration: use workloom-case-active to design and confirm case\.md before the final check\.\n/)
     assert.ok(!text.includes('Candidate tasks'), '有活跃任务时不得输出候选节')
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -1047,6 +1047,52 @@ test('损坏任务目录跳过：不报错、不进候选节、不阻塞其余�
     assert.equal(err, null)
     assert.ok(text.includes('  - "Good Task" (planning) at tasks/10-07-good'))
     assert.ok(!text.includes('10-07-broken'), '损坏目录不得出现在候选节')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Active task 行旧任务 CASE 迁移提示：仅旧 full in_progress 显示', () => {
+  const root = makeProject()
+  try {
+    const contextKey = 'dsh_sess_case'
+    const taskDir = join(root, '.workloom', 'tasks', '08-24-demo')
+    mkdirSync(taskDir, { recursive: true })
+    setActiveTask(root, contextKey, 'tasks/08-24-demo')
+    const write = (fields) => writeFileSync(join(taskDir, 'task.json'), `${JSON.stringify(fields)}\n`)
+
+    // 旧 full in_progress（case 归一为 null）→ 显示迁移提示
+    write({ title: 'Legacy Full', status: 'in_progress', mode: 'full' })
+    const [err1, text1] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    assert.equal(err1, null)
+    assert.match(text1, /CASE migration: use workloom-case-active to design and confirm case\.md before the final check\./)
+
+    // planning full（无 case）→ 不显示
+    write({ title: 'Planning Full', status: 'planning', mode: 'full' })
+    const [, text2] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    assert.ok(!text2.includes('CASE migration'))
+
+    // 新 full in_progress（有 case 记录）→ 不显示
+    write({
+      title: 'New Full',
+      status: 'in_progress',
+      mode: 'full',
+      case: {
+        required: true,
+        designSession: 'child-design',
+        confirmedAt: null,
+        caseHash: null,
+        summary: null,
+        result: null,
+      },
+    })
+    const [, text3] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    assert.ok(!text3.includes('CASE migration'))
+
+    // light in_progress（无 case）→ 不显示
+    write({ title: 'Light Task', status: 'in_progress', mode: 'light' })
+    const [, text4] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    assert.ok(!text4.includes('CASE migration'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

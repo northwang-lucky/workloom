@@ -24,7 +24,7 @@ const FAILOVER_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: executor fallback
  * @returns 成功跳的启动结果与转移标注（主模型直接成功时不带 failover）
  */
 export async function startDispatchWithFailover(params) {
-    const { ctx, parent, signal, root, taskRelPath, kind, title, label, sendText, allowNames, agentOptions, chain, primaryBinding, primaryModel, } = params;
+    const { ctx, parent, signal, root, taskRelPath, kind, title, label, sendText, allowNames, agentOptions, chain, primaryBinding, primaryModel, purpose, } = params;
     // 条目 effort 在首次尝试前整体校验（fail loud 于派发前，不在转到一半才发现配置坏）。
     assertFallbackChainEfforts(chain);
     let reservedChildId = SessionId(randomUUID());
@@ -71,6 +71,7 @@ export async function startDispatchWithFailover(params) {
             error,
             ...primaryBinding,
             toolsAllow: [...allowNames],
+            purpose,
         });
         let previousChildId = reservedChildId;
         const outcome = await runFallbackChain({
@@ -95,6 +96,7 @@ export async function startDispatchWithFailover(params) {
                     fallbackOf: previousChildId,
                     fallbackAttempt: step.attempt,
                     toolsAllow: [...allowNames],
+                    purpose,
                 });
                 previousChildId = reservedChildId;
             },
@@ -257,7 +259,7 @@ async function runAsyncFailover(ctx, context, settled) {
                 const [localErr, localDirectives] = composeLocalDirectivesText(context.root, context.kind);
                 if (localErr !== null)
                     throw localErr;
-                const built = buildFullInjection(context.root, context.taskRelPath, context.kind, `${context.firstPrompt}\n\n${note}`, localDirectives, context.hasLsp);
+                const built = buildFullInjection(context.root, context.taskRelPath, context.kind, `${context.firstPrompt}\n\n${note}`, localDirectives, context.hasLsp, context.purpose);
                 pendingChildId = SessionId(randomUUID());
                 registerExecutorToolfaceChild(pendingChildId, context.allowNames);
                 try {
@@ -298,6 +300,7 @@ async function runAsyncFailover(ctx, context, settled) {
                     fallbackOf: previousChildId,
                     fallbackAttempt: step.attempt,
                     toolsAllow: [...context.allowNames],
+                    purpose: context.purpose,
                 });
                 lastFailedChildId = failedChildId;
                 previousChildId = failedChildId;

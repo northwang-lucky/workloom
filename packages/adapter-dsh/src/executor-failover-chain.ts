@@ -179,6 +179,8 @@ export interface FailedDispatchAttempt {
   fallbackOf?: string
   fallbackAttempt?: number
   toolsAllow?: string[]
+  /** CASE 设计或最终执行（仅 check 消费；缺省 execution）。 */
+  purpose?: 'case-design' | 'execution'
 }
 
 /**
@@ -188,6 +190,7 @@ export interface FailedDispatchAttempt {
 export function recordFailedDispatchAttempt(attempt: FailedDispatchAttempt): void {
   const [recordErr] = recordExecutorDispatch(attempt.root, attempt.taskRelPath, {
     kind: attempt.kind,
+    purpose: attempt.purpose,
     title: attempt.title,
     childId: attempt.childId,
     status: 'failed',

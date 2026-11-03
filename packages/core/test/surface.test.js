@@ -251,10 +251,25 @@ test('continue/finish 已改造为 skill：命令面无残留，archive/journal 
   assert.ok(!TASK_ARCHIVE_NOTE.includes('/workloom-finish'), 'note must not reference a command')
 })
 
-test('taskCheck 描述与 snippet 提及 2.2 check 凭据（不含 grilling 阶段）', () => {
-  assert.match(TOOL_DESCRIPTIONS.taskCheck, /2\.2 check pass/, 'taskCheck description must describe the check credential')
+test('taskCheck 描述与 snippet 提及 2.3 check 凭据（不含 grilling 阶段）', () => {
+  assert.match(TOOL_DESCRIPTIONS.taskCheck, /2\.3 check pass/, 'taskCheck description must describe the check credential')
   assert.ok(!TOOL_DESCRIPTIONS.taskCheck.includes('grilling'), 'taskCheck description must not mention grilling')
   assert.ok(!TOOL_SNIPPETS.taskCheck.includes('grilling'), 'taskCheck snippet must not mention grilling')
+})
+
+test('taskCase 工具：名称/描述/snippet/参数描述齐全且指向 review/confirm', () => {
+  assert.equal(TOOL_NAMES.taskCase, 'workloom_task_case')
+  assert.match(TOOL_DESCRIPTIONS.taskCase, /action=review/)
+  assert.match(TOOL_DESCRIPTIONS.taskCase, /action=confirm/)
+  assert.match(TOOL_SNIPPETS.taskCase, /workloom_task_case\(action/)
+  for (const key of ['caseAction', 'expectedCaseHash', 'caseSummary']) {
+    assert.ok(
+      typeof PARAM_DESCRIPTIONS[key] === 'string' && PARAM_DESCRIPTIONS[key] !== '',
+      `${key} description must be non-empty`,
+    )
+  }
+  assert.match(PARAM_DESCRIPTIONS.expectedCaseHash, /SHA-256/)
+  assert.match(PARAM_DESCRIPTIONS.caseSummary, /user confirmation result/)
 })
 
 test('taskAlign 工具：名称/描述/snippet/参数描述齐全且指向 review/confirm', () => {

@@ -22,14 +22,17 @@ Locate where work left off and resume from the matching Phase step. Do the routi
 3. Re-evaluate whether the task is still warranted before routing. If the remaining work has shrunk below the light-task standard (a few files, settled requirements, low risk), recommend collapsing the task — finish it directly or archive it — instead of walking the full track; get the user's decision before changing the route.
 4. Route by `status` and artifacts (artifact files live inside the task directory):
 
-   - `planning` with `mode: "light"` → light 1.0 Start task (fill the light prd minimum, then start; no alignment credential or jsonl).
-   - `planning` without prd.md → 1.1 Align requirements.
+   - `planning` with `mode: "light"` → light 1.0 Start task.
+   - `planning` without a filled prd.md → 1.1 Align requirements.
    - `planning` or `in_progress` with design.md/implement.md but no plan.md → load the workloom-migrate-plan skill (legacy artifacts of the pre-plan.md contract), migrate, then re-route.
-   - `planning` with prd.md but no plan.md → 1.4 await review (lightweight task, PRD artifacts ready).
-   - `planning` with prd.md and plan.md → 1.4 await review (complex task, PRD/plan artifacts ready).
-   - `in_progress`, not yet implemented → 2.1 Implement.
-   - `in_progress`, implemented but unchecked → 2.2 Check.
-   - Check passed → 2.3 Commit → 3.1 Wrap up.
+   - An in_progress full task with `case: null` → load `workloom-case-active`; this is the legacy CASE migration path.
+   - `planning` with prd.md but no plan.md and no declared children → 1.4 author and review plan.md.
+   - `planning` with prd.md and plan.md → 1.4 await review.
+   - Full `in_progress`, implementation not finished → 2.1 Implement and 2.2 Design CASE in parallel.
+   - Full `in_progress`, CASE ready for user review → run `workloom_task_case` review, then confirm after user approval.
+   - Full `in_progress`, implementation finished and CASE confirmed → 2.3 Check by continuing case.designSession with purpose=execution.
+   - Full check passed → 2.4 Commit → 3.1 Wrap up.
+   - Light implementation finished → 2.2 Self-check and record → 2.3 Commit → 3.1 Wrap up.
    - `completed` → 3.1 Wrap up.
 
 5. Load the step details (`workloom_step` or the workflow contract) and continue from there.

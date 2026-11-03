@@ -160,6 +160,8 @@ export interface ContinueExecutorParams {
   piBuilt: PiExecutorPromptResult
   childId: string
   incrementalPrompt: string
+  /** CASE 设计或最终执行（续用轮留痕沿用；仅 check 消费）。 */
+  purpose?: 'case-design' | 'execution'
   reinject: boolean
   /** 取消信号（abort 时优先以 failed 结算） */
   signal?: AbortSignal
@@ -193,6 +195,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     piBuilt,
     childId,
     incrementalPrompt,
+    purpose,
     reinject,
     signal,
     globalLimit,
@@ -247,6 +250,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
       const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
       recordContinuationDispatch(root, taskRelPath, {
         kind,
+        purpose,
         title,
         childId,
         spawnBinding,
@@ -309,6 +313,7 @@ export async function continueExecutor(params: ContinueExecutorParams): Promise<
     const spawnBinding = readSpawnBinding(root, taskRelPath, childId)
     recordContinuationDispatch(root, taskRelPath, {
       kind,
+      purpose,
       title,
       childId: resumedSessionId,
       spawnBinding,
@@ -367,6 +372,8 @@ interface RecordContinuationParams {
   title: string
   childId: string
   spawnBinding: { model?: string; effort?: string } | null
+  /** CASE 设计或最终执行（仅 check 消费；缺省 execution）。 */
+  purpose?: 'case-design' | 'execution'
 }
 
 /**
@@ -381,6 +388,7 @@ function recordContinuationDispatch(
   const { kind, title, childId, spawnBinding } = params
   const [recordErr] = recordExecutorDispatch(root, taskRelPath, {
     kind,
+    purpose: params.purpose,
     title,
     childId,
     ...(spawnBinding?.model !== undefined ? { model: spawnBinding.model } : {}),

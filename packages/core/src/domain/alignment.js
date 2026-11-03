@@ -42,21 +42,39 @@ export const ALIGNMENT_STALE =
   'alignment credential is stale (prd.md changed since confirm; re-run workloom_task_align with action=confirm)'
 
 /**
- * 归一化 prd.md 全文行尾：CRLF/CR 一律转 LF（hash 输入规范化）。
- * @param {string} content prd.md 全文
+ * 归一化任意文本行尾：CRLF/CR 一律转 LF。
+ * @param {string} content 文本全文
  * @returns {string} 行尾归一后的全文
  */
-export function normalizePrdEol(content) {
+export function normalizeContentEol(content) {
   return content.replace(/\r\n|\r/g, '\n')
 }
 
 /**
- * 对归一化后的 prd 全文计算 SHA-256（hex 小写）。
+ * 计算任意文本内容的 SHA-256（先归一换行）。
+ * @param {string} content 文本全文
+ * @returns {string} 64 位 hex 摘要
+ */
+export function computeContentHash(content) {
+  return createHash('sha256').update(normalizeContentEol(content), 'utf8').digest('hex')
+}
+
+/**
+ * 兼容 PRD 调用方的行尾归一化包装。
+ * @param {string} content prd.md 全文
+ * @returns {string} 行尾归一后的全文
+ */
+export function normalizePrdEol(content) {
+  return normalizeContentEol(content)
+}
+
+/**
+ * 兼容 PRD 调用方的全文摘要包装。
  * @param {string} content prd.md 全文（含 Alignment Decisions 小节）
  * @returns {string} 64 位 hex 摘要
  */
 export function computePrdHash(content) {
-  return createHash('sha256').update(normalizePrdEol(content), 'utf8').digest('hex')
+  return computeContentHash(content)
 }
 
 /**

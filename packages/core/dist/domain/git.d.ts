@@ -24,6 +24,13 @@ export function gitAddCommit(root: string, message: string, paths: string[]): Pr
  */
 export function gitStatusSync(root: string): [Error | null, string | null];
 /**
+ * 同步列出工作区相对 HEAD 的变更文件（排除删除）与未跟踪文件。
+ * CASE 文件范围计算用（实施任务的实际变更事实源）；非 git 目录静默返回 err。
+ * @param {string} root 工作目录
+ * @returns {[Error | null, string[] | null]} 排序去重后的 repo 相对路径
+ */
+export function gitChangedFilesSync(root: string): [Error | null, string[] | null];
+/**
  * 同步读取当前分支名（git branch --show-current 的 stdout）。
  * 非 git 目录静默返回 err（子进程 stderr 忽略，不向宿主 stderr 输出报错）；
  * 仓库存在但未检出分支时输出为空串（value 为 ''）。

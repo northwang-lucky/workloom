@@ -1,6 +1,6 @@
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
 import { SessionId } from '@deepseek-ai/dsh-session';
-import { assertEffort, assertForceReason, buildConflictNotice, buildNewDispatchBinding, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, DISPATCH_MODEL_SOURCES, ERR_PREFIX, evaluateStaleAlignmentGate, evaluateLightDispatchGate, findWorkloomRoot, GATES, loadConfig, materializeRingChain, PARENT_MODEL_LABEL, PARAM_DESCRIPTIONS, readTask, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, resolveSubagentDefaults, resolveTaskRelPath, selectRotationStartIndex, splitProviderModel, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { assertEffort, assertForceReason, buildConflictNotice, buildNewDispatchBinding, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, DISPATCH_MODEL_SOURCES, ERR_PREFIX, evaluateStaleAlignmentGate, evaluateLightDispatchGate, findWorkloomRoot, GATES, buildExecutorIncrementalPrompt, loadConfig, materializeRingChain, PARENT_MODEL_LABEL, PARAM_DESCRIPTIONS, readTask, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, resolveSubagentDefaults, resolveTaskRelPath, selectRotationStartIndex, splitProviderModel, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX, DISPATCH_WARN_PREFIX } from './constants.js';
 import { assertAllowListNonEmpty, buildAllowFilter, hasLspTooling } from './executor-dispatch.js';
 import { collectRunningExecutors, collectUsedModels, evaluateCapacityGate, generateDispatchSeq, registerInFlightDispatch, releaseInFlightDispatch, } from './executor-capacity.js';
@@ -251,15 +251,22 @@ async function executeTool(ctx, args, exec) {
             const [localErr, localDirectives] = composeLocalDirectivesText(root, params.kind);
             if (localErr !== null)
                 throw localErr;
-            const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives, hasLsp);
+            const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives, hasLsp, params.purpose);
             sendText = built.text;
             injection = injectionStats(built, allowFilter.allow.length);
         }
         else {
-            // 增量续接：只发主会话增量指令（params.prompt），不复述子会话已持有上下文。
-            sendText = params.prompt;
+            // 增量续接：只发主会话增量指令（params.prompt）；check + execution 轮由 core
+            // 先校验确认有效，再追加确认摘要值行（不重复 CASE 全文）。
+            sendText = buildExecutorIncrementalPrompt({
+                root,
+                taskRelPath,
+                kind: params.kind,
+                userPrompt: params.prompt,
+                purpose: params.purpose,
+            });
             injection = {
-                bytes: Buffer.byteLength(params.prompt, 'utf8'),
+                bytes: Buffer.byteLength(sendText, 'utf8'),
                 inlined: 0,
                 truncated: 0,
                 indexed: 0,
@@ -289,7 +296,7 @@ async function executeTool(ctx, args, exec) {
         const [localErr, localDirectives] = composeLocalDirectivesText(root, params.kind);
         if (localErr !== null)
             throw localErr;
-        const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives, hasLsp);
+        const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives, hasLsp, params.purpose);
         sendText = built.text;
         injection = injectionStats(built, allowFilter.allow.length);
         // 并发容量闸（新派发）：一次取数两用——text 供判定，running 供轮换选取；
@@ -368,6 +375,7 @@ async function executeTool(ctx, args, exec) {
                     }
                     : buildNewDispatchBinding(params, effective, mainModel),
                 primaryModel: selectedModel,
+                purpose: params.purpose,
             });
             childId = outcome.started.childId;
             failover = outcome.failover;
@@ -387,6 +395,7 @@ async function executeTool(ctx, args, exec) {
     // childId 首次派发记录的绑定、modelSource 记 spawn（审计可查，回执据此展示）。
     const [dispatchErr] = recordExecutorDispatch(root, taskRelPath, {
         kind: params.kind,
+        purpose: params.purpose,
         title: params.title,
         childId,
         // 白名单落记录：冷恢复时据此重建限制，不依赖插件内存索引。
@@ -436,6 +445,7 @@ async function executeTool(ctx, args, exec) {
             parent,
             allowNames: allowFilter.allow,
             hasLsp,
+            purpose: params.purpose,
         });
     }
     // 受限写 kind 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。

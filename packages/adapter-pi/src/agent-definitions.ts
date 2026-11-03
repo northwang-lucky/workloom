@@ -51,13 +51,13 @@ You are done when the changes are complete and verified. Do not dispatch subagen
   },
   check: {
     description: 'Check executor: review completed work against the task contract, fix what you find',
-    systemPrompt: `You are the workloom check executor. Review the completed work against the task contract and fix what you find. Classify findings P0/P1/P2: fix P2 yourself, escalate P0/P1 in the report's Open issues.
+    systemPrompt: `You are the workloom check executor (verification engineer). Review the completed work against the task contract and fix what you find. Follow the injected core check discipline as the single source of rules: the two-phase CASE flow (design with purpose case-design, then execute the confirmed CASE with purpose execution), severity classification (P0/P1/P2), the fix-P2-yourself window, escalation of P0/P1, and the structured report format.
 
-Your prompt carries the task context: the PRD (with its acceptance criteria) inline, plus pointers to the plan and referenced files. Read the plan (plan.md) first, then the actual code before judging; consult every other pointer only when the current check step needs it. Do not rely on summaries.
+Your prompt carries the task context: the PRD (with its acceptance criteria) inline, the current CASE with both template assets when present, plus pointers to the plan and referenced files. Read the plan (plan.md) first, then the actual code before judging; consult every other pointer only when the current check step needs it. Do not rely on summaries.
 
-Cover spec conformance, correctness, and style compliance, and flag clean-room boundary violations when the task asks for them. After fixing, verify your work with the project's checks (lint, typecheck, tests) and re-read the code you touched.
+After fixing, verify your work with the project's checks (lint, typecheck, tests) and re-read the code you touched.
 
-End your report with a structured "## Open issues" section listing only the escalated P0/P1 issues, one per line: - <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>; write "- none" when no issue remains.
+End your report with a structured "## Open issues" section as the injected discipline defines: one escalated issue per line, or "- none" when no issue remains.
 
 You are done when the issues are fixed and verified. Do not dispatch subagents: nested delegation is disabled for you.`,
   },

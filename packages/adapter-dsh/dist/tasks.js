@@ -3,16 +3,16 @@
  * 暴露为模型可调工具；参数一律标准 JSON Schema（宿主原样转发 API）。
  *
  * 设计意图：
- * - 六个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
+ * - 八个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
  *   core task-ops，本文件只做宿主投影：从执行上下文提取 cwd/agentId 组装
  *   contextKey，把工具返回投影为 plain object；
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeStartTask, PARAM_DESCRIPTIONS, requireWorkloomCwd, TASK_MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, requireWorkloomCwd, TASK_MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from './constants.js';
 /**
- * 注册六个任务管理工具（create/start/check/finish/archive/list）。
+ * 注册八个任务管理工具（create/start/check/align/case/finish/archive/list）。
  * @param ctx 插件作用域上下文
  */
 export function registerTaskTools(ctx) {
@@ -93,6 +93,24 @@ export function registerTaskTools(ctx) {
         output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
         isConcurrencySafe: () => true,
         execute: (args, exec) => alignTaskTool(args, exec),
+    });
+    tools.register({
+        name: TOOL_NAMES.taskCase,
+        description: TOOL_DESCRIPTIONS.taskCase,
+        parameters: {
+            type: 'object',
+            properties: {
+                action: { type: 'string', enum: ['review', 'confirm'], description: PARAM_DESCRIPTIONS.caseAction },
+                taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+                expectedCaseHash: { type: 'string', description: PARAM_DESCRIPTIONS.expectedCaseHash },
+                summary: { type: 'string', description: PARAM_DESCRIPTIONS.caseSummary },
+            },
+            required: ['action'],
+            additionalProperties: false,
+        },
+        output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+        isConcurrencySafe: () => true,
+        execute: (args, exec) => caseTaskTool(args, exec),
     });
     tools.register({
         name: TOOL_NAMES.taskFinish,
@@ -242,6 +260,30 @@ async function alignTaskTool(args, exec) {
     });
     if (err !== null || result === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: align returned no result`);
+    }
+    return result;
+}
+/**
+ * case 工具：CASE review/confirm（confirm 是用户决定，与 align 同款主会话限制——
+ * executor 等子代理按 delegation depth 硬拒绝）。
+ */
+async function caseTaskTool(args, exec) {
+    const typed = args;
+    const agent = exec.agent;
+    if (agent !== undefined && delegationDepthOf(agent) > 0) {
+        throw new Error(`${ERR_PREFIX.taskTool}: workloom_task_case can only be called from the main session ` +
+            '(CASE confirm is a user decision)');
+    }
+    const cwd = cwdOf(exec);
+    const action = typed.action === 'confirm' ? 'confirm' : 'review';
+    const [err, result] = executeTaskCase(cwd, contextKeyOf(exec), {
+        action,
+        taskPath: taskPathOf(typed),
+        expectedCaseHash: stringOf(typed, 'expectedCaseHash'),
+        summary: stringOf(typed, 'summary'),
+    });
+    if (err !== null || result === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: case returned no result`);
     }
     return result;
 }

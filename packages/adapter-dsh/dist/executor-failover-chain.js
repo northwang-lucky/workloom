@@ -106,6 +106,7 @@ export function formatFailureLine(error) {
 export function recordFailedDispatchAttempt(attempt) {
     const [recordErr] = recordExecutorDispatch(attempt.root, attempt.taskRelPath, {
         kind: attempt.kind,
+        purpose: attempt.purpose,
         title: attempt.title,
         childId: attempt.childId,
         status: 'failed',

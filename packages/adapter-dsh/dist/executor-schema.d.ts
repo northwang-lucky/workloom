@@ -58,6 +58,11 @@ export declare function buildExecutorSchema(desc: typeof PARAM_DESCRIPTIONS): {
             type: string;
             description: "Continue by re-injecting the full task context into the existing session instead of sending only the incremental instruction; off by default, use only when context was lost to compaction";
         };
+        purpose: {
+            type: string;
+            enum: string[];
+            description: "Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution runs the confirmed CASE and enters check stage. Defaults to execution for backward compatibility";
+        };
     };
     required: string[];
     additionalProperties: boolean;

@@ -17,6 +17,8 @@ import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { markTaskLegacy } from './fixtures/task-artifacts.js'
+
 import {
   TaskStatus,
   TaskStage,
@@ -788,12 +790,21 @@ function recordAlignment(root, taskRelPath) {
   assert.equal(err, null)
 }
 
+/** 写入满足 start PLAN 门禁的最小 plan.md（夹具 prd 无 AC 编号，无溯源要求）。 */
+function writeGatePlan(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'plan.md'),
+    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit: add implementation\n- Verify: pnpm lint\n',
+  )
+}
+
 /**
- * 满足 start 门禁：填 prd + 两个 jsonl 各一条有效记录 + 记录 alignment 凭据
+ * 满足 start 门禁：填 prd + plan + 两个 jsonl 各一条有效记录 + 记录 alignment 凭据
  * （startTask 成功前置的快捷组合；旧 grilling 判定不再参与门禁）。
  */
 function satisfyStartGate(root, taskRelPath) {
   writeFilledPrd(root, taskRelPath)
+  writeGatePlan(root, taskRelPath)
   writeEffectiveJsonl(root, taskRelPath, 'implement.jsonl')
   writeEffectiveJsonl(root, taskRelPath, 'check.jsonl')
   recordAlignment(root, taskRelPath)
@@ -821,6 +832,7 @@ test('start 门禁：prd 填满后仍要求两个 jsonl 各有有效记录', asy
   try {
     const [, created] = await createTask(root, { title: 'Gated Jsonl' })
     writeFilledPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
     recordAlignment(root, created.taskRelPath)
     const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
     assert.ok(err1)
@@ -879,6 +891,7 @@ test('start 门禁：prd 无一级标题（H1）被拒绝，补上后放行', as
     assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
     // 首行补上 H1 后放行
     writeFilledPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
     recordAlignment(root, created.taskRelPath)
     const [err2, started] = await startTask(root, { taskRelPath: created.taskRelPath })
     assert.equal(err2, null)
@@ -1064,6 +1077,8 @@ test('checkTask 写入 check 字段，重复调用覆盖并刷新 passedAt', asy
     const [, created] = await createTask(root, { title: 'Check Me' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 check 凭据机制，CASE 链路在 case.test.js。
+    markTaskLegacy(root, created.taskRelPath)
     const [err, task] = await checkTask(root, {
       taskRelPath: created.taskRelPath,
       summary: 'reviewed against spec, lint green',
@@ -1116,6 +1131,8 @@ test('checkTask 门禁：check.jsonl 无有效记录被拒绝，force 放行并�
     const [, created] = await createTask(root, { title: 'Check Gate' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 check 门禁与 force 留痕。
+    markTaskLegacy(root, created.taskRelPath)
     // 清掉 check.jsonl 有效记录，模拟 check 上下文缺失（start 之后再清，绕过 start 门禁）
     writeFileSync(
       join(root, '.workloom', created.taskRelPath, 'check.jsonl'),
@@ -1173,6 +1190,8 @@ test('archive 门禁：checkTask 留痕后归档成功（完整链路）', async
     const [, created] = await createTask(root, { title: 'Archive Checked' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 archive 链路机制，CASE 链路在 case.test.js。
+    markTaskLegacy(root, created.taskRelPath)
     await checkTask(root, {
       taskRelPath: created.taskRelPath,
       summary: 'full review passed',
@@ -1365,10 +1384,13 @@ test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend 派发被
   try {
     const [, created] = await createTask(root, { title: 'UI Gate' })
     writeUiPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
     writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
     writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
     recordAlignment(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦前端派发门禁。
+    markTaskLegacy(root, created.taskRelPath)
     const [err1] = await checkTask(root, {
       taskRelPath: created.taskRelPath,
       summary: 'no ui dispatch',
@@ -1398,10 +1420,13 @@ test('checkTask 前端派发门禁：force 放行并留痕 overrides', async () 
   try {
     const [, created] = await createTask(root, { title: 'UI Gate Force' })
     writeUiPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
     writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
     writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
     recordAlignment(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force 留痕。
+    markTaskLegacy(root, created.taskRelPath)
     const [err, task] = await checkTask(root, {
       taskRelPath: created.taskRelPath,
       summary: 'force ui',
@@ -1753,6 +1778,8 @@ test('checkTask stale 门禁：in_progress 凭据 stale 拒绝写 check，重新
     const [, created] = await createTask(root, { title: 'Check Stale' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 stale alignment 门禁。
+    markTaskLegacy(root, created.taskRelPath)
     // prd 在 confirm 后变化 → 凭据 stale
     writeChangedPrd(root, created.taskRelPath)
     const [err1] = await checkTask(root, {
@@ -1781,6 +1808,8 @@ test('checkTask stale 门禁：force 放行按实际绕过 gate 逐项留痕（c
     const [, created] = await createTask(root, { title: 'Check Stale Force' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force 双 gate 留痕。
+    markTaskLegacy(root, created.taskRelPath)
     writeChangedPrd(root, created.taskRelPath)
     // 清掉 check.jsonl 有效记录：check 门禁与 stale 门禁同时缺失
     writeFileSync(
@@ -1809,6 +1838,8 @@ test('archiveTask stale 门禁：已有 check 后 prd 变化 → stale 拒绝；
     const [, created] = await createTask(root, { title: 'Archive Stale' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 archive stale 门禁。
+    markTaskLegacy(root, created.taskRelPath)
     const [checkErr] = await checkTask(root, {
       taskRelPath: created.taskRelPath,
       summary: 'full review passed',
@@ -1843,6 +1874,8 @@ test('archiveTask force：check 缺失 + stale 同时绕过 → archive 与 stal
     const [, created] = await createTask(root, { title: 'Archive Stale Dual' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force 双 gate 留痕。
+    markTaskLegacy(root, created.taskRelPath)
     writeChangedPrd(root, created.taskRelPath)
     const [err, archived] = await archiveTask(root, {
       taskRelPath: created.taskRelPath,
@@ -2331,6 +2364,8 @@ test('checkTask force 缺 reason 拒绝（R14：不留痕、不写 check）', as
     const [, created] = await createTask(root, { title: 'Force No Reason Check' })
     satisfyStartGate(root, created.taskRelPath)
     await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force reason 校验。
+    markTaskLegacy(root, created.taskRelPath)
     const [err] = await checkTask(root, {
       taskRelPath: created.taskRelPath,
       summary: 'forced',

@@ -9,6 +9,25 @@
  */
 import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core'
 import { buildExecutorPrompt, ERR_PREFIX, readTask } from '@workloom-ai/core'
+import { loadCaseResultTemplateText, loadCaseTemplateText } from '@workloom-ai/assets'
+
+/** CASE 模板资产（adapter 从 assets 读取，core 不 import assets；路径为仓内事实路径）。 */
+const CASE_TEMPLATE_FILES = Object.freeze([
+  { path: 'packages/assets/templates/case.md', load: loadCaseTemplateText },
+  { path: 'packages/assets/templates/case-result.md', load: loadCaseResultTemplateText },
+])
+
+/**
+ * 读取两份 CASE 模板正文（内部）：缺失即抛错（模板缺资产属部署残缺，不静默降级）。
+ * @returns {Array<{path: string, content: string}>} 按注入顺序的模板内容
+ */
+function caseTemplates() {
+  return CASE_TEMPLATE_FILES.map(({ path, load }) => {
+    const content = load()
+    if (content === null) throw new Error(`${ERR_PREFIX.executor}: missing CASE template ${path}`)
+    return { path, content }
+  })
+}
 
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
 export const KIND_LABELS = {
@@ -41,6 +60,7 @@ export function buildFullInjection(
   userPrompt: string,
   localDirectives: string,
   hasLsp: boolean,
+  purpose: 'case-design' | 'execution' = 'execution',
 ): ExecutorPromptResult {
   const [promptErr, built] = buildExecutorPrompt({
     root,
@@ -49,6 +69,8 @@ export function buildFullInjection(
     userPrompt,
     localDirectives,
     hasLsp,
+    purpose,
+    caseTemplates: kind === 'check' ? caseTemplates() : [],
   })
   if (promptErr !== null || built === null) {
     throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`)

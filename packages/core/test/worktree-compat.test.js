@@ -109,12 +109,17 @@ function addWorktree(repo, name, branch, startPoint) {
   return wt
 }
 
-/** 满足 start 门禁：填 prd（含 H1）四小节 + 收敛 marker + 两个 jsonl 各一条有效记录。 */
+/** 满足 start 门禁：填 prd（含 H1）四小节 + 收敛 marker + 最小 PLAN + 两个 jsonl 各一条有效记录。 */
 function satisfyStartGate(root, taskRelPath) {
   const taskDir = join(root, WORKLOOM_REL, taskRelPath)
   writeFileSync(
     join(taskDir, 'prd.md'),
     '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
+  )
+  // 完整实施任务 start 还要求 PLAN（夹具 prd 无 AC 编号，最小 plan 即可通过）。
+  writeFileSync(
+    join(taskDir, 'plan.md'),
+    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit: add implementation\n- Verify: pnpm lint\n',
   )
   writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')

@@ -24,7 +24,7 @@ export const COMMAND_DESCRIPTIONS = {
     'Run a structured workflow health check and auto-fix mechanical issues with --fix (results are handed to the model as JSON)',
 } as const
 
-/** 十个工具名（七个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
+/** 十一个工具名（八个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
 export const TOOL_NAMES = {
   taskCreate: 'workloom_task_create',
   taskStart: 'workloom_task_start',
@@ -33,20 +33,23 @@ export const TOOL_NAMES = {
   taskArchive: 'workloom_task_archive',
   taskList: 'workloom_task_list',
   taskAlign: 'workloom_task_align',
+  taskCase: 'workloom_task_case',
   executor: 'workloom_execute',
   step: 'workloom_step',
   journal: 'workloom_journal',
 } as const
 
-/** 十个工具的 register 描述文案（两 adapter 逐字相同）。 */
+/** 十一个工具的 register 描述文案（两 adapter 逐字相同）。 */
 export const TOOL_DESCRIPTIONS = {
   taskCreate: 'Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)',
   taskStart:
     'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, an alignment credential matching the current prd, and effective jsonl records; force bypasses and is recorded)',
   taskCheck:
-    'Record the 2.2 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
+    'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
   taskAlign:
     'Phase 1.1 alignment review/confirm: action=review returns the current prd snapshot and its hash without writing; action=confirm writes the alignment credential only after verifying the expectedPrdHash against the current prd (atomic, main-session only)',
+  taskCase:
+    'CASE review/confirm: action=review returns the current case.md snapshot, structural issues and its SHA-256 hash without writing; action=confirm records the confirmed hash after user approval (atomic, main-session only)',
   taskFinish: 'Clear the active-task pointer for this session (status unchanged)',
   taskArchive:
     'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
@@ -58,7 +61,7 @@ export const TOOL_DESCRIPTIONS = {
 } as const
 
 /**
- * 九个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
+ * 十一个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
  * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
@@ -67,15 +70,17 @@ export const TOOL_SNIPPETS = {
     'workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?) — create a task',
   taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
   taskCheck:
-    'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.2 check pass',
+    'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
   taskAlign:
     'workloom_task_align(action, taskPath?, expectedPrdHash?, summary?) — review or confirm Phase 1.1 alignment',
+  taskCase:
+    'workloom_task_case(action, taskPath?, expectedCaseHash?, summary?) — review or confirm the task CASE',
   taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
   taskArchive:
     'workloom_task_archive(taskPath, autoCommit?, force?, reason?) — archive the completed task',
   taskList: 'workloom_task_list(status?) — list task summaries',
   executor:
-    'workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?) — dispatch an executor, or continue the same-kind executor session',
+    'workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?, reinject?, purpose?) — dispatch or continue an executor',
   step: 'workloom_step(stepId) — show one workflow step body',
   journal: 'workloom_journal(taskPath, title, commit?, summary?) — record the session journal',
 } as const
@@ -118,6 +123,18 @@ export const PARAM_DESCRIPTIONS = {
   /** align 工具 confirm 的收敛摘要参数（记录覆盖节点/关键决策/确认结果）。 */
   alignmentSummary:
     'Convergence summary of Phase 1.1 (nodes covered, key decisions, and the user confirmation result); required by action=confirm',
+  /** case 工具的参数：动作（review 只读诊断 / confirm 记录确认摘要值）。 */
+  caseAction:
+    'CASE action: review returns the current case.md snapshot, SHA-256 hash, structural issues and readyToConfirm without writing; confirm records the user-approved hash',
+  /** case 工具 confirm 的预期 hash 参数（调用方须先经 review 取得当前值）。 */
+  expectedCaseHash:
+    'SHA-256 of the case.md the user reviewed (CRLF/CR normalized to LF); confirm writes only when the current case.md still hashes to this value',
+  /** case 工具 confirm 的审核摘要参数（记录 CASE 审核要点与用户确认结果）。 */
+  caseSummary:
+    'Summary of the CASE review, key decisions and the user confirmation result; required by action=confirm',
+  /** executor 工具的 purpose 参数（check 派发目的：CASE 设计轮保持 stage）。 */
+  executorPurpose:
+    'Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution runs the confirmed CASE and enters check stage. Defaults to execution for backward compatibility',
   force: 'Bypass the failing workflow gate(s); every actually bypassed gate is recorded in task.json overrides',
   reason:
     'Required non-empty reason when force is true (recorded per bypassed gate for audit)',

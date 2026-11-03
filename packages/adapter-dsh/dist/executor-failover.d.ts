@@ -49,6 +49,8 @@ export interface StartDispatchWithFailoverParams {
     agentOptions: AgentOptions | undefined;
     /** 失败转移链（显式 model / 未配置时为空，走零行为变化路径）。 */
     chain: readonly FallbackModelEntry[];
+    /** CASE 设计或最终执行（失败留痕与重派注入沿用；仅 check 消费）。 */
+    purpose?: 'case-design' | 'execution';
     primaryBinding: PrimaryDispatchBinding;
     /** 派发起点模型 label（穷尽消息链起点；轮换起点时为选中的链条目模型）。 */
     primaryModel: string;
@@ -92,6 +94,8 @@ export interface FailoverContext {
     allowNames: readonly string[];
     /** 首次派发是否具备 LSP 工具面（重派注入沿用）。 */
     hasLsp: boolean;
+    /** CASE 设计或最终执行（重派注入与记录沿用；仅 check 消费）。 */
+    purpose?: 'case-design' | 'execution';
 }
 /**
  * 同步派发走链（executor.ts 新派发路径）：主模型 startActivation 抛白名单错误时

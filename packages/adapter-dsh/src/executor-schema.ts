@@ -60,6 +60,11 @@ export function buildExecutorSchema(desc: typeof PARAM_DESCRIPTIONS) {
         type: 'boolean',
         description: desc.reinjectExecutor,
       },
+      purpose: {
+        type: 'string',
+        enum: ['case-design', 'execution'],
+        description: desc.executorPurpose,
+      },
     },
     required: ['kind', 'prompt', 'title'],
     additionalProperties: false,

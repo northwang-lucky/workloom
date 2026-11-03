@@ -10,8 +10,8 @@ Wrap the session up end to end. Run the checks yourself (`git status`, recent co
 ## Steps
 
 1. List the active task, `git status`, and recent commits.
-2. Check dirty files: uncommitted files still belonging to this task → refuse to wrap up and go back to 2.3 Commit; work from other windows → report and continue; unclear → ask once. When the active task has a worktree, also run `git -C <worktree> status --porcelain` and treat its uncommitted code the same way; a missing worktree directory is only a note, never a blocker.
-3. Archive: archive the active task with `workloom_task_archive`; archive other completed tasks after a one-time confirmation.
+2. Check dirty files: uncommitted files still belonging to this task → refuse to wrap up and go back to the commit step (full tasks go back to 2.4 Commit; light tasks go back to 2.3 Commit); work from other windows → report and continue; unclear → ask once. When the active task has a worktree, also run `git -C <worktree> status --porcelain` and treat its uncommitted code the same way; a missing worktree directory is only a note, never a blocker.
+3. Archive: archive the active task with `workloom_task_archive`; archive other completed tasks after a one-time confirmation. For a task with CASE required, archiving also demands a valid `case-result.md` (`status: passed`, every SR/C item passed, coverage green, `## Open issues` = `- none`) and a recorded result hash in `task.json` (`case.result`) — finish the CASE flow via `workloom_task_check` before archiving; core CASE failures cannot be bypassed with force.
 4. Record: record this session in the journal with the `workloom_journal` tool (title + work commit hash + summary).
 5. Propose spec candidates: skim this task's implementation decisions and conventions; if any is worth persisting as a team standard (decidable, reusable, not one-off), propose it to the user with the workloom-update-spec skill — write it only after the user confirms; otherwise skip silently.
 
