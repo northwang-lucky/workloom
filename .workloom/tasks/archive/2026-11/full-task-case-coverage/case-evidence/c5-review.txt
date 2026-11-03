@@ -1,0 +1,9 @@
+1. valid: readyToConfirm=true issues=[] caseHash=2bcd826f1e33…
+2. 删 YAML task 字段: readyToConfirm=false codes=["task_invalid","task_mismatch","changed_file_unreviewed"]
+2. 删 ## Coverage 章节: readyToConfirm=false codes=["section_missing","field_missing","field_missing","field_missing","field_missing","field_missing","field_missing","changed_file_unreviewed"]
+2. 删 SR1 的 Checks 字段: readyToConfirm=false codes=["field_missing","changed_file_unreviewed"]
+2. 删 Traceability 的 AC2 行: readyToConfirm=false codes=["traceability_missing","changed_file_unreviewed"]
+2. 变更文件 src/b.js 无 SR Target: readyToConfirm=false codes=["changed_file_unreviewed"]
+3. confirm on broken CASE: REJECTED: workloom task tool: confirm rejected: case.md content blockers:
+   task.json unchanged: true
+SUMMARY validTrue=true variantsDetected=true confirmRejected=true

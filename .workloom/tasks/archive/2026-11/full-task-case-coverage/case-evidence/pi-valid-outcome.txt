@@ -1,0 +1,24 @@
+
+ 2. .pi/loops/ 不在实际 git 变更集合里——未跟踪列表只有 .pi/tasks/ 的 12 个文件
+    ，.pi/loops/ 两个文件 git 根本没收录。
+
+ 按你的条件，不该应用这次排除范围修改。我立刻撤回刚派发的那轮设计修订。
+
+
+ workloom_execute continue_executor="01a1a16b-4b17-75f8-b156-24c343960c14"
+ kind="check" prompt="撤回上一条修订指令：不要修改 `cas...
+ Continued executor; child session: 01a1a16b-4b17-75f8-b156-24c343960c14.
+ Continue with other work; the completion report arrives via the executor
+ report.
+
+ [workloom executor] model: deepseek-official/deepseek-flash (config:
+ fallback), effort: max (config: fallback); injection: 25.0KB, 4 inlined, 0
+ truncated, 0 indexed, 2 pointed, 6 tools allowed
+
+
+── ⠇ Working ───────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103 (main)
+↑1.8M ↓102k R31M CH99.8% $0.076 27.6%/1.0M (auto)     MiniMax-M3.1-Flash • xhigh
+ bg 4 done · Shift↓ · /bg-clear

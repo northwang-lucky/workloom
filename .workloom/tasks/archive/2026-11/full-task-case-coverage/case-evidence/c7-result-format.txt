@@ -1,0 +1,4 @@
+1. outcome gate issues: []
+   meta: status=passed caseHash match=true evidence=relative coverage=lcov.info openIssues=none
+2. case.md hash stable: true (sha256=2bcd826f1e33…); case.md untouched by RESULT write: true
+SUMMARY gateClean=true hashStable=true

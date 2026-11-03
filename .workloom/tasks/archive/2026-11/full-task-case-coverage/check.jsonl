@@ -1,0 +1,7 @@
+{"file":".workloom/spec/repo/code-style/index.md","reason":"复核关键路径测试、lint、typecheck、build 与各包测试。"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"复核流程版本、步骤顺序和归档前派发静止状态。"}
+{"file":".workloom/spec/adapter-pi/verify/index.md","reason":"Pi executor 行为变化必须由主会话执行真实机器检查清单。"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"复核 dist 与 src 同步及部署约束。"}
+{"file":".workloom/tasks/11-03-full-task-case-coverage/research/core-case-lifecycle.md","reason":"复核 core CASE 生命周期、不可绕过项和测试边界均有实现与证据。"}
+{"file":".workloom/tasks/11-03-full-task-case-coverage/research/workflow-case-assets.md","reason":"复核流程资产、模板注入、轻量流程和双轨文本均保持一致。"}
+{"file":".workloom/tasks/11-03-full-task-case-coverage/research/adapter-case-integration.md","reason":"复核双 adapter 的 CASE 工具、续用、故障切换链与真实机器验证。"}

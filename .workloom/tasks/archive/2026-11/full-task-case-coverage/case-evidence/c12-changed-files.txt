@@ -1,0 +1,7 @@
+1. real task review: readyToConfirm=true issueCount=0
+   changed_file_unreviewed present: false
+   issues: []
+2. SR-scope Changed Files [src/a.js]: []
+3. missing row: ["coverage_files"]
+4. extra row: ["coverage_files"]
+SUMMARY realClean=true srScope=true missingRejected=true

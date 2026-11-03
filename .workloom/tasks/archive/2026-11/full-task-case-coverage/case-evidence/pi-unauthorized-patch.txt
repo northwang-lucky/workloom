@@ -1,0 +1,24 @@
+
+ 当前 task.json 状态
+
+ - stage = implement
+ - case.designSession = null
+ - dispatches = []（派发在 spawn 前就被拒，没有留痕）
+
+ 一处需要你知晓的改动
+
+ 补丁落在这个分支的未提交工作区里
+ ：/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/work
+ tree/11-03-full-task-case-coverage/packages/adapter-pi/src/executor.ts。这属于
+ 被测分支本身的 WIP，不要的话可以直接还原。
+
+ Warning: 🧠 Session backfill complete: 0 indexed, 82 skipped, 0 messages (1
+ file error).
+
+ Reloaded keybindings, extensions, skills, prompts, themes, and context files
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103
+↑608k ↓39k R11M CH98.5% $0.076 14.7%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh

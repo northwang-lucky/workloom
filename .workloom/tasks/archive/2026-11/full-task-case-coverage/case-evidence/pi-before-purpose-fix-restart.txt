@@ -1,0 +1,24 @@
+ 执行器交回的两个 PRD 问题
+
+ - P1：prd.md 的 Alignment Decisions 写「plan.md 只保留两步」，与 plan.md 实际
+   的四个步骤块矛盾，task.json 的 alignment.summary 也复述了同一说法。
+ - P2：AC1–AC5 只写了验证方法，没标注各自覆盖的 R 编号，与 PRD 骨架契约不符。
+
+ 这两条都要改 prd.md，而改完会让已确认的对齐凭据失效，需要重跑 align 的 review
+ 与 confirm。我没有自行改动，等你定。
+
+ 下一步建议
+
+ 按契约，现在该做的是 workloom_task_case action=review（已返回
+ readyToConfirm=true、hash 9200932e…585）→ 你确认 → action=confirm → 再以
+ purpose: execution 续用同一 designSession 执行。但要注意：designSession 目前是
+ null，执行轮「续用同一设计会话」这条链现在接不上；要么先把 dispatchChildPi 那
+ 处 purpose 补上并重跑一轮设计派发，要么接受用一次新的 design 派发重建会话链。
+ 最终 CASE 执行本轮按你的要求没有触发。
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103 (main)
+↑981k ↓54k R14M CH97.0% $0.076 17.8%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh
+ bg 1 done · Shift↓ · /bg-clear

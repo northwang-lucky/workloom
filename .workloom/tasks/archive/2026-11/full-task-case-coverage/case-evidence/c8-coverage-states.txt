@@ -1,0 +1,16 @@
+## C8 step 1: node --test --test-name-pattern='覆盖率|not_applicable' test/case.test.js
+✔ RESULT generated 通过、失败覆盖率与 blocked 均按硬门禁处理 (19.157277ms)
+✔ 纯文档范围允许 not_applicable，文件缺失或漏审仍拒绝 (2.944091ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+exit=0
+
+## C8 step 2: 覆盖率三态断言摘录
+348:    assert.ok(evaluateCaseOutcomeGate(root, REL, task, options).some((item) => item.code === 'coverage_status'))
+349-    const blocked = resultContent.replace('status: passed', 'status: failed').replace('### C2 docs render\n\n- Status: `passed`', '### C2 docs render\n\n- Status: `blocked`')
+350-    writeFileSync(join(taskDir, CASE_FILES.result), blocked)
+351-    const issues = evaluateCaseOutcomeGate(root, REL, task, options)
+352-    assert.ok(issues.some((item) => item.code === 'result_status'))
+353-    assert.ok(issues.some((item) => item.message.includes('C2 status must be passed')))
+354-  } finally {

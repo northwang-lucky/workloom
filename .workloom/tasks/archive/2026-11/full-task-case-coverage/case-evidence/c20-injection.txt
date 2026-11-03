@@ -1,0 +1,26 @@
+## C20 step 1: core executor-context
+ℹ tests 43
+ℹ pass 43
+ℹ fail 0
+exit=0
+## C20 step 2: adapter-dsh case-executor
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+exit=0
+## C20 step 3: adapter-pi case-executor + forward
+
+ 3 pass
+ 0 fail
+Ran 3 tests across 2 files. [186.00ms]
+exit=0
+
+## C20 step 4: 超预算 CASE 派发明确失败（core 真实入口）
+oversize CASE bytes: 70018 (default budget 65536)
+dispatch rejected: true
+error: case.md is 70018 bytes, exceeding maxArtifactBytes=65536; reduce the CASE or raise the project budget
+mentions bytes and maxArtifactBytes: true
+no truncated CASE text produced: true
+dispatch records unchanged: 0 → 0
+SUMMARY rejected=true noDispatch=true noTruncated=true
+oversize exit=0

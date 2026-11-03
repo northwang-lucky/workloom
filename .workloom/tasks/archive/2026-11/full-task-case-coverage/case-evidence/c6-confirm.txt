@@ -1,0 +1,7 @@
+1. confirmed: required=true confirmedAt=true caseHashMatch=true summarySet=true result=null
+   idempotent re-confirm: err=true idempotent=true
+2. hash changed: true (hash1=2bcd826f1e… hash2=e9bad06a18…)
+   stale-hash confirm: REJECTED: workloom task tool: confirm rejected: CASE hash mismatch; re-run action=review
+   execution gate: ["case.md changed after confirmation; review and confirm it again","case.designSession is missing"]
+3. re-confirm with new hash: OK caseHashMatch=true confirmedAt=true
+SUMMARY firstConfirm=true staleRejected=true reconfirmed=true

@@ -1,0 +1,18 @@
+## C1 step 1: node --test test/task-gates.test.js test/case.test.js
+ℹ tests 47
+ℹ pass 47
+ℹ fail 0
+exit=0
+
+## C1 steps 2-3: /tmp/wl-c1 真实项目 startTask 驱动
+1a. full without plan: REJECTED
+    error: workloom task: start gate failed: plan.md is missing (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+    contains "plan.md is missing": true
+1b. full with plan: STARTED
+    case.required=true status=in_progress
+2a. parent (children=["tasks/11-03-child-of-parent"]) without plan: STARTED
+3a. light without plan: STARTED
+    case=null mode=light
+SUMMARY fullRejected=true fullStarted=true parentStarted=true lightStarted=true
+ROOT=/data00/home/wangyubo.1219/tmp/wl-c1-egFzmS
+driver exit=0

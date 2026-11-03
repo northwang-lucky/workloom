@@ -1,0 +1,24 @@
+
+ 这一轮遇到的真实问题
+
+ - 第一次派发被模型冲突拦下：配置里 check 档位写的
+   deepseek-official/deepseek-flash 在当前模型注册表里已经不存在（provider 现在
+   叫 deepseek），子进程会以 "Model not found" 秒退。适配器要求显式模型必须带
+   force 覆盖，我用带理由的 force 放行，理由已记进 task.json 的 overrides。
+ - 源码只读，我没有再改任何代码。复核时确认我上一轮补的那行（prompt 组装处透传
+   purpose）仍在，但新派发调用 dispatchChildPi 的地方仍然没有把 purpose 传下去
+   。按 core 的记录逻辑，这意味着本轮设计派发的留痕可能仍按 execution 记账，并
+   把 stage 推到 check、designSession 留空。等子会话落盘后我把实测结果读出来给
+   你。
+
+ 等 child 完成后要读的三项：task.json 的 stage、case.designSession、以及最后一
+ 条派发记录的 purpose。最终 CASE 执行不会触发。
+
+ 我先停在这里，子会话的完成报告和状态读取结果到达后再汇报。
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103 (main)
+↑633k ↓53k R14M CH99.6% $0.076 16.9%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh
+ bg 1 running · Shift↓

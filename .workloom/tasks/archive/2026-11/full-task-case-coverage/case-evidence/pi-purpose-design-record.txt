@@ -1,0 +1,24 @@
+
+ 全局配置里 check 档位写的 deepseek-official/deepseek-flash 在当前模型注册表里
+ 依然不存在（provider 现在叫 deepseek）。不改模型的话子进程会以 "Model not
+ found" 秒退，派发留痕会是一条 failed。我用带理由的 force 显式指定注册表内存在
+ 的 minimax-cn/MiniMax-M3.1-Flash，理由已记进 task.json 的 overrides。
+
+ 提示词里给这一轮加的上下文
+
+ 任务目录里已经有上一轮设计产出的 case.md，所以提示词要求这一轮以 prd.md 与
+ plan.md 为准逐条复核、改正不一致处，收敛出一份自洽版本，而不是盲写。同时要求
+ Coverage 段在 not_applicable 时按模板要求把 N/A 字段写清。
+
+ 等落盘后要读的三项：task.json 的 stage、case.designSession、最新一条派发记录的
+ purpose。这轮重点看 purpose 修复是否真的生效——若记录成 case-design，stage 应该
+ 保持不动、designSession 应该被写入子会话 id。最终 CASE 执行不会触发。
+
+ 我先停在这里，子会话完成报告和状态读取结果到达后再汇报。
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103 (main)
+↑995k ↓57k R14M CH99.6% $0.076 18.3%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh
+ bg 1 running · Shift↓

@@ -1,0 +1,38 @@
+## C17 step 1: node --test test/session-context.test.js test/doctor.test.js test/task-store.test.js test/case.test.js
+ℹ tests 166
+ℹ pass 166
+ℹ fail 0
+exit=0
+
+## C17 steps 2-4: 快照 / 路由 / doctor 类别 / confirm 迁移
+file:///tmp/wl-c17-driver.mjs:48
+say(`2. continue routing: legacy branch=${skill.includes('case: null`) || skill.includes('`case: null`')} workloom-case-active=${skill.includes('workloom-case-active')}`)
+                                                                                          ^^^^^^^^^^^^
+
+SyntaxError: missing ) after argument list
+    at compileSourceTextModule (node:internal/modules/esm/utils:318:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:89:18)
+    at #translate (node:internal/modules/esm/loader:434:20)
+    at afterLoad (node:internal/modules/esm/loader:502:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+    at afterResolve (node:internal/modules/esm/loader:607:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12)
+    at node:internal/modules/esm/loader:632:32
+    at TracingChannel.tracePromise (node:diagnostics_channel:362:14)
+
+Node.js v24.18.1
+driver exit=1
+1. legacy full in_progress snapshot: hint=true line="Active task: \"Legacy full\" (in_progress) at tasks/11-03-legacy. CASE migration: use workloom-case-active to design and confirm cas"
+   new full snapshot: hint=false
+   light snapshot: hint=false
+2. continue routing: legacy branch=true workloom-case-active=true
+3. doctor module exports=["buildReport","collectChecks"] rule-collection size=-1
+4. legacy confirm: REJECTED: workloom task tool: prd.md is missing case.required=false hashSet=false
+1. legacy full in_progress snapshot: hint=true line="Active task: \"Legacy full\" (in_progress) at tasks/11-03-legacy. CASE migration: use workloom-case-active to design and confirm cas"
+   new full snapshot: hint=false
+   light snapshot: hint=false
+2. continue routing: legacy branch=true workloom-case-active=true
+3. doctor checks (12): ["task-lifecycle","parent-child","archive","dispatch-audit","stage-consistency","active-pointer","doc-completeness","spec-ref","config","local-prompts","workflow-overlay","worktree"]
+4. legacy confirm: OK case.required=true hashSet=true
+SUMMARY legacyHint=true newNoHint=true lightNoHint=true routed=true migrated=true

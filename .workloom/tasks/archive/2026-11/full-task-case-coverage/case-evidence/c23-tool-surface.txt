@@ -1,0 +1,23 @@
+## C23 step 1: DSH 子会话调用拒绝（套件证据：case-executor.test.js 主会话限制用例）
+ℹ pass 2
+ℹ fail 0
+
+## C23 step 2: Pi review 投影（套件证据 + 真实 review 调用）
+action: review
+keys: ["action","case","caseHash","caseRecord","confirmBlockers","readyToConfirm","status","structureIssues","taskRelPath"]
+case snapshot bytes: 43947
+caseHash: 9d49be545eda046d123245ce9bf98a96bd419ac942b6d4a1c2650c10b36a6710
+structureIssues: []
+readyToConfirm: true
+caseRecord.designSession: 3f349e9d-38cf-4fd2-ad76-392971f8fea3
+task.json unchanged after review: true
+SUMMARY readOnly=true projected=true
+pireview exit=0
+
+## C23 step 3: confirm 三种非法参数（core 公共服务）
+C23-3 缺 expectedCaseHash: REJECTED: workloom task tool: confirm rejected: expectedCaseHash is required
+C23-3 缺 summary: REJECTED: workloom task tool: confirm rejected: summary is required
+C23-3 hash 与当前内容不符: REJECTED: workloom task tool: confirm rejected: CASE hash mismatch; re-run action=review
+C23-3 task.json unchanged: true
+SUMMARY allRejected=true
+confirm exit=0

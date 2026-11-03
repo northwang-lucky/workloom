@@ -1,0 +1,25 @@
+## C2 step 1: node --test test/contract-asset.test.js test/protocol.test.js
+ℹ tests 45
+ℹ pass 45
+ℹ fail 0
+exit=0
+
+## C2 step 2: workflow.md front-matter 与 2.x 标题
+---
+version: 25
+states:
+  - no_task
+  - planning
+  - in_progress
+79:#### 2.1 Implement
+88:#### 2.2 Design CASE
+96:#### 2.3 Check
+117:#### 2.4 Commit
+
+## WORKFLOW_PROTOCOL_VERSION
+13:export const WORKFLOW_PROTOCOL_VERSION = 25
+
+## C2 step 3: workflow-light.md diff（应为空）
+light-diff-exit=0 (empty output = 无差异)
+
+2:version: 1

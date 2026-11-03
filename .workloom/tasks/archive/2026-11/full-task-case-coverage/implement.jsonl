@@ -1,0 +1,9 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"约束 core、assets 与 adapter 分层，以及 executor 指令和 persona 的职责边界。"}
+{"file":".workloom/spec/repo/domain-module/index.md","reason":"约束 task.json 新字段、旧任务兼容和 domain 纯 JS/JSDoc 实现方式。"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"约束关键路径 test-first、命名、注释、错误处理和验证命令。"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"约束流程步骤与协议版本同步，以及归档前派发静止状态。"}
+{"file":".workloom/spec/repo/language/index.md","reason":"约束运行资产英文、代码注释与任务文档中文的分工。"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"约束 core 和 adapter-dsh 的 dist 与 src 同轮重建。"}
+{"file":".workloom/tasks/11-03-full-task-case-coverage/research/core-case-lifecycle.md","reason":"提供 core 任务记录、CASE 工具、通过条件、stage 与测试的真实代码锚点。"}
+{"file":".workloom/tasks/11-03-full-task-case-coverage/research/workflow-case-assets.md","reason":"提供流程版本、资产模板、check 纪律和技能文本消费者的真实锚点。"}
+{"file":".workloom/tasks/11-03-full-task-case-coverage/research/adapter-case-integration.md","reason":"提供双 adapter 工具注册、续用、failover、CASE 注入与测试的真实锚点。"}

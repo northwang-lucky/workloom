@@ -1,0 +1,5 @@
+1. ordered: readyToConfirm=true codes=[]
+   parent_plan_missing absent: true
+2. swapped: codes=["parent_plan_order"]
+3. missing third: codes=["parent_plan_missing","parent_plan_order"]
+SUMMARY orderedTrue=true orderDetected=true missingDetected=true acCovered=true

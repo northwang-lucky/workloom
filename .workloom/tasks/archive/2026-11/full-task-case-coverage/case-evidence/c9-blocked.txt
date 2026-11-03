@@ -1,0 +1,7 @@
+1. outcome gate codes: ["result_status","result_item","result_item","coverage_exclusions","coverage_files","open_issues"]
+   items: ["C2 status must be passed, found blocked","C3 status must be passed, found pending"]
+2. checkTask(force): REJECTED: workloom task: CASE gate failed: RESULT status must be passed; C2 status must be passed, found blocked; C3 status must be passed, found pending; RESULT Exclusions must match CASE paths and reasons; Changed Files must equal <empty>; Open issues must be the final section and contain only - none
+   checkTask(plain): REJECTED
+   archiveTask(force): REJECTED: workloom task: CASE archive gate failed: RESULT status must be passed; C2 status must be passed, found blocked; C3 status must be passed, found pending; RESULT Exclusions must match CASE paths and reasons; Changed Files must equal <empty>; Open issues must be the final section and contain only - none; task.case.result is missing; record check first
+   task.json intact: status=in_progress check=undefined overrides 0→0
+SUMMARY gateItems=true checkRejected=true archiveRejected=true noOverride=true

@@ -1,0 +1,22 @@
+## C15 step 1: core contract-asset
+ℹ tests 41
+ℹ pass 41
+ℹ fail 0
+exit=0
+## C15 step 2: adapter-dsh case-executor
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+exit=0
+## C15 step 3: adapter-pi case-executor
+
+ 3 pass
+ 0 fail
+Ran 3 tests across 2 files. [195.00ms]
+exit=0
+
+packages/assets/templates/case.md: file 1298 bytes; marker+file verbatim in injection: true
+packages/assets/templates/case-result.md: file 1870 bytes; marker+file verbatim in injection: true
+case.md full text injected: true
+order prd < case.md < case-result: true (prd=71, case=232, result=1574)
+SUMMARY byteIdentical=true

@@ -1,0 +1,24 @@
+
+ 改动清单
+
+ - .workloom/tasks/11-03-case/prd.md：四节填实，R1–R7、AC1–AC5
+ - .workloom/tasks/11-03-case/plan.md：新建，四个步骤块覆盖 AC1–AC5
+ - .workloom/tasks/11-03-case/implement.jsonl、check.jsonl：各加一条带 file 字
+   段的记录，指向 .workloom/spec/README.md
+ - .workloom/config.json：新增 worktree 开关（这是任务目录之外唯一被改动的文件
+   ）
+
+ task.json 的 overrides 为空数组，说明整个过程没有用 force 绕过任何门禁。
+
+ 下一步建议
+
+ 这个任务现在停在 implement 阶段，而完整任务已经被要求走 CASE 流程。接下来要么
+ 按契约走 workloom_task_case 的设计会话产出 case.md，要么先用
+ workloom_task_finish 清理掉这个纯探针任务。另外 case.md 目前在任务目录里并不存
+ 在，如果后续要继续这个任务，得先把它补出来。
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103
+↑351k ↓18k R4.8M CH0.1% $0.076 10.0%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh

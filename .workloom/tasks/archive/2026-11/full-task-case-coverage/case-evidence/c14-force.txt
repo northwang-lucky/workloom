@@ -1,0 +1,8 @@
+1. checkTask(force): REJECTED: workloom task: CASE gate failed: coverage must be generated or not_applicable, found failed
+   archiveTask(force): REJECTED: workloom task: CASE archive gate failed: coverage must be generated or not_applicable, found failed; task.case.result is missing; record check first
+   overrides 0→0 (no new override)
+2. re-confirm: OK idempotent=true
+   gate after fix: []
+   checkTask(plain): PASSED
+   case.result recorded: {"caseHash":"2bcd826f1e330b4308fd38f8055a1c486e4bf8fbf9a96bde13357516c8588b8b","resultHash":"3a618fda24bddcec5b2f2d9fb5ee6d5c82f24e0f4fba68078f031a7b0cfc5161","passedAt":"2026-11-03T12:39:46.652Z"}
+SUMMARY forceRejected=true noOverride=true recovered=true

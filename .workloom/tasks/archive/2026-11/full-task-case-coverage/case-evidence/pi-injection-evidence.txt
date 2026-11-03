@@ -1,0 +1,6 @@
+source=/tmp/workloom-pi-case-1103/.workloom/sessions/pi/2026-11-03T12-38-45-783Z_01a1a16b-4b17-75f8-b156-24c343960c14.jsonl
+firstFullInjection.includes(caseTemplate)=true
+firstFullInjection.includes(caseResultTemplate)=true
+firstFullInjection.includesCurrentCase=true
+ordinaryContinuation.includesConfirmedHash=true
+ordinaryContinuation.repeatsFullTemplates=false

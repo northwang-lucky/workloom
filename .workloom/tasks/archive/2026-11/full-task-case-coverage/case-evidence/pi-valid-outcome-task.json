@@ -1,0 +1,147 @@
+{
+  "id": "10c2c901-c47b-4a9c-bc0b-b159f0664cba",
+  "name": "case",
+  "title": "真机 CASE",
+  "description": "",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-11-03T09:48:17.753Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-11-03T12:56:19.245Z",
+    "summary": "真机 CASE 全量重跑通过：SR1–SR7 与 C1–C6 共 13 项全部重新判定为 passed，0 项 failed、0 项 blocked；汇总命令按 case.md 的 Aggregate command 原样执行退出码 0，18 条 PASS、0 条 FAIL、SUMMARY failed=none；覆盖率按 not_applicable 记录并写 N/A，Changed Files 表为空集；已确认的 case.md 未改动（sha256 仍是 aafc49d4…55b）。上一轮交回的两条 P1（prd.md 的 Alignment Decisions 步骤数描述、Notes 的文件枚举）已在重跑前修正并重新 align confirm 刷新凭据为 84a1aa9f…b482，修正前后对照记录在 Resolved Findings，失败态 RESULT 归档在 case-evidence/case-result.pre-fix.md。RESULT 的 Open issues 为 - none。记录通过前发现 RESULT 的 Coverage Exclusions 表格原因列未用反引号包裹，core 的表格解析取不到该行导致 coverage_exclusions 判定失败，已按解析口径补上反引号，改动前的 RESULT 归档在 case-evidence/case-result.pre-check.md。"
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a16b-4b17-75f8-b156-24c343960c14",
+    "confirmedAt": "2026-11-03T12:45:23.936Z",
+    "caseHash": "aafc49d40dd8492a2e9410fdd4746f023bf45614309634ebf11bedc853d2155b",
+    "summary": "确认本任务 CASE 设计轮的最终版：case.md 16225 字节、sha256 aafc49d4…55b，SR 7 条、C 6 条，AC1–AC5 全覆盖，Traceability 五行齐全，Coverage 段在无业务源码的探针仓下按 not_applicable 处理并给出可运行的汇总命令。设计轮已把 SR2 步骤块断言收紧为 4、C3 改为按步骤块解析 Covers 并集的确定性脚本，与 start 门禁口径一致。用户已明确要求确认并进入执行轮。",
+    "result": {
+      "caseHash": "aafc49d40dd8492a2e9410fdd4746f023bf45614309634ebf11bedc853d2155b",
+      "resultHash": "ba1d7e7236c7a3cec746746f4ed6cc3e4c5fa3a465e041b60a86ad26c46e6fa9",
+      "passedAt": "2026-11-03T12:56:19.245Z"
+    }
+  },
+  "alignment": {
+    "passedAt": "2026-11-03T12:51:28.824Z",
+    "summary": "执行轮交回的两条 P1 已在 PRD 修正：Alignment Decisions 的「plan.md 只保留两步」改为与 plan.md 实际四个步骤块一致的表述；Notes 的文件枚举补上 CASE 两阶段自身产出的 case.md、case-result.md、case-evidence/、coverage/。R1–R7 与 AC1–AC5 的编号与判定口径未变，CASE 基线无需重做。凭据随本次 confirm 刷新为新 prdHash。",
+    "prdHash": "84a1aa9fc3b00521b9c3b7b1dbbc128d13a7618170f4d982381ea1f25251b482"
+  },
+  "overrides": [
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-11-03T12:23:58.478Z",
+      "reason": "配置里的 check 档位模型 id deepseek-official/deepseek-flash 在当前模型注册表中已不存在（provider 现为 deepseek），子进程会因 \"Model not found\" 秒退；本次真机验证必须让子会话真正起来，改用注册表内存在且与主会话同款的 minimax-cn/MiniMax-M3.1-Flash。"
+    },
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-11-03T12:38:45.520Z",
+      "reason": "全局配置里 check 档位的模型 id deepseek-official/deepseek-flash 在当前模型注册表中已不存在（provider 现为 deepseek），子进程会因 \"Model not found\" 秒退；本次真机验证必须让子会话真正起来，改用注册表内存在且与主会话同款的 minimax-cn/MiniMax-M3.1-Flash。"
+    }
+  ],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:21:52.468Z",
+      "title": "设计真机 CASE",
+      "status": "failed",
+      "purpose": "execution",
+      "model": "deepseek-official/deepseek-flash",
+      "effort": "max",
+      "modelSource": "fallback",
+      "error": "workloom executor: child pi process exited"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:23:58.952Z",
+      "title": "设计真机 CASE",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a15d-c219-7586-b08d-bce53075d58e",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "param"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:38:45.985Z",
+      "title": "设计真机 CASE 复核轮",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a16b-4b17-75f8-b156-24c343960c14",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "param"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:45:31.675Z",
+      "title": "真机 CASE 执行轮",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a16b-4b17-75f8-b156-24c343960c14",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:51:59.911Z",
+      "title": "真机 CASE 全量重跑",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a16b-4b17-75f8-b156-24c343960c14",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:57:38.769Z",
+      "title": "真机 CASE 排除范围修订",
+      "status": "running",
+      "purpose": "case-design",
+      "childId": "01a1a16b-4b17-75f8-b156-24c343960c14",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:58:22.373Z",
+      "title": "撤回 CASE 排除范围修订",
+      "status": "running",
+      "purpose": "case-design",
+      "childId": "01a1a16b-4b17-75f8-b156-24c343960c14",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

@@ -1,0 +1,7 @@
+1. created tasks/11-03-lifecycle-demo: case=null
+2. after case-design dispatch: required=false designSession=child-design-77 stage=implement
+3. after confirm: required=true confirmedAt=true caseHash=true summary=true result=null
+4. checkTask: PASSED
+   case.result: {"caseHash":"6eccf67ca616244cc3e6aa2bdb4d8f9d624fbd84b3af8838942d01eea58d5f71","resultHash":"08064fa6efda4ca449d6d7ef08a1b53eb749d367b34432d8dbf8e7267735e9f6","passedAt":"2026-11-03T12:40:10.724Z"}
+   resultHash matches case-result.md: true
+SUMMARY createdNull=true designRecorded=true confirmFull=true checkRecorded=true

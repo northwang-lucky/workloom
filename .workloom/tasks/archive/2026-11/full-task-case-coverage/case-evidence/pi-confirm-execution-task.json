@@ -1,0 +1,107 @@
+{
+  "id": "10c2c901-c47b-4a9c-bc0b-b159f0664cba",
+  "name": "case",
+  "title": "真机 CASE",
+  "description": "",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-11-03T09:48:17.753Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "case": {
+    "required": true,
+    "designSession": "01a1a16b-4b17-75f8-b156-24c343960c14",
+    "confirmedAt": "2026-11-03T12:45:23.936Z",
+    "caseHash": "aafc49d40dd8492a2e9410fdd4746f023bf45614309634ebf11bedc853d2155b",
+    "summary": "确认本任务 CASE 设计轮的最终版：case.md 16225 字节、sha256 aafc49d4…55b，SR 7 条、C 6 条，AC1–AC5 全覆盖，Traceability 五行齐全，Coverage 段在无业务源码的探针仓下按 not_applicable 处理并给出可运行的汇总命令。设计轮已把 SR2 步骤块断言收紧为 4、C3 改为按步骤块解析 Covers 并集的确定性脚本，与 start 门禁口径一致。用户已明确要求确认并进入执行轮。",
+    "result": null
+  },
+  "alignment": {
+    "passedAt": "2026-11-03T10:03:29.987Z",
+    "summary": "按用户直接指令补齐最小 PRD：四节全部填写，追加 Alignment Decisions 并标记 open-nodes=none。决策要点：单任务不拆分、plan.md 两步（覆盖 AC1 与 jsonl 记录）、jsonl 统一引用 .workloom/spec/README.md；已弃只补 PRD 与 force 绕过两条路径。用户在本轮指令中已明确要求确认对齐并启动，故按指令执行 confirm。",
+    "prdHash": "2d192b1157e9c27e6626f1064d7e9bd5b9ba170bdea7cf95ecac728bc0c65adf"
+  },
+  "overrides": [
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-11-03T12:23:58.478Z",
+      "reason": "配置里的 check 档位模型 id deepseek-official/deepseek-flash 在当前模型注册表中已不存在（provider 现为 deepseek），子进程会因 \"Model not found\" 秒退；本次真机验证必须让子会话真正起来，改用注册表内存在且与主会话同款的 minimax-cn/MiniMax-M3.1-Flash。"
+    },
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-11-03T12:38:45.520Z",
+      "reason": "全局配置里 check 档位的模型 id deepseek-official/deepseek-flash 在当前模型注册表中已不存在（provider 现为 deepseek），子进程会因 \"Model not found\" 秒退；本次真机验证必须让子会话真正起来，改用注册表内存在且与主会话同款的 minimax-cn/MiniMax-M3.1-Flash。"
+    }
+  ],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:21:52.468Z",
+      "title": "设计真机 CASE",
+      "status": "failed",
+      "purpose": "execution",
+      "model": "deepseek-official/deepseek-flash",
+      "effort": "max",
+      "modelSource": "fallback",
+      "error": "workloom executor: child pi process exited"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:23:58.952Z",
+      "title": "设计真机 CASE",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a15d-c219-7586-b08d-bce53075d58e",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "param"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:38:45.985Z",
+      "title": "设计真机 CASE 复核轮",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a16b-4b17-75f8-b156-24c343960c14",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "param"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:45:31.675Z",
+      "title": "真机 CASE 执行轮",
+      "status": "running",
+      "purpose": "execution",
+      "childId": "01a1a16b-4b17-75f8-b156-24c343960c14",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

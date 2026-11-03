@@ -1,0 +1,49 @@
+{
+  "id": "cc448b47-0b7c-4865-9ff7-ef59bc35cb1b",
+  "name": "over-budget-case",
+  "title": "超预算 CASE",
+  "description": "",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-11-03T12:47:36.773Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "case": {
+    "required": true,
+    "designSession": null,
+    "confirmedAt": null,
+    "caseHash": null,
+    "summary": null,
+    "result": null
+  },
+  "alignment": {
+    "passedAt": "2026-11-03T12:47:53.747Z",
+    "summary": "超预算任务的 PRD 沿用已验证内容并新增 R9/AC7 描述 CASE 字节预算门禁：设计派发在 case.md 超过 maxArtifactBytes 时必须于启动子会话前失败，不新增子进程与派发记录，且验证后恢复预算配置。plan.md 六个步骤块四要素齐全、Covers 并集覆盖 AC1–AC7；两份 jsonl 各一条带 file 字段的有效记录。用户已明确要求完成对齐并启动，故按指令执行 confirm。",
+    "prdHash": "76a17e53e4cad3b42049d443799df8406cc940482cac0e123157365027048fc2"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

@@ -1,0 +1,24 @@
+ 三个任务都还挂在 in_progress，没有归档。收尾动作（归档、写 journal、提交）我等
+ 你确认再动，其中 11-03-case 的归档会走 worktree 合并分支那条路径，而本项目的
+ worktree.enabled 当初被我关掉了，这一步需要先想清楚怎么处理。
+
+ 💾 Memory auto-reviewed and updated
+
+
+ 请把刚才三项无效 RESULT 的实际拒绝原因、force 与 override 结果、恢复后的
+ resultHash/check/case.result 校验写入当前主任务证据文件
+ ：/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/task
+ s/11-03-full-task-case-coverage/case-evidence/pi-invalid-results.txt。只写证据
+ 文件，不归档临时任务，不修改源码。
+
+
+ Thinking...
+
+ Operation aborted
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103 (main)
+↑1.8M ↓112k R39M $0.076 29.7%/1.0M (auto)             MiniMax-M3.1-Flash • xhigh
+ bg 5 done · Shift↓ · /bg-clear

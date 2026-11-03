@@ -1,0 +1,24 @@
+ implement，case.required = true，case.designSession = null，dispatches = []。
+
+ 设计派发
+
+ kind=check、purpose=case-design，childId =
+ 01a1a16e-c91e-70e7-bd0c-a2048fc2eb46，注入 10.0KB。模型仍需 force：全局配置里
+ check 档位的 deepseek-official/deepseek-flash 在当前注册表里仍不存在，子进程会
+ 秒退，理由已记进 overrides。
+
+ 待核对的三项
+
+ 后台监控在等派发记录落盘，随后读 stage、case.designSession、最新派发记录的
+ purpose，三项分别应为 implement、case-design、非空。派发记录在子进程 spawn 时
+ 就写入，所以先看记录、再等子会话跑完，两次读数我都会给你。最终 CASE 执行不会触
+ 发。
+
+ 我先停在这里，结果到达后再汇报。
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103 (main)
+↑1.0M ↓64k R16M CH99.6% $0.076 19.6%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh
+ bg 2 running · Shift↓

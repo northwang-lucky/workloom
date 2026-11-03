@@ -1,0 +1,24 @@
+   的 minimax-cn/MiniMax-M3.1-Flash
+
+ 执行环境安全性判断
+
+ 我判定可以执行：CASE 里的命令是 grep、python3 断言脚本和 git diff 这类只读检查
+ ，唯一写入是汇总命令在任务目录下建 coverage/ 并写 verify-summary.txt，证据文件
+ 按各条目 Evidence 声明写到 case-evidence/，全部落在探针仓的任务目录内，不触碰
+ workloom 源码，也不动仓库其他位置。
+
+ 待读取的四项
+
+ 后台监控在等执行轮落盘，之后读：最新派发的 purpose、childId、stage、以及
+ case.result。按契约这轮 purpose 应记为 execution、childId 应仍是 01a1a16b-…（
+ 同一会话）、stage 应推进到 check、case.result 应记下 RESULT 的 hash 与通过时间
+ 。
+
+ 结果到达后我再汇报。
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103 (main)
+↑1.4M ↓69k R18M CH99.6% $0.076 21.0%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh
+ bg 2 running · 1 done · Shift↓ · /bg-clear

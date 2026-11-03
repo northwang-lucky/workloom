@@ -1,0 +1,26 @@
+# C21 修复后的完整重跑纪律
+
+## 代码快照
+
+- 最终快照（`git -C <worktree> diff | sha256sum`）：`a451eb87af56211862f844c7b2b39fade981507f1e0430c2fe467a899733fd7b`
+- 快照时间：2026-11-03T20:56+08:00；`git status --porcelain` 共 98 条（78 修改 + 20 新增），与实施交付一致。
+- 20:38 之后无新的 src/test 源码变更（仅 `pnpm -r build` 于 20:49 重建 dist 与 adapter-pi/skills 构建副本，内容确定性一致）。
+
+## 执行期间发生的代码变更（非本 check 会话修改）
+
+本会话为执行会话（fallbackOf 链：609a15d5-361b-4b8b-9fca-96a17803c894 ← 3f349e9d-38cf-4fd2-ad76-392971f8fea3），自身未修改任何代码。执行期间唯一代码变更来自实施原会话（主会话 20:25 通知）：
+
+1. `packages/adapter-pi/src/executor.ts`：dispatchChildPi 最外层调用补传 `purpose: params.purpose`（落地于 20:25，20:29 稳定）。
+2. `packages/adapter-pi/test/case-executor-forward.test.ts`：新增公开面参数转发测试（20:37），断言 case-design 记录留痕、缺省落 execution。
+
+变更范围经 mtime 清单核实仅触及 packages/adapter-pi 两文件，不触及 core/adapter-dsh/assets。
+
+## 处置口径（按主会话指示：其余 CASE 执行按确认版本推进，最终复核覆盖该修复）
+
+- 修复前完成的结果（20:19–20:38）：C1、C2、C5、C6、C7、C9、C10、C12、C13、C14、C17、C22、C4 步骤4、C8、C23 步骤3 与 C19 第一轮（20:18）。这些用例全部为 core/adapter-dsh 公共 API 行为，不消费 adapter-pi 代码，结论对最终快照仍然有效。
+- 修复落地后重新执行/生成（20:45–20:55）：SR23/SR24/SR25 复核（含转发行与转发测试）、C18 绿侧（pi 5/5）、C19 第二轮标准验证（lint/typecheck/build×2/五包测试/dist 确定性/dist-dts 全部 exit 0，Pi 205 pass/22 文件含新转发测试）、C3/C4/C15/C16/C20/C23 套件证据、C11 覆盖率聚合（对应最终快照）、C23 步骤2 真实任务 review。
+- 修复前旧结果未被复用为通过依据：C19 第二轮覆盖全部标准验证命令；覆盖率在修复后单独重采；每个测试类 C 的证据文件为修复后输出（`pi-case.md` 真机清单与 fixture 类证据不依赖 Pi executor 源码行为）。
+
+## 结论
+
+RESULT 的证据与时间均对应最终代码快照 `a451eb87…`；无修复前旧结果被冒充为通过依据。

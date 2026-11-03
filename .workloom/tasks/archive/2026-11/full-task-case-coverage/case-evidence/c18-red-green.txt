@@ -1,0 +1,48 @@
+## C18 基线红、实现绿
+
+- 基线：git -C $WT worktree add --detach /tmp/wl-c18-red HEAD（HEAD=36cb389，CASE 实施全部为未提交变更）
+- 复制 7 份新增测试（含执行期新增的 adapter-pi/test/case-executor-forward.test.ts）；根 node_modules 整体链接，各包 node_modules 逐项链接并把 @workloom-ai/* workspace 自链接钉回基线树（防任务 core 泄漏）。
+## C18 step 3: 基线树（HEAD）逐包运行新增测试（node_modules 已钉回基线包）
+
+### packages/core: node --test test/case.test.js
+    throw new ERR_MODULE_NOT_FOUND(
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/wl-c18-red/packages/core/dist/domain/case.js' imported from /tmp/wl-c18-red/packages/core/test/case.test.js
+  code: 'ERR_MODULE_NOT_FOUND',
+ℹ pass 0
+ℹ fail 1
+core-run done
+
+### packages/adapter-dsh
+ℹ fail 3
+ℹ pass 0
+SyntaxError: The requested module '@workloom-ai/core' does not provide an export named 'buildExecutorIncrementalPrompt'
+
+### packages/adapter-pi: bun test
+(fail) TASK_CASE_PARAMS 暴露 review/confirm 与 CASE hash 参数 [1.33ms]
+(fail) CASE review 通过 details 返回结构诊断 [17.51ms]
+Ran 4 tests across 3 files. [199.00ms]
+
+### packages/assets
+ℹ pass 0
+ℹ fail 1
+## C18 step 3b: 任务 worktree 同一组测试（绿）
+
+### packages/core
+ℹ pass 12
+ℹ fail 0
+
+### packages/adapter-dsh
+ℹ pass 4
+ℹ fail 0
+
+### packages/adapter-pi
+ 5 pass
+ 0 fail
+Ran 5 tests across 3 files. [202.00ms]
+
+### packages/assets
+ℹ pass 1
+ℹ fail 0
+
+## Cleanup
+worktree removed: 0 残留

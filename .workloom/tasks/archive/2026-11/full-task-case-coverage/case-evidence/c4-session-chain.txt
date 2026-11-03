@@ -1,0 +1,33 @@
+## C4 步骤4 + C23 步骤3（core 公共会话链与 confirm 参数）
+C4-4a. chained exec session accepted: []
+C4-4b. orphan exec session: ["result_session"] (expect result_session)
+C4-4c. same-session accepted: []
+C23-3 缺 expectedCaseHash: REJECTED: workloom task tool: confirm rejected: expectedCaseHash is required
+C23-3 缺 summary: REJECTED: workloom task tool: confirm rejected: summary is required
+C23-3 hash 与当前内容不符: REJECTED: workloom task tool: confirm rejected: CASE hash mismatch; re-run action=review
+C23-3 task.json unchanged: true
+SUMMARY chainAccepted=true orphanRejected=true sameAccepted=true confirmParamsRejected=true
+## C4 step 1: core node --test test/case.test.js
+ℹ tests 12
+ℹ pass 12
+ℹ fail 0
+exit=0
+## C4 step 2: adapter-dsh executor + case-executor
+ℹ tests 131
+ℹ pass 131
+ℹ fail 0
+exit=0
+## C4 step 3: adapter-pi executor-continuation + case-executor + forward
+
+ 16 pass
+ 0 fail
+Ran 16 tests across 3 files. [188.00ms]
+exit=0
+
+## Pi 进程恢复保持同一 durable child id 断言摘录
+167:// ---- 重启续接参数组装（--session id + --name 保持） ----
+169:test('buildChildPiArgs: sessionParam 插入 --session <id>（续用重启）', () => {
+176:  // --mode rpc 后紧跟 --session <id>。
+177:  assert.deepEqual(args.slice(0, 4), ['--mode', 'rpc', '--session', 'abc123'])
+184:test('buildChildPiArgs: 无 sessionParam 时不出现 --session（新派）', () => {
+190:  assert.equal(args.includes('--session'), false)

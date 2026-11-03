@@ -1,0 +1,23 @@
+## C16 step 1: core case 套件
+ℹ tests 12
+ℹ pass 12
+ℹ fail 0
+exit=0
+## C16 step 2: adapter-dsh executor + case-executor
+ℹ tests 131
+ℹ pass 131
+ℹ fail 0
+exit=0
+## C16 step 3: adapter-pi case-executor + forward
+
+ 3 pass
+ 0 fail
+Ran 3 tests across 2 files. [189.00ms]
+exit=0
+
+## C16 step 4: Pi EXECUTOR_PARAMS 序列化不含 fallback_models；会话链分支走公共校验
+EXECUTOR_PARAMS has purpose enum: true
+EXECUTOR_PARAMS contains fallback_models: false
+(src 无 fallback_models 消费；仅测试反向断言)
+518:function sessionChainReaches(task, from, target) {
+636:  if (!sessionChainReaches(task, meta.checkSession, task.case.designSession)) {

@@ -1,0 +1,68 @@
+{
+  "id": "c1b9637b-e886-42b3-bffd-fac432685e3b",
+  "name": "clean-case-dispatch",
+  "title": "干净 CASE 派发",
+  "description": "",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-11-03T12:42:10.237Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "case": {
+    "required": true,
+    "designSession": "01a1a16e-c91e-70e7-bd0c-a2048fc2eb46",
+    "confirmedAt": null,
+    "caseHash": null,
+    "summary": null,
+    "result": null
+  },
+  "alignment": {
+    "passedAt": "2026-11-03T12:42:29.598Z",
+    "summary": "新任务的 PRD 沿用上一个真机任务已验证通过的内容并修正两处不一致：Alignment Decisions 的\"两步\"改为与 plan.md 实际五个步骤块一致，AC1–AC6 逐条补上覆盖的 R 编号。R1–R8 与 AC1–AC6 均可判定；plan.md 五个步骤块四要素齐全且 Covers 并集覆盖 AC1–AC6；两份 jsonl 各一条带 file 字段的有效记录。用户已明确要求完成对齐并启动，故按指令执行 confirm。",
+    "prdHash": "aff45ffb25fe97a88953d3aa7fa63827a9742192183da60fac222d8eab1dac52"
+  },
+  "overrides": [
+    {
+      "gate": "executor_model_effort",
+      "tool": "workloom_execute",
+      "at": "2026-11-03T12:42:34.398Z",
+      "reason": "全局配置里 check 档位的模型 id deepseek-official/deepseek-flash 在当前模型注册表中已不存在（provider 现为 deepseek），子进程会因 \"Model not found\" 秒退；本次真机验证必须让子会话真正起来，改用注册表内存在且与主会话同款的 minimax-cn/MiniMax-M3.1-Flash。"
+    }
+  ],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "check",
+      "at": "2026-11-03T12:42:34.862Z",
+      "title": "干净任务 CASE 设计轮",
+      "status": "running",
+      "purpose": "case-design",
+      "childId": "01a1a16e-c91e-70e7-bd0c-a2048fc2eb46",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "param"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

@@ -1,0 +1,24 @@
+ c=json.load(open('/home/wangyubo.1219/.workloom/config.json'))
+ for p in c.get('subagent_profiles',[]):
+     for kind,v in p.get('subagents',{}).items():
+         print(kind, '->', v.get('model'), v.get('effort'), 'fallbacks=',
+ [f.get('model') for f in v.get('fallback_models',[])])
+ " (timeout 60s)
+
+ ... (4 earlier lines, ctrl+o to expand)
+ ['qwen-token-plan-cn/qwen3.8-flash', 'minimax-cn/MiniMax-M3.1-Flash']
+ frontend -> qwen-token-plan-cn/qwen3.8-flash xhigh fallbacks=
+ ['zai-coding-cn/glm-5.3-flash', 'minimax-cn/MiniMax-M3.1-Flash']
+ check -> deepseek-official/deepseek-flash max fallbacks=
+ ['zai-coding-cn/glm-5.3-flash']
+
+ Took 0.0s
+
+
+ Thinking...
+
+── ⠇ Working ───────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp/workloom-pi-case-1103
+↑625k ↓48k R13M CH98.7% $0.076 16.2%/1.0M (auto)      MiniMax-M3.1-Flash • xhigh
