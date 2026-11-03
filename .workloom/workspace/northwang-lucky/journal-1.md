@@ -394,3 +394,9 @@
 - Commit: 79e69d2
 - Summary: 起因是 zephyra 仓一次会话把 slug 写成 10-30-center-stability，工具再拼一次日期前缀，7 个任务目录变成 10-30-10-30-*。本轮在 core 补入口校验：createTaskInternal 拼目录名前调用 assertValidSlug，显式 slug 需 kebab-case 且不超 40 字符，任何来源的 slug 都不得自带合法 MM-DD 前缀，报错而不是静默剥离（剥离会误改 12-25-release-notes 这类命名）；显式空串改报 slug cannot be empty；PARAM_DESCRIPTIONS.slug 补日期前缀由工具生成的说明，DSH 与 Pi 运行时共用该常量，adapter 无需改动。校验全部前置于写盘，失败零部分状态。新增 core 用例两条（拒绝形态加零写入、文案锚点）。门禁：build、typecheck、lint 全绿，core 714、adapter-dsh 173、adapter-pi 199 用例全通过。已归档并合入 main，分支保留，未 push；生效还需用户 push、profile 重钉与授权重启。
 
+## 完成完整任务 CASE 主流程与真实覆盖率验证
+
+- Time: 2026-11-03T13:12:21.378Z
+- Commit: 79c7ce6
+- Summary: 交付 workflow v25、workloom_task_case、CASE/RESULT 固定模板、purpose/stage、双 adapter 注入与故障切换记录；34/34 SR、24/24 真实用例、LCOV 89.9%、Pi 真机 9/9，工作提交 79c7ce6。
+
