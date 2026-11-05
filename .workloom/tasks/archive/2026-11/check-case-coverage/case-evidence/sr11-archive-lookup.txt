@@ -1,0 +1,45 @@
+== findArchivedTaskPath source
+/**
+ * 按任务名在 tasks/archive/<YYYY-MM>/ 下查找归档目录，返回最新月份的归档任务相对路径。
+ * 供归档兼容解析使用：子任务归档后 task.children 仍指向归档前路径，
+ * 读子任务材料（如 plan.md）时应先用原路径，缺失时回退到本函数结果。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务相对路径（如 tasks/<name>）
+ * @returns {string | null} 归档任务相对路径；未归档或无归档目录时返回 null
+ */
+export function findArchivedTaskPath(root, taskRelPath) {
+  const archiveDir = insideWorkloom(root, join(DIR_NAMES.tasks, DIR_NAMES.archive))
+  let months
+  try {
+    months = readdirSync(archiveDir, { withFileTypes: true })
+  } catch (error) {
+    if (/** @type {NodeJS.ErrnoException} */ (error)?.code === 'ENOENT') return null
+    throw error
+  }
+  const name = basename(taskRelPath)
+  // 月份目录按名降序：同名归档（跨月重名）取最新月份，结果保持确定性。
+  const monthsDesc = months
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+    .reverse()
+  // 活动目录名可带 MM-DD- 日期前缀而归档目录名是 slug：先精确匹配原名，再匹配去前缀形态。
+  const candidates = [name]
+  const slug = name.replace(TASK_DIR_DATE_PREFIX, '')
+  if (slug !== name) candidates.push(slug)
+  for (const candidate of candidates) {
+    for (const month of monthsDesc) {
+      const archiveRel = join(DIR_NAMES.tasks, DIR_NAMES.archive, month, candidate)
+      if (existsSync(insideWorkloom(root, archiveRel))) return archiveRel
+    }
+  }
+  return null
+}
+== real lookup
+full-task: tasks/archive/2026-11/full-task-case-coverage
+case-active: tasks/archive/2026-11/case-active-skill
+missing: null
+== dist sync
+1403:export function findArchivedTaskPath(root, taskRelPath) {
+ M packages/core/dist/domain/task-store.js
+ M packages/core/src/domain/task-store.js

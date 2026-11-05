@@ -1,0 +1,4 @@
+full-task-case-coverage case=MATCH result=MATCH status=generated overall=18066/20096 (89.9%) changedRows=23 refs=43 missing=0
+case-active-skill case=MATCH result=MATCH status=generated overall=280/301 (93.0%) changedRows=2 refs=23 missing=0
+case-archived-skill case=MATCH result=MATCH status=generated overall=396/431 (91.9%) changedRows=2 refs=39 missing=0
+C4 hashes/evidence: PASS

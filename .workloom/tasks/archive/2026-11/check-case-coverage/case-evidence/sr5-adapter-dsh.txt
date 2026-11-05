@@ -1,0 +1,33 @@
+== dsh taskCase registration
+130:    name: TOOL_NAMES.taskCase,
+135:        action: { type: 'string', enum: ['review', 'confirm'], description: PARAM_DESCRIPTIONS.caseAction },
+137:        expectedCaseHash: { type: 'string', description: PARAM_DESCRIPTIONS.expectedCaseHash },
+138:        summary: { type: 'string', description: PARAM_DESCRIPTIONS.caseSummary },
+331:    expectedCaseHash: stringOf(typed, 'expectedCaseHash'),
+== dsh purpose/templates/skills
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/src/executor-injection.ts:16:  { path: 'packages/assets/templates/case.md', load: loadCaseTemplateText },
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/src/executor-injection.ts:24:function caseTemplates() {
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/src/executor-injection.ts:63:  purpose: 'case-design' | 'execution' = 'execution',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/src/executor-injection.ts:73:    caseTemplates: kind === 'check' ? caseTemplates() : [],
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/src/executor.ts:187:  /** CASE 设计或最终执行（仅 check 消费；缺省 execution）。 */
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/src/executor.ts:188:  purpose?: 'case-design' | 'execution'
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/src/executor.ts:502:      // 增量续接：只发主会话增量指令（params.prompt）；check + execution 轮由 core
+55:  'skills/workloom-case-active/SKILL.md',
+56:  'skills/workloom-case-archived/SKILL.md',
+== tests
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/case-executor.test.js:41:  assert.deepEqual(properties.purpose.enum, ['case-design', 'execution'])
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/case-executor.test.js:44:    const full = buildFullInjection(root, REL, 'check', 'design', '', false, 'case-design')
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/case-executor.test.js:49:      root, taskRelPath: REL, kind: 'check', userPrompt: 'execute', purpose: 'execution',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/case-executor.test.js:62:      () => buildFullInjection(root, REL, 'check', 'design', '', false, 'case-design'),
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/case-executor.test.js:74:      purpose: 'case-design',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/case-executor.test.js:80:    assert.equal(record.purpose, 'case-design')
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:148:    'workloom-case-active',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:149:    'workloom-case-archived',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:161:test('workloom-case-active 资产与五组 eval：状态约束、整批确认、指纹和英文断言', () => {
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:163:    new URL('../../assets/skills/workloom-case-active/SKILL.md', import.meta.url),
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:168:  assert.equal(parsed.name, 'workloom-case-active')
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:176:  assert.match(parsed.body, /purpose: case-design/)
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:177:  assert.match(parsed.body, /continue that session with[^\n]*purpose: case-design/)
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-dsh/test/skills.test.js:178:  assert.match(parsed.body, /Continue the same design session with[^\n]*purpose: case-design/)
+== dist sync
+134120d feat(skill): 增加归档任务 CASE 重建技能

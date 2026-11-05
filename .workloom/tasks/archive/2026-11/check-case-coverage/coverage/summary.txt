@@ -1,0 +1,3 @@
+packages/core/src/domain/task-store.js 800/1674 47.8%
+packages/core/src/service/case-service.ts 139/160 86.9%
+TOTAL 939/1834 (51.2%)

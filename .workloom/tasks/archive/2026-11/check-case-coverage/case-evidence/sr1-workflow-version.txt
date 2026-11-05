@@ -1,0 +1,26 @@
+== workflow frontmatter
+---
+version: 25
+states:
+  - no_task
+  - planning
+  - in_progress
+  - completed
+---
+== phase 2 steps
+79:#### 2.1 Implement
+88:#### 2.2 Design CASE
+96:#### 2.3 Check
+117:#### 2.4 Commit
+== protocol
+13:export const WORKFLOW_PROTOCOL_VERSION = 25
+== parent/container/light lines
+25:Before recommending a task, apply the negative standard. Do not create a task when the change is already fully settled in the conversation, touches only a few files, is low risk, changes no external interface, and the user frames it as incidental ("by the way", "while you are there") — fix it directly instead. Recommend a light task instead of a full one when the change is still small but deserves an audit trail or cross-session continuity: create it with `mode: "light"`; the main session implements and self-checks it, no executor is dispatched, and the start/check gates are relaxed. Everything else is a full task.
+90:At the start of implementation, dispatch `kind: check` with `purpose: case-design` alongside the implement/frontend dispatches. The check executor reads prd.md, plan.md, the check.jsonl materials, and the two CASE template assets, then writes `case.md` using the canonical structure. Cover every AC with at least one SR or C item and every changed code file with an SR item; define real runtime steps, evidence, cleanup, and coverage collection. A container task without its own plan lists its children's PLAN paths in task.children order.
+130:No active task right now. When the user expresses a need, answer direct questions outright without a task; for work touching files or documents, apply the negative standard in 1.0 (fix a settled, low-risk change directly instead of creating a task) and recommend a light task when the change is small but deserves an audit trail or cross-session continuity; create any task only after the user confirms, then proceed by the planning guidance.
+134:The task is in planning. Phase 1.1 alignment runs automatically: load the workloom-alignment skill and drive the design tree (full-frontier rounds, recommended answers per decision node, fact checks on demand) to convergence; write conclusions into prd.md as you go (Requirements numbered R1, R2, ...; Acceptance Criteria numbered AC1, AC2, ... each with its verification method); do not finalize prd.md before alignment converges. For implementation work, fold the plan.md authoring question into the final alignment round. Convergence ends at `workloom_task_align` action=review returning `readyToConfirm` true (fix every `confirmBlockers` entry and re-run review while it is false, without showing the snapshot or hash) — do not ask for confirmation here. Then follow Phase 1: optional research → configure context → author plan.md (required for every full implementation task; only a parent task with declared children is exempt), meeting the prescriptive authoring bar in 1.4 (every step anchored to a concrete file, symbol, and exact code change; read the alignment skill's plan-authoring reference first). At 1.4 present the single review package (re-run action=review to pin the current hash; include materials and, when the scale self-check trips, a split candidate list); the user's one confirmation then runs action=confirm and start back to back. For a large task the user may ask for stage-wise review; honor it. Do not write implementation code before the review; do not write documents before alignment reaches the no-grey-areas bar.
+159:- Light-task exemption: light tasks (`mode: "light"`) are executed entirely by the main session — implementation, self-check, and commit — so the implement-stage dispatch constraint above does not apply, and `workloom_execute` rejects dispatching an executor for a light task unless forced with a recorded reason.
+== contract tests
+51:  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)
+64:  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)
+75:  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)

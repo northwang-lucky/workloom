@@ -1,0 +1,62 @@
+== parent children
+tasks/11-03-full-task-case-coverage
+tasks/11-03-case-active-skill
+tasks/11-03-case-archived-skill
+== child records
+-- full-task-case-coverage
+{
+  "name": "full-task-case-coverage",
+  "status": "completed",
+  "completedAt": "2026-11-03T13:11:41.788Z",
+  "checkPassedAt": "2026-11-03T13:10:48.043Z",
+  "checkSummary": "CASE 最终通过：34/34 SR、24/24 C、真实 LCOV 18066/20096（89.9%）、Pi 真机 ",
+  "caseHash": "9d49be545eda046d123245ce9bf98a96bd419ac942b6d4a1c2650c10b36a6710",
+  "resultHash": "f167ae64d7a3d58f8694d9326a5cd3b973e7c936cd86b802ef1a28d9291a19f9"
+}
+case sha: 9d49be545eda046d123245ce9bf98a96bd419ac942b6d4a1c2650c10b36a6710
+result sha: f167ae64d7a3d58f8694d9326a5cd3b973e7c936cd86b802ef1a28d9291a19f9
+-- case-active-skill
+{
+  "name": "case-active-skill",
+  "status": "completed",
+  "completedAt": "2026-11-05T01:49:07.063Z",
+  "checkPassedAt": "2026-11-05T01:48:36.386Z",
+  "checkSummary": "完整 CASE 通过：11/11 SR、13/13 C；五个带技能真实验收场景、独立批准时序、真实 LCOV（总体 28",
+  "caseHash": "fa55c32e0475cc554f75bcb74e5cd5c54e98dd985849f848a9265463cb0164fb",
+  "resultHash": "124dab634f153b010e6d16fef7818959b9e10543432ed99d27736276e2b7f63b"
+}
+case sha: fa55c32e0475cc554f75bcb74e5cd5c54e98dd985849f848a9265463cb0164fb
+result sha: 124dab634f153b010e6d16fef7818959b9e10543432ed99d27736276e2b7f63b
+-- case-archived-skill
+{
+  "name": "case-archived-skill",
+  "status": "completed",
+  "completedAt": "2026-11-05T12:14:59.992Z",
+  "checkPassedAt": "2026-11-05T12:14:31.163Z",
+  "checkSummary": "完整 CASE 通过：12/12 SR、12/12 C；五个带技能真实验收场景、原件零变化、指定 ref 与 PRD-o",
+  "caseHash": "063e3738c4fffd155cce424ebdc6f48db22c0e9556d90dda2bfd7863f5242b16",
+  "resultHash": "b3d6c9d96ae9831a7d4009d85ee55ffa8802d733a9036a7e9d1195887ca76dc9"
+}
+case sha: 063e3738c4fffd155cce424ebdc6f48db22c0e9556d90dda2bfd7863f5242b16
+result sha: b3d6c9d96ae9831a7d4009d85ee55ffa8802d733a9036a7e9d1195887ca76dc9
+== dispatches
+2026-11-03T07:46:28.882Z	check	-	completed	3f349e9d-38cf-4fd2-ad76-392971f8fea3	设计当前任务 CASE 与覆盖率用例
+2026-11-03T07:46:28.908Z	implement	-	completed	a327752b-2c98-469f-a227-e0c0d41b3a37	实施 core CASE 与任务工具切片
+2026-11-03T08:19:58.976Z	check	-	completed	3f349e9d-38cf-4fd2-ad76-392971f8fea3	按主会话意见修订 CASE
+2026-11-03T08:19:59.001Z	implement	-	completed	a327752b-2c98-469f-a227-e0c0d41b3a37	实施流程资产与 executor 并修正解析边界
+2026-11-03T08:46:19.338Z	implement	-	completed	a327752b-2c98-469f-a227-e0c0d41b3a37	纠正 AC 的 SR-only 兼容边界
+2026-11-03T08:47:30.514Z	implement	-	completed	a327752b-2c98-469f-a227-e0c0d41b3a37	修复 SR 空列导致的溯源漏报
+== evidence counts
+full-task-case-coverage: 61 evidence, 11 coverage
+case-active-skill: 22 evidence, 7 coverage
+case-archived-skill: 35 evidence, 7 coverage
+== test-first evidence
+.workloom/tasks/archive/2026-11/full-task-case-coverage/case-evidence/c18-red-green.txt
+.workloom/tasks/archive/2026-11/case-active-skill/case-result.md:38:- Evidence: `node --test` 2/2，覆盖稳定性、元数据不影响、tracked 修改、untracked 增删、HEAD 改变、删除与 CLI 一致性；红阶段在 `case-evidence/c1-red.txt`。
+.workloom/tasks/archive/2026-11/case-active-skill/case-result.md:68:- Evidence: 清单期望含 case-active；资产测试检查 front-matter、关键句、五个 id、英文断言，并含审批规则与修订续用 purpose 的回归断言；红绿见 `case-evidence/c1-red.txt` 与 `case-evidence/c2-registration.txt`。
+.workloom/tasks/archive/2026-11/case-active-skill/case-result.md:91:### C1 红阶段：缺技能、缺注册、缺脚本时测试先失败
+.workloom/tasks/archive/2026-11/case-active-skill/case-result.md:100:  - `case-evidence/c1-red.txt`
+== referenced evidence paths
+full-task-case-coverage refs 43 missing 0
+case-active-skill refs 23 missing 0
+case-archived-skill refs 39 missing 0

@@ -1,0 +1,17 @@
+== outcome gate
+45:const REQUIRED_RESULT_SECTIONS = CASE_STRUCTURE.resultSections
+601:export function evaluateCaseOutcomeGate(root, taskRelPath, task, options = {}) {
+633:  if (meta.status !== 'passed') issues.push(issue('result_status', 'RESULT status must be passed'))
+643:  for (const name of REQUIRED_RESULT_SECTIONS) {
+655:    if (item.status !== 'passed') issues.push(issue('result_item', `${item.id} status must be passed, found ${String(item.status)}`))
+667:    issues.push(issue('coverage_exclusions', 'RESULT Exclusions must match CASE paths and reasons'))
+680:    if (expected.length > 0) issues.push(issue('coverage_not_applicable', 'not_applicable requires an empty coverable file scope'))
+685:    if (exclusions.size === 0) issues.push(issue('coverage_exclusions', 'not_applicable requires exclusion reasons'))
+697:    issues.push(issue('coverage_status', `coverage must be generated or not_applicable, found ${String(coverageStatus)}`))
+701:  if (commands.length === 0) issues.push(issue('verification_commands', 'Standard Verification needs at least one exit-code-0 row'))
+707:    issues.push(issue('open_issues', 'Open issues must be the final section and contain only - none'))
+== tests
+338:test('RESULT generated 通过、失败覆盖率与 blocked 均按硬门禁处理', () => {
+359:test('RESULT 会话链、纯文档不适用与记录摘要校验', () => {
+379:test('纯文档范围允许 not_applicable，文件缺失或漏审仍拒绝', () => {
+397:test('force 不能绕过核心 CASE 问题且不新增 override', () => {

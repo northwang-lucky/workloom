@@ -1,0 +1,22 @@
+== regression test location
+463:test('子任务归档后父任务 CASE review 从归档目录解析 PLAN', () => {
+== assertions
+    const [, missing] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
+    assert.ok(missing.structureIssues.every((item) => item.code === 'parent_plan_missing'))
+    assert.ok(missing.structureIssues.some((item) => item.message === `${CHILD_A}/plan.md is missing`))
+    assert.ok(missing.structureIssues.some((item) => item.message === `${CHILD_B}/plan.md is missing`))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Traceability 按列解析引用：SR-only 与 C-only 均放行，两列皆空才判 empty', () => {
+== test run
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 269.609348

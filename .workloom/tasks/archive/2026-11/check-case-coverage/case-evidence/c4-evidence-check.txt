@@ -1,0 +1,11 @@
+== skill evals prompts
+workloom-case-active: 5 prompts
+workloom-case-archived: 5 prompts
+== with_skill runs
+case-active-skill: 20 with_skill dirs
+case-archived-skill: 5 with_skill dirs
+== acceptance evidence
+.workloom/tasks/archive/2026-11/case-archived-skill/evals/skill-eval/iteration-1/acceptance-summary.md
+case-active conclusion: case-result.md
+== parent scoring/benchmark/static pages
+none

@@ -1,0 +1,19 @@
+== parent children
+tasks/11-03-full-task-case-coverage
+tasks/11-03-case-active-skill
+tasks/11-03-case-archived-skill
+== child status
+full-task-case-coverage	completed	completedAt=2026-11-03T13:11:41.788Z	check=2026-11-03T13:10:48.043Z	caseResult=f167ae64d7a3d58f8694d9326a5cd3b973e7c936cd86b802ef1a28d9291a19f9	parent=tasks/11-03-check-case-coverage
+case-active-skill	completed	completedAt=2026-11-05T01:49:07.063Z	check=2026-11-05T01:48:36.386Z	caseResult=124dab634f153b010e6d16fef7818959b9e10543432ed99d27736276e2b7f63b	parent=tasks/11-03-check-case-coverage
+case-archived-skill	completed	completedAt=2026-11-05T12:14:59.992Z	check=2026-11-05T12:14:31.163Z	caseResult=b3d6c9d96ae9831a7d4009d85ee55ffa8802d733a9036a7e9d1195887ca76dc9	parent=tasks/11-03-check-case-coverage
+== parent dispatch running
+[
+  {
+    "kind": "check",
+    "title": "重跑修正格式后的父任务集成 CASE",
+    "childId": "2ead0905-4529-4a7f-a084-9054eca49cac",
+    "at": "2026-11-05T15:22:42.883Z"
+  }
+]
+== parent check current
+null

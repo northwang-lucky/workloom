@@ -1,0 +1,39 @@
+{
+ "status": "in_progress",
+ "stage": "check",
+ "caseRequired": true,
+ "confirmedAt": "2026-11-05T15:22:29.344Z",
+ "caseHash": "e5dbdb7aaafe2d2112aa0e6805fb2f4628c5974bd5132a3580dd09567b3a8ba1",
+ "currentCaseHash": "e5dbdb7aaafe2d2112aa0e6805fb2f4628c5974bd5132a3580dd09567b3a8ba1",
+ "alignmentPrdHash": "75b743f5fa2bbb6e6c1acf0b7ffe3e7010a08393d6b3a53df205d8871e409076",
+ "currentPrdHash": "75b743f5fa2bbb6e6c1acf0b7ffe3e7010a08393d6b3a53df205d8871e409076",
+ "hasPlan": false,
+ "children": [
+  "tasks/11-03-full-task-case-coverage",
+  "tasks/11-03-case-active-skill",
+  "tasks/11-03-case-archived-skill"
+ ],
+ "archiveDirs": [
+  {
+   "path": ".workloom/tasks/archive/2026-11/full-task-case-coverage",
+   "exists": true
+  },
+  {
+   "path": ".workloom/tasks/archive/2026-11/case-active-skill",
+   "exists": true
+  },
+  {
+   "path": ".workloom/tasks/archive/2026-11/case-archived-skill",
+   "exists": true
+  }
+ ],
+ "runningDispatches": [
+  {
+   "kind": "check",
+   "title": "重跑修正格式后的父任务集成 CASE",
+   "childId": "2ead0905-4529-4a7f-a084-9054eca49cac"
+  }
+ ],
+ "check": null
+}
+C5 parent state: PASS

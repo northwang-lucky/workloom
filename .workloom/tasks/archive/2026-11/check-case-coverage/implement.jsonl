@@ -1,0 +1,2 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"父任务按 core、assets 与双 adapter 的分层协调三个子任务，避免跨层实现。"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"父任务协调流程步骤、协议版本和子任务生命周期，并在归档前等待全部派发结束。"}

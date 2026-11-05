@@ -1,0 +1,17 @@
+caseHash: 2c279cbc16efb7c137a2aa6292611f02cba925ad7cd475735630d74067a332dc
+confirmedAt: 2026-11-05T14:12:53.221Z
+designSession: 2ead0905-4529-4a7f-a084-9054eca49cac
+checkSession: 2ead0905-4529-4a7f-a084-9054eca49cac
+codeHead: a6027913185c6c0671f3de0e7ea110d40fab87b8
+diffSha256: 6707a43f9f8aa46e35124ead556bd26c863ed6184d391abe104f39f234c0c52d
+changedFiles:
+ M packages/core/dist/domain/task-store.d.ts
+ M packages/core/dist/domain/task-store.js
+ M packages/core/dist/domain/task-store.js.map
+ M packages/core/dist/service/case-service.js
+ M packages/core/dist/service/case-service.js.map
+ M packages/core/src/domain/task-store.d.ts
+ M packages/core/src/domain/task-store.js
+ M packages/core/src/service/case-service.ts
+ M packages/core/test/case.test.js
+caseResultExists: no

@@ -1,0 +1,36 @@
+{
+  "parentChildren": [
+    "tasks/11-03-full-task-case-coverage",
+    "tasks/11-03-case-active-skill",
+    "tasks/11-03-case-archived-skill"
+  ],
+  "children": [
+    {
+      "name": "full-task-case-coverage",
+      "status": "completed",
+      "completedAt": "2026-11-03T13:11:41.788Z",
+      "checkPassedAt": "2026-11-03T13:10:48.043Z",
+      "checkSummary": "CASE 最终通过：34/34 SR、24/24 C、真实 LCOV 18066/20096（89.9%）、Pi 真机 9/9；主会话独立验证全绿，Open issues: none。",
+      "caseHash": "9d49be545eda046d123245ce9bf98a96bd419ac942b6d4a1c2650c10b36a6710",
+      "resultHash": "f167ae64d7a3d58f8694d9326a5cd3b973e7c936cd86b802ef1a28d9291a19f9"
+    },
+    {
+      "name": "case-active-skill",
+      "status": "completed",
+      "completedAt": "2026-11-05T01:49:07.063Z",
+      "checkPassedAt": "2026-11-05T01:48:36.386Z",
+      "checkSummary": "完整 CASE 通过：11/11 SR、13/13 C；五个带技能真实验收场景、独立批准时序、真实 LCOV（总体 280/301，93.0%）、双 adapter 与全部标准验证通过。主会话独立复核 outcome gate 为 0 issues。Open issues: none。",
+      "caseHash": "fa55c32e0475cc554f75bcb74e5cd5c54e98dd985849f848a9265463cb0164fb",
+      "resultHash": "124dab634f153b010e6d16fef7818959b9e10543432ed99d27736276e2b7f63b"
+    },
+    {
+      "name": "case-archived-skill",
+      "status": "completed",
+      "completedAt": "2026-11-05T12:14:59.992Z",
+      "checkPassedAt": "2026-11-05T12:14:31.163Z",
+      "checkSummary": "完整 CASE 通过：12/12 SR、12/12 C；五个带技能真实验收场景、原件零变化、指定 ref 与 PRD-only 重建均通过，真实 LCOV 总体 396/431（91.9%）。主会话独立复核 outcome gate 为 0 issues。Open issues: none。",
+      "caseHash": "063e3738c4fffd155cce424ebdc6f48db22c0e9556d90dda2bfd7863f5242b16",
+      "resultHash": "b3d6c9d96ae9831a7d4009d85ee55ffa8802d733a9036a7e9d1195887ca76dc9"
+    }
+  ]
+}

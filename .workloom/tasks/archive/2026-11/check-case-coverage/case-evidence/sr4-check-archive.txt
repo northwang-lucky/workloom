@@ -1,0 +1,19 @@
+== check gate
+807:function checkTaskInternal(root, params) {
+821:  const caseIssues = evaluateCaseOutcomeGate(projectRoot, params.taskRelPath, task)
+867:    task.case.result = {
+869:      resultHash: computeCaseHash(resultContent),
+1472:  const caseIssues = evaluateCaseOutcomeGate(projectRoot, params.taskRelPath, task, {
+== archive gate
+857:  // 通过凭据落盘前记录 CASE RESULT 摘要（归档 requireResultRecord 再校验用）。
+1465:async function archiveTaskInternal(root, params) {
+1473:    requireResultRecord: true,
+1477:      `${ERR_PREFIX}: CASE archive gate failed: ${caseIssues.map((item) => item.message).join('; ')} ` +
+1490:      `${ERR_PREFIX}: archive gate failed: no recorded check in task.json ` +
+== workflow archive rules
+.workloom/worktree/11-03-check-case-coverage/.workloom/spec/repo/workflow/index.md:5:- archive-quiescence: before archiving a task, wait for every in-flight dispatch to settle; a child that finishes after the archive move backfills against the stale pre-move path (warning only, and the record stays `running` frozen at archive time)
+.workloom/worktree/11-03-check-case-coverage/packages/assets/workflow/workflow.md:70:Run the scale self-check while assembling the package: judge precisely by the actual number of phases in prd.md/plan.md. When the work is large, the package carries a candidate subtask list instead — for each candidate, its title, its scope, and the reason it is a separate deliverable — and the user's confirmation either starts the task or confirms the split (create the subtasks one by one with `workloom_task_create`, each with `parent` set to the main task; every subtask runs the full lifecycle; the main task starts, checks, and archives only after every declared subtask is archived).
+.workloom/worktree/11-03-check-case-coverage/packages/assets/workflow/workflow.md:126:Load the `workloom-finish` skill: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Archiving and recording each produce their own auto-commit; both `workloom_task_archive` and `workloom_journal` require an explicit `taskPath`. The archive tool is gated: it refuses when task.json has no `check` field (no new/legacy distinction), so either record a passed check via `workloom_task_check` first, or pass `force: true` with a non-empty `reason` for a recorded bypass. Before archiving the main task, confirm that every declared subtask is archived; if any is missing, state the reason and leave a trace (for example a note in the task record) so the gap is auditable.
+== tests
+397:test('force 不能绕过核心 CASE 问题且不新增 override', () => {
+413:test('archive 同样拒绝核心 CASE 问题且不移动任务目录', async () => {

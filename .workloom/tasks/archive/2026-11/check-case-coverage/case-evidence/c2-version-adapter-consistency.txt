@@ -1,0 +1,8 @@
+PASS workflow version == protocol
+PASS phase2 steps
+PASS dsh taskCase tool
+PASS pi taskCase tool
+PASS dsh skills list
+PASS pi skills sync
+version=25 protocol=25
+steps=2.1 Implement | 2.2 Design CASE | 2.3 Check | 2.4 Commit

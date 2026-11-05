@@ -1,0 +1,36 @@
+== structure constants
+27:export const CASE_STRUCTURE = Object.freeze({
+28:  caseSections: Object.freeze(['References', 'Scope', 'Static Review', 'Runtime Cases', 'Coverage', 'Traceability']),
+38:  srFields: Object.freeze(['Covers', 'Target', 'Checks', 'Expected']),
+39:  cFields: Object.freeze(['Covers', 'Preconditions', 'Steps', 'Expected', 'Evidence', 'Cleanup']),
+40:  coverageFields: Object.freeze(['Tool', 'Instrumentation', 'Aggregate command', 'Scope', 'Exclusions', 'Raw outputs']),
+== inspect/compare
+72:export function computeCaseHash(content) {
+388:export function inspectCaseStructure(caseContent, prdContent, options = {}) {
+425:      if (at === -1) issues.push(issue('parent_plan_missing', `Implementation missing ${pointer}`))
+426:      if (at <= previous) issues.push(issue('parent_plan_order', 'child PLAN paths must follow task.children order'))
+470:export function evaluateCaseExecutionGate(root, taskRelPath, task) {
+477:  } else if (task.case.caseHash !== computeCaseHash(content)) {
+== confirm
+11:import { findArchivedTaskPath, readTask, recordCaseConfirmation } from '../domain/task-store.js'
+39:  expectedCaseHash?: string
+56:    if (params.action === 'review') return [null, reviewCase(root, taskRelPath, task)]
+57:    return [null, confirmCase(root, taskRelPath, task, params)]
+63:function reviewCase(root: string, taskRelPath: string, task: TaskRecordWithPath): CaseReviewResult {
+95:function confirmCase(
+101:  if (typeof params.expectedCaseHash !== 'string' || params.expectedCaseHash.trim() === '') {
+102:    throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: expectedCaseHash is required`)
+104:  const review = reviewCase(root, taskRelPath, task)
+112:  if (review.caseHash !== params.expectedCaseHash) {
+== template sections
+8:## References
+15:## Scope
+22:## Static Review
+32:## Runtime Cases
+48:## Coverage
+62:## Traceability
+== tests
+274:test('CASE/PLAN 深度结构校验接受有效材料并聚合缺漏', () => {
+435:test('service review/confirm 使用当前摘要并在修改后失效', () => {
+11:  for (const heading of ['## Static Review', '## Runtime Cases', '## Coverage', '## Traceability']) {
+14:  for (const heading of ['## Static Review Results', '## Runtime Results', '## Standard Verification', '## Open issues']) {

@@ -1,0 +1,28 @@
+== pi taskCase registration
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/tasks.ts:24:  executeTaskCase,
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/tasks.ts:82:const TASK_CASE_PARAMS = Type.Object({
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/tasks.ts:158:    name: TOOL_NAMES.taskCase,
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/tasks.ts:162:    parameters: TASK_CASE_PARAMS,
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/tasks.ts:165:      const [err, result] = executeTaskCase(cwd, contextKeyOf(ctx.sessionManager.getSessionId()), {
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/executor.ts:113:  purpose: Type.Optional(
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/executor.ts:339:    purpose: params.purpose,
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/executor.ts:492:      purpose: params.purpose,
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/executor.ts:539:        purpose: params.purpose,
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/executor.ts:541:      purpose: params.purpose,
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/src/executor.ts:560:    purpose: params.purpose,
+== pi templates/skills
+320:    { path: 'packages/assets/templates/case.md', content: loadCaseTemplateText() },
+321:    { path: 'packages/assets/templates/case-result.md', content: loadCaseResultTemplateText() },
+340:    caseTemplates: params.kind === 'check' ? loadPiCaseTemplates() : [],
+26:  '../assets/skills/workloom-case-active',
+27:  '../assets/skills/workloom-case-archived',
+== tests
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/case-executor.test.ts:37:  assert.ok(JSON.stringify(EXECUTOR_PARAMS).includes('case-design'))
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/case-executor.test.ts:42:      root, taskRelPath: REL, kind: 'check', userPrompt: 'design', purpose: 'case-design',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/case-executor.test.ts:49:      root, taskRelPath: REL, kind: 'check', userPrompt: 'execute', purpose: 'execution',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/case-executor.test.ts:58:test('Pi case-design 记录保持 stage 并写 designSession', () => {
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/case-executor.test.ts:62:      kind: 'check', title: 'design', childId: 'child-design', purpose: 'case-design',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/case-executor.test.ts:68:    assert.equal(task.dispatches[0]?.purpose, 'case-design')
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/skills.test.ts:3: * workloom-case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/skills.test.ts:29:    'workloom-case-active',
+.workloom/worktree/11-03-check-case-coverage/packages/adapter-pi/test/skills.test.ts:30:    'workloom-case-archived',

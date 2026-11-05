@@ -1,0 +1,44 @@
+== archived skill boundaries
+3:description: Rebuild CASE verification for a completed archived full task without modifying the original. Use when the user asks to validate, supplement, or re-run CASE for an archived task, including PLAN, legacy design/implement, PRD-only material, and a selected commit or branch. Creates one independent full task, never edits the archive original, and completes real cases and coverage.
+9:Rebuild CASE verification for one archived full task. The original is read-only. Create one independent full task against a recorded current code baseline and complete its normal lifecycle. Never describe the new result as proof of historical execution.
+13:- Accept only `status: completed` full or legacy-full tasks under `tasks/archive/`. Route active or unarchived work to the normal workflow or `workloom-case-active`; light tasks keep their light self-check flow.
+15:- The original request, a generic continue, or the archived task's old approval is never an approval for the new task. Both Phase 1.4 startup and CASE confirmation require a new user message approving the exact current content or caseHash.
+16:- Never pass `parent` when creating the validation task; it could mutate the archived original. Never invoke workloom-migrate-plan on the archive itself.
+23:2. Compute `snapshotArchivedTask(root, taskPath)` and save the raw-byte SHA-256 manifest outside the archived directory. Repeat this manifest at the end and require exact equality.
+24:3. Read the source PRD and materials. Classify them as `plan`, `legacy-pair`, or `prd-only`. Only design.md or only implement.md is `prd-only` with the missing file named explicitly. Existing CASE/RESULT is reference material only, never a current result.
+30:3. Without a user ref, call `prepareRef(root, undefined, slug)` for current HEAD. With a branch or commit ref, resolve it and create a unique local branch via `prepareRef`. Create the validation branch via `prepareRef`; Step 3.4 owns the later activation and restore actions. Never use detached HEAD and never change core worktree rules. Map `prepareRef.type` to `validationRefSource=default-current-branch` for `current-head` or `user-specified` for `user-ref`, and preserve `prepareRef.reason` as `validationReason`.
+37:3. With a source PLAN, use it as the reference for a new prescriptive plan. With a legacy pair, apply the migration method only inside the new task directory. With PRD-only or single-sided material, explicitly record what is missing and author the new PLAN from the PRD.
+42:1. Dispatch implementation and `kind: check`, `purpose: case-design` concurrently when implementation is needed. If the new plan needs no code change, only the CASE design dispatch is required.
+44:3. Historical CASE/RESULT is read-only reference. The new CASE has its own Source task, current validation commit, and current acceptance scope.
+45:4. After review, stop and wait for a new user message approving the current caseHash. Confirm only that hash. A generic continue is not approval.
+50:2. RESULT codeBaseline records the validation commit, validationRefSource, validationReason, sourceCommit and `codeFingerprint=<hex>` from `../workloom-case-active/scripts/task-fingerprint.mjs`. RESULT Source task is the archived original path; checkSession equals designSession or a valid fallbackOf chain.
+51:3. Record a passing result with `workloom_task_check`. Never force a core CASE failure or copy a historical pass.
+52:4. Commit on the new task branch, archive it independently, and record its journal. Recompute the original raw-byte manifest and require no change before reporting completion.
+53:5. On failure, stop without mutating the original. Do not silently lower acceptance or archive a failed validation task.
+57:The independent full task has a user-approved PRD/PLAN and CASE, real SR/C and coverage evidence tied to the recorded current baseline, its own check/commit/archive/journal, and an unchanged original SHA-256 manifest.
+== evals
+{
+  "skill_name": "workloom-case-archived",
+  "count": 5,
+  "names": [
+    "Archived PLAN uses current HEAD",
+    "Legacy materials use an explicit ref",
+    "PRD-only archive is explicitly rebuilt",
+    "No path requires candidate selection",
+    "Invalid input fails without writes"
+  ]
+}
+== child evidence
+.workloom/tasks/archive/2026-11/case-archived-skill/evals/skill-eval/iteration-1/acceptance-summary.md
+# workloom-case-archived 验收结论
+
+- 总结：**通过**
+- 范围：五个真实带技能场景，每个场景一次。
+- 不带技能材料不参与通过判定；不生成评分、benchmark 或静态审阅页。
+
+## 场景结论
+
+### Archived PLAN uses current HEAD
+
+- 结论：**通过**
+- 说明：通过：默认验证当前 HEAD；新任务独立归档，历史 CASE/RESULT 仅作参考，原件清单一致。
