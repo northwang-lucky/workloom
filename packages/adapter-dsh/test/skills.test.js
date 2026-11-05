@@ -139,12 +139,13 @@ function setupSkills() {
   return registered.map((def) => def.name)
 }
 
-test('skill 清单契约：注册 continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
+test('skill 清单契约：注册 case-active/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
   const names = setupSkills()
   assert.deepEqual(names.sort(), [
     'grilling',
     'tdd',
     'workloom-alignment',
+    'workloom-case-active',
     'workloom-continue',
     'workloom-finish',
     'workloom-migrate-plan',
@@ -154,6 +155,62 @@ test('skill 清单契约：注册 continue/finish/alignment/update-spec/packages
   ])
   assert.ok(!names.includes('workloom-brainstorm'), '旧 brainstorm 不再注册')
   assert.ok(!names.includes('workloom-ui-design'), '旧 ui-design 不再注册')
+})
+
+test('workloom-case-active 资产与五组 eval：状态约束、整批确认、指纹和英文断言', () => {
+  const doc = readFileSync(
+    new URL('../../assets/skills/workloom-case-active/SKILL.md', import.meta.url),
+    'utf8',
+  )
+  const [err, parsed] = parseSkillFrontmatter(doc)
+  assert.equal(err, null)
+  assert.equal(parsed.name, 'workloom-case-active')
+  assert.match(parsed.description, /planning/)
+  assert.match(parsed.body, /mode: "light"/)
+  assert.match(parsed.body, /completed/)
+  assert.match(parsed.body, /archive/)
+  assert.match(parsed.body, /Phase 1\.4/)
+  assert.match(parsed.body, /case-batches/)
+  assert.match(parsed.body, /codeFingerprint/)
+  assert.match(parsed.body, /purpose: case-design/)
+  assert.match(parsed.body, /continue that session with[^\n]*purpose: case-design/)
+  assert.match(parsed.body, /Continue the same design session with[^\n]*purpose: case-design/)
+  assert.match(parsed.body, /fallbackOf/)
+  // 批准语义硬约束：原始请求/泛化 continue 不是批准，每次 review 后停等新的明确批准消息（批量同样适用）
+  assert.match(parsed.body, /is never an approval/)
+  assert.match(parsed.body, /stop and wait for a new user message/)
+  assert.match(parsed.body, /explicitly approves the current caseHash/)
+  assert.match(parsed.body, /The same rule covers batches/)
+  const evals = JSON.parse(readFileSync(
+    new URL('../../assets/skills/workloom-case-active/evals/evals.json', import.meta.url),
+    'utf8',
+  ))
+  assert.equal(evals.skill_name, 'workloom-case-active')
+  assert.deepEqual(evals.evals.map((item) => item.id), [
+    'planning-defers-execution',
+    'ready-executes-and-revalidates-fingerprint',
+    'legacy-migrates-and-executes',
+    'batch-one-confirmation',
+    'blocked-stops-batch',
+  ])
+  for (const item of evals.evals) {
+    assert.equal(typeof item.name, 'string')
+    assert.ok(item.assertions.length > 0)
+    assert.ok(!/[\u3400-\u9fff]/.test(item.prompt))
+    assert.ok(!/[\u3400-\u9fff]/.test(item.assertions.join('\n')))
+  }
+  // 批准纪律保护：ready/legacy/blocked 的提示必须明确初始请求不是批准、
+  // review 后停等一条新的用户消息批准当前 hash；每场景各有一条独立批准检查项
+  for (const id of ['ready-executes-and-revalidates-fingerprint', 'legacy-migrates-and-executes', 'blocked-stops-batch']) {
+    const item = evals.evals.find((entry) => entry.id === id)
+    assert.ok(item, `missing eval ${id}`)
+    assert.match(item.prompt, /The initial request is not an approval/)
+    assert.match(item.prompt, /wait for a new user message that approves/)
+    assert.ok(
+      item.assertions.some((line) => /waits for an independent user approval/.test(line)),
+      `${id} lacks the independent-approval assertion`,
+    )
+  }
 })
 
 test('workloom-migrate-plan 资产可解析：迁移流程与边界关键句 + continue legacy 路由指针', () => {

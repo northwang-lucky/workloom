@@ -28,13 +28,14 @@ const ALLOWED_KEYS = new Set(['name', 'description', 'whenToUse']);
 const REQUIRED_KEYS = ['name', 'description'];
 /** 注册的 skill 资源（相对 assets 包根；resourceBase 取其所在目录）。
  * 自有 workloom 侧注册 continue/finish（原 slash 命令改造的路由与收尾指引）、
- * alignment（统一 Phase 1.1）、update-spec、packages-scan 与 migrate-plan
- * （存量计划迁移）；旧 brainstorm/ui-design 不再注册，generic
- * tdd/grilling/writing-for-agents 独立分发。 */
+ * alignment（统一 Phase 1.1）、case-active（未归档任务 CASE 补写与整批确认）、
+ * update-spec、packages-scan 与 migrate-plan（存量计划迁移）；旧
+ * brainstorm/ui-design 不再注册，generic tdd/grilling/writing-for-agents 独立分发。 */
 const SKILL_ASSETS = [
     'skills/workloom-continue/SKILL.md',
     'skills/workloom-finish/SKILL.md',
     'skills/workloom-alignment/SKILL.md',
+    'skills/workloom-case-active/SKILL.md',
     'skills/workloom-update-spec/SKILL.md',
     'skills/workloom-packages-scan/SKILL.md',
     'skills/workloom-migrate-plan/SKILL.md',
