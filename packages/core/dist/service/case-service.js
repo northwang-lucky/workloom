@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CASE_FILES, CASE_MISSING, computeCaseHash, inspectCaseStructure, listCaseChangedFiles } from '../domain/case.js';
 import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js';
-import { readTask, recordCaseConfirmation } from '../domain/task-store.js';
+import { findArchivedTaskPath, readTask, recordCaseConfirmation } from '../domain/task-store.js';
 import { ERR_PREFIX } from '../surface.js';
 import { requireWorkloomCwd, resolveTaskRelPath } from './task-ops.js';
 export function executeTaskCase(cwd, contextKey, params) {
@@ -39,7 +39,10 @@ function reviewCase(root, taskRelPath, task) {
         changedFiles,
     });
     for (const child of task.children) {
-        if (readTaskFile(root, child, 'plan.md') === null) {
+        // 子任务归档后 children 仍指向归档前路径：先读当前路径，缺失时按任务名
+        // 兼容解析 tasks/archive/<YYYY-MM>/<name>/plan.md；两处都缺失才报缺失。
+        const plan = readTaskFile(root, child, 'plan.md') ?? readArchivedChildPlan(root, child);
+        if (plan === null) {
             structureIssues.push({ code: 'parent_plan_missing', message: `${child}/plan.md is missing` });
         }
     }
@@ -97,6 +100,11 @@ function readTaskFile(root, taskRelPath, name) {
             return null;
         throw error;
     }
+}
+/** 子任务已归档时按任务名回退读取归档目录内的 plan.md。 */
+function readArchivedChildPlan(root, child) {
+    const archived = findArchivedTaskPath(root, child);
+    return archived === null ? null : readTaskFile(root, archived, 'plan.md');
 }
 function requireProjectRoot(cwd) {
     const found = findWorkloomRoot(cwd);

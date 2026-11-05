@@ -419,6 +419,9 @@ export type ArchiveTaskResult = [
 /** 归档任务（先清理任务 worktree，失败即阻断；置 completed、移动目录、可选 git 提交）；返回记录的 taskRelPath 为归档后新路径。 */
 export function archiveTask(root: string, params: ArchiveTaskParams): Promise<ArchiveTaskResult>
 
+/** 按任务名在 tasks/archive/<YYYY-MM>/ 下查找归档目录（取最新月份），返回归档任务相对路径；未归档返回 null。 */
+export function findArchivedTaskPath(root: string, taskRelPath: string): string | null
+
 /** 列出任务摘要（可按状态过滤）。 */
 export function listTasks(
   root: string,

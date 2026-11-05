@@ -460,6 +460,43 @@ test('service review/confirm 使用当前摘要并在修改后失效', () => {
 })
 
 
+test('子任务归档后父任务 CASE review 从归档目录解析 PLAN', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' })
+    execFileSync('git', ['add', 'src', 'docs'], { cwd: root })
+    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init'], { cwd: root, stdio: 'ignore' })
+    const CHILD_A = 'tasks/child-a'
+    const CHILD_B = 'tasks/11-03-child-b'
+    const caseContent = validCase().replace(
+      '- Implementation: `plan.md`',
+      '- Implementation:\n  - tasks/child-a/plan.md\n  - tasks/11-03-child-b/plan.md',
+    )
+    writeFileSync(join(taskDir, CASE_FILES.document), caseContent)
+    // 归档形态：子任务目录已移入 tasks/archive/<YYYY-MM>/，children 仍指向归档前路径；
+    // child-b 模拟真实布局：活动目录名带 MM-DD- 前缀，归档目录名只保留 slug。
+    const archiveMonthDir = join(root, '.workloom', 'tasks', 'archive', '2026-11')
+    mkdirSync(join(archiveMonthDir, 'child-a'), { recursive: true })
+    mkdirSync(join(archiveMonthDir, 'child-b'), { recursive: true })
+    writeFileSync(join(archiveMonthDir, 'child-a', 'plan.md'), '# Plan\n\n## Steps\n\n#### 步骤 1.1 test\n')
+    writeFileSync(join(archiveMonthDir, 'child-b', 'plan.md'), '# Plan\n\n## Steps\n\n#### 步骤 1.1 test\n')
+    const task = { ...makeTask(caseContent), children: [CHILD_A, CHILD_B] }
+    writeFileSync(join(taskDir, 'task.json'), JSON.stringify(task))
+    const [reviewErr, review] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
+    assert.equal(reviewErr, null)
+    assert.deepEqual(review.structureIssues, [])
+    assert.equal(review.readyToConfirm, true)
+    // 当前路径与归档路径都不存在时，保留 parent_plan_missing 明确错误
+    rmSync(join(root, '.workloom', 'tasks', 'archive'), { recursive: true, force: true })
+    const [, missing] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
+    assert.ok(missing.structureIssues.every((item) => item.code === 'parent_plan_missing'))
+    assert.ok(missing.structureIssues.some((item) => item.message === `${CHILD_A}/plan.md is missing`))
+    assert.ok(missing.structureIssues.some((item) => item.message === `${CHILD_B}/plan.md is missing`))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('Traceability 按列解析引用：SR-only 与 C-only 均放行，两列皆空才判 empty', () => {
   // SR-only 行合法（R4：每个 AC 至少一个 SR 或 C；`-`/none 是空列占位）
   const srOnly = validCase().replace('| AC2 | SR2 | C2 |', '| AC2 | SR2 | - |')

@@ -8,7 +8,7 @@
  * - 路径一律经 locate.insideWorkloom 防越界。
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync, } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { writeFileAtomic } from './file-atomic.js';
@@ -41,6 +41,8 @@ const JSON_INDENT = 2;
 const TASK_JSON_ENV = 'TASK_JSON_PATH';
 /** 归档自动提交信息前缀。 */
 const ARCHIVE_COMMIT_PREFIX = 'chore(task): archive';
+/** 活动任务目录名的日期前缀（MM-DD-）；归档目录名只保留其后的 slug（task.name）。 */
+const TASK_DIR_DATE_PREFIX = /^(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])-/;
 /** 目录名常量。 */
 const DIR_NAMES = Object.freeze({
     tasks: 'tasks',
@@ -1389,6 +1391,46 @@ async function archiveTaskInternal(root, params) {
     // 返回归档后的新路径，避免调用方拿着旧路径继续操作。
     task.taskRelPath = archiveRel;
     return { task, worktreeCleanup };
+}
+/**
+ * 按任务名在 tasks/archive/<YYYY-MM>/ 下查找归档目录，返回最新月份的归档任务相对路径。
+ * 供归档兼容解析使用：子任务归档后 task.children 仍指向归档前路径，
+ * 读子任务材料（如 plan.md）时应先用原路径，缺失时回退到本函数结果。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务相对路径（如 tasks/<name>）
+ * @returns {string | null} 归档任务相对路径；未归档或无归档目录时返回 null
+ */
+export function findArchivedTaskPath(root, taskRelPath) {
+    const archiveDir = insideWorkloom(root, join(DIR_NAMES.tasks, DIR_NAMES.archive));
+    let months;
+    try {
+        months = readdirSync(archiveDir, { withFileTypes: true });
+    }
+    catch (error) {
+        if ( /** @type {NodeJS.ErrnoException} */(error)?.code === 'ENOENT')
+            return null;
+        throw error;
+    }
+    const name = basename(taskRelPath);
+    // 月份目录按名降序：同名归档（跨月重名）取最新月份，结果保持确定性。
+    const monthsDesc = months
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort()
+        .reverse();
+    // 活动目录名可带 MM-DD- 日期前缀而归档目录名是 slug：先精确匹配原名，再匹配去前缀形态。
+    const candidates = [name];
+    const slug = name.replace(TASK_DIR_DATE_PREFIX, '');
+    if (slug !== name)
+        candidates.push(slug);
+    for (const candidate of candidates) {
+        for (const month of monthsDesc) {
+            const archiveRel = join(DIR_NAMES.tasks, DIR_NAMES.archive, month, candidate);
+            if (existsSync(insideWorkloom(root, archiveRel)))
+                return archiveRel;
+        }
+    }
+    return null;
 }
 /**
  * 按配置决定是否 git 自动提交归档（git 失败只告警，不阻塞）。
