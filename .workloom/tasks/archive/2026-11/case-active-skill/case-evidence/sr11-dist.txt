@@ -1,0 +1,12 @@
+SR11 DSH dist synchronization
+date=2026-11-04T11:33:58+08:00
+BUILD1_EXIT=0
+BUILD2_EXIT=0
+f881436dafc691d28cb7a14051fe186227efc8f9082d5295217b20f873d5238d  dist/skills.js
+fe74d385407b9b83db19272545434f8aae8048288b60db4672642ecf1c6a3bdb  dist/skills.js.map
+80c301816a7f5b5226f26d9f1523b6a70b8458374cc16f19c04974ac0a16f05a  dist/skills.d.ts
+SECOND_BUILD_STABLE=PASS
+38:    'skills/workloom-case-active/SKILL.md',
+--- dist git diff after build ---
+ M packages/adapter-dsh/dist/skills.js
+ M packages/adapter-dsh/dist/skills.js.map

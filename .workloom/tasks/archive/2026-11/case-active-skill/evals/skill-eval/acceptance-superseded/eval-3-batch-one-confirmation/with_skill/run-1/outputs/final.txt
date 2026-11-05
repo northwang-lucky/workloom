@@ -1,0 +1,24 @@
+   next-revision follow-up.
+ - Stale, rejected: the batch-b executor also re-reported a batch-a
+   heredoc-indentation P2. I re-checked the current tasks/batch-a/case.md — all
+   fences and the EOF terminator are flush-left at column 0, and line 141 is
+   mkdir -p …. That claim came from a pre-fix copy and does not hold against
+   the current files, so it was not carried forward.
+ - Pass legitimacy: each RESULT's own ## Open issues is - none,
+   evaluateCaseOutcomeGate returned 0 issues for both, and I independently
+   recomputed each RESULT's normalized hash (matching task.case.result),
+   re-measured codeFingerprint=08ffdae6…8f8a as still current, and re-ran all
+   four bash blocks per task in throwaway /tmp copies — every one exit 0.
+
+ One thing I did not do, since you scoped this to the CASE lifecycle: the
+ tasks' 2.4 commit and 3.1 archive steps were not run — both remain in_progress
+  with their check credentials recorded, ready for that path to continue on
+ your word.
+
+ 💾 Memory auto-reviewed and updated
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑311k ↓48k R9.7M CH99.0% 18.3%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

@@ -1,0 +1,106 @@
+================================================================================
+PHASE 3 — UNTRACKED SOURCE FILE CHANGED: THE FINGERPRINT MOVED AND THE CASE WAS
+RE-EXECUTED
+================================================================================
+Task             : tasks/ready-case (in_progress, full mode, stage check)
+Main session id  : case-eval-ready-executes-and-revalidates-fingerprint-without_skill-2
+Check session id : 01a1a4d0-40ed-73c2-82b3-12d36032d13f  (designSession == checkSession)
+
+--------------------------------------------------------------------------------
+1. THE CODE CHANGE (untracked source file, outside .workloom)
+--------------------------------------------------------------------------------
+File    : verify/case-runtime.mjs   (untracked in git — `git ls-files --others`
+                                     --exclude-standard` lists it)
+Edit 1 : a file-level doc comment was added after the import block:
+           /**
+            * Deterministic verification harness for the CASE of tasks/ready-case.
+            * The confirmed CASE is the acceptance baseline: keep the exported names, the
+            * check identifiers and the output line format stable so C1 stays decidable.
+            */
+Edit 2 : the prd-present detail text gained a clarifying suffix:
+           - `AC1 and AC2 are declared in ${PRD_PATH}`
+           + `AC1 and AC2 are declared in ${PRD_PATH} (both acceptance ids present)`
+
+The CASE contract is untouched: same exports (sha256/verifyTask/main), same check
+ids, same `<ok|fail> <check-id> <detail>` line format, same `result: pass|fail`
+last line, same exit codes. The comment adds no executable line, so the coverage
+denominator stays 84.
+
+Harness still passes after the edit:
+  ok prd-present AC1 and AC2 are declared in .workloom/tasks/ready-case/prd.md (both acceptance ids present)
+  ok prd-closed the open-nodes=none marker is in .workloom/tasks/ready-case/prd.md
+  ok plan-present Covers: is present in .workloom/tasks/ready-case/plan.md
+  ok spec-present "deterministic local verification" is present in .workloom/spec/README.md
+  ok alignment-hash the prd.md sha256 d675c073d6dccb1c2b3d96bf4e6065af5798924156015e1705126d27c43b88da matches alignment.prdHash
+  result: pass        (exit code 0)
+
+--------------------------------------------------------------------------------
+2. THE FINGERPRINT CHANGED
+--------------------------------------------------------------------------------
+before the edit : codeFingerprint=d389998bd946d0a50d93195847e5d9896de2a55f551c6296412210686b51a262
+after  the edit : codeFingerprint=9e296673f7fc6f2c9f63370f435665b6a132e21977545d2b6e0247d475a07eb9
+recorded in the old RESULT: d389998b...b51a262   -> MISMATCH => the recorded result is stale
+
+The fingerprint covers HEAD, the tracked diff and the untracked file contents, so
+editing this untracked source file is exactly what moves it.
+
+--------------------------------------------------------------------------------
+3. RE-REVIEW + RE-CONFIRM (the CASE itself did not change)
+--------------------------------------------------------------------------------
+workloom_task_case action=review
+  caseHash        : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb  (unchanged)
+  structureIssues : []
+  readyToConfirm  : true
+
+workloom_task_case action=confirm(expectedCaseHash=00d6ab3e...)
+  caseHash   : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb
+  idempotent : true    <- the CASE bytes are identical, so the old confirmation
+                          stays valid and the previous result is NOT cleared
+  task.case.result kept: { caseHash: 00d6ab3e...af4eb,
+                           resultHash: 7c6aa520...92b63,
+                           passedAt: 2026-11-04T04:36:00.953Z }
+
+--------------------------------------------------------------------------------
+4. RE-EXECUTION (full rerun: static review, every runtime case, coverage)
+--------------------------------------------------------------------------------
+workloom_execute(kind=check, purpose=execution,
+                 continue_executor=01a1a4d0-40ed-73c2-82b3-12d36032d13f)
+  child session : 01a1a4d0-40ed-73c2-82b3-12d36032d13f (same check session, no new child)
+  at            : 2026-11-04T04:36:40.058Z
+
+case-result.md after the re-execution:
+  status        : passed
+  Static review : 2/2 (SR1, SR2 re-judged against the edited harness)
+  Runtime cases : 3/3 (C1, C2, C3 re-run), blocked 0
+  Coverage      : generated, Overall lines 84/84 (100%) for verify/case-runtime.mjs
+  codeBaseline  : master@3bc92fab0c13c363689dd4e2e4cbede23df0421f
+                  codeFingerprint=9e296673f7fc6f2c9f63370f435665b6a132e21977545d2b6e0247d475a07eb9
+  caseHash      : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb
+  checkSession  : 01a1a4d0-40ed-73c2-82b3-12d36032d13f
+  startedAt     : 2026-11-04T04:36:52.000Z
+  completedAt   : 2026-11-04T04:36:55.000Z
+  Open issues   : - none
+
+The fresh coverage/summary.json:
+  { "files": { "verify/case-runtime.mjs": { "covered": 84, "total": 84, "percent": 100 } } }
+
+--------------------------------------------------------------------------------
+5. THE CHECK CREDENTIAL WAS RE-RECORDED AGAINST THE NEW RESULT BYTES
+--------------------------------------------------------------------------------
+workloom_task_check(...)
+  check.passedAt          : 2026-11-04T04:37:26.709Z
+  task.case.result        : { caseHash: 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb,
+                              resultHash: 1530bd8f25a1df2da482e2aa2847e77740267d4b95f311445c170d39a0a64678,
+                              passedAt:  2026-11-04T04:37:26.709Z }
+  (the previous resultHash 7c6aa520...92b63 no longer matches the current
+   case-result.md bytes; the credential now matches the current RESULT)
+
+--------------------------------------------------------------------------------
+6. RESULT
+--------------------------------------------------------------------------------
+The untracked source file change moved the code fingerprint, which made the
+previous RESULT stale, which forced a full re-execution of the confirmed CASE on
+the same check session, which produced a new RESULT with the new fingerprint and
+a fresh check credential.
+
+================================================================================

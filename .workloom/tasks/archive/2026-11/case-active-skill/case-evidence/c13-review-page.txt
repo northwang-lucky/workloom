@@ -1,0 +1,25 @@
+C13 review page regeneration and feedback
+date=2026-11-05T09:44:38+08:00
+PASS delivered benchmark has five with_skill runs
+PASS regenerated benchmark has five with_skill runs
+PASS regenerated stats match delivered
+PASS benchmark metadata real
+PASS delivered page has five with_skill runs
+PASS regenerated page has five with_skill runs
+PASS page scenario/run ids match
+PASS page assertion texts match
+PASS page has no placeholder model
+PASS page has no default runs=3
+PASS feedback reviewedAt present
+PASS feedback records no-change disposition
+SUMMARY 12/12 passed
+C13_EXIT=0
+--- aggregate log tail ---
+
+Summary:
+  With Skill: 100.0% pass rate
+  Delta:         +1.00
+--- viewer log tail ---
+
+  Static viewer written to: /tmp/wl-case-review-page/reviewer.html
+

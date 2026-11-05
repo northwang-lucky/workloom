@@ -1,0 +1,24 @@
+
+ 1. Out-of-stage commit. The batch-b design executor committed case.md itself
+    (9dbc02d); committing belongs to stage 2.4. I undid it with git reset
+    --mixed 820046e — working-tree content preserved byte-for-byte.
+ 2. Execution dispatch mislabeled. I emitted purpose: "case-design" instead of
+    "execution" on both execution dispatches, so the recorded purpose was wrong
+    and task.stage stayed at implement. The executed work was unaffected (both
+    executors ran the confirmed CASE and wrote the RESULT), and no gate was
+    bypassed — I re-ran evaluateCaseExecutionGate and evaluateCaseOutcomeGate
+    independently (0 issues each, before and after). I then corrected the
+    single dispatch entry per task to purpose: "execution" and stage: "check"
+    using core's own serializer, with a diff confirming only those two fields
+    changed, before recording each check credential. No force was used
+    anywhere.
+
+ Both tasks now sit at stage check with a recorded check credential, ready for
+ stage 2.4 (commit) and 3.1 (archive) — neither of which I ran, as they were
+ outside this request.
+── ⠋ Working ───────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+workloom config: "subagents" is deprecated; use "subagent_profiles" insteadks...
+workloom config: "subagents" is deprecated; use "subagent_profiles" insteadxhigh
+↑189k ↓53k R14M CH99.9% 23.3%/1.0M (auto)             MiniMax-M3.1-Flash • xhigh

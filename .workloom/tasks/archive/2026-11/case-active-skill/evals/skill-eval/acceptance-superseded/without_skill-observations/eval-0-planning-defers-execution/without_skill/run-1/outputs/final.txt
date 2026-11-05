@@ -1,0 +1,24 @@
+ SR1 task record + alignment credential · SR2 PRD/PLAN structure · SR3 local
+ deterministic verification entry · C1 node+git material/PRD-hash verification
+ · C2 socket-presence probe (blocked when the required socket is absent) · C3
+ coverage-scope determination · coverage declared not_applicable with honest
+ exclusions (fixture has no product source files) · Traceability rows for AC1
+ and AC2.
+
+ ### Two things worth flagging
+
+ 1. C2 is deterministically blocked on this host (the socket never exists) and
+    the check gate requires every C item to be passed — a future execution
+    round would stop at that gate instead of passing. That is the PRD's own AC2
+    semantics ("or reports blocked when the required socket is absent"),
+    flagged by the design child as a pre-existing P1, not a product-code change
+    in scope here.
+ 2. Working tree contains only .workloom/ bookkeeping — task.json (dispatch +
+    confirmation records) and the new case.md. Nothing committed; committing
+    belongs to 2.4/3.1 after a real check passes.
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑95k ↓14k R2.4M CH99.0% 9.6%/1.0M (auto)              MiniMax-M3.1-Flash • xhigh

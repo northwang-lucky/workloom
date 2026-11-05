@@ -1,0 +1,164 @@
+C1 red-phase baseline
+date=2026-11-05T09:41:33+08:00
+baseline=ff3665426e23f17807aa7e3323e6b4659ba2f1c5
+准备工作区（分离头指针 ff36654）
+HEAD 现在位于 ff36654 chore: record journal
+=== DSH skills.test.js ===
+✔ 正常解析：name/description/body（正文 trim，whenToUse 缺省） (1.441366ms)
+✔ whenToUse 可选：存在时解析出来 (0.248593ms)
+✔ 缺少 description 报错 (0.353083ms)
+✔ 无 front-matter 报错 (0.163641ms)
+✔ 未知键忽略：兼容 vendored skills 的 license/source (0.204579ms)
+✔ 缺失 name 报错 (0.277074ms)
+✔ 缺失闭合分隔符报错 (0.223296ms)
+✔ workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文） (0.470391ms)
+✔ workloom_step 深度=0：返回契约原文（现状不变） (8.315568ms)
+✔ workloom_step exec 缺失时视为深度 0：返回契约原文 (1.624192ms)
+✖ skill 清单契约：注册 case-active/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill (3.048313ms)
+✖ workloom-case-active 资产与五组 eval：状态约束、整批确认、指纹和英文断言 (0.42113ms)
+✔ workloom-migrate-plan 资产可解析：迁移流程与边界关键句 + continue legacy 路由指针 (0.433576ms)
+✔ workloom-continue/workloom-finish 资产可解析：路由表与收尾五步 + taskPath 必填指引 (0.523536ms)
+✔ workloom-alignment 资产可解析：name/description/whenToUse + 收敛标记与 references 就位 (0.37077ms)
+✔ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.373824ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 14
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 273.014989
+
+✖ failing tests:
+
+test at test/skills.test.js:142:1
+✖ skill 清单契约：注册 case-active/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill (3.048313ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'grilling',
+      'tdd',
+      'workloom-alignment',
+  -   'workloom-case-active',
+      'workloom-continue',
+      'workloom-finish',
+      'workloom-migrate-plan',
+      'workloom-packages-scan',
+      'workloom-update-spec',
+  
+      at TestContext.<anonymous> (file:///tmp/wl-case-active-red/packages/adapter-dsh/test/skills.test.js:144:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'grilling', 'tdd', 'workloom-alignment', 'workloom-continue', 'workloom-finish', 'workloom-migrate-plan', 'workloom-packages-scan', 'workloom-update-spec', 'writing-for-agents' ],
+    expected: [ 'grilling', 'tdd', 'workloom-alignment', 'workloom-case-active', 'workloom-continue', 'workloom-finish', 'workloom-migrate-plan', 'workloom-packages-scan', 'workloom-update-spec', 'writing-for-agents' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test/skills.test.js:160:1
+✖ workloom-case-active 资产与五组 eval：状态约束、整批确认、指纹和英文断言 (0.42113ms)
+  Error: ENOENT: no such file or directory, open '/tmp/wl-case-active-red/packages/assets/skills/workloom-case-active/SKILL.md'
+      at readFileSync (node:fs:441:20)
+      at TestContext.<anonymous> (file:///tmp/wl-case-active-red/packages/adapter-dsh/test/skills.test.js:161:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/tmp/wl-case-active-red/packages/assets/skills/workloom-case-active/SKILL.md'
+  }
+DSH_EXIT=1
+=== Pi sync + skills.test.ts ===
+Synced 9 skill directories into /tmp/wl-case-active-red/packages/adapter-pi/skills
+bun test v1.3.14 (0d9b296a)
+
+test/skills.test.ts:
+(pass) package manifest 显式注册 skills 目录 [1.42ms]
+20 | test('skills 产物清单：只含 case-active/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个 vendored generic skills', () => {
+21 |   const entries = readdirSync(skillsDir, { withFileTypes: true })
+22 |     .filter((entry) => entry.isDirectory())
+23 |     .map((entry) => entry.name)
+24 |     .sort()
+25 |   assert.deepEqual(entries, [
+              ^
+AssertionError: Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
+    'grilling',
+    'tdd',
+    'workloom-alignment',
+-   'workloom-case-active',
+    'workloom-continue',
+    'workloom-finish',
+    'workloom-migrate-plan',
+    'workloom-packages-scan',
+    'workloom-update-spec',
+
+ generatedMessage: true,
+     actual: [ "grilling", "tdd", "workloom-alignment", "workloom-continue", "workloom-finish", "workloom-migrate-plan",
+  "workloom-packages-scan", "workloom-update-spec", "writing-for-agents"
+],
+   expected: [ "grilling", "tdd", "workloom-alignment", "workloom-case-active", "workloom-continue", "workloom-finish",
+  "workloom-migrate-plan", "workloom-packages-scan", "workloom-update-spec", "writing-for-agents"
+],
+   operator: "deepStrictEqual",
+       code: "ERR_ASSERTION"
+
+      at /tmp/wl-case-active-red/packages/adapter-pi/test/skills.test.ts:25:10
+      at fn (node:test:215:18)
+(fail) skills 产物清单：只含 case-active/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个 vendored generic skills [2.95ms]
+(pass) skills 产物不再含旧两个 workloom skill（brainstorm/ui-design 无残留） [0.15ms]
+
+ 2 pass
+ 1 fail
+Ran 3 tests across 1 file. [50.00ms]
+PI_EXIT=1
+=== assets fingerprint test ===
+node:internal/modules/esm/resolve:271
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/wl-case-active-red/packages/assets/skills/workloom-case-active/scripts/task-fingerprint.mjs' imported from /tmp/wl-case-active-red/packages/assets/skills/workloom-case-active/scripts/task-fingerprint.test.mjs
+    at finalizeResolution (node:internal/modules/esm/resolve:271:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+    at #resolve (node:internal/modules/esm/loader:683:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:253:17) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///tmp/wl-case-active-red/packages/assets/skills/workloom-case-active/scripts/task-fingerprint.mjs'
+}
+
+Node.js v24.18.1
+✖ skills/workloom-case-active/scripts/task-fingerprint.test.mjs (73.625698ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 82.828818
+
+✖ failing tests:
+
+test at skills/workloom-case-active/scripts/task-fingerprint.test.mjs:1:1
+✖ skills/workloom-case-active/scripts/task-fingerprint.test.mjs (73.625698ms)
+  'test failed'
+ASSETS_EXIT=1

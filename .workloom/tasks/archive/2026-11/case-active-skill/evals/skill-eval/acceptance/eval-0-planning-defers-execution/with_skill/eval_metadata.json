@@ -1,0 +1,33 @@
+{
+  "eval_id": 0,
+  "eval_name": "eval-0-planning-defers-execution",
+  "prompt": "Work in <fixture-project>. Design, review, and confirm CASE for the planning full task. Produce and review a valid CASE, then stop. Do not implement code. Report the task path, caseHash, status, and whether any result exists.",
+  "assertions": [
+    "case.md passes workloom_task_case review before confirmation.",
+    "The confirmed caseHash matches the current CASE bytes.",
+    "The task remains planning and no case-result.md exists.",
+    "No implementation file is created or modified.",
+    "A real check executor is dispatched with purpose=case-design and a recorded case.designSession.",
+    "The transcript waits for explicit user approval before calling confirm."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-active",
+  "configuration": "with_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "planning-defers-execution",
+      "evalId": 0,
+      "evalName": "eval-0-planning-defers-execution",
+      "configuration": "with_skill",
+      "sessionId": "case-eval-planning-defers-execution-with_skill-2",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+      "status": "completed",
+      "startedAt": "2026-11-04T03:39:28.380Z",
+      "completedAt": "2026-11-04T03:50:57.314Z"
+    }
+  },
+  "notes": "With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric."
+}

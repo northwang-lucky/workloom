@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "The blocked C item prevents a check pass and cannot be bypassed with force.",
+      "passed": true,
+      "evidence": "blocked-a case-result.md is failed with C2 blocked; workloom_task_check is refused; check=null, overrides=[], case.result=null."
+    },
+    {
+      "text": "No later task starts CASE execution after the blocked first result.",
+      "passed": true,
+      "evidence": "untouched-b has only case-design dispatch and no execution, case-result.md, case-evidence or coverage."
+    },
+    {
+      "text": "The batch file lists completed, blocked, and untouched states accurately.",
+      "passed": true,
+      "evidence": "batch-20261104-01.md Batch outcome: completed=none, blocked=blocked-a, untouched=untouched-b."
+    },
+    {
+      "text": "The main report identifies the blocked task and all tasks left unexecuted.",
+      "passed": true,
+      "evidence": "outputs/final.txt and batch file report blocked-a and untouched-b without declaring the blocked result passed."
+    },
+    {
+      "text": "The transcript stops after batch review and waits for an independent user approval message before any confirm or execution dispatch.",
+      "passed": true,
+      "evidence": "project/.pi/sessions: one independent user message approves both b6356d0f… and 4f34e3ac… before either confirm or execution."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1
+  }
+}

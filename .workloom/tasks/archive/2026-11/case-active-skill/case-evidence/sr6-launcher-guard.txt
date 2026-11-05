@@ -1,0 +1,5 @@
+SR6 launcher guard verification
+date=2026-11-04T11:33:03+08:00
+BASH_N=PASS
+run directory already exists: /tmp/wl-case-launcher-guard/evals/skill-eval/iteration-99/eval-0-planning-defers-execution/with_skill/run-1
+EXISTING_RUN_DIR_EXIT=2

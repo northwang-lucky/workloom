@@ -1,0 +1,40 @@
+Scenario complete. All five phases executed and verified.
+
+## Phase-by-phase result
+
+| # | Phase | Outcome |
+|---|---|---|
+| 1 | Design + review CASE | `readyToConfirm: true`, 0 structure issues → **stopped for approval** (no confirm, no execution) |
+| 2 | Approval → confirm → execute | confirmed `a31b0c4c…`; SR1/SR2/C1 passed; **real coverage 74/74 (100.00%)**; 2.3 recorded |
+| 3 | Repeat, **no code change** | all 6 reuse conditions PASS → existing RESULT reused, **dispatch count stayed 4, no new child session** |
+| 4 | Change untracked source → repeat | fingerprint `e5897d50…`→`583a5da1…`; condition 6 flipped to FAIL → **re-execution dispatched**, RESULT rewritten (76/76, 100.00%), 2.3 re-recorded |
+| 5 | CASE edit, **not** re-confirmed | live hash `b19f04ca…` ≠ confirmed `a31b0c4c…` → review still clean, but execution **refused**: `CASE execution rejected: case.md changed after confirmation; review and confirm it again` — no dispatch record, no new child session |
+
+## Fingerprints
+
+| State | codeFingerprint |
+|---|---|
+| F0 — fixture baseline, no source | `7a068ba9216367c836a6262d50e68425d37159a80f8d032369365c33aac22b9d` |
+| F1 — harness added | `e5897d50346199d4ebe207d2e24ed9e5caf11b90831d401049c1324478304291` |
+| F2 — untracked source changed (comment-only) | `583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593` |
+
+CASE hashes: confirmed `a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2` → after the unapproved edit `b19f04cab26db33270673b8e83bbe0b82d23e9a23d24d25a5c441907e3fd9257`.
+RESULT hashes: round 1 `4ad95926…` (74/74) → round 2 `5912e72b…` (76/76). Live fingerprint still `583a5da1…` — the CASE edit was `.workloom/`-only, so it is fingerprint-neutral.
+
+## Session ids
+
+- Parent TUI: `case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4`
+- Implement child (harness): `01a1a5d9-9c62-72ec-b8ac-df80f5102bd1`
+- Check child (CASE design **+ both execution rounds**, reused via `continue_executor`): `01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e`
+- Fixture's pre-existing dispatch: `implement-ready-case`
+- **No new child session** in phase 3 (reuse) or phase 5 (refused execution) — session files inventory stayed at 1 parent + 2 children.
+
+## Final state
+
+`task.check.passedAt = 2026-11-04T09:35:52.180Z`; `task.case.result.resultHash = 5912e72b…` **matches** the current `case-result.md` bytes; RESULT `codeBaseline` fingerprint **matches** the live fingerprint; coverage generated, line/branch/function all 100.00%.
+
+The task is deliberately left at `in_progress` / stage `check` with an unapproved CASE edit pending — a further `workloom_task_check` would now be refused (`case_execution: case.md changed after confirmation…`), which is the intended blocking state. **No commit was made**: committing would move HEAD and change the fingerprint this scenario measures.
+
+Phase output saved to `…/iteration-4/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run-1/outputs/case-edit.txt`.
+
+**Open item for you:** the edited CASE (`b19f04ca…9257`) needs a fresh review approval + `action=confirm` before any further execution can run.

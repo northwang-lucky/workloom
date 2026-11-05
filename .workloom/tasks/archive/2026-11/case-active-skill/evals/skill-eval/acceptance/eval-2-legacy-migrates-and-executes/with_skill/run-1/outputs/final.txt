@@ -1,0 +1,24 @@
+ bookkeeping, not product code, so a product-repo commit isn't the right home
+ for them. Say the word if you want it committed anyway (it would need the
+ RESULT re-baselined).
+
+ Residual P2 (not a gate failure): the Standard Verification row node
+ /tmp/sr-checks.mjs points at a transient script outside the task directory —
+ plan.md step 4 fixes the retained evidence set to six files, so only that
+ script's output log was kept. The SR observations are fully recorded in
+ case-evidence/sr-checks.log; only re-running that one row would need the
+ script.
+
+ ### Remaining step
+
+ 3.1 Archive and record is not done — the task is still in_progress / stage
+ check with a green archive gate, because archiving moves the artifacts to
+ tasks/archive/ and marks the task completed, which is beyond what you asked
+ for. Tell me if you want me to run workloom_task_archive + workloom_journal
+ now.
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑185k ↓54k R8.8M CH99.6% 17.7%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

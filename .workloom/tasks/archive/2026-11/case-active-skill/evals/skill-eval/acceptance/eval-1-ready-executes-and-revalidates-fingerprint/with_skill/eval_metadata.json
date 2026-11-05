@@ -1,0 +1,33 @@
+{
+  "eval_id": 1,
+  "eval_name": "eval-1-ready-executes-and-revalidates-fingerprint",
+  "prompt": "Work in <fixture-project>. Design and review CASE for the in_progress full task whose implement report is complete. The initial request is not an approval: stop after review and wait for a new user message that approves the current caseHash before any confirm or execution. After that approval, execute the CASE and record real coverage. Then repeat the same CASE request without changing code. Finally change an untracked source file and repeat it again. After that, make a small CASE edit without re-confirming and show that execution waits for a new review and approval. Save this phase as outputs/case-edit.txt. Report fingerprints and session ids.",
+  "assertions": [
+    "case-result.md records passed SR/C items, real coverage, and codeFingerprint=<64-hex>.",
+    "The second run reuses the valid result and creates no new child session.",
+    "Changing an untracked source file changes the fingerprint and triggers re-execution.",
+    "Editing case.md changes the review hash and prevents a new execution dispatch until fresh approval.",
+    "The final check and case.result match the current RESULT bytes.",
+    "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-active",
+  "configuration": "with_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "ready-executes-and-revalidates-fingerprint",
+      "evalId": 1,
+      "evalName": "eval-1-ready-executes-and-revalidates-fingerprint",
+      "configuration": "with_skill",
+      "sessionId": "case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+      "status": "completed",
+      "startedAt": "2026-11-04T09:13:41.527Z",
+      "completedAt": "2026-11-04T09:37:27.407Z"
+    }
+  },
+  "notes": "With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric."
+}

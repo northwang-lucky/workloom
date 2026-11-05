@@ -1,0 +1,12 @@
+{
+  "scenario": "batch-one-confirmation",
+  "evalId": 3,
+  "evalName": "eval-3-batch-one-confirmation",
+  "configuration": "with_skill",
+  "sessionId": "case-eval-batch-one-confirmation-with_skill-2",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+  "status": "completed",
+  "startedAt": "2026-11-04T05:21:02.037Z",
+  "completedAt": "2026-11-04T05:58:31.043Z"
+}

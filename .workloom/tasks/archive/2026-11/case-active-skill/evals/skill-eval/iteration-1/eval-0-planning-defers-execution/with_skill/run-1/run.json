@@ -1,0 +1,13 @@
+{
+  "scenario": "planning-defers-execution",
+  "evalId": 0,
+  "evalName": "eval-0-planning-defers-execution",
+  "configuration": "with_skill",
+  "sessionId": "case-eval-planning-defers-execution-with_skill-1",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+  "status": "aborted",
+  "startedAt": "2026-11-04T03:31:21.214Z",
+  "abortedAt": "2026-11-04T03:35:37.079Z",
+  "abortReason": "SKILL revision-purpose P1 found before a valid CASE result; a fresh iteration is required after the fix."
+}

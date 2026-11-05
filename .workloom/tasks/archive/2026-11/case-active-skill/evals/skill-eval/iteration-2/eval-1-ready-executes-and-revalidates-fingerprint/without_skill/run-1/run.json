@@ -1,0 +1,12 @@
+{
+  "scenario": "ready-executes-and-revalidates-fingerprint",
+  "evalId": 1,
+  "evalName": "eval-1-ready-executes-and-revalidates-fingerprint",
+  "configuration": "without_skill",
+  "sessionId": "case-eval-ready-executes-and-revalidates-fingerprint-without_skill-2",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+  "status": "completed",
+  "startedAt": "2026-11-04T04:23:34.086Z",
+  "completedAt": "2026-11-04T04:39:01.605Z"
+}

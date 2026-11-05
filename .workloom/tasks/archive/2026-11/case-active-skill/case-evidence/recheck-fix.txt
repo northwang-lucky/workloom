@@ -1,0 +1,55 @@
+Recheck after SKILL.md revision-purpose fix
+date=2026-11-04T11:37:41+08:00
+=== pnpm lint ===
+$ eslint .
+LINT_EXIT=0
+=== pnpm -r typecheck ===
+Scope: 4 of 5 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/adapter-dsh typecheck$ tsc -p tsconfig.json --noEmit
+packages/adapter-pi typecheck$ tsc -p tsconfig.json
+packages/adapter-dsh typecheck: Done
+packages/adapter-pi typecheck: Done
+TYPECHECK_EXIT=0
+=== pnpm -r build ===
+packages/core build$ tsc -p tsconfig.json && node scripts/copy-domain-dts.mjs
+packages/core build: copy-domain-dts: 已分发 19 个手写 d.ts 到 dist/domain/
+packages/core build: Done
+packages/adapter-dsh build$ tsc -p tsconfig.json
+packages/adapter-pi build$ node scripts/sync-skills.mjs
+packages/adapter-pi build: Synced 10 skill directories into /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill/packages/adapter-pi/skills
+packages/adapter-pi build: Done
+packages/adapter-dsh build: Done
+BUILD_EXIT=0
+=== adapter-dsh full tests ===
+✔ align 工具 schema：action 必填枚举 review/confirm；expectedPrdHash/summary 描述引用 core 常量 (1.052515ms)
+✔ align 工具主会话限制：子代理（delegationDepth>0）调用被拒绝 (0.856144ms)
+✔ archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.taskPathRequired (0.25008ms)
+✔ createTaskTool 透传 parent：子任务落盘 parent 字段且父 children 联动 (8.803344ms)
+✔ create 工具 schema 含 mode（可选，枚举 light，描述引用 PARAM_DESCRIPTIONS.mode） (0.327855ms)
+✔ createTaskTool 透传 mode：light 任务落 task.json，缺省 full (2.602452ms)
+ℹ tests 178
+ℹ suites 0
+ℹ pass 178
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 484.94422
+DSH_TESTS_EXIT=0
+=== adapter-pi full tests ===
+(pass) extractChildIds: undefined 输入返回空数组 [0.03ms]
+(pass) extractChildIds: 全空 childId 返回空数组 [0.02ms]
+
+test/executor-capacity-race.test.ts:
+(pass) 竞态核心：第一个派发 await 点挂起时，第二个派发被容量闸拒绝 [2.79ms]
+(pass) 时序证明：闸判定→登记之间无 await（同步） [1.18ms]
+
+ 205 pass
+ 0 fail
+Ran 205 tests across 22 files. [488.00ms]
+PI_TESTS_EXIT=0
+=== SKILL.md fix anchors ===
+29:3. If `case.designSession` exists, continue that session with `kind: check` and `purpose: case-design` for review revisions. If it is absent, start the design dispatch and record the resulting child id. For an old task with `case: null`, the design dispatch may create a non-required case record; confirm must promote it to `required: true`.
+35:2. Continue the same design session with `kind: check`, `purpose: case-design`, and concrete changes for every problem. Re-run review until `readyToConfirm=true`.

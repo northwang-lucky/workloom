@@ -1,0 +1,48 @@
+C9 legacy/batch/blocked behavior
+date=2026-11-05T09:43:37+08:00
+reference fixture built
+PASS legacy plan.md exists after migration
+PASS legacy case.required true
+PASS legacy designSession present
+PASS legacy case-result status passed :: passed
+PASS legacy checkSession equals designSession
+PASS legacy resultHash matches result bytes
+PASS legacy coverage generated or not_applicable
+PASS legacy RESULT references existing artifacts :: 15 refs
+PASS legacy approval-in-transcript evidence
+PASS batch has exactly one confirmation file :: 20261104T054028Z.md
+PASS batch-a confirmed hash matches case.md
+PASS batch-a confirmedAt present
+PASS batch file contains batch-a path
+PASS batch file contains batch-a hash
+PASS batch-b confirmed hash matches case.md
+PASS batch-b confirmedAt present
+PASS batch file contains batch-b path
+PASS batch file contains batch-b hash
+PASS batch file contains approval time
+PASS batch file records passed execution states
+PASS batch-a executed once :: 1
+PASS batch-b executed once :: 1
+PASS batch execution order A then B :: 2026-11-04T05:50:00.344Z < 2026-11-04T05:53:01.937Z
+PASS batch-b execution after batch-a result :: 2026-11-04T05:53:01.937Z > 2026-11-04T05:52:48.432Z
+PASS not-ready has no caseHash
+PASS not-ready not in batch file
+PASS tasks/light-task byte-identical to reference fixture
+PASS tasks/archive/completed-case byte-identical to reference fixture
+PASS batch approval-in-transcript evidence
+PASS blocked-a check credential absent
+PASS blocked-a overrides empty
+PASS blocked-a RESULT is not passed :: failed
+PASS blocked-a no case.result record
+PASS untouched-b has no execution dispatch
+PASS untouched-b has no case-result.md
+PASS untouched-b check credential absent
+PASS blocked batch file present :: batch-20261104-01.md
+PASS blocked batch file records blocked-a blocked
+PASS blocked batch file records untouched-b untouched
+PASS blocked final report identifies blocked-a
+PASS blocked final report identifies untouched-b
+PASS blocked final report says batch stopped
+PASS blocked approval-in-transcript evidence
+SUMMARY 43/43 passed
+C9_EXIT=0

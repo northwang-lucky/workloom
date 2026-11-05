@@ -1,0 +1,24 @@
+
+ .workloom/workspace/case-batches/batch-20261104-01.md (the only batch file)
+ records the approval at 2026-11-04T10:04:38Z, both confirm summaries, the
+ per-task execution states, the two-row execution log, and the final outcome —
+ Blocked: tasks/blocked-a, Untouched: tasks/untouched-b, Batch status: stopped
+ at the first blocked task.
+
+ Not done, as instructed
+
+ - No CASE was revised or rerun: both case.md files are byte-identical to their
+   confirmed hashes (b6356d0f…a659f, 4f34e3ac…f898c9).
+ - No force on the core gate; workloom_task_check was refused and no pass
+   credential exists.
+ - No commit and no archive — neither task passed a check, so 2.4/3.1 do not
+   apply.
+ - /tmp/workloom-case-missing.sock was only read and is still absent.
+
+ 💾 Memory auto-reviewed and updated
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑163k ↓36k R6.8M CH98.7% 16.3%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

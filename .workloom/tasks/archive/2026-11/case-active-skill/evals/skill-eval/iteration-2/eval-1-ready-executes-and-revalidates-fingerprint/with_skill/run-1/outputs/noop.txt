@@ -1,0 +1,24 @@
+
+
+ workloom_execute continue_executor="01a1a4bf-eae0-744e-a630-ae86fc63ca29"
+ kind="check" prompt="Re-execution round:...
+ Continued executor; child session: 01a1a4bf-eae0-744e-a630-ae86fc63ca29.
+ Continue with other work; the completion report arrives via the executor
+ report.
+
+ [workloom executor] model: minimax-cn/MiniMax-M3.1-Flash (config: legacy),
+ effort: max (config: legacy); injection: 13.0KB, 4 inlined, 0 truncated, 0
+ indexed, 2 pointed, 4 tools allowed
+
+
+ Re-execution dispatched to the same session
+ 01a1a4bf-eae0-744e-a630-ae86fc63ca29 (no new child session — same design
+ session continued). Waiting for its report.
+
+ 💾 Memory auto-reviewed and updated
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑141k ↓47k R5.7M CH98.9% 14.1%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

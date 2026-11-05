@@ -1,0 +1,21 @@
+C10 continue/finish route regression
+date=2026-11-05T09:43:43+08:00
+=== diff (expect empty) ===
+DIFF_EXIT=0
+=== continue planning/legacy routes ===
+28:   - An in_progress full task with `case: null` → load `workloom-case-active`; this is the legacy CASE migration path.
+29:   - `planning` with prd.md but no plan.md and no declared children → 1.4 author and review plan.md.
+30:   - `planning` with prd.md and plan.md → 1.4 await review.
+=== finish CASE gate ===
+14:3. Archive: archive the active task with `workloom_task_archive`; archive other completed tasks after a one-time confirmation. For a task with CASE required, archiving also demands a valid `case-result.md` (`status: passed`, every SR/C item passed, coverage green, `## Open issues` = `- none`) and a recorded result hash in `task.json` (`case.result`) — finish the CASE flow via `workloom_task_check` before archiving; core CASE failures cannot be bypassed with force.
+=== active-task skill planning boundary ===
+3:description: Design or complete case.md for an active, planning, or in_progress full task, then execute it after implementation is ready. Use when the user asks to add, rebuild, review, batch-confirm, or execute CASE artifacts for non-archived tasks; also use for legacy in_progress tasks without a case record. Do not use for light, completed, or archived tasks.
+4:whenToUse: Use on planning/in_progress full tasks that need CASE design, completion, confirmation, execution, or batch processing; route archived work to workloom-case-archived instead.
+13:- Accept only `planning` or `in_progress` tasks with `mode: "full"`.
+15:- A planning task still authors and reviews plan.md through Phase 1.4. If legacy design.md + implement.md exist without plan.md, load `workloom-migrate-plan` first and re-confirm any stale PRD credential. If only PRD exists, stop and return to normal planning; do not invent a PLAN inside this skill.
+21:1. With an active task, inspect that task. With no active task, call `workloom_task_list` for planning and in_progress, then inspect each full task. Exclude completed/archive/light tasks. Order candidates by `createdAt`, then task path.
+=== session-context tests ===
+ℹ tests 39
+ℹ pass 39
+ℹ fail 0
+SESSION_CONTEXT_EXIT=0

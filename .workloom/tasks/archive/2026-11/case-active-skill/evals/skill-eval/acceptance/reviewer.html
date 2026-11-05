@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "workloom-case-active", "runs": [{"id": "eval-0-planning-defers-execution-with_skill-run-1", "prompt": "Work in <fixture-project>. Design, review, and confirm CASE for the planning full task. Produce and review a valid CASE, then stop. Do not implement code. Report the task path, caseHash, status, and whether any result exists.", "eval_id": 0, "outputs": [{"name": "final.txt", "type": "text", "content": "    writes \"subagent_profiles\":{}, but the current core schema requires an\n    array \u2014 every dispatch died with workloom config: subagent_profiles: must\n    be an array. I changed the fixture project's .workloom/config.json to\n    \"subagent_profiles\":[]. This is a config/bookkeeping fix only: the\n    fingerprint is unchanged (.workloom/** is excluded from it), and no product\n    or implementation file was created or modified. Upstream source still needs\n    the same one-character fix in\n    packages/assets/skills/workloom-case-active/evals/build-fixtures.mjs.\n 2. Future execution note. C2 deterministically lands in the blocked branch on\n    this host (the socket never exists), which AC2 explicitly allows \u2014 but a\n    blocked C item cannot satisfy the check gate's \"every item passed\" rule, so\n    execution would stop there rather than pass. Flagging it now; no execution\n    was attempted.\n\n git status shows only .workloom/config.json (fixture repair),\n .workloom/tasks/planning-case/task.json (dispatch + confirmation records), and\n the new .workloom/tasks/planning-case/case.md. Nothing was committed \u2014\n committing belongs to 2.4/3.1 after a real check passes.\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead musy\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n\u219194k \u219320k R3.5M CH99.9% 11.1%/1.0M (auto)             MiniMax-M3.1-Flash \u2022 xhigh\n"}, {"name": "initial.txt", "type": "text", "content": "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Update Available\n New version 1.5.0 is available. Run pi update\n Changelog: https://pi.dev/changelog\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Package Updates Available\n Package updates are available. Run pi update --extensions\n Packages:\n - pi-hashline-edit-pro\n - pi-web-access\n - @narumitw/pi-plan-mode\n - pi-hermes-memory\n - @narumitw/pi-lsp\n - @narumitw/pi-btw\n - @trevonistrevon/pi-loop\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n0.2%/1.0M (auto)                         (minimax-cn) MiniMax-M3.1-Flash \u2022 xhigh\n"}], "grading": {"expectations": [{"text": "case.md passes workloom_task_case review before confirmation.", "passed": true, "evidence": "project/.pi/sessions: workloom_task_case review returns readyToConfirm=true before confirm; task.json confirmedAt follows review."}, {"text": "The confirmed caseHash matches the current CASE bytes.", "passed": true, "evidence": "project/.workloom/tasks/planning-case/task.json case.caseHash matches independently recomputed case.md SHA-256."}, {"text": "The task remains planning and no case-result.md exists.", "passed": true, "evidence": "task.json status=planning, case.result=null; no case-result.md and no execution dispatch."}, {"text": "No implementation file is created or modified.", "passed": true, "evidence": "git status only contains the disclosed fixture config repair, task.json and case.md; no source files changed."}, {"text": "A real check executor is dispatched with purpose=case-design and a recorded case.designSession.", "passed": true, "evidence": "task.json dispatches records purpose=case-design and designSession=01a1a4a6-711f-744c-a02d-1a7f9d7f4da8."}, {"text": "The transcript waits for explicit user approval before calling confirm.", "passed": true, "evidence": "project/.pi/sessions: user independently approves hash 9fad84fdca4a110a9bc8ce9556f91028c50d9a004513aac7cf95e3e53f3fbca1 before confirm."}], "summary": {"passed": 6, "failed": 0, "total": 6, "pass_rate": 1}}}, {"id": "eval-1-ready-executes-and-revalidates-fingerprint-with_skill-run-1", "prompt": "Work in <fixture-project>. Design and review CASE for the in_progress full task whose implement report is complete. The initial request is not an approval: stop after review and wait for a new user message that approves the current caseHash before any confirm or execution. After that approval, execute the CASE and record real coverage. Then repeat the same CASE request without changing code. Finally change an untracked source file and repeat it again. After that, make a small CASE edit without re-confirming and show that execution waits for a new review and approval. Save this phase as outputs/case-edit.txt. Report fingerprints and session ids.", "eval_id": 1, "outputs": [{"name": "case-edit.txt", "type": "text", "content": "PHASE \u2014 CASE edited WITHOUT re-confirmation \u2192 execution waits for a new review and approval\n\nTask: tasks/ready-case  (in_progress, mode: full, stage: check)\nProject: .workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-4/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run-1/project\nParent session: case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4\nRecorded: 2026-11-04T09:38Z\n\n\n1) THE EDIT (small, structure-preserving; made by the main session, NOT re-confirmed)\n\n   File: .workloom/tasks/ready-case/case.md\n   Under `## Scope` \u2192 `- Out of scope:` one bullet was appended:\n\n     + \u8fdc\u7aef\u4f9d\u8d56\u4e0e\u7f51\u7edc\u8c03\u7528\u7684\u9a8c\u8bc1\u8def\u5f84\uff1a\u672c\u6b21\u9a8c\u6536\u53ea\u8986\u76d6\u672c\u5730\u786e\u5b9a\u6027\u884c\u4e3a\uff0c\u4e0d\u6d89\u53ca\u4efb\u4f55\u7b2c\u4e09\u65b9\u670d\u52a1\u6216\u8fdc\u7aef\u73af\u5883\u3002\n\n   Nothing else changed: front matter, References, Static Review (SR1/SR2),\n   Runtime Cases (C1), Coverage and Traceability are byte-identical.\n\n   Diff shape: exactly one added line in the Out-of-scope bullet list.\n\n\n2) HASHES\n\n   confirmed caseHash (task.json \u2192 case.caseHash, approved earlier):\n     a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2\n   live case.md hash after the edit (workloom_task_case action=review):\n     b19f04cab26db33270673b8e83bbe0b82d23e9a23d24d25a5c441907e3fd9257\n   RESULT front-matter caseHash (unchanged, still the old confirmed hash):\n     a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2\n\n   => live hash != confirmed hash  =>  the confirmation credential is STALE.\n\n\n3) REVIEW STILL WORKS, CONFIRMATION DOES NOT\n\n   workloom_task_case action=review ->\n     readyToConfirm: true, structureIssues: [], confirmBlockers: []\n\n   The edited CASE is structurally valid and reviewable; it is simply NOT\n   confirmed, so it must not be executed. The review snapshot above\n   (b19f04ca\u20269257) is the candidate for a fresh user approval.\n\n\n4) EXECUTION ATTEMPT IS REFUSED (no execution ran)\n\n   Attempted: workloom_execute kind=check purpose=execution\n              continue_executor=01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e\n   Runtime response:\n     CASE execution rejected: case.md changed after confirmation; review and confirm it again\n\n   Core gate (evaluateCaseExecutionGate) reason, same wording:\n     [\"case.md changed after confirmation; review and confirm it again\"]\n\n   No force was used and none could be: core CASE failures are not bypassable.\n\n\n5) PROOF THAT NOTHING WAS EXECUTED\n\n   task.json dispatches count: 5 before the attempt, 5 after (no dispatch record written):\n     implement  -         completed  implement-ready-case                (pre-existing fixture dispatch)\n     implement  -         completed  01a1a5d9-9c62-72ec-b8ac-df80f5102bd1 (add src/verify-case.mjs)\n     check     case-design completed 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e (CASE design)\n     check     execution  completed 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e (execution round 1)\n     check     execution  completed 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e (execution round 2, after code change)\n\n   No new child session was created: the child session list is unchanged\n   (2 sessions), and no new Pi session file appeared under .pi/sessions\n   (only the parent TUI session\n   2026-11-04T09-13-35-618Z_case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4.jsonl).\n\n\n6) STATE OF THE EXISTING EVIDENCE (still valid, because the edit touched only .workloom/)\n\n   current code fingerprint:\n     583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593  (unchanged by the .workloom edit)\n   RESULT file hash (current bytes):\n     5912e72b918e9bc8f3da2992c36aefa7c2e21d04e058fc731cb30a5f6489621b\n   task.case.result.resultHash:\n     5912e72b918e9bc8f3da2992c36aefa7c2e21d04e058fc731cb30a5f6489621b  (matches the current RESULT bytes)\n   task.check.passedAt: 2026-11-04T09:35:52.180Z  (2.3 credential on the current RESULT)\n   RESULT codeBaseline fingerprint:\n     codeFingerprint=583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593\n\n\n7) WHAT IS REQUIRED TO PROCEED (not done here, by design)\n\n   1) a fresh review of the edited CASE  -> done above: hash b19f04ca\u20269257, readyToConfirm=true\n   2) explicit user approval of THAT EXACT HASH (b19f04ca\u20269257)\n   3) workloom_task_case action=confirm with expectedCaseHash=b19f04ca\u20269257\n   4) only then workloom_execute kind=check purpose=execution with the new confirmed hash\n\n   Until step 3 happens, every execution dispatch is refused by the core CASE gate.\n"}, {"name": "final.txt", "type": "text", "content": " 5912e72b\u2026 matches the current case-result.md bytes; RESULT codeBaseline\n fingerprint matches the live fingerprint; coverage generated,\n line/branch/function all 100.00%.\n\n The task is deliberately left at in_progress / stage check with an unapproved\n CASE edit pending \u2014 a further workloom_task_check would now be refused\n (case_execution: case.md changed after confirmation\u2026), which is the intended\n blocking state. No commit was made: committing would move HEAD and change the\n fingerprint this scenario measures.\n\n Phase output saved to\n \u2026/iteration-4/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run\n -1/outputs/case-edit.txt.\n\n Open item for you: the edited CASE (b19f04ca\u20269257) needs a fresh review\n approval + action=confirm before any further execution can run.\n\n \ud83d\udcbe Memory auto-reviewed and updated\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n\u2191171k \u219354k R7.9M CH99.0% 17.4%/1.0M (auto)            MiniMax-M3.1-Flash \u2022 xhigh\n"}, {"name": "fingerprint-changed.txt", "type": "text", "content": "Scenario complete. All five phases executed and verified.\n\n## Phase-by-phase result\n\n| # | Phase | Outcome |\n|---|---|---|\n| 1 | Design + review CASE | `readyToConfirm: true`, 0 structure issues \u2192 **stopped for approval** (no confirm, no execution) |\n| 2 | Approval \u2192 confirm \u2192 execute | confirmed `a31b0c4c\u2026`; SR1/SR2/C1 passed; **real coverage 74/74 (100.00%)**; 2.3 recorded |\n| 3 | Repeat, **no code change** | all 6 reuse conditions PASS \u2192 existing RESULT reused, **dispatch count stayed 4, no new child session** |\n| 4 | Change untracked source \u2192 repeat | fingerprint `e5897d50\u2026`\u2192`583a5da1\u2026`; condition 6 flipped to FAIL \u2192 **re-execution dispatched**, RESULT rewritten (76/76, 100.00%), 2.3 re-recorded |\n| 5 | CASE edit, **not** re-confirmed | live hash `b19f04ca\u2026` \u2260 confirmed `a31b0c4c\u2026` \u2192 review still clean, but execution **refused**: `CASE execution rejected: case.md changed after confirmation; review and confirm it again` \u2014 no dispatch record, no new child session |\n\n## Fingerprints\n\n| State | codeFingerprint |\n|---|---|\n| F0 \u2014 fixture baseline, no source | `7a068ba9216367c836a6262d50e68425d37159a80f8d032369365c33aac22b9d` |\n| F1 \u2014 harness added | `e5897d50346199d4ebe207d2e24ed9e5caf11b90831d401049c1324478304291` |\n| F2 \u2014 untracked source changed (comment-only) | `583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593` |\n\nCASE hashes: confirmed `a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2` \u2192 after the unapproved edit `b19f04cab26db33270673b8e83bbe0b82d23e9a23d24d25a5c441907e3fd9257`.\nRESULT hashes: round 1 `4ad95926\u2026` (74/74) \u2192 round 2 `5912e72b\u2026` (76/76). Live fingerprint still `583a5da1\u2026` \u2014 the CASE edit was `.workloom/`-only, so it is fingerprint-neutral.\n\n## Session ids\n\n- Parent TUI: `case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4`\n- Implement child (harness): `01a1a5d9-9c62-72ec-b8ac-df80f5102bd1`\n- Check child (CASE design **+ both execution rounds**, reused via `continue_executor`): `01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e`\n- Fixture's pre-existing dispatch: `implement-ready-case`\n- **No new child session** in phase 3 (reuse) or phase 5 (refused execution) \u2014 session files inventory stayed at 1 parent + 2 children.\n\n## Final state\n\n`task.check.passedAt = 2026-11-04T09:35:52.180Z`; `task.case.result.resultHash = 5912e72b\u2026` **matches** the current `case-result.md` bytes; RESULT `codeBaseline` fingerprint **matches** the live fingerprint; coverage generated, line/branch/function all 100.00%.\n\nThe task is deliberately left at `in_progress` / stage `check` with an unapproved CASE edit pending \u2014 a further `workloom_task_check` would now be refused (`case_execution: case.md changed after confirmation\u2026`), which is the intended blocking state. **No commit was made**: committing would move HEAD and change the fingerprint this scenario measures.\n\nPhase output saved to `\u2026/iteration-4/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run-1/outputs/case-edit.txt`.\n\n**Open item for you:** the edited CASE (`b19f04ca\u20269257`) needs a fresh review approval + `action=confirm` before any further execution can run.\n"}, {"name": "initial.txt", "type": "text", "content": "\n - Never use phrases or sentences like \"read only, don't fix\" when dispatching\n   a check subagent.\n\n - Prefer LSP tooling on this machine when it helps: lsp_symbols /\n   lsp_signature to orient before touching code, lsp_completion /\n   lsp_code_action to resolve details and fixes, and lsp_rename for renames\n   instead of textual search. An lsp_diagnostics check is a good habit in the\n   verification pass, but not a mandatory gate. lsp_format / lsp_inlay_hints:\n   as needed.\n   </workloom-session-context>\n\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Update Available\n New version 1.5.0 is available. Run pi update\n Changelog: https://pi.dev/changelog\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n0.2%/1.0M (auto)                         (minimax-cn) MiniMax-M3.1-Flash \u2022 xhigh\n"}, {"name": "noop.txt", "type": "text", "content": "Scenario complete. All five phases executed and verified.\n\n## Phase-by-phase result\n\n| # | Phase | Outcome |\n|---|---|---|\n| 1 | Design + review CASE | `readyToConfirm: true`, 0 structure issues \u2192 **stopped for approval** (no confirm, no execution) |\n| 2 | Approval \u2192 confirm \u2192 execute | confirmed `a31b0c4c\u2026`; SR1/SR2/C1 passed; **real coverage 74/74 (100.00%)**; 2.3 recorded |\n| 3 | Repeat, **no code change** | all 6 reuse conditions PASS \u2192 existing RESULT reused, **dispatch count stayed 4, no new child session** |\n| 4 | Change untracked source \u2192 repeat | fingerprint `e5897d50\u2026`\u2192`583a5da1\u2026`; condition 6 flipped to FAIL \u2192 **re-execution dispatched**, RESULT rewritten (76/76, 100.00%), 2.3 re-recorded |\n| 5 | CASE edit, **not** re-confirmed | live hash `b19f04ca\u2026` \u2260 confirmed `a31b0c4c\u2026` \u2192 review still clean, but execution **refused**: `CASE execution rejected: case.md changed after confirmation; review and confirm it again` \u2014 no dispatch record, no new child session |\n\n## Fingerprints\n\n| State | codeFingerprint |\n|---|---|\n| F0 \u2014 fixture baseline, no source | `7a068ba9216367c836a6262d50e68425d37159a80f8d032369365c33aac22b9d` |\n| F1 \u2014 harness added | `e5897d50346199d4ebe207d2e24ed9e5caf11b90831d401049c1324478304291` |\n| F2 \u2014 untracked source changed (comment-only) | `583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593` |\n\nCASE hashes: confirmed `a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2` \u2192 after the unapproved edit `b19f04cab26db33270673b8e83bbe0b82d23e9a23d24d25a5c441907e3fd9257`.\nRESULT hashes: round 1 `4ad95926\u2026` (74/74) \u2192 round 2 `5912e72b\u2026` (76/76). Live fingerprint still `583a5da1\u2026` \u2014 the CASE edit was `.workloom/`-only, so it is fingerprint-neutral.\n\n## Session ids\n\n- Parent TUI: `case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4`\n- Implement child (harness): `01a1a5d9-9c62-72ec-b8ac-df80f5102bd1`\n- Check child (CASE design **+ both execution rounds**, reused via `continue_executor`): `01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e`\n- Fixture's pre-existing dispatch: `implement-ready-case`\n- **No new child session** in phase 3 (reuse) or phase 5 (refused execution) \u2014 session files inventory stayed at 1 parent + 2 children.\n\n## Final state\n\n`task.check.passedAt = 2026-11-04T09:35:52.180Z`; `task.case.result.resultHash = 5912e72b\u2026` **matches** the current `case-result.md` bytes; RESULT `codeBaseline` fingerprint **matches** the live fingerprint; coverage generated, line/branch/function all 100.00%.\n\nThe task is deliberately left at `in_progress` / stage `check` with an unapproved CASE edit pending \u2014 a further `workloom_task_check` would now be refused (`case_execution: case.md changed after confirmation\u2026`), which is the intended blocking state. **No commit was made**: committing would move HEAD and change the fingerprint this scenario measures.\n\nPhase output saved to `\u2026/iteration-4/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run-1/outputs/case-edit.txt`.\n\n**Open item for you:** the edited CASE (`b19f04ca\u20269257`) needs a fresh review approval + `action=confirm` before any further execution can run.\n"}], "grading": {"expectations": [{"text": "case-result.md records passed SR/C items, real coverage, and codeFingerprint=<64-hex>.", "passed": true, "evidence": "case-result.md: passed SR/C, 76/76 coverage and codeFingerprint=583a5da1\u2026; task-fingerprint.mjs independently matches."}, {"text": "The second run reuses the valid result and creates no new child session.", "passed": true, "evidence": "outputs/noop.txt plus task.json dispatches: no new execution or child session during unchanged reuse."}, {"text": "Changing an untracked source file changes the fingerprint and triggers re-execution.", "passed": true, "evidence": "outputs/fingerprint-changed.txt: e5897d50\u2026\u2192583a5da1\u2026; execution reruns and RESULT is rewritten."}, {"text": "Editing case.md changes the review hash and prevents a new execution dispatch until fresh approval.", "passed": true, "evidence": "outputs/case-edit.txt: edited hash b19f04ca\u2026 differs from confirmed a31b0c4c\u2026; execution is refused and dispatch count stays 5."}, {"text": "The final check and case.result match the current RESULT bytes.", "passed": true, "evidence": "task.json case.result.resultHash matches recomputed case-result.md SHA-256 and check.passedAt follows RESULT completion."}, {"text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.", "passed": true, "evidence": "project/.pi/sessions: review stops, user approves a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2 before confirm/execution."}], "summary": {"passed": 6, "failed": 0, "total": 6, "pass_rate": 1}}}, {"id": "eval-2-legacy-migrates-and-executes-with_skill-run-1", "prompt": "Work in <fixture-project>. Design and execute CASE on the in_progress legacy full task with no case field and design.md + implement.md. Migrate the plan first if required, then design and review CASE. The initial request is not an approval: stop after review and wait for a new user message that approves the current caseHash before any confirm or execution. After that approval, execute the CASE and record real evidence. Report the old and new case records.", "eval_id": 2, "outputs": [{"name": "final.txt", "type": "text", "content": " bookkeeping, not product code, so a product-repo commit isn't the right home\n for them. Say the word if you want it committed anyway (it would need the\n RESULT re-baselined).\n\n Residual P2 (not a gate failure): the Standard Verification row node\n /tmp/sr-checks.mjs points at a transient script outside the task directory \u2014\n plan.md step 4 fixes the retained evidence set to six files, so only that\n script's output log was kept. The SR observations are fully recorded in\n case-evidence/sr-checks.log; only re-running that one row would need the\n script.\n\n ### Remaining step\n\n 3.1 Archive and record is not done \u2014 the task is still in_progress / stage\n check with a green archive gate, because archiving moves the artifacts to\n tasks/archive/ and marks the task completed, which is beyond what you asked\n for. Tell me if you want me to run workloom_task_archive + workloom_journal\n now.\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n\u2191185k \u219354k R8.8M CH99.6% 17.7%/1.0M (auto)            MiniMax-M3.1-Flash \u2022 xhigh\n"}, {"name": "initial.txt", "type": "text", "content": "   read structure through LSP symbol outlines and call signatures; resolve\n   members and arguments with completions; rename symbols through server-side\n   rename and fix them with code actions instead of hand-searched edits; and\n   include an LSP diagnostics check in the verification pass.\n   Local directives:\n   Local directives (main agent, all sessions):\n\n - Never use phrases or sentences like \"read only, don't fix\" when dispatching\n   a check subagent.\n\n - Prefer LSP tooling on this machine when it helps: lsp_symbols /\n   lsp_signature to orient before touching code, lsp_completion /\n   lsp_code_action to resolve details and fixes, and lsp_rename for renames\n   instead of textual search. An lsp_diagnostics check is a good habit in the\n   verification pass, but not a mandatory gate. lsp_format / lsp_inlay_hints:\n   as needed.\n   </workloom-session-context>\n\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n0.2%/1.0M (auto)                         (minimax-cn) MiniMax-M3.1-Flash \u2022 xhigh\n"}], "grading": {"expectations": [{"text": "Legacy design.md + implement.md are handled by workloom-migrate-plan before CASE design when plan.md is absent.", "passed": true, "evidence": "Session reads workloom-migrate-plan; design.md+implement.md are replaced by plan.md and legacy files are deleted before CASE design."}, {"text": "Confirm changes case.required to true without deleting legacy audit fields.", "passed": true, "evidence": "task.json case.required=true; check.jsonl, implement.jsonl and implement-report.md remain present; overrides=[]."}, {"text": "case-result.md checkSession equals designSession or is connected by a valid fallbackOf chain.", "passed": true, "evidence": "case-result.md checkSession equals case.designSession=01a1a5ef-4bff-766b-8832-a2ce4b35c2fe."}, {"text": "Real CASE evidence and coverage or a justified not_applicable result exist.", "passed": true, "evidence": "case-evidence/ contains six real files; coverage not_applicable is justified because the fixture has no product source."}, {"text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.", "passed": true, "evidence": "project/.pi/sessions: user independently approves 03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65 before confirm/execution."}], "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1}}}, {"id": "eval-3-batch-one-confirmation-with_skill-run-1", "prompt": "Work in <fixture-project>. With no active task, process CASE for every eligible candidate. Review all CASE artifacts, present one batch approval request, then confirm and execute them serially after approval. Report the batch file and per-task states.", "eval_id": 3, "outputs": [{"name": "final.txt", "type": "text", "content": "   next-revision follow-up.\n - Stale, rejected: the batch-b executor also re-reported a batch-a\n   heredoc-indentation P2. I re-checked the current tasks/batch-a/case.md \u2014 all\n   fences and the EOF terminator are flush-left at column 0, and line 141 is\n   mkdir -p \u2026. That claim came from a pre-fix copy and does not hold against\n   the current files, so it was not carried forward.\n - Pass legitimacy: each RESULT's own ## Open issues is - none,\n   evaluateCaseOutcomeGate returned 0 issues for both, and I independently\n   recomputed each RESULT's normalized hash (matching task.case.result),\n   re-measured codeFingerprint=08ffdae6\u20268f8a as still current, and re-ran all\n   four bash blocks per task in throwaway /tmp copies \u2014 every one exit 0.\n\n One thing I did not do, since you scoped this to the CASE lifecycle: the\n tasks' 2.4 commit and 3.1 archive steps were not run \u2014 both remain in_progress\n  with their check credentials recorded, ready for that path to continue on\n your word.\n\n \ud83d\udcbe Memory auto-reviewed and updated\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n\u2191311k \u219348k R9.7M CH99.0% 18.3%/1.0M (auto)            MiniMax-M3.1-Flash \u2022 xhigh\n"}, {"name": "initial.txt", "type": "text", "content": "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Update Available\n New version 1.5.0 is available. Run pi update\n Changelog: https://pi.dev/changelog\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Package Updates Available\n Package updates are available. Run pi update --extensions\n Packages:\n - pi-hashline-edit-pro\n - pi-web-access\n - @narumitw/pi-plan-mode\n - pi-hermes-memory\n - @narumitw/pi-lsp\n - @narumitw/pi-btw\n - @trevonistrevon/pi-loop\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n0.2%/1.0M (auto)                         (minimax-cn) MiniMax-M3.1-Flash \u2022 xhigh\n"}], "grading": {"expectations": [{"text": ".workloom/workspace/case-batches/<batch-id>.md contains both task paths, distinct hashes, approval time, and execution states.", "passed": true, "evidence": ".workloom/workspace/case-batches/20261104T054028Z.md lists two distinct hashes, approval time and passed execution states."}, {"text": "One approval covers the listed batch; each confirm uses its own current hash.", "passed": true, "evidence": "One user message approves both b4ef98a9\u2026 and 5ecc299d\u2026; each confirm uses its own expectedCaseHash."}, {"text": "Execution is serial and preserves one active task at a time.", "passed": true, "evidence": "batch-a executes before batch-b; batch-b starts after batch-a case.result.passedAt, with no overlapping execution window."}, {"text": "Any non-ready CASE is excluded from the batch and reported.", "passed": true, "evidence": "Batch file Excluded candidates lists not-ready because plan.md is absent; no CASE enters the package for it."}, {"text": "Light, completed, archived, and non-ready candidate directories remain byte-identical.", "passed": true, "evidence": "git status and batch-file checksum evidence show light-task, completed archive and not-ready directories unchanged."}], "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1}}}, {"id": "eval-4-blocked-stops-batch-with_skill-run-1", "prompt": "Work in <fixture-project>. Process CASE for the batch whose first task has a blocked runtime case. Review all CASE artifacts. The initial request is not an approval: stop after review and wait for a new user message that approves the listed caseHashes before any confirm or execution. Report completed, blocked, and untouched tasks and update the batch file.", "eval_id": 4, "outputs": [{"name": "final.txt", "type": "text", "content": "\n .workloom/workspace/case-batches/batch-20261104-01.md (the only batch file)\n records the approval at 2026-11-04T10:04:38Z, both confirm summaries, the\n per-task execution states, the two-row execution log, and the final outcome \u2014\n Blocked: tasks/blocked-a, Untouched: tasks/untouched-b, Batch status: stopped\n at the first blocked task.\n\n Not done, as instructed\n\n - No CASE was revised or rerun: both case.md files are byte-identical to their\n   confirmed hashes (b6356d0f\u2026a659f, 4f34e3ac\u2026f898c9).\n - No force on the core gate; workloom_task_check was refused and no pass\n   credential exists.\n - No commit and no archive \u2014 neither task passed a check, so 2.4/3.1 do not\n   apply.\n - /tmp/workloom-case-missing.sock was only read and is still absent.\n\n \ud83d\udcbe Memory auto-reviewed and updated\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\nworkloom config: \"subagents\" is deprecated; use \"subagent_profiles\" instead\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n\u2191163k \u219336k R6.8M CH98.7% 16.3%/1.0M (auto)            MiniMax-M3.1-Flash \u2022 xhigh\n"}, {"name": "initial.txt", "type": "text", "content": "   read structure through LSP symbol outlines and call signatures; resolve\n   members and arguments with completions; rename symbols through server-side\n   rename and fix them with code actions instead of hand-searched edits; and\n   include an LSP diagnostics check in the verification pass.\n   Local directives:\n   Local directives (main agent, all sessions):\n\n - Never use phrases or sentences like \"read only, don't fix\" when dispatching\n   a check subagent.\n\n - Prefer LSP tooling on this machine when it helps: lsp_symbols /\n   lsp_signature to orient before touching code, lsp_completion /\n   lsp_code_action to resolve details and fixes, and lsp_rename for renames\n   instead of textual search. An lsp_diagnostics check is a good habit in the\n   verification pass, but not a mandatory gate. lsp_format / lsp_inlay_hints:\n   as needed.\n   </workloom-session-context>\n\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...\n0.2%/1.0M (auto)                         (minimax-cn) MiniMax-M3.1-Flash \u2022 xhigh\n"}], "grading": {"expectations": [{"text": "The blocked C item prevents a check pass and cannot be bypassed with force.", "passed": true, "evidence": "blocked-a case-result.md is failed with C2 blocked; workloom_task_check is refused; check=null, overrides=[], case.result=null."}, {"text": "No later task starts CASE execution after the blocked first result.", "passed": true, "evidence": "untouched-b has only case-design dispatch and no execution, case-result.md, case-evidence or coverage."}, {"text": "The batch file lists completed, blocked, and untouched states accurately.", "passed": true, "evidence": "batch-20261104-01.md Batch outcome: completed=none, blocked=blocked-a, untouched=untouched-b."}, {"text": "The main report identifies the blocked task and all tasks left unexecuted.", "passed": true, "evidence": "outputs/final.txt and batch file report blocked-a and untouched-b without declaring the blocked result passed."}, {"text": "The transcript stops after batch review and waits for an independent user approval message before any confirm or execution dispatch.", "passed": true, "evidence": "project/.pi/sessions: one independent user message approves both b6356d0f\u2026 and 4f34e3ac\u2026 before either confirm or execution."}], "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1}}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "workloom-case-active", "skill_path": "packages/assets/skills/workloom-case-active", "executor_model": "minimax-cn/MiniMax-M3.1-Flash", "analyzer_model": "kimi-coding/k3.1-pro", "timestamp": "2026-11-04T11:46:25Z", "evals_run": [0, 1, 2, 3, 4], "runs_per_configuration": 1}, "runs": [{"eval_id": 0, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1, "passed": 6, "failed": 0, "total": 6, "time_seconds": 606.699, "tokens": 5546981, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "case.md passes workloom_task_case review before confirmation.", "passed": true, "evidence": "project/.pi/sessions: workloom_task_case review returns readyToConfirm=true before confirm; task.json confirmedAt follows review."}, {"text": "The confirmed caseHash matches the current CASE bytes.", "passed": true, "evidence": "project/.workloom/tasks/planning-case/task.json case.caseHash matches independently recomputed case.md SHA-256."}, {"text": "The task remains planning and no case-result.md exists.", "passed": true, "evidence": "task.json status=planning, case.result=null; no case-result.md and no execution dispatch."}, {"text": "No implementation file is created or modified.", "passed": true, "evidence": "git status only contains the disclosed fixture config repair, task.json and case.md; no source files changed."}, {"text": "A real check executor is dispatched with purpose=case-design and a recorded case.designSession.", "passed": true, "evidence": "task.json dispatches records purpose=case-design and designSession=01a1a4a6-711f-744c-a02d-1a7f9d7f4da8."}, {"text": "The transcript waits for explicit user approval before calling confirm.", "passed": true, "evidence": "project/.pi/sessions: user independently approves hash 9fad84fdca4a110a9bc8ce9556f91028c50d9a004513aac7cf95e3e53f3fbca1 before confirm."}], "notes": []}, {"eval_id": 1, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1, "passed": 6, "failed": 0, "total": 6, "time_seconds": 1400.265, "tokens": 13147809, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "case-result.md records passed SR/C items, real coverage, and codeFingerprint=<64-hex>.", "passed": true, "evidence": "case-result.md: passed SR/C, 76/76 coverage and codeFingerprint=583a5da1\u2026; task-fingerprint.mjs independently matches."}, {"text": "The second run reuses the valid result and creates no new child session.", "passed": true, "evidence": "outputs/noop.txt plus task.json dispatches: no new execution or child session during unchanged reuse."}, {"text": "Changing an untracked source file changes the fingerprint and triggers re-execution.", "passed": true, "evidence": "outputs/fingerprint-changed.txt: e5897d50\u2026\u2192583a5da1\u2026; execution reruns and RESULT is rewritten."}, {"text": "Editing case.md changes the review hash and prevents a new execution dispatch until fresh approval.", "passed": true, "evidence": "outputs/case-edit.txt: edited hash b19f04ca\u2026 differs from confirmed a31b0c4c\u2026; execution is refused and dispatch count stays 5."}, {"text": "The final check and case.result match the current RESULT bytes.", "passed": true, "evidence": "task.json case.result.resultHash matches recomputed case-result.md SHA-256 and check.passedAt follows RESULT completion."}, {"text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.", "passed": true, "evidence": "project/.pi/sessions: review stops, user approves a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2 before confirm/execution."}], "notes": []}, {"eval_id": 2, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1, "passed": 5, "failed": 0, "total": 5, "time_seconds": 632.859, "tokens": 11368828, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "Legacy design.md + implement.md are handled by workloom-migrate-plan before CASE design when plan.md is absent.", "passed": true, "evidence": "Session reads workloom-migrate-plan; design.md+implement.md are replaced by plan.md and legacy files are deleted before CASE design."}, {"text": "Confirm changes case.required to true without deleting legacy audit fields.", "passed": true, "evidence": "task.json case.required=true; check.jsonl, implement.jsonl and implement-report.md remain present; overrides=[]."}, {"text": "case-result.md checkSession equals designSession or is connected by a valid fallbackOf chain.", "passed": true, "evidence": "case-result.md checkSession equals case.designSession=01a1a5ef-4bff-766b-8832-a2ce4b35c2fe."}, {"text": "Real CASE evidence and coverage or a justified not_applicable result exist.", "passed": true, "evidence": "case-evidence/ contains six real files; coverage not_applicable is justified because the fixture has no product source."}, {"text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.", "passed": true, "evidence": "project/.pi/sessions: user independently approves 03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65 before confirm/execution."}], "notes": []}, {"eval_id": 3, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1, "passed": 5, "failed": 0, "total": 5, "time_seconds": 2224.573, "tokens": 23046055, "tool_calls": 0, "errors": 0}, "expectations": [{"text": ".workloom/workspace/case-batches/<batch-id>.md contains both task paths, distinct hashes, approval time, and execution states.", "passed": true, "evidence": ".workloom/workspace/case-batches/20261104T054028Z.md lists two distinct hashes, approval time and passed execution states."}, {"text": "One approval covers the listed batch; each confirm uses its own current hash.", "passed": true, "evidence": "One user message approves both b4ef98a9\u2026 and 5ecc299d\u2026; each confirm uses its own expectedCaseHash."}, {"text": "Execution is serial and preserves one active task at a time.", "passed": true, "evidence": "batch-a executes before batch-b; batch-b starts after batch-a case.result.passedAt, with no overlapping execution window."}, {"text": "Any non-ready CASE is excluded from the batch and reported.", "passed": true, "evidence": "Batch file Excluded candidates lists not-ready because plan.md is absent; no CASE enters the package for it."}, {"text": "Light, completed, archived, and non-ready candidate directories remain byte-identical.", "passed": true, "evidence": "git status and batch-file checksum evidence show light-task, completed archive and not-ready directories unchanged."}], "notes": []}, {"eval_id": 4, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1, "passed": 5, "failed": 0, "total": 5, "time_seconds": 1423.245, "tokens": 13247918, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The blocked C item prevents a check pass and cannot be bypassed with force.", "passed": true, "evidence": "blocked-a case-result.md is failed with C2 blocked; workloom_task_check is refused; check=null, overrides=[], case.result=null."}, {"text": "No later task starts CASE execution after the blocked first result.", "passed": true, "evidence": "untouched-b has only case-design dispatch and no execution, case-result.md, case-evidence or coverage."}, {"text": "The batch file lists completed, blocked, and untouched states accurately.", "passed": true, "evidence": "batch-20261104-01.md Batch outcome: completed=none, blocked=blocked-a, untouched=untouched-b."}, {"text": "The main report identifies the blocked task and all tasks left unexecuted.", "passed": true, "evidence": "outputs/final.txt and batch file report blocked-a and untouched-b without declaring the blocked result passed."}, {"text": "The transcript stops after batch review and waits for an independent user approval message before any confirm or execution dispatch.", "passed": true, "evidence": "project/.pi/sessions: one independent user message approves both b6356d0f\u2026 and 4f34e3ac\u2026 before either confirm or execution."}], "notes": []}], "run_summary": {"with_skill": {"pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1, "max": 1}, "time_seconds": {"mean": 1257.5282, "stddev": 670.2242, "min": 606.699, "max": 2224.573}, "tokens": {"mean": 13271518.2, "stddev": 6301708.8068, "min": 5546981, "max": 23046055}}, "delta": {"pass_rate": "+1.00", "time_seconds": "+1257.5", "tokens": "+13271518"}}, "notes": ["Only with-skill runs participate in acceptance; no without-skill result is scored or used for pass/fail.", "planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. Superseded runs are excluded from acceptance counts.", "total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric.", "All 27 evaluated checks passed. The planning fixture config repair is disclosed in the evidence.", "The static viewer is generated from these five with-skill runs only; delta fields from the single-configuration aggregator are not comparative evidence."]}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

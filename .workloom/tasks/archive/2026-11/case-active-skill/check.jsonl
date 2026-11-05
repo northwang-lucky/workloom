@@ -1,0 +1,6 @@
+{"file":".workloom/spec/repo/code-style/index.md","reason":"复核 test-first、脚本质量、lint 与全部验证命令。"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"本任务不改 workflow 步骤集合，复核版本无需提升。"}
+{"file":".workloom/spec/adapter-pi/verify/index.md","reason":"真实 Pi 场景必须由顶层主会话执行并保留证据。"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"复核 DSH dist 与 Pi 技能构建副本同步。"}
+{"file":".workloom/tasks/11-03-case-active-skill/research/skill-active-integration.md","reason":"复核技能入口、状态分流、确认和会话链均按真实锚点实现。"}
+{"file":".workloom/tasks/11-03-case-active-skill/research/skill-active-evals.md","reason":"复核五组对比验收、计时、评分、静态页面和反馈证据。"}

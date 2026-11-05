@@ -1,0 +1,8 @@
+{
+  "total_duration_seconds": 908.665,
+  "total_tokens": 12912408,
+  "session_files": [
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-1-ready-executes-and-revalidates-fingerprint/without_skill/run-1/project/.pi/sessions/2026-11-04T04-23-26-168Z_case-eval-ready-executes-and-revalidates-fingerprint-without_skill-2.jsonl",
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-1-ready-executes-and-revalidates-fingerprint/without_skill/run-1/project/.workloom/sessions/pi/2026-11-04T04-27-53-966Z_01a1a4d0-40ed-73c2-82b3-12d36032d13f.jsonl"
+  ]
+}

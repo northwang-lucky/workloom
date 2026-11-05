@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Legacy design.md + implement.md are handled by workloom-migrate-plan before CASE design when plan.md is absent.",
+      "passed": true,
+      "evidence": "Session reads workloom-migrate-plan; design.md+implement.md are replaced by plan.md and legacy files are deleted before CASE design."
+    },
+    {
+      "text": "Confirm changes case.required to true without deleting legacy audit fields.",
+      "passed": true,
+      "evidence": "task.json case.required=true; check.jsonl, implement.jsonl and implement-report.md remain present; overrides=[]."
+    },
+    {
+      "text": "case-result.md checkSession equals designSession or is connected by a valid fallbackOf chain.",
+      "passed": true,
+      "evidence": "case-result.md checkSession equals case.designSession=01a1a5ef-4bff-766b-8832-a2ce4b35c2fe."
+    },
+    {
+      "text": "Real CASE evidence and coverage or a justified not_applicable result exist.",
+      "passed": true,
+      "evidence": "case-evidence/ contains six real files; coverage not_applicable is justified because the fixture has no product source."
+    },
+    {
+      "text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.",
+      "passed": true,
+      "evidence": "project/.pi/sessions: user independently approves 03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65 before confirm/execution."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1
+  }
+}

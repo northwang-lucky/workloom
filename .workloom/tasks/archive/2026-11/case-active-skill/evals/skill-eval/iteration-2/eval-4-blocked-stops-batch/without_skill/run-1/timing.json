@@ -1,0 +1,9 @@
+{
+  "total_duration_seconds": 1932.061,
+  "total_tokens": 11424382,
+  "session_files": [
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-4-blocked-stops-batch/without_skill/run-1/project/.pi/sessions/2026-11-04T06-44-14-134Z_case-eval-blocked-stops-batch-without_skill-2.jsonl",
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-4-blocked-stops-batch/without_skill/run-1/project/.workloom/sessions/pi/2026-11-04T06-45-33-142Z_01a1a54e-4755-722d-b785-9fce8d0d9d65.jsonl",
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-4-blocked-stops-batch/without_skill/run-1/project/.workloom/sessions/pi/2026-11-04T06-57-17-883Z_01a1a559-083a-714c-bfd4-07eecb63ebab.jsonl"
+  ]
+}

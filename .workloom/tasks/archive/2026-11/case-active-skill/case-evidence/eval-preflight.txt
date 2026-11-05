@@ -1,0 +1,24 @@
+ Package updates are available. Run pi update --extensions
+ Packages:
+ - pi-hashline-edit-pro
+ - pi-web-access
+ - @narumitw/pi-plan-mode
+ - pi-hermes-memory
+ - @narumitw/pi-lsp
+ - @narumitw/pi-btw
+ - @trevonistrevon/pi-loop
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+ Update Available
+ New version 1.5.0 is available. Run pi update
+ Changelog: https://pi.dev/changelog
+────────────────────────────────────────────────────────────────────────────────
+
+ OK
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/tmp
+↑1 ↓3 R27k CH100.0% 2.7%/1.0M (auto)     (minimax-cn) MiniMax-M3.1-Flash • xhigh

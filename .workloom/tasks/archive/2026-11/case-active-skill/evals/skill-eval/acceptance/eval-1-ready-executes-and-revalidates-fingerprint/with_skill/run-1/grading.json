@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "case-result.md records passed SR/C items, real coverage, and codeFingerprint=<64-hex>.",
+      "passed": true,
+      "evidence": "case-result.md: passed SR/C, 76/76 coverage and codeFingerprint=583a5da1…; task-fingerprint.mjs independently matches."
+    },
+    {
+      "text": "The second run reuses the valid result and creates no new child session.",
+      "passed": true,
+      "evidence": "outputs/noop.txt plus task.json dispatches: no new execution or child session during unchanged reuse."
+    },
+    {
+      "text": "Changing an untracked source file changes the fingerprint and triggers re-execution.",
+      "passed": true,
+      "evidence": "outputs/fingerprint-changed.txt: e5897d50…→583a5da1…; execution reruns and RESULT is rewritten."
+    },
+    {
+      "text": "Editing case.md changes the review hash and prevents a new execution dispatch until fresh approval.",
+      "passed": true,
+      "evidence": "outputs/case-edit.txt: edited hash b19f04ca… differs from confirmed a31b0c4c…; execution is refused and dispatch count stays 5."
+    },
+    {
+      "text": "The final check and case.result match the current RESULT bytes.",
+      "passed": true,
+      "evidence": "task.json case.result.resultHash matches recomputed case-result.md SHA-256 and check.passedAt follows RESULT completion."
+    },
+    {
+      "text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.",
+      "passed": true,
+      "evidence": "project/.pi/sessions: review stops, user approves a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2 before confirm/execution."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1
+  }
+}

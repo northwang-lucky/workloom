@@ -1,0 +1,6 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"技能只编排既有工具，adapter 保持薄投影，不新增 core 业务逻辑。"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"约束技能脚本、test-first、lint 与验证命令。"}
+{"file":".workloom/spec/repo/language/index.md","reason":"约束技能资产和评测断言使用英文，任务生成物遵循项目语言。"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"约束 DSH dist 同轮重建与 Pi 技能构建副本同步。"}
+{"file":".workloom/tasks/11-03-case-active-skill/research/skill-active-integration.md","reason":"提供技能注册、CASE 工具、状态字段和真实测试锚点。"}
+{"file":".workloom/tasks/11-03-case-active-skill/research/skill-active-evals.md","reason":"提供五组真实评测的夹具、运行目录、评分、计时和静态页面命令。"}

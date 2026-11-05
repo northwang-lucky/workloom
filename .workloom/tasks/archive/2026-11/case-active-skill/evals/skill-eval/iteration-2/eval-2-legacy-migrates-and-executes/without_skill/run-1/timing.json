@@ -1,0 +1,8 @@
+{
+  "total_duration_seconds": 1423.014,
+  "total_tokens": 17094408,
+  "session_files": [
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-2-legacy-migrates-and-executes/without_skill/run-1/project/.pi/sessions/2026-11-04T04-56-37-932Z_case-eval-legacy-migrates-and-executes-without_skill-2.jsonl",
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-2-legacy-migrates-and-executes/without_skill/run-1/project/.workloom/sessions/pi/2026-11-04T04-59-12-445Z_01a1a4ec-eabd-70cb-bc87-37dd233664bf.jsonl"
+  ]
+}

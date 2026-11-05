@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": ".workloom/workspace/case-batches/<batch-id>.md contains both task paths, distinct hashes, approval time, and execution states.",
+      "passed": true,
+      "evidence": ".workloom/workspace/case-batches/20261104T054028Z.md lists two distinct hashes, approval time and passed execution states."
+    },
+    {
+      "text": "One approval covers the listed batch; each confirm uses its own current hash.",
+      "passed": true,
+      "evidence": "One user message approves both b4ef98a9… and 5ecc299d…; each confirm uses its own expectedCaseHash."
+    },
+    {
+      "text": "Execution is serial and preserves one active task at a time.",
+      "passed": true,
+      "evidence": "batch-a executes before batch-b; batch-b starts after batch-a case.result.passedAt, with no overlapping execution window."
+    },
+    {
+      "text": "Any non-ready CASE is excluded from the batch and reported.",
+      "passed": true,
+      "evidence": "Batch file Excluded candidates lists not-ready because plan.md is absent; no CASE enters the package for it."
+    },
+    {
+      "text": "Light, completed, archived, and non-ready candidate directories remain byte-identical.",
+      "passed": true,
+      "evidence": "git status and batch-file checksum evidence show light-task, completed archive and not-ready directories unchanged."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1
+  }
+}

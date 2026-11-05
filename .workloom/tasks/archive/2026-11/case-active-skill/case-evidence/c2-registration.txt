@@ -1,0 +1,37 @@
+C2 registration and Pi build copy
+date=2026-11-05T09:41:38+08:00
+=== build adapter-dsh + adapter-pi ===
+packages/adapter-dsh build$ tsc -p tsconfig.json
+packages/adapter-pi build$ node scripts/sync-skills.mjs
+packages/adapter-pi build: Synced 10 skill directories into /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill/packages/adapter-pi/skills
+packages/adapter-pi build: Done
+packages/adapter-dsh build: Done
+BUILD_EXIT=0
+=== DSH skills.test.js ===
+ℹ tests 16
+ℹ pass 16
+ℹ fail 0
+DSH_TEST_EXIT=0
+=== Pi skills.test.ts ===
+(pass) package manifest 显式注册 skills 目录 [1.53ms]
+(pass) skills 产物清单：只含 case-active/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个 vendored generic skills [0.21ms]
+(pass) skills 产物不再含旧两个 workloom skill（brainstorm/ui-design 无残留） [0.15ms]
+ 3 pass
+ 0 fail
+PI_TEST_EXIT=0
+=== Pi build copy checks ===
+present: SKILL.md
+present: evals/evals.json
+present: evals/run-scenario.sh
+present: scripts/task-fingerprint.mjs
+build-copy P2 guard: present
+=== COMMAND_NAMES and surface diff ===
+15:export const COMMAND_NAMES = {
+16-  init: 'workloom-init',
+17-  doctor: 'workloom-doctor',
+18-} as const
+SURFACE_DIFF=empty
+ℹ tests 33
+ℹ pass 33
+ℹ fail 0
+SURFACE_TEST_EXIT=0

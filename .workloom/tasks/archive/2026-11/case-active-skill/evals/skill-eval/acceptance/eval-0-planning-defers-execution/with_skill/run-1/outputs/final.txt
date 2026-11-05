@@ -1,0 +1,24 @@
+    writes "subagent_profiles":{}, but the current core schema requires an
+    array — every dispatch died with workloom config: subagent_profiles: must
+    be an array. I changed the fixture project's .workloom/config.json to
+    "subagent_profiles":[]. This is a config/bookkeeping fix only: the
+    fingerprint is unchanged (.workloom/** is excluded from it), and no product
+    or implementation file was created or modified. Upstream source still needs
+    the same one-character fix in
+    packages/assets/skills/workloom-case-active/evals/build-fixtures.mjs.
+ 2. Future execution note. C2 deterministically lands in the blocked branch on
+    this host (the socket never exists), which AC2 explicitly allows — but a
+    blocked C item cannot satisfy the check gate's "every item passed" rule, so
+    execution would stop there rather than pass. Flagging it now; no execution
+    was attempted.
+
+ git status shows only .workloom/config.json (fixture repair),
+ .workloom/tasks/planning-case/task.json (dispatch + confirmation records), and
+ the new .workloom/tasks/planning-case/case.md. Nothing was committed —
+ committing belongs to 2.4/3.1 after a real check passes.
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead musy
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑94k ↓20k R3.5M CH99.9% 11.1%/1.0M (auto)             MiniMax-M3.1-Flash • xhigh

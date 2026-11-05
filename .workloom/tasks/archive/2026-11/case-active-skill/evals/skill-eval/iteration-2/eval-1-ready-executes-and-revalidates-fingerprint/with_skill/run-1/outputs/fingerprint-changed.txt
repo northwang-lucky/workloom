@@ -1,0 +1,33 @@
+All five phases of the scenario are complete. Final report:
+
+## Scenario result — `ready-case` (in_progress, full task)
+
+### Fingerprints (code fingerprint = HEAD + tracked diff + sorted untracked contents)
+
+| # | State of `src/verify-fixture.mjs` | Fingerprint | RESULT |
+|---|---|---|---|
+| F0 | file absent (fixture baseline) | `749bf07e4b6d5eb703ddf8f04dc9871a51c369ac5aff0b456ed278271b0ceb79` | — |
+| F1 | file added by implement executor | `8db8a8faad0824dd2f1f4d375a3cd06422de22eda649a8ab78a47132d5441485` | run 1 → `45/45 (100%)` |
+| F2 | + extra `assert.ok` assertion | `04bf6c74d3af416bc200d99f6fe800121637047523cc958a928a607d8b3c194f` | run 2 → `46/46 (100%)` |
+| F3 | + trailing harmless comment **(current)** | `76bc5050952b263e980fba36461e5bad621ae15d1eb952ad6a78d664d86bab53` | run 3 → `48/48 (100%)` |
+
+`.workloom/**` writes never move the fingerprint (probe-verified), so case/result/evidence artifacts stayed fingerprint-neutral.
+
+### Session ids
+
+- Parent TUI session: `case-eval-ready-executes-and-revalidates-fingerprint-with_skill-2`
+- Implement child (added the verification module): `01a1a4bc-8429-71d1-81e4-6199a6e2baa9`
+- Check child (CASE design **+ all 3 execution rounds**, reused): `01a1a4bf-eae0-744e-a630-ae86fc63ca29`
+- Fixture's pre-existing dispatch: `implement-ready-case`
+- **No new child session** was created in the repeat-without-change phase or in the CASE-edit phase.
+
+### Phases
+
+1. **Design → confirm → execute.** CASE designed in `01a1a4bf-eae0…`, reviewed (`readyToConfirm=true`, 0 structure issues, 0 coverage exclusions, coverable scope exactly `['src/verify-fixture.mjs']`), confirmed at `c46585e5…3bf9`, then executed in the same session → `case-result.md` with SR1/SR2/C1 passed, real Node coverage (`coverage/lcov.info`), `codeFingerprint=8db8a8fa…`; `workloom_task_check` recorded (2.3).
+2. **Repeat, no code change.** All 6 reuse conditions PASS → existing result reused, **no new child session** (dispatch count stayed 4).
+3. **Untracked source file changed → repeat.** Fingerprint F1→F2→F3, condition 6 (fingerprint) FAIL each time → stale result → re-execution dispatched twice in the same session; RESULT rewritten each time; check re-recorded.
+4. **Small CASE edit without re-confirming.** One `Out of scope` bullet appended: confirmed `c46585e5…3bf9` vs live `ceb9e9e1…9691f`. Review still `readyToConfirm=true`, but the execution dispatch was **refused**: `CASE execution rejected: case.md changed after confirmation; review and confirm it again` — no dispatch record, no child session (dispatches stayed at 6). Saved to `run-1/outputs/case-edit.txt`.
+5. **Final consistency.** `task.check.passedAt=2026-11-04T04:21:38.301Z`; `task.case.result.resultHash = 72b72f8f…c67a` = current `case-result.md` bytes; RESULT `codeBaseline` fingerprint = live `76bc5050…`.
+
+### Notes- No commit was made on purpose: committing moves HEAD and would change the code fingerprint, invalidating the recorded RESULT fingerprint this scenario exists to test. The task stays `in_progress`/`stage: check`, ready for the normal 2.4/3.1 path once the edited CASE (`ceb9e9e1…9691f`) gets a fresh review + approval + confirm.
+- The implement executor flagged that `plan.md` says “Edit: no product code” while the CASE needs an executable asset; I resolved it by keeping the new file purely a verification module (`src/verify-fixture.mjs`, untracked, no `package.json`, no deps) and by making the CASE cover it explicitly in SR2/C1.

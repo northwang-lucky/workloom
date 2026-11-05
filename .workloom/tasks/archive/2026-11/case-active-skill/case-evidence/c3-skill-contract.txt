@@ -1,0 +1,49 @@
+C3 skill contract and language
+date=2026-11-05T09:41:46+08:00
+PASS frontmatter parses
+PASS name exact :: workloom-case-active
+PASS description mentions planning
+PASS body phrase "mode: \"light\""
+PASS body phrase "completed"
+PASS body phrase "archive"
+PASS body phrase "Phase 1.4"
+PASS body phrase "case-batches"
+PASS body phrase "codeFingerprint"
+PASS body phrase "purpose: case-design"
+PASS body phrase "purpose: execution"
+PASS body phrase "fallbackOf"
+PASS body phrase "planning"
+PASS body phrase "in_progress"
+PASS body phrase "active task"
+PASS body phrase "is never an approval"
+PASS body phrase "wait for a new user message"
+PASS body phrase "same rule covers batches"
+PASS Step 2.3 revision continuation passes purpose: case-design
+PASS Step 3.2 revision continuation passes purpose: case-design
+PASS body has no CJK
+PASS no duplicated template heading ## Static Review
+PASS no duplicated template heading ## Runtime Cases
+PASS no duplicated template heading ## Traceability
+PASS evals skill_name
+PASS evals five ids
+PASS eval planning-defers-execution assertions non-empty
+PASS eval planning-defers-execution no CJK
+PASS eval ready-executes-and-revalidates-fingerprint assertions non-empty
+PASS eval ready-executes-and-revalidates-fingerprint no CJK
+PASS eval legacy-migrates-and-executes assertions non-empty
+PASS eval legacy-migrates-and-executes no CJK
+PASS eval batch-one-confirmation assertions non-empty
+PASS eval batch-one-confirmation no CJK
+PASS eval blocked-stops-batch assertions non-empty
+PASS eval blocked-stops-batch no CJK
+PASS eval ready-executes-and-revalidates-fingerprint prompt marks initial request as not approval
+PASS eval ready-executes-and-revalidates-fingerprint assertions require independent approval
+PASS eval legacy-migrates-and-executes prompt marks initial request as not approval
+PASS eval legacy-migrates-and-executes assertions require independent approval
+PASS eval blocked-stops-batch prompt marks initial request as not approval
+PASS eval blocked-stops-batch assertions require independent approval
+PASS continue planning route to 1.4
+PASS continue legacy route points to workloom-case-active
+PASS finish archive requires CASE result
+SUMMARY 45/45 passed
+C3_EXIT=0

@@ -1,0 +1,133 @@
+C7 acceptance artifacts and approval timing
+date=2026-11-05T09:42:55+08:00
+PASS exactly five eval directories :: eval-0-planning-defers-execution,eval-1-ready-executes-and-revalidates-fingerprint,eval-2-legacy-migrates-and-executes,eval-3-batch-one-confirmation,eval-4-blocked-stops-batch
+PASS eval ids are 0-4 :: 0,1,2,3,4
+PASS eval-0 directory exists :: eval-0-planning-defers-execution
+PASS eval-0-planning-defers-execution has with_skill/run-1 :: /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/acceptance/eval-0-planning-defers-execution/with_skill/run-1
+PASS eval-0-planning-defers-execution has no extra run dirs
+PASS eval-0-planning-defers-execution sessionId provenance -2 :: case-eval-planning-defers-execution-with_skill-2
+PASS eval-0-planning-defers-execution run model is MiniMax :: minimax-cn/MiniMax-M3.1-Flash
+PASS eval-0-planning-defers-execution run status completed :: completed
+PASS eval-0-planning-defers-execution run timestamps present
+PASS eval-0-planning-defers-execution timing positive :: 606.699s/5546981t
+PASS eval-0-planning-defers-execution grading expectations non-empty :: 6
+PASS eval-0-planning-defers-execution grading fields text/passed/evidence
+PASS eval-0-planning-defers-execution grading summary totals :: {"passed":6,"failed":0,"total":6,"pass_rate":1}
+PASS eval-0-planning-defers-execution eval metadata notes composition :: With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric.
+PASS eval-0-planning-defers-execution metadata runs_per_configuration 1
+PASS eval-0-planning-defers-execution eval/config metadata eval_id match
+PASS eval-1 directory exists :: eval-1-ready-executes-and-revalidates-fingerprint
+PASS eval-1-ready-executes-and-revalidates-fingerprint has with_skill/run-1 :: /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/acceptance/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run-1
+PASS eval-1-ready-executes-and-revalidates-fingerprint has no extra run dirs
+PASS eval-1-ready-executes-and-revalidates-fingerprint sessionId provenance -4 :: case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4
+PASS eval-1-ready-executes-and-revalidates-fingerprint run model is MiniMax :: minimax-cn/MiniMax-M3.1-Flash
+PASS eval-1-ready-executes-and-revalidates-fingerprint run status completed :: completed
+PASS eval-1-ready-executes-and-revalidates-fingerprint run timestamps present
+PASS eval-1-ready-executes-and-revalidates-fingerprint timing positive :: 1400.265s/13147809t
+PASS eval-1-ready-executes-and-revalidates-fingerprint grading expectations non-empty :: 6
+PASS eval-1-ready-executes-and-revalidates-fingerprint grading fields text/passed/evidence
+PASS eval-1-ready-executes-and-revalidates-fingerprint grading summary totals :: {"passed":6,"failed":0,"total":6,"pass_rate":1}
+PASS eval-1-ready-executes-and-revalidates-fingerprint eval metadata notes composition :: With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric.
+PASS eval-1-ready-executes-and-revalidates-fingerprint metadata runs_per_configuration 1
+PASS eval-1-ready-executes-and-revalidates-fingerprint eval/config metadata eval_id match
+PASS eval-1-ready-executes-and-revalidates-fingerprint independent approval assertion passed :: project/.pi/sessions: review stops, user approves a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2 befor
+PASS eval-2 directory exists :: eval-2-legacy-migrates-and-executes
+PASS eval-2-legacy-migrates-and-executes has with_skill/run-1 :: /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/acceptance/eval-2-legacy-migrates-and-executes/with_skill/run-1
+PASS eval-2-legacy-migrates-and-executes has no extra run dirs
+PASS eval-2-legacy-migrates-and-executes sessionId provenance -4 :: case-eval-legacy-migrates-and-executes-with_skill-4
+PASS eval-2-legacy-migrates-and-executes run model is MiniMax :: minimax-cn/MiniMax-M3.1-Flash
+PASS eval-2-legacy-migrates-and-executes run status completed :: completed
+PASS eval-2-legacy-migrates-and-executes run timestamps present
+PASS eval-2-legacy-migrates-and-executes timing positive :: 632.859s/11368828t
+PASS eval-2-legacy-migrates-and-executes grading expectations non-empty :: 5
+PASS eval-2-legacy-migrates-and-executes grading fields text/passed/evidence
+PASS eval-2-legacy-migrates-and-executes grading summary totals :: {"passed":5,"failed":0,"total":5,"pass_rate":1}
+PASS eval-2-legacy-migrates-and-executes eval metadata notes composition :: With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric.
+PASS eval-2-legacy-migrates-and-executes metadata runs_per_configuration 1
+PASS eval-2-legacy-migrates-and-executes eval/config metadata eval_id match
+PASS eval-2-legacy-migrates-and-executes independent approval assertion passed :: project/.pi/sessions: user independently approves 03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65 befor
+PASS eval-3 directory exists :: eval-3-batch-one-confirmation
+PASS eval-3-batch-one-confirmation has with_skill/run-1 :: /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/acceptance/eval-3-batch-one-confirmation/with_skill/run-1
+PASS eval-3-batch-one-confirmation has no extra run dirs
+PASS eval-3-batch-one-confirmation sessionId provenance -2 :: case-eval-batch-one-confirmation-with_skill-2
+PASS eval-3-batch-one-confirmation run model is MiniMax :: minimax-cn/MiniMax-M3.1-Flash
+PASS eval-3-batch-one-confirmation run status completed :: completed
+PASS eval-3-batch-one-confirmation run timestamps present
+PASS eval-3-batch-one-confirmation timing positive :: 2224.573s/23046055t
+PASS eval-3-batch-one-confirmation grading expectations non-empty :: 5
+PASS eval-3-batch-one-confirmation grading fields text/passed/evidence
+PASS eval-3-batch-one-confirmation grading summary totals :: {"passed":5,"failed":0,"total":5,"pass_rate":1}
+PASS eval-3-batch-one-confirmation eval metadata notes composition :: With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric.
+PASS eval-3-batch-one-confirmation metadata runs_per_configuration 1
+PASS eval-3-batch-one-confirmation eval/config metadata eval_id match
+PASS eval-4 directory exists :: eval-4-blocked-stops-batch
+PASS eval-4-blocked-stops-batch has with_skill/run-1 :: /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/acceptance/eval-4-blocked-stops-batch/with_skill/run-1
+PASS eval-4-blocked-stops-batch has no extra run dirs
+PASS eval-4-blocked-stops-batch sessionId provenance -4 :: case-eval-blocked-stops-batch-with_skill-4
+PASS eval-4-blocked-stops-batch run model is MiniMax :: minimax-cn/MiniMax-M3.1-Flash
+PASS eval-4-blocked-stops-batch run status completed :: completed
+PASS eval-4-blocked-stops-batch run timestamps present
+PASS eval-4-blocked-stops-batch timing positive :: 1423.245s/13247918t
+PASS eval-4-blocked-stops-batch grading expectations non-empty :: 5
+PASS eval-4-blocked-stops-batch grading fields text/passed/evidence
+PASS eval-4-blocked-stops-batch grading summary totals :: {"passed":5,"failed":0,"total":5,"pass_rate":1}
+PASS eval-4-blocked-stops-batch eval metadata notes composition :: With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric.
+PASS eval-4-blocked-stops-batch metadata runs_per_configuration 1
+PASS eval-4-blocked-stops-batch eval/config metadata eval_id match
+PASS eval-4-blocked-stops-batch independent approval assertion passed :: project/.pi/sessions: one independent user message approves both b6356d0f… and 4f34e3ac… before either confirm or execut
+PASS exactly five with_skill runs :: 5
+PASS no without_skill scoring dirs in acceptance view
+PASS session ids unique :: case-eval-planning-defers-execution-with_skill-2,case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4,case-eval-legacy-migrates-and-executes-with_skill-4,case-eval-batch-one-confirmation-with_skill-2,case-eval-blocked-stops-batch-with_skill-4
+PASS eval-0-planning-defers-execution durable session JSONL present
+PASS eval-0-planning-defers-execution has review before first confirm :: reviews=1 confirms=1
+PASS eval-0-planning-defers-execution confirm waits for new user hash approval :: approval#100
+PASS eval-0-planning-defers-execution planning has no execution :: 0
+PASS eval-0-planning-defers-execution approval sequence complete
+PASS eval-1-ready-executes-and-revalidates-fingerprint durable session JSONL present
+PASS eval-1-ready-executes-and-revalidates-fingerprint has review before first confirm :: reviews=3 confirms=1
+PASS eval-1-ready-executes-and-revalidates-fingerprint confirm waits for new user hash approval :: approval#129
+PASS eval-1-ready-executes-and-revalidates-fingerprint first execution after confirm :: confirm#130 exec#132
+PASS eval-1-ready-executes-and-revalidates-fingerprint execution after user approval :: approval#129
+PASS eval-1-ready-executes-and-revalidates-fingerprint approval sequence complete
+PASS eval-2-legacy-migrates-and-executes durable session JSONL present
+PASS eval-2-legacy-migrates-and-executes has review before first confirm :: reviews=1 confirms=1
+PASS eval-2-legacy-migrates-and-executes confirm waits for new user hash approval :: approval#157
+PASS eval-2-legacy-migrates-and-executes first execution after confirm :: confirm#158 exec#160
+PASS eval-2-legacy-migrates-and-executes execution after user approval :: approval#157
+PASS eval-2-legacy-migrates-and-executes approval sequence complete
+PASS eval-3-batch-one-confirmation durable session JSONL present
+PASS eval-3-batch-one-confirmation has review before first confirm :: reviews=5 confirms=2
+PASS eval-3-batch-one-confirmation confirm waits for new user hash approval :: approval#141
+PASS eval-3-batch-one-confirmation confirm waits for new user hash approval :: approval#141
+PASS eval-3-batch-one-confirmation first execution after confirm :: confirm#142 exec#161
+PASS eval-3-batch-one-confirmation execution after user approval :: approval#141
+PASS eval-3-batch-one-confirmation approval sequence complete
+PASS eval-4-blocked-stops-batch durable session JSONL present
+PASS eval-4-blocked-stops-batch has review before first confirm :: reviews=3 confirms=2
+PASS eval-4-blocked-stops-batch confirm waits for new user hash approval :: approval#116
+PASS eval-4-blocked-stops-batch confirm waits for new user hash approval :: approval#116
+PASS eval-4-blocked-stops-batch first execution after confirm :: confirm#128 exec#136
+PASS eval-4-blocked-stops-batch execution after user approval :: approval#116
+PASS eval-4-blocked-stops-batch approval sequence complete
+PASS benchmark has five runs :: 5
+PASS benchmark runs are all with_skill
+PASS benchmark eval ids 0-4
+PASS benchmark summary has with_skill
+PASS benchmark summary has no without_skill
+PASS benchmark metadata has no placeholders
+PASS benchmark runs_per_configuration 1
+PASS benchmark notes mention with_skill-only
+PASS reviewer embeds EMBEDDED_DATA
+PASS reviewer embeds five runs :: 5
+PASS reviewer runs are all with_skill
+PASS reviewer benchmark has five with_skill runs
+PASS reviewer contains five scenario names
+PASS reviewer has no without_skill run ids
+PASS preflight has MiniMax model
+PASS preflight has OK
+PASS preflight has no credential/503 failure
+PASS feedback reviewedAt present
+PASS feedback entries present
+PASS feedback entries have status and resolution
+SUMMARY 129/129 passed
+C7_EXIT=0

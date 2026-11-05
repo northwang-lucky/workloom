@@ -1,0 +1,9 @@
+{
+  "total_duration_seconds": 2224.573,
+  "total_tokens": 23046055,
+  "session_files": [
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-3-batch-one-confirmation/with_skill/run-1/project/.pi/sessions/2026-11-04T05-20-54-124Z_case-eval-batch-one-confirmation-with_skill-2.jsonl",
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-3-batch-one-confirmation/with_skill/run-1/project/.workloom/sessions/pi/2026-11-04T05-21-59-675Z_01a1a501-c77a-71eb-8f1b-3eece8e6fa0e.jsonl",
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-3-batch-one-confirmation/with_skill/run-1/project/.workloom/sessions/pi/2026-11-04T05-30-11-417Z_01a1a509-4858-7469-9c50-885a1b7bb936.jsonl"
+  ]
+}

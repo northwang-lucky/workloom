@@ -1,0 +1,29 @@
+Full execution context
+date=2026-11-05T09:41:29+08:00
+branch=workloom/11-03-case-active-skill
+head=ff3665426e23f17807aa7e3323e6b4659ba2f1c5
+merge-base=ff3665426e23f17807aa7e3323e6b4659ba2f1c5
+fingerprint=codeFingerprint=c3ba1f6e1719009c79ee63d9d32f64cfedc8aa015366ffd48f273246aba6f47d
+--- git status ---
+ M packages/adapter-dsh/dist/skills.js
+ M packages/adapter-dsh/dist/skills.js.map
+ M packages/adapter-dsh/src/skills.ts
+ M packages/adapter-dsh/test/skills.test.js
+ M packages/adapter-pi/scripts/sync-skills.mjs
+ M packages/adapter-pi/test/skills.test.ts
+?? packages/assets/skills/workloom-case-active/
+--- case evidence dir ---
+c0-context.txt
+c1-red.txt
+c2-registration.txt
+c3-skill-contract.txt
+c4-fingerprint.txt
+c5-case-review.txt
+c6-plan.txt
+eval-preflight.txt
+partial-execution.md
+precheck-lint-typecheck.txt
+recheck-fix.txt
+sr11-dist.txt
+sr6-launcher-guard.txt
+sr-review.md

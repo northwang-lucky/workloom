@@ -1,0 +1,25 @@
+TOTAL 280/301 (93.0%)
+C12 coverage evidence
+date=2026-11-05T09:44:23+08:00
+SF records: 2
+SF:packages/adapter-dsh/src/skills.ts
+SF:packages/assets/skills/workloom-case-active/scripts/task-fingerprint.mjs
+packages/adapter-dsh/src/skills.ts 244/265 92.1%
+packages/assets/skills/workloom-case-active/scripts/task-fingerprint.mjs 36/36 100.0%
+TOTAL 280/301 (93.0%)
+raw sizes:
+153443 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/coverage/lcov-adapter-dsh.info
+   571 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/coverage/lcov-assets-fingerprint.info
+  2793 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/coverage/lcov.info
+156807 总计
+C12 supplementary test logs (stderr was empty because tests passed)
+date=2026-11-05T09:46:42+08:00
+ℹ tests 16
+ℹ pass 16
+ℹ fail 0
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+1556 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/coverage/adapter-dsh-test.log
+ 292 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/coverage/assets-test.log
+1848 总计

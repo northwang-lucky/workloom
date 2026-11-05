@@ -1,0 +1,278 @@
+{
+  "metadata": {
+    "skill_name": "workloom-case-active",
+    "skill_path": "packages/assets/skills/workloom-case-active",
+    "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+    "analyzer_model": "kimi-coding/k3.1-pro",
+    "timestamp": "2026-11-04T11:46:25Z",
+    "evals_run": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 606.699,
+        "tokens": 5546981,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "case.md passes workloom_task_case review before confirmation.",
+          "passed": true,
+          "evidence": "project/.pi/sessions: workloom_task_case review returns readyToConfirm=true before confirm; task.json confirmedAt follows review."
+        },
+        {
+          "text": "The confirmed caseHash matches the current CASE bytes.",
+          "passed": true,
+          "evidence": "project/.workloom/tasks/planning-case/task.json case.caseHash matches independently recomputed case.md SHA-256."
+        },
+        {
+          "text": "The task remains planning and no case-result.md exists.",
+          "passed": true,
+          "evidence": "task.json status=planning, case.result=null; no case-result.md and no execution dispatch."
+        },
+        {
+          "text": "No implementation file is created or modified.",
+          "passed": true,
+          "evidence": "git status only contains the disclosed fixture config repair, task.json and case.md; no source files changed."
+        },
+        {
+          "text": "A real check executor is dispatched with purpose=case-design and a recorded case.designSession.",
+          "passed": true,
+          "evidence": "task.json dispatches records purpose=case-design and designSession=01a1a4a6-711f-744c-a02d-1a7f9d7f4da8."
+        },
+        {
+          "text": "The transcript waits for explicit user approval before calling confirm.",
+          "passed": true,
+          "evidence": "project/.pi/sessions: user independently approves hash 9fad84fdca4a110a9bc8ce9556f91028c50d9a004513aac7cf95e3e53f3fbca1 before confirm."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 1400.265,
+        "tokens": 13147809,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "case-result.md records passed SR/C items, real coverage, and codeFingerprint=<64-hex>.",
+          "passed": true,
+          "evidence": "case-result.md: passed SR/C, 76/76 coverage and codeFingerprint=583a5da1\u2026; task-fingerprint.mjs independently matches."
+        },
+        {
+          "text": "The second run reuses the valid result and creates no new child session.",
+          "passed": true,
+          "evidence": "outputs/noop.txt plus task.json dispatches: no new execution or child session during unchanged reuse."
+        },
+        {
+          "text": "Changing an untracked source file changes the fingerprint and triggers re-execution.",
+          "passed": true,
+          "evidence": "outputs/fingerprint-changed.txt: e5897d50\u2026\u2192583a5da1\u2026; execution reruns and RESULT is rewritten."
+        },
+        {
+          "text": "Editing case.md changes the review hash and prevents a new execution dispatch until fresh approval.",
+          "passed": true,
+          "evidence": "outputs/case-edit.txt: edited hash b19f04ca\u2026 differs from confirmed a31b0c4c\u2026; execution is refused and dispatch count stays 5."
+        },
+        {
+          "text": "The final check and case.result match the current RESULT bytes.",
+          "passed": true,
+          "evidence": "task.json case.result.resultHash matches recomputed case-result.md SHA-256 and check.passedAt follows RESULT completion."
+        },
+        {
+          "text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.",
+          "passed": true,
+          "evidence": "project/.pi/sessions: review stops, user approves a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2 before confirm/execution."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 632.859,
+        "tokens": 11368828,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Legacy design.md + implement.md are handled by workloom-migrate-plan before CASE design when plan.md is absent.",
+          "passed": true,
+          "evidence": "Session reads workloom-migrate-plan; design.md+implement.md are replaced by plan.md and legacy files are deleted before CASE design."
+        },
+        {
+          "text": "Confirm changes case.required to true without deleting legacy audit fields.",
+          "passed": true,
+          "evidence": "task.json case.required=true; check.jsonl, implement.jsonl and implement-report.md remain present; overrides=[]."
+        },
+        {
+          "text": "case-result.md checkSession equals designSession or is connected by a valid fallbackOf chain.",
+          "passed": true,
+          "evidence": "case-result.md checkSession equals case.designSession=01a1a5ef-4bff-766b-8832-a2ce4b35c2fe."
+        },
+        {
+          "text": "Real CASE evidence and coverage or a justified not_applicable result exist.",
+          "passed": true,
+          "evidence": "case-evidence/ contains six real files; coverage not_applicable is justified because the fixture has no product source."
+        },
+        {
+          "text": "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch.",
+          "passed": true,
+          "evidence": "project/.pi/sessions: user independently approves 03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65 before confirm/execution."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 2224.573,
+        "tokens": 23046055,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": ".workloom/workspace/case-batches/<batch-id>.md contains both task paths, distinct hashes, approval time, and execution states.",
+          "passed": true,
+          "evidence": ".workloom/workspace/case-batches/20261104T054028Z.md lists two distinct hashes, approval time and passed execution states."
+        },
+        {
+          "text": "One approval covers the listed batch; each confirm uses its own current hash.",
+          "passed": true,
+          "evidence": "One user message approves both b4ef98a9\u2026 and 5ecc299d\u2026; each confirm uses its own expectedCaseHash."
+        },
+        {
+          "text": "Execution is serial and preserves one active task at a time.",
+          "passed": true,
+          "evidence": "batch-a executes before batch-b; batch-b starts after batch-a case.result.passedAt, with no overlapping execution window."
+        },
+        {
+          "text": "Any non-ready CASE is excluded from the batch and reported.",
+          "passed": true,
+          "evidence": "Batch file Excluded candidates lists not-ready because plan.md is absent; no CASE enters the package for it."
+        },
+        {
+          "text": "Light, completed, archived, and non-ready candidate directories remain byte-identical.",
+          "passed": true,
+          "evidence": "git status and batch-file checksum evidence show light-task, completed archive and not-ready directories unchanged."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 1423.245,
+        "tokens": 13247918,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The blocked C item prevents a check pass and cannot be bypassed with force.",
+          "passed": true,
+          "evidence": "blocked-a case-result.md is failed with C2 blocked; workloom_task_check is refused; check=null, overrides=[], case.result=null."
+        },
+        {
+          "text": "No later task starts CASE execution after the blocked first result.",
+          "passed": true,
+          "evidence": "untouched-b has only case-design dispatch and no execution, case-result.md, case-evidence or coverage."
+        },
+        {
+          "text": "The batch file lists completed, blocked, and untouched states accurately.",
+          "passed": true,
+          "evidence": "batch-20261104-01.md Batch outcome: completed=none, blocked=blocked-a, untouched=untouched-b."
+        },
+        {
+          "text": "The main report identifies the blocked task and all tasks left unexecuted.",
+          "passed": true,
+          "evidence": "outputs/final.txt and batch file report blocked-a and untouched-b without declaring the blocked result passed."
+        },
+        {
+          "text": "The transcript stops after batch review and waits for an independent user approval message before any confirm or execution dispatch.",
+          "passed": true,
+          "evidence": "project/.pi/sessions: one independent user message approves both b6356d0f\u2026 and 4f34e3ac\u2026 before either confirm or execution."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1,
+        "max": 1
+      },
+      "time_seconds": {
+        "mean": 1257.5282,
+        "stddev": 670.2242,
+        "min": 606.699,
+        "max": 2224.573
+      },
+      "tokens": {
+        "mean": 13271518.2,
+        "stddev": 6301708.8068,
+        "min": 5546981,
+        "max": 23046055
+      }
+    },
+    "delta": {
+      "pass_rate": "+1.00",
+      "time_seconds": "+1257.5",
+      "tokens": "+13271518"
+    }
+  },
+  "notes": [
+    "Only with-skill runs participate in acceptance; no without-skill result is scored or used for pass/fail.",
+    "planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. Superseded runs are excluded from acceptance counts.",
+    "total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric.",
+    "All 27 evaluated checks passed. The planning fixture config repair is disclosed in the evidence.",
+    "The static viewer is generated from these five with-skill runs only; delta fields from the single-configuration aggregator are not comparative evidence."
+  ]
+}

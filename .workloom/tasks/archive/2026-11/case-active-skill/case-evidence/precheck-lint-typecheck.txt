@@ -1,0 +1,14 @@
+Precheck: lint and typecheck (C11 remains pending)
+date=2026-11-04T11:34:40+08:00
+--- pnpm lint ---
+$ eslint .
+LINT_EXIT=0
+--- pnpm -r typecheck ---
+Scope: 4 of 5 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/adapter-pi typecheck$ tsc -p tsconfig.json
+packages/adapter-dsh typecheck$ tsc -p tsconfig.json --noEmit
+packages/adapter-dsh typecheck: Done
+packages/adapter-pi typecheck: Done
+TYPECHECK_EXIT=0

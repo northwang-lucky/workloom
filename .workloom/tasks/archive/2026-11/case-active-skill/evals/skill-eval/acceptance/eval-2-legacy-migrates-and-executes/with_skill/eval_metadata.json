@@ -1,0 +1,32 @@
+{
+  "eval_id": 2,
+  "eval_name": "eval-2-legacy-migrates-and-executes",
+  "prompt": "Work in <fixture-project>. Design and execute CASE on the in_progress legacy full task with no case field and design.md + implement.md. Migrate the plan first if required, then design and review CASE. The initial request is not an approval: stop after review and wait for a new user message that approves the current caseHash before any confirm or execution. After that approval, execute the CASE and record real evidence. Report the old and new case records.",
+  "assertions": [
+    "Legacy design.md + implement.md are handled by workloom-migrate-plan before CASE design when plan.md is absent.",
+    "Confirm changes case.required to true without deleting legacy audit fields.",
+    "case-result.md checkSession equals designSession or is connected by a valid fallbackOf chain.",
+    "Real CASE evidence and coverage or a justified not_applicable result exist.",
+    "The transcript stops after CASE review and waits for an independent user approval message before any confirm or execution dispatch."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-active",
+  "configuration": "with_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "legacy-migrates-and-executes",
+      "evalId": 2,
+      "evalName": "eval-2-legacy-migrates-and-executes",
+      "configuration": "with_skill",
+      "sessionId": "case-eval-legacy-migrates-and-executes-with_skill-4",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+      "status": "completed",
+      "startedAt": "2026-11-04T09:38:05.150Z",
+      "completedAt": "2026-11-04T09:48:55.917Z"
+    }
+  },
+  "notes": "With-skill-only acceptance. Planning and batch use iteration 2; ready, legacy and blocked use iteration 4 after the independent-approval prompt fix. No baseline run participates in this result. Superseded iteration-2 runs for ready/legacy/blocked are excluded from acceptance counts. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric."
+}

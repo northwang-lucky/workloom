@@ -1,0 +1,24 @@
+ 5912e72b… matches the current case-result.md bytes; RESULT codeBaseline
+ fingerprint matches the live fingerprint; coverage generated,
+ line/branch/function all 100.00%.
+
+ The task is deliberately left at in_progress / stage check with an unapproved
+ CASE edit pending — a further workloom_task_check would now be refused
+ (case_execution: case.md changed after confirmation…), which is the intended
+ blocking state. No commit was made: committing would move HEAD and change the
+ fingerprint this scenario measures.
+
+ Phase output saved to
+ …/iteration-4/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run
+ -1/outputs/case-edit.txt.
+
+ Open item for you: the edited CASE (b19f04ca…9257) needs a fresh review
+ approval + action=confirm before any further execution can run.
+
+ 💾 Memory auto-reviewed and updated
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑171k ↓54k R7.9M CH99.0% 17.4%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

@@ -1,0 +1,24 @@
+
+ ┌───────────────────────────────────┬────────────┬───────────────────────────┐
+ │ Task                              │ State      │ Detail                    │
+ ├───────────────────────────────────┼────────────┼───────────────────────────┤
+ │ tasks/blocked-a                   │ 🔴 blocked │ Executed: SR 5/5 passed,  │
+ │                                   │            │ C1 passed, C2 blocked, C3 │
+ │                                   │            │ pending. RESULT status:   │
+ │                                   │            │ failed. Check credential  │
+ │                                   │            │ refused by the core gate. │
+ ├───────────────────────────────────┼────────────┼───────────────────────────┤
+ │ tasks/untouched-b                 │ ⚪         │ CASE designed + confirmed │
+ │                                   │ untouched  │ only; never dispatched    │
+ │                                   │            │ for execution.            │
+ ├───────────────────────────────────┼────────────┼───────────────────────────┤
+ │ tasks/not-ready /                 │ ⬜         │ Not in the package;       │
+ │ tasks/light-task /                │ excluded   │ directories unchanged.    │
+ │ tasks/archive/completed-case      │            │                           │
+ └───────────────────────────────────┴────────────┴───────────────────────────┘
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑219k ↓31k R3.3M CH99.1% 12.0%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "case.md passes workloom_task_case review before confirmation.",
+      "passed": true,
+      "evidence": "project/.pi/sessions: workloom_task_case review returns readyToConfirm=true before confirm; task.json confirmedAt follows review."
+    },
+    {
+      "text": "The confirmed caseHash matches the current CASE bytes.",
+      "passed": true,
+      "evidence": "project/.workloom/tasks/planning-case/task.json case.caseHash matches independently recomputed case.md SHA-256."
+    },
+    {
+      "text": "The task remains planning and no case-result.md exists.",
+      "passed": true,
+      "evidence": "task.json status=planning, case.result=null; no case-result.md and no execution dispatch."
+    },
+    {
+      "text": "No implementation file is created or modified.",
+      "passed": true,
+      "evidence": "git status only contains the disclosed fixture config repair, task.json and case.md; no source files changed."
+    },
+    {
+      "text": "A real check executor is dispatched with purpose=case-design and a recorded case.designSession.",
+      "passed": true,
+      "evidence": "task.json dispatches records purpose=case-design and designSession=01a1a4a6-711f-744c-a02d-1a7f9d7f4da8."
+    },
+    {
+      "text": "The transcript waits for explicit user approval before calling confirm.",
+      "passed": true,
+      "evidence": "project/.pi/sessions: user independently approves hash 9fad84fdca4a110a9bc8ce9556f91028c50d9a004513aac7cf95e3e53f3fbca1 before confirm."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1
+  }
+}

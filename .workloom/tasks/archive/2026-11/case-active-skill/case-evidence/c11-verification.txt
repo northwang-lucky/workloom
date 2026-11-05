@@ -1,0 +1,41 @@
+C11 standard verification and build reproducibility
+date=2026-11-05T09:43:49+08:00
+=== pnpm lint ===
+LINT_EXIT=0
+$ eslint .
+=== pnpm -r typecheck ===
+TYPECHECK_EXIT=0
+packages/adapter-dsh typecheck$ tsc -p tsconfig.json --noEmit
+packages/adapter-pi typecheck$ tsc -p tsconfig.json
+packages/adapter-dsh typecheck: Done
+packages/adapter-pi typecheck: Done
+=== pnpm -r build ===
+BUILD_EXIT=0
+packages/adapter-pi build$ node scripts/sync-skills.mjs
+packages/adapter-pi build: Synced 10 skill directories into /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill/packages/adapter-pi/skills
+packages/adapter-pi build: Done
+packages/adapter-dsh build: Done
+BUILD2_EXIT=0
+DIST_STABLE=PASS
+=== core tests ===
+CORE_EXIT=0
+ℹ tests 732
+ℹ pass 732
+ℹ fail 0
+=== adapter-dsh tests ===
+DSH_EXIT=0
+ℹ tests 178
+ℹ pass 178
+ℹ fail 0
+=== adapter-pi tests ===
+PI_EXIT=0
+ 205 pass
+ 0 fail
+=== assets tests ===
+ASSETS_EXIT=0
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+=== TS diagnostics fallback ===
+TS_FALLBACK_EXIT=0
+$ tsc -p tsconfig.json --noEmit

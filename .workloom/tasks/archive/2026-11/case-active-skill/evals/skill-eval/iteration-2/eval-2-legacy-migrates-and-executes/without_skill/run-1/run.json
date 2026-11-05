@@ -1,0 +1,12 @@
+{
+  "scenario": "legacy-migrates-and-executes",
+  "evalId": 2,
+  "evalName": "eval-2-legacy-migrates-and-executes",
+  "configuration": "without_skill",
+  "sessionId": "case-eval-legacy-migrates-and-executes-without_skill-2",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+  "status": "completed",
+  "startedAt": "2026-11-04T04:56:43.814Z",
+  "completedAt": "2026-11-04T05:20:47.620Z"
+}

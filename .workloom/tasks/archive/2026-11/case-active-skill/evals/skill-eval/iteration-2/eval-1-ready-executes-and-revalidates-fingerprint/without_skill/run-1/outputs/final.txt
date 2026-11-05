@@ -1,0 +1,121 @@
+================================================================================
+PHASES 1-2 — DESIGN / REVIEW / CONFIRM / EXECUTE, THEN REPEAT WITHOUT CODE
+CHANGE (VALID RESULT REUSED, NO NEW CHILD SESSION)
+================================================================================
+Task             : tasks/ready-case (in_progress, full mode, stage implement -> check)
+Project root     : /data00/home/wangyubo.1219/workbench/code-src/github/workloom/
+                   .workloom/tasks/11-03-case-active-skill/evals/skill-eval/
+                   iteration-2/eval-1-ready-executes-and-revalidates-fingerprint/
+                   without_skill/run-1/project
+Main session id  : case-eval-ready-executes-and-revalidates-fingerprint-without_skill-2
+Check session id : 01a1a4d0-40ed-73c2-82b3-12d36032d13f
+Implement fixture: implement-ready-case (pre-existing fixture dispatch)
+Fingerprint tool : .workloom/tasks/ready-case/case-evidence/task-fingerprint.mjs
+                   (byte-identical copy of the repo's
+                    packages/assets/skills/workloom-case-active/scripts/task-fingerprint.mjs;
+                    sha256 f4486081... — HEAD + tracked diff + untracked contents)
+
+--------------------------------------------------------------------------------
+0. BASELINE
+--------------------------------------------------------------------------------
+HEAD                     : 3bc92fab0c13c363689dd4e2e4cbede23df0421f  (branch master)
+working tree             : clean
+codeFingerprint          : d2b7721d6799896534f7d429b58e01a12f9663d1bd039dbca07dbdf6faeed37c
+
+--------------------------------------------------------------------------------
+1. CASE DESIGN ROUND  (workloom_execute kind=check purpose=case-design)
+--------------------------------------------------------------------------------
+child session : 01a1a4d0-40ed-73c2-82b3-12d36032d13f
+at            : 2026-11-04T04:27:54.145Z
+stage         : unchanged (implement) — a case-design dispatch keeps the stage
+task.json     : case.required=true, case.designSession=01a1a4d0-40ed-73c2-82b3-12d36032d13f
+
+Produced: verify/case-runtime.mjs (deterministic harness), the coverage
+collector and the fingerprint copy under case-evidence/, and case.md.
+
+First review hash     : e2ec9c0ac966d5e55fb4c93d2ffb110614a17db6888f8cb5027d1e24d91dda84
+First review result   : readyToConfirm=true, structureIssues=[]
+
+Main-session review found 3 defects and sent them back to the SAME session
+(continuation, purpose=case-design, at 2026-11-04T04:31:28.256Z):
+  1. the CASE body and the harness were written in Chinese while every project
+     document is English  -> rewritten in English
+  2. C2's expectation was not robust to a later harness edit
+     -> restated as the invariant covered == total, no line count hard-coded
+  3. the Coverage exclusion reason had to be copyable verbatim into the RESULT
+     -> single English sentence
+
+--------------------------------------------------------------------------------
+2. REVIEW + CONFIRM
+--------------------------------------------------------------------------------
+workloom_task_case action=review
+  caseHash        : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb
+  structureIssues : []
+  readyToConfirm  : true
+
+workloom_task_case action=confirm(expectedCaseHash=00d6ab3e...)
+  caseHash   : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb
+  idempotent : false
+  confirmedAt: 2026-11-04T04:32:18.124Z
+  task.case  : { required: true, designSession: 01a1a4d0-...,
+                 confirmedAt: 2026-11-04T04:32:18.124Z,
+                 caseHash: 00d6ab3e...af4eb, result: null }
+
+--------------------------------------------------------------------------------
+3. EXECUTION ROUND  (workloom_execute kind=check purpose=execution)
+--------------------------------------------------------------------------------
+child session : 01a1a4d0-40ed-73c2-82b3-12d36032d13f (continuation of the design session)
+at            : 2026-11-04T04:32:28.970Z
+task.json     : case.result = { caseHash: 00d6ab3e...af4eb,
+                                resultHash: 7c6aa520784fc41a779730ea6853356401ce71d558a26700c1be07ea72692b63,
+                                passedAt: 2026-11-04T04:36:00.953Z }
+
+case-result.md (final state of this phase):
+  status        : passed
+  Static review : 2/2 (SR1, SR2 passed)
+  Runtime cases : 3/3 (C1, C2, C3 passed), blocked 0
+  Coverage      : generated, Overall lines 84/84 (100%) for verify/case-runtime.mjs
+  codeBaseline  : master@3bc92fab0c13c363689dd4e2e4cbede23df0421f
+                  codeFingerprint=d389998bd946d0a50d93195847e5d9896de2a55f551c6296412210686b51a262
+  checkSession  : 01a1a4d0-40ed-73c2-82b3-12d36032d13f  (== designSession)
+  Standard verification: 4 commands, all exit code 0
+  Open issues   : - none
+
+Two core-gate rejections happened on the way and were fixed by the executor:
+  a) workloom_task_check refused the first RESULT:
+     "CASE gate failed: RESULT Exclusions must match CASE paths and reasons"
+     -> the Exclusions table needs both cells backticked; fixed and re-executed
+        (dispatch at 2026-11-04T04:35:04.781Z)
+  b) the second workloom_task_check PASSED:
+     check.passedAt = 2026-11-04T04:36:00.953Z
+
+--------------------------------------------------------------------------------
+4. PHASE 2 — THE SAME CASE REQUEST REPEATED WITHOUT ANY CODE CHANGE
+--------------------------------------------------------------------------------
+Reuse evaluation before doing anything:
+  current codeFingerprint : d389998bd946d0a50d93195847e5d9896de2a55f551c6296412210686b51a262
+  RESULT codeFingerprint   : d389998bd946d0a50d93195847e5d9896de2a55f551c6296412210686b51a262   -> MATCH
+  RESULT status            : passed
+  sha256(case.md)         : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb
+  task.case.caseHash      : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb   -> MATCH
+  RESULT caseHash         : 00d6ab3e...af4eb                                                     -> MATCH
+  task.case.result.resultHash : 7c6aa520...92b63 == sha256(case-result.md)                       -> MATCH
+
+=> The confirmation, the RESULT and the executed code tree all still agree, so the
+   existing result is reused as-is.
+   NO workloom_execute call was made, NO child session was created, NO dispatch
+   entry was appended (task.json still listed 5 dispatches after this phase and
+   the only check child id remained 01a1a4d0-40ed-73c2-82b3-12d36032d13f).
+
+--------------------------------------------------------------------------------
+5. FINGERPRINT TIMELINE
+--------------------------------------------------------------------------------
+  d2b7721d6799896534f7d429b58e01a12f9663d1bd039dbca07dbdf6faeed37c  baseline (clean tree)
+  d389998bd946d0a50d93195847e5d9896de2a55f551c6296412210686b51a262  after verify/case-runtime.mjs
+                                                                          was created and rewritten
+                                                                          to English -> executed and
+                                                                          recorded in case-result.md
+  9e296673f7fc6f2c9f63370f435665b6a132e21977545d2b6e0247d475a07eb9  after the untracked source file
+                                                                          was edited (phase 3)
+
+================================================================================

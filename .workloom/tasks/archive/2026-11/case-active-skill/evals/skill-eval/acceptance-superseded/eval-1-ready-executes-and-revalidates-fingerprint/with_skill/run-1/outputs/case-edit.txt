@@ -1,0 +1,64 @@
+PHASE 5 — CASE edited WITHOUT re-confirmation → execution waits for a new review and approval
+Task: tasks/ready-case  (project: .../with_skill/run-1/project)
+Recorded: 2026-11-04T04:23Z
+
+1) THE EDIT (small, structure-preserving; made by the main session, NOT re-confirmed)
+   File: .workloom/tasks/ready-case/case.md
+   Under `## Scope` → `- Out of scope:` one bullet was appended:
+     + "  - 新增产品功能或第三方依赖（验收只覆盖既有固定装置的确定性行为）"
+   Nothing else changed: front matter, References, Static Review (SR1/SR2),
+   Runtime Cases (C1), Coverage and Traceability are byte-identical.
+
+2) HASHES
+   confirmed caseHash (task.json case.caseHash, approved earlier):
+     c46585e54f728ed6914adee262c45427a192ca409b6ac6849518a624af273bf9
+   live case.md hash after the edit (workloom_task_case action=review):
+     ceb9e9e1d89ec4cdf488ec7afb7a8848f02a477ebf22fb232d4c843d35d9691f
+   RESULT front-matter caseHash (unchanged, still the old confirmed hash):
+     c46585e54f728ed6914adee262c45427a192ca409b6ac6849518a624af273bf9
+   => live hash != confirmed hash  => the confirmation credential is STALE.
+
+3) REVIEW STILL WORKS, CONFIRMATION DOES NOT
+   workloom_task_case action=review ->
+     readyToConfirm: true, structureIssues: [], confirmBlockers: []
+   The edited CASE is structurally valid and reviewable; it is simply NOT confirmed,
+   so it must not be executed. The review snapshot above (ceb9e9e1…9691f) is the
+   candidate for a fresh user approval.
+
+4) EXECUTION ATTEMPT IS REFUSED (no execution ran)
+   Attempted: workloom_execute kind=check purpose=execution
+              continue_executor=01a1a4bf-eae0-744e-a630-ae86fc63ca29
+   Runtime response:
+     CASE execution rejected: case.md changed after confirmation; review and confirm it again
+   Core gate (evaluateCaseExecutionGate) reason, same wording:
+     ["case.md changed after confirmation; review and confirm it again"]
+
+5) PROOF THAT NOTHING WAS EXECUTED
+   task.json dispatches count: 6 before the attempt, 6 after (no dispatch record written):
+     implement  -        completed  implement-ready-case                (pre-existing fixture dispatch)
+     implement  -        completed  01a1a4bc-8429-71d1-81e4-6199a6e2baa9 (add src/verify-fixture.mjs)
+     check     case-design completed 01a1a4bf-eae0-744e-a630-ae86fc63ca29 (CASE design)
+     check     execution  completed 01a1a4bf-eae0-744e-a630-ae86fc63ca29 (execution round 1)
+     check     execution  completed 01a1a4bf-eae0-744e-a630-ae86fc63ca29 (execution round 2, after code change)
+     check     execution  completed 01a1a4bf-eae0-744e-a630-ae86fc63ca29 (execution round 3, after comment append)
+   No new child session was created: no additional child id exists in task.json and no
+   new Pi session file appeared under .pi/sessions (only the parent TUI session
+   2026-11-04T04-01-34-000Z_case-eval-ready-executes-and-revalidates-fingerprint-with_skill-2.jsonl).
+
+6) STATE OF THE EXISTING EVIDENCE (still valid, because the edit touched only .workloom/)
+   current code fingerprint:
+     76bc5050952b263e980fba36461e5bad621ae15d1eb952ad6a78d664d86bab53   (unchanged by the .workloom edit)
+   RESULT file hash (current bytes):
+     72b72f8f830392c65e90d611184d9f850dc3210e3ad82e82fa58176c43bdc67a
+   task.case.result.resultHash:
+     72b72f8f830392c65e90d611184d9f850dc3210e3ad82e82fa58176c43bdc67a   (matches the current RESULT bytes)
+   task.check.passedAt: 2026-11-04T04:21:38.301Z  (2.3 credential recorded on the current RESULT)
+   RESULT codeBaseline fingerprint:
+     codeFingerprint=76bc5050952b263e980fba36461e5bad621ae15d1eb952ad6a78d664d86bab53
+
+7) WHAT IS REQUIRED TO PROCEED (not done here, by design)
+   1) a fresh review of the edited CASE  -> done above: hash ceb9e9e1…9691f, readyToConfirm=true
+   2) explicit user approval of THAT EXACT HASH (ceb9e9e1…9691f)
+   3) workloom_task_case action=confirm with expectedCaseHash=ceb9e9e1…9691f
+   4) only then workloom_execute kind=check purpose=execution with the new confirmed hash
+   Until step 3 happens, every execution dispatch is refused by the core CASE gate.

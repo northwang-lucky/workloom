@@ -1,0 +1,27 @@
+C4 fingerprint stability and sensitivity
+date=2026-11-05T09:41:50+08:00
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+UNIT_EXIT=0
+FP1=codeFingerprint=c3ba1f6e1719009c79ee63d9d32f64cfedc8aa015366ffd48f273246aba6f47d
+FP2=codeFingerprint=c3ba1f6e1719009c79ee63d9d32f64cfedc8aa015366ffd48f273246aba6f47d
+FORMAT=PASS
+STABLE=PASS
+FP3=codeFingerprint=6b5faf89eb5446c366f594d7bc65c0f346959f611cbaf2c2f526476e95f3c15a
+FP4=codeFingerprint=c3ba1f6e1719009c79ee63d9d32f64cfedc8aa015366ffd48f273246aba6f47d
+PROBE_CHANGES=PASS
+RESTORES=PASS
+PROBE_LEFTOVER=none
+=== ready scenario fingerprint evidence ===
+fingerprint-changed.txt: present
+5:codeBaseline: master@97f0f7ad90dd401d4ddad9a98fbc6f8338fdb991 codeFingerprint=583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593
+case-result.md: present
+10:| 4 | Change untracked source → repeat | fingerprint `e5897d50…`→`583a5da1…`; condition 6 flipped to FAIL → **re-execution dispatched**, RESULT rewritten (76/76, 100.00%), 2.3 re-recorded |
+15:| State | codeFingerprint |
+17:| F0 — fixture baseline, no source | `7a068ba9216367c836a6262d50e68425d37159a80f8d032369365c33aac22b9d` |
+18:| F1 — harness added | `e5897d50346199d4ebe207d2e24ed9e5caf11b90831d401049c1324478304291` |
+19:| F2 — untracked source changed (comment-only) | `583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593` |
+22:RESULT hashes: round 1 `4ad95926…` (74/74) → round 2 `5912e72b…` (76/76). Live fingerprint still `583a5da1…` — the CASE edit was `.workloom/`-only, so it is fingerprint-neutral.
+26:- Parent TUI: `case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4`
+34:`task.check.passedAt = 2026-11-04T09:35:52.180Z`; `task.case.result.resultHash = 5912e72b…` **matches** the current `case-result.md` bytes; RESULT `codeBaseline` fingerprint **matches** the live fingerprint; coverage generated, line/branch/function all 100.00%.

@@ -1,0 +1,24 @@
+
+ .workloom/workspace/case-batches/batch-20261104-01.md — updated with both
+ paths, both distinct caseHashes, approval time 2026-11-04T06:38:24Z, the exact
+ per-task confirm summaries stored in case.summary, the serial execution log,
+ and the final completed/blocked/untouched states.
+
+ ### Notes for you
+
+ - One batch approval covered the whole package, and each task was confirmed
+   separately with its own current hash; the confirm summaries reference the
+   batch file.
+ - tasks/not-ready was excluded because it is planning with a PRD but no
+   plan.md — the skill forbids inventing a PLAN inside CASE work, so it stays
+   in normal planning. tasks/light-task (mode: light) and the archived task
+   were skipped by rule.
+ - No commit or archive followed: blocked-a never earned a check pass, and
+   untouched-b was never executed. The fixture working tree still carries the
+   CASE artifacts uncommitted.
+── ⠼ Working ───────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+workloom config: "subagents" is deprecated; use "subagent_profiles" insteadks...
+workloom config: "subagents" is deprecated; use "subagent_profiles" insteadxhigh
+↑178k ↓38k R8.8M CH99.4% 17.9%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

@@ -1,0 +1,8 @@
+{
+  "total_duration_seconds": 588.66,
+  "total_tokens": 4131754,
+  "session_files": [
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-0-planning-defers-execution/without_skill/run-1/project/.pi/sessions/2026-11-04T03-51-12-294Z_case-eval-planning-defers-execution-without_skill-2.jsonl",
+    ".workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-0-planning-defers-execution/without_skill/run-1/project/.workloom/sessions/pi/2026-11-04T03-52-55-011Z_01a1a4b0-39e2-75dd-ac61-2045040fa878.jsonl"
+  ]
+}

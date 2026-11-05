@@ -1,0 +1,31 @@
+{
+  "eval_id": 4,
+  "eval_name": "eval-4-blocked-stops-batch",
+  "prompt": "Work in <fixture-project>. Process CASE for the batch whose first task has a blocked runtime case. Review and obtain one batch approval, then execute. Report completed, blocked, and untouched tasks and update the batch file.",
+  "assertions": [
+    "The blocked C item prevents a check pass and cannot be bypassed with force.",
+    "No later task starts CASE execution after the blocked first result.",
+    "The batch file lists completed, blocked, and untouched states accurately.",
+    "The main report identifies the blocked task and all tasks left unexecuted."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-active",
+  "configuration": "without_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "blocked-stops-batch",
+      "evalId": 4,
+      "evalName": "eval-4-blocked-stops-batch",
+      "configuration": "without_skill",
+      "sessionId": "case-eval-blocked-stops-batch-without_skill-2",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-active-skill",
+      "status": "completed",
+      "startedAt": "2026-11-04T06:44:22.038Z",
+      "completedAt": "2026-11-04T07:16:35.596Z"
+    }
+  },
+  "notes": "Baseline receives the workloom workflow. Batch baseline also read the earlier with_skill run; this contamination risk is retained in the review evidence."
+}

@@ -1,0 +1,92 @@
+PHASE — CASE edited WITHOUT re-confirmation → execution waits for a new review and approval
+
+Task: tasks/ready-case  (in_progress, mode: full, stage: check)
+Project: .workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-4/eval-1-ready-executes-and-revalidates-fingerprint/with_skill/run-1/project
+Parent session: case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4
+Recorded: 2026-11-04T09:38Z
+
+
+1) THE EDIT (small, structure-preserving; made by the main session, NOT re-confirmed)
+
+   File: .workloom/tasks/ready-case/case.md
+   Under `## Scope` → `- Out of scope:` one bullet was appended:
+
+     + 远端依赖与网络调用的验证路径：本次验收只覆盖本地确定性行为，不涉及任何第三方服务或远端环境。
+
+   Nothing else changed: front matter, References, Static Review (SR1/SR2),
+   Runtime Cases (C1), Coverage and Traceability are byte-identical.
+
+   Diff shape: exactly one added line in the Out-of-scope bullet list.
+
+
+2) HASHES
+
+   confirmed caseHash (task.json → case.caseHash, approved earlier):
+     a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2
+   live case.md hash after the edit (workloom_task_case action=review):
+     b19f04cab26db33270673b8e83bbe0b82d23e9a23d24d25a5c441907e3fd9257
+   RESULT front-matter caseHash (unchanged, still the old confirmed hash):
+     a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2
+
+   => live hash != confirmed hash  =>  the confirmation credential is STALE.
+
+
+3) REVIEW STILL WORKS, CONFIRMATION DOES NOT
+
+   workloom_task_case action=review ->
+     readyToConfirm: true, structureIssues: [], confirmBlockers: []
+
+   The edited CASE is structurally valid and reviewable; it is simply NOT
+   confirmed, so it must not be executed. The review snapshot above
+   (b19f04ca…9257) is the candidate for a fresh user approval.
+
+
+4) EXECUTION ATTEMPT IS REFUSED (no execution ran)
+
+   Attempted: workloom_execute kind=check purpose=execution
+              continue_executor=01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e
+   Runtime response:
+     CASE execution rejected: case.md changed after confirmation; review and confirm it again
+
+   Core gate (evaluateCaseExecutionGate) reason, same wording:
+     ["case.md changed after confirmation; review and confirm it again"]
+
+   No force was used and none could be: core CASE failures are not bypassable.
+
+
+5) PROOF THAT NOTHING WAS EXECUTED
+
+   task.json dispatches count: 5 before the attempt, 5 after (no dispatch record written):
+     implement  -         completed  implement-ready-case                (pre-existing fixture dispatch)
+     implement  -         completed  01a1a5d9-9c62-72ec-b8ac-df80f5102bd1 (add src/verify-case.mjs)
+     check     case-design completed 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e (CASE design)
+     check     execution  completed 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e (execution round 1)
+     check     execution  completed 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e (execution round 2, after code change)
+
+   No new child session was created: the child session list is unchanged
+   (2 sessions), and no new Pi session file appeared under .pi/sessions
+   (only the parent TUI session
+   2026-11-04T09-13-35-618Z_case-eval-ready-executes-and-revalidates-fingerprint-with_skill-4.jsonl).
+
+
+6) STATE OF THE EXISTING EVIDENCE (still valid, because the edit touched only .workloom/)
+
+   current code fingerprint:
+     583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593  (unchanged by the .workloom edit)
+   RESULT file hash (current bytes):
+     5912e72b918e9bc8f3da2992c36aefa7c2e21d04e058fc731cb30a5f6489621b
+   task.case.result.resultHash:
+     5912e72b918e9bc8f3da2992c36aefa7c2e21d04e058fc731cb30a5f6489621b  (matches the current RESULT bytes)
+   task.check.passedAt: 2026-11-04T09:35:52.180Z  (2.3 credential on the current RESULT)
+   RESULT codeBaseline fingerprint:
+     codeFingerprint=583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593
+
+
+7) WHAT IS REQUIRED TO PROCEED (not done here, by design)
+
+   1) a fresh review of the edited CASE  -> done above: hash b19f04ca…9257, readyToConfirm=true
+   2) explicit user approval of THAT EXACT HASH (b19f04ca…9257)
+   3) workloom_task_case action=confirm with expectedCaseHash=b19f04ca…9257
+   4) only then workloom_execute kind=check purpose=execution with the new confirmed hash
+
+   Until step 3 happens, every execution dispatch is refused by the core CASE gate.

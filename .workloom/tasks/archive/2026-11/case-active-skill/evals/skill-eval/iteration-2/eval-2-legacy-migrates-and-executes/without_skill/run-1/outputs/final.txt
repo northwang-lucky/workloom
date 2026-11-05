@@ -1,0 +1,24 @@
+ - RESULT 里两个 bash 块与 case.md 原文逐字一致（3563 / 957 字符，比对结果
+   True）。
+ - 排除项路径与原因与 CASE 逐字一致；Changed Files 表 0 数据行；引用的两个证据
+   路径都在磁盘上；Open issues 是最后一个二级章节，内容为 - none。
+ - 受保护文件未改动：case.md 哈希仍为 2541a5aa...9882c；task.json 的 mtime 是
+   13:18:41，早于本轮开始的 13:19:02，是确认步骤留下的。
+
+ 一处自查修正
+
+ 写 RESULT 时，我把 C1 命令里的 bad 变量误转写成 failures。已改回 bad，并用逐字
+ 比对确认两个命令块与 CASE 原文完全一致。
+
+ Open issues
+
+ - none
+
+ [workloom executor report] executor completed (check)
+
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑124k ↓28k R4.2M CH99.4% 12.4%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

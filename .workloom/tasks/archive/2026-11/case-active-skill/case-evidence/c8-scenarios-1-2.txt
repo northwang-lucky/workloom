@@ -1,0 +1,32 @@
+C8 planning/ready behavior
+date=2026-11-05T09:43:16+08:00
+PASS planning status planning :: planning
+PASS planning mode full :: full
+PASS planning case.required true
+PASS planning caseHash matches case.md
+PASS planning confirmedAt and designSession present
+PASS planning has no case-result.md
+PASS planning has no execution dispatch
+PASS planning has no non-.workloom changes
+PASS planning approval-in-transcript evidence
+PASS ready case.result present
+PASS ready resultHash matches case-result.md :: 5912e72b918e9bc8f3da2992c36aefa7c2e21d04e058fc731cb30a5f6489621b
+PASS ready RESULT caseHash matches confirmation
+PASS ready RESULT status passed :: passed
+PASS ready RESULT checkSession equals designSession :: 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e
+PASS ready RESULT codeBaseline has fingerprint :: master@97f0f7ad90dd401d4ddad9a98fbc6f8338fdb991 codeFingerprint=583a5da1a5ed0e08
+PASS ready coverage status generated or not_applicable
+PASS ready approval-in-transcript evidence
+PASS ready design dispatches share one childId :: design=1
+PASS ready has exactly two execution dispatches :: execution=2
+PASS ready execution child equals design session
+PASS ready confirmedAt before first execution :: 2026-11-04T09:26:16.828Z < 2026-11-04T09:26:37.534Z
+PASS ready has no third execution
+PASS ready output noop.txt present
+PASS ready output fingerprint-changed.txt present
+PASS ready output case-edit.txt present
+PASS ready grading reuse assertion passed
+PASS ready grading fingerprint-change assertion passed
+PASS ready grading unapproved CASE edit assertion passed
+SUMMARY 28/28 passed
+C8_EXIT=0

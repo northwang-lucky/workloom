@@ -1,0 +1,102 @@
+================================================================================
+PHASE 4 — SMALL CASE EDIT WITHOUT RE-CONFIRMING: EXECUTION WAITS FOR A NEW
+REVIEW AND APPROVAL
+================================================================================
+Task            : tasks/ready-case  (in_progress, full mode)
+Project root    : /data00/home/wangyubo.1219/workbench/code-src/github/workloom/
+                  .workloom/tasks/11-03-case-active-skill/evals/skill-eval/
+                  iteration-2/eval-1-ready-executes-and-revalidates-fingerprint/
+                  without_skill/run-1/project
+Main session id : case-eval-ready-executes-and-revalidates-fingerprint-without_skill-2
+Check session id: 01a1a4d0-40ed-73c2-82b3-12d36032d13f  (designSession == checkSession)
+
+--------------------------------------------------------------------------------
+1. THE EDIT (small, wording only — no semantic change to any SR/C item)
+--------------------------------------------------------------------------------
+File: .workloom/tasks/ready-case/case.md
+Section: ## Scope -> Out of scope, second bullet
+
+- Any product feature code: `verify/case-runtime.mjs` exists only as the
+  verification harness that gives AC2 a deterministic executable and a measurable
+  coverage scope
++ Any product feature code: `verify/case-runtime.mjs` exists only as the
+  verification harness that gives AC2 a deterministic executable and a measurable
+  coverage scope; it is never shipped as product code
+
+Nothing else in case.md was touched. The CASE was NOT re-confirmed.
+
+--------------------------------------------------------------------------------
+2. THE REVIEW HASH CHANGED
+--------------------------------------------------------------------------------
+workloom_task_case action=review (after the edit):
+  caseHash (current bytes) : e3c574ecf50d688a397ff5b25e838999cff75f17a3d36ca2e728aa2f2ae0470b
+  structureIssues          : []
+  confirmBlockers          : []
+  readyToConfirm           : true        (the document is structurally valid)
+  task.json case.caseHash : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb
+  task.json confirmedAt    : 2026-11-04T04:32:18.124Z
+
+sha256sum .workloom/tasks/ready-case/case.md
+  e3c574ecf50d688a397ff5b25e838999cff75f17a3d36ca2e728aa2f2ae0470b
+
+=> The confirmed hash no longer matches the CASE bytes. The old confirmation is
+   invalid; a fresh review + explicit approval + confirm(e3c574ec...) is required
+   before any execution.
+
+--------------------------------------------------------------------------------
+3. THE EXECUTION DISPATCH WAS REFUSED
+--------------------------------------------------------------------------------
+workloom_execute(kind=check, purpose=execution,
+                 continue_executor=01a1a4d0-40ed-73c2-82b3-12d36032d13f)
+
+  CASE execution rejected: case.md changed after confirmation; review and
+  confirm it again
+
+No child session was started, no dispatch was appended to task.json
+(dispatches stayed at 6), and no RESULT was rewritten. The refusal comes from
+the core CASE execution gate (evaluateCaseExecutionGate), which compares the
+confirmed caseHash against the current case.md bytes.
+
+--------------------------------------------------------------------------------
+4. THE CHECK CREDENTIAL IS BLOCKED AS WELL
+--------------------------------------------------------------------------------
+workloom_task_check(summary="Attempt to re-record the check after the
+                          unconfirmed CASE edit.")
+
+  workloom task: CASE gate failed: case.md changed after confirmation; review
+  and confirm it again (core CASE failures cannot be bypassed with force)
+
+So the stale-CASE state blocks both the execution round and any new check
+credential; it is not a soft warning.
+
+--------------------------------------------------------------------------------
+5. STATE AFTER THIS PHASE (unchanged by the refused attempts)
+--------------------------------------------------------------------------------
+  task.case.caseHash    : 00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb
+  task.case.confirmedAt : 2026-11-04T04:32:18.124Z
+  task.case.result      : { caseHash: 00d6ab3e...dda84,
+                            resultHash: 1530bd8f25a1df2da482e2aa2847e77740267d4b95f311445c170d39a0a64678,
+                            passedAt:  2026-11-04T04:37:26.709Z }
+  task.check.passedAt   : 2026-11-04T04:37:26.709Z
+  task.stage            : check
+  dispatches            : 6  (implement fixture + 5 rounds on ONE check session)
+  distinct child ids    : implement-ready-case,
+                          01a1a4d0-40ed-73c2-82b3-12d36032d13f
+  code fingerprint      : codeFingerprint=9e296673f7fc6f2c9f63370f435665b6a132e21977545d2b6e0247d475a07eb9
+                          (unchanged by the CASE edit — case.md lives under
+                          .workloom/**, which the fingerprint script excludes)
+
+--------------------------------------------------------------------------------
+6. WHAT IS REQUIRED TO PROCEED
+--------------------------------------------------------------------------------
+1. workloom_task_case action=review            -> snapshot + hash e3c574ec...
+2. explicit user approval of that snapshot
+3. workloom_task_case action=confirm(expectedCaseHash=e3c574ec...)  -> re-confirm
+4. workloom_execute(kind=check, purpose=execution, continue_executor=
+   01a1a4d0-40ed-73c2-82b3-12d36032d13f)        -> re-run SR1/SR2, C1/C2/C3,
+                                                    coverage, new RESULT
+5. workloom_task_check                           -> re-record the credential
+                                                    against the new RESULT bytes
+
+Steps 1-3 were deliberately NOT performed in this phase.
+================================================================================

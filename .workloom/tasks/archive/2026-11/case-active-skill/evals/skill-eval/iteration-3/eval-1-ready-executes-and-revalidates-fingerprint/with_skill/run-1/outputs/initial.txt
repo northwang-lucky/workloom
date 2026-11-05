@@ -1,0 +1,24 @@
+
+ - Never use phrases or sentences like "read only, don't fix" when dispatching
+   a check subagent.
+
+ - Prefer LSP tooling on this machine when it helps: lsp_symbols /
+   lsp_signature to orient before touching code, lsp_completion /
+   lsp_code_action to resolve details and fixes, and lsp_rename for renames
+   instead of textual search. An lsp_diagnostics check is a good habit in the
+   verification pass, but not a mandatory gate. lsp_format / lsp_inlay_hints:
+   as needed.
+   </workloom-session-context>
+
+
+────────────────────────────────────────────────────────────────────────────────
+ Update Available
+ New version 1.5.0 is available. Run pi update
+ Changelog: https://pi.dev/changelog
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+0.2%/1.0M (auto)                         (minimax-cn) MiniMax-M3.1-Flash • xhigh
