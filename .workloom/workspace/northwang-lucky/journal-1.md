@@ -400,3 +400,9 @@
 - Commit: 79c7ce6
 - Summary: 交付 workflow v25、workloom_task_case、CASE/RESULT 固定模板、purpose/stage、双 adapter 注入与故障切换记录；34/34 SR、24/24 真实用例、LCOV 89.9%、Pi 真机 9/9，工作提交 79c7ce6。
 
+## 完成 workloom-case-active 技能
+
+- Time: 2026-11-05T01:52:01.255Z
+- Commit: 853937a
+- Summary: 新增未归档任务 CASE 补写技能、代码指纹、双 adapter 注册与五个带技能真实验收场景；完整 CASE 通过，LCOV 总体 93.0%，静态审阅无修改意见，任务已归档并整理证据为普通文件。
+
