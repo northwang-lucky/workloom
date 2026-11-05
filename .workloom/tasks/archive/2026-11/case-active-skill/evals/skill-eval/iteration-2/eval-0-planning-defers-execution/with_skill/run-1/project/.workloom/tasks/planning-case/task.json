@@ -1,0 +1,61 @@
+{
+  "id": "planning-case-id",
+  "name": "planning-case",
+  "title": "planning-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "planning",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "be3dd4f7adeaa8668c2b6068eb91e352a3c40d6abdd97b558c1ffbf2379a2ebb"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "check",
+      "at": "2026-11-04T03:42:13.972Z",
+      "title": "Design CASE for planning-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a4a6-711f-744c-a02d-1a7f9d7f4da8",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a4a6-711f-744c-a02d-1a7f9d7f4da8",
+    "confirmedAt": "2026-11-04T03:49:08.556Z",
+    "caseHash": "9fad84fdca4a110a9bc8ce9556f91028c50d9a004513aac7cf95e3e53f3fbca1",
+    "summary": "CASE reviewed for the planning task: static review SR1 (task materials + alignment credential) and SR2 (local deterministic verification entry point), runtime cases C1 (local structural verification of task materials and the alignment hash) and C2 (socket-presence probe that reports blocked when the required socket is absent), plus an explicit not_applicable coverage scope for this source-free project and full AC1/AC2 traceability. The user explicitly approved this exact CASE hash; the task stays in planning and CASE execution is deferred.",
+    "result": null
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "files": {
+    "verify/case-runtime.mjs": {
+      "covered": 84,
+      "total": 84,
+      "percent": 100
+    }
+  }
+}

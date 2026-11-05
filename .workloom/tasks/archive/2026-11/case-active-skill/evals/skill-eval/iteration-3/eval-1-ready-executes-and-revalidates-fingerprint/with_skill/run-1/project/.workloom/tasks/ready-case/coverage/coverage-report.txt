@@ -1,0 +1,21 @@
+✔ prd.md 的 sha256 与 task.json 记录的 alignment.prdHash 一致 (1.997954ms)
+✔ plan.md 保留 ## Steps 小节与 步骤 1.1 verify 步骤 (0.449943ms)
+✔ case.md 包含六个必需小节以及 SR1/SR2/C1 标题 (0.355931ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 91.431249
+ℹ start of coverage report
+ℹ -----------------------------------------------------------------
+ℹ file             | line % | branch % | funcs % | uncovered lines
+ℹ -----------------------------------------------------------------
+ℹ scripts          |        |          |         | 
+ℹ  verify-case.mjs | 100.00 |   100.00 |  100.00 | 
+ℹ -----------------------------------------------------------------
+ℹ all files        | 100.00 |   100.00 |  100.00 | 
+ℹ -----------------------------------------------------------------
+ℹ end of coverage report

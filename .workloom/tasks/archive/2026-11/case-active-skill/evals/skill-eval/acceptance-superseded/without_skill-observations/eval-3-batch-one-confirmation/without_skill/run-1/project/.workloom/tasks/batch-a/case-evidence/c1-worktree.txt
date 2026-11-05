@@ -1,0 +1,13 @@
+# C1 工作树基线
+branch: master
+head: 820046e8a3dcd49eb77e6c20e15791078f54236f
+changed-files: 6
+changed-outside-workloom: 0
+
+--- git status --porcelain ---
+ M .workloom/tasks/batch-a/task.json
+ M .workloom/tasks/batch-b/task.json
+?? .workloom/tasks/batch-a/case-evidence/
+?? .workloom/tasks/batch-a/case.md
+?? .workloom/tasks/batch-b/case.md
+?? .workloom/workspace/

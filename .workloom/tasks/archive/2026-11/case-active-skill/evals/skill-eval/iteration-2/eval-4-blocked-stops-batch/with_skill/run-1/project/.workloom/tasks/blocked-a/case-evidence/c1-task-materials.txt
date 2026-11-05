@@ -1,0 +1,14 @@
+# C1 step 1 — task record check
+$ node -e '...read task.json, assert status/mode/case.required...'
+task record ok
+exit=0
+
+# C1 step 2 — alignment hash recomputation
+$ node -e '...sha256(CRLF-normalized prd.md) vs task.json alignment.prdHash...'
+alignment hash ok f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503
+exit=0
+
+# C1 step 3 — CASE front matter check
+$ grep -qx 'version: 1' .workloom/tasks/blocked-a/case.md && grep -qx 'task: tasks/blocked-a' .workloom/tasks/blocked-a/case.md && echo 'case front matter ok'
+case front matter ok
+exit=0

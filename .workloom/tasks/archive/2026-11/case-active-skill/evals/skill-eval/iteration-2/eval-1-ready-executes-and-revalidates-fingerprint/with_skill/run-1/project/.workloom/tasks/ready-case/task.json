@@ -1,0 +1,118 @@
+{
+  "id": "ready-case-id",
+  "name": "ready-case",
+  "title": "ready-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-11-04T04:21:38.301Z",
+    "summary": "CASE re-execution after the untracked source file changed: confirmed CASE hash c46585e54f728ed6914adee262c45427a192ca409b6ac6849518a624af273bf9 unchanged and still executed in check session 01a1a4bf-eae0-744e-a630-ae86fc63ca29; SR1/SR2/C1 all passed again (C1 exit code 0, 4 tests pass, 0 fail) against the current src/verify-fixture.mjs; real coverage regenerated with the Node v24.18.1 built-in test-runner lcov report coverage/lcov.info, Overall lines 48/48 (100%), Changed Files = src/verify-fixture.mjs only, zero exclusions; evidence case-evidence/c1-test-output.txt refreshed; standard verification passed; Open issues - none; RESULT codeBaseline now carries codeFingerprint=76bc5050952b263e980fba36461e5bad621ae15d1eb952ad6a78d664d86bab53, which equals the current project fingerprint after the untracked file change (8db8a8fa... -> 04bf6c74... -> 76bc5050...)."
+  },
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "d675c073d6dccb1c2b3d96bf4e6065af5798924156015e1705126d27c43b88da"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-ready-case"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-11-04T04:06:20.670Z",
+      "title": "Add deterministic fixture verification module",
+      "status": "completed",
+      "childId": "01a1a4bc-8429-71d1-81e4-6199a6e2baa9",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:10:03.538Z",
+      "title": "Design CASE for ready-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a4bf-eae0-744e-a630-ae86fc63ca29",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:13:26.437Z",
+      "title": "Execute confirmed CASE for ready-case",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4bf-eae0-744e-a630-ae86fc63ca29",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:17:12.334Z",
+      "title": "Re-execute confirmed CASE after code change",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4bf-eae0-744e-a630-ae86fc63ca29",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:18:00.623Z",
+      "title": "Re-execute confirmed CASE after comment append",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4bf-eae0-744e-a630-ae86fc63ca29",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a4bf-eae0-744e-a630-ae86fc63ca29",
+    "confirmedAt": "2026-11-04T04:13:08.171Z",
+    "caseHash": "c46585e54f728ed6914adee262c45427a192ca409b6ac6849518a624af273bf9",
+    "summary": "CASE reviewed for tasks/ready-case against PRD, PLAN, real code and actual git changes: SR1 (AC1, task PRD structure), SR2 (AC2, src/verify-fixture.mjs deterministic node:test module), C1 (AC2, node --test --experimental-test-coverage run producing case-evidence/c1-test-output.txt and coverage/lcov.info), Coverage scope src/ with zero exclusions so the coverable set is exactly src/verify-fixture.mjs, Traceability AC1->SR1->C1 and AC2->SR2->C1. Review returned readyToConfirm=true with 0 structure issues; confirmed hash c46585e54f728ed6914adee262c45427a192ca409b6ac6849518a624af273bf9 approved by the user instruction to design, confirm and execute this CASE.",
+    "result": {
+      "caseHash": "c46585e54f728ed6914adee262c45427a192ca409b6ac6849518a624af273bf9",
+      "resultHash": "72b72f8f830392c65e90d611184d9f850dc3210e3ad82e82fa58176c43bdc67a",
+      "passedAt": "2026-11-04T04:21:38.301Z"
+    }
+  }
+}

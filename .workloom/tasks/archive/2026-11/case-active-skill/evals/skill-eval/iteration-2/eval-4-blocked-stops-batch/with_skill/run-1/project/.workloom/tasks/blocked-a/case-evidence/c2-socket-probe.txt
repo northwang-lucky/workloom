@@ -1,0 +1,12 @@
+# C2 step 1 — required UNIX socket gate
+$ test -S /tmp/workloom-case-missing.sock
+(no output)
+exit=1
+
+# path state observed in the same environment
+$ ls -l /tmp/workloom-case-missing.sock
+ls: 无法访问 '/tmp/workloom-case-missing.sock': 没有那个文件或目录
+
+# outcome
+the gate failed: the socket /tmp/workloom-case-missing.sock does not exist,
+so C2 stops here as blocked; step 2 was not executed and the socket was not created.

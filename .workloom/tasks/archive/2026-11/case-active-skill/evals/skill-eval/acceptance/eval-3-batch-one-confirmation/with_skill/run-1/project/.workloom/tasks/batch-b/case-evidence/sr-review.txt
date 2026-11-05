@@ -1,0 +1,28 @@
+SR1 任务记录与对齐凭据
+  json-parse: ok
+  status=in_progress mode=full stage=check
+  alignment.prdHash=2b9d89e06a0a3a5f6de414852f8d5caab36e5c5527f5c7d192cc393b6437bb3d
+  prd.md-sha256=2b9d89e06a0a3a5f6de414852f8d5caab36e5c5527f5c7d192cc393b6437bb3d match=true
+  case.required=true designSession=01a1a509-4858-7469-9c50-885a1b7bb936
+  designSession-in-check-dispatch=true
+  case.caseHash=5ecc299d9a4f2ae8b3cc483c462fb6954a9eab53d8edf4843ee46fc0db9e24b4
+  case.md-sha256=5ecc299d9a4f2ae8b3cc483c462fb6954a9eab53d8edf4843ee46fc0db9e24b4 match=true
+SR2 PRD 结构
+  first-line=# batch-b
+  sections=Goal | Requirements | Acceptance Criteria | Notes | Alignment Decisions
+  requirements=R1,R2 criteria=AC1,AC2
+  ac-lines-have-verification-and-covers=true
+  placeholders=false open-nodes-marker=true
+SR3 PLAN 结构
+  first-line=# Evaluation plan
+  has-steps=true steps=步骤 1.1 verify
+  covers=AC1, AC2
+  target-edit-verify=true
+  every-ac-covered=true
+SR4 本地确定性验证入口
+  spec-exists=true spec-declares-local=true
+  implement-jsonl=.workloom/spec/README.md
+  check-jsonl=.workloom/spec/README.md
+  unique-entry=true
+  local-only-declared=true
+exit_code=0

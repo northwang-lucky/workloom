@@ -1,0 +1,4 @@
+# C1 step 4 — PRD and PLAN unchanged
+$ git status --porcelain -- .workloom/tasks/blocked-a/prd.md .workloom/tasks/blocked-a/plan.md
+(no output)
+exit=0

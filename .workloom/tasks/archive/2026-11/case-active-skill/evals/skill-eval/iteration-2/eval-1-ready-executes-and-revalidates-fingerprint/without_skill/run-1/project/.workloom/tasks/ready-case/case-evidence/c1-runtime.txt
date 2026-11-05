@@ -1,0 +1,6 @@
+ok prd-present AC1 and AC2 are declared in .workloom/tasks/ready-case/prd.md (both acceptance ids present)
+ok prd-closed the open-nodes=none marker is in .workloom/tasks/ready-case/prd.md
+ok plan-present Covers: is present in .workloom/tasks/ready-case/plan.md
+ok spec-present "deterministic local verification" is present in .workloom/spec/README.md
+ok alignment-hash the prd.md sha256 d675c073d6dccb1c2b3d96bf4e6065af5798924156015e1705126d27c43b88da matches alignment.prdHash
+result: pass

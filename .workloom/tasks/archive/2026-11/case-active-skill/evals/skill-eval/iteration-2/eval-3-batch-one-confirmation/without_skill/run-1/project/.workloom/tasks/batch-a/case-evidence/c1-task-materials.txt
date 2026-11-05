@@ -1,0 +1,21 @@
+# C1 任务材料核对
+PASS task.json 可解析且 id/name/status 为非空字符串 :: status=in_progress
+PASS task.json 保留 alignment 凭据 :: 40e1a4e2ff3a250f4cfa2efc7a9e0cd54addf4b92ec1d47099ce1d11f8164e72
+PASS task.json 记录 CASE 生命周期字段 :: designSession=01a1a525-bc4f-7484-815e-7f5b2f9d1662
+PASS alignment.prdHash 与 prd.md 归一化摘要一致 :: 40e1a4e2ff3a250f4cfa2efc7a9e0cd54addf4b92ec1d47099ce1d11f8164e72
+PASS prd.md 含小节 ## Goal
+PASS prd.md 含小节 ## Requirements
+PASS prd.md 含小节 ## Acceptance Criteria
+PASS prd.md 含小节 ## Notes
+PASS prd.md 含小节 ## Alignment Decisions
+PASS prd.md 含编号 R1
+PASS prd.md 含编号 R2
+PASS prd.md 含编号 AC1
+PASS prd.md 含编号 AC2
+PASS prd.md 记录 open-nodes 收敛标记
+PASS plan.md 覆盖 AC1 与 AC2
+PASS plan.md 声明不改产品代码
+PASS plan.md 把验证委托给 CASE 执行
+PASS 规范要求确定性本地验证
+
+failures: 0

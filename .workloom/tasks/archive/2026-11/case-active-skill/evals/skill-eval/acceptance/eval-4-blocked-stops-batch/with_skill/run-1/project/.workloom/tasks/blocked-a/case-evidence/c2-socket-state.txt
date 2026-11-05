@@ -1,0 +1,64 @@
+# C2 运行时证据（socket 依赖探测）
+
+生成时间：2026-11-04T10:07:55.787Z
+项目根：/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-4/eval-4-blocked-stops-batch/with_skill/run-1/project
+已确认 CASE：.workloom/tasks/blocked-a/case.md（sha256 b6356d0f9edb3ef4bd1a0e7239bff89fe29c5f670d0d8c74383eccc12c9a659f）
+
+下列命令逐字取自已确认的 CASE，全部在项目根执行。socket 只做只读探测，
+本次执行没有创建、替换或删除 /tmp/workloom-case-missing.sock。
+
+## 步骤 1
+
+命令：
+
+```bash
+test -S /tmp/workloom-case-missing.sock; echo "exit=$?"
+```
+
+退出码：0
+
+标准输出：
+
+```text
+exit=1
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 2
+
+未执行。CASE 的步骤 2 只在步骤 1 退出码为 0（socket 存在）时执行；
+本次步骤 1 的 `test -S` 结果为 exit=1，socket 缺失，前置条件不成立。
+
+## 步骤 3
+
+命令：
+
+```bash
+ls -l /tmp/workloom-case-missing.sock
+```
+
+退出码：2
+
+标准输出：
+
+```text
+(空)
+```
+
+标准错误：
+
+```text
+ls: 无法访问 '/tmp/workloom-case-missing.sock': 没有那个文件或目录
+```
+
+## 判定
+
+- C2 状态：blocked
+- 依据：C2 的硬前置条件 UNIX socket /tmp/workloom-case-missing.sock 在本环境缺失（步骤 1 的 `test -S` 退出码 1，步骤 3 的 `ls -l` 报文件不存在），按 CASE 的 Preconditions 与 Expected，本项记为 blocked，既不是 passed 也不是 failed。
+- socket 路径在本次执行中只被读取，未被创建、替换或删除；未改用其它路径。
+- blocked 之后本批次的后续任务停止执行，`tasks/untouched-b` 保持 unexecuted。

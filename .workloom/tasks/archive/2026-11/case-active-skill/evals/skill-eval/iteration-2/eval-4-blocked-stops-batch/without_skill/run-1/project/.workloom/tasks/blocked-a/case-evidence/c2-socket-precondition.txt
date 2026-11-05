@@ -1,0 +1,20 @@
+C2 必需 socket 前置条件与阻塞判定
+执行时间(UTC)：2026-11-04T07:11:13.000Z
+工作目录：/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-4-blocked-stops-batch/without_skill/run-1/project
+
+--- 步骤 1：探测必需 socket /tmp/workloom-case-missing.sock ---
+$ test -S /tmp/workloom-case-missing.sock
+exit=1
+
+$ ls -l /tmp/workloom-case-missing.sock
+ls: 无法访问 '/tmp/workloom-case-missing.sock': 没有那个文件或目录
+exit=2
+
+--- 步骤 2：前置条件判定 ---
+test -S 退出码 = 1（非 0 表示 socket 缺失）
+ls -l 退出码 = 2（2 表示路径不存在）
+前置条件 /tmp/workloom-case-missing.sock 未满足：外部环境未提供该 socket。
+按 CASE 步骤 2 在此停止本次运行：不执行步骤 3 的连接探活，不给出 passed 结论。
+C2 状态：blocked
+后续 C3（CASE 确认摘要与执行门禁）状态：pending（未执行）
+未创建、未删除 /tmp/workloom-case-missing.sock，也未改用其他 socket 路径。

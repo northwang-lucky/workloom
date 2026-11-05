@@ -1,0 +1,107 @@
+{
+  "id": "ready-case-id",
+  "name": "ready-case",
+  "title": "ready-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-11-04T09:35:52.180Z",
+    "summary": "Re-execution passed for tasks/ready-case after the untracked source change; confirmed caseHash unchanged at a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2 (checkSession 01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e). Full SR/C/coverage rerun, not a partial refresh. SR1 (AC1) passed: prd.md LF-normalized sha256 d675c073d6dccb1c2b3d96bf4e6065af5798924156015e1705126d27c43b88da equals task.json alignment.prdHash; plan.md keeps '## Steps' and '#### 步骤 1.1 verify'; status=in_progress, mode=full, case.required=true unchanged; alignment block identical to git HEAD. SR2 (AC2) passed against the current 76-line bytes: node:test + node:assert/strict with four independent assertions, no clock/randomness/network, reads only prd.md/plan.md/task.json + .workloom/spec/README.md, read-only, LF normalization before hashing; the change was comment-only, confirmed by removing the two added comment lines and recovering the previous baseline sha256 74377371bee6176cdd02c879112ff7d98fbd7f69290493da8ac52ca223483155. C1 (AC2) passed: aggregate command with set -o pipefail exited 0 with tests 4 / pass 4 / fail 0 and verify-case.mjs at 100.00% line, branch and function coverage; evidence at case-evidence/verify-case.txt and coverage/coverage-report.txt. Real coverage: generated, Overall lines 76/76 (100.00%) derived from the round's raw V8 JSON, coverable scope exactly scripts/verify-case.mjs. Standard verification commands both exit 0. codeBaseline records codeFingerprint=583a5da1a5ed0e085ac16cc6b2e0c67b829d1d01757b6dfbf6b6ba838d489593, matching the live fingerprint after the source change. Open issues: none."
+  },
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "d675c073d6dccb1c2b3d96bf4e6065af5798924156015e1705126d27c43b88da"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-ready-case"
+    },
+    {
+      "kind": "implement",
+      "at": "2026-11-04T09:17:44.603Z",
+      "title": "Add deterministic CASE verification harness",
+      "status": "completed",
+      "childId": "01a1a5d9-9c62-72ec-b8ac-df80f5102bd1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:19:37.591Z",
+      "title": "Design CASE for ready-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:26:37.534Z",
+      "title": "Execute confirmed CASE for ready-case",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:32:44.233Z",
+      "title": "Re-execute CASE after untracked source change",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a5db-55c5-75f9-9fe0-97d6c23b0b3e",
+    "confirmedAt": "2026-11-04T09:26:16.828Z",
+    "caseHash": "a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2",
+    "summary": "Reviewed CASE for tasks/ready-case: SR1 (AC1, task.json#alignment — PRD sha256 == alignment.prdHash, plan keeps ## Steps + 步骤 1.1 verify, status/mode/case.required intact), SR2 (AC2, scripts/verify-case.mjs#whole-file — node:test harness, no clock/randomness/network, read-only, LF-normalized hashing), C1 (AC2 — run the deterministic verification under node v24.18.1 built-in coverage with a pipefail-hardened aggregate command, evidence in case-evidence/verify-case.txt + coverage/coverage-report.txt). Core review: readyToConfirm=true, 0 structure issues, 0 confirm blockers; coverable scope is exactly scripts/verify-case.mjs. Approved by the user at caseHash a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2.",
+    "result": {
+      "caseHash": "a31b0c4c7bcfd74c939f624b60ac3eb75951d9f2d7d327e2ac279f414713bcd2",
+      "resultHash": "5912e72b918e9bc8f3da2992c36aefa7c2e21d04e058fc731cb30a5f6489621b",
+      "passedAt": "2026-11-04T09:35:52.180Z"
+    }
+  }
+}

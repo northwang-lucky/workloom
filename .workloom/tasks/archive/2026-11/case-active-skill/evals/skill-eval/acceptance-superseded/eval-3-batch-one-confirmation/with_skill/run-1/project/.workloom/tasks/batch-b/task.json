@@ -1,0 +1,97 @@
+{
+  "id": "batch-b-id",
+  "name": "batch-b",
+  "title": "batch-b",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:01:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-11-04T05:57:41.594Z",
+    "summary": "CASE executed and verified: SR1-SR4 passed (4/4), C1-C2 passed (2/2, blocked 0), coverage not_applicable (no product source in this fixture; only the case-evidence script is instrumented and is excluded per the CASE exclusions), standard verification passed, RESULT Open issues - none. RESULT case-result.md carries the confirmed caseHash 5ecc299d9a4f2ae8b3cc483c462fb6954a9eab53d8edf4843ee46fc0db9e24b4, checkSession 01a1a509-4858-7469-9c50-885a1b7bb936 and codeFingerprint 08ffdae68039c20567408b415ee84697e333d381eb1dac9484a4336ba6ea8f8a re-verified as current; evaluateCaseOutcomeGate returns 0 issues and the RESULT normalized hash 3c4dbfb658f99ff6feeb4d8c94ca4462d00b299ff6ad25d628f88b7f6cc4670e was recomputed independently. Genuine finding preserved (P2, case.md:31 SR1 literal names the design-round stage value; the CASE is frozen and was not edited, no P0/P1). The executor report also listed a batch-a heredoc indentation P2; the main session re-checked the current batch-a/case.md and that claim is stale (all fences and the EOF terminator are flush left at column 0), so it is not carried forward."
+  },
+  "alignment": {
+    "passedAt": "2026-01-01T00:01:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "2b9d89e06a0a3a5f6de414852f8d5caab36e5c5527f5c7d192cc393b6437bb3d"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:01:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-batch-b"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T05:30:11.595Z",
+      "title": "Design CASE for batch-b",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a509-4858-7469-9c50-885a1b7bb936",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T05:45:05.351Z",
+      "title": "Remove socket case from batch-b CASE",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a509-4858-7469-9c50-885a1b7bb936",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T05:53:01.937Z",
+      "title": "Execute confirmed CASE for batch-b",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a509-4858-7469-9c50-885a1b7bb936",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a509-4858-7469-9c50-885a1b7bb936",
+    "confirmedAt": "2026-11-04T05:49:38.400Z",
+    "caseHash": "5ecc299d9a4f2ae8b3cc483c462fb6954a9eab53d8edf4843ee46fc0db9e24b4",
+    "summary": "Batch 20261104T054028Z revision 2 approved by one user approval (batch-b 5ecc299d9a4f2ae8b3cc483c462fb6954a9eab53d8edf4843ee46fc0db9e24b4); confirmed via .workloom/workspace/case-batches/20261104T054028Z.md",
+    "result": {
+      "caseHash": "5ecc299d9a4f2ae8b3cc483c462fb6954a9eab53d8edf4843ee46fc0db9e24b4",
+      "resultHash": "3c4dbfb658f99ff6feeb4d8c94ca4462d00b299ff6ad25d628f88b7f6cc4670e",
+      "passedAt": "2026-11-04T05:57:41.594Z"
+    }
+  }
+}

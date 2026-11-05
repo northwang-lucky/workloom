@@ -1,0 +1,68 @@
+{
+  "id": "untouched-b-id",
+  "name": "untouched-b",
+  "title": "untouched-b",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:01:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:01:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "28216d272bb4410d1ea2e7943f0853067e491ca0328a59d73977eb671ad0dc83"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:01:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-untouched-b"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:58:04.873Z",
+      "title": "Design CASE for untouched-b",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a5fe-8a8d-71ee-affc-9781a65a0f21",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a5fe-8a8d-71ee-affc-9781a65a0f21",
+    "confirmedAt": "2026-11-04T10:05:02.425Z",
+    "caseHash": "4f34e3ac2aa4810b8f574722236b0c20b8ad8a6722e1730b7ee3fa4c0fe898c9",
+    "summary": "CASE for tasks/untouched-b reviewed via workloom_task_case action=review: readyToConfirm=true, structureIssues=[], confirmBlockers=[]; confirmed caseHash 4f34e3ac2aa4810b8f574722236b0c20b8ad8a6722e1730b7ee3fa4c0fe898c9 equals the reviewed case.md bytes (SR1-SR5/C1-C2 cover AC1-AC2; deterministic local verification, no socket precondition and no blocked branch). User approved this task as part of the single batch approval recorded in .workloom/workspace/case-batches/batch-20261104-01.md at 2026-11-04T10:04:38Z.",
+    "result": null
+  }
+}

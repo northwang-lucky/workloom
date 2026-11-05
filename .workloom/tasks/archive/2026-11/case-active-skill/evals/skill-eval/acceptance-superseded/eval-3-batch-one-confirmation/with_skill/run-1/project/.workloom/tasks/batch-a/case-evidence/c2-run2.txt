@@ -1,0 +1,8 @@
+spec-entry: ok
+prd-requirements: ok
+prd-criteria: ok
+plan-coverage: ok
+alignment-hash: ok
+case-required: ok
+result: passed
+exit_code=0

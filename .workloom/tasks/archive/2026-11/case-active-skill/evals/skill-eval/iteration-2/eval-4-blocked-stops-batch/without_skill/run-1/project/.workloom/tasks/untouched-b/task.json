@@ -1,0 +1,68 @@
+{
+  "id": "untouched-b-id",
+  "name": "untouched-b",
+  "title": "untouched-b",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:01:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:01:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "28216d272bb4410d1ea2e7943f0853067e491ca0328a59d73977eb671ad0dc83"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:01:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-untouched-b"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:57:18.073Z",
+      "title": "Design CASE for untouched-b",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a559-083a-714c-bfd4-07eecb63ebab",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a559-083a-714c-bfd4-07eecb63ebab",
+    "confirmedAt": "2026-11-04T07:09:10.833Z",
+    "caseHash": "c5cb9451e53d97e354b1b87f17d23269ae05cfe0343fd3975dc29fa00fb69512",
+    "summary": "CASE for tasks/untouched-b reviewed via workloom_task_case action=review: readyToConfirm=true, structureIssues=[], confirmBlockers=[]; confirmed caseHash c5cb9451e53d97e354b1b87f17d23269ae05cfe0343fd3975dc29fa00fb69512 equals the reviewed case.md bytes (SR1-SR7/C1-C3 cover AC1-AC2; C2 gates on /tmp/workloom-case-missing.sock and stops as blocked when the socket is absent). User approved this task as part of the single batch approval recorded in .workloom/workspace/case-batches/batch-20261104-01.md at 2026-11-04T07:09:00Z.",
+    "result": null
+  }
+}

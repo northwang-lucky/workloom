@@ -1,0 +1,102 @@
+{
+  "id": "blocked-a-id",
+  "name": "blocked-a",
+  "title": "blocked-a",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-blocked-a"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:45:33.318Z",
+      "title": "Design CASE for blocked-a",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:53:56.968Z",
+      "title": "Revise CASE for blocked-a stage stability",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T07:09:17.380Z",
+      "title": "Execute confirmed CASE for blocked-a",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T07:16:03.759Z",
+      "title": "Correct blocked-a RESULT code fingerprint",
+      "status": "failed",
+      "purpose": "execution",
+      "childId": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn",
+      "error": "host session ended"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+    "confirmedAt": "2026-11-04T07:09:10.816Z",
+    "caseHash": "6770a66dfb152b66a917fc134471cf2d4db1e642ee314f2bec480d1bcd20f827",
+    "summary": "CASE for tasks/blocked-a reviewed via workloom_task_case action=review: readyToConfirm=true, structureIssues=[], confirmBlockers=[]; confirmed caseHash 6770a66dfb152b66a917fc134471cf2d4db1e642ee314f2bec480d1bcd20f827 equals the reviewed case.md bytes (SR1-SR5/C1-C3 cover AC1-AC2; C2 gates on /tmp/workloom-case-missing.sock and stops as blocked when the socket is absent). User approved this task as part of the single batch approval recorded in .workloom/workspace/case-batches/batch-20261104-01.md at 2026-11-04T07:09:00Z.",
+    "result": null
+  }
+}

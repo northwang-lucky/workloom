@@ -1,0 +1,47 @@
+C1 任务材料与对齐摘要复核
+执行时间(UTC)：2026-11-04T07:11:07.000Z
+工作目录：/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-4-blocked-stops-batch/without_skill/run-1/project
+case.md SHA-256：6770a66dfb152b66a917fc134471cf2d4db1e642ee314f2bec480d1bcd20f827
+
+--- 步骤 1：prd.md 重算摘要与 alignment.prdHash 比对 ---
+$ sha256sum .workloom/tasks/blocked-a/prd.md 
+f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503  .workloom/tasks/blocked-a/prd.md
+exit=0
+
+$ python3 -c import\ json\,sys\;print\(json.load\(open\(sys.argv\[1\]\)\)\[\'alignment\'\]\[\'prdHash\'\]\) .workloom/tasks/blocked-a/task.json 
+f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503
+exit=0
+
+--- 步骤 2：task.json 字段与对齐凭据校验 ---
+$ python3 -c import\ json\,re\,sys\;t=json.load\(open\(sys.argv\[1\]\)\)\;a=t\[\'alignment\'\]\;c=t\[\'case\'\]\;assert\ t\[\'status\'\]==\'in_progress\'\ and\ t\[\'mode\'\]==\'full\'\ and\ t\[\'overrides\'\]==\[\]\;assert\ t\[\'stage\'\]\ in\ \(\'implement\'\,\'check\'\)\;assert\ a\[\'passedAt\'\]\ and\ a\[\'summary\'\]\ and\ re.fullmatch\(r\'\[0-9a-f\]\{64\}\'\,a\[\'prdHash\'\]\)\;assert\ c\[\'required\'\]\ is\ True\ and\ c\[\'designSession\'\]\;assert\ any\(e.get\(\'purpose\'\)==\'case-design\'\ for\ e\ in\ t\[\'dispatches\'\]\)\;print\(\'task.json\ ok\'\) .workloom/tasks/blocked-a/task.json 
+task.json ok
+exit=0
+
+--- 步骤 3：两个 JSONL 逐行解析与被引用文件校验 ---
+$ python3 -c import\ json\,sys\;\[json.loads\(l\)\ for\ l\ in\ open\(sys.argv\[1\]\)\ if\ l.strip\(\)\]\;print\(sys.argv\[1\]\,\'ok\'\) .workloom/tasks/blocked-a/check.jsonl 
+.workloom/tasks/blocked-a/check.jsonl ok
+exit=0
+
+$ python3 -c import\ json\,sys\;\[json.loads\(l\)\ for\ l\ in\ open\(sys.argv\[1\]\)\ if\ l.strip\(\)\]\;print\(sys.argv\[1\]\,\'ok\'\) .workloom/tasks/blocked-a/implement.jsonl 
+.workloom/tasks/blocked-a/implement.jsonl ok
+exit=0
+
+$ python3 -c import\ json\,os\,sys\;recs=\[json.loads\(l\)\ for\ l\ in\ open\(sys.argv\[1\]\)\ if\ l.strip\(\)\]\;assert\ recs\ and\ all\(r.get\(\'file\'\)\ and\ r.get\(\'reason\'\)\ and\ os.path.isfile\(r\[\'file\'\]\)\ for\ r\ in\ recs\)\;print\(sys.argv\[1\]\,\'records\ ok\'\) .workloom/tasks/blocked-a/check.jsonl 
+.workloom/tasks/blocked-a/check.jsonl records ok
+exit=0
+
+--- 步骤 4：PLAN 步骤块四字段与 AC 覆盖 ---
+$ grep -n \^####\ 步骤\\\|\^-\ Covers:\\\|\^-\ Target:\\\|\^-\ Edit:\\\|\^-\ Verify: .workloom/tasks/blocked-a/plan.md 
+5:#### 步骤 1.1 verify
+7:- Covers: AC1, AC2
+8:- Target: task documents
+9:- Edit: no product code
+10:- Verify: execute the confirmed CASE and inspect case-result.md
+exit=0
+
+--- 结论 ---
+步骤 1：重算摘要 f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503 与 alignment.prdHash 一致。
+步骤 2：断言全部成立，输出 task.json ok；stage=check 属 implement/check 两个合法取值之一。
+步骤 3：两个 JSONL 各 1 条有效记录，字段齐全，被引用的 .workloom/spec/README.md 存在且非空。
+步骤 4：PLAN 共 1 个步骤块，四字段齐全，Covers 覆盖 AC1 与 AC2。
+C1 状态：passed

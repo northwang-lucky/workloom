@@ -1,0 +1,86 @@
+{
+  "id": "legacy-case-id",
+  "name": "legacy-case",
+  "title": "legacy-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-11-04T09:47:38.038Z",
+    "summary": "CASE executed in the same design session 01a1a5ef-4bff-766b-8832-a2ce4b35c2fe against the user-approved caseHash 03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65, which case.md still hashes to. SR1-SR3 passed 3/3 with real observations recorded in case-evidence/sr-checks.log (PRD structure, open-nodes marker, alignment.prdHash == sha256(prd.md) == 78f0e4e41d35133cc68326ea823ddf4152f1f19da689c8014632110f77ba836b, plan.md structure with all four steps declaring Covers/Target/Edit/Verify, legacy design.md/implement.md removed, CASE structure and traceability). C1 passed: the loopback socket checker exited 0 with SOCKET_CHECK=ok port=32329 token=workloom-case-ok, logged in case-evidence/c1-socket-check.log. Coverage is not_applicable - every changed file lives under .workloom/, so the coverable scope is empty; the aggregate command node --experimental-test-coverage --test was still run for real and its 79.41% line-coverage table is kept in case-evidence/coverage-aggregate.log. Standard verification passed with every command exit code 0, and the RESULT codeBaseline records master@3e27a0dc4c57148b616f95481b44168e41e2a5fa codeFingerprint=802789e52d026cf2a24a6d1733739a058d3bf0927667b842c660a0daa5c18809, which still equals the current fingerprint. Open issues: none."
+  },
+  "alignment": {
+    "passedAt": "2026-11-04T09:41:09.073Z",
+    "summary": "Plan migrated from the pre-plan.md contract (design.md + implement.md -> plan.md) per workloom-migrate-plan. PRD rewritten to R/AC traceability with a migration note; semantics preserved item by item (Goal, Notes, Alignment Decisions and the open-nodes=none marker kept; R1/R2 and AC1/AC2 carried over unchanged), Alignment Decisions and the open-nodes=none marker kept. Alignment re-confirmed against the migrated PRD hash 78f0e4e41d35133cc68326ea823ddf4152f1f19da689c8014632110f77ba836b.",
+    "prdHash": "78f0e4e41d35133cc68326ea823ddf4152f1f19da689c8014632110f77ba836b"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-legacy-case"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:41:25.819Z",
+      "title": "Design CASE for legacy-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a5ef-4bff-766b-8832-a2ce4b35c2fe",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:44:49.822Z",
+      "title": "Execute confirmed CASE for legacy-case",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a5ef-4bff-766b-8832-a2ce4b35c2fe",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a5ef-4bff-766b-8832-a2ce4b35c2fe",
+    "confirmedAt": "2026-11-04T09:44:34.557Z",
+    "caseHash": "03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65",
+    "summary": "CASE reviewed against the migrated PRD, the migrated PLAN and the real fixture repository; structural review returned zero issues and readyToConfirm was true. SR1-SR3 cover AC1/AC2 over the task materials, C1 is a deterministic loopback socket check with real retained evidence, and coverage is not_applicable because every artefact lives under .workloom/. The user approved this exact caseHash 03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65 in a separate message after the review; case.required is promoted from false to true by this confirmation.",
+    "result": {
+      "caseHash": "03d23206acd8d9c0c8a4a5408532bb1308f10246001e46b13e0efe124ac64b65",
+      "resultHash": "bbc40304034f6e5cd1f8a4da4276574ae461887fcc16163a788a375037904a5c",
+      "passedAt": "2026-11-04T09:47:38.038Z"
+    }
+  }
+}

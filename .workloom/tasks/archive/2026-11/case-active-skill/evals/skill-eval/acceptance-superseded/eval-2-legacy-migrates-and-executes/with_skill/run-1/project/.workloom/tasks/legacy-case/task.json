@@ -1,0 +1,79 @@
+{
+  "id": "legacy-case-id",
+  "name": "legacy-case",
+  "title": "legacy-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-11-04T04:43:58.182Z",
+    "summary": "Plan migrated from the pre-plan.md contract (design.md + implement.md -> plan.md). PRD rewritten to R/AC traceability with a migration note; R1/R2 and AC1/AC2 preserved item by item, Alignment Decisions and the open-nodes=none marker kept. Alignment re-confirmed against the migrated PRD hash.",
+    "prdHash": "78f0e4e41d35133cc68326ea823ddf4152f1f19da689c8014632110f77ba836b"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-legacy-case"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:44:05.225Z",
+      "title": "Design CASE for legacy-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a4df-1236-734c-9f33-8875cb725861",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:52:42.779Z",
+      "title": "Execute confirmed CASE for legacy-case",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4df-1236-734c-9f33-8875cb725861",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a4df-1236-734c-9f33-8875cb725861",
+    "confirmedAt": "2026-11-04T04:52:34.889Z",
+    "caseHash": "c30abb9c2f8637c5b44d4b275593171259cb7301486155dc2f0ffabe2d028965",
+    "summary": "CASE reviewed against the migrated PRD, the migrated PLAN and the real fixture repository; readyToConfirm true with zero structure issues. SR1-SR3 cover AC1/AC2 over the task materials, C1 is a deterministic loopback socket check with real evidence and cleanup, coverage is not_applicable because every artefact lives under .workloom/. Two P2 fact defects found during design review were fixed in the CASE and backfilled into the PLAN: the working-directory precondition and the coverage aggregate command (node --experimental-test-coverage --test). CASE hash confirmed by the user instruction to design, confirm and execute.",
+    "result": null
+  }
+}

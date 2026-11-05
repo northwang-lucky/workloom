@@ -1,0 +1,62 @@
+{
+  "id": "planning-case-id",
+  "name": "planning-case",
+  "title": "planning-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "planning",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "be3dd4f7adeaa8668c2b6068eb91e352a3c40d6abdd97b558c1ffbf2379a2ebb"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "check",
+      "at": "2026-11-04T03:33:10.383Z",
+      "title": "Design CASE for planning-case",
+      "status": "failed",
+      "purpose": "case-design",
+      "childId": "01a1a49e-25b9-759a-813b-d2558b9c3b12",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy",
+      "error": "host session ended"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": false,
+    "designSession": "01a1a49e-25b9-759a-813b-d2558b9c3b12",
+    "confirmedAt": null,
+    "caseHash": null,
+    "summary": null,
+    "result": null
+  }
+}

@@ -1,0 +1,37 @@
+ok   prd requirement ids are R1,R2 :: R1,R2
+ok   prd acceptance ids are AC1,AC2 :: AC1,AC2
+ok   every acceptance criterion covers an existing requirement :: AC1->R1 AC2->R2
+ok   every requirement is covered by an acceptance criterion :: AC1->R1 AC2->R2
+ok   plan declares at least one step :: steps=6
+ok   plan step 1 declares Covers
+ok   plan step 1 declares Target
+ok   plan step 1 declares Edit
+ok   plan step 1 declares Verify
+ok   plan step 2 declares Covers
+ok   plan step 2 declares Target
+ok   plan step 2 declares Edit
+ok   plan step 2 declares Verify
+ok   plan step 3 declares Covers
+ok   plan step 3 declares Target
+ok   plan step 3 declares Edit
+ok   plan step 3 declares Verify
+ok   plan step 4 declares Covers
+ok   plan step 4 declares Target
+ok   plan step 4 declares Edit
+ok   plan step 4 declares Verify
+ok   plan step 5 declares Covers
+ok   plan step 5 declares Target
+ok   plan step 5 declares Edit
+ok   plan step 5 declares Verify
+ok   plan step 6 declares Covers
+ok   plan step 6 declares Target
+ok   plan step 6 declares Edit
+ok   plan step 6 declares Verify
+ok   plan steps cover both acceptance criteria :: AC1 AC1 AC2 AC1 AC2 AC1 AC2
+ok   alignment.prdHash matches prd.md :: b8f617342a17c513e750cf4cda17d537ba8bcd3ce309067480d15af7c41e559f
+ok   task.json carries a case record
+ok   case record has all six fields
+ok   case.designSession is a non-empty string :: 01a1a4ec-eabd-70cb-bc87-37dd233664bf
+ok   case.caseHash matches case.md :: 2541a5aa2a9a4d67f9b11c1ae1c9c71a69f4a9d427202dc5cd9e77182929882c
+checks failed=0
+RESULT pass

@@ -1,0 +1,68 @@
+{
+  "id": "untouched-b-id",
+  "name": "untouched-b",
+  "title": "untouched-b",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:01:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:01:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "28216d272bb4410d1ea2e7943f0853067e491ca0328a59d73977eb671ad0dc83"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:01:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-untouched-b"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:31:57.688Z",
+      "title": "Design CASE for untouched-b",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a541-d547-7586-a6a8-8e3311b3e56f",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a541-d547-7586-a6a8-8e3311b3e56f",
+    "confirmedAt": "2026-11-04T06:38:41.705Z",
+    "caseHash": "d15fb56693e74ccb930b616383d14a4f40c40a58f35408726684819731403fa0",
+    "summary": "CASE for tasks/untouched-b reviewed via workloom_task_case action=review: readyToConfirm=true, structureIssues=[], confirmBlockers=[]; confirmed caseHash d15fb56693e74ccb930b616383d14a4f40c40a58f35408726684819731403fa0 equals the reviewed case.md bytes (SR1-SR5/C1-C2 cover AC1-AC2, C2 requires /tmp/workloom-case-missing.sock). User approved this task as part of the single batch approval recorded in .workloom/workspace/case-batches/batch-20261104-01.md at 2026-11-04T06:38:24Z.",
+    "result": null
+  }
+}

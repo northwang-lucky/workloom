@@ -1,0 +1,119 @@
+{
+  "id": "ready-case-id",
+  "name": "ready-case",
+  "title": "ready-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-11-04T04:37:26.709Z",
+    "summary": "CASE re-executed after the untracked source file changed: check session 01a1a4d0-40ed-73c2-82b3-12d36032d13f (designSession == checkSession) re-ran SR1/SR2 and C1/C2/C3 on the edited harness. case-result.md: 2/2 static review passed, 3/3 runtime cases passed (blocked 0), coverage generated with real V8 line coverage 84/84 (100%) for verify/case-runtime.mjs, standard verification commands all exit 0, Open issues \"- none\". RESULT caseHash unchanged (00d6ab3e...), codeBaseline now records the current fingerprint codeFingerprint=9e296673f7fc6f2c9f63370f435665b6a132e21977545d2b6e0247d475a07eb9."
+  },
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "d675c073d6dccb1c2b3d96bf4e6065af5798924156015e1705126d27c43b88da"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-ready-case"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:27:54.145Z",
+      "title": "Design CASE for ready-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a4d0-40ed-73c2-82b3-12d36032d13f",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:31:28.256Z",
+      "title": "Revise CASE language and C2 expectation",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a4d0-40ed-73c2-82b3-12d36032d13f",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:32:28.970Z",
+      "title": "Execute confirmed CASE for ready-case",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4d0-40ed-73c2-82b3-12d36032d13f",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:35:04.781Z",
+      "title": "Fix RESULT exclusions table and re-run CASE",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4d0-40ed-73c2-82b3-12d36032d13f",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:36:40.058Z",
+      "title": "Re-execute CASE after fingerprint change",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4d0-40ed-73c2-82b3-12d36032d13f",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a4d0-40ed-73c2-82b3-12d36032d13f",
+    "confirmedAt": "2026-11-04T04:32:18.124Z",
+    "caseHash": "00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb",
+    "summary": "CASE for ready-case reviewed against prd.md/plan.md and the real code: SR1 covers AC1 (task materials keep the confirmed alignment), SR2 covers AC2 (deterministic harness contract); C1 runs the harness, C2 collects real V8 line coverage for verify/case-runtime.mjs, C3 records the code fingerprint. Coverage scope is verify/case-runtime.mjs with .workloom/** excluded; C2 states the covered==total invariant so a later harness edit stays valid. Confirmed for execution by the task request.",
+    "result": {
+      "caseHash": "00d6ab3e2f67e5dfaf9b372bb9f94125a8840b29f1f6af97b4fb60861e8af4eb",
+      "resultHash": "1530bd8f25a1df2da482e2aa2847e77740267d4b95f311445c170d39a0a64678",
+      "passedAt": "2026-11-04T04:37:26.709Z"
+    }
+  }
+}

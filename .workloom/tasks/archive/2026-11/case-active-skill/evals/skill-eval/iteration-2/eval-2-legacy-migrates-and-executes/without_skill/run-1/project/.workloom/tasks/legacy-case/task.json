@@ -1,0 +1,79 @@
+{
+  "id": "legacy-case-id",
+  "name": "legacy-case",
+  "title": "legacy-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-11-04T04:58:54.639Z",
+    "summary": "Phase 1.1 re-alignment after the legacy plan migration. Covered nodes: Goal, Requirements (R1, R2), Acceptance Criteria (AC1, AC2), Notes, Alignment Decisions, open-nodes marker. Key decisions: (1) the legacy design.md/implement.md pair was migrated into a prescriptive plan.md and the prd.md gained only a migration note — R1/R2 and AC1/AC2 are carried over unchanged; (2) no product source file exists or is changed, so the verifiable surface is the task materials and the CASE artifacts; (3) AC2's runtime case is a deterministic local verification of the task artifacts because this fixture exposes no service socket, and coverage is declared not_applicable with a stated exclusion rather than fabricated; (4) case.md and case-result.md are authored by the check executor so designSession and checkSession are one session chain. User confirmation result: the task prompt explicitly authorizes migrate-then-design-then-confirm-then-execute, and the review above reports readyToConfirm=true with no structure issues, so the migration was confirmed and the alignment credential was re-recorded against the current prd hash.",
+    "prdHash": "b8f617342a17c513e750cf4cda17d537ba8bcd3ce309067480d15af7c41e559f"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-legacy-case"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T04:59:12.631Z",
+      "title": "Design CASE for legacy-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a4ec-eabd-70cb-bc87-37dd233664bf",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T05:18:41.188Z",
+      "title": "Execute confirmed CASE for legacy-case",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a4ec-eabd-70cb-bc87-37dd233664bf",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a4ec-eabd-70cb-bc87-37dd233664bf",
+    "confirmedAt": "2026-11-04T05:18:28.057Z",
+    "caseHash": "2541a5aa2a9a4d67f9b11c1ae1c9c71a69f4a9d427202dc5cd9e77182929882c",
+    "summary": "CASE for tasks/legacy-case reviewed and approved for execution. Design round: check executor session 01a1a4ec-eabd-70cb-bc87-37dd233664bf (purpose=case-design) authored case.md with SR1 and C1; workloom_task_case review returned readyToConfirm=true with zero structure issues. Coverage of the CASE: SR1 covers AC1+AC2 over the migrated task materials (prd.md, plan.md, task.json); C1 is the deterministic local verification branch of AC2 (this fixture exposes no service socket, so the blocked branch is unreachable and was not simulated), producing case-evidence/c1-task-materials.txt; coverage is not_applicable because every changed file lives under .workloom/ and no coverable product source exists; Traceability maps AC1→SR1+C1 and AC2→SR1+C1. Approved hash: 2541a5aa2a9a4d67f9b11c1ae1c9c71a69f4a9d427202dc5cd9e77182929882c (independently recomputed as core computeCaseHash and as the SHA-256 the C1 script computes over case.md — all three agree). Approval basis: the task instruction explicitly authorizes migrate → design → confirm → execute → record evidence for this CASE, and the review snapshot above was presented in the main session before this confirmation.",
+    "result": null
+  }
+}

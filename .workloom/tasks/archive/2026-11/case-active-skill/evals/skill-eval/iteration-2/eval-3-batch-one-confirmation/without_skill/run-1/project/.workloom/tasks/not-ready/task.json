@@ -1,0 +1,42 @@
+{
+  "id": "not-ready-id",
+  "name": "not-ready",
+  "title": "not-ready",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "planning",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:02:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:02:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "a2b4d58860f1e10ddc7ee0026da6d596e5bd786d0f4c78fefa037f98f0b802f0"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": null
+}

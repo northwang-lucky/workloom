@@ -1,0 +1,91 @@
+{
+  "id": "ready-case-id",
+  "name": "ready-case",
+  "title": "ready-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "d675c073d6dccb1c2b3d96bf4e6065af5798924156015e1705126d27c43b88da"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-ready-case"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:07:20.395Z",
+      "title": "Design CASE for ready-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a5d0-1611-76fd-b4e0-1cfb1c015939",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:09:15.244Z",
+      "title": "Fix CASE P2 findings before confirmation",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a5d0-1611-76fd-b4e0-1cfb1c015939",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T09:10:16.516Z",
+      "title": "Execute confirmed CASE for ready-case",
+      "status": "failed",
+      "purpose": "execution",
+      "childId": "01a1a5d0-1611-76fd-b4e0-1cfb1c015939",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn",
+      "error": "dispatch aborted by main session"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a5d0-1611-76fd-b4e0-1cfb1c015939",
+    "confirmedAt": "2026-11-04T09:09:39.404Z",
+    "caseHash": "cbe4eaaafb5d38c51e3d6cd66c0fb97ede2da26084012cbac73302ef4d100d74",
+    "summary": "CASE for tasks/ready-case reviewed against prd.md (R1/R2, AC1/AC2), plan.md (步骤 1.1 verify) and the real tree; structure review clean (readyToConfirm=true), SR1/SR2 static review plus C1 runtime case with Node v24.18.1 built-in coverage over scripts/verify-case.mjs; both design-round P2 findings disposed (aggregate command hardened with set -o pipefail; PRD socket wording kept because AC2 is a disjunction and the alignment hash is the confirmed baseline). Confirmed per the user's explicit \"design, confirm, and execute CASE\" instruction for this reviewed snapshot.",
+    "result": null
+  }
+}

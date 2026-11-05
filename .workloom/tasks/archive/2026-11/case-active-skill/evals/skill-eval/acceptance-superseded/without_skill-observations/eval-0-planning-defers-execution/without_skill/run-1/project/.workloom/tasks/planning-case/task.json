@@ -1,0 +1,61 @@
+{
+  "id": "planning-case-id",
+  "name": "planning-case",
+  "title": "planning-case",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "planning",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "be3dd4f7adeaa8668c2b6068eb91e352a3c40d6abdd97b558c1ffbf2379a2ebb"
+  },
+  "overrides": [],
+  "stage": "implement",
+  "dispatches": [
+    {
+      "kind": "check",
+      "at": "2026-11-04T03:52:55.188Z",
+      "title": "Design CASE for planning-case",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a4b0-39e2-75dd-ac61-2045040fa878",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a4b0-39e2-75dd-ac61-2045040fa878",
+    "confirmedAt": "2026-11-04T04:01:02.208Z",
+    "caseHash": "58a5782e263274479cf34997cc89e6f8321ff4130531f9c1d86ecc854eef8e0e",
+    "summary": "CASE designed by a real check executor (purpose=case-design, child 01a1a4b0-39e2-75dd-ac61-2045040fa878), reviewed by the main session against prd.md/plan.md and the real fixture files (readyToConfirm true, zero structure issues), and confirmed by the user for the exact reviewed hash 58a5782e263274479cf34997cc89e6f8321ff4130531f9c1d86ecc854eef8e0e. Content: SR1 task record + alignment credential, SR2 PRD/PLAN structure, SR3 local deterministic verification entry; C1 local node+git material/hash verification, C2 socket-presence probe (blocked when the required socket is absent), C3 coverage-scope determination; coverage declared not_applicable with honest exclusions; Traceability rows for AC1 and AC2. The task stays in planning with no implementation performed and CASE execution deferred to a later separately confirmed round.",
+    "result": null
+  }
+}

@@ -1,0 +1,185 @@
+# C1 运行时证据（任务材料的确定性结构核验）
+
+生成时间：2026-11-04T10:07:55.787Z
+项目根：/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-4/eval-4-blocked-stops-batch/with_skill/run-1/project
+已确认 CASE：.workloom/tasks/blocked-a/case.md（sha256 b6356d0f9edb3ef4bd1a0e7239bff89fe29c5f670d0d8c74383eccc12c9a659f）
+
+下列命令逐字取自已确认的 CASE，全部在项目根执行，顺序与 CASE 一致。
+
+## 步骤 1
+
+命令：
+
+```bash
+node -e 'const fs=require("node:fs");const t=JSON.parse(fs.readFileSync(".workloom/tasks/blocked-a/task.json","utf8"));if(t.id!=="blocked-a-id"||t.mode!=="full"||t.status!=="in_progress")throw new Error("task.json 字段不符");if(typeof t.alignment?.passedAt!=="string"||!/^[0-9a-f]{64}$/.test(t.alignment.prdHash||""))throw new Error("对齐记录缺失");console.log("task.json ok")'
+```
+
+退出码：0
+
+标准输出：
+
+```text
+task.json ok
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 2
+
+命令：
+
+```bash
+test "$(sha256sum .workloom/tasks/blocked-a/prd.md | cut -d" " -f1)" = "$(node -p 'JSON.parse(require("node:fs").readFileSync(".workloom/tasks/blocked-a/task.json","utf8")).alignment.prdHash')"
+```
+
+退出码：0
+
+标准输出：
+
+```text
+(空)
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 3
+
+命令：
+
+```bash
+for s in "## Goal" "## Requirements" "## Acceptance Criteria" "## Notes" "## Alignment Decisions"; do grep -qF "$s" .workloom/tasks/blocked-a/prd.md || exit 1; done
+```
+
+退出码：0
+
+标准输出：
+
+```text
+(空)
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 4
+
+命令：
+
+```bash
+grep -qE '^- R1:' .workloom/tasks/blocked-a/prd.md && grep -qE '^- R2:' .workloom/tasks/blocked-a/prd.md && grep -qE '^- AC1:.*Covers R1' .workloom/tasks/blocked-a/prd.md && grep -qE '^- AC2:.*Covers R2' .workloom/tasks/blocked-a/prd.md
+```
+
+退出码：0
+
+标准输出：
+
+```text
+(空)
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 5
+
+命令：
+
+```bash
+grep -qF "<!-- workloom:open-nodes=none -->" .workloom/tasks/blocked-a/prd.md
+```
+
+退出码：0
+
+标准输出：
+
+```text
+(空)
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 6
+
+命令：
+
+```bash
+grep -qF "Covers: AC1, AC2" .workloom/tasks/blocked-a/plan.md && grep -qF "Edit: no product code" .workloom/tasks/blocked-a/plan.md
+```
+
+退出码：0
+
+标准输出：
+
+```text
+(空)
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 7
+
+命令：
+
+```bash
+node -e 'const fs=require("node:fs");const ls=fs.readFileSync(".workloom/tasks/blocked-a/check.jsonl","utf8").split("\n").filter(l=>l.trim());if(ls.length===0)throw new Error("check.jsonl 为空");for(const l of ls){const e=JSON.parse(l);if(!e.file||!fs.existsSync(e.file)||fs.statSync(e.file).size===0)throw new Error("引用缺失或为空:"+e.file)}console.log("check.jsonl ok")'
+```
+
+退出码：0
+
+标准输出：
+
+```text
+check.jsonl ok
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+## 步骤 8
+
+命令：
+
+```bash
+test -z "$(git ls-files -- '*.ts' '*.js' '*.mjs' '*.cjs')"
+```
+
+退出码：0
+
+标准输出：
+
+```text
+(空)
+```
+
+标准错误：
+
+```text
+(空)
+```
+
+结论：8 个步骤全部执行完毕，非零退出码步骤数 = 0。

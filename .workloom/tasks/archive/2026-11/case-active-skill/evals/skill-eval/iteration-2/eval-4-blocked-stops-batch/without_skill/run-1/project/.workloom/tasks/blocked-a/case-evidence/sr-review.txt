@@ -1,0 +1,185 @@
+SR1-SR5 静态审查取证
+仓库根：/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-active-skill/evals/skill-eval/iteration-2/eval-4-blocked-stops-batch/without_skill/run-1/project
+case.md SHA-256：6770a66dfb152b66a917fc134471cf2d4db1e642ee314f2bec480d1bcd20f827
+HEAD：66c4fa68bc4eb6594f90cb43f858e0cebe16c3ca  分支：master
+
+### SR1 任务记录与对齐摘要一致
+$ cat .workloom/tasks/blocked-a/task.json
+{
+  "id": "blocked-a-id",
+  "name": "blocked-a",
+  "title": "blocked-a",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "alignment": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:00:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-blocked-a"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:45:33.318Z",
+      "title": "Design CASE for blocked-a",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:53:56.968Z",
+      "title": "Revise CASE for blocked-a stage stability",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T07:09:17.380Z",
+      "title": "Execute confirmed CASE for blocked-a",
+      "status": "running",
+      "purpose": "execution",
+      "childId": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a54e-4755-722d-b785-9fce8d0d9d65",
+    "confirmedAt": "2026-11-04T07:09:10.816Z",
+    "caseHash": "6770a66dfb152b66a917fc134471cf2d4db1e642ee314f2bec480d1bcd20f827",
+    "summary": "CASE for tasks/blocked-a reviewed via workloom_task_case action=review: readyToConfirm=true, structureIssues=[], confirmBlockers=[]; confirmed caseHash 6770a66dfb152b66a917fc134471cf2d4db1e642ee314f2bec480d1bcd20f827 equals the reviewed case.md bytes (SR1-SR5/C1-C3 cover AC1-AC2; C2 gates on /tmp/workloom-case-missing.sock and stops as blocked when the socket is absent). User approved this task as part of the single batch approval recorded in .workloom/workspace/case-batches/batch-20261104-01.md at 2026-11-04T07:09:00Z.",
+    "result": null
+  }
+}
+exit=0
+
+$ python3 -c import json,re,sys;t=json.load(open(sys.argv[1]));a=t['alignment'];c=t['case'];assert t['status']=='in_progress' and t['mode']=='full' and t['overrides']==[];assert t['stage'] in ('implement','check');assert a['passedAt'] and a['summary'] and re.fullmatch(r'[0-9a-f]{64}',a['prdHash']);assert c['required'] is True and c['designSession'];assert any(e.get('purpose')=='case-design' for e in t['dispatches']);print('task.json ok') .workloom/tasks/blocked-a/task.json
+task.json ok
+exit=0
+
+$ python3 -c import json,sys;t=json.load(open(sys.argv[1]));print('stage =',t['stage']);print('status =',t['status']);print('mode =',t['mode']);print('overrides =',t['overrides']);print('dispatches =',[(d.get('kind'),d.get('purpose'),d.get('status'),d.get('childId')) for d in t['dispatches']]);print('case.required =',t['case']['required'],'| designSession =',t['case']['designSession'],'| confirmedAt =',t['case']['confirmedAt'],'| caseHash =',t['case']['caseHash']) .workloom/tasks/blocked-a/task.json
+stage = check
+status = in_progress
+mode = full
+overrides = []
+dispatches = [('implement', None, 'completed', 'implement-blocked-a'), ('check', 'case-design', 'completed', '01a1a54e-4755-722d-b785-9fce8d0d9d65'), ('check', 'case-design', 'completed', '01a1a54e-4755-722d-b785-9fce8d0d9d65'), ('check', 'execution', 'running', '01a1a54e-4755-722d-b785-9fce8d0d9d65')]
+case.required = True | designSession = 01a1a54e-4755-722d-b785-9fce8d0d9d65 | confirmedAt = 2026-11-04T07:09:10.816Z | caseHash = 6770a66dfb152b66a917fc134471cf2d4db1e642ee314f2bec480d1bcd20f827
+exit=0
+
+$ sha256sum .workloom/tasks/blocked-a/prd.md
+f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503  .workloom/tasks/blocked-a/prd.md
+exit=0
+
+$ python3 -c import json,sys;print(json.load(open(sys.argv[1]))['alignment']['prdHash']) .workloom/tasks/blocked-a/task.json
+f4aff85945ca470e16feb378ec931672b4ead6fd6560bab5e81c9d1e95e92503
+exit=0
+
+### SR2 PRD 的目标、需求与验收标准可解析
+$ grep -n ^##  .workloom/tasks/blocked-a/prd.md
+3:## Goal
+7:## Requirements
+12:## Acceptance Criteria
+17:## Notes
+21:## Alignment Decisions
+exit=0
+
+$ python3 -c import re,sys;t=open(sys.argv[1]).read();req=re.search(r'^## Requirements\n(.*?)(?=^## )',t,re.M|re.S).group(1);acc=re.search(r'^## Acceptance Criteria\n(.*?)(?=^## )',t,re.M|re.S).group(1);print('R ids =',sorted(set(re.findall(r'^- (R\d+):',req,re.M))));print('AC ids =',sorted(set(re.findall(r'^- (AC\d+):',acc,re.M))));print('AC->R =',re.findall(r'^- (AC\d+):.*Covers (R\d+)',acc,re.M));print('R2 socket literal =','/tmp/workloom-case-missing.sock' in req) .workloom/tasks/blocked-a/prd.md
+R ids = ['R1', 'R2']
+AC ids = ['AC1', 'AC2']
+AC->R = [('AC1', 'R1'), ('AC2', 'R2')]
+R2 socket literal = True
+exit=0
+
+### SR3 PLAN 步骤结构完整并覆盖验收标准
+$ grep -n ^#### 步骤\|^- Covers:\|^- Target:\|^- Edit:\|^- Verify: .workloom/tasks/blocked-a/plan.md
+5:#### 步骤 1.1 verify
+7:- Covers: AC1, AC2
+8:- Target: task documents
+9:- Edit: no product code
+10:- Verify: execute the confirmed CASE and inspect case-result.md
+exit=0
+
+$ python3 -c import re,sys;t=open(sys.argv[1]).read();blocks=re.findall(r'^#### 步骤.*$',t,re.M);print('步骤数 =',len(blocks));print('每块四字段齐全 =',all(all(('- %s:'%f) in b for f in ('Covers','Target','Edit','Verify')) for b in re.split(r'^#### 步骤',t,flags=re.M)[1:]));print('Covers 覆盖 AC1/AC2 =',('AC1' in t and 'AC2' in t)) .workloom/tasks/blocked-a/plan.md
+步骤数 = 1
+每块四字段齐全 = True
+Covers 覆盖 AC1/AC2 = True
+exit=0
+
+### SR4 检查输入引用可解析
+$ python3 -c import json,sys;[json.loads(l) for l in open(sys.argv[1]) if l.strip()];print(sys.argv[1],'ok') .workloom/tasks/blocked-a/check.jsonl
+.workloom/tasks/blocked-a/check.jsonl ok
+exit=0
+
+$ python3 -c import json,sys;[json.loads(l) for l in open(sys.argv[1]) if l.strip()];print(sys.argv[1],'ok') .workloom/tasks/blocked-a/implement.jsonl
+.workloom/tasks/blocked-a/implement.jsonl ok
+exit=0
+
+$ python3 -c import json,os,sys;recs=[json.loads(l) for l in open(sys.argv[1]) if l.strip()];assert recs and all(r.get('file') and r.get('reason') and os.path.isfile(r['file']) for r in recs);print(sys.argv[1],'records ok') .workloom/tasks/blocked-a/check.jsonl
+.workloom/tasks/blocked-a/check.jsonl records ok
+exit=0
+
+$ python3 -c import json,os,sys;recs=[json.loads(l) for l in open(sys.argv[1]) if l.strip()];assert recs and all(r.get('file') and r.get('reason') and os.path.isfile(r['file']) for r in recs);print(sys.argv[1],'records ok') .workloom/tasks/blocked-a/implement.jsonl
+.workloom/tasks/blocked-a/implement.jsonl records ok
+exit=0
+
+### SR5 夹具规格说明给出确定性本地验证口径
+$ cat .workloom/spec/README.md
+# Fixture spec
+
+Use deterministic local verification.
+exit=0
+
+$ wc -c .workloom/spec/README.md
+54 .workloom/spec/README.md
+exit=0
+
+$ grep -nE https?://|password|passwd|token|secret|api[_-]?key|credential .workloom/spec/README.md
+exit=1
+
+（上面 grep 退出码 1 表示无匹配，即全文不含外部地址与凭据）
+### 结论
+SR1-SR5 全部通过：task.json 字段与对齐摘要一致；PRD 结构与 R/AC 映射正确；PLAN 单步骤四字段齐全并覆盖 AC1/AC2；两个 JSONL 各含 1 条有效记录且引用文件存在非空；规格说明为确定性本地验证口径。

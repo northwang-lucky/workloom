@@ -1,0 +1,111 @@
+# C2 CASE 结构与确定性校验
+
+--- run 1 (exit 0) ---
+PASS frontmatter 存在
+PASS frontmatter version 为 1 :: 1
+PASS frontmatter task 为 tasks/batch-a :: tasks/batch-a
+PASS H1 标题为 CASE
+PASS 含小节 References
+PASS 含小节 Scope
+PASS 含小节 Static Review
+PASS 含小节 Runtime Cases
+PASS 含小节 Coverage
+PASS 含小节 Traceability
+PASS SR 编号从 SR1 连续 :: SR1,SR2,SR3,SR4
+PASS C 编号从 C1 连续 :: C1,C2
+PASS SR1 含字段 Covers
+PASS SR1 含字段 Target
+PASS SR1 含字段 Checks
+PASS SR1 含字段 Expected
+PASS SR2 含字段 Covers
+PASS SR2 含字段 Target
+PASS SR2 含字段 Checks
+PASS SR2 含字段 Expected
+PASS SR3 含字段 Covers
+PASS SR3 含字段 Target
+PASS SR3 含字段 Checks
+PASS SR3 含字段 Expected
+PASS SR4 含字段 Covers
+PASS SR4 含字段 Target
+PASS SR4 含字段 Checks
+PASS SR4 含字段 Expected
+PASS C1 含字段 Covers
+PASS C1 含字段 Preconditions
+PASS C1 含字段 Steps
+PASS C1 含字段 Expected
+PASS C1 含字段 Evidence
+PASS C1 含字段 Cleanup
+PASS C2 含字段 Covers
+PASS C2 含字段 Preconditions
+PASS C2 含字段 Steps
+PASS C2 含字段 Expected
+PASS C2 含字段 Evidence
+PASS C2 含字段 Cleanup
+PASS AC1 在 Traceability 表中有对应行
+PASS AC1 引用了已存在的 SR :: SR1,SR2,SR3
+PASS AC1 引用了已存在的 C :: C1
+PASS AC2 在 Traceability 表中有对应行
+PASS AC2 引用了已存在的 SR :: SR4
+PASS AC2 引用了已存在的 C :: C2
+PASS Coverage Scope 为空集合
+PASS Coverage 声明聚合命令不适用
+PASS Coverage 至少列出一条排除项
+case-sha256: e5b57cd9454582393969f60c4cfacf075ca0a90854977511703760de89c79a88
+failures: 0
+
+--- run 2 (exit 0) ---
+PASS frontmatter 存在
+PASS frontmatter version 为 1 :: 1
+PASS frontmatter task 为 tasks/batch-a :: tasks/batch-a
+PASS H1 标题为 CASE
+PASS 含小节 References
+PASS 含小节 Scope
+PASS 含小节 Static Review
+PASS 含小节 Runtime Cases
+PASS 含小节 Coverage
+PASS 含小节 Traceability
+PASS SR 编号从 SR1 连续 :: SR1,SR2,SR3,SR4
+PASS C 编号从 C1 连续 :: C1,C2
+PASS SR1 含字段 Covers
+PASS SR1 含字段 Target
+PASS SR1 含字段 Checks
+PASS SR1 含字段 Expected
+PASS SR2 含字段 Covers
+PASS SR2 含字段 Target
+PASS SR2 含字段 Checks
+PASS SR2 含字段 Expected
+PASS SR3 含字段 Covers
+PASS SR3 含字段 Target
+PASS SR3 含字段 Checks
+PASS SR3 含字段 Expected
+PASS SR4 含字段 Covers
+PASS SR4 含字段 Target
+PASS SR4 含字段 Checks
+PASS SR4 含字段 Expected
+PASS C1 含字段 Covers
+PASS C1 含字段 Preconditions
+PASS C1 含字段 Steps
+PASS C1 含字段 Expected
+PASS C1 含字段 Evidence
+PASS C1 含字段 Cleanup
+PASS C2 含字段 Covers
+PASS C2 含字段 Preconditions
+PASS C2 含字段 Steps
+PASS C2 含字段 Expected
+PASS C2 含字段 Evidence
+PASS C2 含字段 Cleanup
+PASS AC1 在 Traceability 表中有对应行
+PASS AC1 引用了已存在的 SR :: SR1,SR2,SR3
+PASS AC1 引用了已存在的 C :: C1
+PASS AC2 在 Traceability 表中有对应行
+PASS AC2 引用了已存在的 SR :: SR4
+PASS AC2 引用了已存在的 C :: C2
+PASS Coverage Scope 为空集合
+PASS Coverage 声明聚合命令不适用
+PASS Coverage 至少列出一条排除项
+case-sha256: e5b57cd9454582393969f60c4cfacf075ca0a90854977511703760de89c79a88
+failures: 0
+
+runs-identical: true
+run1-sha256: 08cecd0813f5994f69cbffd238e9d7806e069d38c85ea5567c91018d2e845de5
+run2-sha256: 08cecd0813f5994f69cbffd238e9d7806e069d38c85ea5567c91018d2e845de5

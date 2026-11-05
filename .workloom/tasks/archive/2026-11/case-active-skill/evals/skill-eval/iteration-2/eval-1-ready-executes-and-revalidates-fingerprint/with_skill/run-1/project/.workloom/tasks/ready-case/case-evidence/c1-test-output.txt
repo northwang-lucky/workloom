@@ -1,0 +1,22 @@
+✔ fixture spec declares a deterministic local verification (1.467877ms)
+✔ prd keeps R1, R2 and both acceptance criteria (1.417546ms)
+✔ plan covers both acceptance criteria (0.275591ms)
+✔ repeated reads of the same artifact are byte identical (0.277378ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 89.815942
+ℹ start of coverage report
+ℹ --------------------------------------------------------------------
+ℹ file                | line % | branch % | funcs % | uncovered lines
+ℹ --------------------------------------------------------------------
+ℹ src                 |        |          |         | 
+ℹ  verify-fixture.mjs | 100.00 |    88.89 |  100.00 | 
+ℹ --------------------------------------------------------------------
+ℹ all files           | 100.00 |    88.89 |  100.00 | 
+ℹ --------------------------------------------------------------------
+ℹ end of coverage report

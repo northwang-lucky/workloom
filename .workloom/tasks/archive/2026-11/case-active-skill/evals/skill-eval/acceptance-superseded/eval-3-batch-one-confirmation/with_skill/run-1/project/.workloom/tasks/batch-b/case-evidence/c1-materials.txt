@@ -1,0 +1,7 @@
+alignment: ok (2b9d89e06a0a3a5f6de414852f8d5caab36e5c5527f5c7d192cc393b6437bb3d)
+materials: ok (missing=none, requirements=R1,R2, criteria=AC1,AC2)
+case-record: ok, confirmed-hash: ok
+plan-coverage: ok
+worktree-scope: ok (.workloom/tasks/batch-a/task.json .workloom/tasks/batch-b/task.json .workloom/tasks/batch-a/case-evidence/ .workloom/tasks/batch-a/case-result.md .workloom/tasks/batch-a/case.md .workloom/tasks/batch-a/coverage/ .workloom/tasks/batch-b/case-evidence/ .workloom/tasks/batch-b/case.md .workloom/workspace/)
+result: passed
+exit_code=0

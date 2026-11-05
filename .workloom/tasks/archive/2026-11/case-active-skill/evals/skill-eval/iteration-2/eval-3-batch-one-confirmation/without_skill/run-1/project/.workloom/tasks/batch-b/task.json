@@ -1,0 +1,86 @@
+{
+  "id": "batch-b-id",
+  "name": "batch-b",
+  "title": "batch-b",
+  "description": "deterministic CASE evaluation fixture",
+  "status": "in_progress",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:01:00.000Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-11-04T06:27:56.603Z",
+    "summary": "Executed the confirmed CASE (hash dc634d7f9211bf993ff13b9300797c632ce2f2edc6a914d24d4eb57b698705f5) in session 01a1a525-bc4e-758a-aa18-235cb596a8de: SR1-SR4 4/4 passed, C1-C2 2/2 passed (blocked 0), coverage not_applicable, standard verification passed, Open issues - none. RESULT at .workloom/tasks/batch-b/case-result.md (resultHash cda3d2fedbf45d907a6812f7221a5486c37fcfbbe70c1d48006e2bd62133d734). One P2 (execution dispatch entry carried purpose=case-design, so task.stage stayed implement) was corrected by the main session to purpose=execution / stage=check before recording this credential; core evaluateCaseExecutionGate and evaluateCaseOutcomeGate both re-evaluated after that correction and returned 0 issues."
+  },
+  "alignment": {
+    "passedAt": "2026-01-01T00:01:00.000Z",
+    "summary": "Deterministic fixture approved for evaluation.",
+    "prdHash": "2b9d89e06a0a3a5f6de414852f8d5caab36e5c5527f5c7d192cc393b6437bb3d"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "implement",
+      "at": "2026-01-01T00:01:00.000Z",
+      "title": "Completed fixture",
+      "status": "completed",
+      "childId": "implement-batch-b"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:01:16.291Z",
+      "title": "CASE design for batch-b",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1a525-bc4e-758a-aa18-235cb596a8de",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-04T06:21:47.782Z",
+      "title": "Execute confirmed CASE for batch-b",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1a525-bc4e-758a-aa18-235cb596a8de",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1a525-bc4e-758a-aa18-235cb596a8de",
+    "confirmedAt": "2026-11-04T06:14:08.110Z",
+    "caseHash": "dc634d7f9211bf993ff13b9300797c632ce2f2edc6a914d24d4eb57b698705f5",
+    "summary": "Batch 20261104T061123Z revision 1 approved by one user approval (batch-b dc634d7f9211bf993ff13b9300797c632ce2f2edc6a914d24d4eb57b698705f5); confirmed via .workloom/workspace/case-batches/20261104T061123Z.md",
+    "result": {
+      "caseHash": "dc634d7f9211bf993ff13b9300797c632ce2f2edc6a914d24d4eb57b698705f5",
+      "resultHash": "cda3d2fedbf45d907a6812f7221a5486c37fcfbbe70c1d48006e2bd62133d734",
+      "passedAt": "2026-11-04T06:27:56.603Z"
+    }
+  }
+}

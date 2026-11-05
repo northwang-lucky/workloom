@@ -1,0 +1,22 @@
+✔ prd.md 的 sha256 与 task.json 的 alignment.prdHash 一致 (1.876368ms)
+✔ plan.md 保留 ## Steps 标题与步骤 1.1 verify 标题 (0.431565ms)
+✔ task.json 保留 status=in_progress、mode=full 与 case.required=true (0.277091ms)
+✔ 规范文件声明了确定性的本地校验方式 (1.204031ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 90.050815
+ℹ start of coverage report
+ℹ -----------------------------------------------------------------
+ℹ file             | line % | branch % | funcs % | uncovered lines
+ℹ -----------------------------------------------------------------
+ℹ scripts          |        |          |         | 
+ℹ  verify-case.mjs | 100.00 |   100.00 |  100.00 | 
+ℹ -----------------------------------------------------------------
+ℹ all files        | 100.00 |   100.00 |  100.00 | 
+ℹ -----------------------------------------------------------------
+ℹ end of coverage report
