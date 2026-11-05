@@ -1,0 +1,13 @@
+--- dist registration:
+40:    'skills/workloom-case-archived/SKILL.md',
+--- src/dist entry parity:
+srcEntries=11 distEntries=11
+parity=true
+--- build #1:
+$ tsc -p tsconfig.json
+build1_exit=0
+--- build #2:
+$ tsc -p tsconfig.json
+build2_exit=0
+dist_stable=PASS
+dist_files=63

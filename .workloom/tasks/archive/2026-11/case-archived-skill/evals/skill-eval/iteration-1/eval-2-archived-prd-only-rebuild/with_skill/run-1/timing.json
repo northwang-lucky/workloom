@@ -1,0 +1,8 @@
+{
+  "total_duration_seconds": 3061.173,
+  "total_tokens": 42026331,
+  "token_note": "Sum of per-response usage values; not unique content tokens and not a pass/fail metric.",
+  "session_files": [
+    ".workloom/tasks/11-03-case-archived-skill/evals/skill-eval/iteration-1/eval-2-archived-prd-only-rebuild/with_skill/run-1/project/.pi/sessions/2026-11-05T09-54-53-555Z_case-eval-archived-prd-only-rebuild-with_skill-1.jsonl"
+  ]
+}

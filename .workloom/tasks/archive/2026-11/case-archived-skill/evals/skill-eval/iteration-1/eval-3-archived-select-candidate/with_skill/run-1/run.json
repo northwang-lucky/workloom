@@ -1,0 +1,14 @@
+{
+  "scenario": "archived-select-candidate",
+  "evalId": 3,
+  "evalName": "eval-3-archived-select-candidate",
+  "configuration": "with_skill",
+  "sessionId": "case-eval-archived-select-candidate-with_skill-1",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+  "requestedRef": null,
+  "status": "completed",
+  "startedAt": "2026-11-05T10:47:38.070Z",
+  "projectHead": "fb08467a886f2e977cdea2be68c9d83a0cdb138c",
+  "completedAt": "2026-11-05T10:50:34.793Z"
+}

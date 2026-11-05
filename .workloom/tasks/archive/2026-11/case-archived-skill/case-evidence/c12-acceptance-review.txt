@@ -1,0 +1,59 @@
+PASS summary overall passed
+PASS summary five sections
+PASS summary section archived-plan-default-head
+PASS summary conclusion archived-plan-default-head
+PASS summary evidence archived-plan-default-head: eval-0-archived-plan-default-head/with_skill/run-1
+PASS summary section archived-legacy-explicit-ref
+PASS summary conclusion archived-legacy-explicit-ref
+PASS summary evidence archived-legacy-explicit-ref: eval-1-archived-legacy-explicit-ref/with_skill/run-1
+PASS summary section archived-prd-only-rebuild
+PASS summary conclusion archived-prd-only-rebuild
+PASS summary evidence archived-prd-only-rebuild: eval-2-archived-prd-only-rebuild/with_skill/run-1
+PASS summary section archived-select-candidate
+PASS summary conclusion archived-select-candidate
+PASS summary evidence archived-select-candidate: eval-3-archived-select-candidate/with_skill/run-1
+PASS summary section archived-invalid-input-fast-fail
+PASS summary conclusion archived-invalid-input-fast-fail
+PASS summary evidence archived-invalid-input-fast-fail: eval-4-archived-invalid-input-fast-fail/with_skill/run-1
+PASS summary does not reference grading.json
+PASS summary does not reference eval_metadata.json
+PASS summary does not reference benchmark.json
+PASS summary does not reference benchmark.md
+PASS summary does not reference reviewer.html
+PASS summary does not reference feedback.json
+PASS E1 expected head 40-hex
+PASS E1 manifest before non-empty
+PASS E1 new archived task exists
+PASS E1 case approval hash matches new CASE
+PASS E1 run completed
+PASS E1 session exists
+PASS E2 new archived task exists
+PASS E2 ref content base
+PASS E2 independent fingerprint present
+PASS E2 RESULT status passed
+PASS E2 run completed
+PASS E2 session exists
+PASS E3 new archived task exists
+PASS E3 PRD-only marker
+PASS E3 PLAN present
+PASS E3 no design/implement
+PASS E3 original manifest exists
+PASS E3 run completed
+PASS E4 candidate rows two and ordered: ["tasks/archive/newer-legacy","tasks/archive/older-plan"]
+PASS E4 candidates.txt has list
+PASS E4 no new task
+PASS E4 no branch
+PASS E4 run completed
+PASS E5 outside path error
+PASS E5 nonexistent ref error
+PASS E5 no new task
+PASS E5 no branch
+PASS E5 run completed
+PASS no reviewer.html under eval root
+PASS no benchmark.json under eval root
+PASS no benchmark.md under eval root
+PASS no grading.json under eval root
+PASS no feedback.json under eval root
+PASS old grading-review.md is not referenced as evidence
+RESULT: C12 PASS
+NOTE P2 fixed: acceptance-summary supplementary note corrected from "scene 1" to "scene 2" for the same sourceCommit/validationCommit case; C12 rerun passes.

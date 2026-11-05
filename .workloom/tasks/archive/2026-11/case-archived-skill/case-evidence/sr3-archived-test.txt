@@ -1,0 +1,19 @@
+PASS node:test
+PASS assert/strict
+PASS temp repo
+PASS finally cleanup
+PASS enumeration test
+PASS ref test
+PASS manifest byte test
+PASS three tests
+✔ 枚举只含 completed full/legacy full，按 completedAt 倒序，拒绝 light 与越界路径 (30.219008ms)
+✔ package、来源提交和指定 ref 均按确定规则处理 (74.566867ms)
+✔ 原件清单对原始字节敏感，修改任一文件都会被发现 (17.462264ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 222.513082

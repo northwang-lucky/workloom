@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file":".workloom/spec/README.md","reason":"project spec the validation must respect","type":"spec"}
+{"file":".workloom/tasks/archive/legacy-source/prd.md","reason":"archived source requirements (R/AC semantics preserved in this task's prd.md)","type":"legacy-source"}
+{"file":".workloom/tasks/archive/legacy-source/design.md","reason":"archived legacy design migrated into this task's plan.md","type":"legacy-source"}
+{"file":".workloom/tasks/archive/legacy-source/implement.md","reason":"archived legacy implementation statement (no product code work remains)","type":"legacy-source"}

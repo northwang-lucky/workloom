@@ -1,0 +1,21 @@
+runner=/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill/packages/assets/skills/workloom-case-archived/evals/run-scenario.sh
+--- bash -n:
+syntax_exit=0
+--- static contract:
+PASS only with_skill accepted
+PASS model minimax
+PASS skill flag
+PASS session dir
+PASS stable capture
+PASS requestedRef legacy conditional
+PASS run dir single
+PASS tmux single session
+--- without_skill must exit 2:
+only with_skill is accepted for archived-skill acceptance
+without_skill_exit=2
+--- unknown scenario must exit 2:
+unknown scenario: unknown-scenario
+unknown_exit=2
+--- existing run dir must exit 2:
+run directory already exists: /tmp/wl-sr6-IB7mLc/evals/skill-eval/iteration-9/eval-0-archived-plan-default-head/with_skill/run-1
+existing_run_dir_exit=2

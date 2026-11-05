@@ -1,0 +1,121 @@
+{
+  "id": "b530fdf6-a06d-4a74-bfd1-65002f63a669",
+  "name": "archived-legacy-validation",
+  "title": "Validate archived legacy-source CASE against ref c36a6fd",
+  "description": "Independent CASE reconstruction for the archived full task tasks/archive/legacy-source (legacy pair: design.md + implement.md). Validation baseline is the user-selected ref c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d, not current HEAD. The original archive stays read-only.",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "workloom/11-05-archived-legacy-validation",
+  "base_branch": "workloom/validation-archived-legacy-validation",
+  "createdAt": "2026-11-05T09:15:35.723Z",
+  "completedAt": "2026-11-05T09:49:24.506Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/11-05-archived-legacy-validation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "sourceTask": "tasks/archive/legacy-source",
+    "sourceCommit": "c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d",
+    "sourceCommitType": "archive-bookkeeping",
+    "validationRef": "c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d",
+    "validationRefSource": "user-specified",
+    "validationReason": "User-selected ref c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d",
+    "validationCommit": "c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d",
+    "validationBranch": "workloom/validation-archived-legacy-validation",
+    "materialMode": "legacy-pair",
+    "validationPurpose": "rebuild-case-verification",
+    "previousBranch": "master",
+    "activationRestored": true
+  },
+  "check": {
+    "passedAt": "2026-11-05T09:49:03.224Z",
+    "summary": "CASE verification passed against the recorded current baseline. Static review 4/4 passed (SR1 archived legacy design statement intact, SHA-256 e5faf3e3…f501; SR2 archived legacy implementation statement intact, SHA-256 d60747d1…b64a; SR3 confirmed PRD with 5 requirements and 5 acceptance criteria, hash 91d8fcd4…a26d; SR4 prescriptive plan with 4 steps and the four required fields each, no deletion command and no write outside case-evidence/). Runtime cases 3/3 passed with real commands from the project root: C1 archived manifest captured (six SHA-256 lines), hash-map comparison printed MANIFEST_EQUAL 6/6, and the whole-run re-capture into case-evidence/archive-manifest-final.txt diffed byte-identical to the first capture (exit 0, no output); C2 validation worktree HEAD c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d on branch workloom/11-05-archived-legacy-validation (not detached), src/current.txt = base and not current, main checkout HEAD 1058f6641f4d104179d633ec0bc04c499e605002 and different from the worktree HEAD; C3 migration artifacts verified (six migration checks, line-count assertion 6, archived design.md/implement.md hashes unchanged, 4 plan steps). Coverage status not_applicable with the recorded exclusion src/** and an empty Changed Files table, because the change set contains no executable file. Standard verification passed: 15 commands, every exit code 0, evidence files present in case-evidence/. codeBaseline records validationCommit=c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d, validationRefSource=user-specified, validationReason=User-selected ref c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d, sourceCommit=c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d and codeFingerprint=c8b55f3bdce3f74f69c34dbc11c5b38702f3d5e94d66bb9d446a4b7fb6fce32c, reproduced by an independent task-fingerprint.mjs run on the validation worktree. The archived original tasks/archive/legacy-source is byte-identical to the manifest captured before this task started. Open issues: none."
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1ab06-b78d-77c5-93a2-387a3b0372f5",
+    "confirmedAt": "2026-11-05T09:43:42.566Z",
+    "caseHash": "77a1ca558b4d12e5c24322e8ce83b5cde09b9d870d965fe4e9bd0b77c4ec841c",
+    "summary": "User approved the exact reviewed CASE hash 77a1ca558b4d12e5c24322e8ce83b5cde09b9d870d965fe4e9bd0b77c4ec841c in a new message after the main-session review (workloom_task_case action=review reported readyToConfirm=true with zero structureIssues). The CASE covers AC1-AC5 via SR1-SR4 (static review of the four .workloom documents) and C1-C3 (real commands for the archived-manifest byte identity, the requested-ref baseline, and the migration artifacts), with coverage status not_applicable and one exclusion (src/**). Source task: tasks/archive/legacy-source; code baseline: validation commit c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d on branch workloom/11-05-archived-legacy-validation, recorded fingerprint codeFingerprint=c8b55f3bdce3f74f69c34dbc11c5b38702f3d5e94d66bb9d446a4b7fb6fce32c.",
+    "result": {
+      "caseHash": "77a1ca558b4d12e5c24322e8ce83b5cde09b9d870d965fe4e9bd0b77c4ec841c",
+      "resultHash": "683bef6d5cc69c8e8708a392315841be318e602227c19af259002c54b3b672bf",
+      "passedAt": "2026-11-05T09:49:03.224Z"
+    }
+  },
+  "alignment": {
+    "passedAt": "2026-11-05T09:24:11.071Z",
+    "summary": "Phase 1.1 alignment converged for the independent archived-CASE validation task. Nodes covered: goal and value (rebuild deterministic verification from the archived legacy material without touching the original), scope/non-goals (validation-only; no product code, no mutation of tasks/archive/legacy-source), environment constraints (offline, deterministic local git/node commands only), observable acceptance (AC1 archive manifest byte-identity, AC2 documented commands exit 0, AC3 worktree HEAD == requested ref c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d and not detached with src/current.txt == base, AC4 prescriptive plan.md and removed legacy copies, AC5 approved caseHash plus current codeFingerprint), UI/test-first applicability (not applicable: no UI, no test-first seams), key decisions (baseline = user-specified ref via branch workloom/validation-archived-legacy-validation; legacy pair migrated inside the new task only; verification-only plan so coverage is not_applicable; historical CASE/RESULT is reference-only), edge cases and alternatives (current-HEAD baseline and reuse of the historical result were both rejected and recorded). Key decisions: recorded in prd.md ## Alignment Decisions. User confirmation result: the user approved the 1.4 review package in a new message (PRD hash 91d8fcd4e095cc817871e002760dde509e57be8e67c87ed8984c42195808a26d); the plan-review round 1 findings were disposed of in plan.md before the start.",
+    "prdHash": "91d8fcd4e095cc817871e002760dde509e57be8e67c87ed8984c42195808a26d"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "review",
+      "at": "2026-11-05T09:18:36.174Z",
+      "title": "Audit migrated plan against prd and code",
+      "status": "completed",
+      "childId": "01a1ab00-c1ba-72f5-b40c-25da21f2771b",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "inherit"
+    },
+    {
+      "kind": "review",
+      "at": "2026-11-05T09:24:57.710Z",
+      "title": "Re-audit revised plan after finding disposition",
+      "status": "completed",
+      "childId": "01a1ab00-c1ba-72f5-b40c-25da21f2771b",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T09:25:06.753Z",
+      "title": "Design CASE for archived legacy-source validation",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1ab06-b78d-77c5-93a2-387a3b0372f5",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T09:37:24.860Z",
+      "title": "Align case.md with the revised plan",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1ab06-b78d-77c5-93a2-387a3b0372f5",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T09:43:50.772Z",
+      "title": "Execute the confirmed CASE for the archived validation",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1ab06-b78d-77c5-93a2-387a3b0372f5",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

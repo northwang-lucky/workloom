@@ -1,0 +1,8 @@
+{
+  "total_duration_seconds": 3166.554,
+  "total_tokens": 36724258,
+  "token_note": "Sum of per-response usage values; not unique content tokens and not a pass/fail metric.",
+  "session_files": [
+    ".workloom/tasks/11-03-case-archived-skill/evals/skill-eval/iteration-1/eval-0-archived-plan-default-head/with_skill/run-1/project/.pi/sessions/2026-11-05T08-14-45-941Z_case-eval-archived-plan-default-head-with_skill-1.jsonl"
+  ]
+}

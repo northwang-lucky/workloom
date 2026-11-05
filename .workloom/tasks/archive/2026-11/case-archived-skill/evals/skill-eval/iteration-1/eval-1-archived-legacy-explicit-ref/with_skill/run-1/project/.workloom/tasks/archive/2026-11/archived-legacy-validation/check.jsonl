@@ -1,0 +1,5 @@
+{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file":".workloom/spec/README.md","reason":"project spec the verification must respect","type":"spec"}
+{"file":".workloom/tasks/archive/legacy-source/prd.md","reason":"archived source requirements checked against this task's R/AC items","type":"legacy-source"}
+{"file":".workloom/tasks/archive/legacy-source/design.md","reason":"archived legacy design checked against the migrated plan.md","type":"legacy-source"}
+{"file":".workloom/tasks/archive/legacy-source/implement.md","reason":"archived legacy implementation statement checked against the verification-only plan","type":"legacy-source"}

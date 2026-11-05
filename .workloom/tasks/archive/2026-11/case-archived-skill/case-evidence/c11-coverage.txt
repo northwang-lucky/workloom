@@ -1,0 +1,48 @@
+--- aggregate command:
+$ tsc -p tsconfig.json
+TOTAL 396/431 (91.9%)
+aggregate_exit=0
+--- coverage files:
+总计 176
+drwxr-xr-x 2 wangyubo.1219 wangyubo.1219   4096 11月 5日 20:11 .
+drwxr-xr-x 6 wangyubo.1219 wangyubo.1219   4096 11月 5日 20:10 ..
+-rw-r--r-- 1 wangyubo.1219 wangyubo.1219      0 11月 5日 20:11 adapter-dsh-test.log
+-rw-r--r-- 1 wangyubo.1219 wangyubo.1219      0 11月 5日 20:11 assets-test.log
+-rw-r--r-- 1 wangyubo.1219 wangyubo.1219 153465 11月 5日 20:11 lcov-adapter-dsh.info
+-rw-r--r-- 1 wangyubo.1219 wangyubo.1219   3149 11月 5日 20:11 lcov-assets-archived-tasks.info
+-rw-r--r-- 1 wangyubo.1219 wangyubo.1219   3894 11月 5日 20:11 lcov.info
+-rw-r--r-- 1 wangyubo.1219 wangyubo.1219   2106 11月 5日 20:11 merge-lcov.mjs
+-rw-r--r-- 1 wangyubo.1219 wangyubo.1219    158 11月 5日 20:11 summary.txt
+--- lcov SF records:
+SF:packages/adapter-dsh/src/skills.ts
+LF:267
+LH:246
+SF:packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs
+LF:164
+LH:150
+--- summary:
+packages/adapter-dsh/src/skills.ts 246/267 92.1%
+packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs 150/164 91.5%
+TOTAL 396/431 (91.9%)
+--- re-capture test logs with spec reporter (evidence only; lcov reports unchanged):
+adapter_test_exit=0
+assets_test_exit=0
+1682 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-archived-skill/coverage/adapter-dsh-test.log
+ 396 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-archived-skill/coverage/assets-test.log
+2078 总计
+--- C11 checks:
+PASS coverage lcov-adapter-dsh.info exists and non-empty
+PASS coverage lcov-assets-archived-tasks.info exists and non-empty
+PASS coverage lcov.info exists and non-empty
+PASS coverage summary.txt exists and non-empty
+PASS coverage adapter-dsh-test.log exists and non-empty
+PASS coverage assets-test.log exists and non-empty
+PASS lcov has exactly two SF records: ["packages/adapter-dsh/src/skills.ts","packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs"]
+PASS summary has per-file lines: packages/adapter-dsh/src/skills.ts 246/267 92.1% | packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs 150/164 91.5% | TOTAL 396/431 (91.9%)
+PASS summary TOTAL positive: TOTAL 396/431 (91.9%)
+PASS RESULT coverage generated
+PASS RESULT Changed Files exactly two scoped files: ["packages/adapter-dsh/src/skills.ts","packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs"]
+PASS RESULT Exclusions match CASE: 8 vs 8
+PASS not_applicable not used with coverable files
+RESULT: C11 PASS
+c11_check_exit=0

@@ -1,0 +1,87 @@
+===== Scenario A: archived-plan-default-head
+PASS A requestedRef null
+PASS A exactly one new validation task: 1
+PASS A new task parent null
+PASS A new task mode full
+PASS A new task status completed
+PASS A sourceTask path
+PASS A sourceCommit 40-hex: 044423a1869e20213f0a1006e7d3e968d19edd3b
+PASS A sourceCommitType archive-bookkeeping
+PASS A validationCommit equals expected head: 0c9bb6e95eaccaf5c869bd45c81fdd1a7b8480bc vs 0c9bb6e95eaccaf5c869bd45c81fdd1a7b8480bc
+PASS A validationRefSource default-current-branch
+PASS A validationReason mentions default: Default current target branch
+PASS A validationBranch empty
+PASS A materialMode plan
+PASS A validation purpose non-empty
+PASS A CASE Source task
+PASS A CASE Code target contains validationCommit
+PASS A CASE hash differs from historical
+PASS A RESULT hash differs from historical result
+PASS A RESULT caseHash equals new CASE hash: ce62a50ed67749cf57dcce8507918975daad800768d151bbbabc39a43e51ef12 vs ce62a50ed67749cf57dcce8507918975daad800768d151bbbabc39a43e51ef12
+PASS A RESULT status passed
+PASS A RESULT codeBaseline contains validationCommit
+PASS A RESULT codeBaseline contains codeFingerprint
+PASS A checkSession equals designSession: 01a1aade-3c9d-749d-b827-f5cc59325efa vs 01a1aade-3c9d-749d-b827-f5cc59325efa
+PASS A session chain valid
+PASS A SR/C entries present
+PASS A all SR/C passed
+PASS A case-evidence non-empty
+PASS A coverage status valid: not_applicable
+PASS A purpose case-design dispatch
+PASS A purpose execution dispatch
+PASS A startup approval is a user message
+PASS A case approval is a user message
+PASS A case approval mentions caseHash: ce62a50ed67749cf57dcce8507918975daad800768d151bbbabc39a43e51ef12
+PASS A startup approval before alignment
+PASS A case approval before confirm
+PASS A case approval before execution
+PASS A alignment after startup approval
+PASS A original manifest before/after identical: {"count":7,"missing":[],"added":[],"changed":[]}
+PASS A original children empty
+PASS A original status completed
+PASS A language matches fixture
+===== Scenario B: archived-legacy-explicit-ref
+PASS B requestedRef 40-hex: c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d
+PASS B exactly one new validation task: 1
+PASS B new task parent null
+PASS B new task status completed
+PASS B validationRef requestedRef
+PASS B validationRefSource user-specified
+PASS B validationReason user ref: User-selected ref c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d
+PASS B validationCommit requestedRef
+PASS B validationBranch pattern: workloom/validation-archived-legacy-validation
+PASS B previousBranch non-empty
+PASS B activationRestored true
+PASS B materialMode legacy-pair
+PASS B sourceCommit 40-hex: c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d
+PASS B sourceCommitType archive-bookkeeping
+PASS B sourceCommit and validationCommit may match: source=c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d validation=c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d
+PASS B worktree HEAD equals requestedRef: c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d
+PASS B worktree branch is not detached: workloom/11-05-archived-legacy-validation
+PASS B ref content base not current: base
+PASS B main head differs from baseline: 1058f6641f4d104179d633ec0bc04c499e605002 vs c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d
+PASS B independent fingerprint present: c8b55f3bdce3f74f69c34dbc11c5b38702f3d5e94d66bb9d446a4b7fb6fce32c
+PASS B RESULT fingerprint equals independent
+PASS B RESULT status passed
+PASS B RESULT codeBaseline uses validationCommit
+PASS B checkSession equals designSession
+PASS B session chain valid
+PASS B purpose case-design dispatch
+PASS B purpose execution dispatch
+PASS B all SR/C passed
+PASS B case-evidence non-empty
+PASS B coverage status valid: not_applicable
+PASS B plan has migration note
+PASS B new task has no design/implement
+PASS B original keeps design/implement
+PASS B startup approval is user message
+PASS B case approval is user message
+PASS B case approval mentions caseHash
+PASS B startup approval before alignment
+PASS B case approval before confirm
+PASS B case approval before execution
+PASS B branch restored: master -> master
+PASS B original manifest before/after identical: {"count":6,"missing":[],"added":[],"changed":[]}
+PASS B original children empty
+PASS B language matches fixture
+RESULT: C8 PASS

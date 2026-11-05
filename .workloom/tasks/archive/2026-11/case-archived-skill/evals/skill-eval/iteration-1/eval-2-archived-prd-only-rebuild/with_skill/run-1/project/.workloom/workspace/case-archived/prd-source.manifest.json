@@ -1,0 +1,13 @@
+{
+  "sourceTask": "tasks/archive/prd-source",
+  "capturedAt": "2026-11-05",
+  "tool": "packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs snapshot tasks/archive/prd-source",
+  "algorithm": "sha256",
+  "note": "Raw-byte SHA-256 manifest of every file in the archived source directory. Stored outside the archived directory; recomputed after the new task is archived and compared for exact equality.",
+  "files": {
+    "check.jsonl": "6df30fdc19e0166fab3f3783caf42c42b574d9814bb8996abf119f70802031e0",
+    "implement.jsonl": "6df30fdc19e0166fab3f3783caf42c42b574d9814bb8996abf119f70802031e0",
+    "prd.md": "a87b3c87c051d4bb0b61764cb7fe6077dd974cc19add2792f983d54a928b4157",
+    "task.json": "4b1d63a23539a3ac0965f26b139b1c0a9821908d8ef53f16ee3b4b67a5a0f96f"
+  }
+}

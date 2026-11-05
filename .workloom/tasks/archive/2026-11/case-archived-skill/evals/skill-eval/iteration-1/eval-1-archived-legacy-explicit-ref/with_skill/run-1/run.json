@@ -1,0 +1,14 @@
+{
+  "scenario": "archived-legacy-explicit-ref",
+  "evalId": 1,
+  "evalName": "eval-1-archived-legacy-explicit-ref",
+  "configuration": "with_skill",
+  "sessionId": "case-eval-archived-legacy-explicit-ref-with_skill-1",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+  "requestedRef": "c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d",
+  "status": "completed",
+  "startedAt": "2026-11-05T09:09:07.042Z",
+  "projectHead": "5c5156133d526b7869cf7261d3d52a1a7eddb967",
+  "completedAt": "2026-11-05T09:54:42.489Z"
+}

@@ -1,0 +1,20 @@
+PASS exports listArchivedTasks
+PASS exports readArchivedTask
+PASS exports snapshotArchivedTask
+PASS exports resolvePackage
+PASS exports resolveSourceCommit
+PASS exports prepareRef
+PASS exports activateRef
+PASS exports restoreRef
+PASS no core package import
+PASS uses node: builtins
+PASS archive prefix constant
+PASS light and completed guards
+PASS raw-byte sha256 manifest
+PASS source commit bookkeeping fallback
+PASS current-head and user-ref types
+PASS validation branch naming
+PASS clean worktree excludes .workloom and .pi
+PASS activate/restore clean guards
+PASS CLI list/snapshot only
+RESULT: SR2 PASS

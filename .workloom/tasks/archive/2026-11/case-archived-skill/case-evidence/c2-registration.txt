@@ -1,0 +1,45 @@
+--- build both adapters:
+Scope: 2 of 5 workspace projects
+packages/adapter-dsh build$ tsc -p tsconfig.json
+packages/adapter-pi build$ node scripts/sync-skills.mjs
+packages/adapter-pi build: Synced 11 skill directories into /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill/packages/adapter-pi/skills
+packages/adapter-pi build: Done
+packages/adapter-dsh build: Done
+build_exit=0
+--- DSH tests:
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 275.751048
+dsh_test_exit=0
+--- Pi tests:
+(pass) package manifest 显式注册 skills 目录 [1.42ms]
+(pass) skills 产物清单：只含 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个 vendored generic skills [0.21ms]
+(pass) skills 产物不再含旧两个 workloom skill（brainstorm/ui-design 无残留） [0.13ms]
+
+ 3 pass
+ 0 fail
+Ran 3 tests across 1 file. [35.00ms]
+pi_test_exit=0
+--- build copy files:
+PASS SKILL.md
+PASS evals/evals.json
+PASS scripts/archived-tasks.mjs
+--- fingerprint script reuse paths:
+PASS assets sibling script
+PASS pi copy sibling script
+--- command/workflow surface:
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 177.46416
+surface_test_exit=0
+commandKeys=["doctor","init"]
+protocol=true
+workflowVersion25=true
+--- dist registration count:
+1

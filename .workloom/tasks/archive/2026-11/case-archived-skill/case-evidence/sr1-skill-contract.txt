@@ -1,0 +1,51 @@
+PASS frontmatter parses
+PASS name is workloom-case-archived
+PASS description covers archived full task and materials
+PASS whenToUse restricts to completed full tasks under tasks/archive/
+PASS body contains "tasks/archive/"
+PASS body contains "status: completed"
+PASS body contains "light"
+PASS body contains "active"
+PASS body contains "unarchived"
+PASS body contains "readArchivedTask"
+PASS body contains "snapshotArchivedTask"
+PASS body contains "plan"
+PASS body contains "legacy-pair"
+PASS body contains "prd-only"
+PASS body contains "resolvePackage"
+PASS body contains "resolveSourceCommit"
+PASS body contains "prepareRef"
+PASS body contains "workloom_task_create"
+PASS body contains "Never pass `parent`"
+PASS body contains "sourceTask"
+PASS body contains "sourceCommit"
+PASS body contains "sourceCommitType"
+PASS body contains "validationRef"
+PASS body contains "validationRefSource"
+PASS body contains "validationReason"
+PASS body contains "validationCommit"
+PASS body contains "validationBranch"
+PASS body contains "materialMode"
+PASS body contains "previousBranch"
+PASS body contains "activationRestored"
+PASS body contains "Phase 1.4"
+PASS body contains "activateRef"
+PASS body contains "restoreRef"
+PASS body contains "purpose: case-design"
+PASS body contains "purpose: execution"
+PASS body contains "is never an approval"
+PASS body contains "new user message"
+PASS body contains "codeFingerprint"
+PASS body contains "task-fingerprint.mjs"
+PASS body contains "workloom_task_check"
+PASS body contains "manifest"
+PASS body contains "project's language"
+PASS body contains "Do not add commands"
+PASS body contains "Stop on missing"
+PASS body contains "what is missing"
+PASS body has no CJK
+PASS body has no template heading ## Static Review
+PASS body has no template heading ## Runtime Cases
+PASS body has no template heading ## Coverage
+PASS body has no template heading ## Traceability
+RESULT: SR1 PASS

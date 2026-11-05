@@ -1,0 +1,11 @@
+PASS changed files resolved
+changedFiles=["packages/adapter-dsh/dist/skills.js","packages/adapter-dsh/dist/skills.js.map","packages/adapter-dsh/src/skills.ts","packages/adapter-dsh/test/skills.test.js","packages/adapter-pi/scripts/sync-skills.mjs","packages/adapter-pi/test/skills.test.ts","packages/assets/skills/workloom-case-archived/SKILL.md","packages/assets/skills/workloom-case-archived/evals/build-fixtures.mjs","packages/assets/skills/workloom-case-archived/evals/evals.json","packages/assets/skills/workloom-case-archived/evals/finalize-run.mjs","packages/assets/skills/workloom-case-archived/evals/run-scenario.sh","packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs","packages/assets/skills/workloom-case-archived/scripts/archived-tasks.test.mjs"]
+PASS CASE structure has no issues: []
+PASS CASE hash equals confirmed caseHash: 063e3738c4fffd155cce424ebdc6f48db22c0e9556d90dda2bfd7863f5242b16 vs 063e3738c4fffd155cce424ebdc6f48db22c0e9556d90dda2bfd7863f5242b16
+PASS case.required=true
+PASS confirmedAt non-empty: 2026-11-05T12:05:00.311Z
+PASS designSession non-empty: 6052b1fa-e4ad-490e-8b7e-18143a80a2a5
+PASS designSession matches purpose=case-design childId: ["6052b1fa-e4ad-490e-8b7e-18143a80a2a5"]
+PASS no recorded pass result reused: null
+PASS case-result file present but unrecorded
+RESULT: C5 PASS

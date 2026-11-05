@@ -1,0 +1,128 @@
+{
+  "id": "cc1f9bcc-bce9-428e-ac43-b70b80480612",
+  "name": "validate-archived-plan-source",
+  "title": "Validate archived plan-source CASE against current HEAD",
+  "description": "Rebuild CASE verification for the archived full task tasks/archive/plan-source (material mode: plan) against the current validation baseline. The archived task is read-only reference; this task is an independent validation task with its own PRD, PLAN, CASE, RESULT, check, commit and archive.",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "workloom/11-05-validate-archived-plan-source",
+  "base_branch": "master",
+  "createdAt": "2026-11-05T08:19:19.371Z",
+  "completedAt": "2026-11-05T09:05:14.823Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/11-05-validate-archived-plan-source",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "sourceTask": "tasks/archive/plan-source",
+    "sourceCommit": "044423a1869e20213f0a1006e7d3e968d19edd3b",
+    "sourceCommitType": "archive-bookkeeping",
+    "validationRef": "master",
+    "validationRefSource": "default-current-branch",
+    "validationReason": "Default current target branch",
+    "validationCommit": "0c9bb6e95eaccaf5c869bd45c81fdd1a7b8480bc",
+    "validationBranch": null,
+    "materialMode": "plan",
+    "validationPurpose": "rebuild-case-verification-for-archived-plan-source",
+    "sourceMaterial": {
+      "prd": "tasks/archive/plan-source/prd.md",
+      "plan": "tasks/archive/plan-source/plan.md",
+      "historicalCase": "tasks/archive/plan-source/case.md",
+      "historicalResult": "tasks/archive/plan-source/case-result.md"
+    },
+    "historicalCaseUsage": "reference-only",
+    "previousBranch": "master",
+    "activationRestored": true
+  },
+  "check": {
+    "passedAt": "2026-11-05T09:04:25.468Z",
+    "summary": "CASE executed against the validation baseline master@0c9bb6e95eaccaf5c869bd45c81fdd1a7b8480bc. Static review 5/5 passed (SR1 archived material byte-identical to the pre-task manifest with all seven per-file SHA-256 values matching; SR2 the nine task.json.meta provenance fields verified against AC2 with the validation worktree HEAD equal to validationCommit; SR3 six plan steps each declaring Covers/Target/Edit/Verify covering AC1-AC5 with alignment.prdHash and case.caseHash matching the on-disk documents; SR4 the CASE/RESULT field structure and the single src/current.txt coverage exclusion, with core's coverable-file set deriving empty so not_applicable rests on an empty scope and no gate is forced; SR5 the close-out precondition holds - the validation worktree is clean and plan.md step 1.6 carries the close-out sequence and the product-code invariant). Runtime cases 4/4 passed, 0 blocked, each run from the main repository root with exit code 0: C1 provenance comparison printed provenance-ok 0c9bb6e95eaccaf5c869bd45c81fdd1a7b8480bc; C2 the if-diff gate printed manifest-identical with an empty diff; C3 printed base for the archived bookkeeping payload, current for the validation worktree payload and 0c9bb6e95eaccaf5c869bd45c81fdd1a7b8480bc for the worktree HEAD; C4 two fingerprint runs were byte-identical per cmp and printed fingerprint-reproducible. Coverage is not_applicable because the change scope holds no countable source code, with the single exclusion src/current.txt and its reason mirrored verbatim from the CASE and the Changed Files table empty. Standard verification passed with all five command rows exiting 0. codeBaseline records the validation commit, validationRefSource=default-current-branch, the validationReason, the archived sourceCommit 044423a1869e20213f0a1006e7d3e968d19edd3b, the worktree HEAD and codeFingerprint=63381f126841386d027dece5539d6a94e008d1611b4f7c205d3cb37ec925ba46, independently reproduced over the validation worktree. The confirmed CASE hash ce62a50ed67749cf57dcce8507918975daad800768d151bbbabc39a43e51ef12 is unchanged, its checkSession is the design session, Open issues is exactly - none, and the archived original's seven-file manifest still matches the pre-task baseline byte for byte."
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1aade-3c9d-749d-b827-f5cc59325efa",
+    "confirmedAt": "2026-11-05T08:56:01.088Z",
+    "caseHash": "ce62a50ed67749cf57dcce8507918975daad800768d151bbbabc39a43e51ef12",
+    "summary": "CASE reviewed by the main session against prd.md, plan.md, the real code, the actual git state and the coverage scope. Core structure review returns readyToConfirm true with an empty structureIssues list. Coverage is not_applicable because the change scope holds no countable source code; the single exclusion src/current.txt with its reason is the only entry, and the coverable-file set derives empty from the SR targets, which all live under .workloom/. The verified caseHash is ce62a50ed67749cf57dcce8507918975daad800768d151bbbabc39a43e51ef12, which differs from the archived case.md hash f300eec6... and the archived case-result.md hash ae2df87c..., so no historical hash is reused. The user approved that exact hash in a new user message. Five main-session findings were disposed in the same design session before confirmation: SR5 was unsatisfiable at execution time and now covers only the execution-time-verifiable close-out precondition and mechanism; C2's manifest-identical echo was unconditional and is now a real if-diff gate that exits non-zero on a mismatch; C1, C3 and C4 now redirect into their own evidence files with && chaining so a failing producer keeps its exit status; C4's second run now has an explicit cmp command; and SR4 no longer asserts a property of the RESULT that does not exist during the static review.",
+    "result": {
+      "caseHash": "ce62a50ed67749cf57dcce8507918975daad800768d151bbbabc39a43e51ef12",
+      "resultHash": "633f4562b313b30c463fd7d22173bc99e55e8dcb839cc495c17ddbfd0118f78d",
+      "passedAt": "2026-11-05T09:04:25.468Z"
+    }
+  },
+  "alignment": {
+    "passedAt": "2026-11-05T08:40:16.042Z",
+    "summary": "Phase 1.1 converged for the archived plan-source validation task. Nodes covered: goal/value (rebuild CASE verification of the archived full task tasks/archive/plan-source as an independent task), scope/non-goals (archived original read-only, no product code, no external service), environment (default current target branch master, real task worktree, core-only gates), observable acceptance (AC1-AC5, each with a runnable verification method), UI/test-first applicability (neither applies), key decisions (material mode plan; archived PRD as requirement source and archived PLAN as implementation-basis reference; baseline pinned to 0c9bb6e95eaccaf5c869bd45c81fdd1a7b8480bc with validationRefSource=default-current-branch; validationBranch=null; coverage not_applicable with documented exclusion; new PRD and PLAN authored from scratch), edge cases and rejected alternatives (historical CASE/RESULT reuse, archived sourceCommit as baseline, core changes to accept the fixture config, disabling the worktree), convergence (frontier empty, open-nodes marker none). Plan authoring was settled by the standing archived-case contract; the plan covers AC1-AC5 and passed four review rounds with every finding disposed. User approved the Phase 1.4 package: PRD hash 9000605546553fd2d948a005a252c76ab60c351fa0fb17f5efe7668f7ebc6cbd and PLAN hash f16a60c598cc0cac7674c20e35210b31f92e6801ad62e1b72c48d2ab8a1c4ce1.",
+    "prdHash": "9000605546553fd2d948a005a252c76ab60c351fa0fb17f5efe7668f7ebc6cbd"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "review",
+      "at": "2026-11-05T08:23:43.172Z",
+      "title": "Audit validation plan against PRD and repository state",
+      "status": "completed",
+      "childId": "01a1aace-81ba-7581-b030-d671de5411c4",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "inherit"
+    },
+    {
+      "kind": "review",
+      "at": "2026-11-05T08:32:10.399Z",
+      "title": "Round 4 re-review of the revised validation plan",
+      "status": "completed",
+      "childId": "01a1aace-81ba-7581-b030-d671de5411c4",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T08:40:53.856Z",
+      "title": "Design CASE for archived plan-source validation",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1aade-3c9d-749d-b827-f5cc59325efa",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T08:50:19.003Z",
+      "title": "Revise CASE: SR5 scope, C2 gate, evidence capture, C4 rerun, SR4 check",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1aade-3c9d-749d-b827-f5cc59325efa",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T08:56:56.324Z",
+      "title": "Execute confirmed CASE and record the result",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1aade-3c9d-749d-b827-f5cc59325efa",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

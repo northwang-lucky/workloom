@@ -1,0 +1,14 @@
+{
+  "scenario": "archived-invalid-input-fast-fail",
+  "evalId": 4,
+  "evalName": "eval-4-archived-invalid-input-fast-fail",
+  "configuration": "with_skill",
+  "sessionId": "case-eval-archived-invalid-input-fast-fail-with_skill-1",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+  "requestedRef": null,
+  "status": "completed",
+  "startedAt": "2026-11-05T10:50:53.623Z",
+  "projectHead": "fe311e23ccd7a8cba0d28acf80210834ba05b005",
+  "completedAt": "2026-11-05T10:53:14.281Z"
+}

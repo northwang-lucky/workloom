@@ -1,0 +1,121 @@
+PASS exactly five eval directories: eval-0-archived-plan-default-head,eval-1-archived-legacy-explicit-ref,eval-2-archived-prd-only-rebuild,eval-3-archived-select-candidate,eval-4-archived-invalid-input-fast-fail
+PASS eval directory order/ids
+PASS archived-plan-default-head: with_skill/run-1 exists
+PASS archived-plan-default-head: no run-2
+PASS archived-plan-default-head: no without_skill
+PASS archived-plan-default-head: scenario matches
+PASS archived-plan-default-head: evalId
+PASS archived-plan-default-head: evalName
+PASS archived-plan-default-head: configuration with_skill
+PASS archived-plan-default-head: model
+PASS archived-plan-default-head: status completed
+PASS archived-plan-default-head: sessionId
+PASS archived-plan-default-head: timestamps
+PASS archived-plan-default-head: requestedRef null
+PASS archived-plan-default-head: session dir
+PASS archived-plan-default-head: has real session JSONL: 2026-11-05T08-14-45-941Z_case-eval-archived-plan-default-head-with_skill-1.jsonl
+PASS archived-plan-default-head: session filename/id matches run.sessionId
+PASS archived-plan-default-head: session parseable with user+assistant messages: system,user,assistant,toolResult
+PASS archived-legacy-explicit-ref: with_skill/run-1 exists
+PASS archived-legacy-explicit-ref: no run-2
+PASS archived-legacy-explicit-ref: no without_skill
+PASS archived-legacy-explicit-ref: scenario matches
+PASS archived-legacy-explicit-ref: evalId
+PASS archived-legacy-explicit-ref: evalName
+PASS archived-legacy-explicit-ref: configuration with_skill
+PASS archived-legacy-explicit-ref: model
+PASS archived-legacy-explicit-ref: status completed
+PASS archived-legacy-explicit-ref: sessionId
+PASS archived-legacy-explicit-ref: timestamps
+PASS archived-legacy-explicit-ref: requestedRef 40-hex
+PASS archived-legacy-explicit-ref: session dir
+PASS archived-legacy-explicit-ref: has real session JSONL: 2026-11-05T09-08-59-116Z_case-eval-archived-legacy-explicit-ref-with_skill-1.jsonl
+PASS archived-legacy-explicit-ref: session filename/id matches run.sessionId
+PASS archived-legacy-explicit-ref: session parseable with user+assistant messages: system,user,assistant,toolResult
+PASS archived-prd-only-rebuild: with_skill/run-1 exists
+PASS archived-prd-only-rebuild: no run-2
+PASS archived-prd-only-rebuild: no without_skill
+PASS archived-prd-only-rebuild: scenario matches
+PASS archived-prd-only-rebuild: evalId
+PASS archived-prd-only-rebuild: evalName
+PASS archived-prd-only-rebuild: configuration with_skill
+PASS archived-prd-only-rebuild: model
+PASS archived-prd-only-rebuild: status completed
+PASS archived-prd-only-rebuild: sessionId
+PASS archived-prd-only-rebuild: timestamps
+PASS archived-prd-only-rebuild: requestedRef null
+PASS archived-prd-only-rebuild: session dir
+PASS archived-prd-only-rebuild: has real session JSONL: 2026-11-05T09-54-53-555Z_case-eval-archived-prd-only-rebuild-with_skill-1.jsonl
+PASS archived-prd-only-rebuild: session filename/id matches run.sessionId
+PASS archived-prd-only-rebuild: session parseable with user+assistant messages: system,user,assistant,toolResult
+PASS archived-select-candidate: with_skill/run-1 exists
+PASS archived-select-candidate: no run-2
+PASS archived-select-candidate: no without_skill
+PASS archived-select-candidate: scenario matches
+PASS archived-select-candidate: evalId
+PASS archived-select-candidate: evalName
+PASS archived-select-candidate: configuration with_skill
+PASS archived-select-candidate: model
+PASS archived-select-candidate: status completed
+PASS archived-select-candidate: sessionId
+PASS archived-select-candidate: timestamps
+PASS archived-select-candidate: requestedRef null
+PASS archived-select-candidate: session dir
+PASS archived-select-candidate: has real session JSONL: 2026-11-05T10-47-30-170Z_case-eval-archived-select-candidate-with_skill-1.jsonl
+PASS archived-select-candidate: session filename/id matches run.sessionId
+PASS archived-select-candidate: session parseable with user+assistant messages: system,user,assistant,toolResult
+PASS archived-invalid-input-fast-fail: with_skill/run-1 exists
+PASS archived-invalid-input-fast-fail: no run-2
+PASS archived-invalid-input-fast-fail: no without_skill
+PASS archived-invalid-input-fast-fail: scenario matches
+PASS archived-invalid-input-fast-fail: evalId
+PASS archived-invalid-input-fast-fail: evalName
+PASS archived-invalid-input-fast-fail: configuration with_skill
+PASS archived-invalid-input-fast-fail: model
+PASS archived-invalid-input-fast-fail: status completed
+PASS archived-invalid-input-fast-fail: sessionId
+PASS archived-invalid-input-fast-fail: timestamps
+PASS archived-invalid-input-fast-fail: requestedRef null
+PASS archived-invalid-input-fast-fail: session dir
+PASS archived-invalid-input-fast-fail: has real session JSONL: 2026-11-05T10-50-45-721Z_case-eval-archived-invalid-input-fast-fail-with_skill-1.jsonl
+PASS archived-invalid-input-fast-fail: session filename/id matches run.sessionId
+PASS archived-invalid-input-fast-fail: session parseable with user+assistant messages: system,user,assistant,toolResult
+PASS acceptance-summary.md exists
+PASS summary overall passed
+PASS summary has five scenario sections: Archived PLAN uses current HEAD | Legacy materials use an explicit ref | PRD-only archive is explicitly rebuilt | No path requires candidate selection | Invalid input fails without writes
+PASS archived-plan-default-head: summary section Archived PLAN uses current HEAD
+PASS archived-plan-default-head: conclusion passed
+PASS archived-plan-default-head: evidence path present
+PASS archived-plan-default-head: evidence exists: eval-0-archived-plan-default-head/with_skill/run-1
+PASS archived-plan-default-head: evidence belongs to scenario: eval-0-archived-plan-default-head/with_skill/run-1
+PASS archived-legacy-explicit-ref: summary section Legacy materials use an explicit ref
+PASS archived-legacy-explicit-ref: conclusion passed
+PASS archived-legacy-explicit-ref: evidence path present
+PASS archived-legacy-explicit-ref: evidence exists: eval-1-archived-legacy-explicit-ref/with_skill/run-1
+PASS archived-legacy-explicit-ref: evidence belongs to scenario: eval-1-archived-legacy-explicit-ref/with_skill/run-1
+PASS archived-prd-only-rebuild: summary section PRD-only archive is explicitly rebuilt
+PASS archived-prd-only-rebuild: conclusion passed
+PASS archived-prd-only-rebuild: evidence path present
+PASS archived-prd-only-rebuild: evidence exists: eval-2-archived-prd-only-rebuild/with_skill/run-1
+PASS archived-prd-only-rebuild: evidence belongs to scenario: eval-2-archived-prd-only-rebuild/with_skill/run-1
+PASS archived-select-candidate: summary section No path requires candidate selection
+PASS archived-select-candidate: conclusion passed
+PASS archived-select-candidate: evidence path present
+PASS archived-select-candidate: evidence exists: eval-3-archived-select-candidate/with_skill/run-1
+PASS archived-select-candidate: evidence belongs to scenario: eval-3-archived-select-candidate/with_skill/run-1
+PASS archived-invalid-input-fast-fail: summary section Invalid input fails without writes
+PASS archived-invalid-input-fast-fail: conclusion passed
+PASS archived-invalid-input-fast-fail: evidence path present
+PASS archived-invalid-input-fast-fail: evidence exists: eval-4-archived-invalid-input-fast-fail/with_skill/run-1
+PASS archived-invalid-input-fast-fail: evidence belongs to scenario: eval-4-archived-invalid-input-fast-fail/with_skill/run-1
+PASS summary does not reference grading.json
+PASS summary does not reference eval_metadata.json
+PASS summary does not reference benchmark.json
+PASS summary does not reference benchmark.md
+PASS summary does not reference reviewer.html
+PASS summary does not reference feedback.json
+PASS preflight has MiniMax model
+PASS preflight has assistant OK
+PASS preflight has no credential failure
+PASS preflight has no 503
+RESULT: C7 PASS

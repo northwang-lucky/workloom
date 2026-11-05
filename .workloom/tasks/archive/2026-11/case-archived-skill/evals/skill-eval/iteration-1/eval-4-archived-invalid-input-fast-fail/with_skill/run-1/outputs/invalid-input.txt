@@ -1,0 +1,40 @@
+ ├───────────────┼────────────────────────────────────────────────────────────┤
+ │ Validation    │ none — git for-each-ref lists only refs/heads/master; no   │
+ │ branch        │ workloom/validation-* branch, no stash                     │
+ ├───────────────┼────────────────────────────────────────────────────────────┤
+ │ Archive       │ unchanged — same 5 files, no additions                     │
+ │ contents      │                                                            │
+ ├───────────────┼────────────────────────────────────────────────────────────┤
+ │ Git state     │ git status clean, HEAD still                               │
+ │               │ fe311e23ccd7a8cba0d28acf80210834ba05b005                   │
+ ├───────────────┼────────────────────────────────────────────────────────────┤
+ │ Files touched │ only the harness-owned .pi/sessions/…jsonl transcript      │
+ │ in project    │                                                            │
+ └───────────────┴────────────────────────────────────────────────────────────┘
+
+ Both failures correspond to the skill's documented stop conditions: Step 1
+ ("Reject missing, light, non-completed, and outside paths before doing any
+ write") and Step 2.4 ("Stop on missing paths, unresolvable refs… Make no task
+ or archive writes in that case").
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+────────────────────────────────────────────────────────────────────────────────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑56k ↓6.0k R482k CH99.0% 5.7%/1.0M (auto)             MiniMax-M3.1-Flash • xhigh
+
+---
+## Session transcript excerpt (authoritative raw record; appended for reviewability)
+
+### Attempt 1 — outside task path
+
+Error: invalid archived task path: tasks/outside-source
+
+Error: invalid archived task path: /etc/passwd
+
+### Attempt 2 — nonexistent ref
+
+Error: Command failed: git rev-parse --verify refs/heads/does-not-exist^{commit}
+fatal: Needed a single revision
+
+No task directory, validation branch or archive write was created in either attempt.

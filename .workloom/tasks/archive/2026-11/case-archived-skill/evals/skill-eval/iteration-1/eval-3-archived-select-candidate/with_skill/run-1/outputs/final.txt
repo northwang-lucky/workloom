@@ -1,0 +1,24 @@
+
+ Baseline manifest computed for later equality re-check (read-only; not yet
+ written anywhere):
+
+ ```
+   check.jsonl    6df30fdc19e0…   design.md      e5faf3e32a5e…
+   implement.jsonl 6df30fdc19e0…  implement.md   d60747d1b23e…
+   prd.md         5a5e92bfca1e…   task.json      9fbed4eda23d…
+ ```
+
+ Nothing was created or changed: no task directory, no workloom_task_create, no
+ branch/worktree activation, no archive writes.
+
+ Stopping as instructed. When you want to proceed with the actual rebuild, the
+ skill requires two separate fresh approvals from you — one for the Phase 1.4
+ startup package (package, validation ref, branch switch/restore) and one for
+ the new caseHash — the selection above is neither, and a generic "continue"
+ won't substitute for either.
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+────────────────────────────────────────────────────────────────────────────────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑48k ↓2.7k R307k CH98.2% 4.8%/1.0M (auto)             MiniMax-M3.1-Flash • xhigh

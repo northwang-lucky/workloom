@@ -1,0 +1,17 @@
+--- static contract:
+PASS header mentions case-archived
+PASS title mentions case-archived
+PASS expected list includes case-archived
+PASS reads build output dir
+PASS old stale dirs retained
+--- run:
+bun test v1.3.14 (0d9b296a)
+
+test/skills.test.ts:
+(pass) package manifest 显式注册 skills 目录 [1.39ms]
+(pass) skills 产物清单：只含 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个 vendored generic skills [0.22ms]
+(pass) skills 产物不再含旧两个 workloom skill（brainstorm/ui-design 无残留） [0.14ms]
+
+ 3 pass
+ 0 fail
+Ran 3 tests across 1 file. [35.00ms]

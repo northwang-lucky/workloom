@@ -1,0 +1,32 @@
+=== C10 standard verification
+date=2026-11-05T12:11:16Z
+--- command exit codes:
+pnpm lint exit=0
+pnpm -r typecheck exit=0
+pnpm -r build exit=0
+core tests: 732/732 pass, 0 fail
+adapter-dsh tests: 179/179 pass, 0 fail
+adapter-pi tests: 205 pass, 0 fail
+assets tests: 4/4 pass, 0 fail
+--- logs:
+lint: 11 bytes
+typecheck: 305 bytes
+build: 584 bytes
+core-test: 69932 bytes
+dsh-test: 28494 bytes
+pi-test: 18867 bytes
+assets-test: 463 bytes
+--- dist reproducibility (SR10):
+build1_exit=0
+build2_exit=0
+dist_stable=PASS
+dist_files=63
+--- Pi build copy:
+PASS SKILL.md
+PASS evals/evals.json
+PASS scripts/archived-tasks.mjs
+--- LSP diagnostics:
+lsp_diagnostics on .workloom/worktree/.../packages/adapter-dsh/src/skills.ts returned ts(2591) Cannot find name node:path; this is a worktree type-environment limitation, not tsc output.
+--- tsc fallback:
+$ tsc -p tsconfig.json --noEmit
+adapter_dsh_typecheck_exit=0

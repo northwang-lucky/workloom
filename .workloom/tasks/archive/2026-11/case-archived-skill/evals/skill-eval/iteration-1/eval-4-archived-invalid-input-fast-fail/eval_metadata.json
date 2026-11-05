@@ -1,0 +1,33 @@
+{
+  "eval_id": 4,
+  "eval_name": "eval-4-archived-invalid-input-fast-fail",
+  "prompt": "Work in <fixture-project>. Attempt archived CASE verification first with an outside task path and then with a nonexistent ref. Both must fail before creating a new task or modifying the archive. Report the exact errors.",
+  "assertions": [
+    "The outside archived path is rejected before any write.",
+    "The nonexistent ref is rejected before any write.",
+    "No new task directory or validation branch is created.",
+    "The original archive manifest is byte-identical after both failures."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-archived",
+  "configuration": "with_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "archived-invalid-input-fast-fail",
+      "evalId": 4,
+      "evalName": "eval-4-archived-invalid-input-fast-fail",
+      "configuration": "with_skill",
+      "sessionId": "case-eval-archived-invalid-input-fast-fail-with_skill-1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+      "requestedRef": null,
+      "status": "completed",
+      "startedAt": "2026-11-05T10:50:53.623Z",
+      "projectHead": "fe311e23ccd7a8cba0d28acf80210834ba05b005",
+      "completedAt": "2026-11-05T10:53:14.281Z"
+    }
+  },
+  "notes": "With-skill-only acceptance. One real run per scenario. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric. No baseline run participates."
+}

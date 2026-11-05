@@ -1,0 +1,6 @@
+## Rebuild CASE verification for archived legacy-source at ref c36a6fd
+
+- Time: 2026-11-05T09:52:01.253Z
+- Commit: 4268821ffc7349b34d0f04b9e8304b5f2341a80d
+- Summary: Independent CASE verification for the archived full task tasks/archive/legacy-source (legacy pair design.md + implement.md), validated against the user-requested ref c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d on the dedicated local branch workloom/validation-archived-legacy-validation. The legacy pair was migrated inside the new independent task only (prd.md rewritten to R/AC format, prescriptive plan.md authored, legacy copies removed from the task directory); the archived original stayed byte-identical (SHA-256 manifest identical before and after). The validation worktree ran at c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d, not the current HEAD 1058f6641f4d104179d633ec0bc04c499e605002, was not detached, and src/current.txt was base. CASE hash 77a1ca558b4d12e5c24322e8ce83b5cde09b9d870d965fe4e9bd0b77c4ec841c was user-approved; execution passed SR1-SR4 and C1-C3 with real commands, coverage not_applicable, standard verification green, and codeFingerprint c8b55f3bdce3f74f69c34dbc11c5b38702f3d5e94d66bb9d446a4b7fb6fce32c reproduced by an independent task-fingerprint.mjs run. Only the new task was archived, to tasks/archive/2026-11/archived-legacy-validation.
+

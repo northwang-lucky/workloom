@@ -1,0 +1,29 @@
+--- SKILL_SOURCES order:
+const SKILL_SOURCES = [
+  '../assets/skills/workloom-continue',
+  '../assets/skills/workloom-finish',
+  '../assets/skills/workloom-alignment',
+  '../assets/skills/workloom-case-active',
+  '../assets/skills/workloom-case-archived',
+  '../assets/skills/workloom-update-spec',
+  '../assets/skills/workloom-packages-scan',
+  '../assets/skills/workloom-migrate-plan',
+  '../assets/third-party/mattpocock-skills/tdd',
+  '../assets/third-party/mattpocock-skills/grilling',
+  '../assets/third-party/mattpocock-skills/writing-for-agents',
+]
+--- assertions:
+PASS case-archived source registered
+PASS between case-active and update-spec
+PASS comment mentions case-archived
+PASS whole directory copy semantics
+--- build copy:
+PASS SKILL.md
+PASS evals/evals.json
+PASS evals/build-fixtures.mjs
+PASS evals/run-scenario.sh
+PASS evals/finalize-run.mjs
+PASS scripts/archived-tasks.mjs
+PASS scripts/archived-tasks.test.mjs
+$ node scripts/sync-skills.mjs
+build_exit=0

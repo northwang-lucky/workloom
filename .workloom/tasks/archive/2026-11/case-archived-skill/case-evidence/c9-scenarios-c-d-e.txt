@@ -1,0 +1,48 @@
+===== Scenario C: archived-prd-only-rebuild
+PASS C requestedRef null
+PASS C exactly one new validation task: 1
+PASS C new task parent null
+PASS C new task status completed
+PASS C materialMode prd-only
+PASS C missingMaterial plan.md: ["plan.md"]
+PASS C PRD marks PRD-only
+PASS C PRD records missing historical PLAN
+PASS C no design/implement in new task
+PASS C new PLAN structurally valid: []
+PASS C RESULT status passed
+PASS C RESULT caseHash equals new CASE hash
+PASS C checkSession equals designSession
+PASS C session chain valid
+PASS C all SR/C passed
+PASS C coverage status valid: not_applicable
+PASS C case-evidence non-empty
+PASS C startup approval user message
+PASS C case approval user message
+PASS C case approval mentions caseHash
+PASS C startup approval before alignment
+PASS C case approval before confirm
+PASS C language matches fixture
+PASS C original manifest before/after identical: {"count":4,"missing":[],"added":[],"changed":[]}
+PASS C original children empty
+PASS C historical case/result absent or not reused
+===== Scenario D: archived-select-candidate
+PASS D candidate table has two rows: [{"title":"newer-legacy","path":"tasks/archive/newer-legacy","completedAt":"2026-02-01T00:00:00.000Z"},{"title":"older-plan","path":"tasks/archive/older-plan","completedAt":"2026-01-01T00:00:00.000Z"}]
+PASS D candidate order newer-legacy then older-plan
+PASS D candidate completedAt values
+PASS D light-archive not a candidate row
+PASS D candidates.txt capture or transcript present
+PASS D no new task directory: archive
+PASS D no validation branch
+PASS D selection message present after candidate list: Select tasks/archive/newer-legacy. Confirm this selection only and stop; do not 
+PASS D all original archive dirs unchanged (fresh fixture): {"diffNewer":{"count":6,"missing":[],"added":[],"changed":[]},"diffOlder":{"count":5,"missing":[],"added":[],"changed":[]},"diffLight":{"count":5,"missing":[],"added":[],"changed":[]}}
+===== Scenario E: archived-invalid-input-fast-fail
+PASS E outside path rejected
+PASS E nonexistent ref rejected
+PASS E no new task directory: archive
+PASS E no validation branch
+PASS E original archive unchanged (fresh fixture): {"count":5,"missing":[],"added":[],"changed":[]}
+PASS E no approval files
+PASS C/D/E: only scenario C has startup approval
+PASS C/D/E: only scenario C has case approval
+RESULT: C9 PASS
+NOTE P2 fixed: candidates.txt and invalid-input.txt were originally final-pane captures; labeled real-session transcript excerpts were appended (original content preserved); C9 was rerun after the fix and passes.

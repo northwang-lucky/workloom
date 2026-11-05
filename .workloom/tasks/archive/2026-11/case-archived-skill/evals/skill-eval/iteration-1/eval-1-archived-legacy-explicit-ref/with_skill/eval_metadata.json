@@ -1,0 +1,38 @@
+{
+  "eval_id": 1,
+  "eval_name": "eval-1-archived-legacy-explicit-ref",
+  "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task with design.md + implement.md using ref <base-ref>. The initial request is not an approval: wait for a new user message before startup and another new user message approving the current caseHash. Migrate only inside the new task, execute real cases, and keep the original archive unchanged.",
+  "assertions": [
+    "The requested ref resolves to a unique local branch at the exact commit; the validation worktree is not detached.",
+    "The created validation worktree HEAD equals the requested 40-character commit, proving the code baseline is not current HEAD.",
+    "Evidence contains the ref-side src/current.txt content 'base' and not the current-HEAD content 'current'.",
+    "RESULT codeFingerprint equals an independent task-fingerprint.mjs run on the requested ref worktree.",
+    "design.md + implement.md are handled only inside the new task and produce a valid plan.md.",
+    "Source metadata distinguishes the requested validation commit from the archive bookkeeping commit.",
+    "Real execution records a passing RESULT with a current code fingerprint.",
+    "Startup and CASE confirmation wait for independent user approval messages.",
+    "The original archive manifest is byte-identical after completion."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-archived",
+  "configuration": "with_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "archived-legacy-explicit-ref",
+      "evalId": 1,
+      "evalName": "eval-1-archived-legacy-explicit-ref",
+      "configuration": "with_skill",
+      "sessionId": "case-eval-archived-legacy-explicit-ref-with_skill-1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+      "requestedRef": "c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d",
+      "status": "completed",
+      "startedAt": "2026-11-05T09:09:07.042Z",
+      "projectHead": "5c5156133d526b7869cf7261d3d52a1a7eddb967",
+      "completedAt": "2026-11-05T09:54:42.489Z"
+    }
+  },
+  "notes": "With-skill-only acceptance. One real run per scenario. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric. No baseline run participates."
+}

@@ -1,0 +1,6 @@
+plan.md: present
+prd.md: present
+task design.md: removed
+task implement.md: removed
+archived design.md: present
+archived implement.md: present

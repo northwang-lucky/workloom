@@ -1,0 +1,36 @@
+--- static contract:
+PASS title includes case-archived
+PASS array includes workloom-case-archived
+PASS new archived asset test
+PASS frontmatter parse + key phrases
+PASS eval ids present
+PASS CJK free checks
+PASS independent approval checks
+PASS language protection
+PASS old negatives retained
+--- run:
+✔ 正常解析：name/description/body（正文 trim，whenToUse 缺省） (1.516846ms)
+✔ whenToUse 可选：存在时解析出来 (0.251418ms)
+✔ 缺少 description 报错 (0.387136ms)
+✔ 无 front-matter 报错 (0.180979ms)
+✔ 未知键忽略：兼容 vendored skills 的 license/source (0.226869ms)
+✔ 缺失 name 报错 (0.261446ms)
+✔ 缺失闭合分隔符报错 (0.22605ms)
+✔ workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文） (0.511137ms)
+✔ workloom_step 深度=0：返回契约原文（现状不变） (8.784569ms)
+✔ workloom_step exec 缺失时视为深度 0：返回契约原文 (1.761117ms)
+✔ skill 清单契约：注册 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill (2.023517ms)
+✔ workloom-case-active 资产与五组 eval：状态约束、整批确认、指纹和英文断言 (0.900352ms)
+✔ workloom-case-archived 资产与五组 eval：只读原件、独立任务、ref 和独立批准 (0.642505ms)
+✔ workloom-migrate-plan 资产可解析：迁移流程与边界关键句 + continue legacy 路由指针 (0.39596ms)
+✔ workloom-continue/workloom-finish 资产可解析：路由表与收尾五步 + taskPath 必填指引 (0.486402ms)
+✔ workloom-alignment 资产可解析：name/description/whenToUse + 收敛标记与 references 就位 (0.399125ms)
+✔ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.368303ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 292.409139

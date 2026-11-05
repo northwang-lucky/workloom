@@ -1,0 +1,24 @@
+ - Working tree clean; git log = work → archive → bookkeeping order.
+ - workloom/validation-archived-legacy-validation still points at exactly
+   c36a6fd4dd73132ca8e2b21fe154ecc3ab8fae6d; task branch kept at the same
+   commit (no code commits — the archived plan states no implementation work
+   remains, so nothing was committed into the worktree).
+ - Evidence in the archived task: baseline-head.txt = c36a6fd…,
+   baseline-branch.txt = workloom/11-05-archived-legacy-validation,
+   baseline-src-current-txt.txt = base — the ref side, not the current-HEAD
+   content current.
+
+ Two deviations, both deliberate and recorded in plan.md: the archive ran with
+ autoCommit: false (the archive gate requires the checkout on base_branch, and
+ an auto-commit there would bind the archived directory to the validation
+ branch and delete it from the working tree on the restore to master) with the
+ equivalent bookkeeping commit made in the main repository instead; and the
+ journal required the project's local developer identity, so
+ .workloom/.developer was created exactly as workloom init writes it and
+ removed again after the entry was committed.
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑1.1M ↓134k R27M CH99.6% 32.8%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

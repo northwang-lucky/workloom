@@ -1,0 +1,14 @@
+{
+  "scenario": "archived-prd-only-rebuild",
+  "evalId": 2,
+  "evalName": "eval-2-archived-prd-only-rebuild",
+  "configuration": "with_skill",
+  "sessionId": "case-eval-archived-prd-only-rebuild-with_skill-1",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+  "requestedRef": null,
+  "status": "completed",
+  "startedAt": "2026-11-05T09:54:59.451Z",
+  "projectHead": "1866632f0b1fdfce72e51a02a6630f782edf207c",
+  "completedAt": "2026-11-05T10:46:59.249Z"
+}

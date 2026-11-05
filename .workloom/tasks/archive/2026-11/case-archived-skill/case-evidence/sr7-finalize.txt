@@ -1,0 +1,29 @@
+run=/tmp/wl-sr7-Q09rQN/run-1
+--- node --check:
+syntax_exit=0
+--- missing arg:
+file:///data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill/packages/assets/skills/workloom-case-archived/evals/finalize-run.mjs:6
+if (!runDir) throw new Error('usage: node finalize-run.mjs <run-dir>')
+                   ^
+missing_arg_exit=1
+--- finalize:
+removing generated git metadata: /tmp/wl-sr7-Q09rQN/run-1/project/.git
+{
+  "status": "completed",
+  "projectHead": "0ed78f5e3a94d5c626e04a3a97131ec8692ae004",
+  "timing": {
+    "total_duration_seconds": 10,
+    "total_tokens": 15,
+    "token_note": "Sum of per-response usage values; not unique content tokens and not a pass/fail metric.",
+    "session_files": [
+      "/tmp/wl-sr7-Q09rQN/run-1/project/.pi/sessions/s1.jsonl"
+    ]
+  }
+}
+finalize_exit=0
+projectHead=0ed78f5e3a94d5c626e04a3a97131ec8692ae004
+status=completed
+duration=10
+tokens=15
+nestedGitExists=false
+keepExists=true

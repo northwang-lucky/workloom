@@ -1,0 +1,40 @@
+{
+  "id": "prd-source-id",
+  "name": "prd-source",
+  "title": "prd-source",
+  "description": "archived CASE reconstruction fixture",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "eval",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "completedAt": "2026-01-01T00:00:00.000Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": {
+    "passedAt": "2026-01-01T00:00:00.000Z",
+    "summary": "Historical result; not reusable as current evidence."
+  },
+  "alignment": null,
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

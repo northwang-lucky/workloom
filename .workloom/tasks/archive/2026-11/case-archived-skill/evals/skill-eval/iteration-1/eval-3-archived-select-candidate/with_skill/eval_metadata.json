@@ -1,0 +1,33 @@
+{
+  "eval_id": 3,
+  "eval_name": "eval-3-archived-select-candidate",
+  "prompt": "Work in <fixture-project>. Ask for archived CASE verification without naming a task. List the eligible archived full tasks with titles, paths, and completedAt values, then stop for my selection. Do not create a task before I choose. After I select, only confirm the selection and stop; do not create a task in this selection-only scenario.",
+  "assertions": [
+    "The candidate list contains the expected archived full tasks sorted by completedAt descending.",
+    "Light and non-completed tasks are excluded.",
+    "No new task directory or local validation branch is created before selection, and the selection-only run stops without creating one afterward.",
+    "The original archive manifests remain unchanged."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-archived",
+  "configuration": "with_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "archived-select-candidate",
+      "evalId": 3,
+      "evalName": "eval-3-archived-select-candidate",
+      "configuration": "with_skill",
+      "sessionId": "case-eval-archived-select-candidate-with_skill-1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+      "requestedRef": null,
+      "status": "completed",
+      "startedAt": "2026-11-05T10:47:38.070Z",
+      "projectHead": "fb08467a886f2e977cdea2be68c9d83a0cdb138c",
+      "completedAt": "2026-11-05T10:50:34.793Z"
+    }
+  },
+  "notes": "With-skill-only acceptance. One real run per scenario. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric. No baseline run participates."
+}

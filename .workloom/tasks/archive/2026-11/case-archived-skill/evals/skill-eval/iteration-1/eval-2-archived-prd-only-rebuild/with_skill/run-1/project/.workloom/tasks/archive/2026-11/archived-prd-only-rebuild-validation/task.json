@@ -1,0 +1,142 @@
+{
+  "id": "ba020444-2c4f-4ab5-81b5-5eceb9b856e8",
+  "name": "archived-prd-only-rebuild-validation",
+  "title": "Rebuild CASE verification for archived prd-source",
+  "description": "Independent validation task that rebuilds CASE verification for the archived full task `tasks/archive/prd-source` (material mode: prd-only - the archived task ships a PRD and no implementation PLAN). The archived original stays read-only and byte-identical; this task authors its own PRD/PLAN, confirms its own CASE against the current code baseline, executes real deterministic local checks with evidence and coverage status, and archives independently.",
+  "status": "completed",
+  "priority": "P2",
+  "mode": "full",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "workloom/11-05-archived-prd-only-rebuild-validation",
+  "base_branch": "master",
+  "createdAt": "2026-11-05T09:59:22.306Z",
+  "completedAt": "2026-11-05T10:45:08.164Z",
+  "parent": null,
+  "children": [],
+  "subtasks": [],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": ".workloom/worktree/11-05-archived-prd-only-rebuild-validation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "sourceTask": "tasks/archive/prd-source",
+    "sourceCommit": "640b4005ac43df5d50e2f761aef563aa4fd8e71e",
+    "sourceCommitType": "archive-bookkeeping",
+    "validationRef": "master",
+    "validationRefSource": "default-current-branch",
+    "validationReason": "Default current target branch",
+    "validationCommit": "b5a6d81569a4399c20dc4c636b8f5b1cf3ce7b8f",
+    "validationBranch": null,
+    "materialMode": "prd-only",
+    "missingMaterial": [
+      "plan.md"
+    ],
+    "validationPurpose": "Rebuild CASE verification for the archived full task tasks/archive/prd-source against the current code baseline; the archived original stays read-only and this task validates and archives independently.",
+    "previousBranch": "master",
+    "activationRestored": true
+  },
+  "check": {
+    "passedAt": "2026-11-05T10:44:39.715Z",
+    "summary": "CASE 7c60397f085ea2b06de3360a09fb48a52d04ec2e2ac5a5a95db8b53b4f83d98c executed against the current validation baseline (commit b5a6d81569a4399c20dc4c636b8f5b1cf3ce7b8f, worktree .workloom/worktree/11-05-archived-prd-only-rebuild-validation, codeFingerprint=0a62e8e4f6efe93982dd158bc5a0582aafd47f3dd7f831395e63e866b76aaa81 - independently recomputed by the canonical fingerprint script and identical). Static review SR1-SR5 all passed, mechanically evidenced by case-evidence/sr-checks.log (SR=ok sr=20, exit=0). Runtime cases C1-C4 all passed in order with observed exit codes: C1 archived bytes unchanged (ARCHIVE_BYTES=ok files=4, exit=0; git status of the archived directory empty), C2 validation worktree carries byte-identical archived material (ARCHIVE_BYTES=ok files=4, exit=0), C3 baseline identity and recorded metadata agree (BASELINE=ok head=b5a6d815... checks=9, exit=0, including the pristine-worktree check), C4 RESULT binding (codeFingerprint=<64-hex> exit=0, BINDING=ok checks=6 exit=0 - confirmed caseHash equals the LF-normalized SHA-256 of case.md, RESULT caseHash equals the confirmed value, RESULT checkSession equals case.designSession 01a1ab46-5723-730f-9c53-f3bddae9c1b1, RESULT codeBaseline carries the canonical fingerprint, status passed, every quoted evidence file exists). Coverage: not_applicable with Overall lines N/A, an empty changed-file table and the exclusions .workloom/ and src/ stated with reasons, because this task changes no product source file. Standard verification: eight commands, every exit-code column 0. Evidence retained in case-evidence/ (four verifier scripts and eight logs, each carrying its observed exit code). One P2 occurred during execution and was fixed by the check executor: a backticked placeholder in RESULT prose that the binding verifier read as a real evidence path; C4 step 2 was rerun until the binding log reported BINDING=ok. That fix is reported here rather than under Resolved Findings, because plan constraint 7 fixes that section to exactly - none. Open issues: none. Forward reference per plan constraint 12: the archive-phase byte comparison will write .workloom/tasks/archive/2026-11/archived-prd-only-rebuild-validation/case-evidence/post-archive-bytes.log after the archive, and the journal entry for this task cites that log with its result; the archived source task tasks/archive/prd-source stays byte-identical to the frozen manifest .workloom/workspace/case-archived/prd-source.manifest.json."
+  },
+  "case": {
+    "required": true,
+    "designSession": "01a1ab46-5723-730f-9c53-f3bddae9c1b1",
+    "confirmedAt": "2026-11-05T10:40:36.134Z",
+    "caseHash": "7c60397f085ea2b06de3360a09fb48a52d04ec2e2ac5a5a95db8b53b4f83d98c",
+    "summary": "CASE reviewed against the PRD, the PLAN, the real code baseline and the source metadata. Key decisions: the CASE is this task's own document - it covers SR1-SR5 and C1-C4 with every acceptance criterion mapped in the Traceability table; its Source task is the archived original tasks/archive/prd-source and its Code target is the current validation baseline b5a6d81569a4399c20dc4c636b8f5b1cf3ce7b8f in the task worktree; coverage is not_applicable with an empty coverable file scope and the exclusions .workloom/ and src/ stated with reasons; every runtime command records its own observed exit code; C4 binds the RESULT to the confirmed caseHash, the design session id and the canonical codeFingerprint. Review result: workloom_task_case action=review reported readyToConfirm true with zero structure issues and zero confirm blockers, and the file is byte-identical to the prescribed block in plan.md step 4 (one corrected ordinal: the pristine-worktree check is the eighth of the nine baseline checks). The user approved this exact caseHash 7c60397f085ea2b06de3360a09fb48a52d04ec2e2ac5a5a95db8b53b4f83d98c in a new user message.",
+    "result": {
+      "caseHash": "7c60397f085ea2b06de3360a09fb48a52d04ec2e2ac5a5a95db8b53b4f83d98c",
+      "resultHash": "a80e39c45d0f0ce60cdda7d0c91b712a420675c36af4db969e41e6a891563f16",
+      "passedAt": "2026-11-05T10:44:39.715Z"
+    }
+  },
+  "alignment": {
+    "passedAt": "2026-11-05T10:34:11.835Z",
+    "summary": "Archived-CASE rebuild for the PRD-only source task tasks/archive/prd-source. Design-tree nodes covered: goal/value, scope and non-goals, environment constraints, observable acceptance, UI/test-first applicability (no UI, no test-first seam), key decisions, edge cases and alternatives, convergence. Key decisions: material mode prd-only with the missing PLAN named explicitly (plan.md) and a new PLAN authored from the archived PRD; archived original read-only and byte-identical under a frozen raw-byte SHA-256 manifest; independent task with parent null; validation baseline is the current branch HEAD b5a6d81 (validationRefSource default-current-branch, reason \"Default current target branch\", validationBranch null) and never the archive bookkeeping commit 640b400; own confirmed CASE with SR1-SR5 and C1-C4 covering AC1-AC4; coverage not_applicable with explicit exclusions since no product source file changes; local deterministic verification only. Open nodes: none. The user approved the 1.4 review package (prdHash a906cffcfb6c8106fca7dfa8d8128f13fd8435cabb93bd30d57fe83d904cc132, plan hash 6ec057b0bcd96b0d69d1e1d87aec2386de33e614dd052978d6e9eac033441abf) in a new user message.",
+    "prdHash": "a906cffcfb6c8106fca7dfa8d8128f13fd8435cabb93bd30d57fe83d904cc132"
+  },
+  "overrides": [],
+  "stage": "check",
+  "dispatches": [
+    {
+      "kind": "review",
+      "at": "2026-11-05T10:03:59.817Z",
+      "title": "Audit rebuilt CASE plan",
+      "status": "completed",
+      "childId": "01a1ab2a-50fc-7707-b678-a7b9f1a045c5",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "inherit"
+    },
+    {
+      "kind": "review",
+      "at": "2026-11-05T10:12:44.153Z",
+      "title": "Re-audit revised CASE plan",
+      "status": "completed",
+      "childId": "01a1ab2a-50fc-7707-b678-a7b9f1a045c5",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "review",
+      "at": "2026-11-05T10:21:27.663Z",
+      "title": "Third audit of CASE plan",
+      "status": "completed",
+      "childId": "01a1ab2a-50fc-7707-b678-a7b9f1a045c5",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "review",
+      "at": "2026-11-05T10:27:47.017Z",
+      "title": "Fourth audit of CASE plan",
+      "status": "completed",
+      "childId": "01a1ab2a-50fc-7707-b678-a7b9f1a045c5",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T10:34:36.380Z",
+      "title": "Design CASE for archived prd-source rebuild",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1ab46-5723-730f-9c53-f3bddae9c1b1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "legacy"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T10:37:24.972Z",
+      "title": "Correct CASE check ordinal",
+      "status": "completed",
+      "purpose": "case-design",
+      "childId": "01a1ab46-5723-730f-9c53-f3bddae9c1b1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    },
+    {
+      "kind": "check",
+      "at": "2026-11-05T10:40:54.118Z",
+      "title": "Execute confirmed CASE for archived prd-source rebuild",
+      "status": "completed",
+      "purpose": "execution",
+      "childId": "01a1ab46-5723-730f-9c53-f3bddae9c1b1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "effort": "max",
+      "modelSource": "spawn"
+    }
+  ],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

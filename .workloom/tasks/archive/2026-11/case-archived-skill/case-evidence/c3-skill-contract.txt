@@ -1,0 +1,48 @@
+--- contract checks:
+PASS frontmatter parses
+PASS name exact
+PASS description mentions archived full task and materials
+PASS body contains "tasks/archive/"
+PASS body contains "snapshotArchivedTask"
+PASS body contains "sourceTask"
+PASS body contains "sourceCommit"
+PASS body contains "sourceCommitType"
+PASS body contains "prepareRef"
+PASS body contains "workloom_task_create"
+PASS body contains "Never pass `parent`"
+PASS body contains "is never an approval"
+PASS body contains "new user message"
+PASS body contains "restoreRef"
+PASS body contains "workloom_task_check"
+PASS body contains "legacy-pair"
+PASS body contains "prd-only"
+PASS body contains "Stop on missing"
+PASS body contains "what is missing"
+PASS body contains "project's language"
+PASS body no CJK
+PASS no template heading ## Static Review
+PASS no template heading ## Runtime Cases
+PASS no template heading ## Coverage
+PASS no template heading ## Traceability
+PASS five eval ids in order
+PASS archived-plan-default-head: prompt/assertions English
+PASS archived-plan-default-head: assertions non-empty
+PASS archived-legacy-explicit-ref: prompt/assertions English
+PASS archived-legacy-explicit-ref: assertions non-empty
+PASS archived-prd-only-rebuild: prompt/assertions English
+PASS archived-prd-only-rebuild: assertions non-empty
+PASS archived-select-candidate: prompt/assertions English
+PASS archived-select-candidate: assertions non-empty
+PASS archived-invalid-input-fast-fail: prompt/assertions English
+PASS archived-invalid-input-fast-fail: assertions non-empty
+PASS archived-plan-default-head: approval wording
+PASS archived-legacy-explicit-ref: approval wording
+PASS archived-prd-only-rebuild: approval wording
+PASS case-active routes archived tasks to case-archived
+RESULT: C3 PASS
+contract_exit=0
+--- case-active unchanged:
+active_diff_exit=0
+--- CJK / headings raw:
+cjk=false
+templateHeadings=[]

@@ -1,0 +1,33 @@
+root=/tmp/wl-sr5-bRPcHu
+--- node --check:
+check exit=0
+/tmp/wl-sr5-bRPcHu/archived-plan-default-head
+scenario=archived-plan-default-head generate_exit=0
+  commits=2 head=60fd7b8 current=current
+  archive_dirs=plan-source 
+/tmp/wl-sr5-bRPcHu/archived-legacy-explicit-ref
+scenario=archived-legacy-explicit-ref generate_exit=0
+  commits=2 head=b81c98f current=current
+  archive_dirs=legacy-source 
+/tmp/wl-sr5-bRPcHu/archived-prd-only-rebuild
+scenario=archived-prd-only-rebuild generate_exit=0
+  commits=2 head=f53b574 current=current
+  archive_dirs=prd-source 
+/tmp/wl-sr5-bRPcHu/archived-select-candidate
+scenario=archived-select-candidate generate_exit=0
+  commits=2 head=73e206a current=current
+  archive_dirs=newer-legacy light-archive older-plan 
+/tmp/wl-sr5-bRPcHu/archived-invalid-input-fast-fail
+scenario=archived-invalid-input-fast-fail generate_exit=0
+  commits=2 head=918999e current=current
+  archive_dirs=valid-source 
+--- materials:
+plan-source: check.jsonl case.md implement.jsonl prd.md case-result.md plan.md task.json 
+legacy-source: check.jsonl design.md implement.jsonl prd.md implement.md task.json 
+prd-source: check.jsonl implement.jsonl prd.md task.json 
+--- light mode:
+light-archive mode=light status=completed
+--- duplicate target must fail:
+
+Node.js v24.18.1
+duplicate_exit=1

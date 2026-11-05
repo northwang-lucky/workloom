@@ -1,0 +1,4 @@
+head=e34d111c382b1620d572a3cbba6481267583ba0c
+branch=workloom/11-03-case-archived-skill
+fingerprint=codeFingerprint=6f10f908020eb665bcb01a1b457e13256e37f09381641ce0a310dddf94688a8e
+computedAt=2026-11-05T12:11:49.188Z

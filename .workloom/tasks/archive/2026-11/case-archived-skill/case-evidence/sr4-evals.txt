@@ -1,0 +1,44 @@
+PASS skill_name
+PASS five eval ids in order
+PASS archived-plan-default-head: name
+PASS archived-plan-default-head: expected_output
+PASS archived-plan-default-head: assertions non-empty
+PASS archived-plan-default-head: prompt no CJK
+PASS archived-plan-default-head: assertions no CJK
+PASS archived-plan-default-head: prompt placeholder
+PASS archived-legacy-explicit-ref: name
+PASS archived-legacy-explicit-ref: expected_output
+PASS archived-legacy-explicit-ref: assertions non-empty
+PASS archived-legacy-explicit-ref: prompt no CJK
+PASS archived-legacy-explicit-ref: assertions no CJK
+PASS archived-legacy-explicit-ref: prompt placeholder
+PASS archived-prd-only-rebuild: name
+PASS archived-prd-only-rebuild: expected_output
+PASS archived-prd-only-rebuild: assertions non-empty
+PASS archived-prd-only-rebuild: prompt no CJK
+PASS archived-prd-only-rebuild: assertions no CJK
+PASS archived-prd-only-rebuild: prompt placeholder
+PASS archived-select-candidate: name
+PASS archived-select-candidate: expected_output
+PASS archived-select-candidate: assertions non-empty
+PASS archived-select-candidate: prompt no CJK
+PASS archived-select-candidate: assertions no CJK
+PASS archived-select-candidate: prompt placeholder
+PASS archived-invalid-input-fast-fail: name
+PASS archived-invalid-input-fast-fail: expected_output
+PASS archived-invalid-input-fast-fail: assertions non-empty
+PASS archived-invalid-input-fast-fail: prompt no CJK
+PASS archived-invalid-input-fast-fail: assertions no CJK
+PASS archived-invalid-input-fast-fail: prompt placeholder
+PASS archived-plan-default-head: initial request not approval
+PASS archived-plan-default-head: new user message
+PASS archived-plan-default-head: independent approval assertion
+PASS archived-legacy-explicit-ref: initial request not approval
+PASS archived-legacy-explicit-ref: new user message
+PASS archived-legacy-explicit-ref: independent approval assertion
+PASS archived-prd-only-rebuild: initial request not approval
+PASS archived-prd-only-rebuild: new user message
+PASS archived-prd-only-rebuild: independent approval assertion
+PASS select prompt lists fields and stops
+PASS invalid prompt two failures no write
+RESULT: SR4 PASS

@@ -1,0 +1,24 @@
+   workloom's own ignore template.
+
+ One upstream defect worth fixing
+
+ packages/assets/skills/workloom-case-archived/evals/build-fixtures.mjs writes
+ that same invalid .workloom/config.json, so every with_skill run of this
+ scenario fails at task creation until the generator emits
+ {"worktree":{"enabled":true}}. I fixed it in-place in this fixture project
+ only — the generator itself is outside this task's scope, so I left it
+ untouched. That one-line change in the skill asset is what makes the scenario
+ reproducible end-to-end.
+
+ One cosmetic note, left deliberately: SR3 and SR5 in the confirmed CASE name
+ two target paths side by side, so core's targetFiles reads them as one string.
+ It starts with .workloom/, so the coverable set stays empty and no gate is
+ affected — changing it would have meant editing a confirmed artifact.
+
+ 💾 Memory auto-reviewed and updated
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead unk)
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑1.4M ↓182k R35M CH99.8% 41.3%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

@@ -1,0 +1,14 @@
+{
+  "scenario": "archived-plan-default-head",
+  "evalId": 0,
+  "evalName": "eval-0-archived-plan-default-head",
+  "configuration": "with_skill",
+  "sessionId": "case-eval-archived-plan-default-head-with_skill-1",
+  "model": "minimax-cn/MiniMax-M3.1-Flash",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+  "requestedRef": null,
+  "status": "completed",
+  "startedAt": "2026-11-05T08:14:53.846Z",
+  "projectHead": "74f845fcaf7de120270d99e77551a8f8afcfef47",
+  "completedAt": "2026-11-05T09:08:47.757Z"
+}

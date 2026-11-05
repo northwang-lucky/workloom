@@ -1,0 +1,8 @@
+{
+  "total_duration_seconds": 120.73,
+  "total_tokens": 357207,
+  "token_note": "Sum of per-response usage values; not unique content tokens and not a pass/fail metric.",
+  "session_files": [
+    "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/11-03-case-archived-skill/evals/skill-eval/iteration-1/eval-3-archived-select-candidate/with_skill/run-1/project/.pi/sessions/2026-11-05T10-47-30-170Z_case-eval-archived-select-candidate-with_skill-1.jsonl"
+  ]
+}

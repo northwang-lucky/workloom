@@ -1,0 +1,51 @@
+PASS inspectPlanStructure has no issues: []
+PASS AC1 covered by a step
+PASS AC2 covered by a step
+PASS AC3 covered by a step
+PASS AC4 covered by a step
+PASS AC5 covered by a step
+PASS AC6 covered by a step
+PASS AC7 covered by a step
+PASS AC8 covered by a step
+PASS AC9 covered by a step
+PASS AC10 covered by a step
+PASS AC11 covered by a step
+PASS AC12 covered by a step
+PASS implementation steps present: 17
+PASS step 1 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 2 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 3 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 4 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 5 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 6 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 7 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 8 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 9 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 10 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 11 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 12 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 13 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 14 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 15 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 16 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS step 17 has Covers/Target/Edit/Verify: Covers,Target,Edit,Verify
+PASS PLAN contains packages/assets/skills/workloom-case-archived/SKILL.md
+PASS PLAN contains full-content marker for packages/assets/skills/workloom-case-archived/SKILL.md: Never pass `parent`
+PASS PLAN contains packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs
+PASS PLAN contains full-content marker for packages/assets/skills/workloom-case-archived/scripts/archived-tasks.mjs: export function listArchivedTasks
+PASS PLAN contains packages/assets/skills/workloom-case-archived/scripts/archived-tasks.test.mjs
+PASS PLAN contains full-content marker for packages/assets/skills/workloom-case-archived/scripts/archived-tasks.test.mjs: makeRoot
+PASS PLAN contains packages/assets/skills/workloom-case-archived/evals/evals.json
+PASS PLAN contains full-content marker for packages/assets/skills/workloom-case-archived/evals/evals.json: archived-plan-default-head
+PASS PLAN contains packages/assets/skills/workloom-case-archived/evals/build-fixtures.mjs
+PASS PLAN contains full-content marker for packages/assets/skills/workloom-case-archived/evals/build-fixtures.mjs: addArchive
+PASS PLAN contains packages/assets/skills/workloom-case-archived/evals/run-scenario.sh
+PASS PLAN contains full-content marker for packages/assets/skills/workloom-case-archived/evals/run-scenario.sh: EVAL_INDEX=0
+PASS PLAN contains packages/assets/skills/workloom-case-archived/evals/finalize-run.mjs
+PASS PLAN contains full-content marker for packages/assets/skills/workloom-case-archived/evals/finalize-run.mjs: total_duration_seconds
+PASS PLAN contains full code blocks: 32
+PASS round3 reports Open issues none
+PASS disposal covers Round 1/2/3
+PASS disposal records fixes
+PASS no unhandled P0/P1/P2 marker
+RESULT: C6 PASS

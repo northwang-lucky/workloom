@@ -1,0 +1,24 @@
+ recorded; working tree clean.
+
+ Disclosures
+
+ - The plan review caught a wrong ordinal in my own plan text
+   (worktree-is-pristine is the eighth baseline check, not the ninth). I
+   corrected plan.md and continued the same design session — the only change to
+   the plan after your 1.4 approval; the CASE hash you approved was computed
+   after that fix.
+ - I added one line to .gitignore (.workloom/.developer): the journal tool
+   refuses to record without a local identity, and workloom init's own template
+   ignores that file — it must not land in git. The task's creator field is
+   therefore empty (no identity existed at creation).
+ - The task branch workloom/11-05-archived-prd-only-rebuild-validation still
+   exists: that is core's default rebase-keep-branch cleanup policy, not a
+   leftover I bypassed.
+
+ 💾 Memory auto-reviewed and updated
+
+────────────────────────────────────────────────────────────────────────────────
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead─────
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks...
+↑1.8M ↓175k R40M CH99.7% 40.1%/1.0M (auto)            MiniMax-M3.1-Flash • xhigh

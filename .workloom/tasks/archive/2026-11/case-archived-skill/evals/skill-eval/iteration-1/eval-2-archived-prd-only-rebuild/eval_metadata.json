@@ -1,0 +1,35 @@
+{
+  "eval_id": 2,
+  "eval_name": "eval-2-archived-prd-only-rebuild",
+  "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task that has only PRD material. Mark the missing PLAN explicitly and create a new PRD/PLAN. The initial request is not an approval: stop for a new user message before Phase 1.4 startup, and stop again for a new user message approving the current caseHash before confirm/execution. Execute the real CASE and preserve the original archive bytes.",
+  "assertions": [
+    "The new PRD explicitly records PRD-only material and does not claim an existing implementation plan.",
+    "A structurally valid new plan.md is created before startup.",
+    "No historical CASE/RESULT hash is reused as current confirmation or result evidence.",
+    "The new CASE executes with real evidence and coverage status.",
+    "Startup and CASE confirmation wait for independent user approval messages.",
+    "The original archive manifest is byte-identical after completion."
+  ],
+  "skill_path": "packages/assets/skills/workloom-case-archived",
+  "configuration": "with_skill",
+  "executor_model": "minimax-cn/MiniMax-M3.1-Flash",
+  "analyzer_model": "kimi-coding/k3.1-pro",
+  "runs_per_configuration": 1,
+  "runs": {
+    "run_1": {
+      "scenario": "archived-prd-only-rebuild",
+      "evalId": 2,
+      "evalName": "eval-2-archived-prd-only-rebuild",
+      "configuration": "with_skill",
+      "sessionId": "case-eval-archived-prd-only-rebuild-with_skill-1",
+      "model": "minimax-cn/MiniMax-M3.1-Flash",
+      "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-03-case-archived-skill",
+      "requestedRef": null,
+      "status": "completed",
+      "startedAt": "2026-11-05T09:54:59.451Z",
+      "projectHead": "1866632f0b1fdfce72e51a02a6630f782edf207c",
+      "completedAt": "2026-11-05T10:46:59.249Z"
+    }
+  },
+  "notes": "With-skill-only acceptance. One real run per scenario. total_tokens is the sum of per-response usage values, not unique content tokens, and is not used as a pass/fail metric. No baseline run participates."
+}

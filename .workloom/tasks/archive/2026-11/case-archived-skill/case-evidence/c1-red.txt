@@ -1,0 +1,38 @@
+baseline=e34d111c382b1620d572a3cbba6481267583ba0c
+准备工作区（分离头指针 e34d111）
+HEAD 现在位于 e34d111 chore: record journal
+worktree_add_exit=0
+--- DSH red:
+      at TestContext.<anonymous> (file:///tmp/wl-case-archived-red/packages/adapter-dsh/test/skills.test.js:218:15)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/tmp/wl-case-archived-red/packages/assets/skills/workloom-case-archived/SKILL.md'
+  }
+dsh_red_exit=1
+--- Pi red:
+      at /tmp/wl-case-archived-red/packages/adapter-pi/test/skills.test.ts:25:10
+      at fn (node:test:215:18)
+(fail) skills 产物清单：只含 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个 vendored generic skills [2.91ms]
+(pass) skills 产物不再含旧两个 workloom skill（brainstorm/ui-design 无残留） [0.19ms]
+
+ 2 pass
+ 1 fail
+Ran 3 tests across 1 file. [50.00ms]
+pi_red_exit=1
+--- assets red:
+ℹ todo 0
+ℹ duration_ms 84.944441
+
+✖ failing tests:
+
+test at skills/workloom-case-archived/scripts/archived-tasks.test.mjs:1:1
+✖ skills/workloom-case-archived/scripts/archived-tasks.test.mjs (76.038425ms)
+  'test failed'
+assets_red_exit=1

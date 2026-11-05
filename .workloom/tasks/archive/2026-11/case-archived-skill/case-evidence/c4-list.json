@@ -1,0 +1,494 @@
+[
+  {
+    "taskPath": "tasks/archive/2026-11/case-active-skill",
+    "title": "新增 workloom-case-active 技能",
+    "completedAt": "2026-11-05T01:49:07.063Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-11/full-task-case-coverage",
+    "title": "完整任务增加 CASE 设计、执行与覆盖率",
+    "completedAt": "2026-11-03T13:11:41.788Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/plan-system-upgrade",
+    "title": "计划文档体系升级：plan.md 合并 + 规定式写作标准 + review 执行器",
+    "completedAt": "2026-10-30T05:59:58.201Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/review-executor",
+    "title": "新增 review 执行器：开工前计划审查",
+    "completedAt": "2026-10-30T04:49:01.633Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/plan-migration-skill",
+    "title": "存量任务迁移技能：design/implement 按新标准迁移为 plan.md",
+    "completedAt": "2026-10-30T01:59:33.452Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/prd-traceability",
+    "title": "prd 格式规范与 R/AC 编号溯源链",
+    "completedAt": "2026-10-29T17:26:08.332Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/plan-md-prescriptive",
+    "title": "合并 design/implement 为 plan.md 并落地完全规定式写作标准",
+    "completedAt": "2026-10-29T15:15:19.350Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/fallback-models",
+    "title": "fallback_models 增加同类并发轮换用法",
+    "completedAt": "2026-10-28T11:07:46.559Z",
+    "package": "adapter-dsh"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/worktree-rebase-cleanup",
+    "title": "worktree 归档支持 rebase 清理模式（线性历史）",
+    "completedAt": "2026-10-26T09:04:19.968Z",
+    "package": "core"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/subagent-fallback-models",
+    "title": "subagent 配置新增 fallback_models 失败转移",
+    "completedAt": "2026-10-21T10:44:49.698Z",
+    "package": "core"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/light-task-mode",
+    "title": "轻量任务模式（light task mode）",
+    "completedAt": "2026-10-21T08:51:30.642Z",
+    "package": "repo"
+  },
+  {
+    "taskPath": "tasks/archive/2026-10/worktree-packages-setup",
+    "title": "worktree 依赖准备机制（packages.setup）",
+    "completedAt": "2026-10-21T04:17:47.029Z",
+    "package": "core"
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/worktree-native",
+    "title": "原生 git worktree 模式：每任务独立 worktree 并行开发",
+    "completedAt": "2026-09-30T05:27:28.295Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/s2-worktree-runtime-integration",
+    "title": "S2 worktree runtime 集成面：executor 注入 + session-context + assets/skills",
+    "completedAt": "2026-09-30T05:25:06.832Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/s1-core-worktree-lifecycle",
+    "title": "S1 core worktree 生命周期：配置节 + start 创建 + archive 清理四模式 + gitlink 联动",
+    "completedAt": "2026-09-30T05:02:42.718Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/s0-legacy-to-domain-rename",
+    "title": "S0 core 目录重构：legacy/ → domain/（引用方与文档指针全量更新）",
+    "completedAt": "2026-09-30T03:48:24.401Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/executor-kind-kind-3",
+    "title": "executor 并发闸改为按 kind 限制，默认每 kind 3、全局闸默认不限",
+    "completedAt": "2026-09-28T16:30:49.966Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/commands-to-skills",
+    "title": "continue/finish 命令改造为 skill 并收紧自动提交工具 slug 约束",
+    "completedAt": "2026-09-23T09:30:41.731Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/fix-pi-agent-definitions-stale-description",
+    "title": "修正 adapter-pi 执行器角色自述的过时注入描述",
+    "completedAt": "2026-09-22T13:03:21.512Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/slim-executor-context",
+    "title": "缩减 implement/frontend 执行器上下文至最小执行面",
+    "completedAt": "2026-09-22T12:05:46.764Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/alignment-review-prd",
+    "title": "alignment review 提前暴露 PRD 结构门禁",
+    "completedAt": "2026-09-16T07:14:37.529Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/remove-workloom-executor-foreground",
+    "title": "移除 workloom executor foreground 参数支持",
+    "completedAt": "2026-09-14T14:05:51.209Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/dsh",
+    "title": "DSH 并发闸真机冒烟（一次性）",
+    "completedAt": "2026-09-09T23:36:41.069Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/workloom",
+    "title": "配置 workloom 子代理并发派遣上限",
+    "completedAt": "2026-09-09T19:13:17.814Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/skill-packages-scan",
+    "title": "新增 skill workloom-packages-scan：旧项目引入 workloom 后的包扫描与 config.json packages 自动填写",
+    "completedAt": "2026-09-09T16:09:37.583Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/dsh-executor-settle-split",
+    "title": "DSH executor settle 循环回填对齐与 executor.ts 拆分",
+    "completedAt": "2026-09-09T14:46:33.344Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/pi-executor-parity",
+    "title": "Pi 侧 executor 对齐 DSH：后台派发 + 续用链路 + 描述层债务修复（ADR-0006 修订）",
+    "completedAt": "2026-09-09T13:49:18.001Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/m3c-session-storage",
+    "title": "M3c child 会话存储治理（归档清理 + gitignore 守护 + shutdown 清表）",
+    "completedAt": "2026-09-09T12:42:46.648Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/m3b-adr-revision",
+    "title": "M3b ADR-0006 修订与调研文档回写",
+    "completedAt": "2026-09-09T11:56:38.434Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/m3a-copy-unification",
+    "title": "M3a 文案统一收尾与三端回归（P4/P5 消灭 + dist 重建）",
+    "completedAt": "2026-09-09T11:35:01.064Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/executor-followup-api",
+    "title": "fix(adapter-dsh): continue_executor 调用不存在的 ctx.subagents.followup，executor 续派整体失效",
+    "completedAt": "2026-09-07T08:14:12.393Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/locate-home-boundary",
+    "title": "fix(locate): 向上查找命中家目录即停，禁止把全局 ~/.workloom 识别为项目资产目录",
+    "completedAt": "2026-09-07T07:16:43.748Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/git-worktree",
+    "title": "git worktree 兼容性加固",
+    "completedAt": "2026-09-03T13:30:26.332Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/unify-workloom-alignment",
+    "title": "统一 workloom alignment skill 与需求对齐门禁",
+    "completedAt": "2026-09-03T13:22:34.662Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/executor-config-visibility",
+    "title": "执行器配置可见性与终态错误可观测",
+    "completedAt": "2026-09-03T10:54:19.548Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/executor-no-user-interaction",
+    "title": "执行器工具可见性治理与提问回传协议",
+    "completedAt": "2026-09-03T05:20:31.487Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/context-injection-optimization",
+    "title": "上下文注入优化",
+    "completedAt": "2026-09-02T16:02:05.610Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/executor-background-and-continuation",
+    "title": "executor 后台模式与续接轻量化",
+    "completedAt": "2026-09-02T12:43:08.209Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/executor-batching-and-injection-stats",
+    "title": "执行器批处理纪律与注入体积可观测",
+    "completedAt": "2026-09-02T11:17:36.519Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/executor-conflict-hardening",
+    "title": "执行器指令冲突治理：契约 stage 正交化与 fork 接续兜底",
+    "completedAt": "2026-09-02T09:42:01.618Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/fix-dsh-child-retry-in-progress",
+    "title": "移除 DSH 写入硬门禁",
+    "completedAt": "2026-09-02T08:00:13.399Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/lsp-baseline-tooling-expansion",
+    "title": "扩展 LSP 提示词基线：引导流程使用 lsp_diagnostics 之外的 LSP 工具",
+    "completedAt": "2026-09-02T06:04:56.941Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/prompt-local-extension-pi",
+    "title": "提示词本机扩展点机制（Pi 落地）",
+    "completedAt": "2026-09-02T04:12:21.473Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/check-severity-escalation",
+    "title": "check 内置问题分级：小修大决断，取消主会话引导分级",
+    "completedAt": "2026-09-02T01:31:43.577Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/git-js-stderr-silence",
+    "title": "git 封装非 git 目录 stderr 泄漏修复",
+    "completedAt": "2026-09-02T00:57:46.786Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/subagent-efficiency-continuable",
+    "title": "子代理效率优化：上下文注入 + 可继续化",
+    "completedAt": "2026-09-02T00:39:52.334Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/t1-executor-context-injection",
+    "title": "T1 executor 上下文注入与 prompt 模板",
+    "completedAt": "2026-09-02T00:39:48.736Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/t2-executor-continuable-reuse",
+    "title": "T2 executor 可继续化与多阶段复用",
+    "completedAt": "2026-09-02T00:39:48.736Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/t3-research-facts-context-pack",
+    "title": "T3 research-facts 格式规范与上下文包",
+    "completedAt": "2026-09-02T00:39:48.735Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-09/prompt-local-extension-dsh",
+    "title": "提示词本机扩展点机制（DSH 落地）",
+    "completedAt": "2026-09-01T15:02:16.782Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/task-phase-main-session-fix",
+    "title": "引入任务 stage 字段，开放 check 阶段主会话修复窗口",
+    "completedAt": "2026-08-31T15:55:33.730Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/executor-no-delegation",
+    "title": "Executor 子代理禁止再委派:按深度裁剪上下文与工具面",
+    "completedAt": "2026-08-31T10:40:34.913Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/subagents-by-main-model",
+    "title": "subagents 配置支持按主 Agent 模型分档（whenMain profile）",
+    "completedAt": "2026-08-31T08:53:32.065Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/fix-grilling-not-triggered-in-planning",
+    "title": "修复 planning 阶段 grilling 未主动触发的问题",
+    "completedAt": "2026-08-31T04:42:23.344Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/effort-agent-created-reasoningeffort",
+    "title": "插件化打通 effort 通道：agent/created 安装模型选择器注入 reasoningEffort",
+    "completedAt": "2026-08-30T08:56:03.849Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/workflow-contract-skill-name-align",
+    "title": "workflow 契约 skill 名与注册名对齐（brainstorm → workloom-brainstorm）",
+    "completedAt": "2026-08-30T08:27:01.618Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/dsh-adapter-effort-reasoningeffort-execu",
+    "title": "DSH adapter 支持 effort 通道：映射 reasoningEffort 派发给 executor 子代理",
+    "completedAt": "2026-08-30T07:27:21.383Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/write-gate-workdir-only",
+    "title": "放宽写门禁为仅拦截工作目录内的文件",
+    "completedAt": "2026-08-29T12:02:25.783Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/doctor-command",
+    "title": "workloom-doctor 工作流健康检查命令",
+    "completedAt": "2026-08-29T11:46:32.196Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/gate-fork-hardening",
+    "title": "executor gate 堵住 fork 子代理绕行",
+    "completedAt": "2026-08-29T10:59:31.766Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/subtask-mechanism",
+    "title": "workloom 子任务机制：契约/工具/提示三面落地",
+    "completedAt": "2026-08-29T10:31:21.829Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/stm-p3-e2e",
+    "title": "子任务机制 P3：端到端验证与数据回填",
+    "completedAt": "2026-08-29T10:27:18.905Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/stm-p2-adapters",
+    "title": "子任务机制 P2：surface 与双 adapter 贯通（S2/S3/S4）",
+    "completedAt": "2026-08-29T10:14:44.547Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/stm-p1-core",
+    "title": "子任务机制 P1：core 层 parent 与 children 联动（S1）",
+    "completedAt": "2026-08-29T10:06:46.190Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/stm-p0-contract",
+    "title": "子任务机制 P0：契约与 norms（S5/S6）",
+    "completedAt": "2026-08-29T09:52:23.650Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/executor-frontend-agent",
+    "title": "新增前端实现 executor（frontend agent）",
+    "completedAt": "2026-08-29T09:11:03.815Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/ui",
+    "title": "核心工作流新增前端 UI 设计对齐流程",
+    "completedAt": "2026-08-29T07:32:49.605Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/spike-kimi-code-runtime",
+    "title": "spike：在 podman 容器内验证 Kimi Code runtime 适配的关键不确定项",
+    "completedAt": "2026-08-28T11:01:21.489Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/executor-one-shot",
+    "title": "workloom executor 子代理切换为一次性(one-shot)模式",
+    "completedAt": "2026-08-28T04:10:37.674Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/agent",
+    "title": "任务创建决策权移交用户，Agent 仅给推荐",
+    "completedAt": "2026-08-27T13:48:49.855Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/always-on-norms-injection",
+    "title": "always-on 行为规范注入会话上下文快照",
+    "completedAt": "2026-08-27T12:42:13.291Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/executor-title-required",
+    "title": "workloom_execute 的 title 参数改为必填",
+    "completedAt": "2026-08-27T09:35:50.579Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/subagent-semantic-title",
+    "title": "子会话标题语义来源改为模型生成",
+    "completedAt": "2026-08-27T09:12:05.417Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/config-comments-qa-behavior-subagent-title",
+    "title": "配置注释迁移、提问行为规范与子代理标题语义化",
+    "completedAt": "2026-08-27T07:40:49.637Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/enforce-executor-dispatch",
+    "title": "强化 executor 派发约束与模型配置可观测性",
+    "completedAt": "2026-08-27T06:09:15.213Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/slash-agent",
+    "title": "slash 命令失败时由 Agent 转述错误",
+    "completedAt": "2026-08-27T03:42:41.193Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/ask-user-design-implement",
+    "title": "design/implement 编写改为主动询问用户",
+    "completedAt": "2026-08-27T03:23:44.377Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/task-start-task-archive",
+    "title": "为 task_start / task_archive 增加流程硬卡点",
+    "completedAt": "2026-08-27T01:44:18.262Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/fix-task-store-hooks-normalize",
+    "title": "修复 task-store 对旧格式 task.json 缺 hooks 字段的崩溃",
+    "completedAt": "2026-08-26T14:21:38.221Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/subagent-model-effort-config",
+    "title": "config.yaml 支持 subagents 配置字段",
+    "completedAt": "2026-08-26T12:52:19.120Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/init-workloom-gitignore",
+    "title": "init 生成 .workloom/.gitignore 并收敛运行时状态忽略策略",
+    "completedAt": "2026-08-26T12:21:36.297Z",
+    "package": ""
+  },
+  {
+    "taskPath": "tasks/archive/2026-08/workloom-spec",
+    "title": "迁移至 workloom 工作流并沉淀 spec、精简旧文档",
+    "completedAt": "2026-08-26T11:03:45.675Z",
+    "package": ""
+  }
+]

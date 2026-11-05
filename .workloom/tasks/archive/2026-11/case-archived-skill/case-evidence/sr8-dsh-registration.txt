@@ -1,0 +1,22 @@
+--- SKILL_ASSETS order:
+const SKILL_ASSETS = [
+  'skills/workloom-continue/SKILL.md',
+  'skills/workloom-finish/SKILL.md',
+  'skills/workloom-alignment/SKILL.md',
+  'skills/workloom-case-active/SKILL.md',
+  'skills/workloom-case-archived/SKILL.md',
+  'skills/workloom-update-spec/SKILL.md',
+  'skills/workloom-packages-scan/SKILL.md',
+  'skills/workloom-migrate-plan/SKILL.md',
+  'third-party/mattpocock-skills/tdd/SKILL.md',
+  'third-party/mattpocock-skills/grilling/SKILL.md',
+  'third-party/mattpocock-skills/writing-for-agents/SKILL.md',
+] as const
+--- assertions:
+PASS case-archived registered
+PASS between case-active and update-spec
+PASS comment mentions case-archived
+PASS COMMAND_NAMES only doctor/init
+PASS workflow protocol 25
+PASS workflow front matter 25
+unchanged_diff_exit=0

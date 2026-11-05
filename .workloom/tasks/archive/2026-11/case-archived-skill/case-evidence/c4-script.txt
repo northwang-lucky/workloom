@@ -1,0 +1,17 @@
+PASS CLI list equals independent completed non-light scan: 82 vs 82
+PASS no light in CLI list
+PASS real light archive exists
+PASS readArchivedTask rejects light: light task is not supported: tasks/archive/2026-10/continue-candidate-scan
+PASS readArchivedTask rejects tasks/11-03-case-archived-skill: invalid archived task path: tasks/11-03-case-archived-skill
+PASS readArchivedTask rejects ../outside: invalid archived task path: ../outside
+PASS snapshot repeated equal: 4 files
+PASS snapshot non-empty
+PASS source commit 40-hex: 05e131f1d84a418edcb0c6d163096ecfc30e3e8f
+PASS source type archive-bookkeeping
+PASS source commit equals git log bookkeeping: 05e131f1d84a418edcb0c6d163096ecfc30e3e8f vs 05e131f1d84a418edcb0c6d163096ecfc30e3e8f
+PASS probe branch created
+PASS activateRef rejects dirty worktree: code worktree must be clean before activating validation ref
+PASS restoreRef rejects dirty worktree: code worktree must be clean before restoring original branch
+RESULT: C4 PASS
+--- archive git status:
+archive_status_lines=0
