@@ -139,13 +139,14 @@ function setupSkills() {
   return registered.map((def) => def.name)
 }
 
-test('skill 清单契约：注册 case-active/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
+test('skill 清单契约：注册 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
   const names = setupSkills()
   assert.deepEqual(names.sort(), [
     'grilling',
     'tdd',
     'workloom-alignment',
     'workloom-case-active',
+    'workloom-case-archived',
     'workloom-continue',
     'workloom-finish',
     'workloom-migrate-plan',
@@ -210,6 +211,52 @@ test('workloom-case-active 资产与五组 eval：状态约束、整批确认、
       item.assertions.some((line) => /waits for an independent user approval/.test(line)),
       `${id} lacks the independent-approval assertion`,
     )
+  }
+})
+
+test('workloom-case-archived 资产与五组 eval：只读原件、独立任务、ref 和独立批准', () => {
+  const doc = readFileSync(
+    new URL('../../assets/skills/workloom-case-archived/SKILL.md', import.meta.url),
+    'utf8',
+  )
+  const [err, parsed] = parseSkillFrontmatter(doc)
+  assert.equal(err, null)
+  assert.equal(parsed.name, 'workloom-case-archived')
+  assert.match(parsed.body, /tasks\/archive\//)
+  assert.match(parsed.body, /snapshotArchivedTask/)
+  assert.match(parsed.body, /sourceTask/)
+  assert.match(parsed.body, /sourceCommit/)
+  assert.match(parsed.body, /prepareRef/)
+  assert.match(parsed.body, /workloom_task_create/)
+  assert.match(parsed.body, /Never pass `parent`/)
+  assert.match(parsed.body, /is never an approval/)
+  assert.match(parsed.body, /new user message/)
+  // R12/AC9 语言纪律：技能资产与评测断言用英文，生成的任务文档用项目语言
+  assert.match(parsed.body, /Use English for this shipped asset and evaluation assertions/)
+  assert.match(parsed.body, /write generated task documents in the project's language/)
+  const evals = JSON.parse(readFileSync(
+    new URL('../../assets/skills/workloom-case-archived/evals/evals.json', import.meta.url),
+    'utf8',
+  ))
+  assert.equal(evals.skill_name, 'workloom-case-archived')
+  assert.deepEqual(evals.evals.map((item) => item.id), [
+    'archived-plan-default-head',
+    'archived-legacy-explicit-ref',
+    'archived-prd-only-rebuild',
+    'archived-select-candidate',
+    'archived-invalid-input-fast-fail',
+  ])
+  for (const item of evals.evals) {
+    assert.equal(typeof item.name, 'string')
+    assert.ok(item.assertions.length > 0)
+    assert.ok(!/[\u3400-\u9fff]/.test(item.prompt))
+    assert.ok(!/[\u3400-\u9fff]/.test(item.assertions.join('\n')))
+  }
+  for (const id of evals.evals.slice(0, 3).map((item) => item.id)) {
+    const item = evals.evals.find((entry) => entry.id === id)
+    assert.match(item.prompt, /The initial request is not an approval/)
+    assert.match(item.prompt, /new user message/)
+    assert.ok(item.assertions.some((line) => /independent user approval/.test(line)))
   }
 })
 

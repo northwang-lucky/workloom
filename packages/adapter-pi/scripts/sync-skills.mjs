@@ -16,6 +16,7 @@ const SKILLS_DIR = join(PACKAGE_ROOT, 'skills')
 /** 相对本包根的资源源目录（整目录递归拷贝）。
  * 自有 workloom 侧同步 continue/finish（原 slash 命令改造的路由与收尾指引）、
  * alignment（统一 Phase 1.1）、case-active（未归档任务 CASE 补写与整批确认）、
+ * case-archived（归档任务只读重建与独立验证）、
  * update-spec、packages-scan 与 migrate-plan（存量计划迁移）；旧
  * brainstorm/ui-design 目录不再同步，generic tdd/grilling/writing-for-agents 保留。 */
 const SKILL_SOURCES = [
@@ -23,6 +24,7 @@ const SKILL_SOURCES = [
   '../assets/skills/workloom-finish',
   '../assets/skills/workloom-alignment',
   '../assets/skills/workloom-case-active',
+  '../assets/skills/workloom-case-archived',
   '../assets/skills/workloom-update-spec',
   '../assets/skills/workloom-packages-scan',
   '../assets/skills/workloom-migrate-plan',
