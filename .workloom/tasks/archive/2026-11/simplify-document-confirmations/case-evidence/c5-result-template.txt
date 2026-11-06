@@ -1,0 +1,39 @@
+== C5 probe (steps 1-6) ==
+PASS RESULT template front-matter keys are exactly the seven expected :: checkSession,codeBaseline,completedAt,startedAt,status,task,version
+PASS RESULT template has no caseHash key
+PASS RESULT template codeBaseline documents codeFingerprint
+PASS create full task :: null
+PASS confirm PRD
+PASS confirm PLAN
+PASS start task
+PASS record design session
+PASS RESULT without caseHash passes outcome validation
+PASS no result hash/record issues
+PASS missing designSession still rejects execution
+PASS unknown checkSession still rejected by session chain
+PASS missing evidence file still rejected
+PASS legacy case.confirmedAt preserved and readable :: 2000-01-01T00:00:00.000Z
+PASS legacy case.caseHash preserved and readable :: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+PASS legacy case.summary preserved and readable :: legacy case confirmation
+PASS legacy case.result preserved and readable :: {"caseHash":"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef","resultHash":"feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface","passedAt":"2000-01-01T00:00:00.000Z"}
+PASS legacy mismatched hashes do not affect execution gate
+PASS legacy mismatched hashes do not affect outcome validation
+PASS confirmation writer succeeds on legacy record
+PASS legacy fields remain after a task write-back :: ["required","designSession","confirmedAt","caseHash","summary","result"]
+PASS legacy hash/result fields remain after write-back
+PASS dist has no computeCaseHash export
+PASS core/src never reads resultHash/requireResultRecord
+PASS skills contain no old-result reuse predicate
+FAILURES=0
+
+== assets template test ==
+✔ CASE 模板 loader 返回带 YAML 的完整资产 (1.854572ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 98.147143
+assets_template_exit=0

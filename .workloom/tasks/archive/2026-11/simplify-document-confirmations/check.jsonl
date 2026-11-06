@@ -1,0 +1,8 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"检查 core、assets 与 adapter 是否保持既有分层和职责边界"}
+{"file":".workloom/spec/repo/domain-module/index.md","reason":"检查任务记录变更是否保留历史数据且不让旧字段驱动新逻辑"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"检查实现质量、类型、LSP 诊断和测试缺席断言"}
+{"file":".workloom/spec/repo/language/index.md","reason":"检查资产、运行时文案、注释和任务文档的语言分工"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"检查 dist 与 src 是否同步且验证命令完整"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"检查协议版本规则与任务生命周期纪律"}
+{"file":".workloom/tasks/11-06-simplify-document-confirmations/research/core-confirmation-flow.md","reason":"对照核心改造影响面检查遗漏和错误语义"}
+{"file":".workloom/tasks/11-06-simplify-document-confirmations/research/assets-adapters-confirmation-flow.md","reason":"对照资产和双 adapter 影响面检查遗漏和文案冲突"}

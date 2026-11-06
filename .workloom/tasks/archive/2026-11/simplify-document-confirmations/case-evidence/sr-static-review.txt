@@ -1,0 +1,139 @@
+# 静态审查（SR1–SR23）实际观察记录
+
+执行方式：逐条读取最终源码与资产，对比 PLAN、PRD 与 check.jsonl 中的 spec；关键命令与锚点见每条记录。
+
+## SR1 对齐门禁与文档哈希删除 — PASS
+
+- `packages/core/src/domain/alignment.js:65` 的 `evaluateAlignmentGate(status, alignment)` 已是两参；`GATED_STATUSES = new Set(['planning'])`（:19）。
+- 文件不再导出 `normalizeContentEol` / `computeContentHash` / `normalizePrdEol` / `computePrdHash` / `ALIGNMENT_STALE`；`findOpenNodeState` 与 `ALIGNMENT_MISSING` 保留（`git diff` 确认整段删除）。
+- 有记录即返回 `[]`；planning 无记录返回 `ALIGNMENT_MISSING`；in_progress 不在门禁集合内，维持放行。
+- 无 hash import；旧 `grilling` 仍只经 `...parsed` 透传，未被读取。
+
+## SR2 启动门禁的 PRD/PLAN 两次内容确认 — PASS
+
+- `packages/core/src/domain/task-gates.js:318` 新增 `PLAN_NOT_CONFIRMED`；`evaluateStartGate` 在 PLAN 结构检查通过且 `task.planConfirmation` 缺失时追加该缺失项，顺序为 PRD 结构 → PLAN 结构 → PLAN 确认 → PRD 确认。
+- 容器任务（`children` 非空）跳过 PLAN 结构/确认；轻量任务走 light 分支，不要求 alignment / PLAN / jsonl。
+- `evaluateStaleAlignmentGate`、`GATES.STALE_ALIGN`、`GATE_TOOLS.stale_alignment` 删除；其余 GATES 值与映射保留；`evaluateAlignmentGate` 改为两参调用。
+- `inspectPlanStructure` 的 H1、`## Steps`、四要素与 AC 覆盖检查未改动。
+- 证据：`case-evidence/c2-staged-confirmation.txt` 显示确认前同时报告两类缺失，PRD 确认后只剩 PLAN 项，PLAN 确认后 start 通过。
+
+## SR3 任务记录写口与旧字段兼容 — PASS（检查阶段修复后复测）
+
+- `recordAlignmentCredential` 只收 `{summary}`、每次刷新 `passedAt`、completed 拒绝、原子写：PASS。
+- `recordPlanConfirmation` 顺序前置（`alignment !== null`）、summary 非空、原子写：PASS。
+- `recordCaseConfirmation`、`task.case.result` 写入、check/archive 的 stale 分支与 `STALE_ALIGN` 留痕：已删除，旧 overrides 可读。
+- `createCaseRecord` 展开既有记录后再覆盖 `required`（`case.js:56-62`）：既有 `confirmedAt`/`caseHash`/`summary`/`result` 原样保留；`createCaseRecord(true)` 的新记录仍只有 `required`/`designSession`。
+- 实测：含旧字段的 task.json 在 `readTask` 后旧字段可读；`recordAlignmentCredential` 写回后字段仍在；旧字段填不匹配值不影响执行门禁与结果校验。
+- 回归测试：`case.test.js:269`、`task-store.test.js:1733`；core 全套 745 pass / 0 fail。
+- 证据：`case-evidence/c5-result-template.txt`（legacy 断言全部 PASS）。
+
+## SR4 任务记录类型锚点 — PASS
+
+- `task-store.d.ts` 的 `TaskAlignmentRecord` 只剩 `passedAt`/`summary`；新增 `TaskPlanConfirmationRecord` 与 `TaskRecord.planConfirmation`。
+- `TaskCaseRecord` 只剩 `required`/`designSession`；`TaskCaseResultRecord`/`CaseConfirmationInput`/`recordCaseConfirmation` 声明删除。
+- `AlignmentCredentialInput` 收窄为 `summary`；新增 `recordPlanConfirmation` 与 `PlanConfirmationInput` 声明。
+- 构建脚本覆盖手写 d.ts；`pnpm -r typecheck` 通过（`case-evidence/c1-gates-1.txt`）。
+
+## SR5 align 服务支持 target=prd|plan — PASS
+
+- `ExecuteAlignTaskParams` 增加 `target?: 'prd' | 'plan'`，删除 `expectedPrdHash`；review 结果无 `prdHash`，保留内容快照、结构诊断、`readyToConfirm` 与既有确认记录（`alignment-service.ts`）。
+- `target=plan` review 读取 prd/plan，复用 `inspectPlanStructure`；plan 缺失或结构不合格时 `readyToConfirm=false`。
+- `target=plan` confirm：结构 blocker 聚合 → summary → 窄写口（PRD 顺序前置在写口硬校验）；失败零写入。
+- 证据：`case-evidence/c2-staged-confirmation.txt`。
+
+## SR6 CASE 执行门禁、结果校验与旧结果复用删除 — PASS
+
+- `case.js:457` 的 `evaluateCaseExecutionGate` 只检查 `required=true` → case.md 存在 → `designSession` 非空；哈希分支删除。
+- `computeCaseHash` 与 alignment 哈希 import 删除；`createCaseRecord` 只返回两个字段。
+- RESULT 校验删除 `meta.caseHash`、`task.case.result`、`resultHash`、`requireResultRecord`；保留 version/task/status/时间、checkSession 会话链、SR/C 全集、证据、覆盖率、标准验证与 Open issues 校验。
+- CASE 结构校验、changedFiles 与 Exclusions 规则保留。
+- 证据：`case-evidence/c3-case-execution.txt`、`case-evidence/c5-result-template.txt`。
+
+## SR7 CASE 服务退化为 review-only — PASS
+
+- `case-service.ts` 只接受 `action=review`，confirm 分支、`expectedCaseHash`、`summary` 与确认结果类型删除；review 返回 case、structureIssues、blockers、readyForExecution、designSession，不返回 caseHash、不写 task.json。
+- 证据：`case-evidence/c3-case-execution.txt`（confirm 被明确拒绝、review 零写盘）。
+
+## SR8 执行注入不再追加确认哈希 — PASS
+
+- `executor-context.js` execution 轮仍先 `evaluateCaseExecutionGate`；删除读取 `case.caseHash` 与 `Confirmed CASE hash:` 追加行。
+- `inlineCurrentCase` 前置保留；CASE 与模板全量注入不变。
+- 证据：`case-evidence/c3-case-execution.txt`（增量文本等于用户指令，全量 prompt 含 CASE、无哈希行）。
+
+## SR9 工具面文案与参数 — PASS
+
+- `surface.ts`：taskStart/taskAlign/taskCase 描述改为内容确认口径；`TOOL_SNIPPETS`/`PARAM_DESCRIPTIONS` 删除 `expectedPrdHash`/`expectedCaseHash`/`caseSummary`，新增 `target`；executorPurpose 改为复核后执行。
+- 证据：`case-evidence/c1-absence-scan.txt`（键缺席与 target 存在）。
+
+## SR10 core 公开导出收敛 — PASS
+
+- `index.ts` 删除哈希工具、`ALIGNMENT_STALE`、`evaluateStaleAlignmentGate`、`recordCaseConfirmation`；新增 `recordPlanConfirmation` 与相关类型。
+- 证据：`case-evidence/c1-absence-scan.txt`（dist 动态导入断言）。
+
+## SR11 主 workflow 两次内容确认、CASE 直接执行与异常决策 — PASS
+
+- `workflow.md` 1.1 在调研与 PLAN 编写前确认 PRD 内容（`target=prd`），删除“不得在此确认”“唯一确认在 1.4”“author neither”“same-hash 幂等”。
+- 1.4 只确认 PLAN 内容（`target=plan`），删除单包复核、PRD hash 与 stage-wise 逃生舱。
+- 2.2/2.3 删除用户 CASE 确认、caseHash 与旧结果复用；改为主会话复核后直接续接 `case.designSession`；失败清单改为文档/会话链/RESULT 类。
+- norms 第 173 行新增用户主动变更即确认、不二次确认；2.1 集中提问句保留；`version: 25`、states 与步骤标题无变化（`git diff -U0 | grep heading` 为空）。
+- 证据：`case-evidence/sr-workflow-text.txt`（SR 阶段的文本核对；contract/protocol 测试在 core 全量测试中通过）。
+
+## SR12 alignment 技能改为内容确认协议 — PASS
+
+- `SKILL.md` 第 9/79/83/87/93 行：PRD 定稿确认 + PLAN 复确认为仅有的两次内容确认；review 只返回内容诊断；confirm 只传 summary；无 hash 计算；用户主动变更即确认，系统发现的阻塞集中提问。
+- 证据：本文件与 `git diff`。
+
+## SR13 CASE 主技能取消用户确认与旧结果复用 — PASS
+
+- `case-active/SKILL.md`：无 caseHash/用户批准；主会话复核后直接续接同一 design session 执行；每次执行生成新结果，不复用旧 RESULT；`codeFingerprint` 只作证据；PRD/PLAN 两次内容确认与正常流程同构。
+- 证据：`case-evidence/c4-case-entrypoints.txt`。
+
+## SR14 归档重建入口与正常流程同构 — PASS
+
+- `case-archived/SKILL.md`：PRD/PLAN 两次内容确认、CASE 无用户确认；不复用历史确认记录；归档原始字节清单保留。
+- 证据：`case-evidence/c4-case-entrypoints.txt`。
+
+## SR15 CASE 结果模板删除 caseHash — PASS
+
+- `packages/assets/templates/case-result.md` front-matter 键为 `version/task/codeBaseline/checkSession/status/startedAt/completedAt`，无 `caseHash`；`codeBaseline` 要求 `codeFingerprint=<64-hex>`。
+- 证据：`case-evidence/c5-result-template.txt`。
+
+## SR16 结果模板结构测试 — PASS
+
+- `packages/assets/test/case-templates.test.js` 解析 front-matter 并断言键集合不含 `caseHash`（结构化断言），保留章节与结尾换行断言。
+- 证据：`case-evidence/c5-result-template.txt`（1 pass / 0 fail）。
+
+## SR17 DSH align/case 工具 schema — PASS
+
+- `adapter-dsh/src/tasks.ts:108-141`：align 增加 `target`（enum prd/plan），删除 `expectedPrdHash`；case 只保留 `action=review`，删除 `expectedCaseHash`/`summary`；透传包含 target；主会话限制保留。
+- 证据：`case-evidence/sr-adapter-source.txt`。
+
+## SR18 DSH 派发删除 stale 对齐门禁 — PASS
+
+- `adapter-dsh/src/executor.ts` 删除 `evaluateStaleAlignmentGate` import、`staleMissing`、stale 阻断与 `stale_alignment` override 留痕；其余 force 审计保留。
+- 证据：`grep -RIn "staleMissing|stale_alignment|evaluateStaleAlignmentGate" adapter-dsh/src adapter-pi/src` 无命中。
+
+## SR19 DSH purpose 描述同步 — PASS
+
+- `adapter-dsh/src/executor-schema.ts` 的 purpose 描述引用 core `desc.executorPurpose`（已改为复核后执行），枚举仍为 `case-design`/`execution`。
+- 证据：源文件与 core surface 文案。
+
+## SR20 Pi align/case 工具 schema — PASS
+
+- `adapter-pi/src/tasks.ts`：`TASK_ALIGN_PARAMS` 增加 `target`、删除 `expectedPrdHash`；`TASK_CASE_PARAMS` 只有 `review`，删除 `expectedCaseHash`/`summary`；透传同步。
+- 证据：`case-evidence/sr-adapter-source.txt`。
+
+## SR21 Pi 派发删除 stale 对齐门禁 — PASS
+
+- `adapter-pi/src/executor.ts` 删除 stale 求值、`staleMissing`、`recordForceOverrides` 的 stale 入参与 `GATES.STALE_ALIGN` 留痕；其余 force 聚合保留。
+- 证据：同 SR18 的 grep 无命中。
+
+## SR22 Pi check 角色文案 — PASS
+
+- `adapter-pi/src/agent-definitions.ts:54` 改为“design with purpose case-design, then continue the reviewed design session for execution with purpose execution”，不含 confirmed/hash。
+- 证据：源文件与 `agents.test.ts`（core 全量测试未含 Pi 测试；源面已核对）。
+
+## SR23 启动工具注释与新启动条件同步 — PASS
+
+- `packages/core/src/service/task-ops.ts` 的 `executeStartTask` JSDoc 更新为 prd 小节、PLAN 结构/确认、jsonl、PRD 内容确认四类硬阻断；无 stale/hash 措辞；文件仅注释变更，无相关 import。
+- 证据：`git diff -- packages/core/src/service/task-ops.ts`。

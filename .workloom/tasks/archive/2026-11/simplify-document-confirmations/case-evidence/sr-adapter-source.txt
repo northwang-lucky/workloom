@@ -1,0 +1,66 @@
+== stale references in adapter sources ==
+none
+== DSH align schema ==
+    name: TOOL_NAMES.taskAlign,
+    description: TOOL_DESCRIPTIONS.taskAlign,
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['review', 'confirm'], description: PARAM_DESCRIPTIONS.action },
+        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+        target: { type: 'string', enum: ['prd', 'plan'], description: PARAM_DESCRIPTIONS.target },
+        summary: { type: 'string', description: PARAM_DESCRIPTIONS.alignmentSummary },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+    isConcurrencySafe: () => true,
+    execute: (args, exec) => alignTaskTool(args, exec),
+  })
+== DSH case schema ==
+  tools.register({
+    name: TOOL_NAMES.taskCase,
+    description: TOOL_DESCRIPTIONS.taskCase,
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['review'], description: PARAM_DESCRIPTIONS.caseAction },
+        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+    isConcurrencySafe: () => true,
+    execute: (args, exec) => caseTaskTool(args, exec),
+  })
+== Pi align/case params ==
+
+/** align 工具参数 schema（action 必填 review/confirm；target 选 PRD/PLAN；只传 summary）。 */
+const TASK_ALIGN_PARAMS = Type.Object({
+  action: Type.Union([Type.Literal('review'), Type.Literal('confirm')], {
+    description: PARAM_DESCRIPTIONS.action,
+  }),
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
+  target: Type.Optional(
+    Type.Union([Type.Literal('prd'), Type.Literal('plan')], {
+      description: PARAM_DESCRIPTIONS.target,
+    }),
+  ),
+  summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.alignmentSummary })),
+})
+
+/** case 工具参数 schema（只保留 review：无用户确认动作，也无确认记录）。 */
+const TASK_CASE_PARAMS = Type.Object({
+  action: Type.Union([Type.Literal('review')], {
+    description: PARAM_DESCRIPTIONS.caseAction,
+  }),
+  taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
+})
+
+== Pi check role ==
+    systemPrompt: `You are the workloom check executor (verification engineer). Review the completed work against the task contract and fix what you find. Follow the injected core check discipline as the single source of rules: the two-phase CASE flow (design with purpose case-design, then continue the reviewed design session for execution with purpose execution), severity classification (P0/P1/P2), the fix-P2-yourself window, escalation of P0/P1, and the structured report format.
+== DSH purpose description source ==
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-simplify-document-confirmations/packages/adapter-dsh/src/executor-schema.ts:66:        description: desc.executorPurpose,
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-simplify-document-confirmations/packages/core/src/surface.ts:130:  executorPurpose:

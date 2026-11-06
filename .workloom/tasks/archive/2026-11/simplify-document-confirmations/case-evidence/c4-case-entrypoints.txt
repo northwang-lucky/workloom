@@ -1,0 +1,62 @@
+PASS case-active has no caseHash/expectedCaseHash
+PASS case-active states the CASE needs no user confirmation
+PASS case-active keeps main-session review
+PASS case-active continues with execution
+PASS case-archived has no caseHash/expectedCaseHash
+PASS case-archived states the CASE needs no user confirmation
+PASS case-archived keeps main-session review
+PASS case-archived continues with execution
+PASS case-active: review then same design session execution
+PASS case-archived: normal PRD/PLAN content confirmations
+PASS case-archived: byte manifest retained as anti-tamper evidence
+INFO asset mention: packages/assets/skills/workloom-case-active/evals/evals.json:48 "The new case record contains only required and designSession (no confirmedAt, caseHash, summary, or result keys).",
+PASS all asset caseHash mentions are absence assertions
+INFO continue/finish case.result scan complete
+FAILURES=0
+c4_probe_exit=0
+
+== pi build ==
+$ node scripts/sync-skills.mjs
+Synced 11 skill directories into /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-simplify-document-confirmations/packages/adapter-pi/skills
+pi_build_exit=0
+
+== dsh skills test ==
+✔ 正常解析：name/description/body（正文 trim，whenToUse 缺省） (1.530786ms)
+✔ whenToUse 可选：存在时解析出来 (0.230838ms)
+✔ 缺少 description 报错 (0.379528ms)
+✔ 无 front-matter 报错 (0.181559ms)
+✔ 未知键忽略：兼容 vendored skills 的 license/source (0.217929ms)
+✔ 缺失 name 报错 (0.236555ms)
+✔ 缺失闭合分隔符报错 (0.227363ms)
+✔ workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文） (0.480505ms)
+✔ workloom_step 深度=0：返回契约原文（现状不变） (8.575615ms)
+✔ workloom_step exec 缺失时视为深度 0：返回契约原文 (4.866579ms)
+✔ skill 清单契约：注册 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill (2.06229ms)
+✔ workloom-case-active 资产与五组 eval：状态约束、主会话复核后执行、指纹和英文断言 (1.071786ms)
+✔ workloom-case-archived 资产与五组 eval：只读原件、独立任务、ref 与两次内容确认 (0.989642ms)
+✔ workloom-migrate-plan 资产可解析：迁移流程与边界关键句 + continue legacy 路由指针 (0.404952ms)
+✔ workloom-continue/workloom-finish 资产可解析：路由表与收尾五步 + taskPath 必填指引 (0.468187ms)
+✔ workloom-alignment 资产可解析：name/description/whenToUse + 收敛标记与 references 就位 (0.399919ms)
+✔ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.353722ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 281.945741
+dsh_skills_exit=0
+
+== pi skills test ==
+bun test v1.3.14 (0d9b296a)
+
+test/skills.test.ts:
+(pass) package manifest 显式注册 skills 目录 [1.43ms]
+(pass) skills 产物清单：只含 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + 三个 vendored generic skills [0.21ms]
+(pass) skills 产物不再含旧两个 workloom skill（brainstorm/ui-design 无残留） [0.15ms]
+
+ 3 pass
+ 0 fail
+Ran 3 tests across 1 file. [36.00ms]
+pi_skills_exit=0

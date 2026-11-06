@@ -1,0 +1,18 @@
+== workflow version ==
+---
+version: 25
+states:
+== 1.1 PRD content confirmation / no hash ==
+Convergence order is fixed: 1) the frontier is empty (no open node remains), 2) finalize prd.md, 3) run `workloom_task_align` with action=review and require `readyToConfirm` true — while it is false the review's `structureIssues` / `confirmBlockers` (missing prd.md, missing H1, a missing skeleton section such as `## Notes`, a section still on its placeholder, or a missing/non-`none` open-nodes m
+== 2.1 batch-question sentence occurrences ==
+1
+== norms R9 user-initiated change ==
+- When the user proposes a concrete change themselves, that message is the change confirmation: update the affected prd.md or plan.md, re-run `workloom_task_align` action=confirm for the touched document to refresh the record, and continue — never ask the user to confirm the same change a second time. Blockers, scope changes, or acceptance-baseline changes that you discover yourself still go to the user as one batched round.
+== headings changed in workflow diff ==
+none
+== hash identifiers in workflow + skills md ==
+none
+== CASE norms ==
+- CASE purpose: a check dispatch carries `purpose: case-design` (design round — it keeps the current stage and records `case.designSession` in task.json) or `purpose: execution` (it continues the reviewed design session for actual execution and enters the check stage; execution is the default for backward compatibility). Continue the same `case.designSession` child for CASE revisions and for the final execution round.
+- CASE readiness gates execution: `workloom_execute` with `purpose: execution` is refused while case.md is missing or `case.designSession` is not recorded. The main session reviews the CASE itself — no user CASE confirmation exists — and continues the same design session once satisfied. The first dispatch, every failover re-injection, and every reinject carry the current CASE and both CASE template assets in full; an ordinary continuation appends only the new instruction.
+- Core CASE failures (a missing CASE document, a missing design session, invalid RESULT, failed or pending SR/C items, failed standard verification, failed coverage, invalid session chain) cannot be bypassed with `force` at check or archive.

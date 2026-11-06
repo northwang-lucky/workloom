@@ -1,0 +1,19 @@
+PASS create full task :: null
+PASS start rejected before any confirmation
+PASS missing item names PRD content confirmation :: workloom task: start gate failed: plan.md content has not been confirmed (run workloom_task_align with target=plan after reviewing plan.md); no alignment credential recorded (run workloom_task_align with action=confirm after Phase 1.1 converges) (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+PASS missing item names PLAN content confirmation :: workloom task: start gate failed: plan.md content has not been confirmed (run workloom_task_align with target=plan after reviewing plan.md); no alignment credential recorded (run workloom_task_align with action=confirm after Phase 1.1 converges) (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+PASS PRD review readyToConfirm true
+PASS PRD review result has no prdHash field
+PASS PRD confirm succeeds :: null
+PASS PRD confirmation record keys are passedAt/summary :: ["passedAt","summary"]
+PASS PRD confirmation has passedAt
+PASS start still rejected after PRD confirmation only
+PASS remaining missing item is PLAN confirmation :: workloom task: start gate failed: plan.md content has not been confirmed (run workloom_task_align with target=plan after reviewing plan.md) (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+PASS PRD confirmation item no longer reported :: workloom task: start gate failed: plan.md content has not been confirmed (run workloom_task_align with target=plan after reviewing plan.md) (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+PASS create second task for ordering probe
+PASS PLAN confirm rejected before PRD confirmation :: workloom task: plan confirmation requires a confirmed PRD (confirm the PRD first via workloom_task_align with target=prd action=confirm)
+PASS rejected PLAN confirm wrote nothing :: null
+PASS PLAN confirm succeeds after PRD confirmation :: null
+PASS PLAN confirmation record keys are passedAt/summary :: ["passedAt","summary"]
+PASS start succeeds after documents change post-confirmation (no hash invalidation) :: null
+FAILURES=0

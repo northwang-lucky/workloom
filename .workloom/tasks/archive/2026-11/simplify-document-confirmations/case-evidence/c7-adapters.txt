@@ -1,0 +1,336 @@
+== dsh full test suite ==
+$ pnpm run build && node --test 'test/*.test.js'
+$ tsc -p tsconfig.json
+✔ DSH purpose schema 与全量/增量 CASE 注入 (5.682498ms)
+✔ DSH 超预算 CASE 明确失败，失败记录保留 purpose/fallbackOf (3.071394ms)
+✔ CASE 工具 schema 只保留 review，主会话限制保留 (2.514959ms)
+✔ CASE review 投影返回快照、会话链与结构阻断项（无哈希字段） (33.559822ms)
+✔ cwd 为空：内部错误与业务校验同一转述出口 (2.354289ms)
+✔ continue/finish 不再注册为命令（改造为同名 skill） (0.193138ms)
+✔ init 失败：followup 注入错误转述且返回 success 回执 (1.232689ms)
+✔ init 成功：followup 注入成功转述（含 init 结果原文），返回 success (2.022866ms)
+✔ doctor 成功：followup 注入 JSON 报告 + 引导语，返回 success 回执 (10.278443ms)
+✔ doctor --fix：把可修 completed 任务归档并注入 fixed[] (11.222823ms)
+✔ doctor 无 .workloom：作为 config issue 报告，命令成功 (0.682454ms)
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor override: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor override: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom executor: WARNING: no captured turn/end error for child child-1; settled with the generic summary
+✔ agentOptions 携带 provider+model（带前缀时） (11.134827ms)
+✔ agentOptions 仅 model（裸 id，无 provider） (3.496461ms)
+✔ agentOptions 为 undefined（无 model 配置） (2.387422ms)
+✔ s1: 派发走 startActivation（delivery: parent），返回 durable childId + receipt (2.578361ms)
+✔ s2: 续用走 sendMessage 进入同一会话（session id 不变） (3.080269ms)
+✔ s2-sendMessage: 续用走 sendMessage 进入同一会话（sender 为 parent、options 仅含 signal） (2.378469ms)
+✔ s2-sendMessage-fork: adjacency reject（belongs to another parent session）转译为引导文案且 isError (2.89933ms)
+✔ s2-sendMessage-passthrough: 非 fork 拒绝原样透传（不套引导文案） (2.226969ms)
+✔ 派发成功：task.json dispatches 记录 { kind, at, title, childId } (4.106851ms)
+✔ receipt 行出现在返回 receipt 尾部（来源标注正确，无 effort 段） (2.243734ms)
+✔ receipt 行：param 来源标注正确 (2.007149ms)
+✔ s6: 续用轮 receipt 追加 (reused)，新派发轮不标注 (2.151061ms)
+✔ receipt 行：新派发含注入统计四元组（KB 一位小数；计数来自 buildExecutorPrompt stats） (2.301919ms)
+✔ receipt 行：续用轮 reinject: true 恢复全量注入（统计同新派发口径） (2.359465ms)
+✔ s3-inc: 续接默认只发增量指令（sendMessage 内容 = 参数 prompt，不含全量注入），receipt 统计如实反映 (2.287733ms)
+✔ s3-inc-bg: 后台续接同样只发增量指令且返回增量 receipt (2.130534ms)
+✔ receipt 行：无配置时显示 default 来源（无 effort 段） (1.679106ms)
+✔ 主模型 provider/model 为空串：whenMain 按取不到跳过，回退旧 subagents (2.373626ms)
+✔ label 组装：五种 kind 均为 [<KindLabel>] <task title>（title 缺省回退） (4.362988ms)
+✔ label 回退：task title 空白时回退 workloom-<kind>（连字符） (1.393863ms)
+✔ label 回退：readTask 失败时回退 workloom-<kind>（连字符） (1.536499ms)
+✔ label 组装：title 传入时五种 kind 均为 [<KindLabel>] <title> (4.896812ms)
+✔ label 回退：title 为空白字符串时走缺省 task title 路径 (1.290883ms)
+✔ label 组装：title 传入时不依赖 readTask（task.json 损坏仍可用） (1.48016ms)
+✔ 参数面：title schema 必填（required + minLength 1）且描述引用 titleExecutor (0.148153ms)
+✔ 参数面：force/reason schema 描述引用 PARAM_DESCRIPTIONS (0.100765ms)
+✔ 参数面：schema 恢复可选 effort 参数（描述引用 PARAM_DESCRIPTIONS.effort） (0.091322ms)
+✔ 参数面：continue_executor schema 可选，描述引用 PARAM_DESCRIPTIONS.continueExecutor (0.088369ms)
+✔ 参数面：schema 不含 foreground（unknown 参数由 additionalProperties: false 拒绝） (0.094743ms)
+✔ effort 配置生效：subagents.<kind>.effort 进入 reasoningEffort，receipt 标 (config) (1.941971ms)
+✔ effort 单独生效：无 model 配置时 agentOptions 仅含 reasoningEffort (2.125888ms)
+✔ effort 参数优先：显式 effort 生效并标 (param)（与配置一致时无冲突） (1.770099ms)
+✔ effort 冲突无 force：返回提示（含 effort 维度）且不派发 (0.906069ms)
+✔ effort 冲突 + force + reason：放行派发、overrides 记录 executor_model_effort (2.343829ms)
+✔ 非法 effort 档位：派发时 fail loud（assertEffort 文案） (0.876071ms)
+✔ 冲突无 force：model 冲突返回提示且不派发（未传 effort 参数，无 effort 冲突） (0.814408ms)
+✔ 冲突 + force 缺 reason：抛错 (0.860376ms)
+✔ 冲突 + force + reason：放行派发、overrides 写入、receipt 带 (forced) (1.967758ms)
+✔ 无冲突（归一化等价）：正常派发且无 (forced) 标注 (1.639187ms)
+✔ 工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 allow），经 agent/created 施加 (2.61005ms)
+✔ 工具白名单：config tools.includes 补入 lsp_* 前缀模式（可见集求交） (2.173886ms)
+✔ 工具白名单：config tools.excludes 移除原生工具；未知名静默忽略 (2.591019ms)
+✔ receipt 行：新派发含 `, K tools allowed`（K = 实际下发 allow 集大小） (1.512865ms)
+✔ executor-dispatch 拆分面：allow 成形与空清单兜底可直接导入且与工具路径一致 (0.372411ms)
+✔ s4: 跨 kind 续用被拒（返回提示，不派发不 sendMessage） (2.484162ms)
+✔ 续用定位：无同 kind 记录（latest）返回明确提示不派发 (0.79255ms)
+✔ 续用定位：旧记录缺 childId（latest）返回明确提示不报错 (0.925248ms)
+✔ 续用定位：显式 childId 不在 dispatches 中返回明确提示不派发 (2.248245ms)
+✔ 续用被上游拒绝（belongs to another parent session，fork 场景）：返回引导文案且 isError (1.752353ms)
+✔ 续用被上游以其他原因拒绝：原样透传上游错误（不套 fork 引导文案） (1.561186ms)
+✔ 本机片段：首条 prompt 注入 Local directives 段（all 前、专属后，无条件注入） (2.04131ms)
+✔ 本机片段：requiresTools 残留 front-matter 时 fail loud（派发中断） (7.348106ms)
+✔ 本机片段：项目共享层（prompts/）与本机层（prompts.local/）叠加注入 (1.714454ms)
+✔ S4 hasLspTooling：可见集含 lsp_ 前缀工具判定具备 LSP 工具面，否则不具 (0.159475ms)
+✔ S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律段 LSP 句，含时保留 (2.567163ms)
+✔ s1-bg: 后台派发立即返回（不等 turn 结算），返回 {kind, childId, receipt} (1.644257ms)
+✔ s2-settle: 派发初写 running；subagent/end 按 info.id 回填 completed（不用 runId） (2.689662ms)
+✔ s2-settle-fail: turn/end error 捕获 → 结算以真实错误整体替换（<message> (<code>)） (1.955235ms)
+✔ s2-settle-other: refusal/max-tokens 等 stopReason 同样回填 failed + 摘要 (1.814704ms)
+✔ s2-settle-ghost: 未知 childId 的 subagent/end 不落盘（no-op，不误伤 running 记录） (1.386911ms)
+✔ s2-settle-fallback: stopReason=error 但登记缺失 → 回退泛化文案 + WARNING（不阻塞结算） (2.128444ms)
+✔ s3-error-latest: 覆盖式取最近一次 turn/end error；非 error 轮不清、登记外/非 turn/end 忽略 (3.253438ms)
+✔ s3-error-truncate: 真实错误压成单行，超 200 字符截断并追加 … (1.817411ms)
+✔ s3-extract: 真实错误提取纯函数（message+code 合并、换行压行、解码失败回退 null） (0.486557ms)
+✔ s3-listener-guard: session/event 监听器内部异常只告警不冒泡 (2.331757ms)
+✔ executor-guard：rebuildWriteGuardChildIds 从任务 task.json dispatches 重建（排除 archive） (0.804573ms)
+✔ executor-guard：重启后新派发先登记时先重建再加入新 id（防空集占位毒化） (0.719949ms)
+✔ executor-guard：confinedWriteGuard 拒绝越界 write/edit、放行域内与非受守卫 kind (0.640457ms)
+✔ executor-guard 接线：research 派发登记子会话 id，守卫拒绝越界 write、放行域内 (2.030701ms)
+✔ executor-guard 接线：review 派发登记子会话 id，守卫拒绝越界 write、放行域内 (1.37996ms)
+✔ executor-guard 接线：仅受守卫 kind 派发登记（implement 派发不登记，越界 write 放行） (1.461333ms)
+✔ 续派 + model 同传：fail loud 拒绝（相同值也拒；无登记/结算副作用） (1.854168ms)
+✔ 续派 + effort 同传：fail loud 拒绝（不产生登记副作用） (0.690688ms)
+✔ 新派记录落绑定：param/legacy 来源标注与生效值写入 dispatches (1.739174ms)
+✔ 新派记录落绑定：whenMain 来源标注（主模型命中 profile） (3.376832ms)
+✔ 新派记录落绑定：inherit 且主模型不可读 → modelSource inherit（model 不落值） (1.53423ms)
+✔ 新派记录落绑定：legacy 来源标注（旧 subagents 配置命中） (1.799973ms)
+✔ 新派记录落绑定：fallback 来源标注（无 whenMain 的 profile 兜底条目命中） (1.629497ms)
+✔ 新派记录落绑定：inherit 时 model 落主会话模型快照（modelSource inherit） (1.742515ms)
+✔ 续派轮记录沿用 childId 首次绑定：modelSource 记 spawn (2.351979ms)
+✔ 续派回执：展示 spawn 绑定值 (spawn binding)；不再回显当前配置来源 (2.324555ms)
+✔ 续派回执：spawn 记录缺绑定 → 显示 (unrecorded spawn binding) (1.561674ms)
+✔ 确认后修改 prd 不再阻断派发（无哈希失效判定，无 stale override） (1.819083ms)
+✔ 旧凭据遗留 prdHash 字段不驱动任何派发行为 (1.696105ms)
+✔ light 派发门禁：light 任务拒绝所有 kind（提示主会话包办，不 spawn） (1.507241ms)
+✔ light 派发门禁 force：带 reason 放行并记录 light_dispatch override (2.662876ms)
+✔ light 派发门禁 force 缺 reason：拒绝且不 spawn、不留痕 (1.083823ms)
+✔ light 派发门禁：full 任务（缺 mode 归一化 full）不受影响 (1.685574ms)
+✔ 循环 settle：同 childId 两条 running 一次 end 全部回填 completed (3.220108ms)
+✔ 循环 settle：同 childId 两条 running 一次 end 全部回填 failed (3.290793ms)
+✔ capacity: 全局达限拒绝（2 running / 显式 limit 2）并返回 at capacity 回执文案 (1.770312ms)
+✔ capacity: 全局显式 0 = 不限（多 running 仍放行） (1.837352ms)
+✔ capacity: kind 闸达限拒绝（kind 2/2）并返回 kind 层回执文案 (2.554278ms)
+✔ capacity: 缺省配置（全局 0 不限、每 kind 3）——同 kind 3 running 拒第 4 笔、不同 kind 放行 (2.644812ms)
+✔ capacity: 续用不误占槽（排除目标 childId 后未达限 → 放行） (1.403188ms)
+✔ capacity: 续用目标之外达限 → 续用被拒（排除目标后其余 2/2） (0.966026ms)
+✔ capacity: 配置解析报错（executor.max_concurrent 为负） (1.037936ms)
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+✔ capacity: 并发闸异步窗口——mock listDescendants 恒空 + 延迟派发，两连发第二笔必须 at capacity (25.634932ms)
+✔ 工具面收窄：未登记的 agent 不施加限制（主会话与其他插件的子代理零影响） (0.33515ms)
+✔ 工具面索引：登记与撤销按 childId 精确生效 (0.16477ms)
+✔ 工具面索引：冷恢复能从任务记录读回白名单（旧记录缺字段时跳过） (0.646699ms)
+✔ failover-sync: 首跳 UNKNOWN_MODEL → 按链换模型重试，receipt 标注跳序号，dispatches 链式留痕 (2.872347ms)
+✔ failover-sync: 链穷尽 → 重抛最后一个错误（消息附完整尝试链），每跳各留一条 failed 记录 (2.483632ms)
+✔ failover-sync: 白名单外 code 原样抛出（不走链、不写失败记录） (1.369978ms)
+✔ failover-sync: 显式 model 参数时白名单失败也不走链（显式即明确意图） (1.345245ms)
+✔ failover-sync: 未配置 fallback_models 时白名单失败零行为变化（原样抛出、不留痕） (1.287752ms)
+✔ failover-async: turn/end 白名单错误 → 新开会话换模型重试（全量注入 + 说明 + 通知 + 链式留痕） (5.96735ms)
+✔ failover-async: 链穷尽 → failed 记录 error 行接完整尝试链 + 穷尽通知（不再重派） (4.123223ms)
+✔ failover-async: 续用轮失败 → 按首次派发参数重注入，说明注明增量指令丢失 (3.891228ms)
+✔ failover-async: 容量闸撞限 → 放弃转移、原 failed 记录不动、通知说明可人工重派 (3.060192ms)
+✔ failover-async: 白名单外 code 不触发转移（现状回报路径不变） (2.72884ms)
+✔ rotate: 开关关（默认）——同类在跑仍用主模型位，全链路与现状一致（零行为变化） (2.082439ms)
+✔ rotate: 开关开、无同类在跑——用主模型位，回执与记录同现状（AC2） (1.902507ms)
+✔ rotate: 一个同类绑主模型——新派发用 fb1（回执 rotated + 留痕 rotate + agentOptions）（AC3） (4.773489ms)
+✔ rotate: 两个同类在跑（主模型、fb1）——新派发顺延 fb2（AC4 前半） (1.973325ms)
+✔ rotate: 池全占用——回绕主模型位照常派发（不拒绝、无 rotated 标注）（AC4 后半） (4.925499ms)
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+workloom config: "subagents" is deprecated; use "subagent_profiles" instead
+✔ rotate: 同轮并行两笔同类派发——第二笔经 in-flight 看到第一笔选择，不撞同一模型（AC5） (23.902902ms)
+✔ rotate: 轮换起点不可访问——按物化链环形转移（同步白名单路径），回执叠加标注（AC6 同步） (3.467186ms)
+✔ rotate: 整环穷尽——尝试链按实际环形顺序（起点 + 物化链绕回）（AC6 穷尽） (3.335622ms)
+✔ rotate: 结算后异步重派沿物化链续走（通知与留痕口径不变）（AC6 异步） (3.34999ms)
+✔ rotate: 显式传 model——不轮换、不启用转移链（现状语义）（AC7） (1.759745ms)
+✔ rotate: 续用轮不受影响——sendMessage 投递、无轮换副作用（AC7 续用） (1.668296ms)
+✔ rotate: 同类绑定读不到——按占用主模型位归一（保守，不顺延错位）（AC8） (1.965814ms)
+✔ rotate: 同类绑定池外模型——主模型位视为空闲，不轮换 (1.8566ms)
+✔ rotate: 绑定三级优先——进程内登记压过 dispatches 记录（AC8 取数顺序） (2.001625ms)
+✔ rotate: 继承主模型位绕回——PARENT_MODEL_LABEL 条目特判（不携带 provider/model，仅 effort） (3.421592ms)
+✔ rotate: 轮到链条目时用条目自带 effort（不继承主模型 effort） (2.323506ms)
+✔ 旧契约（无 norms 块）：快照不追加 Always-on norms 小节 (20.270028ms)
+✔ 含 norms 块契约：快照末尾追加 Always-on norms 小节（原文保留） (8.097636ms)
+✔ 委派深度>0：快照按白名单裁剪（无 Workflow 概览行），norms 段整体替换为 executor 版（零派发语义） (1.638933ms)
+✔ assembleSessionContextText：localDirectives 传参在 norms 后渲染小节，缺省不渲染 (14.78285ms)
+✔ renderSessionContext：本机片段（main 目标）注入 Local directives 小节 (11.84679ms)
+✔ assembleSessionContextText：requestHeader 快照注入主模型（画像首行带 provider/model） (7.300581ms)
+✔ renderSessionContext：主会话 requestHeader 快照经接线进入画像首行（端到端） (8.024978ms)
+✔ renderSessionContext：本机片段组装失败只告警，快照照常注入且无 Local directives 小节（小节级降级） (11.944329ms)
+✔ assembleSessionContextText：light 任务概览行取轻量契约步骤，norms 仍出自主契约 (9.663058ms)
+✔ journal 工具 schema：taskPath 与 title 必填，描述引用 taskPathRequired (1.658445ms)
+✔ journal 工具缺 taskPath：透传 core 权威校验拒绝（schema required 只是投影） (0.820555ms)
+✔ 激活过程不注册文件写预执行监听（tools/pre-execute） (11.180758ms)
+✔ 激活过程注册 executor 派发终态回填通道（subagent/end） (2.424606ms)
+✔ 正常解析：name/description/body（正文 trim，whenToUse 缺省） (1.369861ms)
+✔ whenToUse 可选：存在时解析出来 (0.21529ms)
+✔ 缺少 description 报错 (0.339402ms)
+✔ 无 front-matter 报错 (0.159413ms)
+✔ 未知键忽略：兼容 vendored skills 的 license/source (0.204866ms)
+✔ 缺失 name 报错 (0.23222ms)
+✔ 缺失闭合分隔符报错 (0.206831ms)
+✔ workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文） (0.449987ms)
+✔ workloom_step 深度=0：返回契约原文（现状不变） (8.032312ms)
+✔ workloom_step exec 缺失时视为深度 0：返回契约原文 (4.754616ms)
+✔ skill 清单契约：注册 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill (1.905601ms)
+✔ workloom-case-active 资产与五组 eval：状态约束、主会话复核后执行、指纹和英文断言 (1.006309ms)
+✔ workloom-case-archived 资产与五组 eval：只读原件、独立任务、ref 与两次内容确认 (0.926846ms)
+✔ workloom-migrate-plan 资产可解析：迁移流程与边界关键句 + continue legacy 路由指针 (0.332142ms)
+✔ workloom-continue/workloom-finish 资产可解析：路由表与收尾五步 + taskPath 必填指引 (0.482369ms)
+✔ workloom-alignment 资产可解析：name/description/whenToUse + 收敛标记与 references 就位 (0.347582ms)
+✔ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.348685ms)
+✔ create 工具 schema 含 parent（type string，描述引用 PARAM_DESCRIPTIONS.parent，且非必填） (1.350373ms)
+✔ create 工具 schema：package 必填（type string，描述引用 PARAM_DESCRIPTIONS.package） (0.256386ms)
+✔ check 工具 schema 不再含 phase/required（2.2 check 单一凭据） (0.240448ms)
+✔ align 工具 schema：action 必填枚举 review/confirm；target 可选枚举 prd/plan；无哈希参数 (1.154845ms)
+✔ align 工具主会话限制：子代理（delegationDepth>0）调用被拒绝 (0.825346ms)
+✔ archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.taskPathRequired (0.364626ms)
+✔ createTaskTool 透传 parent：子任务落盘 parent 字段且父 children 联动 (10.681767ms)
+✔ create 工具 schema 含 mode（可选，枚举 light，描述引用 PARAM_DESCRIPTIONS.mode） (0.413074ms)
+✔ createTaskTool 透传 mode：light 任务落 task.json，缺省 full (2.973582ms)
+ℹ tests 177
+ℹ suites 0
+ℹ pass 177
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 522.20109
+dsh_full_exit=0
+
+== pi full output (tail) ==
+(pass) 时序证明：闸判定→登记之间无 await（同步） [1.36ms]
+
+ 205 pass
+ 0 fail
+Ran 205 tests across 22 files. [514.00ms]
+pi_full_exit=0
+
+== adapter source assertions ==
+-- stale references (expect none) --
+none
+-- hash confirmation params (expect none) --
+none
+-- dsh align target / case review --
+115:        target: { type: 'string', enum: ['prd', 'plan'], description: PARAM_DESCRIPTIONS.target },
+132:        action: { type: 'string', enum: ['review'], description: PARAM_DESCRIPTIONS.caseAction },
+-- pi align target / case review --
+76:    Type.Union([Type.Literal('prd'), Type.Literal('plan')], {
+85:  action: Type.Union([Type.Literal('review')], {
+-- pi check role hash wording (expect none) --
+none
+-- dsh purpose description reference --
+66:        description: desc.executorPurpose,
+
+== git status/diff stat snapshot ==
+89
+ packages/core/test/worktree-compat.test.js         |  11 +-
+ packages/core/test/worktree-lifecycle.test.js      |  10 +-
+ 89 files changed, 1945 insertions(+), 1816 deletions(-)

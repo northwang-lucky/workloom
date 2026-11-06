@@ -1,0 +1,25 @@
+== pnpm lint ==
+$ eslint .
+lint_exit=0
+
+== pnpm -r typecheck ==
+Scope: 4 of 5 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/adapter-dsh typecheck$ tsc -p tsconfig.json --noEmit
+packages/adapter-pi typecheck$ tsc -p tsconfig.json
+packages/adapter-dsh typecheck: Done
+packages/adapter-pi typecheck: Done
+typecheck_exit=0
+
+== pnpm -r build ==
+Scope: 4 of 5 workspace projects
+packages/core build$ tsc -p tsconfig.json && node scripts/copy-domain-dts.mjs
+packages/core build: copy-domain-dts: 已分发 19 个手写 d.ts 到 dist/domain/
+packages/core build: Done
+packages/adapter-dsh build$ tsc -p tsconfig.json
+packages/adapter-pi build$ node scripts/sync-skills.mjs
+packages/adapter-pi build: Synced 11 skill directories into /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-simplify-document-confirmations/packages/adapter-pi/skills
+packages/adapter-pi build: Done
+packages/adapter-dsh build: Done
+build_exit=0

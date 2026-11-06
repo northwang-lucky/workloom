@@ -1,0 +1,20 @@
+PASS production surfaces have no hash confirmation identifiers or property reads
+PASS agent-facing asset text has no caseHash/expected*Hash references
+INFO eval absence-assertion mentions caseHash: true (expected true; it asserts absence)
+PASS dist export absent: computeContentHash
+PASS dist export absent: computePrdHash
+PASS dist export absent: computeCaseHash
+PASS dist export absent: evaluateStaleAlignmentGate
+PASS dist export absent: recordCaseConfirmation
+PASS dist export absent: ALIGNMENT_STALE
+PASS dist export present: recordPlanConfirmation
+PASS PARAM_DESCRIPTIONS has no expectedPrdHash
+PASS TOOL_SNIPPETS has no expectedPrdHash
+PASS PARAM_DESCRIPTIONS has no expectedCaseHash
+PASS TOOL_SNIPPETS has no expectedCaseHash
+PASS PARAM_DESCRIPTIONS has no caseSummary
+PASS TOOL_SNIPPETS has no caseSummary
+PASS PARAM_DESCRIPTIONS.target exists
+PASS taskAlign snippet advertises target
+PASS taskCase description is review-only (no approval/confirm action)
+FAILURES=0

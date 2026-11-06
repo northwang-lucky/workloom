@@ -1,0 +1,11 @@
+src/domain/alignment.js	71/71	100.00%
+src/domain/case.js	415/695	59.71%
+src/domain/executor-context.js	666/899	74.08%
+src/domain/task-gates.js	504/517	97.49%
+src/domain/task-store.js	1507/1639	91.95%
+src/index.ts	304/412	73.79%
+src/service/alignment-service.ts	328/340	96.47%
+src/service/case-service.ts	118/120	98.33%
+src/service/task-ops.ts	468/476	98.32%
+src/surface.ts	417/419	99.52%
+Overall lines: 4798/5588 (85.86%)

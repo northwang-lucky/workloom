@@ -1,0 +1,18 @@
+PASS create full task :: null
+PASS confirm PRD
+PASS confirm PLAN
+PASS start task :: null
+PASS record case-design dispatch :: null
+PASS designSession recorded
+PASS fresh case record has only required/designSession :: ["required","designSession"]
+PASS execution gate passes with no confirmation record :: []
+PASS incremental prompt equals user instruction :: run the reviewed CASE
+PASS incremental prompt has no confirmation hash line
+PASS full executor prompt built :: null
+PASS full prompt inlines current CASE text
+PASS full prompt has no confirmation hash line
+PASS missing designSession still blocks
+PASS missing case.md still blocks :: case.md is missing
+PASS confirm action rejected :: workloom task tool: only action=review is supported (the main session reviews the CASE and then continues the design session for execution)
+PASS recordCaseConfirmation export absent
+FAILURES=0
