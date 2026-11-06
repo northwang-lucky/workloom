@@ -10,4 +10,6 @@ prompts.local/
 
 # Task context packs (derived artifacts; rebuilt on git rev drift).
 tasks/*/context/
-.developer # 旧 pin 插件运行期产物，容器切换时移除本行
+
+# 旧 pin 插件运行期产物，容器切换时移除本行
+.developer
