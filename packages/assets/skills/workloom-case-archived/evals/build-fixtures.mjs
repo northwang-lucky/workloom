@@ -25,7 +25,7 @@ function git(root, args) {
 }
 
 function prd(title) {
-  return `# ${title}\n\n## Goal\n\nRebuild deterministic verification from archived material.\n\n## Requirements\n\n- R1: Keep the source materials readable and preserve their original semantics.\n- R2: Verify a deterministic local condition without external services.\n\n## Acceptance Criteria\n\n- AC1: Source material and alignment are readable. Verification: inspect task documents and hashes. Covers R1.\n- AC2: A local runtime check passes deterministically. Verification: execute the documented command. Covers R2.\n\n## Notes\n\n- Historical material is a reference for a new independent validation task.\n\n## Alignment Decisions\n\n- This archived fixture is complete and approved as historical input only.\n\n<!-- workloom:open-nodes=none -->\n`
+  return `# ${title}\n\n## Goal\n\nRebuild deterministic verification from archived material.\n\n## Requirements\n\n- R1: Keep the source materials readable and preserve their original semantics.\n- R2: Verify a deterministic local condition without external services.\n\n## Acceptance Criteria\n\n- AC1: Source material is readable and the rebuilt PRD/PLAN carry content confirmations. Verification: inspect task.json and documents. Covers R1.\n- AC2: A local runtime check passes deterministically. Verification: execute the documented command. Covers R2.\n\n## Notes\n\n- Historical material is a reference for a new independent validation task.\n\n## Alignment Decisions\n\n- This archived fixture is complete and approved as historical input only.\n\n<!-- workloom:open-nodes=none -->\n`
 }
 
 function plan() {

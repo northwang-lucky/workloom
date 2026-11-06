@@ -12,19 +12,9 @@ export type DocumentMeta = Record<string, unknown>
 export type CasePurpose = 'case-design' | 'execution'
 export type CasePurposeKey = 'DESIGN' | 'EXECUTION'
 
-export interface TaskCaseResultRecord {
-  caseHash: string
-  resultHash: string
-  passedAt: string
-}
-
 export interface TaskCaseRecord {
   required: boolean
   designSession: string | null
-  confirmedAt: string | null
-  caseHash: string | null
-  summary: string | null
-  result: TaskCaseResultRecord | null
 }
 
 export interface CaseStructureIssue {
@@ -36,10 +26,6 @@ export interface CaseStructureOptions {
   taskRelPath?: string
   children?: string[]
   changedFiles?: string[]
-}
-
-export interface CaseOutcomeOptions extends CaseStructureOptions {
-  requireResultRecord?: boolean
 }
 
 export const CASE_STRUCTURE: Readonly<{
@@ -62,7 +48,6 @@ export function createCaseRecord(
   required: boolean,
   previous?: TaskCaseRecord | null,
 ): TaskCaseRecord
-export function computeCaseHash(content: string): string
 export function inspectCaseStructure(
   caseContent: string | null,
   prdContent: string,
@@ -81,6 +66,6 @@ export function evaluateCaseOutcomeGate(
   root: string,
   taskRelPath: string,
   task: TaskRecord | TaskRecordWithPath,
-  options?: CaseOutcomeOptions,
+  options?: CaseStructureOptions,
 ): CaseStructureIssue[]
 

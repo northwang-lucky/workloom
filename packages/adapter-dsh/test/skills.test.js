@@ -158,7 +158,7 @@ test('skill 清单契约：注册 case-active/case-archived/continue/finish/alig
   assert.ok(!names.includes('workloom-ui-design'), '旧 ui-design 不再注册')
 })
 
-test('workloom-case-active 资产与五组 eval：状态约束、整批确认、指纹和英文断言', () => {
+test('workloom-case-active 资产与五组 eval：状态约束、主会话复核后执行、指纹和英文断言', () => {
   const doc = readFileSync(
     new URL('../../assets/skills/workloom-case-active/SKILL.md', import.meta.url),
     'utf8',
@@ -171,17 +171,18 @@ test('workloom-case-active 资产与五组 eval：状态约束、整批确认、
   assert.match(parsed.body, /completed/)
   assert.match(parsed.body, /archive/)
   assert.match(parsed.body, /Phase 1\.4/)
-  assert.match(parsed.body, /case-batches/)
   assert.match(parsed.body, /codeFingerprint/)
   assert.match(parsed.body, /purpose: case-design/)
   assert.match(parsed.body, /continue that session with[^\n]*purpose: case-design/)
   assert.match(parsed.body, /Continue the same design session with[^\n]*purpose: case-design/)
   assert.match(parsed.body, /fallbackOf/)
-  // 批准语义硬约束：原始请求/泛化 continue 不是批准，每次 review 后停等新的明确批准消息（批量同样适用）
-  assert.match(parsed.body, /is never an approval/)
-  assert.match(parsed.body, /stop and wait for a new user message/)
-  assert.match(parsed.body, /explicitly approves the current caseHash/)
-  assert.match(parsed.body, /The same rule covers batches/)
+  // 主会话复核纪律：无用户 CASE 确认，复核满意后直接续接设计会话执行
+  assert.match(parsed.body, /no user confirmation and no confirmation record/)
+  assert.match(parsed.body, /continue the same `case\.designSession` for execution directly/)
+  // 哈希确认与批量审批包不得残留
+  assert.ok(!parsed.body.includes('caseHash'), 'case-active 不得再提 caseHash')
+  assert.ok(!parsed.body.includes('case-batches'), '批量审批包约定已删除')
+  assert.ok(!parsed.body.includes('action: confirm'), 'case-active 不得再有 confirm 动作')
   const evals = JSON.parse(readFileSync(
     new URL('../../assets/skills/workloom-case-active/evals/evals.json', import.meta.url),
     'utf8',
@@ -191,30 +192,34 @@ test('workloom-case-active 资产与五组 eval：状态约束、整批确认、
     'planning-defers-execution',
     'ready-executes-and-revalidates-fingerprint',
     'legacy-migrates-and-executes',
-    'batch-one-confirmation',
-    'blocked-stops-batch',
+    'multi-task-serial-execution',
+    'blocked-stops-later-tasks',
   ])
   for (const item of evals.evals) {
     assert.equal(typeof item.name, 'string')
     assert.ok(item.assertions.length > 0)
     assert.ok(!/[\u3400-\u9fff]/.test(item.prompt))
     assert.ok(!/[\u3400-\u9fff]/.test(item.assertions.join('\n')))
+    const text = JSON.stringify(item)
+    // 旧的「哈希批准」断言不得残留（否定句除外：缺席断言允许列出被删键名）
+    assert.ok(!/current caseHash|caseHash matches|approved of that exact hash/.test(text), `${item.id} 不得再断言 caseHash 批准`)
+    // 旧的「批准等待」纪律不得残留（否定句除外：反向断言允许出现 approval 字样）
+    assert.ok(!/The initial request is not an approval/.test(text), `${item.id} 不得保留旧批准纪律提示`)
+    assert.ok(!/waits for an independent user approval/.test(text), `${item.id} 不得再等待独立批准`)
+    assert.ok(!/wait for a new user message that approves/.test(text), `${item.id} 不得再等待批准消息`)
   }
-  // 批准纪律保护：ready/legacy/blocked 的提示必须明确初始请求不是批准、
-  // review 后停等一条新的用户消息批准当前 hash；每场景各有一条独立批准检查项
-  for (const id of ['ready-executes-and-revalidates-fingerprint', 'legacy-migrates-and-executes', 'blocked-stops-batch']) {
+  // 主会话复核纪律：每个执行类场景断言「主会话复核后执行、无用户批准」
+  for (const id of ['planning-defers-execution', 'ready-executes-and-revalidates-fingerprint', 'legacy-migrates-and-executes']) {
     const item = evals.evals.find((entry) => entry.id === id)
     assert.ok(item, `missing eval ${id}`)
-    assert.match(item.prompt, /The initial request is not an approval/)
-    assert.match(item.prompt, /wait for a new user message that approves/)
     assert.ok(
-      item.assertions.some((line) => /waits for an independent user approval/.test(line)),
-      `${id} lacks the independent-approval assertion`,
+      item.assertions.some((line) => /no user CASE confirmation|without any user CASE approval|reviewed CASE/i.test(line)),
+      `${id} 缺主会话复核纪律断言`,
     )
   }
 })
 
-test('workloom-case-archived 资产与五组 eval：只读原件、独立任务、ref 和独立批准', () => {
+test('workloom-case-archived 资产与五组 eval：只读原件、独立任务、ref 与两次内容确认', () => {
   const doc = readFileSync(
     new URL('../../assets/skills/workloom-case-archived/SKILL.md', import.meta.url),
     'utf8',
@@ -229,8 +234,12 @@ test('workloom-case-archived 资产与五组 eval：只读原件、独立任务�
   assert.match(parsed.body, /prepareRef/)
   assert.match(parsed.body, /workloom_task_create/)
   assert.match(parsed.body, /Never pass `parent`/)
-  assert.match(parsed.body, /is never an approval/)
-  assert.match(parsed.body, /new user message/)
+  // 两次内容确认与 CASE 无用户确认的新口径
+  assert.match(parsed.body, /The PRD content confirmation \(Phase 1\.1\) and the PLAN content confirmation \(Phase 1\.4\) each require a fresh user message/)
+  assert.match(parsed.body, /the CASE itself needs no user confirmation/)
+  assert.ok(!parsed.body.includes('caseHash'), 'case-archived 不得再提 caseHash')
+  assert.match(parsed.body, /Do not reuse any historical confirmation record/)
+  assert.match(parsed.body, /raw-byte manifest.*stays separate from any document confirmation|anti-tamper evidence/)
   // R12/AC9 语言纪律：技能资产与评测断言用英文，生成的任务文档用项目语言
   assert.match(parsed.body, /Use English for this shipped asset and evaluation assertions/)
   assert.match(parsed.body, /write generated task documents in the project's language/)
@@ -251,12 +260,22 @@ test('workloom-case-archived 资产与五组 eval：只读原件、独立任务�
     assert.ok(item.assertions.length > 0)
     assert.ok(!/[\u3400-\u9fff]/.test(item.prompt))
     assert.ok(!/[\u3400-\u9fff]/.test(item.assertions.join('\n')))
+    const text = JSON.stringify(item)
+    assert.ok(!text.includes('caseHash'), `${item.id} 不得再断言 caseHash`)
+    assert.ok(!/independent user approval/i.test(text), `${item.id} 不得再等待 CASE 独立批准`)
   }
   for (const id of evals.evals.slice(0, 3).map((item) => item.id)) {
     const item = evals.evals.find((entry) => entry.id === id)
-    assert.match(item.prompt, /The initial request is not an approval/)
+    assert.match(item.prompt, /The initial request is not a confirmation/)
     assert.match(item.prompt, /new user message/)
-    assert.ok(item.assertions.some((line) => /independent user approval/.test(line)))
+    assert.ok(
+      item.assertions.some((line) => /independent user message/.test(line)),
+      `${id} 缺内容确认等待断言`,
+    )
+    assert.ok(
+      item.assertions.some((line) => /the CASE (itself )?needs none|reviewed by the main session only/.test(line)),
+      `${id} 缺 CASE 无需用户确认断言`,
+    )
   }
 })
 

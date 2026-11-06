@@ -81,14 +81,9 @@ export { initWorkloom } from './domain/init.js'
 export { migrateLegacyTrellis } from './domain/migrate.js'
 
 export {
-  computeContentHash,
-  computePrdHash,
   findOpenNodeState,
-  normalizeContentEol,
-  normalizePrdEol,
   evaluateAlignmentGate,
   ALIGNMENT_MISSING,
-  ALIGNMENT_STALE,
 } from './domain/alignment.js'
 
 // CASE 领域导出（生命周期、结构校验、门禁与文件范围）。
@@ -98,7 +93,6 @@ export {
   CASE_STRUCTURE,
   CASE_MISSING,
   createCaseRecord,
-  computeCaseHash,
   inspectCaseStructure,
   evaluateCaseExecutionGate,
   evaluateCaseOutcomeGate,
@@ -106,12 +100,10 @@ export {
 } from './domain/case.js'
 
 export type {
-  CaseOutcomeOptions,
   CasePurpose,
   CaseStructureIssue,
   CaseStructureOptions,
   TaskCaseRecord,
-  TaskCaseResultRecord,
 } from './domain/case.d.ts'
 
 export { writeFileAtomic } from './domain/file-atomic.js'
@@ -142,7 +134,7 @@ export {
   recordExecutorOverride,
   recordGateOverride,
   recordAlignmentCredential,
-  recordCaseConfirmation,
+  recordPlanConfirmation,
   recordExecutorDispatch,
   settleExecutorDispatch,
   appendDispatchErrorSuffix,
@@ -204,7 +196,6 @@ export {
   inspectPrdStructure,
   countEffectiveJsonlRecords,
   evaluateStartGate,
-  evaluateStaleAlignmentGate,
   evaluateCheckLogGate,
   evaluateFrontendDispatchGate,
   evaluateLightDispatchGate,
@@ -241,7 +232,6 @@ export { executeAlignTask } from './service/alignment-service.js'
 
 export { executeTaskCase } from './service/case-service.js'
 export type {
-  CaseConfirmResult,
   CaseReviewResult,
   ExecuteTaskCaseParams,
   ExecuteTaskCaseResult,
@@ -349,6 +339,7 @@ export type {
   StartedTaskRecord,
   TaskCheckRecord,
   TaskAlignmentRecord,
+  TaskPlanConfirmationRecord,
   TaskSummary,
   CreateTaskParams,
   CreateTaskResult,
@@ -359,7 +350,7 @@ export type {
   ListTasksParams,
   CheckTaskParams,
   AlignmentCredentialInput,
-  CaseConfirmationInput,
+  PlanConfirmationInput,
   DispatchPurpose,
   TaskCaseRecordCarrier,
   DispatchRecord,
@@ -386,6 +377,9 @@ export type {
   ExecuteAlignTaskResult,
   AlignReviewResult,
   AlignConfirmResult,
+  AlignTarget,
+  PrdConfirmResult,
+  PlanConfirmResult,
 } from './service/alignment-service.js'
 
 export type { SessionPointer } from './domain/active-task.d.ts'

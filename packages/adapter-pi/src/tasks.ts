@@ -66,26 +66,26 @@ const TASK_CHECK_PARAMS = Type.Object({
   reason: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.reason })),
 })
 
-/** align 工具参数 schema（action 必填 review/confirm；confirm 需 expectedPrdHash + summary）。 */
+/** align 工具参数 schema（action 必填 review/confirm；target 选 PRD/PLAN；只传 summary）。 */
 const TASK_ALIGN_PARAMS = Type.Object({
   action: Type.Union([Type.Literal('review'), Type.Literal('confirm')], {
     description: PARAM_DESCRIPTIONS.action,
   }),
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
-  expectedPrdHash: Type.Optional(
-    Type.String({ description: PARAM_DESCRIPTIONS.expectedPrdHash }),
+  target: Type.Optional(
+    Type.Union([Type.Literal('prd'), Type.Literal('plan')], {
+      description: PARAM_DESCRIPTIONS.target,
+    }),
   ),
   summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.alignmentSummary })),
 })
 
-/** case 工具参数 schema（action 必填 review/confirm；confirm 需 expectedCaseHash + summary）。 */
+/** case 工具参数 schema（只保留 review：无用户确认动作，也无确认记录）。 */
 const TASK_CASE_PARAMS = Type.Object({
-  action: Type.Union([Type.Literal('review'), Type.Literal('confirm')], {
+  action: Type.Union([Type.Literal('review')], {
     description: PARAM_DESCRIPTIONS.caseAction,
   }),
   taskPath: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.taskPath })),
-  expectedCaseHash: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.expectedCaseHash })),
-  summary: Type.Optional(Type.String({ description: PARAM_DESCRIPTIONS.caseSummary })),
 })
 
 /** archive 工具参数 schema（taskPath 必填 + autoCommit + force/reason 门禁豁免）。 */
@@ -148,8 +148,8 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     description: TOOL_DESCRIPTIONS.taskAlign,
     promptSnippet: TOOL_SNIPPETS.taskAlign,
     parameters: TASK_ALIGN_PARAMS,
-    // 主会话专用（R10）：Pi 的 child pi 以 --no-extensions spawn，工具天然不可达；
-    // 主会话经 review/confirm 两步与用户确认，本注册面无需额外深度检查。
+    // 主会话专用：Pi 的 child pi 以 --no-extensions spawn，工具天然不可达；
+    // 主会话经 review/confirm 两步与用户确认内容，本注册面无需额外深度检查。
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeAlign(ctx, params)
     },
@@ -163,10 +163,8 @@ export function registerTaskTools(pi: ExtensionAPI): void {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = requireWorkloomCwd(ctx.cwd)
       const [err, result] = executeTaskCase(cwd, contextKeyOf(ctx.sessionManager.getSessionId()), {
-        action: params.action,
+        action: 'review',
         taskPath: params.taskPath,
-        expectedCaseHash: params.expectedCaseHash,
-        summary: params.summary,
       })
       if (err !== null || result === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: case returned no result`)
@@ -276,7 +274,7 @@ async function executeCheck(
   return resultOf({ taskRelPath: task.taskRelPath, task })
 }
 
-/** align 工具：Phase 1.1 review/confirm（编排同步下沉 core）。 */
+/** align 工具：PRD/PLAN 内容确认 review/confirm（编排同步下沉 core）。 */
 async function executeAlign(
   ctx: ToolContextLike,
   params: Static<typeof TASK_ALIGN_PARAMS>,
@@ -285,7 +283,7 @@ async function executeAlign(
   const [err, result] = executeAlignTask(cwd, contextKeyOf(ctx.sessionManager.getSessionId()), {
     action: params.action,
     taskPath: params.taskPath,
-    expectedPrdHash: params.expectedPrdHash,
+    target: params.target,
     summary: params.summary,
   })
   if (err !== null || result === null)

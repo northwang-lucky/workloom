@@ -1,8 +1,7 @@
 ---
 version: 1
 task: <task-relative-path>
-caseHash: <confirmed-case-sha256>
-codeBaseline: <branch-head-worktree-or-selected-ref>
+codeBaseline: <branch-head-worktree-or-selected-ref; include codeFingerprint=<64-hex> as the current code evidence>
 checkSession: <check-child-session-id>
 status: <in_progress|passed|failed>
 startedAt: <ISO-8601>

@@ -75,7 +75,7 @@ test('check 工具 schema 不再含 phase/required（2.2 check 单一凭据）',
   assert.equal(props.summary.description, PARAM_DESCRIPTIONS.summary)
 })
 
-test('align 工具 schema：action 必填枚举 review/confirm；expectedPrdHash/summary 描述引用 core 常量', () => {
+test('align 工具 schema：action 必填枚举 review/confirm；target 可选枚举 prd/plan；无哈希参数', () => {
   const { ctx, registered } = makeCtx()
   registerTaskTools(ctx)
   const def = registered.find((entry) => entry.name === 'workloom_task_align')
@@ -84,12 +84,22 @@ test('align 工具 schema：action 必填枚举 review/confirm；expectedPrdHash
   assert.deepEqual(props.action.enum, ['review', 'confirm'])
   assert.ok(def.parameters.required.includes('action'), 'action must be required')
   assert.equal(props.action.description, PARAM_DESCRIPTIONS.action)
-  // review 诊断契约：调用方须知道 review 返回结构问题、content blockers 与 ready 状态
+  // review 诊断契约：调用方须知道 review 返回结构问题与 ready 状态，confirm 记录内容确认
   assert.match(props.action.description, /structural issues/)
-  assert.match(props.action.description, /content blockers/)
   assert.match(props.action.description, /readyToConfirm/)
-  assert.equal(props.expectedPrdHash.description, PARAM_DESCRIPTIONS.expectedPrdHash)
+  assert.match(props.action.description, /confirm records the content confirmation/)
+  // target 参数：可选枚举 prd/plan，描述引用 core 常量
+  assert.deepEqual(props.target.enum, ['prd', 'plan'])
+  assert.ok(!def.parameters.required.includes('target'), 'target must be optional')
+  assert.equal(props.target.description, PARAM_DESCRIPTIONS.target)
   assert.equal(props.summary.description, PARAM_DESCRIPTIONS.alignmentSummary)
+  // 完整结构缺席断言：哈希参数不再存在
+  assert.equal('expectedPrdHash' in props, false, 'expectedPrdHash must be removed from the align schema')
+  assert.equal('expectedCaseHash' in props, false)
+  for (const key of Object.keys(props)) {
+    assert.ok(!/hash/i.test(key), `align schema 参数不得含 hash：${key}`)
+    assert.ok(!props[key].description.includes('SHA-256'), `align schema 描述不得提 SHA-256：${key}`)
+  }
 })
 
 test('align 工具主会话限制：子代理（delegationDepth>0）调用被拒绝', async () => {

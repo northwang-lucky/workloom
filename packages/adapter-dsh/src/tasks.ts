@@ -112,10 +112,7 @@ export function registerTaskTools(ctx: Context): void {
       properties: {
         action: { type: 'string', enum: ['review', 'confirm'], description: PARAM_DESCRIPTIONS.action },
         taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
-        expectedPrdHash: {
-          type: 'string',
-          description: PARAM_DESCRIPTIONS.expectedPrdHash,
-        },
+        target: { type: 'string', enum: ['prd', 'plan'], description: PARAM_DESCRIPTIONS.target },
         summary: { type: 'string', description: PARAM_DESCRIPTIONS.alignmentSummary },
       },
       required: ['action'],
@@ -132,10 +129,8 @@ export function registerTaskTools(ctx: Context): void {
     parameters: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['review', 'confirm'], description: PARAM_DESCRIPTIONS.caseAction },
+        action: { type: 'string', enum: ['review'], description: PARAM_DESCRIPTIONS.caseAction },
         taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
-        expectedCaseHash: { type: 'string', description: PARAM_DESCRIPTIONS.expectedCaseHash },
-        summary: { type: 'string', description: PARAM_DESCRIPTIONS.caseSummary },
       },
       required: ['action'],
       additionalProperties: false,
@@ -281,8 +276,9 @@ async function checkTaskTool(args: unknown, exec: ToolRunContext): Promise<unkno
 }
 
 /**
- * align 工具：Phase 1.1 review/confirm（R10：只允许主会话调用——executor 等
- * 子代理按 delegation depth 硬拒绝；Pi 子进程以 --no-extensions spawn 天然无此工具）。
+ * align 工具：PRD/PLAN 内容确认 review/confirm（只允许主会话调用——内容确认是
+ * 用户决定，executor 等子代理按 delegation depth 硬拒绝；Pi 子进程以
+ * --no-extensions spawn 天然无此工具）。
  */
 async function alignTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
@@ -292,16 +288,18 @@ async function alignTaskTool(args: unknown, exec: ToolRunContext): Promise<unkno
     if (depth > 0) {
       throw new Error(
         `${ERR_PREFIX.taskTool}: workloom_task_align can only be called from the main session ` +
-          '(alignment confirm is a user decision)',
+          '(the PRD/PLAN content confirmations are user decisions)',
       )
     }
   }
   const cwd = cwdOf(exec)
   const action = typed.action === 'confirm' ? 'confirm' : 'review'
+  // target 仅取合法字面量，缺省由 core 按 prd 处理（参数描述口径一致）。
+  const target = typed.target === 'plan' ? 'plan' : typed.target === 'prd' ? 'prd' : undefined
   const [err, result] = executeAlignTask(cwd, contextKeyOf(exec), {
     action,
     taskPath: taskPathOf(typed),
-    expectedPrdHash: stringOf(typed, 'expectedPrdHash'),
+    target,
     summary: typeof typed.summary === 'string' ? typed.summary : undefined,
   })
   if (err !== null || result === null) {
@@ -311,8 +309,8 @@ async function alignTaskTool(args: unknown, exec: ToolRunContext): Promise<unkno
 }
 
 /**
- * case 工具：CASE review/confirm（confirm 是用户决定，与 align 同款主会话限制——
- * executor 等子代理按 delegation depth 硬拒绝）。
+ * case 工具：CASE review（只允许主会话调用——复核授权由主会话派发动作表达，
+ * executor 等子代理按 delegation depth 硬拒绝；无用户确认动作，也无确认记录）。
  */
 async function caseTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
@@ -320,16 +318,13 @@ async function caseTaskTool(args: unknown, exec: ToolRunContext): Promise<unknow
   if (agent !== undefined && delegationDepthOf(agent) > 0) {
     throw new Error(
       `${ERR_PREFIX.taskTool}: workloom_task_case can only be called from the main session ` +
-        '(CASE confirm is a user decision)',
+        '(the main session reviews the CASE and authorizes execution by dispatching)',
     )
   }
   const cwd = cwdOf(exec)
-  const action = typed.action === 'confirm' ? 'confirm' : 'review'
   const [err, result] = executeTaskCase(cwd, contextKeyOf(exec), {
-    action,
+    action: 'review',
     taskPath: taskPathOf(typed),
-    expectedCaseHash: stringOf(typed, 'expectedCaseHash'),
-    summary: stringOf(typed, 'summary'),
   })
   if (err !== null || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: case returned no result`)

@@ -6,7 +6,6 @@ import { join } from 'node:path'
 
 import {
   buildExecutorIncrementalPrompt,
-  computeCaseHash,
   createCaseRecord,
   readTask,
 } from '@workloom-ai/core'
@@ -24,7 +23,6 @@ function makeRoot(): string {
   writeFileSync(join(dir, 'case.md'), CASE_TEXT)
   const caseRecord = createCaseRecord(true)
   caseRecord.designSession = 'child-design'
-  caseRecord.caseHash = computeCaseHash(CASE_TEXT)
   writeFileSync(join(dir, 'task.json'), JSON.stringify({
     title: 'Demo', status: 'in_progress', mode: 'full', case: caseRecord,
     children: [], dispatches: [], overrides: [],
@@ -33,7 +31,7 @@ function makeRoot(): string {
   return root
 }
 
-test('Pi purpose 参数、模板全文与增量摘要值', () => {
+test('Pi purpose 参数、模板全文与纯指令增量', () => {
   assert.ok(JSON.stringify(EXECUTOR_PARAMS).includes('case-design'))
   assert.ok(!JSON.stringify(EXECUTOR_PARAMS).includes('fallback_models'))
   const root = makeRoot()
@@ -48,7 +46,9 @@ test('Pi purpose 参数、模板全文与增量摘要值', () => {
     const incremental = buildExecutorIncrementalPrompt({
       root, taskRelPath: REL, kind: 'check', userPrompt: 'execute', purpose: 'execution',
     })
-    assert.ok(incremental.startsWith('execute\n\nConfirmed CASE hash: '))
+    // 增量只追加本轮执行指令：不再追加确认哈希行，也不重复 CASE 全文
+    assert.equal(incremental, 'execute')
+    assert.ok(!incremental.includes('Confirmed CASE hash'))
     assert.ok(!incremental.includes(CASE_TEXT))
   } finally {
     rmSync(root, { recursive: true, force: true })

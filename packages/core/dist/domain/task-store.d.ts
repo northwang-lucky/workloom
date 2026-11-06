@@ -44,16 +44,22 @@ export interface TaskCheckRecord {
 }
 
 /**
- * alignment 凭据（workloom_task_align action=confirm 原子写入 task.json.alignment）。
- * 无 alignment 字段 = 未对齐（planning 任务 start 前必须完成确认；旧任务读 null）。
+ * PRD 内容确认记录（workloom_task_align action=confirm 原子写入 task.json.alignment）。
+ * 无 alignment 字段 = 未确认（planning 任务 start 前必须完成确认；旧任务读 null）。
  */
 export interface TaskAlignmentRecord {
-  /** 用户明确确认时间（相同 hash 重复 confirm 幂等，不刷新）。 */
+  /** 用户明确确认 PRD 内容的时间（无哈希；重复确认刷新为最近一次）。 */
   passedAt: string
-  /** 收敛摘要（覆盖节点、关键决策及确认结果，由 alignment skill 提供）。 */
+  /** 确认摘要（覆盖节点、关键决策与确认结果）。 */
   summary: string
-  /** 确认时含 Alignment Decisions 的完整 PRD SHA-256（CRLF/CR 归一为 LF）。 */
-  prdHash: string
+}
+
+/** PLAN 内容确认记录（workloom_task_align target=plan action=confirm 写入 task.json.planConfirmation）。 */
+export interface TaskPlanConfirmationRecord {
+  /** 用户明确确认 PLAN 内容的时间（无哈希；重复确认刷新为最近一次）。 */
+  passedAt: string
+  /** PLAN 确认摘要（覆盖的 AC、关键步骤与复核结论）。 */
+  summary: string
 }
 
 /** force 豁免留痕（task.json.overrides 元素）。 */
@@ -166,19 +172,6 @@ export interface TaskCaseRecordCarrier {
   case: TaskCaseRecord | null
 }
 
-/** recordCaseConfirmation 的窄写入参。 */
-export interface CaseConfirmationInput {
-  summary: string
-  caseHash: string
-}
-
-/** 记录 CASE 确认（同 hash 幂等，写入 required/confirmedAt/caseHash/summary 并清空 result）。 */
-export declare function recordCaseConfirmation(
-  root: string,
-  taskRelPath: string,
-  entry: CaseConfirmationInput,
-): [Error | null, TaskRecordWithPath | null]
-
 /** settleExecutorDispatch 回填入参（只改 status/error，不动 stage、不新增记录）。 */
 export interface DispatchSettleInput {
   /** 关联的 continuable 子代理 id（与 dispatches 记录的 childId 匹配）。 */
@@ -218,12 +211,15 @@ export interface TaskRecord {
   meta: Record<string, unknown>
   check: TaskCheckRecord | null
   /**
-   * CASE 生命周期记录（required/designSession/confirmedAt/caseHash/summary/result）：
-   * 旧任务读取为 null；start 完整任务转换 required=true；confirm 后记录摘要值。
+   * CASE 生命周期记录（required/designSession）：旧任务读取为 null；start 完整
+   * 任务转换 required=true；主会话复核 CASE 后直接续接 designSession 执行，
+   * 不记录任何复核凭证。
    */
   case: TaskCaseRecord | null
-  /** Phase 1.1 alignment 凭据（确认后非空；旧 grilling 字段为惰性历史数据，不参与语义）。 */
+  /** Phase 1.1 PRD 内容确认（确认后非空；旧 grilling 字段为惰性历史数据，不参与语义）。 */
   alignment: TaskAlignmentRecord | null
+  /** PLAN 内容确认（PLAN 复核通过后、start 之前写入；旧任务读 null）。 */
+  planConfirmation: TaskPlanConfirmationRecord | null
   overrides: GateOverride[]
   /** 任务执行期阶段（implement | check）：派发时与 dispatches 同点写入，旧任务归一化默认 implement。 */
   stage: TaskStageValue
@@ -333,16 +329,16 @@ export function startTask(
   params: StartTaskParams,
 ): Promise<[Error | null, StartedTaskRecord | null]>
 
-/** 记录 2.2 check 通过凭据（task.json check 字段；stale alignment 在 force 外硬拦）。 */
+/** 记录 2.2 check 通过凭据（task.json check 字段；CASE 门禁在 force 外硬拦）。 */
 export function checkTask(
   root: string,
   params: CheckTaskParams,
 ): [Error | null, TaskRecordWithPath | null]
 
 /**
- * 记录 alignment 凭据（workloom_task_align confirm 的窄写口，同步全链路）：
- * 校验 summary/prdHash 非空与任务状态，通过同目录临时文件 + renameSync 原子写
- * task.json.alignment；相同 prdHash 重复 confirm 幂等早退（不刷新 passedAt）。
+ * 记录 PRD 内容确认（workloom_task_align confirm 的窄写口，同步全链路）：
+ * 校验 summary 非空与任务状态，通过同目录临时文件 + renameSync 原子写
+ * task.json.alignment；无哈希可比，每次 confirm 都刷新 passedAt 与 summary。
  */
 export function recordAlignmentCredential(
   root: string,
@@ -350,8 +346,22 @@ export function recordAlignmentCredential(
   entry: AlignmentCredentialInput,
 ): [Error | null, TaskRecordWithPath | null]
 
-/** recordAlignmentCredential 入参（passedAt 由函数生成；summary/prdHash 由调用方校验后传入）。 */
-export type AlignmentCredentialInput = Pick<TaskAlignmentRecord, 'summary' | 'prdHash'>
+/** recordAlignmentCredential 入参（passedAt 由函数生成；summary 由调用方校验后传入）。 */
+export type AlignmentCredentialInput = Pick<TaskAlignmentRecord, 'summary'>
+
+/**
+ * 记录 PLAN 内容确认（workloom_task_align target=plan confirm 的窄写口）：
+ * 校验 summary 非空、任务状态与「PRD 已确认」顺序前置后，原子写
+ * task.json.planConfirmation；每次 confirm 都刷新 passedAt 与 summary。
+ */
+export function recordPlanConfirmation(
+  root: string,
+  taskRelPath: string,
+  entry: PlanConfirmationInput,
+): [Error | null, TaskRecordWithPath | null]
+
+/** recordPlanConfirmation 入参（passedAt 由函数生成；summary 由调用方校验后传入）。 */
+export type PlanConfirmationInput = Pick<TaskPlanConfirmationRecord, 'summary'>
 
 /** 记录 executor 参数覆盖（force 放行后调用）：向 overrides 追加 EXECUTOR_MODEL_EFFORT 条目。 */
 export function recordExecutorOverride(
@@ -362,7 +372,7 @@ export function recordExecutorOverride(
 
 /**
  * 记录指定 gate 的 force 豁免（R14：每个实际绕过的 gate 独立留痕；reason 必填非空）。
- * 用于 stale_alignment 等非 executor_model_effort 门禁的 force 审计（适配层调用）。
+ * 用于 light_dispatch 等非 executor_model_effort 门禁的 force 审计（适配层调用）。
  */
 export function recordGateOverride(
   root: string,

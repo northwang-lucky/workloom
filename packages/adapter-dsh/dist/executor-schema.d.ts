@@ -61,7 +61,7 @@ export declare function buildExecutorSchema(desc: typeof PARAM_DESCRIPTIONS): {
         purpose: {
             type: string;
             enum: string[];
-            description: "Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution runs the confirmed CASE and enters check stage. Defaults to execution for backward compatibility";
+            description: "Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution continues the reviewed design session for actual execution and enters check stage. Defaults to execution for backward compatibility";
         };
     };
     required: string[];

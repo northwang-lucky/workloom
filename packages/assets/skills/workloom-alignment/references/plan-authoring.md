@@ -1,6 +1,6 @@
 # Plan-authoring reference (workloom-alignment)
 
-Read this reference before authoring plan.md — the final alignment round chose to author, or an approved plan is being revised. Workflow 1.4's Authoring bar summarizes this standard; this file is the full version.
+Read this reference before authoring plan.md — every full implementation task authors one after the PRD content confirmation, or an approved plan is being revised. Workflow 1.4's Authoring bar summarizes this standard; this file is the full version.
 
 Why prescriptive: the implement executor treats the plan as its script. Every degree of freedom the plan leaves open becomes a silent, unreviewed decision made during implementation — the exact drift the alignment and the 1.4 review exist to prevent.
 
@@ -34,4 +34,4 @@ Order the steps so each one is independently verifiable when it completes, and l
 
 ## Completion criteria
 
-The plan is 1.4-ready when, for every step, a reader can name the file, the symbol, the exact code, and the verification — without making a single design decision of their own, and every AC in prd.md appears in at least one step's Covers list. A decision the executor would still have to make is a gap: close it in the plan, or take it back to the alignment round.
+The plan is ready for its 1.4 review and content confirmation when, for every step, a reader can name the file, the symbol, the exact code, and the verification — without making a single design decision of their own, and every AC in prd.md appears in at least one step's Covers list. A decision the executor would still have to make is a gap: close it in the plan, or take it back to the alignment round.

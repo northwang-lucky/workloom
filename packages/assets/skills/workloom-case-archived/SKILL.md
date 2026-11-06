@@ -12,7 +12,7 @@ Rebuild CASE verification for one archived full task. The original is read-only.
 
 - Accept only `status: completed` full or legacy-full tasks under `tasks/archive/`. Route active or unarchived work to the normal workflow or `workloom-case-active`; light tasks keep their light self-check flow.
 - Handle one archived task per invocation. Without a path, run `node <skill-resource>/scripts/archived-tasks.mjs list` and present title, path, and completedAt; wait for the user to select one. Do not auto-select or batch.
-- The original request, a generic continue, or the archived task's old approval is never an approval for the new task. Both Phase 1.4 startup and CASE confirmation require a new user message approving the exact current content or caseHash.
+- The original request, a generic continue, or the archived task's old confirmation record is never reused for the new task. The PRD content confirmation (Phase 1.1) and the PLAN content confirmation (Phase 1.4) each require a fresh user message confirming the content; the CASE itself needs no user confirmation — the main session reviews it and continues execution.
 - Never pass `parent` when creating the validation task; it could mutate the archived original. Never invoke workloom-migrate-plan on the archive itself.
 - Do not add commands, change workflow versions, or duplicate core CASE gates.
 - Use English for this shipped asset and evaluation assertions; write generated task documents in the project's language.
@@ -33,20 +33,20 @@ Rebuild CASE verification for one archived full task. The original is read-only.
 ## Step 3: Create the independent task
 
 1. Call `workloom_task_create` with the resolved package, an explicit English slug, and no parent. At creation, record in `task.json.meta`: `sourceTask`, `sourceCommit`, `sourceCommitType`, `validationRef`, `validationRefSource`, `validationReason`, `validationCommit`, `validationBranch`, `materialMode`, and the current validation purpose. Only after `restoreRef` succeeds, append `previousBranch` and `activationRestored: true`; do not write placeholder values for those two fields.
-2. Write a new PRD from the historical requirements and the current validation goal. Do not reuse the old alignment hash or pretend the old implementation is current.
+2. Write a new PRD from the historical requirements and the current validation goal. Do not reuse any historical confirmation record, and do not pretend the old implementation is current.
 3. With a source PLAN, use it as the reference for a new prescriptive plan. With a legacy pair, apply the migration method only inside the new task directory. With PRD-only or single-sided material, explicitly record what is missing and author the new PLAN from the PRD.
-4. Run normal alignment and present the 1.4 package, including any branch switch and restore. Stop until a new user message approves it, then confirm alignment, call `activateRef`, and start the task. Immediately call `restoreRef` after the validation worktree exists; on a start failure, restore before reporting.
+4. Run normal alignment: confirm the PRD content with the user at Phase 1.1 (`target=prd`), author and review the plan, then confirm the PLAN content at Phase 1.4 (`target=plan`), including any branch switch and restore in the presentation. After both confirmations, call `activateRef` and start the task. Immediately call `restoreRef` after the validation worktree exists; on a start failure, restore before reporting.
 
-## Step 4: Design and confirm CASE
+## Step 4: Design and review CASE
 
 1. Dispatch implementation and `kind: check`, `purpose: case-design` concurrently when implementation is needed. If the new plan needs no code change, only the CASE design dispatch is required.
 2. Main-session review covers the new PRD, PLAN, current code, source metadata, and all changed files. Revisions continue the same design session with `purpose: case-design`.
 3. Historical CASE/RESULT is read-only reference. The new CASE has its own Source task, current validation commit, and current acceptance scope.
-4. After review, stop and wait for a new user message approving the current caseHash. Confirm only that hash. A generic continue is not approval.
+4. Once the main session's actual review is satisfied, continue the same design session for execution directly — the user is never asked to approve the CASE, and no review credential is recorded. A generic continue does not replace the main session's own review.
 
 ## Step 5: Execute, record, and archive
 
-1. Continue the design session with `purpose: execution` only after implementation readiness and CASE confirmation. Run all SR/C items in order, real coverage, and standard verification.
+1. Continue the design session with `purpose: execution` only after implementation readiness and the main session's satisfied CASE review. Run all SR/C items in order, real coverage, and standard verification.
 2. RESULT codeBaseline records the validation commit, validationRefSource, validationReason, sourceCommit and `codeFingerprint=<hex>` from `../workloom-case-active/scripts/task-fingerprint.mjs`. RESULT Source task is the archived original path; checkSession equals designSession or a valid fallbackOf chain.
 3. Record a passing result with `workloom_task_check`. Never force a core CASE failure or copy a historical pass.
 4. Commit on the new task branch, archive it independently, and record its journal. Recompute the original raw-byte manifest and require no change before reporting completion.
@@ -54,4 +54,4 @@ Rebuild CASE verification for one archived full task. The original is read-only.
 
 ## Completion criteria
 
-The independent full task has a user-approved PRD/PLAN and CASE, real SR/C and coverage evidence tied to the recorded current baseline, its own check/commit/archive/journal, and an unchanged original SHA-256 manifest.
+The independent full task has user-confirmed PRD and PLAN content (the only two content confirmations), a main-session-reviewed CASE with no confirmation record, real SR/C and coverage evidence tied to the recorded current baseline, its own check/commit/archive/journal, and an unchanged original SHA-256 manifest (the raw-byte manifest is anti-tamper evidence and stays separate from any document confirmation).

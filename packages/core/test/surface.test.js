@@ -257,34 +257,51 @@ test('taskCheck 描述与 snippet 提及 2.3 check 凭据（不含 grilling 阶�
   assert.ok(!TOOL_SNIPPETS.taskCheck.includes('grilling'), 'taskCheck snippet must not mention grilling')
 })
 
-test('taskCase 工具：名称/描述/snippet/参数描述齐全且指向 review/confirm', () => {
+test('taskCase 工具：名称/描述/snippet/参数描述齐全且只指向 review（无哈希无确认动作）', () => {
   assert.equal(TOOL_NAMES.taskCase, 'workloom_task_case')
   assert.match(TOOL_DESCRIPTIONS.taskCase, /action=review/)
-  assert.match(TOOL_DESCRIPTIONS.taskCase, /action=confirm/)
+  assert.ok(
+    !TOOL_DESCRIPTIONS.taskCase.includes('action=confirm'),
+    'taskCase description must not offer a confirm action',
+  )
+  assert.match(TOOL_DESCRIPTIONS.taskCase, /no user approval and no confirmation record/)
   assert.match(TOOL_SNIPPETS.taskCase, /workloom_task_case\(action/)
-  for (const key of ['caseAction', 'expectedCaseHash', 'caseSummary']) {
-    assert.ok(
-      typeof PARAM_DESCRIPTIONS[key] === 'string' && PARAM_DESCRIPTIONS[key] !== '',
-      `${key} description must be non-empty`,
+  // 完整结构缺席断言：哈希/摘要参数描述不再存在
+  for (const key of ['expectedCaseHash', 'caseSummary']) {
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(PARAM_DESCRIPTIONS, key),
+      false,
+      `${key} description must be removed with the CASE confirmation mechanism`,
     )
   }
-  assert.match(PARAM_DESCRIPTIONS.expectedCaseHash, /SHA-256/)
-  assert.match(PARAM_DESCRIPTIONS.caseSummary, /user confirmation result/)
+  assert.ok(typeof PARAM_DESCRIPTIONS.caseAction === 'string' && PARAM_DESCRIPTIONS.caseAction !== '')
+  assert.match(PARAM_DESCRIPTIONS.caseAction, /readyForExecution/)
+  assert.match(PARAM_DESCRIPTIONS.caseAction, /there is no confirm action/)
 })
 
-test('taskAlign 工具：名称/描述/snippet/参数描述齐全且指向 review/confirm', () => {
+test('taskAlign 工具：名称/描述/snippet/参数描述齐全且指向内容确认（无哈希参数）', () => {
   assert.equal(TOOL_NAMES.taskAlign, 'workloom_task_align')
   assert.match(TOOL_DESCRIPTIONS.taskAlign, /action=review/)
   assert.match(TOOL_DESCRIPTIONS.taskAlign, /action=confirm/)
+  assert.match(TOOL_DESCRIPTIONS.taskAlign, /target=plan/)
   assert.match(TOOL_SNIPPETS.taskAlign, /workloom_task_align\(action/)
-  for (const key of ['action', 'expectedPrdHash', 'alignmentSummary']) {
+  assert.match(TOOL_SNIPPETS.taskAlign, /target\?/)
+  for (const key of ['action', 'target', 'alignmentSummary']) {
     assert.ok(
       typeof PARAM_DESCRIPTIONS[key] === 'string' && PARAM_DESCRIPTIONS[key] !== '',
       `${key} description must be non-empty`,
     )
   }
-  assert.match(PARAM_DESCRIPTIONS.expectedPrdHash, /SHA-256/)
-  assert.match(PARAM_DESCRIPTIONS.alignmentSummary, /convergence summary/i)
+  // 完整结构缺席断言：哈希参数描述不再存在（防止共享文案里合法出现该词的误判）
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(PARAM_DESCRIPTIONS, 'expectedPrdHash'),
+    false,
+    'expectedPrdHash description must be removed with the hash mechanism',
+  )
+  assert.match(PARAM_DESCRIPTIONS.action, /confirm records the content confirmation/)
+  assert.match(PARAM_DESCRIPTIONS.target, /prd \(default\)/)
+  assert.match(PARAM_DESCRIPTIONS.target, /requires the PRD confirmation/)
+  assert.match(PARAM_DESCRIPTIONS.alignmentSummary, /content confirmation summary/i)
 })
 
 test('TASK_CREATE_NOTE 含统一 alignment 行动指引（自动进入、design tree 收敛后确认，不再问 grilling）', () => {

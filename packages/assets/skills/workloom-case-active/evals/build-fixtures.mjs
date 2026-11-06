@@ -1,10 +1,9 @@
-import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const [scenario, target, sessionId] = process.argv.slice(2)
-const SCENARIOS = new Set(['planning-defers-execution', 'ready-executes-and-revalidates-fingerprint', 'legacy-migrates-and-executes', 'batch-one-confirmation', 'blocked-stops-batch'])
+const SCENARIOS = new Set(['planning-defers-execution', 'ready-executes-and-revalidates-fingerprint', 'legacy-migrates-and-executes', 'multi-task-serial-execution', 'blocked-stops-later-tasks'])
 if (!SCENARIOS.has(scenario) || target === undefined || typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sessionId)) {
   throw new Error('usage: node build-fixtures.mjs <scenario> <new-target-dir> <session-id>')
 }
@@ -19,7 +18,7 @@ function prd(title, blocked) {
   const runtime = blocked
     ? 'The runtime case must require /tmp/workloom-case-missing.sock and stop as blocked when it is absent.'
     : 'The runtime case performs a deterministic local verification.'
-  return `# ${title}\n\n## Goal\n\nVerify the CASE lifecycle for ${title}.\n\n## Requirements\n\n- R1: PRD and PLAN remain valid and reviewable.\n- R2: ${runtime}\n\n## Acceptance Criteria\n\n- AC1: The task materials pass structural review and retain the current alignment hash. Verification: inspect task.json and documents. Covers R1.\n- AC2: The CASE executes deterministically, or reports blocked when the required socket is absent. Verification: run the C item and inspect evidence. Covers R2.\n\n## Notes\n\n- No product source changes are required.\n\n## Alignment Decisions\n\n- This deterministic fixture is approved for evaluation.\n\n<!-- workloom:open-nodes=none -->\n`
+  return `# ${title}\n\n## Goal\n\nVerify the CASE lifecycle for ${title}.\n\n## Requirements\n\n- R1: PRD and PLAN remain valid and reviewable.\n- R2: ${runtime}\n\n## Acceptance Criteria\n\n- AC1: The task materials pass structural review and carry recorded PRD/PLAN content confirmations. Verification: inspect task.json and documents. Covers R1.\n- AC2: The CASE executes deterministically, or reports blocked when the required socket is absent. Verification: run the C item and inspect evidence. Covers R2.\n\n## Notes\n\n- No product source changes are required.\n\n## Alignment Decisions\n\n- This deterministic fixture is approved for evaluation.\n\n<!-- workloom:open-nodes=none -->\n`
 }
 
 function plan() {
@@ -72,7 +71,10 @@ function addTask(root, options) {
     alignment: {
       passedAt: options.createdAt,
       summary: 'Deterministic fixture approved for evaluation.',
-      prdHash: createHash('sha256').update(taskPrd.replace(/\r\n|\r/g, '\n'), 'utf8').digest('hex'),
+    },
+    planConfirmation: {
+      passedAt: options.createdAt,
+      summary: 'Fixture plan reviewed and confirmed for evaluation.',
     },
     overrides: [],
     stage: 'implement',
@@ -81,7 +83,7 @@ function addTask(root, options) {
   }
   if (options.legacy !== true) {
     record.case = options.status === 'in_progress'
-      ? { required: true, designSession: null, confirmedAt: null, caseHash: null, summary: null, result: null }
+      ? { required: true, designSession: null }
       : null
   }
   write(root, `${dir}/task.json`, `${JSON.stringify(record, null, 2)}\n`)
@@ -103,14 +105,14 @@ if (scenario === 'ready-executes-and-revalidates-fingerprint') {
 if (scenario === 'legacy-migrates-and-executes') {
   active = addTask(target, { slug: 'legacy-case', status: 'in_progress', ready: true, legacy: true, createdAt: at })
 }
-if (scenario === 'batch-one-confirmation') {
+if (scenario === 'multi-task-serial-execution') {
   addTask(target, { slug: 'batch-a', status: 'in_progress', ready: true, createdAt: at })
   addTask(target, { slug: 'batch-b', status: 'in_progress', ready: true, createdAt: '2026-01-01T00:01:00.000Z' })
   addTask(target, { slug: 'not-ready', status: 'planning', omitPlan: true, createdAt: '2026-01-01T00:02:00.000Z' })
   addTask(target, { slug: 'light-task', status: 'planning', mode: 'light', createdAt: '2026-01-01T00:03:00.000Z' })
   addTask(target, { slug: 'completed-case', status: 'completed', archive: true, createdAt: '2026-01-01T00:04:00.000Z' })
 }
-if (scenario === 'blocked-stops-batch') {
+if (scenario === 'blocked-stops-later-tasks') {
   addTask(target, { slug: 'blocked-a', status: 'in_progress', ready: true, blocked: true, createdAt: at })
   addTask(target, { slug: 'untouched-b', status: 'in_progress', ready: true, createdAt: '2026-01-01T00:01:00.000Z' })
   addTask(target, { slug: 'not-ready', status: 'planning', omitPlan: true, createdAt: '2026-01-01T00:02:00.000Z' })

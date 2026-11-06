@@ -1,46 +1,43 @@
 /**
- * workloom_task_case 的 runtime 无关 review/confirm 编排。
- * review 只读；confirm 在完整校验后只经 task-store 窄写口落盘。
+ * workloom_task_case 的 runtime 无关 review-only 编排（TypeScript）。
+ * CASE 由主会话对照 PRD、PLAN 与实际代码复核；复核满意后直接续接同一
+ * designSession 执行，不再有用户确认动作，也不写任何复核凭证。
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { CASE_FILES, CASE_MISSING, computeCaseHash, inspectCaseStructure, listCaseChangedFiles } from '../domain/case.js'
-import type { CaseStructureIssue, TaskCaseRecord } from '../domain/case.d.ts'
+import { CASE_FILES, inspectCaseStructure, listCaseChangedFiles } from '../domain/case.js'
+import type { CaseStructureIssue } from '../domain/case.d.ts'
 import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js'
-import { findArchivedTaskPath, readTask, recordCaseConfirmation } from '../domain/task-store.js'
+import { findArchivedTaskPath, readTask } from '../domain/task-store.js'
 import type { TaskRecordWithPath, TaskStatusValue } from '../domain/task-store.d.ts'
 import { ERR_PREFIX } from '../surface.js'
 import { requireWorkloomCwd, resolveTaskRelPath } from './task-ops.js'
 
+/** review 成功结果：CASE 内容 + 结构诊断 + 会话链现状（零写盘，无哈希）。 */
 export interface CaseReviewResult {
   action: 'review'
   taskRelPath: string
   status: TaskStatusValue
+  /** case.md 全文快照（缺失为 null，由结构问题表达）。 */
   case: string | null
-  caseHash: string | null
+  /** 当前 CASE 设计会话（未记录为 null；执行续接的定位依据）。 */
+  designSession: string | null
+  /** CASE 结构问题（顺序由分类器决定，一次返回全部）。 */
   structureIssues: CaseStructureIssue[]
-  confirmBlockers: string[]
-  readyToConfirm: boolean
-  caseRecord: TaskCaseRecord | null
-}
-
-export interface CaseConfirmResult {
-  action: 'confirm'
-  taskRelPath: string
-  caseHash: string
-  idempotent: boolean
-  caseRecord: TaskCaseRecord
+  /** structureIssues 的英文文案投影，供主会话直接展示。 */
+  blockers: string[]
+  /** 严格等价于 structureIssues 为空：主会话复核的机器可读参考。 */
+  readyForExecution: boolean
 }
 
 export interface ExecuteTaskCaseParams {
   taskPath?: string
-  action: 'review' | 'confirm'
-  expectedCaseHash?: string
-  summary?: string
+  /** 只支持 review：复核诊断只读，不写任何记录。 */
+  action: 'review'
 }
 
-export type ExecuteTaskCaseResult = CaseReviewResult | CaseConfirmResult
+export type ExecuteTaskCaseResult = CaseReviewResult
 
 export function executeTaskCase(
   cwd: string,
@@ -49,12 +46,18 @@ export function executeTaskCase(
 ): [Error | null, ExecuteTaskCaseResult | null] {
   try {
     requireWorkloomCwd(cwd)
+    // 协议只保留 review：其他动作显式拒绝（无用户确认动作，也不写复核凭证）。
+    if (params.action !== 'review') {
+      throw new Error(
+        `${ERR_PREFIX.taskTool}: only action=review is supported ` +
+          '(the main session reviews the CASE and then continues the design session for execution)',
+      )
+    }
     const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
     const root = requireProjectRoot(cwd)
     const [taskErr, task] = readTask(root, taskRelPath)
     if (taskErr !== null || task === null) throw taskErr ?? new Error('task not found')
-    if (params.action === 'review') return [null, reviewCase(root, taskRelPath, task)]
-    return [null, confirmCase(root, taskRelPath, task, params)]
+    return [null, reviewCase(root, taskRelPath, task)]
   } catch (error) {
     return [toError(error), null]
   }
@@ -84,52 +87,10 @@ function reviewCase(root: string, taskRelPath: string, task: TaskRecordWithPath)
     taskRelPath,
     status: task.status,
     case: caseContent,
-    caseHash: caseContent === null ? null : computeCaseHash(caseContent),
+    designSession: task.case?.designSession ?? null,
     structureIssues,
-    confirmBlockers: structureIssues.map((item) => item.message),
-    readyToConfirm: structureIssues.length === 0,
-    caseRecord: task.case,
-  }
-}
-
-function confirmCase(
-  root: string,
-  taskRelPath: string,
-  task: TaskRecordWithPath,
-  params: ExecuteTaskCaseParams,
-): CaseConfirmResult {
-  if (typeof params.expectedCaseHash !== 'string' || params.expectedCaseHash.trim() === '') {
-    throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: expectedCaseHash is required`)
-  }
-  const review = reviewCase(root, taskRelPath, task)
-  if (review.case === null) throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${CASE_MISSING}`)
-  if (!review.readyToConfirm) {
-    throw new Error(
-      `${ERR_PREFIX.taskTool}: confirm rejected: case.md content blockers:\n` +
-        review.confirmBlockers.map((item) => `- ${item}`).join('\n'),
-    )
-  }
-  if (review.caseHash !== params.expectedCaseHash) {
-    throw new Error(
-      `${ERR_PREFIX.taskTool}: confirm rejected: CASE hash mismatch; re-run action=review`,
-    )
-  }
-  const summary = typeof params.summary === 'string' ? params.summary.trim() : ''
-  if (summary === '') throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: summary is required`)
-  const previousHash = task.case?.caseHash ?? null
-  const [err, saved] = recordCaseConfirmation(root, taskRelPath, {
-    caseHash: review.caseHash as string,
-    summary,
-  })
-  if (err !== null || saved === null || saved.case === null) {
-    throw err ?? new Error(`${ERR_PREFIX.taskTool}: confirm returned no result`)
-  }
-  return {
-    action: 'confirm',
-    taskRelPath,
-    caseHash: review.caseHash as string,
-    idempotent: previousHash === review.caseHash,
-    caseRecord: saved.case,
+    blockers: structureIssues.map((item) => item.message),
+    readyForExecution: structureIssues.length === 0,
   }
 }
 
@@ -157,4 +118,3 @@ function requireProjectRoot(cwd: string): string {
 function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value))
 }
-

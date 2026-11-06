@@ -53,7 +53,6 @@ import {
   detectExecutorConflicts,
   ERR_PREFIX,
   evaluateLightDispatchGate,
-  evaluateStaleAlignmentGate,
   findWorkloomRoot,
   GATES,
   loadConfig,
@@ -232,16 +231,10 @@ export function recordForcedOverride(
 export function recordForceOverrides(
   root: string,
   taskRelPath: string,
-  input: { conflictForced: boolean; staleMissing: boolean; lightMissing: boolean; reason: string },
+  input: { conflictForced: boolean; lightMissing: boolean; reason: string },
 ): void {
   if (input.conflictForced) {
     recordForcedOverride(root, taskRelPath, input.reason)
-  }
-  if (input.staleMissing) {
-    const [recordErr] = recordGateOverride(root, taskRelPath, GATES.STALE_ALIGN, input.reason)
-    if (recordErr !== null) {
-      console.warn(`${RECORD_WARN_PREFIX} ${recordErr}`)
-    }
   }
   if (input.lightMissing) {
     const [recordErr] = recordGateOverride(root, taskRelPath, GATES.LIGHT_DISPATCH, input.reason)
@@ -419,10 +412,10 @@ async function executeTool(
     ERR_PREFIX.executor,
   )
   // 轻量任务派发拒绝：light 任务由主会话包办实现/自查/提交，任何 kind 都不派发
-  // （含续用）。与 stale 门禁共用同一次 readTask；force 放行按实际绕过的 gate
-  // 留痕（light_dispatch），与冲突/stale override 并存时各记一条。
+  // （含续用）。与冲突门禁共用同一次 readTask；force 放行按实际绕过的 gate
+  // 留痕（light_dispatch），与冲突 override 并存时各记一条。（文档确认哈希已删除，
+  // 派发不再做 stale alignment 判定。）
   const [taskErr, task] = readTask(root, taskRelPath)
-  let staleMissing: string[] = []
   let lightMissing: string[] = []
   if (taskErr !== null || task === null) {
     console.warn(`${RECORD_WARN_PREFIX} ${taskErr?.message ?? 'readTask returned no task'}`)
@@ -443,26 +436,9 @@ async function executeTool(
       }
       assertForceReason(params.force, params.reason)
     }
-    staleMissing = evaluateStaleAlignmentGate(root, taskRelPath, task)
-    if (staleMissing.length > 0) {
-      if (params.force !== true) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `${staleMissing.join('; ')} ` +
-                '(pass force: true with a non-empty reason to bypass; the override is recorded in task.json overrides)',
-            },
-          ],
-          details: { kind: 'stale_alignment', status: 'blocked' },
-        }
-      }
-      assertForceReason(params.force, params.reason)
-    }
   }
   recordForceOverrides(root, taskRelPath, {
     conflictForced: gate.forced,
-    staleMissing: staleMissing.length > 0,
     lightMissing: lightMissing.length > 0,
     reason: params.reason ?? '',
   })

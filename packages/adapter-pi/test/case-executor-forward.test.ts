@@ -23,7 +23,7 @@ import * as realChildProcess from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 
-import { computeCaseHash, readTask } from '@workloom-ai/core'
+import { readTask } from '@workloom-ai/core'
 import { registerExecutorTool } from '../src/executor.ts'
 import { unregisterChild } from '../src/pi-child-registry.ts'
 
@@ -82,10 +82,6 @@ function makeForwardRoot(): string {
     case: {
       required: true,
       designSession: null,
-      confirmedAt: null,
-      caseHash: computeCaseHash(CASE_TEXT),
-      summary: null,
-      result: null,
     },
     children: [],
     dispatches: [],

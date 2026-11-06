@@ -22,8 +22,10 @@ interface CapturedTool {
     details: {
       action: string
       case: string | null
-      readyToConfirm: boolean
-      confirmBlockers: string[]
+      designSession: string | null
+      structureIssues: { code: string; message: string }[]
+      blockers: string[]
+      readyForExecution: boolean
     }
   }>
 }
@@ -52,14 +54,17 @@ function makeRoot(): string {
   return root
 }
 
-test('TASK_CASE_PARAMS 暴露 review/confirm 与 CASE hash 参数', () => {
+test('TASK_CASE_PARAMS 只保留 review（无哈希参数与摘要参数）', () => {
   const def = setup()
   assert.ok(def)
   assert.ok(def.parameters.required?.includes('action'))
-  assert.ok('expectedCaseHash' in def.parameters.properties)
+  const properties = def.parameters.properties as Record<string, unknown>
+  assert.ok('action' in properties)
+  assert.ok(!('expectedCaseHash' in properties), 'expectedCaseHash param must be removed')
+  assert.ok(!('summary' in properties), 'case summary param must be removed with the confirm action')
   assert.equal(
-    (def.parameters.properties.expectedCaseHash as { description?: string }).description,
-    PARAM_DESCRIPTIONS.expectedCaseHash,
+    (properties.action as { description?: string }).description,
+    PARAM_DESCRIPTIONS.caseAction,
   )
 })
 
@@ -83,8 +88,10 @@ test('CASE review 通过 details 返回结构诊断', async () => {
     )
     assert.equal(result.details.action, 'review')
     assert.equal(result.details.case, null)
-    assert.equal(result.details.readyToConfirm, false)
-    assert.deepEqual(result.details.confirmBlockers, ['case.md is missing'])
+    assert.equal(result.details.readyForExecution, false)
+    assert.deepEqual(result.details.blockers, ['case.md is missing'])
+    assert.equal('caseHash' in result.details, false)
+    assert.equal('readyToConfirm' in result.details, false)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

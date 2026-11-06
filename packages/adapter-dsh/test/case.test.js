@@ -28,12 +28,17 @@ function makeRoot() {
   return root
 }
 
-test('CASE 工具 schema 与主会话限制', async () => {
+test('CASE 工具 schema 只保留 review，主会话限制保留', async () => {
   const def = setup()
   assert.ok(def)
-  assert.deepEqual(def.parameters.properties.action.enum, ['review', 'confirm'])
+  // 只支持 review：confirm 分支随 CASE 用户确认机制一并删除
+  assert.deepEqual(def.parameters.properties.action.enum, ['review'])
   assert.ok(def.parameters.required.includes('action'))
-  assert.equal(def.parameters.properties.expectedCaseHash.description, PARAM_DESCRIPTIONS.expectedCaseHash)
+  // 完整结构缺席断言：哈希与摘要参数不再存在
+  const props = def.parameters.properties
+  assert.equal('expectedCaseHash' in props, false, 'expectedCaseHash must be removed from the case schema')
+  assert.equal('summary' in props, false, 'case summary parameter must be removed with the confirm action')
+  assert.equal(props.action.description, PARAM_DESCRIPTIONS.caseAction)
   const exec = {
     agent: {
       id: 'child',
@@ -44,7 +49,7 @@ test('CASE 工具 schema 与主会话限制', async () => {
   await assert.rejects(() => def.execute({ action: 'review' }, exec), /main session/)
 })
 
-test('CASE review 投影返回快照、hash 与结构阻断项', async () => {
+test('CASE review 投影返回快照、会话链与结构阻断项（无哈希字段）', async () => {
   const root = makeRoot()
   try {
     const [, created] = await createTask(root, { title: 'Case', package: 'repo' })
@@ -59,9 +64,13 @@ test('CASE review 投影返回快照、hash 与结构阻断项', async () => {
     const result = await def.execute({ action: 'review', taskPath: created.taskRelPath }, exec)
     assert.equal(result.action, 'review')
     assert.equal(result.case, null)
-    assert.equal(result.caseHash, null)
-    assert.equal(result.readyToConfirm, false)
-    assert.deepEqual(result.confirmBlockers, ['case.md is missing'])
+    assert.equal(result.designSession, null)
+    assert.equal(result.readyForExecution, false)
+    assert.deepEqual(result.blockers, ['case.md is missing'])
+    // 无哈希字段：review 结果不再携带任何确认指纹
+    assert.equal('caseHash' in result, false)
+    assert.equal('confirmBlockers' in result, false)
+    assert.equal('readyToConfirm' in result, false)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

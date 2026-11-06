@@ -614,35 +614,33 @@ test('write-scope 扩展：同名 write/edit 副本，域内成功、越界拒�
   }
 })
 
-test('recordForceOverrides: 冲突 + stale 同存 → 一次调用落两条 override（executor_model_effort + stale_alignment）', () => {
+test('recordForceOverrides: 冲突绕过 → 只落 executor_model_effort（stale 门禁已删除）', () => {
   const { root, taskRelPath } = makeTaskRoot()
   try {
     recordForceOverrides(root, taskRelPath, {
       conflictForced: true,
-      staleMissing: true,
       lightMissing: false,
-      reason: 'user asked to bypass both gates',
+      reason: 'user asked to bypass the conflict gate',
     })
     const overrides = JSON.parse(
       readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
     ).overrides
     assert.deepEqual(
       overrides.map((o: { gate: string }) => o.gate),
-      ['executor_model_effort', 'stale_alignment'],
+      ['executor_model_effort'],
     )
-    assert.equal(overrides[1].tool, 'workloom_execute')
-    assert.equal(overrides[1].reason, 'user asked to bypass both gates')
+    assert.equal(overrides[0].tool, 'workloom_execute')
+    assert.equal(overrides[0].reason, 'user asked to bypass the conflict gate')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('recordForceOverrides: 仅冲突绕过 → 只留 executor_model_effort', () => {
+test('recordForceOverrides: 仅冲突绕过 → 只留 executor_model_effort（零绕过零写入）', () => {
   const { root, taskRelPath } = makeTaskRoot()
   try {
     recordForceOverrides(root, taskRelPath, {
       conflictForced: true,
-      staleMissing: false,
       lightMissing: false,
       reason: 'conflict only',
     })
@@ -659,43 +657,30 @@ test('recordForceOverrides: 仅冲突绕过 → 只留 executor_model_effort', (
   }
 })
 
-test('recordForceOverrides: 仅 stale 绕过 → 只留 stale_alignment；都不绕过 → 零写入', () => {
+test('recordForceOverrides: 无绕过 → 零写入（stale_alignment 门禁已删除）', () => {
   const { root, taskRelPath } = makeTaskRoot()
   try {
     recordForceOverrides(root, taskRelPath, {
       conflictForced: false,
-      staleMissing: true,
-      lightMissing: false,
-      reason: 'stale only',
-    })
-    let overrides = JSON.parse(
-      readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
-    ).overrides
-    assert.deepEqual(
-      overrides.map((o: { gate: string }) => o.gate),
-      ['stale_alignment'],
-    )
-    recordForceOverrides(root, taskRelPath, {
-      conflictForced: false,
-      staleMissing: false,
       lightMissing: false,
       reason: 'no bypass',
     })
-    overrides = JSON.parse(
+    const overrides = JSON.parse(
       readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'),
     ).overrides
-    assert.equal(overrides.length, 1, '无绕过时不追加 override')
+    assert.equal(overrides.length, 0, '无绕过时不追加 override')
+    const gates = overrides.map((o: { gate: string }) => o.gate)
+    assert.ok(!gates.includes('stale_alignment'), 'stale_alignment 门禁已删除')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('recordForceOverrides: 轻量任务派发 force 绕过 → 记 light_dispatch（与 stale 并存各一条）', () => {
+test('recordForceOverrides: 轻量任务派发 force 绕过 → 记 light_dispatch', () => {
   const { root, taskRelPath } = makeTaskRoot()
   try {
     recordForceOverrides(root, taskRelPath, {
       conflictForced: false,
-      staleMissing: true,
       lightMissing: true,
       reason: 'user asked to dispatch a light task anyway',
     })
@@ -704,10 +689,10 @@ test('recordForceOverrides: 轻量任务派发 force 绕过 → 记 light_dispat
     ).overrides
     assert.deepEqual(
       overrides.map((o: { gate: string }) => o.gate),
-      ['stale_alignment', 'light_dispatch'],
+      ['light_dispatch'],
     )
-    assert.equal(overrides[1].tool, 'workloom_execute')
-    assert.equal(overrides[1].reason, 'user asked to dispatch a light task anyway')
+    assert.equal(overrides[0].tool, 'workloom_execute')
+    assert.equal(overrides[0].reason, 'user asked to dispatch a light task anyway')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

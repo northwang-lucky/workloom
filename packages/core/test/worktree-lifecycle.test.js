@@ -35,7 +35,6 @@ import * as workloom from '../dist/index.js'
 import { markTaskLegacy } from './fixtures/task-artifacts.js'
 
 const {
-  computePrdHash,
   createTask,
   executeArchiveTask,
   executeCheckTask,
@@ -45,6 +44,7 @@ const {
   loadConfig,
   readTask,
   recordAlignmentCredential,
+  recordPlanConfirmation,
 } = workloom
 
 /** 提交用固定身份（-c 逐命令注入，不依赖全局 gitconfig）。 */
@@ -225,14 +225,16 @@ function satisfyStartGate(root, taskRelPath) {
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
 }
 
-/** 记录 alignment 凭据（hash 取当前 prd.md；模拟 confirm 后状态）。 */
+/** 记录 PRD 与 PLAN 内容确认（模拟两次 confirm 后状态）。 */
 function alignTask(root, taskRelPath) {
-  const prd = readFileSync(join(root, '.workloom', taskRelPath, 'prd.md'), 'utf8')
   const [err] = recordAlignmentCredential(root, taskRelPath, {
     summary: 'frontier empty, all decisions settled',
-    prdHash: computePrdHash(prd),
   })
   assert.equal(err, null)
+  const [planErr] = recordPlanConfirmation(root, taskRelPath, {
+    summary: 'plan covers every AC, steps verified',
+  })
+  assert.equal(planErr, null)
 }
 
 /**

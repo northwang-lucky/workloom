@@ -6,7 +6,6 @@ import { join } from 'node:path'
 
 import {
   buildExecutorIncrementalPrompt,
-  computeCaseHash,
   createCaseRecord,
   PARAM_DESCRIPTIONS,
   readTask,
@@ -27,7 +26,6 @@ function makeRoot(maxArtifactBytes = 0) {
   writeFileSync(join(dir, 'case.md'), CASE_TEXT)
   const caseRecord = createCaseRecord(true)
   caseRecord.designSession = 'child-design'
-  caseRecord.caseHash = computeCaseHash(CASE_TEXT)
   writeFileSync(join(dir, 'task.json'), JSON.stringify({
     title: 'Demo', status: 'in_progress', mode: 'full', case: caseRecord,
     children: [], dispatches: [], overrides: [],
@@ -48,7 +46,9 @@ test('DSH purpose schema 与全量/增量 CASE 注入', () => {
     const incremental = buildExecutorIncrementalPrompt({
       root, taskRelPath: REL, kind: 'check', userPrompt: 'execute', purpose: 'execution',
     })
-    assert.ok(incremental.startsWith('execute\n\nConfirmed CASE hash: '))
+    // 增量只追加本轮执行指令：不再追加确认哈希行，也不重复 CASE 全文
+    assert.equal(incremental, 'execute')
+    assert.ok(!incremental.includes('Confirmed CASE hash'))
     assert.ok(!incremental.includes(CASE_TEXT))
   } finally {
     rmSync(root, { recursive: true, force: true })

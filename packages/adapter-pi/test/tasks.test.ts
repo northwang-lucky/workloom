@@ -100,22 +100,30 @@ test('TASK_CHECK_PARAMS schema 不再含 phase/required（2.2 check 单一凭据
   assert.equal(readDescription(props.summary), PARAM_DESCRIPTIONS.summary)
 })
 
-test('TASK_ALIGN tool：名称/参数 action 必填 review/confirm + expectedPrdHash/summary 描述', () => {
+test('TASK_ALIGN tool：action 必填 review/confirm + target 可选 prd/plan，无哈希参数', () => {
   const { pi, registered } = makePi()
   registerTaskTools(pi)
   const def = registered.find((entry) => entry.name === 'workloom_task_align')
   assert.ok(def, 'align tool must be registered')
   assert.ok(def.parameters.required?.includes('action'), 'action must be required')
-  assert.ok('expectedPrdHash' in def.parameters.properties, 'expectedPrdHash param must exist')
+  assert.ok(!def.parameters.required?.includes('target'), 'target must be optional')
+  assert.ok('target' in def.parameters.properties, 'target param must exist')
   assert.ok('summary' in def.parameters.properties, 'summary param must exist')
-  assert.equal(readDescription(def.parameters.properties.expectedPrdHash), PARAM_DESCRIPTIONS.expectedPrdHash)
+  assert.equal(readDescription(def.parameters.properties.target), PARAM_DESCRIPTIONS.target)
   assert.equal(readDescription(def.parameters.properties.summary), PARAM_DESCRIPTIONS.alignmentSummary)
-  // review 诊断契约：调用方须知道 review 返回结构问题、content blockers 与 ready 状态
+  // review 诊断契约：调用方须知道 review 返回结构问题与 ready 状态，confirm 记录内容确认
   const actionDescription = readDescription(def.parameters.properties.action)
   assert.ok(actionDescription, 'action description must be present')
   assert.match(actionDescription, /structural issues/)
-  assert.match(actionDescription, /content blockers/)
   assert.match(actionDescription, /readyToConfirm/)
+  assert.match(actionDescription, /confirm records the content confirmation/)
+  // 完整结构缺席断言：哈希参数不再存在，且任何属性键/描述都不含哈希语义
+  assert.ok(!('expectedPrdHash' in def.parameters.properties), 'expectedPrdHash param must be removed')
+  for (const [key, value] of Object.entries(def.parameters.properties)) {
+    assert.ok(!/hash/i.test(key), `align param must not mention hash: ${key}`)
+    const description = readDescription(value as { description?: unknown })
+    assert.ok(!description?.includes('SHA-256'), `align param description must not mention SHA-256: ${key}`)
+  }
 })
 
 test('archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.taskPathRequired', () => {

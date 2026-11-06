@@ -1,11 +1,11 @@
 {
   "skill_name": "workloom-case-archived",
-  "description": "Five with-skill-only archived CASE reconstruction scenarios.",
+  "description": "Five with-skill-only archived CASE reconstruction scenarios (two-stage content confirmation; CASE reviewed by the main session without user confirmation).",
   "evals": [
     {
       "id": "archived-plan-default-head",
       "name": "Archived PLAN uses current HEAD",
-      "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task with an existing PLAN, using the default current target branch. The initial request is not an approval: stop for a new user message before Phase 1.4 startup, and stop again for a new user message approving the current caseHash before confirm/execution. Complete real CASE execution and coverage, then archive only the new task.",
+      "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task with an existing PLAN, using the default current target branch. The initial request is not a confirmation: stop for a new user message confirming the PRD content (Phase 1.1) and another for the PLAN content (Phase 1.4) before start. The CASE itself needs no user confirmation. Complete real CASE execution and coverage, then archive only the new task.",
       "expected_output": "An independent full task validates current HEAD, historical CASE/RESULT is only a reference, and the original archive is unchanged.",
       "assertions": [
         "The new task has no parent and records matching sourceTask/sourceCommit/current validation metadata in task.json.meta and CASE.",
@@ -13,7 +13,7 @@
         "Metadata records validationRefSource=default-current-branch and a reason explaining the default target branch.",
         "Historical CASE/RESULT remains unchanged and is not reused as the current result.",
         "Real SR/C execution and coverage or a justified not_applicable result exist.",
-        "Both startup and CASE confirmation wait for independent user approval messages.",
+        "PRD and PLAN content confirmations each wait for an independent user message; the CASE needs none.",
         "The original archive manifest is byte-identical before and after the new task archive."
       ],
       "files": []
@@ -21,7 +21,7 @@
     {
       "id": "archived-legacy-explicit-ref",
       "name": "Legacy materials use an explicit ref",
-      "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task with design.md + implement.md using ref <base-ref>. The initial request is not an approval: wait for a new user message before startup and another new user message approving the current caseHash. Migrate only inside the new task, execute real cases, and keep the original archive unchanged.",
+      "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task with design.md + implement.md using ref <base-ref>. The initial request is not a confirmation: stop for a new user message confirming the PRD content (Phase 1.1) and another for the PLAN content (Phase 1.4) before start. The CASE itself needs no user confirmation. Migrate only inside the new task, execute real cases, and keep the original archive unchanged.",
       "expected_output": "A unique local branch points to the requested commit, the new task migrates legacy materials internally, and the original is untouched.",
       "assertions": [
         "The requested ref resolves to a unique local branch at the exact commit; the validation worktree is not detached.",
@@ -31,7 +31,7 @@
         "design.md + implement.md are handled only inside the new task and produce a valid plan.md.",
         "Source metadata distinguishes the requested validation commit from the archive bookkeeping commit.",
         "Real execution records a passing RESULT with a current code fingerprint.",
-        "Startup and CASE confirmation wait for independent user approval messages.",
+        "PRD and PLAN content confirmations each wait for an independent user message; the CASE is reviewed by the main session only.",
         "The original archive manifest is byte-identical after completion."
       ],
       "files": []
@@ -39,14 +39,14 @@
     {
       "id": "archived-prd-only-rebuild",
       "name": "PRD-only archive is explicitly rebuilt",
-      "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task that has only PRD material. Mark the missing PLAN explicitly and create a new PRD/PLAN. The initial request is not an approval: stop for a new user message before Phase 1.4 startup, and stop again for a new user message approving the current caseHash before confirm/execution. Execute the real CASE and preserve the original archive bytes.",
+      "prompt": "Work in <fixture-project>. Rebuild CASE verification for the archived full task that has only PRD material. Mark the missing PLAN explicitly and create a new PRD/PLAN. The initial request is not a confirmation: stop for a new user message confirming the PRD content (Phase 1.1) and another for the PLAN content (Phase 1.4) before start. The CASE itself needs no user confirmation. Execute the real CASE and preserve the original archive bytes.",
       "expected_output": "The new task explicitly documents PRD-only input, authors a new PLAN, and completes real verification without changing the original.",
       "assertions": [
         "The new PRD explicitly records PRD-only material and does not claim an existing implementation plan.",
         "A structurally valid new plan.md is created before startup.",
-        "No historical CASE/RESULT hash is reused as current confirmation or result evidence.",
-        "The new CASE executes with real evidence and coverage status.",
-        "Startup and CASE confirmation wait for independent user approval messages.",
+        "No historical confirmation record is reused as current confirmation or result evidence.",
+        "The new CASE executes with real evidence and coverage status after the main session's review.",
+        "PRD and PLAN content confirmations each wait for an independent user message; the CASE needs none.",
         "The original archive manifest is byte-identical after completion."
       ],
       "files": []

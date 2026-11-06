@@ -1,6 +1,6 @@
 /**
  * task-gates 模块单测：prd placeholder 判定、jsonl 有效记录判定、
- * start 门禁（含 alignment 分支）与 stale alignment 门禁求值（纯函数接缝）。
+ * start 门禁（PRD/PLAN 内容确认只判记录有无）求值（纯函数接缝）。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  PLAN_MISSING,
+  PLAN_NOT_CONFIRMED,
   PRD_STRUCTURE_CODES,
   findMissingPrdTitle,
   findUnfilledPrdSections,
@@ -17,9 +19,7 @@ import {
   evaluateFrontendDispatchGate,
   evaluateLightDispatchGate,
   evaluateStartGate,
-  evaluateStaleAlignmentGate,
 } from '../src/domain/task-gates.js'
-import { computePrdHash } from '../src/domain/alignment.js'
 
 /** 骨架 prd 原文（字面量独立于此模块常量，防同义反复）。 */
 const SKELETON_PRD = `## Goal
@@ -445,14 +445,16 @@ test('start 门禁 full：同一份最低 prd 仍按完整门禁拦截（零变�
   const { root, rel } = makeTaskDir(LIGHT_MIN_PRD)
   try {
     const missing = evaluateStartGate(root, rel, { mode: 'full', status: 'planning', alignment: null })
-    // 其余三个骨架小节、marker、双 jsonl 与对齐凭证都必须出现在拦截项里。
+    // 其余三个骨架小节、marker、双 jsonl、PLAN 结构与两份内容确认都必须出现在拦截项里。
     assert.ok(missing.some((item) => item.includes('"Requirements"')))
     assert.ok(missing.some((item) => item.includes('"Acceptance Criteria"')))
     assert.ok(missing.some((item) => item.includes('"Notes"')))
     assert.ok(missing.some((item) => item.includes('open-nodes marker')))
     assert.ok(missing.some((item) => item.includes('implement.jsonl')))
     assert.ok(missing.some((item) => item.includes('check.jsonl')))
-    assert.ok(missing.some((item) => item.includes('alignment')))
+    assert.ok(missing.includes(PLAN_MISSING))
+    assert.ok(missing.includes(PLAN_NOT_CONFIRMED) === false, '缺 PLAN 时只报结构缺失，不叠加确认缺失')
+    assert.ok(missing.some((item) => item.includes('no alignment credential recorded')))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -468,57 +470,122 @@ test('light 派发门禁：light 任务拒绝（文案说明主会话包办）�
   assert.deepEqual(evaluateLightDispatchGate({}), [])
 })
 
-test('stale alignment 门禁：in_progress + 凭据 hash 与当前 prd 一致 → 放行', () => {
-  const { root, rel } = makeTaskDir(FILLED_PRD)
-  try {
-    const hash = computePrdHash(FILLED_PRD)
-    const task = { status: 'in_progress', alignment: { passedAt: 'x', summary: 's', prdHash: hash } }
-    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, task), [])
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
+/** 最小合法 PLAN（步骤四要素齐全；夹具 prd 无 AC 编号，无溯源要求）。 */
+const MIN_PLAN = `# Plan
 
-test('stale alignment 门禁：in_progress + hash 失配 → 拦截（文案指引重新确认）', () => {
-  const { root, rel } = makeTaskDir(FILLED_PRD)
+## Steps
+
+#### 步骤 1 implement
+
+- Covers: AC1
+- Target: src/a.js
+- Edit: add implementation
+- Verify: pnpm lint
+`
+
+/** 在任务目录写入 PLAN 与双 jsonl 有效记录（start 门禁的其余前置）。 */
+function satisfyNonPrdGates(root, rel) {
+  writeFileSync(join(root, '.workloom', rel, 'plan.md'), MIN_PLAN)
+  writeFileSync(join(root, '.workloom', rel, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+  writeFileSync(join(root, '.workloom', rel, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+}
+
+/** 为 marker 缺失的 FILLED_PRD 补收敛标记。 */
+const CONVERGED_FILLED_PRD = `${FILLED_PRD}
+<!-- workloom:open-nodes=none -->
+`
+
+test('start 门禁：PLAN 结构合格但未确认 → 只报 PLAN_NOT_CONFIRMED', () => {
+  const { root, rel } = makeTaskDir(CONVERGED_FILLED_PRD)
   try {
-    const task = {
-      status: 'in_progress',
-      alignment: { passedAt: 'x', summary: 's', prdHash: 'deadbeef' },
+    satisfyNonPrdGates(root, rel)
+    const confirmed = {
+      mode: 'full',
+      status: 'planning',
+      alignment: { passedAt: 'x', summary: 's' },
+      planConfirmation: null,
     }
-    const missing = evaluateStaleAlignmentGate(root, rel, task)
-    assert.equal(missing.length, 1)
-    assert.match(missing[0], /alignment credential is stale/)
-    assert.match(missing[0], /workloom_task_align/)
+    const missing = evaluateStartGate(root, rel, confirmed)
+    assert.deepEqual(missing, [PLAN_NOT_CONFIRMED])
+    // 补上 PLAN 确认后放行（两份确认只判记录有无）
+    const missingAfter = evaluateStartGate(root, rel, {
+      ...confirmed,
+      planConfirmation: { passedAt: 'y', summary: 'p' },
+    })
+    assert.deepEqual(missingAfter, [])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('stale alignment 门禁：in_progress 无凭据（旧任务）与 planning/completed → 一律放行', () => {
-  const { root, rel } = makeTaskDir(FILLED_PRD)
+test('start 门禁：PRD 与 PLAN 均未确认 → 两条缺失项同时返回（一次修完）', () => {
+  const { root, rel } = makeTaskDir(CONVERGED_FILLED_PRD)
   try {
-    // 旧 in_progress 空凭据（R17：不追溯阻断）
-    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'in_progress', alignment: null }), [])
-    // planning（research 派发合法，start 门禁另行约束）与 completed
-    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'planning', alignment: null }), [])
-    const stale = { passedAt: 'x', summary: 's', prdHash: 'deadbeef' }
-    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'planning', alignment: stale }), [])
-    assert.deepEqual(evaluateStaleAlignmentGate(root, rel, { status: 'completed', alignment: stale }), [])
+    satisfyNonPrdGates(root, rel)
+    const missing = evaluateStartGate(root, rel, {
+      mode: 'full',
+      status: 'planning',
+      alignment: null,
+      planConfirmation: null,
+    })
+    assert.ok(missing.some((item) => item.includes('no alignment credential recorded')))
+    assert.ok(missing.includes(PLAN_NOT_CONFIRMED))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('stale alignment 门禁：prd 缺失时放行（缺失由其他门禁覆盖）', () => {
-  const { root, rel } = makeTaskDir(FILLED_PRD)
+test('start 门禁：缺 PLAN 只报结构缺失，不叠加 PLAN_NOT_CONFIRMED', () => {
+  const { root, rel } = makeTaskDir(CONVERGED_FILLED_PRD)
   try {
-    rmSync(join(root, '.workloom', rel, 'prd.md'), { force: true })
-    const stale = { passedAt: 'x', summary: 's', prdHash: 'deadbeef' }
-    assert.deepEqual(
-      evaluateStaleAlignmentGate(root, rel, { status: 'in_progress', alignment: stale }),
-      [],
-    )
+    writeFileSync(join(root, '.workloom', rel, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+    writeFileSync(join(root, '.workloom', rel, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+    const missing = evaluateStartGate(root, rel, {
+      mode: 'full',
+      status: 'planning',
+      alignment: { passedAt: 'x', summary: 's' },
+      planConfirmation: null,
+    })
+    assert.ok(missing.includes(PLAN_MISSING))
+    assert.equal(missing.includes(PLAN_NOT_CONFIRMED), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：容器任务（children 非空）豁免 PLAN 结构与确认门禁', () => {
+  const { root, rel } = makeTaskDir(CONVERGED_FILLED_PRD)
+  try {
+    writeFileSync(join(root, '.workloom', rel, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+    writeFileSync(join(root, '.workloom', rel, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+    const missing = evaluateStartGate(root, rel, {
+      mode: 'full',
+      status: 'planning',
+      children: ['tasks/xx-01-child'],
+      alignment: { passedAt: 'x', summary: 's' },
+      planConfirmation: null,
+    })
+    assert.deepEqual(missing, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：确认后修改 prd/plan 不产生 stale 缺失项（无哈希失效判定）', () => {
+  const { root, rel } = makeTaskDir(CONVERGED_FILLED_PRD)
+  try {
+    satisfyNonPrdGates(root, rel)
+    const confirmed = {
+      mode: 'full',
+      status: 'in_progress',
+      alignment: { passedAt: 'x', summary: 's' },
+      planConfirmation: { passedAt: 'y', summary: 'p' },
+    }
+    assert.deepEqual(evaluateStartGate(root, rel, confirmed), [])
+    // 确认后文档被修改：门禁只认记录有无，不再比对哈希，仍然放行。
+    writeFileSync(join(root, '.workloom', rel, 'prd.md'), `${CONVERGED_FILLED_PRD}\n- edited after confirm\n`)
+    writeFileSync(join(root, '.workloom', rel, 'plan.md'), `${MIN_PLAN}\n<!-- edited -->\n`)
+    assert.deepEqual(evaluateStartGate(root, rel, confirmed), [])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

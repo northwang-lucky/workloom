@@ -1080,10 +1080,6 @@ test('Active task 行旧任务 CASE 迁移提示：仅旧 full in_progress 显�
       case: {
         required: true,
         designSession: 'child-design',
-        confirmedAt: null,
-        caseHash: null,
-        summary: null,
-        result: null,
       },
     })
     const [, text3] = assembleSessionContext({ root, contextKey, workflowSteps: [] })

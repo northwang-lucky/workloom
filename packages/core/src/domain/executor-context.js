@@ -496,8 +496,8 @@ function buildInternal(params) {
 }
 
 /**
- * 普通增量续用文本：只追加确认摘要值，不重复 CASE 全文；execution 轮先校验
- * 当前确认仍然有效（未确认/摘要过期直接抛错，拒绝发送增量）；非 check kind
+ * 普通增量续用文本：只追加本轮执行指令；execution 轮先校验执行前置
+ * （CASE 文档缺失/设计会话缺失直接抛错，拒绝发送增量）；非 check kind
  * 原文返回，不做 CASE 校验。
  * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params 增量参数
  * @returns {string} 发送给原会话的增量指令
@@ -511,16 +511,14 @@ export function buildExecutorIncrementalPrompt(params) {
     const missing = evaluateCaseExecutionGate(params.root, params.taskRelPath, task)
     if (missing.length > 0) throw new Error(`CASE execution rejected: ${missing.join('; ')}`)
   }
-  const caseHash = task.case?.caseHash
-  return typeof caseHash === 'string' && caseHash !== ''
-    ? `${params.userPrompt}\n\nConfirmed CASE hash: ${caseHash}`
-    : params.userPrompt
+  return params.userPrompt
 }
 
 /**
  * 内联当前 CASE 全文（内部，仅 check）：紧跟 prd 块。execution 轮先校验执行
- * 前置（未确认/摘要过期抛错，拒绝启动 child）；文件缺失静默跳过（case-design
- * 首轮尚未写 case.md）；超预算直接抛错——CASE 是验收基线，不允许静默截断。
+ * 前置（CASE 文档缺失/设计会话缺失抛错，拒绝启动 child）；文件缺失静默跳过
+ * （case-design 首轮尚未写 case.md）；超预算直接抛错——CASE 是验收基线，
+ * 不允许静默截断。
  * @param {string[]} parts prompt 段落列表
  * @param {import('./executor-context.d.ts').BuildExecutorPromptParams} params 注入参数
  * @param {string} taskDir 任务目录绝对路径
@@ -531,7 +529,7 @@ function inlineCurrentCase(parts, params, taskDir, ci, stats) {
   if (params.kind !== EXECUTOR_KINDS.check) return
   const [taskErr, task] = readTask(params.root, params.taskRelPath)
   // 任务记录缺失/损坏静默降级（与 worktree 段同口径：prompt 组装对坏记录宽容，
-  // S2 零 diff 用例钉死该不变量）；记录可读时 execution 轮才做确认校验（fail loud）。
+  // S2 零 diff 用例钉死该不变量）；记录可读时 execution 轮才做执行前置校验（fail loud）。
   if (taskErr !== null || task === null) return
   const purpose = params.purpose ?? CASE_PURPOSES.EXECUTION
   if (purpose === CASE_PURPOSES.EXECUTION) {

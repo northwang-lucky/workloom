@@ -5,11 +5,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { computePrdHash } from '../dist/domain/alignment.js'
 import {
   CASE_FILES,
   CASE_PURPOSES,
-  computeCaseHash,
   createCaseRecord,
   evaluateCaseExecutionGate,
   evaluateCaseOutcomeGate,
@@ -136,7 +134,6 @@ function validResult(caseContent, rel = REL) {
   return `---
 version: 1
 task: ${rel}
-caseHash: ${computeCaseHash(caseContent)}
 codeBaseline: main@abc
 checkSession: child-design
 status: passed
@@ -248,11 +245,9 @@ function makeRoot() {
   return { root, taskDir }
 }
 
-function makeTask(caseContent) {
+function makeTask() {
   const caseRecord = createCaseRecord(true)
   caseRecord.designSession = 'child-design'
-  caseRecord.caseHash = computeCaseHash(caseContent)
-  caseRecord.confirmedAt = '2026-01-01T00:00:00.000Z'
   return {
     title: 'Demo',
     status: 'in_progress',
@@ -270,6 +265,19 @@ function writeArtifacts(taskDir, caseContent, resultContent) {
   writeFileSync(join(taskDir, CASE_FILES.document), caseContent)
   writeFileSync(join(taskDir, CASE_FILES.result), resultContent)
 }
+
+test('createCaseRecord 保留历史字段，新记录不写确认字段', () => {
+  const previous = {
+    required: false,
+    designSession: 'legacy-design',
+    confirmedAt: '2026-08-01T00:00:00Z',
+    caseHash: 'legacy-hash',
+    summary: 'legacy confirmation',
+    result: { caseHash: 'old', resultHash: 'old', passedAt: '2026-08-01T00:00:00Z' },
+  }
+  assert.deepEqual(createCaseRecord(true, previous), { ...previous, required: true })
+  assert.deepEqual(Object.keys(createCaseRecord(true)), ['required', 'designSession'])
+})
 
 test('CASE/PLAN 深度结构校验接受有效材料并聚合缺漏', () => {
   const caseContent = validCase()
@@ -310,7 +318,12 @@ test('start 门要求完整实施任务 PLAN，父任务豁免', () => {
     writeFileSync(join(taskDir, 'prd.md'), prd)
     writeFileSync(join(taskDir, 'implement.jsonl'), '{"file":"src/a.js"}\n')
     writeFileSync(join(taskDir, 'check.jsonl'), '{"file":"src/a.js"}\n')
-    const task = { status: 'planning', mode: 'full', children: [], alignment: { prdHash: computePrdHash(prd) } }
+    const task = {
+      status: 'planning',
+      mode: 'full',
+      children: [],
+      alignment: { passedAt: '2026-01-01T00:00:00.000Z', summary: 'prd confirmed' },
+    }
     assert.ok(evaluateStartGate(root, REL, task).includes('plan.md is missing'))
     assert.ok(!evaluateStartGate(root, REL, { ...task, children: ['tasks/child'] }).includes('plan.md is missing'))
   } finally {
@@ -318,15 +331,23 @@ test('start 门要求完整实施任务 PLAN，父任务豁免', () => {
   }
 })
 
-test('CASE 确认摘要、执行前置和 purpose stage', () => {
+test('CASE 执行前置只要求 case.md 与 designSession，purpose stage 保持', () => {
   const { root, taskDir } = makeRoot()
   try {
     const caseContent = validCase()
     writeFileSync(join(taskDir, CASE_FILES.document), caseContent)
-    const task = makeTask(caseContent)
+    const task = makeTask()
+    // 无确认记录、无哈希：文档存在 + 设计会话非空即放行
     assert.deepEqual(evaluateCaseExecutionGate(root, REL, task), [])
+    // CASE 文档在复核后被修改：不再判定「确认失效」，仍然放行
     writeFileSync(join(taskDir, CASE_FILES.document), `${caseContent}\n`)
-    assert.ok(evaluateCaseExecutionGate(root, REL, task)[0].includes('changed after confirmation'))
+    assert.deepEqual(evaluateCaseExecutionGate(root, REL, task), [])
+    // designSession 缺失仍拒绝
+    const noSession = { ...task, case: createCaseRecord(true) }
+    assert.deepEqual(evaluateCaseExecutionGate(root, REL, noSession), ['case.designSession is missing'])
+    // case.md 缺失仍拒绝
+    rmSync(join(taskDir, CASE_FILES.document))
+    assert.deepEqual(evaluateCaseExecutionGate(root, REL, task), ['case.md is missing'])
     assert.equal(computeTaskStage('implement', 'check', CASE_PURPOSES.DESIGN), 'implement')
     assert.equal(computeTaskStage('implement', 'check', CASE_PURPOSES.EXECUTION), 'check')
     assert.equal(computeTaskStage('implement', 'check'), 'check')
@@ -341,7 +362,7 @@ test('RESULT generated 通过、失败覆盖率与 blocked 均按硬门禁处理
     const caseContent = validCase()
     const resultContent = validResult(caseContent)
     writeArtifacts(taskDir, caseContent, resultContent)
-    const task = makeTask(caseContent)
+    const task = makeTask()
     const options = { changedFiles: ['src/a.js', 'docs/guide.md'] }
     assert.deepEqual(evaluateCaseOutcomeGate(root, REL, task, options), [])
     writeFileSync(join(taskDir, CASE_FILES.result), resultContent.replaceAll('`generated`', '`failed`'))
@@ -356,21 +377,26 @@ test('RESULT generated 通过、失败覆盖率与 blocked 均按硬门禁处理
   }
 })
 
-test('RESULT 会话链、纯文档不适用与记录摘要校验', () => {
+test('RESULT 会话链校验保留，结果哈希关联与结果状态记录删除', () => {
   const { root, taskDir } = makeRoot()
   try {
     const caseContent = validCase()
     const resultContent = validResult(caseContent).replace('checkSession: child-design', 'checkSession: child-exec')
     writeArtifacts(taskDir, caseContent, resultContent)
-    const task = makeTask(caseContent)
+    const task = makeTask()
     const options = { changedFiles: ['src/a.js', 'docs/guide.md'] }
+    // 会话链校验保留：checkSession 必须等于 designSession 或经 fallbackOf 可达
     assert.ok(evaluateCaseOutcomeGate(root, REL, task, options).some((item) => item.code === 'result_session'))
     task.dispatches.push({ kind: 'check', childId: 'child-exec', fallbackOf: 'child-design', purpose: 'execution' })
     assert.deepEqual(evaluateCaseOutcomeGate(root, REL, task, options), [])
-    task.case.result = { caseHash: task.case.caseHash, resultHash: computeCaseHash(resultContent), passedAt: 'now' }
-    assert.deepEqual(evaluateCaseOutcomeGate(root, REL, task, { ...options, requireResultRecord: true }), [])
+    // RESULT 与 CASE 文档在执行后被修改：不再有哈希关联校验，仍按结构校验判定
     writeFileSync(join(taskDir, CASE_FILES.result), `${resultContent}\n`)
-    assert.ok(evaluateCaseOutcomeGate(root, REL, task, { ...options, requireResultRecord: true }).some((item) => item.code === 'result_record_hash'))
+    assert.deepEqual(evaluateCaseOutcomeGate(root, REL, task, options), [])
+    writeFileSync(join(taskDir, CASE_FILES.document), `${caseContent}\n`)
+    assert.deepEqual(evaluateCaseOutcomeGate(root, REL, task, options), [])
+    // task.case.result 状态记录删除：旧任务遗留字段不参与任何校验
+    const legacy = { ...task, case: { ...task.case, result: { caseHash: 'a', resultHash: 'b', passedAt: 'now' } } }
+    assert.deepEqual(evaluateCaseOutcomeGate(root, REL, legacy, options), [])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -386,7 +412,7 @@ test('纯文档范围允许 not_applicable，文件缺失或漏审仍拒绝', ()
       .replaceAll('`coverage/lcov.info`', '`none`')
     resultContent = resultContent.replace('| `src/a.js` | `8/10` | `80%` | `12-13` | `none` |\n', '')
     writeArtifacts(taskDir, caseContent, resultContent)
-    const task = makeTask(caseContent)
+    const task = makeTask()
     const issues = evaluateCaseOutcomeGate(root, REL, task, { changedFiles: ['docs/guide.md'] })
     assert.deepEqual(issues, [])
   } finally {
@@ -399,7 +425,7 @@ test('force 不能绕过核心 CASE 问题且不新增 override', () => {
   try {
     const caseContent = validCase()
     writeArtifacts(taskDir, caseContent, validResult(caseContent).replaceAll('`generated`', '`failed`'))
-    const task = makeTask(caseContent)
+    const task = makeTask()
     writeFileSync(join(taskDir, 'task.json'), JSON.stringify(task))
     const [err] = checkTask(root, { taskRelPath: REL, summary: 'forced', force: true, reason: 'test' })
     assert.ok(err)
@@ -415,7 +441,7 @@ test('archive 同样拒绝核心 CASE 问题且不移动任务目录', async () 
   try {
     const caseContent = validCase()
     writeArtifacts(taskDir, caseContent, validResult(caseContent).replaceAll('`generated`', '`failed`'))
-    const task = makeTask(caseContent)
+    const task = makeTask()
     writeFileSync(join(taskDir, 'task.json'), JSON.stringify(task))
     const before = readFileSync(join(taskDir, 'task.json'), 'utf8')
     const [err] = await archiveTask(root, {
@@ -432,7 +458,7 @@ test('archive 同样拒绝核心 CASE 问题且不移动任务目录', async () 
   }
 })
 
-test('service review/confirm 使用当前摘要并在修改后失效', () => {
+test('service 只支持 review：返回内容、结构诊断、会话链与就绪标志，无哈希无确认写入', () => {
   const { root, taskDir } = makeRoot()
   try {
     execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' })
@@ -440,20 +466,31 @@ test('service review/confirm 使用当前摘要并在修改后失效', () => {
     execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init'], { cwd: root, stdio: 'ignore' })
     const caseContent = validCase()
     writeFileSync(join(taskDir, CASE_FILES.document), caseContent)
-    writeFileSync(join(taskDir, 'task.json'), JSON.stringify(makeTask(caseContent)))
+    writeFileSync(join(taskDir, 'task.json'), JSON.stringify(makeTask()))
     const [reviewErr, review] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
     assert.equal(reviewErr, null)
-    assert.equal(review.readyToConfirm, true)
-    const [confirmErr, confirmed] = executeTaskCase(root, 'unused', {
-      action: 'confirm', taskPath: REL, expectedCaseHash: review.caseHash, summary: 'approved',
+    assert.equal(review.action, 'review')
+    assert.equal(review.case, caseContent)
+    assert.equal(review.designSession, 'child-design')
+    assert.deepEqual(review.structureIssues, [])
+    assert.deepEqual(review.blockers, [])
+    assert.equal(review.readyForExecution, true)
+    // 无哈希字段、无确认动作：confirm 一律拒绝（协议只保留 review）
+    assert.equal('caseHash' in review, false)
+    const [confirmErr] = executeTaskCase(root, 'unused', {
+      action: 'confirm', taskPath: REL, expectedCaseHash: 'x', summary: 'approved',
     })
-    assert.equal(confirmErr, null)
-    assert.equal(confirmed.caseRecord.required, true)
+    assert.ok(confirmErr)
+    assert.match(confirmErr.message, /only action=review is supported/)
+    // CASE 文档复核后被修改：review 照常返回诊断，执行前置不受影响
     writeFileSync(join(taskDir, CASE_FILES.document), `${caseContent}\n`)
     const [, changed] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
-    assert.notEqual(changed.caseHash, review.caseHash)
+    assert.equal(changed.readyForExecution, true)
     const [, saved] = readTask(root, REL)
-    assert.ok(evaluateCaseExecutionGate(root, REL, saved).some((message) => message.includes('changed after confirmation')))
+    assert.deepEqual(evaluateCaseExecutionGate(root, REL, saved), [])
+    // task.json 未写入任何确认凭证
+    assert.equal('confirmedAt' in saved.case, false)
+    assert.equal('caseHash' in saved.case, false)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -480,12 +517,12 @@ test('子任务归档后父任务 CASE review 从归档目录解析 PLAN', () =>
     mkdirSync(join(archiveMonthDir, 'child-b'), { recursive: true })
     writeFileSync(join(archiveMonthDir, 'child-a', 'plan.md'), '# Plan\n\n## Steps\n\n#### 步骤 1.1 test\n')
     writeFileSync(join(archiveMonthDir, 'child-b', 'plan.md'), '# Plan\n\n## Steps\n\n#### 步骤 1.1 test\n')
-    const task = { ...makeTask(caseContent), children: [CHILD_A, CHILD_B] }
+    const task = { ...makeTask(), children: [CHILD_A, CHILD_B] }
     writeFileSync(join(taskDir, 'task.json'), JSON.stringify(task))
     const [reviewErr, review] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
     assert.equal(reviewErr, null)
     assert.deepEqual(review.structureIssues, [])
-    assert.equal(review.readyToConfirm, true)
+    assert.equal(review.readyForExecution, true)
     // 当前路径与归档路径都不存在时，保留 parent_plan_missing 明确错误
     rmSync(join(root, '.workloom', 'tasks', 'archive'), { recursive: true, force: true })
     const [, missing] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
@@ -556,7 +593,7 @@ test('RESULT 排除表与规则化 CASE 排除一致时通过且不计入覆盖�
       '| `docs/**` | `generated docs` |',
     )
     writeArtifacts(taskDir, caseContent, resultContent)
-    const task = makeTask(caseContent)
+    const task = makeTask()
     const issues = evaluateCaseOutcomeGate(root, REL, task, { changedFiles: ['src/a.js', 'docs/guide.md'] })
     assert.deepEqual(issues, [])
     // RESULT 排除表与 CASE 规则不一致仍拒绝

@@ -22,7 +22,6 @@ import {
   buildExecutorIncrementalPrompt,
   buildExecutorPrompt,
 } from '../dist/domain/executor-context.js'
-import { computeCaseHash } from '../dist/domain/case.js'
 
 /** 任务目录相对 .workloom 的路径（测试统一使用）。 */
 const TASK_REL_PATH = 'tasks/08-24-demo'
@@ -1131,8 +1130,8 @@ function writeFullFixture(root) {
   writeRootFile(root, 'packages/a.js', 'const a = 1\n')
 }
 
-/** 写带已确认 CASE 记录的 task.json（CASE 注入用例共用；CASE 全文参与 hash）。 */
-function writeCaseTask(root, caseText) {
+/** 写带 CASE 记录的 task.json（CASE 注入用例共用；记录只含 required/designSession）。 */
+function writeCaseTask(root, _caseText) {
   writeTaskFile(root, 'task.json', JSON.stringify({
     title: 'Demo',
     status: 'in_progress',
@@ -1140,10 +1139,6 @@ function writeCaseTask(root, caseText) {
     case: {
       required: true,
       designSession: 'child-design',
-      confirmedAt: '2026-01-01T00:00:00.000Z',
-      caseHash: computeCaseHash(caseText),
-      summary: 'approved',
-      result: null,
     },
     children: [],
     dispatches: [],
@@ -1477,7 +1472,7 @@ test('CASE 超预算直接抛错，不做静默截断', () => {
   }
 })
 
-test('增量续用只追加确认摘要值，execution 未确认先拒绝', () => {
+test('增量续用只追加本轮执行指令，execution 缺设计会话先拒绝', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
@@ -1489,28 +1484,24 @@ test('增量续用只追加确认摘要值，execution 未确认先拒绝', () =
       mode: 'full',
       case: {
         required: true,
-        designSession: 'child-design',
-        confirmedAt: null,
-        caseHash: null,
-        summary: null,
-        result: null,
+        designSession: null,
       },
       children: [],
       dispatches: [],
       overrides: [],
       hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
     }))
-    // execution 未确认（required=true 且 caseHash 为空）→ 拒绝且不发增量
+    // execution 前置：required=true 且 designSession 缺失 → 拒绝且不发增量
     assert.throws(
       () => buildExecutorIncrementalPrompt({ ...baseParams(root, 'check'), purpose: 'execution' }),
-      /CASE execution rejected: case.md has not been confirmed/,
+      /CASE execution rejected: case\.designSession is missing/,
     )
-    // 设计轮无确认要求，增量原文返回
+    // 设计轮无执行前置，增量原文返回
     assert.equal(
       buildExecutorIncrementalPrompt({ ...baseParams(root, 'check'), purpose: 'case-design' }),
       'Do the thing',
     )
-    // 确认后 execution 追加摘要值行
+    // 记录 designSession 后 execution 放行：增量只含本轮指令，不追加哈希文本
     writeTaskFile(root, 'task.json', JSON.stringify({
       title: 'Demo',
       status: 'in_progress',
@@ -1518,10 +1509,6 @@ test('增量续用只追加确认摘要值，execution 未确认先拒绝', () =
       case: {
         required: true,
         designSession: 'child-design',
-        confirmedAt: '2026-01-01T00:00:00.000Z',
-        caseHash: computeCaseHash(caseText),
-        summary: 'approved',
-        result: null,
       },
       children: [],
       dispatches: [],
@@ -1532,8 +1519,8 @@ test('增量续用只追加确认摘要值，execution 未确认先拒绝', () =
       ...baseParams(root, 'check'),
       purpose: 'execution',
     })
-    assert.ok(incremental.startsWith('Do the thing\n\nConfirmed CASE hash: '))
-    assert.ok(!incremental.includes('# CASE'), '增量不得重复 CASE 全文')
+    assert.equal(incremental, 'Do the thing')
+    assert.ok(!incremental.includes('Confirmed CASE hash'), '增量不得再追加确认哈希行')
     // 非 check kind：增量原文返回，不做 CASE 校验
     assert.equal(
       buildExecutorIncrementalPrompt({ ...baseParams(root, 'implement'), purpose: 'execution' }),

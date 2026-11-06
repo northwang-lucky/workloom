@@ -8,7 +8,6 @@ export type GateKey =
   | 'CHECK'
   | 'ARCHIVE'
   | 'EXECUTOR_MODEL_EFFORT'
-  | 'STALE_ALIGN'
   | 'LIGHT_DISPATCH'
 
 /** 卡点取值（task.json overrides[].gate）。 */
@@ -17,7 +16,6 @@ export type GateValue =
   | 'check'
   | 'archive'
   | 'executor_model_effort'
-  | 'stale_alignment'
   | 'light_dispatch'
 
 /** 卡点枚举常量对象。 */
@@ -79,6 +77,9 @@ export function inspectPrdStructure(prdContent: string | null): PrdStructureIssu
 /** PLAN 文件缺失文案（完整实施任务 start 门禁拦截）。 */
 export const PLAN_MISSING: string
 
+/** PLAN 内容未确认文案（PLAN 结构合格但无 planConfirmation 时 start 拦截）。 */
+export const PLAN_NOT_CONFIRMED: string
+
 /** 单条 PLAN 结构问题：稳定 code + 英文运行时文案。 */
 export interface PlanStructureIssue {
   code:
@@ -106,17 +107,6 @@ export const LIGHT_DISPATCH_REJECT: string
 /** 求值轻量任务派发门禁（纯函数）：light 任务返回拒绝文案，full/旧任务放行。 */
 export function evaluateLightDispatchGate(
   task: TaskRecord | null | undefined,
-): string[]
-
-/**
- * 求值 stale alignment 门禁（含 IO：读当前 prd.md 计算 hash）：
- * in_progress 且有 alignment 凭据但 hash 失配 → 返回缺失项；其余（旧任务空凭据、
- * planning/completed、prd 缺失）一律放行。executor 派发/check/archive 共用。
- */
-export function evaluateStaleAlignmentGate(
-  root: string,
-  taskRelPath: string,
-  task: TaskRecord,
 ): string[]
 
 /** 求值 check 门禁（check.jsonl 有效记录）：返回缺失项描述列表（空数组表示通过）。 */

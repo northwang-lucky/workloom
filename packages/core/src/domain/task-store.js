@@ -39,14 +39,11 @@ import {
   evaluateCheckLogGate,
   evaluateFrontendDispatchGate,
   evaluateStartGate,
-  evaluateStaleAlignmentGate,
   makeOverride,
 } from './task-gates.js'
-// CASE 生命周期（与 alignment 凭据同构的门禁与窄写口，import 紧随其门禁来源之后）。
+// CASE 生命周期门禁（import 紧随其门禁来源之后；写面只剩 start 的 required 转换）。
 import {
-  CASE_FILES,
   CASE_PURPOSES,
-  computeCaseHash,
   createCaseRecord,
   evaluateCaseOutcomeGate,
 } from './case.js'
@@ -277,9 +274,12 @@ function normalizeTaskRecord(parsed) {
     hooks,
     check: parsed.check ?? null,
     // alignment 凭据缺失补 null：与 check 同策，保证门禁对旧数据安全。
-    // 旧 grilling 字段经 ...parsed 原样透传（惰性历史数据，不参与新语义、不迁移）。
+    // 旧 grilling 字段经 ...parsed 原样透传（惰性历史数据，不参与新语义、不迁移）；
+    // 旧凭据里的 prdHash 在下一次 confirm 覆盖时自然丢弃（读时容忍，不迁移）。
     alignment: parsed.alignment ?? null,
-    // CASE 生命周期记录：缺字段读 null（旧任务），有记录归一补默认键（三态保留）。
+    // PLAN 内容确认记录：缺字段读 null（旧任务与未确认任务），与 alignment 同策。
+    planConfirmation: parsed.planConfirmation ?? null,
+    // CASE 生命周期记录：缺字段读 null；有记录补默认键并原样保留历史字段。
     case:
       typeof parsed.case === 'object' && parsed.case !== null
         ? createCaseRecord(parsed.case.required === true, parsed.case)
@@ -419,9 +419,11 @@ function buildTaskRecord(input) {
     // CASE 生命周期（required/designSession/confirmedAt/caseHash/summary/result）：
     // 新建任务落 null；start 完整任务时才转换（旧任务保留既有确认数据）。
     case: null,
-    // alignment 凭据（passedAt/summary/prdHash）：planning 阶段经 workloom_task_align
+    // PRD 内容确认（passedAt/summary，无哈希）：planning 阶段经 workloom_task_align
     // action=confirm 原子写入；新建任务仅落 null（旧 grilling 不再写入新任务）。
     alignment: null,
+    // PLAN 内容确认（passedAt/summary，无哈希）：PLAN 复核后经 target=plan confirm 写入。
+    planConfirmation: null,
     overrides: [],
     // 任务阶段：新建任务显式落盘 implement（首次派发前处于实现期）。
     stage: TaskStage.IMPLEMENT,
@@ -762,8 +764,8 @@ async function startTaskInternal(root, params) {
     task.base_branch = wt.baseBranch
     task.worktree_path = wt.worktreePath
   }
-  // 完整任务进入 in_progress 即启用新 CASE 通过条件（旧确认数据随 createCaseRecord
-  // 保留；轻量任务无 CASE 流程，保持 null）。
+  // 完整任务进入 in_progress 即启用新 CASE 通过条件（新记录只含 required/designSession，
+  // 旧任务的历史字段原样保留但不参与新逻辑；轻量任务无 CASE 流程，保持 null）。
   if (task.mode !== TASK_MODES.LIGHT) {
     task.case = createCaseRecord(true, task.case)
   }
@@ -798,8 +800,7 @@ export function checkTask(root, params) {
  * 记录 2.2 check 凭据（内部实现）：
  * - in_progress + summary 非空为硬前置；
  * - 门禁面：check.jsonl 有效记录 + frontend 派发门禁（非 force 求值并拦截）；
- * - stale alignment 门禁（R13）：in_progress 且凭据 stale 时拒绝写 check，
- *   force 放行须逐项留痕（CHECK 与 STALE_ALIGN 各按实际绕过记录）。
+ *   force 放行须按实际绕过的 gate 逐项留痕。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').CheckTaskParams} params
  * @returns {import('./task-store.d.ts').TaskRecordWithPath}
@@ -817,7 +818,7 @@ function checkTaskInternal(root, params) {
   if (typeof summary !== 'string' || summary.trim() === '') {
     throw new Error(`${ERR_PREFIX}: checkTask requires a non-empty summary`)
   }
-  // CASE 核心门禁（不可 force）：未确认/过期 CASE 或无效 RESULT 一律拒绝写凭据。
+  // CASE 核心门禁（不可 force）：CASE 文档/会话链/RESULT 实质校验不过一律拒绝写凭据。
   const caseIssues = evaluateCaseOutcomeGate(projectRoot, params.taskRelPath, task)
   if (caseIssues.length > 0) {
     throw new Error(
@@ -841,35 +842,7 @@ function checkTaskInternal(root, params) {
       )
     }
   }
-  // stale alignment 门禁（机制强制，R13）：in_progress 凭据 stale 时拒绝写 check。
-  const staleMissing = evaluateStaleAlignmentGate(projectRoot, params.taskRelPath, task)
-  if (staleMissing.length > 0) {
-    if (forced) {
-      task.overrides.push(makeOverride(GATES.STALE_ALIGN, params.reason))
-    } else {
-      throw new Error(
-        `${ERR_PREFIX}: check gate failed: ${staleMissing.join('; ')} ` +
-          '(pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)',
-      )
-    }
-  }
   task.check = { passedAt: new Date().toISOString(), summary }
-  // 通过凭据落盘前记录 CASE RESULT 摘要（归档 requireResultRecord 再校验用）。
-  if (task.case?.required === true) {
-    const caseHash = task.case.caseHash
-    const resultContent = readTaskContent(
-      insideWorkloom(projectRoot, params.taskRelPath),
-      CASE_FILES.result,
-    )
-    if (resultContent === null) throw new Error(`${ERR_PREFIX}: case-result.md is missing`)
-    // 前置 CASE 门禁已确保 caseHash 非空，此处仅满足类型收窄（fail loud 防御）。
-    if (caseHash === null) throw new Error(`${ERR_PREFIX}: case.md has not been confirmed`)
-    task.case.result = {
-      caseHash,
-      resultHash: computeCaseHash(resultContent),
-      passedAt: task.check.passedAt,
-    }
-  }
   writeTaskJson(insideWorkloom(projectRoot, params.taskRelPath), stripTaskPath(task))
   return task
 }
@@ -893,13 +866,13 @@ function collectCheckGateMissing(root, taskRelPath, task) {
 }
 
 /**
- * 记录 alignment 凭据（workloom_task_align confirm 的窄写口，同步全链路）：
+ * 记录 PRD 内容确认（workloom_task_align confirm 的窄写口，同步全链路）：
  * 校验入参与任务状态后，经同目录临时文件 + renameSync 原子写 task.json
- * alignment；相同 prdHash 重复 confirm 幂等早退（不刷新 passedAt，R11）。
- * 校验失败零写入；服务层负责 PRD 结构/hash/开放节点等前置校验，本口只落凭据。
+ * alignment；无哈希可比，每次 confirm 都刷新 passedAt 与 summary（不幂等早退）。
+ * 校验失败零写入；服务层负责 PRD 结构/开放节点等前置校验，本口只落凭据。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').AlignmentCredentialInput} entry 凭据入参（summary/prdHash）
+ * @param {import('./task-store.d.ts').AlignmentCredentialInput} entry 凭据入参（summary）
  * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
  */
 export function recordAlignmentCredential(root, taskRelPath, entry) {
@@ -911,7 +884,7 @@ export function recordAlignmentCredential(root, taskRelPath, entry) {
 }
 
 /**
- * 记录 alignment 凭据（内部实现，失败抛错由外层转元组）。
+ * 记录 PRD 内容确认（内部实现，失败抛错由外层转元组）。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {import('./task-store.d.ts').AlignmentCredentialInput} entry 凭据入参
@@ -926,24 +899,15 @@ function recordAlignmentCredentialInternal(root, taskRelPath, entry) {
         `(current: ${task.status})`,
     )
   }
-  // 局部收窄：属性访问不保持窄化，summary/prdHash 先取到局部变量再校验。
+  // 局部收窄：属性访问不保持窄化，summary 先取到局部变量再校验。
   const summary = entry.summary
-  const prdHash = entry.prdHash
   if (typeof summary !== 'string' || summary.trim() === '') {
     throw new Error(`${ERR_PREFIX}: alignment credential requires a non-empty summary`)
   }
-  if (typeof prdHash !== 'string' || prdHash.trim() === '') {
-    throw new Error(`${ERR_PREFIX}: alignment credential requires a non-empty prdHash`)
-  }
-  // 幂等早退：相同 hash 重复 confirm 返回旧凭据，不刷新 passedAt（R11）。
-  const previous = task.alignment
-  if (previous !== null && previous.prdHash === prdHash) {
-    return task
-  }
+  // 每次确认都覆盖为最近一次记录：旧凭据的 prdHash 随整体替换自然丢弃。
   task.alignment = {
     passedAt: new Date().toISOString(),
     summary,
-    prdHash,
   }
   // 凭据写口全程同步 + 原子替换（temp + renameSync；失败清理残留）。
   writeFileAtomic(
@@ -954,43 +918,58 @@ function recordAlignmentCredentialInternal(root, taskRelPath, entry) {
 }
 
 /**
- * CASE 确认窄写口：校验摘要/摘要值、拒绝 completed、同 hash 幂等，写入
- * required/confirmedAt/caseHash/summary 并清空 result（与 alignment 凭据同构）。
+ * 记录 PLAN 内容确认（workloom_task_align target=plan confirm 的窄写口）：
+ * 校验入参、任务状态与「PRD 已确认」顺序前置后，原子写 task.json
+ * planConfirmation；每次 confirm 都刷新 passedAt 与 summary（无哈希，不幂等早退）。
  * @param {string} root 项目根
- * @param {string} taskRelPath 任务相对路径
- * @param {import('./task-store.d.ts').CaseConfirmationInput} entry 确认摘要与 CASE 摘要值
- * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]} 写入结果
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').PlanConfirmationInput} entry 确认入参（summary）
+ * @returns {[Error | null, import('./task-store.d.ts').TaskRecordWithPath | null]}
  */
-export function recordCaseConfirmation(root, taskRelPath, entry) {
+export function recordPlanConfirmation(root, taskRelPath, entry) {
   try {
-    const projectRoot = requireProjectRoot(root)
-    const task = requireTask(projectRoot, taskRelPath)
-    if (task.status === TaskStatus.COMPLETED) {
-      throw new Error(`${ERR_PREFIX}: completed tasks cannot confirm CASE`)
-    }
-    if (typeof entry.summary !== 'string' || entry.summary.trim() === '') {
-      throw new Error(`${ERR_PREFIX}: CASE confirmation requires a non-empty summary`)
-    }
-    if (typeof entry.caseHash !== 'string' || entry.caseHash.trim() === '') {
-      throw new Error(`${ERR_PREFIX}: CASE confirmation requires a non-empty caseHash`)
-    }
-    if (task.case?.required === true && task.case.caseHash === entry.caseHash) return [null, task]
-    const confirmedAt = new Date().toISOString()
-    task.case = {
-      ...createCaseRecord(true, task.case),
-      confirmedAt,
-      caseHash: entry.caseHash,
-      summary: entry.summary,
-      result: null,
-    }
-    writeFileAtomic(
-      join(insideWorkloom(projectRoot, taskRelPath), FILE_NAMES.taskJson),
-      serializeTask(stripTaskPath(task)),
-    )
-    return [null, task]
+    return [null, recordPlanConfirmationInternal(root, taskRelPath, entry)]
   } catch (error) {
     return [toError(error), null]
   }
+}
+
+/**
+ * 记录 PLAN 内容确认（内部实现，失败抛错由外层转元组）。
+ * @param {string} root 项目根
+ * @param {string} taskRelPath 任务目录相对 .workloom 的路径
+ * @param {import('./task-store.d.ts').PlanConfirmationInput} entry 确认入参
+ * @returns {import('./task-store.d.ts').TaskRecordWithPath}
+ */
+function recordPlanConfirmationInternal(root, taskRelPath, entry) {
+  const projectRoot = requireProjectRoot(root)
+  const task = requireTask(projectRoot, taskRelPath)
+  if (task.status === TaskStatus.COMPLETED) {
+    throw new Error(
+      `${ERR_PREFIX}: only planning/in_progress tasks can record a plan confirmation ` +
+        `(current: ${task.status})`,
+    )
+  }
+  // 顺序前置（R3）：PLAN 确认必须在 PRD 确认之后，未确认时拒绝并指引先确认 PRD。
+  if (task.alignment === null) {
+    throw new Error(
+      `${ERR_PREFIX}: plan confirmation requires a confirmed PRD ` +
+        '(confirm the PRD first via workloom_task_align with target=prd action=confirm)',
+    )
+  }
+  const summary = entry.summary
+  if (typeof summary !== 'string' || summary.trim() === '') {
+    throw new Error(`${ERR_PREFIX}: plan confirmation requires a non-empty summary`)
+  }
+  task.planConfirmation = {
+    passedAt: new Date().toISOString(),
+    summary,
+  }
+  writeFileAtomic(
+    join(insideWorkloom(projectRoot, taskRelPath), FILE_NAMES.taskJson),
+    serializeTask(stripTaskPath(task)),
+  )
+  return task
 }
 
 /**
@@ -1036,7 +1015,7 @@ function recordExecutorOverrideInternal(root, taskRelPath, reason) {
 
 /**
  * 记录指定 gate 的 force 豁免（R14：每个实际绕过的 gate 独立留痕；reason 必填非空）。
- * stale_alignment 等非 executor_model_effort 门禁的 force 审计由适配层调用。
+ * light_dispatch 等非 executor_model_effort 门禁的 force 审计由适配层调用。
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {import('./task-gates.d.ts').GateValue} gate 被绕过的 gate
@@ -1465,13 +1444,10 @@ export async function archiveTask(root, params) {
 async function archiveTaskInternal(root, params) {
   const projectRoot = requireProjectRoot(root)
   const task = requireTask(projectRoot, params.taskRelPath)
-  // 门禁先于任何写盘：无 check 凭据一律拒绝（不区分新旧任务）；stale alignment
-  // 在 in_progress 任务上同样拒绝（R13）。force 豁免按实际绕过的 gate 逐项留痕，
-  // 记录随归档写入移动后的 task.json。
-  // CASE 核心门禁（不可 force）：归档要求 RESULT 已记录且当前 RESULT 与记录一致。
-  const caseIssues = evaluateCaseOutcomeGate(projectRoot, params.taskRelPath, task, {
-    requireResultRecord: true,
-  })
+  // 门禁先于任何写盘：无 check 凭据一律拒绝（不区分新旧任务）。force 豁免按
+  // 实际绕过的 gate 逐项留痕，记录随归档写入移动后的 task.json。
+  // CASE 核心门禁（不可 force）：归档要求实际 RESULT 文档成立（无额外的结果状态记录）。
+  const caseIssues = evaluateCaseOutcomeGate(projectRoot, params.taskRelPath, task)
   if (caseIssues.length > 0) {
     throw new Error(
       `${ERR_PREFIX}: CASE archive gate failed: ${caseIssues.map((item) => item.message).join('; ')} ` +
@@ -1491,17 +1467,6 @@ async function archiveTaskInternal(root, params) {
         '(run workloom_task_check after 2.2 passes, or pass force: true with a non-empty reason to bypass; ' +
         'the bypass is recorded in task.json overrides)',
     )
-  }
-  const staleMissing = evaluateStaleAlignmentGate(projectRoot, params.taskRelPath, task)
-  if (staleMissing.length > 0) {
-    if (forced) {
-      task.overrides.push(makeOverride(GATES.STALE_ALIGN, params.reason))
-    } else {
-      throw new Error(
-        `${ERR_PREFIX}: archive gate failed: ${staleMissing.join('; ')} ` +
-          '(pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)',
-      )
-    }
   }
   // 先查冲突再动手：避免改完状态后因冲突失败留下半完成态。
   const now = new Date()

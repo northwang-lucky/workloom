@@ -18,8 +18,8 @@ case "$SCENARIO" in
   planning-defers-execution) EVAL_INDEX=0 ;;
   ready-executes-and-revalidates-fingerprint) EVAL_INDEX=1 ;;
   legacy-migrates-and-executes) EVAL_INDEX=2 ;;
-  batch-one-confirmation) EVAL_INDEX=3 ;;
-  blocked-stops-batch) EVAL_INDEX=4 ;;
+  multi-task-serial-execution) EVAL_INDEX=3 ;;
+  blocked-stops-later-tasks) EVAL_INDEX=4 ;;
   *) echo "unknown scenario: $SCENARIO" >&2; exit 2 ;;
 esac
 EVAL_NAME="eval-${EVAL_INDEX}-${SCENARIO}"

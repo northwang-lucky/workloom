@@ -16,7 +16,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import {
-  computePrdHash,
   evaluateAlignmentGate,
   findOpenNodeState,
   OPEN_NODE_MARKER,
@@ -44,8 +43,6 @@ export const GATES = Object.freeze({
   ARCHIVE: 'archive',
   // executor 参数与 subagents 配置冲突的 force 覆盖（override 审计门）。
   EXECUTOR_MODEL_EFFORT: 'executor_model_effort',
-  // alignment 凭据 stale 的 force 覆盖（in_progress 任务新派发/续用/check/archive 拦截门）。
-  STALE_ALIGN: 'stale_alignment',
   // 轻量任务派发拒绝的 force 覆盖（轻量任务由主会话包办，不需要执行器）。
   LIGHT_DISPATCH: 'light_dispatch',
 })
@@ -61,8 +58,6 @@ export const GATE_TOOLS = Object.freeze({
   archive: 'workloom_task_archive',
   // 与 surface.TOOL_NAMES.executor 一致（domain 纯 JS 不可 import TS，按既有风格逐字重复）。
   executor_model_effort: 'workloom_execute',
-  // stale_alignment 由 workloom_execute 触发（新派发与续用共用，同 surface.TOOL_NAMES.executor）。
-  stale_alignment: 'workloom_execute',
   // light_dispatch 同由 workloom_execute 触发（轻量任务拒绝派发的 force 豁免留痕）。
   light_dispatch: 'workloom_execute',
 })
@@ -152,9 +147,6 @@ const UI_NOT_APPLICABLE_PREFIXES = Object.freeze(['不适用', 'n/a', 'not appli
 
 /** 前端派发门禁缺失项文案（涉及前端展示但无 frontend 派发，机制强制）。 */
 const FRONTEND_DISPATCH_MISSING = 'no frontend dispatch recorded for a task with UI requirements'
-
-/** stale alignment 门禁只作用于 in_progress（旧任务与 planning 不在此门内）。 */
-const IN_PROGRESS_STATUS = 'in_progress'
 
 /**
  * 轻量任务 start 门保留的 prd 小节：只要求 Goal（最低可审计性）。
@@ -268,31 +260,13 @@ export function countEffectiveJsonlRecords(content, jsonlName) {
 }
 
 /**
- * 求值 stale alignment 门禁（含 IO，供 executor 派发/check/archive 复用）：
- * 只对 in_progress 且有 alignment 凭据的任务判 stale——读取当前 prd.md 计算
- * hash 与凭据快照比对，失配返回缺失项（R13：旧 in_progress 空凭据任务与
- * planning research 不受此门影响）。prd 缺失返回空（缺失由其他门禁覆盖）。
- * @param {string} root 项目根（必须已是 findWorkloomRoot 的结果）
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').TaskRecord} task 归一化后的任务记录（alignment 凭据）
- * @returns {string[]} 缺失项描述列表（空数组表示通过）
- */
-export function evaluateStaleAlignmentGate(root, taskRelPath, task) {
-  if (task?.status !== IN_PROGRESS_STATUS) return []
-  if (task.alignment === null) return []
-  const prd = readIfExists(join(insideWorkloom(root, taskRelPath), GATE_FILES.prd))
-  if (prd === null) return []
-  return evaluateAlignmentGate(task.status, task.alignment, computePrdHash(prd))
-}
-
-/**
  * 求值 start 门禁：返回缺失项描述列表（空数组表示通过）。
- * prd.md 缺失/一级标题缺失/小节未填、implement.jsonl 与 check.jsonl 无有效记录、
- * alignment 门禁缺失项（planning 无凭据或凭据 hash 与当前 prd 不一致）各占一项；
+ * prd.md 缺失/一级标题缺失/小节未填、PLAN 结构与内容确认、双 jsonl 有效记录、
+ * PRD 内容确认记录各占拦截项；确认只判记录有无，不比对文档哈希；
  * jsonl 结构性坏行抛错（fail loud，不放行）。
  * @param {string} root 项目根（必须已是 findWorkloomRoot 的结果）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {import('./task-store.d.ts').TaskRecord} task 归一化后的任务记录（alignment 凭据）
+ * @param {import('./task-store.d.ts').TaskRecord} task 归一化后的任务记录
  * @returns {string[]} 缺失项描述列表
  */
 export function evaluateStartGate(root, taskRelPath, task) {
@@ -303,7 +277,7 @@ export function evaluateStartGate(root, taskRelPath, task) {
   if (prd === null) {
     missing.push(PRD_MISSING)
   } else if (light) {
-    // 轻量任务：只保留 H1 与 Goal 两类拦截，其余小节/marker/对齐凭证全部跳过。
+    // 轻量任务：只保留 H1 与 Goal 两类拦截，其余小节/marker/确认记录/PLAN/jsonl 全部跳过。
     missing.push(...inspectLightStartPrd(prd))
   } else {
     // prd 内容门禁与 review/confirm 共用分类器：一次列出 H1/小节/marker 的全部问题。
@@ -312,11 +286,20 @@ export function evaluateStartGate(root, taskRelPath, task) {
     // PLAN 在 CASE 校验中消费；轻量任务走 light 分支天然不受影响）。
     if (!Array.isArray(task?.children) || task.children.length === 0) {
       const plan = readIfExists(join(taskDir, GATE_FILES.plan))
-      missing.push(...inspectPlanStructure(plan, prd).map((issue) => issue.message))
+      const planIssues = inspectPlanStructure(plan, prd)
+      missing.push(...planIssues.map((issue) => issue.message))
+      // PLAN 内容确认门禁：结构合格但未确认时只报确认缺失；缺 PLAN 时只报结构缺失，
+      // 便于主会话一次判断先修哪个。
+      if (
+        planIssues.length === 0 &&
+        (task?.planConfirmation === null || task?.planConfirmation === undefined)
+      ) {
+        missing.push(PLAN_NOT_CONFIRMED)
+      }
     }
-    // alignment 门禁：planning 必须有凭据且 hash 与当前 prd 一致（旧 planning
-    // 任务须重新 alignment；确认后 prd 再变即 stale，均指向 workloom_task_align）。
-    missing.push(...evaluateAlignmentGate(task?.status ?? 'planning', task?.alignment ?? null, computePrdHash(prd)))
+    // PRD 内容确认门禁：planning 必须有确认记录（只判有无，不比对哈希；
+    // 旧 planning 任务须重新确认，指向 workloom_task_align）。
+    missing.push(...evaluateAlignmentGate(task?.status ?? 'planning', task?.alignment ?? null))
   }
   // 轻量任务免 implement/check jsonl：没有执行器与 jsonl 记录，自查由 check.summary 承载。
   if (!light) {
@@ -330,6 +313,10 @@ export function evaluateStartGate(root, taskRelPath, task) {
 
 /** PLAN 门禁缺失项文案：plan.md 不存在（完整实施任务 start 拦截）。 */
 export const PLAN_MISSING = 'plan.md is missing'
+
+/** PLAN 门禁缺失项文案：PLAN 结构合格但内容未确认（start 拦截，指引 target=plan confirm）。 */
+export const PLAN_NOT_CONFIRMED =
+  'plan.md content has not been confirmed (run workloom_task_align with target=plan after reviewing plan.md)'
 
 /** PLAN 一级标题匹配（trimStart 后必须以 `# ` 开头）。 */
 const PLAN_TITLE_RE = /^#\s+\S/

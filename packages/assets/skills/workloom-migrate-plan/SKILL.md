@@ -16,14 +16,14 @@ Legacy tasks authored before the plan.md contract carry `design.md` + `implement
 
 ## Step 1: Scan
 
-List candidate tasks: every `planning` / `in_progress` task directory that contains `design.md` or `implement.md` and has no `plan.md`. Present the list — task, status, legacy files present, prd/credential state — and let the user pick the order. Migrate one task per pass; each pass ends with its own user confirmation before the next task starts.
+List candidate tasks: every `planning` / `in_progress` task directory that contains `design.md` or `implement.md` and has no `plan.md`. Present the list — task, status, legacy files present, prd/confirmation state — and let the user pick the order. Migrate one task per pass; each pass ends with its own user confirmation before the next task starts.
 
 ## Step 2: Rewrite prd.md (numbered traceability)
 
 1. Read the current prd.md fully. Rewrite Requirements as numbered R items (each a single decidable statement) and Acceptance Criteria as numbered AC items (each with its verification method and the R items it covers), keeping `## Alignment Decisions` and the open-nodes marker intact.
 2. Put the migration note on the first line under the H1: `> Migrated <date> from the pre-R/AC prd format; semantics preserved item by item.`
-3. Show the user the item-by-item mapping (original statement → new R/AC number) and get confirmation.
-4. The rewrite makes any recorded alignment credential stale. Re-run `workloom_task_align` action=review, re-confirm with the user focused on the changed area, then run action=confirm with the new hash. For an in_progress task, the stale gate blocks further dispatches until this re-confirm lands.
+3. Show the user the item-by-item mapping (original statement → new R/AC number). The mapping review is itself the user's confirmation of the rewritten prd content: record it with `workloom_task_align` (`target=prd`, `action=confirm`) and a non-empty summary — no hash is computed or compared, and the record only stores the confirmation time and the summary. For an in_progress task, the missing confirmation blocks the start gate until this confirm lands (already-running dispatches are not re-blocked).
+4. If the user later proposes a concrete change to the rewritten content, that message is the change confirmation: update the mapping and re-record the content confirmation for the touched document without asking the user to confirm the same change again. Blockers, scope changes, or acceptance-baseline changes you discover yourself still go to the user as one batched round.
 
 ## Step 3: Rewrite the plan as plan.md (prescriptive)
 
@@ -35,8 +35,8 @@ List candidate tasks: every `planning` / `in_progress` task directory that conta
 
 ## Step 4: Confirm, then remove the originals
 
-Present the migrated plan.md with the anchor-verification results to the user. Only after the user confirms: delete `design.md` and `implement.md`. The task is migrated — re-route it by workloom-continue (planning → 1.4 review package; in_progress → resume at its current phase), then return to Step 1 for the next task.
+Present the migrated plan.md with the anchor-verification results to the user. Only after the user confirms: delete `design.md` and `implement.md`. The task is migrated — re-route it by workloom-continue (planning → 1.4 plan review and content confirmation; in_progress → resume at its current phase), then return to Step 1 for the next task.
 
 ## Completion criteria
 
-The task directory holds a prescriptive `plan.md` (every step with Covers/Target/Edit/Verify) and an R/AC-format `prd.md` with a fresh alignment credential; both carry migration notes; `design.md` and `implement.md` are gone.
+The task directory holds a prescriptive `plan.md` (every step with Covers/Target/Edit/Verify) and an R/AC-format `prd.md` whose content confirmation is recorded (confirmation time + summary, no hash); both carry migration notes; `design.md` and `implement.md` are gone.

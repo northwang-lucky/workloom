@@ -16,21 +16,21 @@ export { NATIVE_TOOLS_DSH, NATIVE_TOOLS_PI, buildAllowList, } from './domain/exe
 export { evaluateExecutorCapacity, formatAtCapacityReceipt, } from './domain/executor-capacity.js';
 export { initWorkloom } from './domain/init.js';
 export { migrateLegacyTrellis } from './domain/migrate.js';
-export { computeContentHash, computePrdHash, findOpenNodeState, normalizeContentEol, normalizePrdEol, evaluateAlignmentGate, ALIGNMENT_MISSING, ALIGNMENT_STALE, } from './domain/alignment.js';
+export { findOpenNodeState, evaluateAlignmentGate, ALIGNMENT_MISSING, } from './domain/alignment.js';
 // CASE 领域导出（生命周期、结构校验、门禁与文件范围）。
-export { CASE_FILES, CASE_PURPOSES, CASE_STRUCTURE, CASE_MISSING, createCaseRecord, computeCaseHash, inspectCaseStructure, evaluateCaseExecutionGate, evaluateCaseOutcomeGate, listCaseChangedFiles, } from './domain/case.js';
+export { CASE_FILES, CASE_PURPOSES, CASE_STRUCTURE, CASE_MISSING, createCaseRecord, inspectCaseStructure, evaluateCaseExecutionGate, evaluateCaseOutcomeGate, listCaseChangedFiles, } from './domain/case.js';
 export { writeFileAtomic } from './domain/file-atomic.js';
 export { parseContract, WorkflowContractError } from './domain/workflow-contract.js';
 export { WORKFLOW_PROTOCOL_VERSION, assertWorkflowProtocolVersion, } from './domain/protocol.js';
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './domain/breadcrumb.js';
-export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordCaseConfirmation, recordExecutorDispatch, settleExecutorDispatch, appendDispatchErrorSuffix, } from './domain/task-store.js';
+export { TaskStatus, TaskPriority, TaskStage, DISPATCH_MODEL_SOURCES, slugify, createTask, startTask, checkTask, finishTask, archiveTask, listTasks, readTask, runTaskHooks, recordExecutorOverride, recordGateOverride, recordAlignmentCredential, recordPlanConfirmation, recordExecutorDispatch, settleExecutorDispatch, appendDispatchErrorSuffix, } from './domain/task-store.js';
 export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js';
 export { setActiveTask, clearActiveTask, resolveActiveTask, clearPointersToTask, } from './domain/active-task.js';
 export { countDirtyLines, gitAddCommit, gitChangedFilesSync, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitMerge, gitMergeAbort, gitRebase, gitHasRebaseHead, gitRebaseAbort, gitMergeFfOnly, gitWorktreeAdd, gitWorktreeRemove, gitWorktreeList, gitWorktreePrune, gitBranchDelete, gitBranchExists, gitCheckRefFormat, } from './domain/git.js';
 export { createTaskWorktree, cleanupTaskWorktree, resolveTaskRepo, renderBranchName, } from './domain/worktree.js';
 export { addSession, listJournals } from './domain/journal.js';
 export { DEVELOPER_PATTERN, assertDeveloper } from './domain/identity.js';
-export { GATES, GATE_TOOLS, PRD_SECTIONS, PRD_STRUCTURE_CODES, findMissingPrdTitle, findUnfilledPrdSections, inspectPrdStructure, countEffectiveJsonlRecords, evaluateStartGate, evaluateStaleAlignmentGate, evaluateCheckLogGate, evaluateFrontendDispatchGate, evaluateLightDispatchGate, LIGHT_DISPATCH_REJECT, makeOverride, } from './domain/task-gates.js';
+export { GATES, GATE_TOOLS, PRD_SECTIONS, PRD_STRUCTURE_CODES, findMissingPrdTitle, findUnfilledPrdSections, inspectPrdStructure, countEffectiveJsonlRecords, evaluateStartGate, evaluateCheckLogGate, evaluateFrontendDispatchGate, evaluateLightDispatchGate, LIGHT_DISPATCH_REJECT, makeOverride, } from './domain/task-gates.js';
 export { assembleBreadcrumb, assembleBreadcrumbSync, assembleWorkflowProjection, } from './service/workflow-service.js';
 export { assembleSessionContext } from './service/session-context.js';
 export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, filterAndOrderLocal, readLocalFragments, composeLocalDirectivesText, } from './service/local-prompts.js';

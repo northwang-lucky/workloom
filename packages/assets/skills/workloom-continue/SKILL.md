@@ -29,8 +29,8 @@ Locate where work left off and resume from the matching Phase step. Do the routi
    - `planning` with prd.md but no plan.md and no declared children → 1.4 author and review plan.md.
    - `planning` with prd.md and plan.md → 1.4 await review.
    - Full `in_progress`, implementation not finished → 2.1 Implement and 2.2 Design CASE in parallel.
-   - Full `in_progress`, CASE ready for user review → run `workloom_task_case` review, then confirm after user approval.
-   - Full `in_progress`, implementation finished and CASE confirmed → 2.3 Check by continuing case.designSession with purpose=execution.
+   - Full `in_progress`, CASE awaiting review → run `workloom_task_case` review; once the main session's review is satisfied (`readyForExecution`), continue the same design session for execution — no user CASE confirmation exists.
+   - Full `in_progress`, implementation finished and the CASE review satisfied → 2.3 Check by continuing case.designSession with purpose=execution.
    - Full check passed → 2.4 Commit → 3.1 Wrap up.
    - Light implementation finished → 2.2 Self-check and record → 2.3 Commit → 3.1 Wrap up.
    - `completed` → 3.1 Wrap up.

@@ -213,14 +213,15 @@ test('契约 v20 1.1 含技术决策边界、增量写入、开放节点标记�
     alignBody.includes('<!-- workloom:open-nodes=pending|none -->'),
     '缺开放节点可机检标记',
   )
-  // 收敛顺序：frontier 空 → finalize prd → review → 此处不确认（唯一确认点在 1.4）→ stale 重入再 confirm
+  // 收敛顺序：frontier 空 → finalize prd → review 就绪 → 展示内容请用户确认 → target=prd confirm
   const order = [
     'the frontier is empty',
     'finalize prd.md',
     'action=review',
-    'Do NOT ask the user to confirm the prd here',
-    'the one and only user confirmation happens at 1.4',
-    'action=confirm again',
+    'present the prd.md content to the user',
+    'target=prd',
+    'action=confirm',
+    'no document hash exists anywhere in the flow',
   ]
   let cursor = -1
   for (const item of order) {
@@ -228,10 +229,19 @@ test('契约 v20 1.1 含技术决策边界、增量写入、开放节点标记�
     assert.ok(at > cursor, `收敛顺序错乱或缺项：${item}`)
     cursor = at
   }
-  assert.ok(alignBody.includes('same-hash repeat is idempotent'), '缺同 hash 幂等说明')
-  // stale 重入：聚焦变化区域 + 重算完整 frontier
-  assert.ok(alignBody.includes('focused on the changed area'), '缺「聚焦变化区域」重入指引')
-  assert.ok(alignBody.includes('recompute the full frontier'), '缺「重算完整 frontier」重入指引')
+  assert.ok(
+    alignBody.includes('The PRD content confirmation happens here, before research, context configuration, and plan authoring'),
+    '缺「PRD 确认先于调研/上下文/PLAN 编写」顺序句',
+  )
+  // 用户主动变更即确认（R9）：改文档 + 刷新记录，不二次提问；系统发现的变化仍集中提问
+  assert.ok(
+    alignBody.includes('when the user proposes the change themselves, that message is the change confirmation'),
+    '缺「用户主动变更即确认」规则',
+  )
+  assert.ok(
+    alignBody.includes('batch the questions to the user per the questioning rules'),
+    '缺「系统发现的阻塞仍集中提问」规则',
+  )
 })
 
 test('契约 v20 1.1 UI/test-first 分支为按需 references（不内联七轴与 seam 细则）', () => {
@@ -251,14 +261,14 @@ test('契约 v23 1.1 收敛顺序以 review 内容就绪为门禁（blocker 先�
   assert.ok(alignBody.includes('readyToConfirm'), '缺 readyToConfirm 就绪门禁')
   assert.ok(alignBody.includes('structureIssues'), '缺 structureIssues 诊断字段')
   assert.ok(alignBody.includes('confirmBlockers'), '缺 confirmBlockers 展示字段')
-  // 顺序：review → 检查 readyToConfirm → blocker 修复并重新 review → 此处不确认 → 唯一确认点在 1.4 → stale 重入再 confirm
+  // 顺序：review → 检查 readyToConfirm → blocker 修复并重新 review → 展示内容请用户确认 → target=prd confirm
   const order = [
     'action=review',
     'readyToConfirm',
     'confirmBlockers',
     're-run',
-    'Do NOT ask the user to confirm the prd here',
-    'action=confirm again',
+    'present the prd.md content to the user',
+    'action=confirm',
   ]
   let cursor = -1
   for (const item of order) {
@@ -267,8 +277,8 @@ test('契约 v23 1.1 收敛顺序以 review 内容就绪为门禁（blocker 先�
     cursor = at
   }
   assert.ok(
-    alignBody.includes('do not show the snapshot or hash to the user'),
-    '缺「content blockers 未清空时不得向用户展示 snapshot/hash」明文',
+    alignBody.includes('do not show the snapshot to the user while content blockers remain'),
+    '缺「content blockers 未清空时不得向用户展示 snapshot」明文',
   )
   // norms 同步该主会话规则
   assert.ok(contract.norms.includes('readyToConfirm'), 'norms 缺 readyToConfirm 规则')
@@ -291,6 +301,9 @@ test('契约 v20 planning 面包屑为行动指令式（自动进入 alignment �
   )
   assert.ok(crumb.includes('action=review'), 'planning 缺 review 步骤')
   assert.ok(crumb.includes('action=confirm'), 'planning 缺 confirm 步骤')
+  assert.ok(crumb.includes('target=prd'), 'planning 缺 PRD 确认口径')
+  assert.ok(crumb.includes('target=plan'), 'planning 缺 PLAN 确认口径')
+  assert.ok(!crumb.includes('hash'), 'planning 面包屑不得再提 hash')
 })
 
 test('契约 v20 norms Alignment 条目含补强句（自动进入、frontier 重算、收敛前不 finalize prd）', () => {
@@ -745,21 +758,106 @@ test('契约 1.4 含 plan.md 规定式写作硬性要求段（Authoring bar 关�
   )
 })
 
-test('契约 1.1 与 planning 面包屑：authoring 问题改单文档 plan.md 口径', () => {
+test('契约 1.1 删除 authoring 问题与 author neither 选项（PLAN 对完整任务无条件必需）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
-  assert.ok(alignBody.includes('plan.md authoring question'), '1.1 缺 plan.md authoring question 口径')
-  assert.ok(
-    alignBody.includes('A. author the plan / B. author neither'),
-    '1.1 缺单文档选项文案',
-  )
+  assert.ok(!alignBody.includes('plan.md authoring question'), '1.1 不得再折叠 plan authoring 问题')
+  assert.ok(!alignBody.includes('author neither'), '1.1 不得保留 author neither 选项')
   assert.ok(!alignBody.includes('author both'), '1.1 不得保留双文档 author both 文案')
+  const reviewBody = contract.steps.find((step) => step.id === '1.4').body
+  assert.ok(
+    reviewBody.includes('required for every full implementation task') === false,
+    'PLAN 必需性说明位于 planning 面包屑而非 1.4',
+  )
   const crumb = contract.breadcrumbs.get('planning')
   assert.ok(crumb.includes('author plan.md'), 'planning 面包屑缺 author plan.md 指令')
   assert.ok(
     crumb.includes('prescriptive authoring bar'),
     'planning 面包屑缺规定式写作硬性要求引用',
+  )
+})
+
+test('契约两次内容确认：1.1 确认 PRD、1.4 确认 PLAN，均只传 summary 且 start 要求两份记录', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const alignBody = contract.steps.find((step) => step.id === '1.1').body
+  const reviewBody = contract.steps.find((step) => step.id === '1.4').body
+  assert.ok(alignBody.includes('target=prd'), '1.1 缺 target=prd 确认')
+  assert.ok(reviewBody.includes('target=plan'), '1.4 缺 target=plan 确认')
+  // 1.4 不再重新确认 PRD，也不展示哈希
+  assert.ok(
+    reviewBody.includes('do not re-confirm it here and never show any hash'),
+    '1.4 缺「不重复确认 PRD、不展示哈希」明文',
+  )
+  // start 门禁描述：两份内容确认均为前置
+  assert.ok(
+    reviewBody.includes('the PRD or the PLAN content confirmation is missing'),
+    '1.4 start 门禁缺两份内容确认缺失描述',
+  )
+  // 1.4 不再有 stage-wise 逃生舱与合并评审包
+  assert.ok(!reviewBody.includes('stage-wise'), '1.4 不得保留 stage-wise 逃生舱')
+  assert.ok(!reviewBody.includes('review package'), '1.4 不得保留合并评审包描述')
+})
+
+test('契约全文无哈希确认机制残留（参数名、SHA-256、幂等语义）', () => {
+  const raw = readFileSync(assetPath, 'utf8')
+  for (const token of ['caseHash', 'prdHash', 'expectedPrdHash', 'expectedCaseHash', 'SHA-256', 'idempotent', 'stale']) {
+    assert.ok(!raw.includes(token), `契约不得再含哈希机制词：${token}`)
+  }
+})
+
+test('契约 CASE 无用户确认：2.2/2.3/norms 一致改为主会话复核后直接执行', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const designBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
+  assert.ok(designBody.includes('readyForExecution'), '2.2 缺 readyForExecution 完成判据')
+  assert.ok(
+    designBody.includes('the user is never asked to confirm the CASE'),
+    '2.2 缺「不出现用户 CASE 确认」明文',
+  )
+  assert.ok(
+    designBody.includes('continues the same `case.designSession` for execution directly'),
+    '2.2 缺「复核满意后直接续接设计会话执行」明文',
+  )
+  assert.ok(
+    checkBody.includes("continue `case.designSession` with `kind: check` and `purpose: execution`"),
+    '2.3 缺主会话复核后续接执行的派发描述',
+  )
+  for (const body of [designBody, checkBody]) {
+    assert.ok(!body.includes('action=confirm'), 'CASE 步骤不得再含 confirm 动作')
+    assert.ok(!body.includes('caseHash'), 'CASE 步骤不得再含 caseHash')
+  }
+  assert.ok(
+    contract.norms.includes('no user CASE confirmation exists'),
+    'norms 缺「无用户 CASE 确认」明文',
+  )
+  assert.ok(
+    contract.norms.includes('CASE readiness gates execution'),
+    'norms 缺 CASE 就绪门禁句（替代确认门禁句）',
+  )
+  assert.ok(!contract.norms.includes('CASE confirmation gates execution'), 'norms 不得保留旧确认门禁句')
+})
+
+test('契约 norms 对齐条目含用户主动变更免二次确认与系统变化集中提问', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  assert.ok(
+    contract.norms.includes('that message is the change confirmation'),
+    'norms 缺用户主动变更即确认规则',
+  )
+  assert.ok(
+    contract.norms.includes('never ask the user to confirm the same change a second time'),
+    'norms 缺免二次确认规则',
+  )
+  assert.ok(
+    contract.norms.includes('still go to the user as one batched round'),
+    'norms 缺系统发现变化仍集中提问规则',
+  )
+  assert.ok(
+    contract.norms.includes('There are exactly two content confirmations'),
+    'norms 缺「仅两次固定内容确认」口径',
   )
 })
 
@@ -824,12 +922,12 @@ test('契约 1.4 含 review 派发指引段（关键句逐字）', () => {
     '1.4 缺 P0/P1/P2 逐级处置规则',
   )
   assert.ok(
-    reviewBody.includes('leftover findings then enter the package with their disposal notes'),
-    '1.4 缺剩余发现连同处置说明进包',
+    reviewBody.includes('leftover findings then enter the presentation with their disposal notes'),
+    '1.4 缺剩余发现连同处置说明进入展示',
   )
   assert.ok(
-    reviewBody.includes('review report and the disposal of every finding are part of the review package'),
-    '1.4 缺报告与处置进审阅包句',
+    reviewBody.includes('review report and the disposal of every finding are part of the presentation'),
+    '1.4 缺报告与处置进入展示句',
   )
 })
 

@@ -1,29 +1,32 @@
 /**
- * alignment-service：workloom_task_align 工具的 runtime 无关编排（新增抽象，
- * TypeScript）。review/confirm 两步协议与 PRD 校验的「服务编排」。
+ * alignment-service：workloom_task_align 工具的 runtime 无关编排（TypeScript）。
+ * PRD 与 PLAN 分阶段内容确认的 review/confirm 两步协议与结构校验的「服务编排」。
  *
  * 设计意图：
- * - review 只读：返回当前 prd 快照、其 hash、开放节点状态、内容结构诊断与现有
- *   alignment 凭据（零写盘）；不完整的草稿照样可读，就绪与否由 readyToConfirm 表达；
- * - confirm 同步全链路：内容 blocker（复用 task-gates 的 PRD 结构分类器）聚合拒绝
- *   → 重算 hash 与 expectedPrdHash 比对 → 只经 task-store 的
- *   recordAlignmentCredential 窄写口原子落盘（同 hash 幂等，不刷新 passedAt）；
- *   任一步失败零写入；
+ * - review 只读：按 target 返回 PRD 或 PLAN 的内容快照、结构诊断与现有确认记录
+ *   （零写盘）；不完整的草稿照样可读，就绪与否由 readyToConfirm 表达；
+ * - confirm 同步全链路：内容 blocker（复用 task-gates 的结构分类器）聚合拒绝
+ *   → summary 非空 → 只经 task-store 的窄写口原子落盘（PRD 用
+ *   recordAlignmentCredential，PLAN 用 recordPlanConfirmation）；确认记录只含
+ *   passedAt 与 summary，无哈希，每次确认都刷新为最近一次；
+ * - PLAN 确认要求 PRD 已有确认记录（顺序前置在窄写口硬校验，R3）；
  * - cwd/root/task 解析与 task-ops 同款（requireWorkloomCwd + resolveTaskRelPath +
  *   findWorkloomRoot），adapter 只负责投影返回与主会话限制。
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { computePrdHash, findOpenNodeState } from '../domain/alignment.js';
-import { inspectPrdStructure, PRD_MISSING } from '../domain/task-gates.js';
+import { findOpenNodeState } from '../domain/alignment.js';
+import { inspectPlanStructure, inspectPrdStructure, PRD_MISSING } from '../domain/task-gates.js';
 import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js';
-import { readTask, recordAlignmentCredential } from '../domain/task-store.js';
+import { readTask, recordAlignmentCredential, recordPlanConfirmation } from '../domain/task-store.js';
 import { ERR_PREFIX } from '../surface.js';
 import { requireWorkloomCwd, resolveTaskRelPath } from './task-ops.js';
-/** task 目录内 prd 文件名（与 task-store 数据布局一致）。 */
+/** task 目录内 prd/plan 文件名（与 task-store 数据布局一致）。 */
 const PRD_FILE = 'prd.md';
+const PLAN_FILE = 'plan.md';
 /** confirm 聚合内容 blocker 的消息标题（失败仍只抛一个 Error）。 */
-const CONTENT_BLOCKERS_PREFIX = 'prd.md content blockers:';
+const PRD_BLOCKERS_PREFIX = 'prd.md content blockers:';
+const PLAN_BLOCKERS_PREFIX = 'plan.md content blockers:';
 /**
  * 执行 workloom_task_align 编排（全程同步）。
  * @param cwd 会话工作目录
@@ -50,59 +53,62 @@ function executeAlignInternal(cwd, contextKey, params) {
     requireWorkloomCwd(cwd);
     const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool);
     const root = requireProjectRoot(cwd);
-    // 任务记录：凭据与状态来自 task.json 归一化读取（门禁对旧数据安全）。
+    // 任务记录：确认记录与状态来自 task.json 归一化读取（门禁对旧数据安全）。
     const [taskErr, task] = readTask(root, taskRelPath);
     if (taskErr !== null || task === null) {
         throw taskErr ?? new Error(`${ERR_PREFIX.taskTool}: read returned no task: ${taskRelPath}`);
     }
+    // target 缺省 prd（兼容旧调用）；非法取值按缺省处理与参数描述口径一致。
+    const target = params.target === 'plan' ? 'plan' : 'prd';
     if (params.action === 'review') {
-        return reviewAlign(root, taskRelPath, task);
+        return reviewAlign(root, taskRelPath, task, target);
     }
-    return confirmAlign(root, taskRelPath, task, params);
+    return target === 'plan'
+        ? confirmPlanAlign(root, taskRelPath, params)
+        : confirmPrdAlign(root, taskRelPath, params);
 }
 /**
- * review 编排：读 prd（缺失返回 null 不报错——模型据此判断还没写 prd），
- * 计算当前 hash 与开放节点状态，附内容结构诊断与现有凭据；零写盘。
+ * review 编排：读确认对象文档（缺失以结构问题表达，不报错——模型据此判断
+ * 文档还没写），附结构诊断与现有确认记录；零写盘。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param task 归一化后的任务记录
+ * @param target 确认对象
  * @returns review 结果
  */
-function reviewAlign(root, taskRelPath, task) {
+function reviewAlign(root, taskRelPath, task, target) {
     const prd = readPrd(root, taskRelPath);
-    const prdHash = prd === null ? null : computePrdHash(prd);
-    const openNodeState = prd === null ? null : findOpenNodeState(prd);
-    // 内容级 confirm 就绪诊断与 confirm/start 共用同一分类器（不复制 PRD 解析规则）。
-    const structureIssues = inspectPrdStructure(prd);
+    const plan = target === 'plan' ? readPlan(root, taskRelPath) : null;
+    // PLAN 结构校验以 prd 的 AC 清单为基准：prd 缺失时直接复用 PRD 分类器报缺失。
+    const structureIssues = target === 'plan'
+        ? prd === null
+            ? inspectPrdStructure(prd)
+            : inspectPlanStructure(plan, prd)
+        : inspectPrdStructure(prd);
     return {
         action: 'review',
+        target,
         taskRelPath,
         status: task.status,
         prd,
-        prdHash,
-        openNodeState,
+        plan,
+        openNodeState: prd === null ? null : findOpenNodeState(prd),
         structureIssues,
         confirmBlockers: structureIssues.map((issue) => issue.message),
         readyToConfirm: structureIssues.length === 0,
         alignment: task.alignment,
+        planConfirmation: task.planConfirmation,
     };
 }
 /**
- * confirm 编排：前置校验全部通过才写凭据（失败零写入）。
- * 校验顺序固定：expectedPrdHash 必填 → prd 内容 blocker（分类器聚合）→ 重算 hash 与
- * expectedPrdHash 一致 → summary 非空 → recordAlignmentCredential 原子窄写口。
+ * PRD confirm 编排：前置校验全部通过才写确认记录（失败零写入）。
+ * 校验顺序固定：prd 内容 blocker（分类器聚合）→ summary 非空 → 窄写口原子落盘。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param task 归一化后的任务记录
  * @param params 工具参数
- * @returns confirm 结果
+ * @returns PRD confirm 结果
  */
-function confirmAlign(root, taskRelPath, task, params) {
-    // confirm 必填 expectedPrdHash（R10）：缺失时显式拒绝，不落入 hash 失配的歧义文案。
-    if (typeof params.expectedPrdHash !== 'string' || params.expectedPrdHash.trim() === '') {
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: expectedPrdHash is required ` +
-            '(run action=review to obtain the current prd hash first)');
-    }
+function confirmPrdAlign(root, taskRelPath, params) {
     const prd = readPrd(root, taskRelPath);
     if (prd === null) {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_MISSING}`);
@@ -110,33 +116,67 @@ function confirmAlign(root, taskRelPath, task, params) {
     // 内容 blocker 一次取全（H1 → 骨架小节 → open nodes），仍只抛一个 Error。
     const blockers = inspectPrdStructure(prd).map((issue) => issue.message);
     if (blockers.length > 0) {
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${CONTENT_BLOCKERS_PREFIX}\n` +
+        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_BLOCKERS_PREFIX}\n` +
             blockers.map((blocker) => `- ${blocker}`).join('\n'));
     }
-    const prdHash = computePrdHash(prd);
-    if (params.expectedPrdHash !== prdHash) {
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: prd hash mismatch ` +
-            `(expected ${String(params.expectedPrdHash)} but current prd.md hashes to ${prdHash}); ` +
-            're-run action=review to refresh the snapshot before confirming');
+    const summary = requireConfirmSummary(params);
+    const [err, saved] = recordAlignmentCredential(root, taskRelPath, { summary });
+    if (err !== null || saved === null || saved.alignment === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: confirm returned no result`);
     }
+    return {
+        action: 'confirm',
+        target: 'prd',
+        taskRelPath,
+        alignment: saved.alignment,
+        planConfirmation: null,
+    };
+}
+/**
+ * PLAN confirm 编排：PLAN 结构校验通过 + summary 非空后写 PLAN 确认记录。
+ * 「PRD 已确认」的顺序前置在窄写口硬校验（拒绝时指引先确认 PRD）。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param params 工具参数
+ * @returns PLAN confirm 结果
+ */
+function confirmPlanAlign(root, taskRelPath, params) {
+    const prd = readPrd(root, taskRelPath);
+    if (prd === null) {
+        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_MISSING}`);
+    }
+    const plan = readPlan(root, taskRelPath);
+    // PLAN 缺失或结构不完整时一次返回全部结构问题（仍只抛一个 Error）。
+    const blockers = inspectPlanStructure(plan, prd).map((issue) => issue.message);
+    if (blockers.length > 0) {
+        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PLAN_BLOCKERS_PREFIX}\n` +
+            blockers.map((blocker) => `- ${blocker}`).join('\n'));
+    }
+    const summary = requireConfirmSummary(params);
+    const [err, saved] = recordPlanConfirmation(root, taskRelPath, { summary });
+    if (err !== null || saved === null || saved.planConfirmation === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: confirm returned no result`);
+    }
+    return {
+        action: 'confirm',
+        target: 'plan',
+        taskRelPath,
+        alignment: null,
+        planConfirmation: saved.planConfirmation,
+    };
+}
+/**
+ * 校验 confirm 必填的非空摘要（内部）：缺失或空白即拒绝。
+ * @param params 工具参数
+ * @returns trim 后的摘要
+ */
+function requireConfirmSummary(params) {
     const summary = typeof params.summary === 'string' ? params.summary.trim() : '';
     if (summary === '') {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: a non-empty summary is required ` +
-            '(record covered nodes, key decisions, and the confirmation result)');
+            '(record the coverage, key decisions, and the confirmation result)');
     }
-    // 幂等早退在窄写口内（同 prdHash 不刷新 passedAt）；此处只做同步编排。
-    const [err, saved] = recordAlignmentCredential(root, taskRelPath, { summary, prdHash });
-    if (err !== null || saved === null) {
-        throw err ?? new Error(`${ERR_PREFIX.taskTool}: confirm returned no result`);
-    }
-    const previousHash = task.alignment?.prdHash ?? null;
-    return {
-        action: 'confirm',
-        taskRelPath,
-        prdHash,
-        idempotent: previousHash === prdHash,
-        alignment: saved.alignment,
-    };
+    return summary;
 }
 /**
  * 解析项目根（cwd 或其祖先含 .workloom；缺失抛错）。
@@ -151,20 +191,29 @@ function requireProjectRoot(cwd) {
     return found.root;
 }
 /**
- * 读取任务 prd.md 全文（缺失返回 null）。
+ * 读取任务文档全文（缺失返回 null）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @returns prd.md 全文或 null
+ * @param fileName 文件名
+ * @returns 文档全文或 null
  */
-function readPrd(root, taskRelPath) {
+function readTaskDocument(root, taskRelPath, fileName) {
     try {
-        return readFileSync(join(insideWorkloom(root, taskRelPath), PRD_FILE), 'utf8');
+        return readFileSync(join(insideWorkloom(root, taskRelPath), fileName), 'utf8');
     }
     catch (error) {
         if (isEnoent(error))
             return null;
         throw error;
     }
+}
+/** @param root 项目根 @param taskRelPath 任务相对路径 @returns prd.md 全文或 null */
+function readPrd(root, taskRelPath) {
+    return readTaskDocument(root, taskRelPath, PRD_FILE);
+}
+/** @param root 项目根 @param taskRelPath 任务相对路径 @returns plan.md 全文或 null */
+function readPlan(root, taskRelPath) {
+    return readTaskDocument(root, taskRelPath, PLAN_FILE);
 }
 /** @param error 错误 @returns 是否文件不存在 */
 function isEnoent(error) {

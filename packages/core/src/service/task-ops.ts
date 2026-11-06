@@ -195,8 +195,8 @@ export interface ExecuteStartTaskParams {
 
 /**
  * start 工具编排：把任务从 planning 移到 in_progress。
- * 默认硬阻断：prd 小节未填、jsonl 无有效记录、alignment 门禁未过（无凭据或
- * 凭据 stale）时拒绝；force 豁免需非空 reason 并按实际绕过的 gate 留痕。
+ * 默认硬阻断：prd 小节未填、PLAN 结构/确认缺失、jsonl 无有效记录、PRD 内容
+ * 未确认时拒绝；force 豁免需非空 reason 并按实际绕过的 gate 留痕。
  * @param cwd 会话工作目录
  * @param contextKey 会话标识（adapter 组装）
  * @param params 工具参数（taskPath 缺省取活跃任务）

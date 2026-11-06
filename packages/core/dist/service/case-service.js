@@ -1,25 +1,29 @@
 /**
- * workloom_task_case 的 runtime 无关 review/confirm 编排。
- * review 只读；confirm 在完整校验后只经 task-store 窄写口落盘。
+ * workloom_task_case 的 runtime 无关 review-only 编排（TypeScript）。
+ * CASE 由主会话对照 PRD、PLAN 与实际代码复核；复核满意后直接续接同一
+ * designSession 执行，不再有用户确认动作，也不写任何复核凭证。
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CASE_FILES, CASE_MISSING, computeCaseHash, inspectCaseStructure, listCaseChangedFiles } from '../domain/case.js';
+import { CASE_FILES, inspectCaseStructure, listCaseChangedFiles } from '../domain/case.js';
 import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js';
-import { findArchivedTaskPath, readTask, recordCaseConfirmation } from '../domain/task-store.js';
+import { findArchivedTaskPath, readTask } from '../domain/task-store.js';
 import { ERR_PREFIX } from '../surface.js';
 import { requireWorkloomCwd, resolveTaskRelPath } from './task-ops.js';
 export function executeTaskCase(cwd, contextKey, params) {
     try {
         requireWorkloomCwd(cwd);
+        // 协议只保留 review：其他动作显式拒绝（无用户确认动作，也不写复核凭证）。
+        if (params.action !== 'review') {
+            throw new Error(`${ERR_PREFIX.taskTool}: only action=review is supported ` +
+                '(the main session reviews the CASE and then continues the design session for execution)');
+        }
         const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool);
         const root = requireProjectRoot(cwd);
         const [taskErr, task] = readTask(root, taskRelPath);
         if (taskErr !== null || task === null)
             throw taskErr ?? new Error('task not found');
-        if (params.action === 'review')
-            return [null, reviewCase(root, taskRelPath, task)];
-        return [null, confirmCase(root, taskRelPath, task, params)];
+        return [null, reviewCase(root, taskRelPath, task)];
     }
     catch (error) {
         return [toError(error), null];
@@ -51,44 +55,10 @@ function reviewCase(root, taskRelPath, task) {
         taskRelPath,
         status: task.status,
         case: caseContent,
-        caseHash: caseContent === null ? null : computeCaseHash(caseContent),
+        designSession: task.case?.designSession ?? null,
         structureIssues,
-        confirmBlockers: structureIssues.map((item) => item.message),
-        readyToConfirm: structureIssues.length === 0,
-        caseRecord: task.case,
-    };
-}
-function confirmCase(root, taskRelPath, task, params) {
-    if (typeof params.expectedCaseHash !== 'string' || params.expectedCaseHash.trim() === '') {
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: expectedCaseHash is required`);
-    }
-    const review = reviewCase(root, taskRelPath, task);
-    if (review.case === null)
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${CASE_MISSING}`);
-    if (!review.readyToConfirm) {
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: case.md content blockers:\n` +
-            review.confirmBlockers.map((item) => `- ${item}`).join('\n'));
-    }
-    if (review.caseHash !== params.expectedCaseHash) {
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: CASE hash mismatch; re-run action=review`);
-    }
-    const summary = typeof params.summary === 'string' ? params.summary.trim() : '';
-    if (summary === '')
-        throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: summary is required`);
-    const previousHash = task.case?.caseHash ?? null;
-    const [err, saved] = recordCaseConfirmation(root, taskRelPath, {
-        caseHash: review.caseHash,
-        summary,
-    });
-    if (err !== null || saved === null || saved.case === null) {
-        throw err ?? new Error(`${ERR_PREFIX.taskTool}: confirm returned no result`);
-    }
-    return {
-        action: 'confirm',
-        taskRelPath,
-        caseHash: review.caseHash,
-        idempotent: previousHash === review.caseHash,
-        caseRecord: saved.case,
+        blockers: structureIssues.map((item) => item.message),
+        readyForExecution: structureIssues.length === 0,
     };
 }
 function readTaskFile(root, taskRelPath, name) {

@@ -43,13 +43,13 @@ export const TOOL_NAMES = {
 export const TOOL_DESCRIPTIONS = {
   taskCreate: 'Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)',
   taskStart:
-    'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, an alignment credential matching the current prd, and effective jsonl records; force bypasses and is recorded)',
+    'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)',
   taskCheck:
     'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
   taskAlign:
-    'Phase 1.1 alignment review/confirm: action=review returns the current prd snapshot and its hash without writing; action=confirm writes the alignment credential only after verifying the expectedPrdHash against the current prd (atomic, main-session only)',
+    'Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)',
   taskCase:
-    'CASE review/confirm: action=review returns the current case.md snapshot, structural issues and its SHA-256 hash without writing; action=confirm records the confirmed hash after user approval (atomic, main-session only)',
+    'CASE review: action=review returns the current case.md snapshot, structural issues, blockers, the readyForExecution flag and the current designSession without writing; the main session reviews the CASE against the PRD, the PLAN and the actual code, then continues the same design session for execution (main-session only, no user approval and no confirmation record)',
   taskFinish: 'Clear the active-task pointer for this session (status unchanged)',
   taskArchive:
     'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
@@ -72,9 +72,9 @@ export const TOOL_SNIPPETS = {
   taskCheck:
     'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
   taskAlign:
-    'workloom_task_align(action, taskPath?, expectedPrdHash?, summary?) — review or confirm Phase 1.1 alignment',
+    'workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content',
   taskCase:
-    'workloom_task_case(action, taskPath?, expectedCaseHash?, summary?) — review or confirm the task CASE',
+    'workloom_task_case(action, taskPath?) — review the task CASE before continuing the design session',
   taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
   taskArchive:
     'workloom_task_archive(taskPath, autoCommit?, force?, reason?) — archive the completed task',
@@ -114,27 +114,21 @@ export const PARAM_DESCRIPTIONS = {
   status: 'Filter: planning/in_progress/completed',
   /** check 工具的 summary 参数（2.2 通过摘要）。 */
   summary: 'Summary of the passed check (what was verified)',
-  /** align 工具的参数：动作（review 只读诊断 / confirm 写入凭据）。 */
+  /** align 工具的参数：动作（review 只读诊断 / confirm 写入内容确认记录）。 */
   action:
-    'Alignment action: review returns the current prd snapshot, its SHA-256 hash, structural issues, content blockers and the readyToConfirm flag without writing; confirm validates the expectedPrdHash and writes the alignment credential',
-  /** align 工具 confirm 的预期 hash 参数（调用方须先经 review 取得当前值）。 */
-  expectedPrdHash:
-    'SHA-256 of the prd.md the user reviewed (CRLF/CR normalized to LF); confirm writes only when the current prd still hashes to this value',
-  /** align 工具 confirm 的收敛摘要参数（记录覆盖节点/关键决策/确认结果）。 */
+    'Alignment action: review returns the current PRD/PLAN content snapshot, structural issues and the readyToConfirm flag without writing; confirm records the content confirmation for the reviewed document',
+  /** align 工具的 target 参数（确认对象：PRD 缺省；PLAN 须在 PRD 确认之后）。 */
+  target:
+    'Confirmation target: prd (default) confirms the PRD content; plan confirms the PLAN content and requires the PRD confirmation to be recorded first',
+  /** align 工具 confirm 的内容确认摘要参数（记录覆盖范围/关键决策/确认结果）。 */
   alignmentSummary:
-    'Convergence summary of Phase 1.1 (nodes covered, key decisions, and the user confirmation result); required by action=confirm',
-  /** case 工具的参数：动作（review 只读诊断 / confirm 记录确认摘要值）。 */
+    'Content confirmation summary of the reviewed PRD or PLAN (coverage, key decisions, and the confirmation result); required by action=confirm',
+  /** case 工具的参数：动作（review 只读诊断；主会话复核后直接执行，无确认动作）。 */
   caseAction:
-    'CASE action: review returns the current case.md snapshot, SHA-256 hash, structural issues and readyToConfirm without writing; confirm records the user-approved hash',
-  /** case 工具 confirm 的预期 hash 参数（调用方须先经 review 取得当前值）。 */
-  expectedCaseHash:
-    'SHA-256 of the case.md the user reviewed (CRLF/CR normalized to LF); confirm writes only when the current case.md still hashes to this value',
-  /** case 工具 confirm 的审核摘要参数（记录 CASE 审核要点与用户确认结果）。 */
-  caseSummary:
-    'Summary of the CASE review, key decisions and the user confirmation result; required by action=confirm',
+    'CASE action: review returns the current case.md snapshot, structural issues, blockers, readyForExecution and the current designSession without writing; there is no confirm action — the main session reviews the CASE and then continues the design session for execution',
   /** executor 工具的 purpose 参数（check 派发目的：CASE 设计轮保持 stage）。 */
   executorPurpose:
-    'Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution runs the confirmed CASE and enters check stage. Defaults to execution for backward compatibility',
+    'Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution continues the reviewed design session for actual execution and enters check stage. Defaults to execution for backward compatibility',
   force: 'Bypass the failing workflow gate(s); every actually bypassed gate is recorded in task.json overrides',
   reason:
     'Required non-empty reason when force is true (recorded per bypassed gate for audit)',

@@ -11,8 +11,8 @@ import { join } from 'node:path'
 
 import { markTaskLegacy } from './fixtures/task-artifacts.js'
 
+import { archiveTask } from '../dist/domain/task-store.js'
 import {
-  computePrdHash,
   executeAlignTask,
   executeArchiveTask,
   executeCheckTask,
@@ -22,6 +22,7 @@ import {
   executeStartTask,
   readTask,
   recordAlignmentCredential,
+  recordPlanConfirmation,
   requireWorkloomCwd,
   resolveTaskRelPath,
 } from '../dist/index.js'
@@ -55,12 +56,10 @@ function satisfyStartGate(root, taskRelPath) {
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
 }
 
-/** 记录 alignment 凭据（hash 取当前 prd.md；窄写口直落，模拟 confirm 后状态）。 */
+/** 记录 PRD 内容确认（窄写口直落，模拟 confirm 后状态）。 */
 function alignTask(root, taskRelPath) {
-  const prd = readFileSync(join(root, '.workloom', taskRelPath, 'prd.md'), 'utf8')
   const [err] = recordAlignmentCredential(root, taskRelPath, {
     summary: 'frontier empty, all decisions settled',
-    prdHash: computePrdHash(prd),
   })
   assert.equal(err, null)
 }
@@ -167,9 +166,12 @@ test('create→start→check→finish→list→archive 全链（活跃任务 fal
     const [gateErr] = await executeStartTask(root, contextKey, {})
     assert.ok(gateErr)
     assert.match(gateErr.message, /start gate failed/)
-    // 填满 prd 与两个 jsonl、完成 alignment 后放行。
+    // 填满 prd 与两个 jsonl、记录 PRD/PLAN 两份内容确认后放行。
     satisfyStartGate(root, created.taskRelPath)
     alignTask(root, created.taskRelPath)
+    recordPlanConfirmation(root, created.taskRelPath, {
+      summary: 'plan covers every AC, steps verified',
+    })
     const [, started] = await executeStartTask(root, contextKey, {})
     assert.equal(started.taskRelPath, created.taskRelPath)
     assert.equal(started.status, 'in_progress')
@@ -339,6 +341,9 @@ test('executeStartTask 返回记录无 grillingPending/grillingNote（alignment 
     assert.ok(gateErr)
     assert.match(gateErr.message, /alignment credential/)
     alignTask(root, created.taskRelPath)
+    recordPlanConfirmation(root, created.taskRelPath, {
+      summary: 'plan covers every AC, steps verified',
+    })
     const [, started] = await executeStartTask(root, 'dsh_ap', {})
     assert.equal(started.status, 'in_progress')
     // 返回记录不再带 grilling 软提醒字段
@@ -392,16 +397,19 @@ test('align review：prd 文件缺失仍成功返回快照字段，并报 prd_mi
     const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
     assert.equal(err, null)
     assert.equal(review.action, 'review')
+    assert.equal(review.target, 'prd')
     assert.equal(review.taskRelPath, taskRelPath)
     assert.equal(review.status, 'planning')
     assert.equal(review.prd, null)
-    assert.equal(review.prdHash, null)
+    assert.equal(review.plan, null)
     assert.equal(review.openNodeState, null)
     assert.deepEqual(review.structureIssues, [
       { code: 'prd_missing', message: 'prd.md is missing' },
     ])
     assert.deepEqual(review.confirmBlockers, ['prd.md is missing'])
     assert.equal(review.readyToConfirm, false)
+    assert.equal(review.alignment, null)
+    assert.equal(review.planConfirmation, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -412,12 +420,12 @@ test('align review：缺 ## Notes 标题报 section missing（不误报 placehol
   try {
     const contextKey = 'dsh_review_section'
     const missingNotes = CONVERGED_ALIGN_PRD.replace('## Notes\n\n- note\n\n', '')
-    const { prdPath } = await makeAlignTask(root, contextKey, missingNotes)
+    await makeAlignTask(root, contextKey, missingNotes)
     const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
     assert.equal(err, null)
-    // review 只读：仍返回快照与 hash
+    // review 只读：返回内容快照（无哈希字段）
     assert.equal(review.prd, missingNotes)
-    assert.equal(review.prdHash, computePrdHash(readFileSync(prdPath, 'utf8')))
+    assert.equal('prdHash' in review, false)
     assert.equal(review.openNodeState, 'none')
     assert.deepEqual(review.structureIssues, [
       {
@@ -494,14 +502,13 @@ test('align review：内容完整的 prd → 无结构问题且 readyToConfirm',
   const root = makeRoot()
   try {
     const contextKey = 'dsh_review_ready'
-    const { prdPath } = await makeAlignTask(root, contextKey, CONVERGED_ALIGN_PRD)
-    // 未 alignment 不影响内容级就绪判定
+    await makeAlignTask(root, contextKey, CONVERGED_ALIGN_PRD)
+    // 未确认不影响内容级就绪判定
     const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
     assert.equal(err, null)
     assert.deepEqual(review.structureIssues, [])
     assert.deepEqual(review.confirmBlockers, [])
     assert.equal(review.readyToConfirm, true)
-    assert.equal(review.prdHash, computePrdHash(readFileSync(prdPath, 'utf8')))
     assert.equal(review.openNodeState, 'none')
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -529,7 +536,6 @@ test('align confirm：多个内容问题只抛一个 Error，消息按固定顺�
     const { taskRelPath } = await makeAlignTask(root, contextKey, broken)
     const [err] = executeAlignTask(root, contextKey, {
       action: 'confirm',
-      expectedPrdHash: computePrdHash(broken),
       summary: 's',
     })
     assert.ok(err)
@@ -551,7 +557,7 @@ test('align confirm：多个内容问题只抛一个 Error，消息按固定顺�
   }
 })
 
-test('align review/confirm：校验失败零写入、hash 冲突拒绝、同 hash 幂等不刷新', async () => {
+test('align confirm：校验失败零写入、结构通过即落确认记录（无哈希入参）', async () => {
   const root = makeRoot()
   try {
     const contextKey = 'dsh_align'
@@ -560,7 +566,6 @@ test('align review/confirm：校验失败零写入、hash 冲突拒绝、同 has
     // 骨架 prd（占位符未填）→ confirm 拒绝且零写入（文案区分 missing 与 placeholder）
     const [rej1] = executeAlignTask(root, contextKey, {
       action: 'confirm',
-      expectedPrdHash: 'x',
       summary: 's',
     })
     assert.ok(rej1)
@@ -568,23 +573,16 @@ test('align review/confirm：校验失败零写入、hash 冲突拒绝、同 has
     assert.match(rej1.message, /section "Notes" is still a placeholder/)
     const [, before] = readTask(root, created.taskRelPath)
     assert.equal(before.alignment, null)
-    // confirm 缺 expectedPrdHash：显式拒绝（不落入 hash 失配的歧义文案）
-    const [noHashErr] = executeAlignTask(root, contextKey, {
-      action: 'confirm',
-      summary: 's',
-    })
-    assert.ok(noHashErr)
-    assert.match(noHashErr.message, /expectedPrdHash is required/)
     // 写入完整收敛 prd（含 Alignment Decisions + open-nodes=none）与 jsonl
     const converged = CONVERGED_ALIGN_PRD
     writeFileSync(join(taskDir, 'prd.md'), converged)
     writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
     writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
-    // review 只读：返回快照 + hash（零写盘）
+    // review 只读：返回快照（零写盘，无哈希字段）
     const [revErr, review] = executeAlignTask(root, contextKey, { action: 'review' })
     assert.equal(revErr, null)
     assert.equal(review.prd, converged)
-    assert.equal(review.prdHash, computePrdHash(converged))
+    assert.equal(review.prdHash, undefined)
     // 开放节点 pending → confirm 拒绝
     writeFileSync(
       join(taskDir, 'prd.md'),
@@ -592,43 +590,240 @@ test('align review/confirm：校验失败零写入、hash 冲突拒绝、同 has
     )
     const [openErr] = executeAlignTask(root, contextKey, {
       action: 'confirm',
-      expectedPrdHash: computePrdHash(converged.replace('workloom:open-nodes=none', 'workloom:open-nodes=pending')),
       summary: 's',
     })
     assert.ok(openErr)
     assert.match(openErr.message, /open nodes are not converged/)
     writeFileSync(join(taskDir, 'prd.md'), converged)
-    // hash 冲突拒绝（expected 与当前 prd 不一致，零写入）
-    const [conflictErr] = executeAlignTask(root, contextKey, {
+    // confirm 缺 summary：结构通过后显式拒绝
+    const [noSummaryErr] = executeAlignTask(root, contextKey, {
       action: 'confirm',
-      expectedPrdHash: 'deadbeef',
-      summary: 'converged',
     })
-    assert.ok(conflictErr)
-    assert.match(conflictErr.message, /prd hash mismatch/)
-    // 正确 hash confirm 成功并落凭据
+    assert.ok(noSummaryErr)
+    assert.match(noSummaryErr.message, /non-empty summary is required/)
+    const [, midway] = readTask(root, created.taskRelPath)
+    assert.equal(midway.alignment, null)
+    // 结构通过 + summary 非空 → confirm 成功并落确认记录（只含 passedAt/summary）
     const [err2, confirmed] = executeAlignTask(root, contextKey, {
       action: 'confirm',
-      expectedPrdHash: review.prdHash,
       summary: 'converged',
     })
     assert.equal(err2, null)
-    assert.equal(confirmed.idempotent, false)
-    assert.equal(confirmed.alignment.prdHash, review.prdHash)
+    assert.equal(confirmed.target, 'prd')
+    assert.deepEqual(Object.keys(confirmed.alignment).sort(), ['passedAt', 'summary'])
+    assert.equal(confirmed.alignment.summary, 'converged')
     const [, taskAfter] = readTask(root, created.taskRelPath)
     assert.ok(taskAfter.alignment !== null)
-    const passedAt = taskAfter.alignment.passedAt
-    // 同 hash 重复 confirm 幂等：不刷新 passedAt、不覆盖 summary
+    // 重复 confirm：每次都刷新 passedAt 与 summary（无哈希，不做幂等早退）
     const [err3, again] = executeAlignTask(root, contextKey, {
       action: 'confirm',
-      expectedPrdHash: review.prdHash,
       summary: 'converged again',
     })
     assert.equal(err3, null)
-    assert.equal(again.idempotent, true)
-    const [, taskFinal] = readTask(root, created.taskRelPath)
-    assert.equal(taskFinal.alignment.passedAt, passedAt)
-    assert.equal(taskFinal.alignment.summary, 'converged')
+    assert.equal(again.alignment.summary, 'converged again')
+    assert.ok(again.alignment.passedAt >= confirmed.alignment.passedAt)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 满足 PLAN 结构门禁的最小 plan（步骤四要素齐全，AC1 覆盖夹具 prd 的 AC 编号）。 */
+const MIN_PLAN = `# Plan
+
+## Steps
+
+#### 步骤 1 implement
+
+- Covers: AC1
+- Target: src/a.js
+- Edit: add implementation
+- Verify: pnpm lint
+`
+
+/** 夹具 prd：带 AC 编号，供 PLAN 的 Covers 覆盖校验消费。 */
+const PRD_WITH_AC = `# Filled
+
+## Goal
+
+Do the thing.
+
+## Requirements
+
+- req
+
+## Acceptance Criteria
+
+- AC1 is verified
+
+## Notes
+
+- note
+
+<!-- workloom:open-nodes=none -->
+`
+
+/** PLAN 确认夹具：写带 AC 的 prd + plan，可选先记录 PRD 确认。 */
+async function makePlanConfirmTask(root, contextKey, { confirmPrd = true } = {}) {
+  const { taskRelPath } = await makeAlignTask(root, contextKey, PRD_WITH_AC)
+  writeFileSync(join(root, '.workloom', taskRelPath, 'plan.md'), MIN_PLAN)
+  if (confirmPrd) alignTask(root, taskRelPath)
+  return { taskRelPath }
+}
+
+test('align review target=plan：返回 PLAN 快照、结构问题与现有确认记录（无哈希）', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_plan_review'
+    const { taskRelPath } = await makePlanConfirmTask(root, contextKey)
+    const [err, review] = executeAlignTask(root, contextKey, {
+      action: 'review',
+      target: 'plan',
+    })
+    assert.equal(err, null)
+    assert.equal(review.action, 'review')
+    assert.equal(review.target, 'plan')
+    assert.equal(review.taskRelPath, taskRelPath)
+    assert.equal(review.plan, MIN_PLAN)
+    assert.equal(review.prd, PRD_WITH_AC)
+    assert.deepEqual(review.structureIssues, [])
+    assert.equal(review.readyToConfirm, true)
+    assert.ok(review.alignment !== null)
+    assert.equal(review.planConfirmation, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align review target=plan：PLAN 缺失或结构不完整时返回全部结构问题', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_plan_review_missing'
+    const { taskRelPath } = await makeAlignTask(root, contextKey, PRD_WITH_AC)
+    const [err, review] = executeAlignTask(root, contextKey, {
+      action: 'review',
+      target: 'plan',
+    })
+    assert.equal(err, null)
+    assert.equal(review.plan, null)
+    assert.deepEqual(review.structureIssues, [
+      { code: 'plan_missing', message: 'plan.md is missing' },
+    ])
+    assert.equal(review.readyToConfirm, false)
+    // 结构不完整：缺 Covers/Verify 字段 + AC 未覆盖，一次性全部返回
+    writeFileSync(
+      join(root, '.workloom', taskRelPath, 'plan.md'),
+      '# Plan\n\n## Steps\n\n#### 步骤 1 implement\n\n- Target: src/a.js\n- Edit: add implementation\n',
+    )
+    const [, partial] = executeAlignTask(root, contextKey, { action: 'review', target: 'plan' })
+    assert.deepEqual(
+      partial.structureIssues.map((issue) => issue.message).sort(),
+      [
+        'AC1 is not covered by any plan step',
+        'plan.md step 1 missing Covers',
+        'plan.md step 1 missing Verify',
+      ].sort(),
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align confirm target=plan：PRD 未确认时拒绝并提示先确认 PRD（顺序前置）', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_plan_order'
+    const { taskRelPath } = await makePlanConfirmTask(root, contextKey, { confirmPrd: false })
+    const [err] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      target: 'plan',
+      summary: 'plan looks right',
+    })
+    assert.ok(err)
+    assert.match(err.message, /plan confirmation requires a confirmed PRD/)
+    assert.match(err.message, /target=prd/)
+    // 失败零写入
+    const [, task] = readTask(root, taskRelPath)
+    assert.equal(task.planConfirmation, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('align confirm target=plan：PRD 已确认后写入 planConfirmation（只含 passedAt/summary）', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_plan_confirm'
+    const { taskRelPath } = await makePlanConfirmTask(root, contextKey)
+    // 缺 summary 拒绝
+    const [noSummaryErr] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      target: 'plan',
+    })
+    assert.ok(noSummaryErr)
+    assert.match(noSummaryErr.message, /non-empty summary is required/)
+    // 确认成功：记录只含两个键
+    const [err, confirmed] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      target: 'plan',
+      summary: 'plan covers AC1, steps verified',
+    })
+    assert.equal(err, null)
+    assert.equal(confirmed.target, 'plan')
+    assert.equal(confirmed.alignment, null)
+    assert.deepEqual(Object.keys(confirmed.planConfirmation).sort(), ['passedAt', 'summary'])
+    assert.match(confirmed.planConfirmation.summary, /covers AC1/)
+    // 重复 confirm：刷新 passedAt 与 summary
+    const [err2, again] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      target: 'plan',
+      summary: 're-confirmed after step reorder',
+    })
+    assert.equal(err2, null)
+    assert.equal(again.planConfirmation.summary, 're-confirmed after step reorder')
+    assert.ok(again.planConfirmation.passedAt >= confirmed.planConfirmation.passedAt)
+    // PLAN 结构不完整时拒绝且零写入
+    writeFileSync(
+      join(root, '.workloom', taskRelPath, 'plan.md'),
+      MIN_PLAN.replace('- Verify: pnpm lint\n', ''),
+    )
+    const [structErr] = executeAlignTask(root, contextKey, {
+      action: 'confirm',
+      target: 'plan',
+      summary: 's',
+    })
+    assert.ok(structErr)
+    assert.match(structErr.message, /plan\.md content blockers:/)
+    const [, task] = readTask(root, taskRelPath)
+    assert.match(task.planConfirmation.summary, /re-confirmed/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordPlanConfirmation：completed 拒绝；直接调用同样受 PRD 顺序前置约束', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_plan_write'
+    const { taskRelPath } = await makePlanConfirmTask(root, contextKey)
+    // completed 任务拒绝写入
+    const [, archived] = await archiveTask(root, {
+      taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test archive for completed rejection',
+    })
+    assert.ok(archived)
+    const [completedErr] = recordPlanConfirmation(root, archived.taskRelPath, { summary: 'late' })
+    assert.ok(completedErr)
+    assert.match(completedErr.message, /only planning\/in_progress/)
+    // 未确认 PRD 的任务直接调用窄写口同样拒绝
+    const [, fresh] = await executeCreateTask(root, 'dsh_plan_write_fresh', {
+      title: 'Plan Write Fresh',
+      package: 'repo',
+    })
+    const [noPrdErr] = recordPlanConfirmation(root, fresh.taskRelPath, { summary: 's' })
+    assert.ok(noPrdErr)
+    assert.match(noPrdErr.message, /requires a confirmed PRD/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

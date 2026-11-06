@@ -5,12 +5,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { computeContentHash } from './alignment.js';
 import { gitChangedFilesSync } from './git.js';
 import { insideWorkloom } from './locate.js';
 /** @typedef {import('./case.d.ts').CaseStructureIssue} CaseStructureIssue */
 /** @typedef {import('./case.d.ts').CaseStructureOptions} CaseStructureOptions */
-/** @typedef {import('./case.d.ts').CaseOutcomeOptions} CaseOutcomeOptions */
 /** @typedef {import('./case.d.ts').TaskCaseRecord} TaskCaseRecord */
 /** @typedef {import('./task-store.d.ts').TaskRecord} TaskRecord */
 /** @typedef {{id: string, body: string}} CaseItem */
@@ -43,28 +41,18 @@ const SR_FIELDS = CASE_STRUCTURE.srFields;
 const C_FIELDS = CASE_STRUCTURE.cFields;
 const COVERAGE_FIELDS = CASE_STRUCTURE.coverageFields;
 /**
- * 创建带完整默认键的 CASE 记录。
+ * 创建带默认键的 CASE 记录：新记录只含 required 与 designSession；
+ * 既有记录的历史字段原样保留，但不参与确认、执行或结果校验。
  * @param {boolean} required 是否启用新 CASE 通过条件
  * @param {TaskCaseRecord | null} [previous] 既有生命周期数据
  * @returns {TaskCaseRecord} 完整 CASE 记录
  */
 export function createCaseRecord(required, previous = null) {
     return {
+        ...previous,
         required,
         designSession: previous?.designSession ?? null,
-        confirmedAt: previous?.confirmedAt ?? null,
-        caseHash: previous?.caseHash ?? null,
-        summary: previous?.summary ?? null,
-        result: previous?.result ?? null,
     };
-}
-/**
- * CASE 与 RESULT 使用同一全文摘要规则。
- * @param {string} content 文档全文
- * @returns {string} 64 位 SHA-256 hex
- */
-export function computeCaseHash(content) {
-    return computeContentHash(content);
 }
 /**
  * @param {string} code 机器可读问题码
@@ -477,12 +465,8 @@ export function evaluateCaseExecutionGate(root, taskRelPath, task) {
     const content = readIfExists(join(taskDirectory(root, taskRelPath), CASE_FILES.document));
     if (content === null)
         return [CASE_MISSING];
-    if (typeof task.case.caseHash !== 'string' || task.case.caseHash === '') {
-        missing.push('case.md has not been confirmed');
-    }
-    else if (task.case.caseHash !== computeCaseHash(content)) {
-        missing.push('case.md changed after confirmation; review and confirm it again');
-    }
+    // 无哈希判据：CASE 复核由主会话对照 PRD/PLAN/代码完成，机器面只要求
+    // 文档存在且设计会话链可用（复核满意后直接续接 designSession 执行）。
     if (typeof task.case.designSession !== 'string' || task.case.designSession === '') {
         missing.push('case.designSession is missing');
     }
@@ -598,7 +582,7 @@ function resultItems(body) {
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务相对路径
  * @param {TaskRecord} task 任务记录
- * @param {CaseOutcomeOptions} [options] 变更文件与归档记录要求
+ * @param {CaseStructureOptions} [options] 变更文件等求值选项
  * @returns {CaseStructureIssue[]} 全部核心问题
  */
 export function evaluateCaseOutcomeGate(root, taskRelPath, task, options = {}) {
@@ -636,8 +620,6 @@ export function evaluateCaseOutcomeGate(root, taskRelPath, task, options = {}) {
         issues.push(issue('result_version', 'RESULT version must be 1'));
     if (meta.task !== taskRelPath)
         issues.push(issue('result_task', 'RESULT task does not match the active task'));
-    if (meta.caseHash !== task.case.caseHash)
-        issues.push(issue('result_hash', 'RESULT caseHash is stale'));
     if (typeof meta.codeBaseline !== 'string' || meta.codeBaseline === '')
         issues.push(issue('result_baseline', 'codeBaseline is required'));
     if (meta.status !== 'passed')
@@ -724,17 +706,6 @@ export function evaluateCaseOutcomeGate(root, taskRelPath, task, options = {}) {
         issues.push(issue('open_issues', 'Open issues must be the final section and contain only - none'));
     }
     validateReferencedFiles(body, taskDir, issues);
-    if (options.requireResultRecord === true) {
-        if (task.case.result === null || task.case.result === undefined) {
-            issues.push(issue('result_record', 'task.case.result is missing; record check first'));
-        }
-        else if (task.case.result.caseHash !== task.case.caseHash) {
-            issues.push(issue('result_record_case', 'task.case.result.caseHash is stale'));
-        }
-        else if (task.case.result.resultHash !== computeCaseHash(resultContent)) {
-            issues.push(issue('result_record_hash', 'case-result.md changed after the recorded check'));
-        }
-    }
     return issues;
 }
 //# sourceMappingURL=case.js.map

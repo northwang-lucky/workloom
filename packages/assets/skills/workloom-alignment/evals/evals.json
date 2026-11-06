@@ -1,6 +1,6 @@
 {
   "skill_name": "workloom-alignment",
-  "description": "Phase 1.1 alignment eval: process-behavior cases (machine-checkable against the SKILL.md contract, including review content-blocker gating) plus a 20-item trigger / near-miss description set for triggering accuracy.",
+  "description": "Phase 1.1 alignment eval: process-behavior cases (machine-checkable against the SKILL.md contract, including review content-blocker gating and two-stage content confirmation) plus a 20-item trigger / near-miss description set for triggering accuracy.",
   "evals": [
     {
       "id": "align-auto-entry",
@@ -39,41 +39,41 @@
       ]
     },
     {
-      "id": "align-stale-reentry",
-      "name": "prd-changed-after-confirm-stale-reentry",
-      "prompt": "The prd.md of an aligned workloom task changed after workloom_task_align confirm (a new platform target appeared). The start tool now refuses with a stale message. Handle it.",
-      "expected_output": "The skill re-enters alignment focused on the changed area first, then recomputes the full frontier, and re-runs review → user confirmation → confirm so the credential matches again.",
+      "id": "align-change-reentry",
+      "name": "prd-changed-after-confirm-content-reentry",
+      "prompt": "The prd.md of an aligned workloom task changed after workloom_task_align confirm (a new platform target appeared) — the user themselves asked for that platform target in their last message. Handle it.",
+      "expected_output": "The user's own change message is treated as the change confirmation: the skill updates prd.md for the new platform target, re-runs review, and re-runs action=confirm (target=prd) with a fresh summary to refresh the record, then continues — it does not ask the user to confirm the same change a second time, and no hash is involved anywhere.",
       "assertions": [
-        "first re-opens only the area affected by the change",
-        "then recomputes the full frontier before claiming convergence",
-        "runs workloom_task_align review then confirm with the fresh hash",
-        "does not silently reuse the old credential"
+        "updates prd.md for the user-proposed change without asking for confirmation again",
+        "re-runs workloom_task_align action=review and then action=confirm with target=prd and a fresh summary",
+        "records only the confirmation time and summary (never a hash)",
+        "would batch questions to the user instead if the change had been discovered by the agent itself"
       ]
     },
     {
       "id": "align-convergence-order",
       "name": "fixed-convergence-order-review-confirm",
       "prompt": "The frontier of the active workloom alignment is empty and prd.md is complete with the ## Alignment Decisions section. Take it through convergence.",
-      "expected_output": "The alignment follows the fixed order: frontier empty → finalize prd → workloom_task_align action=review → require readyToConfirm true (snapshot + hash shown only then) → user explicitly confirms → action=confirm with expectedPrdHash and a summary; same-hash repeat is idempotent.",
+      "expected_output": "The alignment follows the fixed order: frontier empty → finalize prd → workloom_task_align action=review → require readyToConfirm true (content shown only then) → user explicitly confirms the content → action=confirm with target=prd and a non-empty summary; the record stores only the confirmation time and the summary.",
       "assertions": [
         "runs action=review before any confirm",
         "checks readyToConfirm on the review result before involving the user",
-        "shows the snapshot and hash to the user only once readyToConfirm is true",
+        "presents the prd content to the user only once readyToConfirm is true",
         "sets the <!-- workloom:open-nodes=none --> marker before confirming",
-        "writes the credential only after explicit user confirmation"
+        "confirms with target=prd and a summary only after explicit user confirmation, recording no hash"
       ]
     },
     {
       "id": "align-review-blockers",
       "name": "review-content-blockers-block-user-confirmation",
-      "prompt": "The active workloom alignment looks converged, so you run workloom_task_align action=review. The result is readyToConfirm false with structureIssues showing prd.md section \"Notes\" is missing. Go get the user's confirmation of the snapshot and hash.",
-      "expected_output": "The review is treated as a hard stop: the missing ## Notes section is a content blocker, so the Agent adds the section (or fills it when the blocker says the section is still a placeholder), re-runs workloom_task_align action=review, and shows the snapshot and hash to the user only once readyToConfirm is true.",
+      "prompt": "The active workloom alignment looks converged, so you run workloom_task_align action=review. The result is readyToConfirm false with structureIssues showing prd.md section \"Notes\" is missing. Go get the user's confirmation of the snapshot.",
+      "expected_output": "The review is treated as a hard stop: the missing ## Notes section is a content blocker, so the Agent adds the section (or fills it when the blocker says the section is still a placeholder), re-runs workloom_task_align action=review, and presents the content to the user only once readyToConfirm is true.",
       "assertions": [
-        "does not ask the user to confirm the snapshot or hash while readyToConfirm is false",
+        "does not ask the user to confirm while readyToConfirm is false",
         "fixes the reported content blocker in prd.md instead of jumping to action=confirm",
         "distinguishes a missing section from a section that is still a placeholder",
         "re-runs action=review after the fix and checks readyToConfirm again",
-        "keeps the missing expectedPrdHash and summary out of the content blocker list"
+        "keeps the missing summary out of the content blocker list (it is a confirm call parameter)"
       ]
     },
     {
@@ -92,7 +92,7 @@
     { "query": "create the task and then align the requirements before we write any design doc", "should_trigger": true, "rationale": "planning workloom task entering Phase 1.1" },
     { "query": "new workloom task for the sync engine just landed; walk the alignment frontier now", "should_trigger": true, "rationale": "auto Phase 1.1 alignment on active planning task" },
     { "query": "grill this plan round by round until the assumptions are gone", "should_trigger": true, "rationale": "grill phrasing inside active workloom planning task" },
-    { "query": "prd changed after confirm and start refuses; re-align focusing on what changed", "should_trigger": true, "rationale": "stale re-entry on workloom task" },
+    { "query": "prd changed after confirm and start refuses; re-align focusing on what changed", "should_trigger": true, "rationale": "content-change re-entry on workloom task" },
     { "query": "this task has a settings screen with dark mode — settle the UI requirements in alignment", "should_trigger": true, "rationale": "UI applicability node inside workloom alignment" },
     { "query": "we need tests first on this workloom task; confirm which seams are under test", "should_trigger": true, "rationale": "test-first applicability node in workloom alignment" },
     { "query": "finish Phase 1.1: frontier looks empty, run review and confirm after I approve", "should_trigger": true, "rationale": "convergence protocol on workloom planning task" },
@@ -108,6 +108,6 @@
     { "query": "write acceptance criteria for the login flow in our notion doc", "should_trigger": false, "rationale": "doc editing outside a workloom planning task" },
     { "query": "can you explain what grilling skills do in general?", "should_trigger": false, "rationale": "meta question about skills, no task" },
     { "query": "archive the finished workloom task and journal the session", "should_trigger": false, "rationale": "wrap-up lifecycle, alignment already done" },
-    { "query": "I'm in the middle of implementing and hit an ambiguous requirement: go ask the product owner directly", "should_trigger": true, "rationale": "ambiguity inside an active workloom task that must not be papered over during implementation — alignment boundary re-entry" }
+    { "query": "I'm in the middle of implementing and hit an ambiguous requirement: go ask the product owner directly", "should_trigger": true, "rationale": "ambiguity inside an active workloom task that must not be papered over during implementation — alignment boundary re-entry"}
   ]
 }
