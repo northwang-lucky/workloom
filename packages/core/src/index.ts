@@ -99,7 +99,7 @@ export type {
   CaseStructureIssue,
   CaseStructureOptions,
   TaskCaseRecord,
-} from './task/case.d.ts'
+} from './task/case-structure.ts'
 
 export { writeFileAtomic } from './workspace/file-atomic.js'
 

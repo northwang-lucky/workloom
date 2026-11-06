@@ -13,7 +13,33 @@ import { readFileSync } from 'node:fs'
 import { parse as parseYaml } from 'yaml'
 
 import { acceptanceIds, sectionMap, splitHeadings, traceabilityRows } from './prd-structure.ts'
-import type { CaseStructureIssue, CaseStructureOptions, TaskCaseRecord } from './case.d.ts'
+/** CASE/RESULT 解析目标（task purpose 值域）。 */
+export type CasePurpose = 'case-design' | 'execution'
+
+/** CASE_PURPOSES 的键类型。 */
+export type CasePurposeKey = 'DESIGN' | 'EXECUTION'
+
+/** 文档 front-matter 元数据（YAML 解析结果）。 */
+export type DocumentMeta = Record<string, unknown>
+
+/** 任务 CASE 生命周期记录（task.json case 字段内存形态）。 */
+export interface TaskCaseRecord {
+  required: boolean
+  designSession: string | null
+}
+
+/** CASE 结构问题（稳定 code + 英文文案）。 */
+export interface CaseStructureIssue {
+  code: string
+  message: string
+}
+
+/** CASE 深度校验选项（任务路径、子任务与实际 git 变更）。 */
+export interface CaseStructureOptions {
+  taskRelPath?: string
+  children?: string[]
+  changedFiles?: string[]
+}
 
 /** CASE 结构条目（SR 或 C，id + 正文）。 */
 export interface CaseItem {

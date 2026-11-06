@@ -1348,7 +1348,7 @@ function buildDispatchRecord(entry) {
  * kind 非法（含 undefined）抛错（fail loud，与 assertKind 同语义）。
  * @param {import('./task-store.d.ts').TaskStageValue} current 当前阶段（readTask 归一化后必有值）
  * @param {string} kind executor 类型
- * @param {import('./case.d.ts').CasePurpose} [purpose] CASE 设计或最终执行
+ * @param {import('./case-structure.ts').CasePurpose} [purpose] CASE 设计或最终执行
  * @returns {import('./task-store.d.ts').TaskStageValue} 新阶段
  */
 export function computeTaskStage(current, kind, purpose = CASE_PURPOSES.EXECUTION) {

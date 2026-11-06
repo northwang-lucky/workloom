@@ -26,7 +26,7 @@ import {
   targetFiles,
 } from './case-structure.ts'
 import { listCaseChangedFiles, taskDirectory, worktreeDirectory } from './case-scope.ts'
-import type { CaseStructureIssue, CaseStructureOptions } from './case.d.ts'
+import type { CaseStructureIssue, CaseStructureOptions } from './case-structure.ts'
 import type { TaskRecord } from './task-store.d.ts'
 
 /** RESULT 缺失文案。 */

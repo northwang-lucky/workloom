@@ -43,7 +43,7 @@ export declare function apply(ctx: Context): void;
  * @returns 注入文本（可能为空串）
  */
 export declare function renderSessionContext(target: InjectionTarget): string;
-/** assembleSessionContextText 的可选入参（对象封装，超过三个参数的可选维度）。 */
+/** assembleSessionContextText 的 options 入参（对象封装，超过三个参数的可选维度）。 */
 export interface SessionContextBuildOptions {
     /** 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）。 */
     delegationDepth?: number;

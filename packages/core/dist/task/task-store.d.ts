@@ -1,5 +1,5 @@
 /** workloom 任务数据：task-store 模块的公共类型（供 JSDoc 引用，快照字段）。 */
-import type { CasePurpose, TaskCaseRecord } from './case.d.ts'
+import type { CasePurpose, TaskCaseRecord } from './case-structure.ts'
 import type { GateValue } from './task-gates.d.ts'
 import type { TaskModeValue } from './task-mode.d.ts'
 

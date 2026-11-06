@@ -24,7 +24,7 @@ export { evaluateAlignmentGate, ALIGNMENT_MISSING, } from './task/alignment.js';
 export { CASE_FILES, CASE_PURPOSES, CASE_STRUCTURE, CASE_MISSING, createCaseRecord, inspectCaseStructure, } from './task/case-structure.ts';
 export { evaluateCaseExecutionGate, evaluateCaseOutcomeGate, } from './task/case-gates.ts';
 export { listCaseChangedFiles } from './task/case-scope.ts';
-export type { CasePurpose, CaseStructureIssue, CaseStructureOptions, TaskCaseRecord, } from './task/case.d.ts';
+export type { CasePurpose, CaseStructureIssue, CaseStructureOptions, TaskCaseRecord, } from './task/case-structure.ts';
 export { writeFileAtomic } from './workspace/file-atomic.js';
 export { parseContract, WorkflowContractError } from './injection/workflow-contract.js';
 export { WORKFLOW_PROTOCOL_VERSION, assertWorkflowProtocolVersion, } from './injection/protocol.js';

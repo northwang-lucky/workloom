@@ -16,7 +16,7 @@
  * - cwd/root/task 解析与 task-ops 同款（requireWorkloomCwd + resolveTaskRelPath +
  *   findWorkloomRoot），adapter 只负责投影返回与主会话限制。
  */
-import type { CaseStructureIssue } from './case.d.ts';
+import type { CaseStructureIssue } from './case-structure.ts';
 import type { TaskAlignmentRecord, TaskPlanConfirmationRecord, TaskStatusValue } from './task-store.d.ts';
 /** 确认对象：prd（缺省，兼容旧调用）或 plan。 */
 export type AlignTarget = 'prd' | 'plan';
