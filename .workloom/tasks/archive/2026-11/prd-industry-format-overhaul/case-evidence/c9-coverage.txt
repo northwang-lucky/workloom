@@ -1,0 +1,43 @@
+== C9 覆盖率采集 2026-11-06T15:03:16+08:00 ==
+== SF 记录恰 5 条，无 dist/测试/资产混入 ==
+SF:packages/core/src/domain/alignment.js
+SF:packages/core/src/domain/task-gates.js
+SF:packages/core/src/domain/task-store.js
+SF:packages/core/src/service/alignment-service.ts
+SF:packages/core/src/service/doctor-check-rules.ts
+== 每文件覆盖与 TOTAL ==
+packages/core/src/domain/alignment.js 41/41 100.0%
+packages/core/src/domain/task-gates.js 837/844 99.2%
+packages/core/src/domain/task-store.js 1507/1639 91.9%
+packages/core/src/service/alignment-service.ts 323/335 96.4%
+packages/core/src/service/doctor-check-rules.ts 615/673 91.4%
+TOTAL 3323/3532 (94.1%)
+== 原始产物 ==
+ 
+4096 .
+4096 ..
+0 core-test.log
+232384 lcov-core.info
+34899 lcov.info
+2066 merge-lcov.mjs
+306 summary.txt
+注：core-test.log 为 0 字节（stderr 在全绿运行下为空），lcov-core.info 即测试运行主记录
+== C9 复查（第二轮）2026-11-06T15:18:18+08:00 ==
+三次采集：首轮 3323/3532（94.1%）→ 第二轮 3070/3532（86.9%，并行归因偶发缺失，exit 0、stderr 干净）→ 第三轮 3323/3532（94.1%，与首轮逐文件一致）；产物取与首轮一致的稳定轮次
+SF:packages/core/src/domain/alignment.js
+SF:packages/core/src/domain/task-gates.js
+SF:packages/core/src/domain/task-store.js
+SF:packages/core/src/service/alignment-service.ts
+SF:packages/core/src/service/doctor-check-rules.ts
+packages/core/src/domain/alignment.js 41/41 100.0%
+packages/core/src/domain/task-gates.js 837/844 99.2%
+packages/core/src/domain/task-store.js 1507/1639 91.9%
+packages/core/src/service/alignment-service.ts 323/335 96.4%
+packages/core/src/service/doctor-check-rules.ts 615/673 91.4%
+TOTAL 3323/3532 (94.1%)
+实际变更的 4 文件合计: 1816/1893 (95.9%)
+0 core-test.log
+232408 lcov-core.info
+34901 lcov.info
+2066 merge-lcov.mjs
+306 summary.txt

@@ -1,0 +1,45 @@
+== C8 复查（第二轮）2026-11-06T15:15:46+08:00 ==
+-- 步骤1：归档清单 + lint/typecheck/build --
+lint exit=0
+typecheck exit=0
+build exit=0
+PASS 归档目录零变化
+-- 步骤2：三包全量 --
+core exit=0
+dsh exit=0
+pi exit=0
+ 207 pass
+ 0 fail
+-- 步骤3：真实样本只读检查（无标记 PRD 零问题）--
+独立标记行: false | R10 文字提及保留: true
+prd 零问题: true | plan 零问题: true
+中文冒号/（覆盖 R…）/验证方法 接受: true
+字节未改写: true
+step3 exit=0
+-- 步骤4：实际变更复核 CASE 覆盖 --
+变更文件数: 38 | 未审问题: []
+step4 exit=0
+-- 步骤5：残留 grep --
+4
+-- 步骤6：dist 可复现 --
+second build exit=0
+PASS 两次构建一致
+== C8 提交后复核（32bdbed，工作树全净）2026-11-06T15:24:27+08:00 ==
+lint exit=0
+typecheck exit=0
+build exit=0
+core exit=0
+dsh exit=0
+pi exit=0
+ 207 pass
+ 0 fail
+提交前后构建产物一致性：提交树与工作树零差异（git diff 32bdbed 为空），产物由同一源码生成
+提交后结果门禁问题数: 0
+caseHash 一致: true
+resultHash: 8b3fa26903744fe218f1779b098f380d39be6c6a92c23ec19a9f2bf886b0e89a
+alignment.js summary: 41/41 100.0% | 表内一致: true
+task-gates.js summary: 837/844 99.2% | 表内一致: true
+task-store.js summary: 1507/1639 91.9% | 表内一致: true
+alignment-service.ts summary: 323/335 96.4% | 表内一致: true
+doctor-check-rules.ts summary: 615/673 91.4% | 表内一致: true
+TOTAL 行: TOTAL 3323/3532 (94.1%)

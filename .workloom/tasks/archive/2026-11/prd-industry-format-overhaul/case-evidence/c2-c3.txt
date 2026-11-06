@@ -1,0 +1,48 @@
+file:///tmp/wl-prd-case-c2c3.mjs:5
+import { createTask, inspectPrdStructure, inspectPlanStructure, evaluateStartGate, readTask, PRD_SECTIONS, PRD_STRUCTURE_CODES } from '/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/dist/index.js'
+                                          ^^^^^^^^^^^^^^^^^^^^
+SyntaxError: The requested module '/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/dist/index.js' does not provide an export named 'inspectPlanStructure'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:327:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:431:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.18.1
+PASS C2 full prd 含 11 个小节且顺序与 PRD_SECTIONS 一致
+PASS C2 每节正文为对应 placeholder 指引
+PASS C2 骨架结构问题恰为 11 条 prd_section_placeholder，无 R/AC 或 open-node 问题码
+PASS C2 light 骨架与 full 除 H1 外逐字节一致
+PASS C3 变体「空 Requirements」命中 prd_requirements_empty 且 start 门禁拦截
+PASS C3 变体「空 Acceptance」命中 prd_acceptance_empty 且 start 门禁拦截
+PASS C3 变体「R 编号重复」命中 prd_reference_duplicate 且 start 门禁拦截
+PASS C3 变体「AC 编号重复」命中 prd_reference_duplicate 且 start 门禁拦截
+PASS C3 变体「AC 引用未定义 R」命中 prd_ac_unknown_reference 且 start 门禁拦截
+PASS C3 变体「AC 缺验证方法」命中 prd_ac_verification_missing 且 start 门禁拦截
+PASS C3 合法样本 A（英文冒号/Covers/Verification）零问题
+PASS C3 合法样本 B（中文冒号/（覆盖 R…）/验证方法）零问题
+PASS C3 样本 B 的 start 门禁无 PRD 结构缺失（其余缺失项：4 条非 PRD 项）
+PASS C3 PLAN 五字段协议 + Covers 全覆盖零问题
+PASS C3 缺 AC2 Covers 时报 plan_ac_missing
+ROOT=/data00/home/wangyubo.1219/tmp/wl-prd-c2-QIfKnG
+CLEANUP root 已删除
+C2+C3 全部通过
+== C2+C3 复查（第二轮）2026-11-06T15:15:05+08:00 ==
+PASS C3 样本 B 的 start 门禁无 PRD 结构缺失（其余缺失项：4 条非 PRD 项）
+PASS C3 PLAN 五字段协议 + Covers 全覆盖零问题
+PASS C3 缺 AC2 Covers 时报 plan_ac_missing
+ROOT=/data00/home/wangyubo.1219/tmp/wl-prd-c2-YRVUqC
+CLEANUP root 已删除
+C2+C3 全部通过
+c2c3 exit=0
+== C4 复查（第二轮）2026-11-06T15:15:05+08:00 ==
+PASS C4 步骤1 写入真实新格式 PRD（真实 R1–R10/AC1–AC5 条目，无独立 HTML 注释行）
+PASS C4 步骤2 写入合法 PLAN（Covers 覆盖 AC1–AC5）与双 jsonl 有效记录
+PASS C4 步骤3 PRD review readyToConfirm=true、零结构问题、结果不含 openNodeState
+PASS C4 步骤4 prd→plan 双确认记录齐备（PLAN 确认在 PRD 之后）
+PASS C4 步骤5 startTask 成功转 in_progress，CASE required=true，无标记拦截
+PASS C4 步骤6 none/pending 标记均不产生 open-node 问题码且文件字节不变
+PASS C4 步骤7 dist/domain/alignment.js 无 findOpenNodeState 与 OPEN_NODE_MARKER 导出
+ROOT=/data00/home/wangyubo.1219/tmp/wl-prd-c4-ZBkjIy
+CLEANUP root 已删除
+C4 全部通过
+c4 exit=0

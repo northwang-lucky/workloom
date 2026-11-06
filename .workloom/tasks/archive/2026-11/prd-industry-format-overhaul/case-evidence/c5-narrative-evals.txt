@@ -1,0 +1,16 @@
+== C5 叙述质量对照评测 2026-11-06T14:57:25+08:00 ==
+== 步骤1–3：evals.json 场景细节 ==
+场景 align-narrative-coherent 断言 4 条，无 CJK
+场景 align-narrative-log 断言 4 条，无 CJK
+PASS log 场景覆盖三类问题：问答堆叠/重复摘要/逐轮答复进 Alignment Decisions
+PASS coherent 场景：按能力组织被接受并宣布可评审
+evals.json 全部 prompt 断言为英文： True
+== C5 步骤4：机检命令 ==
+contract-asset exit=0
+dsh skills exit=0
+ℹ pass 17
+ℹ fail 0
+== C5 复查（第二轮）2026-11-06T15:15:15+08:00 ==
+PASS 两叙述场景在位，断言非空且全英文
+contract-asset exit=0
+dsh skills exit=0

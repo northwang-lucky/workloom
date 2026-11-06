@@ -1,0 +1,47 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 真实 PRD 不含任何 HTML 注释
+    at file:///tmp/wl-prd-case-c4.mjs:25:8 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.18.1
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/assets/skills/workloom-case-archived/evals/build-fixtures.mjs:28:  return `# ${title}\n\n## Goal\n\nRebuild deterministic verification from archived material.\n\n## Requirements\n\n- R1: Keep the source materials readable and preserve their original semantics.\n- R2: Verify a deterministic local condition without external services.\n\n## Acceptance Criteria\n\n- AC1: Source material is readable and the rebuilt PRD/PLAN carry content confirmations. Verification: inspect task.json and documents. Covers R1.\n- AC2: A local runtime check passes deterministically. Verification: execute the documented command. Covers R2.\n\n## Notes\n\n- Historical material is a reference for a new independent validation task.\n\n## Alignment Decisions\n\n- This archived fixture is complete and approved as historical input only.\n\n<!-- workloom:open-nodes=none -->\n`
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/assets/skills/workloom-case-active/evals/build-fixtures.mjs:21:  return `# ${title}\n\n## Goal\n\nVerify the CASE lifecycle for ${title}.\n\n## Requirements\n\n- R1: PRD and PLAN remain valid and reviewable.\n- R2: ${runtime}\n\n## Acceptance Criteria\n\n- AC1: The task materials pass structural review and carry recorded PRD/PLAN content confirmations. Verification: inspect task.json and documents. Covers R1.\n- AC2: The CASE executes deterministically, or reports blocked when the required socket is absent. Verification: run the C item and inspect evidence. Covers R2.\n\n## Notes\n\n- No product source changes are required.\n\n## Alignment Decisions\n\n- This deterministic fixture is approved for evaluation.\n\n<!-- workloom:open-nodes=none -->\n`
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/assets/skills/workloom-migrate-plan/SKILL.md:23:1. Read the current prd.md fully and rewrite it into the fixed full-task section set (Context, Goal, Scope, Assumptions Constraints and Dependencies, Requirements, Acceptance Criteria, Edge Cases and Failure Paths, Risks and Open Questions, Alignment Decisions, References, Notes — keep `## UI Design` when present; a category the legacy prd never covered keeps its heading with `none` plus a short reason). Requirements regroup by capability or behavior as numbered R items (each a single decidable statement) and Acceptance Criteria as numbered AC items (each citing its R items and carrying a verification method); do not transcribe Q&A rounds from the legacy text — carried-over content is reorganized into its home section, not stacked by conversation order. No HTML open-nodes marker exists in the new format.
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/assets/skills/workloom-migrate-plan/SKILL.md:42:The task directory holds a prescriptive `plan.md` (every step with Covers/Target/Edit/Verify, Edit carrying the five protocol fields as structured pseudocode) and a `prd.md` rewritten to the fixed full-task section set with R/AC traceability (no open-nodes marker) whose content confirmation is recorded (confirmation time + summary, no hash); both carry migration notes; `design.md` and `implement.md` are gone.
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/test/doctor.test.js:361:    assert.ok(!dc.issues.some((i) => i.message.includes('open-nodes')), 'marker text must not appear')
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/test/worktree-lifecycle.test.js:217:    '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nDo the thing.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/test/task-store.test.js:942:    assert.doesNotMatch(err.message, /open-nodes/)
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/test/contract-asset.test.js:253:    !alignBody.includes('workloom:open-nodes'),
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/test/contract-asset.test.js:955:  assert.ok(!skill.includes('workloom:open-nodes'), '技能不得再含开放节点 HTML 标记')
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/core/test/task-ops.test.js:506:    const legacy = `${CONVERGED_ALIGN_PRD}\n<!-- workloom:open-nodes=pending -->\n`
+PASS C4 步骤1 写入真实新格式 PRD（真实 R1–R10/AC1–AC5 条目，无独立 HTML 注释行）
+PASS C4 步骤2 写入合法 PLAN（Covers 覆盖 AC1–AC5）与双 jsonl 有效记录
+PASS C4 步骤3 PRD review readyToConfirm=true、零结构问题、结果不含 openNodeState
+PASS C4 步骤4 prd→plan 双确认记录齐备（PLAN 确认在 PRD 之后）
+PASS C4 步骤5 startTask 成功转 in_progress，CASE required=true，无标记拦截
+PASS C4 步骤6 none/pending 标记均不产生 open-node 问题码且文件字节不变
+PASS C4 步骤7 dist/domain/alignment.js 无 findOpenNodeState 与 OPEN_NODE_MARKER 导出
+ROOT=/data00/home/wangyubo.1219/tmp/wl-prd-c4-2TVJjK
+CLEANUP root 已删除
+C4 全部通过
+== C4 步骤8 命中分类 ==
+src 命中：0（运行时代码零残留）
+assets 命中 4 处逐条分类：
+1-2) workloom-case-archived/evals/build-fixtures.mjs:28 与 workloom-case-active/evals/build-fixtures.mjs:21 —— 评测夹具生成器向生成的旧格式项目夹具嵌入标记文本；标记已无任何程序读取（SR4/C4 步骤7 验证），属惰性历史数据；两文件不在 PLAN 变更清单内，不修改，上报主会话。
+3-4) workloom-migrate-plan/SKILL.md:23,42 —— 否定式声明（'No HTML open-nodes marker exists in the new format'），符合 SR13 意图。
+test 命中：doctor.test.js:361（断言不含）、task-store.test.js:942（doesNotMatch）、contract-asset.test.js:253/955（断言不含）、worktree-lifecycle.test.js:217 与 task-ops.test.js:506（历史文本夹具）——均为否定断言或历史数据，无程序化读取。
+c4 exit=0
+== C4 步骤8 复查：src/assets 残留 grep ==
+      1 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/assets/skills/workloom-case-active/evals/build-fixtures.mjs
+      1 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/assets/skills/workloom-case-archived/evals/build-fixtures.mjs
+      2 /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/assets/skills/workloom-migrate-plan/SKILL.md
+分类：migrate-plan 两处为否定式声明；case-* 两个 build-fixtures 为 legacy 夹具输入（生产 src 无引用，见 SR 复查段）

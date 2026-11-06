@@ -1,0 +1,414 @@
+== SR1 PRD_SECTIONS ==
+    heading: 'Context',
+    heading: 'Goal',
+    heading: 'Scope',
+    heading: 'Assumptions, Constraints and Dependencies',
+    heading: 'Requirements',
+    heading: 'Acceptance Criteria',
+    heading: 'Edge Cases and Failure Paths',
+    heading: 'Risks and Open Questions',
+    heading: 'Alignment Decisions',
+    heading: 'References',
+  { heading: 'Notes', placeholder: '(placeholder: add notes that do not belong to any section above)' },
+== SR1 PRD_STRUCTURE_CODES ==
+export const PRD_STRUCTURE_CODES = Object.freeze({
+  PRD_MISSING: 'prd_missing',
+  PRD_TITLE_MISSING: 'prd_title_missing',
+  PRD_SECTION_MISSING: 'prd_section_missing',
+  PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder',
+  PRD_REQUIREMENTS_EMPTY: 'prd_requirements_empty',
+  PRD_ACCEPTANCE_EMPTY: 'prd_acceptance_empty',
+  PRD_REFERENCE_DUPLICATE: 'prd_reference_duplicate',
+  PRD_AC_UNKNOWN_REFERENCE: 'prd_ac_unknown_reference',
+  PRD_AC_VERIFICATION_MISSING: 'prd_ac_verification_missing',
+})
+== SR1 open-node 残留 ==
+0
+== SR2 task-gates.d.ts ==
+/** 流程卡点（task-gates）模块的公共类型（供 JSDoc 引用）。 */
+
+import type { DispatchRecord, GateOverride, TaskRecord } from './task-store.d.ts'
+
+/** 卡点枚举键。 */
+export type GateKey =
+  | 'START'
+  | 'CHECK'
+  | 'ARCHIVE'
+  | 'EXECUTOR_MODEL_EFFORT'
+  | 'LIGHT_DISPATCH'
+
+/** 卡点取值（task.json overrides[].gate）。 */
+export type GateValue =
+  | 'start'
+  | 'check'
+  | 'archive'
+  | 'executor_model_effort'
+  | 'light_dispatch'
+
+/** 卡点枚举常量对象。 */
+export const GATES: Readonly<Record<GateKey, GateValue>>
+
+/** 卡点对应的工具名常量对象。 */
+export const GATE_TOOLS: Readonly<Record<GateValue, string>>
+
+/** prd 骨架小节定义。 */
+export interface PrdSection {
+  heading: string
+  placeholder: string
+}
+
+/** prd.md 骨架小节常量（完整任务固定十一小节，顺序即文档顺序）。 */
+export const PRD_SECTIONS: readonly PrdSection[]
+
+/** prd 结构问题 code（冻结值域：缺文件/H1/小节/占位/R-AC 追踪五类）。 */
+export type PrdStructureCode =
+  | 'prd_missing'
+  | 'prd_title_missing'
+  | 'prd_section_missing'
+  | 'prd_section_placeholder'
+  | 'prd_requirements_empty'
+  | 'prd_acceptance_empty'
+  | 'prd_reference_duplicate'
+  | 'prd_ac_unknown_reference'
+  | 'prd_ac_verification_missing'
+
+/** 单条 prd 结构问题：稳定 code + 英文运行时文案 + 可选小节名。 */
+export interface PrdStructureIssue {
+  code: PrdStructureCode
+  message: string
+  section?: string
+}
+
+/** 小节类结构问题 code（PrdStructureCode 的子集，携带 section 字段）。 */
+export type PrdSectionIssueCode = 'prd_section_missing' | 'prd_section_placeholder'
+
+/** prd 结构问题 code 常量对象（键名与 code 一一对应）。 */
+export const PRD_STRUCTURE_CODES: Readonly<{
+  PRD_MISSING: 'prd_missing'
+  PRD_TITLE_MISSING: 'prd_title_missing'
+  PRD_SECTION_MISSING: 'prd_section_missing'
+  PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder'
+  PRD_REQUIREMENTS_EMPTY: 'prd_requirements_empty'
+  PRD_ACCEPTANCE_EMPTY: 'prd_acceptance_empty'
+  PRD_REFERENCE_DUPLICATE: 'prd_reference_duplicate'
+  PRD_AC_UNKNOWN_REFERENCE: 'prd_ac_unknown_reference'
+  PRD_AC_VERIFICATION_MISSING: 'prd_ac_verification_missing'
+}>
+
+/** prd 文件缺失文案（start 门禁、review 诊断、confirm 拦截共用同一句）。 */
+export const PRD_MISSING: string
+
+/** 判定 prd.md 是否缺一级标题（H1）：缺失返回缺失文案，通过返回 null。 */
+export function findMissingPrdTitle(prdContent: string): string | null
+
+/** 找出仍为 placeholder 的 prd 小节标题列表（缺失小节视为未填）。 */
+export function findUnfilledPrdSections(prdContent: string): string[]
+
+/** 检查 prd.md 结构与内容门禁，一次性返回全部问题（顺序：H1 → 小节 → R/AC 追踪）。 */
+export function inspectPrdStructure(prdContent: string | null): PrdStructureIssue[]
+
+/** PLAN 文件缺失文案（完整实施任务 start 门禁拦截）。 */
+export const PLAN_MISSING: string
+
+/** PLAN 内容未确认文案（PLAN 结构合格但无 planConfirmation 时 start 拦截）。 */
+export const PLAN_NOT_CONFIRMED: string
+
+/** 单条 PLAN 结构问题：稳定 code + 英文运行时文案。 */
+export interface PlanStructureIssue {
+  code:
+    | 'plan_missing'
+    | 'plan_title_missing'
+    | 'plan_steps_missing'
+    | 'plan_steps_empty'
+    | 'plan_step_field'
+    | 'plan_protocol_missing'
+    | 'plan_protocol_duplicate'
+    | 'plan_protocol_order'
+    | 'plan_ac_missing'
+  message: string
+}
+
+/**
+ * 校验完整实施任务的 PLAN：步骤四要素齐全，Edit 区域五字段伪代码协议成立，
+ * 且 PRD 的每个 AC 至少被 Covers 一次。
+ */
+export function inspectPlanStructure(planContent: string | null, prdContent: string): PlanStructureIssue[]
+
+/** 统计 jsonl 内容中的有效记录数（有 file 字段的行；坏行抛错）。 */
+export function countEffectiveJsonlRecords(content: string, jsonlName: string): number
+
+/** 求值 start 门禁（含 alignment 门禁分支）：返回缺失项描述列表（空数组表示通过；坏行抛错）。 */
+export function evaluateStartGate(root: string, taskRelPath: string, task: TaskRecord): string[]
+
+/** 轻量任务派发拒绝文案（主会话包办语义）。 */
+export const LIGHT_DISPATCH_REJECT: string
+
+/** 求值轻量任务派发门禁（纯函数）：light 任务返回拒绝文案，full/旧任务放行。 */
+export function evaluateLightDispatchGate(
+  task: TaskRecord | null | undefined,
+): string[]
+
+/** 求值 check 门禁（check.jsonl 有效记录）：返回缺失项描述列表（空数组表示通过）。 */
+export function evaluateCheckLogGate(root: string, taskRelPath: string): string[]
+
+/**
+ * 求值前端派发门禁（纯函数）：prd 含「UI Design」实质内容小节（正文首行非显式
+ * 不适用声明）且无 frontend 派发时返回缺失项；正文声明不适用视同无 UI 需求放行。
+ */
+export function evaluateFrontendDispatchGate(
+  prdContent: string | null,
+  dispatches: DispatchRecord[],
+): string[]
+
+/** 组装一条 force 豁免记录（gate/tool/at/reason?）。 */
+export function makeOverride(gate: GateValue, reason?: string): GateOverride
+const AC_ITEM_RE = /^- AC(\d+)\s*(?:\([^)]*\)|（[^）]*）)?\s*[:\uFF1A]/
+
+/** 小节内条目起始行形态（R 与 AC 条目行共用，用于条目范围切分）。 */
+const TRACE_ITEM_LINE_RE = /^- (?:R|AC)\d+/
+
+/** 任意标题行（条目范围在标题处截断，防止后续小节内容并入上一条目）。 */
+const ANY_HEADING_LINE_RE = /^#{1,6}\s/
+
+/** AC 条目内的 R 引用形态：词边界 R + 数字（PRD 等大写词不误报）。 */
+const R_REFERENCE_RE = /\bR(\d+)/g
+
+/** AC 验证标识词表：条目正文含其一即视为带验证方法（中英文皆可）。 */
+const AC_VERIFICATION_MARKERS = Object.freeze(['验证方法', 'Verification', 'Verify'])
+
+/**
+ * 把小节正文切成条目列表（内部）：条目行（R/AC 编号行）开启新条目，
+ * 后续非条目、非标题、非空行并入当前条目正文；标题行截断条目范围。
+ * @param {string} body 小节正文（trim 后）
+ * @returns {string[]} 条目全文列表（条目首行 + 归属续行）
+ */
+function splitTraceItems(body) {
+  const items = []
+  let current = null
+  for (const line of body.split('\n')) {
+    if (TRACE_ITEM_LINE_RE.test(line)) {
+      current = line
+      items.push(current)
+      continue
+    }
+    if (ANY_HEADING_LINE_RE.test(line)) {
+      current = null
+      continue
+    }
+    if (current !== null && line.trim() !== '') current += `\n${line}`
+  }
+  return items
+}
+export function inspectPrdStructure(prdContent) {
+  if (prdContent === null) {
+    return [{ code: PRD_STRUCTURE_CODES.PRD_MISSING, message: PRD_MISSING }]
+  }
+  const issues = []
+  if (findMissingPrdTitle(prdContent) !== null) {
+    issues.push({ code: PRD_STRUCTURE_CODES.PRD_TITLE_MISSING, message: PRD_TITLE_MISSING })
+  }
+  const bodies = splitSectionBodies(prdContent)
+  const sectionStates = new Map()
+  for (const section of PRD_SECTIONS) {
+    const body = bodies.get(section.heading)
+    if (body === undefined) {
+      sectionStates.set(section.heading, 'missing')
+      issues.push(makeSectionIssue(PRD_STRUCTURE_CODES.PRD_SECTION_MISSING, section.heading))
+      continue
+    }
+    if (body === section.placeholder) {
+      sectionStates.set(section.heading, 'placeholder')
+      issues.push(makeSectionIssue(PRD_STRUCTURE_CODES.PRD_SECTION_PLACEHOLDER, section.heading))
+    }
+  }
+  const requirementsBody = bodies.get(REQUIREMENTS_SECTION)
+  const acceptanceBody = bodies.get(ACCEPTANCE_SECTION)
+  if (
+    sectionStates.get(REQUIREMENTS_SECTION) === undefined &&
+    sectionStates.get(ACCEPTANCE_SECTION) === undefined &&
+    requirementsBody !== undefined &&
+    acceptanceBody !== undefined
+  ) {
+    const requirementNumbers = new Set(
+      extractItemNumbers(splitTraceItems(requirementsBody), R_ITEM_RE),
+    )
+    issues.push(...inspectRequirementsTrace(requirementsBody))
+    issues.push(...inspectAcceptanceTrace(acceptanceBody, requirementNumbers))
+  }
+  return issues
+}
+== R_ITEM_RE 与追踪检查 ==
+174:const R_ITEM_RE = /^- R(\d+)\s*(?:\([^)]*\)|（[^）]*）)?\s*[:\uFF1A]/
+239:  const numbers = extractItemNumbers(splitTraceItems(body), R_ITEM_RE)
+174:const R_ITEM_RE = /^- R(\d+)\s*(?:\([^)]*\)|（[^）]*）)?\s*[:\uFF1A]/
+175-
+function inspectRequirementsTrace(body) {
+  const numbers = extractItemNumbers(splitTraceItems(body), R_ITEM_RE)
+  if (numbers.length === 0) {
+    return [
+      {
+        code: PRD_STRUCTURE_CODES.PRD_REQUIREMENTS_EMPTY,
+        message: `prd.md section "${REQUIREMENTS_SECTION}" has no "- R<number>:" requirement items`,
+      },
+    ]
+  }
+  const issues = []
+  const seen = new Set()
+  for (const number of numbers) {
+    if (seen.has(number)) {
+      issues.push({
+        code: PRD_STRUCTURE_CODES.PRD_REFERENCE_DUPLICATE,
+        message: `prd.md requirement R${number} is duplicated`,
+      })
+      continue
+    }
+    seen.add(number)
+  }
+  return issues
+}
+function inspectAcceptanceTrace(body, requirementNumbers) {
+  const items = splitTraceItems(body)
+  const numbers = extractItemNumbers(items, AC_ITEM_RE)
+  if (numbers.length === 0) {
+    return [
+      {
+        code: PRD_STRUCTURE_CODES.PRD_ACCEPTANCE_EMPTY,
+        message: `prd.md section "${ACCEPTANCE_SECTION}" has no "- AC<number>:" acceptance items`,
+      },
+    ]
+  }
+  const issues = []
+  const seen = new Set()
+  for (const [index, item] of items.entries()) {
+    const number = numbers[index]
+    if (seen.has(number)) {
+      issues.push({
+        code: PRD_STRUCTURE_CODES.PRD_REFERENCE_DUPLICATE,
+        message: `prd.md acceptance criterion AC${number} is duplicated`,
+      })
+      continue
+    }
+    seen.add(number)
+    if (requirementNumbers.size > 0) {
+      const referenced = [...item.matchAll(R_REFERENCE_RE)].map((match) => Number(match[1]))
+      const unknown = [...new Set(referenced.filter((ref) => !requirementNumbers.has(ref)))].sort(
+        (a, b) => a - b,
+      )
+      if (!referenced.some((ref) => requirementNumbers.has(ref))) {
+        issues.push({
+          code: PRD_STRUCTURE_CODES.PRD_AC_UNKNOWN_REFERENCE,
+          message: `prd.md acceptance criterion AC${number} references no defined R item`,
+        })
+      } else if (unknown.length > 0) {
+        issues.push({
+          code: PRD_STRUCTURE_CODES.PRD_AC_UNKNOWN_REFERENCE,
+          message: `prd.md acceptance criterion AC${number} references undefined R${unknown.join(', R')}`,
+        })
+      }
+    }
+== SR3 buildPrdContent ==
+function buildPrdContent(title) {
+  return (
+    `# ${title}\n\n` +
+    PRD_SECTIONS.map((section) => `## ${section.heading}\n\n${section.placeholder}`).join('\n\n') +
+    '\n'
+  )
+}
+== SR3 light/full 同骨架调用 ==
+447:function buildPrdContent(title) {
+659:  writeFileSync(join(taskDir, FILE_NAMES.prd), buildPrdContent(task.title))
+== SR4 alignment.js open-node 残留 ==
+0
+== SR5 alignment.d.ts open-node 残留 ==
+0
+== SR6 alignment-service openNodeState ==
+0
+145:  const target: AlignTarget = params.target === 'plan' ? 'plan' : 'prd'
+149:  return target === 'plan'
+170:  const plan = target === 'plan' ? readPlan(root, taskRelPath) : null
+== SR7 index.ts 导出 ==
+0
+== SR8 doctor ==
+== SR8 doctor PRD 文案与投影 ==
+309: * @param prdPath prd.md 展示路径
+320:      title: 'prd.md missing H1',
+323:      message: `prd.md is missing an H1 title (${issue.message}).`,
+326:      hint: 'Start prd.md with a "# Task title" H1 line.',
+333:    title: isMissing ? `prd.md missing ${issue.section} section` : `prd.md ${issue.section} placeholder`,
+340:      ? `Add the "## ${issue.section}" section to prd.md.`
+341:      : `Fill in the "## ${issue.section}" section of prd.md.`,
+350:    const prdPath = join(WORKLOOM_DIR, node.relPath, 'prd.md')
+351:    const prd = readIfExists(join(taskDir, 'prd.md'))
+356:          title: 'Missing prd.md',
+359:          message: 'prd.md is missing.',
+362:          hint: 'Write prd.md with the full sections: Context, Goal, Scope, Assumptions Constraints and Dependencies, Requirements, Acceptance Criteria, Edge Cases and Failure Paths, Risks and Open Questions, Alignment Decisions, References, Notes.',
+-- open-node 字样 --
+0
+-- R/AC 追踪投影（应为空）--
+0
+== SR9 workflow.md 关键句 ==
+0
+version: 25
+1
+-- 步骤 id 数与集合 --
+0
+== SR10 workflow-light.md ==
+0
+== SR11 alignment SKILL.md ==
+0
+== SR13 migrate SKILL.md ==
+2
+== SR17 eslint.config.js ignores ==
+14:      '.workloom/**',
+== SR9 步骤结构对比（main vs worktree）==
+步骤标题集合一致
+== SR9 步骤数 ==
+0
+== SR14 contract-asset 断言形态 ==
+253:    !alignBody.includes('workloom:open-nodes'),
+955:  assert.ok(!skill.includes('workloom:open-nodes'), '技能不得再含开放节点 HTML 标记')
+-- questioning/merged/batch 固定文本保留 --
+1
+== SR14 叙述断言 ==
+985:  const coherent = evals.evals.find((item) => item.id === 'align-narrative-coherent')
+986:  const log = evals.evals.find((item) => item.id === 'align-narrative-log')
+987:  assert.ok(coherent, '缺 align-narrative-coherent 对照场景')
+988:  assert.ok(log, '缺 align-narrative-log 对照场景')
+991:    coherent.assertions.some((line) => line.includes('capability-grouped')),
+996:    log.assertions.some((line) => line.includes('Q&A-round-stacked')),
+== SR 复查（第二轮）2026-11-06T15:13:52+08:00：代码相对首轮无变化（HEAD b3a2875，变更集 38 文件不变），重跑关键断言 ==
+SR1 骨架小节数: 11
+SR1 问题码含 open-node: 0
+SR4/SR5/SR6/SR7 open-node 残留: 0（应为 0）
+SR9 workflow.md 版本与标记: version: 25 / 标记命中 0
+SR10 workflow-light 标记命中: 0
+SR11 SKILL.md 标记命中: 0
+SR14 契约测试叙述断言: 4
+SR15 DSH 叙述断言: 4
+SR16 Pi 新格式断言: 3
+SR17 ignores .workloom: 1
+== 生产逻辑不读历史夹具 ==
+生产 src 无任何对 build-fixtures 的引用
+== 无标记真实 PRD 结构检查 ==
+node:fs:441
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open '/.workloom/tasks/11-06-prd-industry-format-overhaul/prd.md'
+    at readFileSync (node:fs:441:20)
+    at file:///data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/[eval1]:4:13
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:224:26
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:221:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/.workloom/tasks/11-06-prd-industry-format-overhaul/prd.md'
+}
+
+Node.js v24.18.1
+独立标记行存在: false
+R10 文字提及保留（引述被移除的机制，非标记行）: true
+无标记 PRD 结构问题: []
+PASS 无标记真实 PRD 结构检查零问题

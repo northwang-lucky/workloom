@@ -1,0 +1,28 @@
+== C7 双 adapter 一致 2026-11-06T14:58:58+08:00 ==
+build exit=0
+packages/adapter-pi build: Done
+packages/adapter-dsh build: Done
+dsh skills exit=0
+ℹ pass 17
+ℹ fail 0
+pi skills exit=0
+ 5 pass
+ 0 fail
+Pi 副本 SKILL.md 存在
+Pi 副本 evals.json 存在
+Pi 副本无 open-nodes 残留
+== C7 步骤4：DSH dist 资产清单与 src 一致 ==
+src 条目数: 11 dist 条目数: 11
+一致: true
+== C7 步骤4b：dist 与 src 技能资产逐项一致性（含 evals 注册）==
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/adapter-dsh/src/skills.ts:0
+/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-prd-industry-format-overhaul/packages/adapter-dsh/dist/skills.js:0
+== C7 复查（第二轮）2026-11-06T15:15:28+08:00 ==
+build exit=0
+dsh exit=0
+ℹ pass 17
+pi exit=0
+ 5 pass
+Pi 副本资产在位
+Pi 副本无标记残留
+DSH dist 与 src 清单一致: true （11 条）

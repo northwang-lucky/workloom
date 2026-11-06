@@ -1,0 +1,6 @@
+packages/core/src/domain/alignment.js 41/41 100.0%
+packages/core/src/domain/task-gates.js 837/844 99.2%
+packages/core/src/domain/task-store.js 1507/1639 91.9%
+packages/core/src/service/alignment-service.ts 323/335 96.4%
+packages/core/src/service/doctor-check-rules.ts 615/673 91.4%
+TOTAL 3323/3532 (94.1%)

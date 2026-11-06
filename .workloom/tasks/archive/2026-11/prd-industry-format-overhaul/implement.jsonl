@@ -1,0 +1,7 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"保持 core 结构逻辑、assets 文档和 adapter 投影的分层"}
+{"file":".workloom/spec/repo/domain-module/index.md","reason":"修改 PRD 骨架、domain JS/JSDoc 与类型声明时遵守模块约定"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"实现结构校验、追踪检查和测试时遵守编码规范"}
+{"file":".workloom/spec/repo/language/index.md","reason":"运行时模板与资产使用英文，任务文档和注释使用中文"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"保持步骤集合不变并正确判断协议版本"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"core 与 adapter-dsh 修改后同步重建 dist"}
+{"file":".workloom/tasks/11-06-prd-industry-format-overhaul/research/industry-prd-formats.md","reason":"提供业界 PRD 结构依据、裁剪边界和反流水账写作要求"}

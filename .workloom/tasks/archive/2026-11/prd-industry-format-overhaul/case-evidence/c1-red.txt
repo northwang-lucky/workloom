@@ -1,0 +1,65 @@
+== C1 红阶段 2026-11-06T14:50:33+08:00 ==
+BASELINE=b3a2875d12a11d7971d845f96828a18c702e0629
+准备工作区（分离头指针 b3a2875）
+HEAD 现在位于 b3a2875 chore: record journal
+linked .
+linked packages/core
+linked packages/adapter-dsh
+linked packages/adapter-pi
+baseline build exit=1
+    at runPnpmCli (file:///data00/home/wangyubo.1219/.local/share/pnpm/app/dist/pnpm.mjs:252068:5)
+    at runDepsStatusCheck (file:///data00/home/wangyubo.1219/.local/share/pnpm/app/dist/pnpm.mjs:253836:7)
+== 改用直接 tsc 构建（绕过 pnpm deps 检查）==
+bash: 行 1: ./node_modules/.bin/tsc: 没有那个文件或目录
+tsc exit=0
+copy-domain-dts: 已分发 19 个手写 d.ts 到 dist/domain/
+dts copy ok
+dist/domain/task-gates.js
+dist/index.js
+== C1 步骤 4：复制修改后的测试到基线树 ==
+copied
+== C1 步骤 5：core 测试（预期非 0）==
+core exit=1
+✔ alignment 缺失文案点名下一步工具（指引 workloom_task_align） (0.19994ms)
+✔ CASE/PLAN 深度结构校验接受有效材料并聚合缺漏 (12.338964ms)
+✔ 纯文档范围允许 not_applicable，文件缺失或漏审仍拒绝 (2.122253ms)
+✔ check parent-child：子有 parent 而父 children 缺 / 父 children 含而子 parent 空 (5.657704ms)
+✖ check doc-completeness：prd 缺 H1/占位符、jsonl 无有效记录 (5.742069ms)
+✖ check doc-completeness：缺小节与 placeholder 小节分别生成独立 issue 与 hint (5.841841ms)
+✔ check worktree：.gitignore 缺 worktree/ 条目告警；补条目后通过 (6.797507ms)
+✔ findMissingPrdTitle：首行无 H1 判缺失 (0.347194ms)
+✖ 小节整体缺失视为未填 (0.477471ms)
+✖ inspectPrdStructure：AC 缺验证标识报 prd_ac_verification_missing (0.520941ms)
+✔ inspectPrdStructure：小节缺失或仍为 placeholder 时不叠加 R/AC 追踪问题 (0.304253ms)
+✔ inspectPrdStructure：prd 缺失只报 prd_missing (0.157368ms)
+grep: 写入错误: 断开的管道
+== C1 步骤 6a：adapter-dsh 技能测试（预期非 0）==
+dsh exit=1
+✖ workloom-alignment 资产可解析：name/description/whenToUse + 固定小节叙述规则与 references 就位 (1.666073ms)
+✖ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.587511ms)
+ℹ fail 2
+✖ failing tests:
+✖ workloom-alignment 资产可解析：name/description/whenToUse + 固定小节叙述规则与 references 就位 (1.666073ms)
+✖ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.587511ms)
+  AssertionError [ERR_ASSERTION]: narrative coherent case must exist
+      at TestContext.<anonymous> (file:///tmp/wl-prd-red/packages/adapter-dsh/test/skills.test.js:390:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+== C1 步骤 6b：adapter-pi 同步与技能测试（预期非 0）==
+pi exit=1
+(fail) skills 同步产物携带 PRD 新格式口径（固定小节叙述规则、无 open-nodes 标记、对照评测场景） [0.63ms]
+ 1 fail
+== C1 清理 ==
+worktree removed
+/tmp/wl-prd-red 不存在
+== C1 红阶段复查（第二轮）2026-11-06T15:14:51+08:00 ==
+BASELINE=b3a2875d12a11d7971d845f96828a18c702e0629（与首轮一致）
+基线树已建
+依赖链接完成
+测试复制完成
+core exit=1（预期非 0）
+dsh exit=1（预期非 0）
+pi exit=1（预期非 0）
+core 失败用例数: 119
+/tmp/c1-dsh.log:  AssertionError [ERR_ASSERTION]: narrative coherent case must exist
+/tmp/c1-pi.log:62 | test('skills 同步产物携带 PRD 新格式口径（固定小节叙述规则、无 open-nodes 标记、对照评测场景）', () => {
+清理完成：基线树已移除

@@ -1,0 +1,42 @@
+PASS C6 步骤1a 轻量任务仅填 H1 与 Goal 通过启动门禁（其余小节与 R/AC 空不拦截）
+PASS C6 步骤1b Goal 回退 placeholder 后启动被拒
+PASS C6 步骤2a review 拒绝旧四小节格式：readyToConfirm=false，列出 7 个缺失小节，无 open-node 问题码
+PASS C6 步骤2b review 后旧 planning prd.md 字节未变（不被自动改写）
+PASS C6 步骤4a 归档 prd 的 pending 标记惰性（无 open-node 问题码）
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(report && Array.isArray(report.issues))
+
+    at file:///tmp/wl-prd-case-c6.mjs:82:8 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.18.1
+PASS C6 步骤1a 轻量任务仅填 H1 与 Goal 通过启动门禁（其余小节与 R/AC 空不拦截）
+PASS C6 步骤1b Goal 回退 placeholder 后启动被拒
+PASS C6 步骤2a review 拒绝旧四小节格式：readyToConfirm=false，列出 7 个缺失小节，无 open-node 问题码
+PASS C6 步骤2b review 后旧 planning prd.md 字节未变（不被自动改写）
+PASS C6 步骤4a 归档 prd 的 pending 标记惰性（无 open-node 问题码）
+PASS C6 步骤4b doctor（29 条 issue，无 fix）运行后归档夹具逐字节零变化
+ROOT=/data00/home/wangyubo.1219/tmp/wl-prd-c6-juFshi
+CLEANUP root 已删除
+C6 全部通过
+== C6 复查（第二轮）2026-11-06T15:15:16+08:00 ==
+PASS C6 步骤1b Goal 回退 placeholder 后启动被拒
+PASS C6 步骤2a review 拒绝旧四小节格式：readyToConfirm=false，列出 7 个缺失小节，无 open-node 问题码
+PASS C6 步骤2b review 后旧 planning prd.md 字节未变（不被自动改写）
+PASS C6 步骤4a 归档 prd 的 pending 标记惰性（无 open-node 问题码）
+PASS C6 步骤4b doctor（29 条 issue，无 fix）运行后归档夹具逐字节零变化
+ROOT=/data00/home/wangyubo.1219/tmp/wl-prd-c6-y1p64j
+CLEANUP root 已删除
+C6 全部通过
+c6 exit=0
