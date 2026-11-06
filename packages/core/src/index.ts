@@ -13,7 +13,7 @@ export {
   findWorkloomRoot,
   detectLegacyTrellis,
   insideWorkloom,
-} from './domain/locate.js'
+} from './workspace/locate.js'
 
 export {
   DEFAULT_CONFIG,
@@ -24,7 +24,7 @@ export {
   assertForceReason,
   WorkloomConfigError,
   loadConfig,
-} from './domain/config.js'
+} from './workspace/config.js'
 
 export {
   MODEL_INACCESSIBLE_CODES,
@@ -32,23 +32,23 @@ export {
   extractFailureCode,
   buildFailoverNote,
   buildFailoverNotice,
-} from './domain/failover.js'
+} from './dispatch/failover.js'
 
 export {
   PARENT_MODEL_LABEL,
   buildNewDispatchBinding,
   resolveDispatchModelSource,
-} from './domain/dispatch-binding.js'
+} from './dispatch/dispatch-binding.js'
 
 export {
   materializeRingChain,
   selectRotationStartIndex,
-} from './domain/executor-rotation.js'
+} from './dispatch/executor-rotation.js'
 
 export type {
   MaterializedRingChain,
   RotationPoolEntry,
-} from './domain/executor-rotation.d.ts'
+} from './dispatch/executor-rotation.d.ts'
 
 export {
   EFFORT_LEVELS,
@@ -57,33 +57,33 @@ export {
   assertKind,
   buildExecutorIncrementalPrompt,
   buildExecutorPrompt,
-} from './domain/executor-context.js'
+} from './dispatch/executor-context.js'
 
 export {
   NATIVE_TOOLS_DSH,
   NATIVE_TOOLS_PI,
   buildAllowList,
-} from './domain/executor-tools.js'
+} from './dispatch/executor-tools.js'
 
 export {
   evaluateExecutorCapacity,
   formatAtCapacityReceipt,
-} from './domain/executor-capacity.js'
+} from './dispatch/executor-capacity.js'
 
 export type {
   RunningExecutorRecord,
   CapacityCheckParams,
   CapacityResult,
-} from './domain/executor-capacity.d.ts'
+} from './dispatch/executor-capacity.d.ts'
 
-export { initWorkloom } from './domain/init.js'
+export { initWorkloom } from './workspace/init.js'
 
-export { migrateLegacyTrellis } from './domain/migrate.js'
+export { migrateLegacyTrellis } from './workspace/migrate.js'
 
 export {
   evaluateAlignmentGate,
   ALIGNMENT_MISSING,
-} from './domain/alignment.js'
+} from './task/alignment.js'
 
 // CASE 领域导出（生命周期、结构校验、门禁与文件范围）。
 export {
@@ -96,25 +96,25 @@ export {
   evaluateCaseExecutionGate,
   evaluateCaseOutcomeGate,
   listCaseChangedFiles,
-} from './domain/case.js'
+} from './task/case.js'
 
 export type {
   CasePurpose,
   CaseStructureIssue,
   CaseStructureOptions,
   TaskCaseRecord,
-} from './domain/case.d.ts'
+} from './task/case.d.ts'
 
-export { writeFileAtomic } from './domain/file-atomic.js'
+export { writeFileAtomic } from './workspace/file-atomic.js'
 
-export { parseContract, WorkflowContractError } from './domain/workflow-contract.js'
+export { parseContract, WorkflowContractError } from './injection/workflow-contract.js'
 
 export {
   WORKFLOW_PROTOCOL_VERSION,
   assertWorkflowProtocolVersion,
-} from './domain/protocol.js'
+} from './injection/protocol.js'
 
-export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './domain/breadcrumb.js'
+export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './injection/breadcrumb.js'
 
 export {
   TaskStatus,
@@ -137,16 +137,16 @@ export {
   recordExecutorDispatch,
   settleExecutorDispatch,
   appendDispatchErrorSuffix,
-} from './domain/task-store.js'
+} from './task/task-store.js'
 
-export { TASK_MODES, isTaskModeValue } from './domain/task-mode.js'
+export { TASK_MODES, isTaskModeValue } from './task/task-mode.js'
 
 export {
   setActiveTask,
   clearActiveTask,
   resolveActiveTask,
   clearPointersToTask,
-} from './domain/active-task.js'
+} from './task/active-task.js'
 
 export {
   countDirtyLines,
@@ -170,20 +170,20 @@ export {
   gitBranchDelete,
   gitBranchExists,
   gitCheckRefFormat,
-} from './domain/git.js'
+} from './workspace/git.js'
 
-export type { GitWorktreeEntry } from './domain/git.js'
+export type { GitWorktreeEntry } from './workspace/git.js'
 
 export {
   createTaskWorktree,
   cleanupTaskWorktree,
   resolveTaskRepo,
   renderBranchName,
-} from './domain/worktree.js'
+} from './workspace/worktree.js'
 
-export { addSession, listJournals } from './domain/journal.js'
+export { addSession, listJournals } from './workspace/journal.js'
 
-export { DEVELOPER_PATTERN, assertDeveloper } from './domain/identity.js'
+export { DEVELOPER_PATTERN, assertDeveloper } from './workspace/identity.js'
 
 export {
   GATES,
@@ -200,15 +200,33 @@ export {
   evaluateLightDispatchGate,
   LIGHT_DISPATCH_REJECT,
   makeOverride,
-} from './domain/task-gates.js'
+} from './task/task-gates.js'
+
+// resources 清单导出（skills/templates/workflow 资源的集中登记与读取）。
+export {
+  RESOURCES_ROOT,
+  WORKFLOW_CONTRACT_ENTRY,
+  WORKFLOW_LIGHT_CONTRACT_ENTRY,
+  TEMPLATE_SPEC_INDEX_ENTRY,
+  TEMPLATE_SPEC_DETAIL_ENTRY,
+  TEMPLATE_CASE_ENTRY,
+  TEMPLATE_CASE_RESULT_ENTRY,
+  SKILL_ENTRIES,
+  readResourceText,
+  loadWorkflowContractText,
+  loadWorkflowLightContractText,
+  loadCaseTemplateText,
+  loadCaseResultTemplateText,
+  resourceDirOf,
+} from './resources-manifest.ts'
 
 export {
   assembleBreadcrumb,
   assembleBreadcrumbSync,
   assembleWorkflowProjection,
-} from './service/workflow-service.js'
+} from './injection/workflow-service.ts'
 
-export { assembleSessionContext } from './service/session-context.js'
+export { assembleSessionContext } from './injection/session-context.ts'
 
 export {
   LOCAL_FRAGMENT_TARGETS,
@@ -217,7 +235,7 @@ export {
   filterAndOrderLocal,
   readLocalFragments,
   composeLocalDirectivesText,
-} from './service/local-prompts.js'
+} from './injection/local-prompts.ts'
 
 export {
   parseInitArgs,
@@ -225,16 +243,16 @@ export {
   migrationSummaryLines,
   executeInitCommand,
   executeJournalEntry,
-} from './service/command-ops.js'
+} from './workspace/command-ops.ts'
 
-export { executeAlignTask } from './service/alignment-service.js'
+export { executeAlignTask } from './task/alignment-service.ts'
 
-export { executeTaskCase } from './service/case-service.js'
+export { executeTaskCase } from './task/case-service.ts'
 export type {
   CaseReviewResult,
   ExecuteTaskCaseParams,
   ExecuteTaskCaseResult,
-} from './service/case-service.js'
+} from './task/case-service.ts'
 
 export {
   requireWorkloomCwd,
@@ -245,13 +263,13 @@ export {
   executeFinishTask,
   executeArchiveTask,
   executeListTasks,
-} from './service/task-ops.js'
+} from './task/task-ops.ts'
 
-export { lookupWorkflowStep } from './service/step-lookup.js'
+export { lookupWorkflowStep } from './injection/step-lookup.ts'
 
-export { runDoctor, buildDoctorRelayText } from './service/doctor.js'
+export { runDoctor, buildDoctorRelayText } from './workspace/doctor.ts'
 
-export { ensureSpecTemplates } from './service/spec-templates.js'
+export { ensureSpecTemplates } from './workspace/spec-templates.ts'
 
 export {
   COMMAND_NAMES,
@@ -278,9 +296,9 @@ export {
   TASK_ARCHIVE_NOTE,
   TASK_CREATE_NOTE,
   TASK_CREATE_LIGHT_NOTE,
-} from './surface.js'
+} from './injection/surface.ts'
 
-export type { ExecutorInjectionStats } from './surface.js'
+export type { ExecutorInjectionStats } from './injection/surface.ts'
 
 export type {
   WorkloomConfig,
@@ -294,36 +312,36 @@ export type {
   SubagentConfigSource,
   ResolveSubagentDefaultsResult,
   ExecutorConflict,
-} from './domain/config.d.ts'
+} from './workspace/config.d.ts'
 
 export type {
   TaskRepoResolution,
   BranchNameContext,
   CreateTaskWorktreeResult,
   CleanupTaskWorktreeResult,
-} from './domain/worktree.d.ts'
+} from './workspace/worktree.d.ts'
 
 export type {
   AllowToolsConfig,
   BuildAllowListParams,
-} from './domain/executor-tools.d.ts'
+} from './dispatch/executor-tools.d.ts'
 
 export type {
   BuildExecutorPromptParams,
   ExecutorPromptStats,
   ExecutorPromptResult,
-} from './domain/executor-context.d.ts'
+} from './dispatch/executor-context.d.ts'
 
-export type { InitWorkloomParams, InitWorkloomResult } from './domain/init.d.ts'
+export type { InitWorkloomParams, InitWorkloomResult } from './workspace/init.d.ts'
 
-export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './domain/migrate.d.ts'
+export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './workspace/migrate.d.ts'
 
-export type { WorkflowContract, WorkflowStep } from './workflow-contract-types.js'
+export type { WorkflowContract, WorkflowStep } from './injection/workflow-contract-types.ts'
 
 export type {
   AssembleBreadcrumbParams,
   WorkflowProjection,
-} from './service/workflow-service.js'
+} from './injection/workflow-service.ts'
 
 export type {
   TaskStatusKey,
@@ -357,9 +375,9 @@ export type {
   DispatchStatus,
   DispatchModelSource,
   DispatchSettleInput,
-} from './domain/task-store.d.ts'
+} from './task/task-store.d.ts'
 
-export type { TaskModeKey, TaskModeValue } from './domain/task-mode.d.ts'
+export type { TaskModeKey, TaskModeValue } from './task/task-mode.d.ts'
 
 export type {
   GateKey,
@@ -367,7 +385,7 @@ export type {
   PrdSection,
   PrdStructureCode,
   PrdStructureIssue,
-} from './domain/task-gates.d.ts'
+} from './task/task-gates.d.ts'
 
 export type {
   ExecuteAlignTaskParams,
@@ -377,15 +395,15 @@ export type {
   AlignTarget,
   PrdConfirmResult,
   PlanConfirmResult,
-} from './service/alignment-service.js'
+} from './task/alignment-service.ts'
 
-export type { SessionPointer } from './domain/active-task.d.ts'
+export type { SessionPointer } from './task/active-task.d.ts'
 
-export type { SessionContextParams } from './service/session-context.js'
+export type { SessionContextParams } from './injection/session-context.ts'
 
-export type { LocalFragmentTarget, LocalFragment } from './service/local-prompts.js'
+export type { LocalFragmentTarget, LocalFragment } from './injection/local-prompts.ts'
 
-export type { SpecTemplatesParams, SpecTemplatesResult } from './service/spec-templates.js'
+export type { SpecTemplatesParams, SpecTemplatesResult } from './workspace/spec-templates.ts'
 
 export type {
   DoctorIssue,
@@ -395,15 +413,15 @@ export type {
   DoctorIssueCode,
   DoctorSeverity,
   RunDoctorOpts,
-} from './service/doctor.js'
+} from './workspace/doctor.ts'
 
-export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './service/task-ops.js'
+export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './task/task-ops.ts'
 
-export type { ExecuteJournalEntryParams } from './service/command-ops.js'
+export type { ExecuteJournalEntryParams } from './workspace/command-ops.ts'
 
 export type {
   JournalEntryParams,
   AddSessionResult,
   ListJournalsParams,
   JournalSummary,
-} from './domain/journal.d.ts'
+} from './workspace/journal.d.ts'

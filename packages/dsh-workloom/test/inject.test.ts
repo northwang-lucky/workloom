@@ -1,0 +1,274 @@
+/**
+ * 注入链路测试：assembleSessionContextText 从契约文本组装快照（norms 透传）。
+ * 测试依赖 dist（test 脚本先 build 再跑 node --test），契约样本文本自给自足。
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { assembleSessionContextText, renderSessionContext } from '../src/plugin.ts'
+
+/** 构造 .workloom 项目根（目录存在即命中自激活判定）。 */
+function makeRoot() {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-inject-'))
+  mkdirSync(join(root, '.workloom'), { recursive: true })
+  return root
+}
+
+/** 构造注入目标（最小形状：root + agent.id 用于 contextKey；options/session 供 delegationDepthOf 读取）。 */
+function makeTarget(root) {
+  return { root, agent: { id: 'agent-1', options: {}, session: { header: {} } } }
+}
+
+/** 契约样本：旧契约（无 norms 块）。 */
+const CONTRACT_NO_NORMS = `---
+version: 5
+states: []
+---
+
+#### 1.1 Align requirements
+Ask in the user's language.
+`
+
+/** 契约样本：v6 含 norms 块（两组 always-on 规范）。 */
+const CONTRACT_WITH_NORMS = `---
+version: 6
+states: []
+---
+
+#### 1.1 Align requirements
+Ask in the user's language.
+
+[workflow-norms]
+Questioning (always-on):
+- Ask in the user's language.
+
+Dispatch (always-on):
+- Implementation changes come from workloom_execute subagents.
+[/workflow-norms]
+`
+
+test('旧契约（无 norms 块）：快照不追加 Always-on norms 小节', () => {
+  const root = makeRoot()
+  try {
+    const text = assembleSessionContextText(makeTarget(root), CONTRACT_NO_NORMS)
+    assert.ok(text.startsWith('<workloom-session-context>\n'), 'snapshot must be wrapped')
+    assert.ok(text.includes('No active task.'), 'no pointer renders no active task')
+    assert.ok(text.includes('Workflow: 1.1 Align requirements'), 'overview renders steps')
+    assert.ok(!text.includes('Always-on norms:'), 'no norms block must not render section')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('含 norms 块契约：快照末尾追加 Always-on norms 小节（原文保留）', () => {
+  const root = makeRoot()
+  try {
+    const text = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS)
+    const normsIdx = text.indexOf('Always-on norms:')
+    assert.ok(normsIdx >= 0, 'norms section must render')
+    assert.ok(normsIdx > text.indexOf('Workflow: '), 'norms section must come after overview')
+    assert.ok(text.includes('Questioning (always-on):'), 'norms body keeps original text')
+    assert.ok(
+      text.includes('Implementation changes come from workloom_execute subagents.'),
+      'dispatch norm keeps original text',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('委派深度>0：快照按白名单裁剪（无 Workflow 概览行），norms 段整体替换为 executor 版（零派发语义）', () => {
+  const root = makeRoot()
+  try {
+    // 深度由调用方（plugin 的 text provider 经 delegationDepthOf(target.agent) 读取）透传第三参。
+    const text = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS, { delegationDepth: 1 })
+    const normsIdx = text.indexOf('Always-on norms:')
+    assert.ok(normsIdx >= 0, 'executor norms section must render for depth > 0')
+    // depth>0 白名单：Developer / Last dispatch / Executor profiles / Git / Workflow 概览行全删
+    assert.ok(!text.includes('Workflow: '), 'workflow overview must be dropped at depth > 0')
+    assert.ok(!text.includes('Developer: '), 'developer line must be dropped at depth > 0')
+    assert.ok(
+      !text.includes('Implementation changes come from workloom_execute subagents.'),
+      'contract norms must be replaced entirely',
+    )
+    assert.ok(text.includes('leaf executor'), 'executor norms name the leaf executor role')
+    assert.ok(!text.includes('dispatch'), 'executor norms carry zero dispatch semantics')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('assembleSessionContextText：localDirectives 传参在 norms 后渲染小节，缺省不渲染', () => {
+  const root = makeRoot()
+  try {
+    const text = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS, { localDirectives: 'LSP directives.' })
+    assert.ok(
+      text.includes('Local directives:\nLSP directives.'),
+      'local directives section must render verbatim',
+    )
+    assert.ok(
+      text.indexOf('Local directives:') > text.indexOf('Always-on norms:'),
+      'local directives section must follow the norms section',
+    )
+    const plain = assembleSessionContextText(makeTarget(root), CONTRACT_WITH_NORMS)
+    assert.ok(!plain.includes('Local directives:'), 'default must not render the section')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('renderSessionContext：本机片段（main 目标）注入 Local directives 小节', () => {
+  const root = makeRoot()
+  const dir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'main.md'), 'Hard main rule.')
+  try {
+    const injected = renderSessionContext(makeTarget(root))
+    assert.ok(injected.includes('Local directives:'), 'main fragment must inject the section')
+    assert.ok(injected.includes('Hard main rule.'), 'fragment text must be injected verbatim')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('assembleSessionContextText：requestHeader 快照注入主模型（画像首行带 provider/model）', () => {
+  const root = makeRoot()
+  try {
+    const target = makeTarget(root)
+    target.agent.session.requestHeader = () => ({
+      config: { provider: 'kimi-coding', model: 'k3' },
+    })
+    const text = assembleSessionContextText(target, CONTRACT_WITH_NORMS)
+    assert.ok(
+      text.includes('Executor profiles (main model kimi-coding/k3):'),
+      '画像首行必须携带 requestHeader 快照的主模型',
+    )
+    assert.ok(!text.includes('main model unknown'), '快照主模型必须替换 unknown 首行')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('renderSessionContext：主会话 requestHeader 快照经接线进入画像首行（端到端）', () => {
+  const root = makeRoot()
+  try {
+    const target = makeTarget(root)
+    target.agent.session.requestHeader = () => ({
+      config: { provider: 'kimi-coding', model: 'k3' },
+    })
+    const text = renderSessionContext(target)
+    assert.ok(
+      text.includes('Executor profiles (main model kimi-coding/k3):'),
+      'renderSessionContext 链路必须透传 requestHeader 主模型',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('renderSessionContext：本机片段组装失败只告警，快照照常注入且无 Local directives 小节（小节级降级）', async (t) => {
+  const root = makeRoot()
+  const dir = join(root, '.workloom', 'prompts.local')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'main.md'), '---\nfoo: [unclosed\n---\nbody')
+  try {
+    const warn = t.mock.method(console, 'warn', () => {})
+    const text = renderSessionContext(makeTarget(root))
+    assert.ok(text.includes('<workloom-session-context>'), '片段失败不阻塞会话快照')
+    assert.ok(text.includes('Workflow: '), '快照内容完整，不是空串降级')
+    assert.ok(!text.includes('Local directives:'), '组装失败时小节整体省略')
+    assert.equal(warn.mock.callCount(), 1)
+    assert.match(
+      String(warn.mock.calls[0].arguments[0]),
+      /session context injection skipped: local directives:/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 主契约样本：完整步骤集 + norms（概览行 full 轨来源）。 */
+const MAIN_CONTRACT = `---
+version: 2
+states: []
+---
+
+#### 1.0 Create task
+Create the task.
+
+#### 1.1 Align requirements
+Align the requirements.
+
+#### 2.1 Implement
+Dispatch the implement executor.
+
+#### 2.2 Check
+Dispatch the check executor.
+
+[workflow-norms]
+Main-only norms.
+[/workflow-norms]
+`
+
+/** 轻量契约样本：精简步骤集，无 norms 块。 */
+const LIGHT_CONTRACT = `---
+version: 1
+states:
+  - planning
+  - in_progress
+  - completed
+---
+
+#### 1.0 Start task
+Fill the light prd, then start.
+
+#### 2.1 Implement
+The main session implements directly.
+
+#### 2.2 Self-check and record
+The main session self-checks and records.
+
+[workflow-state:planning]
+Light planning.
+[/workflow-state:planning]
+
+[workflow-state:in_progress]
+Light in progress.
+[/workflow-state:in_progress]
+
+[workflow-state:completed]
+Light task archived.
+[/workflow-state:completed]
+`
+
+test('assembleSessionContextText：light 任务概览行取轻量契约步骤，norms 仍出自主契约', () => {
+  const root = makeRoot()
+  try {
+    const taskDir = join(root, '.workloom', 'tasks', '08-25-light-demo')
+    mkdirSync(taskDir, { recursive: true })
+    writeFileSync(
+      join(taskDir, 'task.json'),
+      `${JSON.stringify({ title: 'Light demo', status: 'in_progress', mode: 'light' })}\n`,
+    )
+    const sessionsDir = join(root, '.workloom', '.runtime', 'sessions')
+    mkdirSync(sessionsDir, { recursive: true })
+    writeFileSync(
+      join(sessionsDir, 'dsh_agent-1.json'),
+      `${JSON.stringify({ current_task: 'tasks/08-25-light-demo' })}\n`,
+    )
+    const text = assembleSessionContextText(makeTarget(root), MAIN_CONTRACT, {
+      lightContractText: LIGHT_CONTRACT,
+    })
+    assert.ok(
+      text.includes('\nWorkflow: 1.0 Start task | 2.1 Implement | 2.2 Self-check and record\n'),
+      'light task overview must project the light contract steps',
+    )
+    assert.ok(!text.includes('1.1 Align requirements'), 'full-only steps must not render')
+    assert.ok(text.includes('Main-only norms.'), 'norms must still come from the main contract')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

@@ -6,10 +6,8 @@ workloom：把 AI 编码工作流抽象为 runtime 无关的核心逻辑层（co
 
 ```txt
 packages/
-├── core/            # runtime 无关逻辑：domain 纯 JS 领域模块 + service TS 抽象
-├── assets/          # workflow 契约、skills/agents/commands 中间表示
-├── adapter-dsh/     # DSH profile bundle（@workloom-ai/adapter-dsh）
-└── adapter-pi/      # Pi Package（@workloom-ai/adapter-pi，executor 自研 spawn child pi）
+├── core/            # runtime 无关核心逻辑：src 按功能分 task/dispatch/injection/workspace 子包，资源在 resources/（@workloom-ai/core）
+└── dsh-workloom/    # DeepSeek Harness 插件：src 根层插件入口 + dispatch/tooling 子包，dist 同 commit 入库（@workloom-ai/dsh-workloom）
 ```
 
 ## 团队规范（.workloom/spec/）
@@ -33,9 +31,8 @@ packages/
 pnpm lint
 pnpm -r typecheck
 pnpm -r build
-cd packages/core && node --test test/*.test.js
-cd packages/adapter-dsh && node --test test/*.test.js
-cd packages/adapter-pi && bun test test/*.test.ts
+cd packages/core && pnpm test
+cd packages/dsh-workloom && pnpm test
 ```
 
 ## 插件变更流程（adapter-dsh）

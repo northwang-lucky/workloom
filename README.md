@@ -6,10 +6,8 @@
 
 ```txt
 packages/
-├── core/            # 纯 JS 移植模块 + TS 新增模块，tsc 构建发布（@workloom-ai/core）
-├── assets/          # workflow 契约、指引、skills/agents/commands 中间表示（@workloom-ai/assets）
-├── adapter-dsh/     # DeepSeek Harness profile bundle（@workloom-ai/adapter-dsh）
-└── adapter-pi/      # Pi Package（@workloom-ai/adapter-pi，executor 自研 spawn child pi）
+├── core/            # 核心逻辑层：src 按功能分 task/dispatch/injection/workspace 子包，资源在 resources/（@workloom-ai/core）
+└── dsh-workloom/    # DeepSeek Harness 插件：src 根层插件入口 + dispatch/tooling 子包，dist 同 commit 入库（@workloom-ai/dsh-workloom）
 ```
 
 状态：双端（DSH/Pi）命令、注入、skills、executor、effort、journal、spec 知识库均已实现并真机验证；本仓库自身已迁移至 workloom 工作流（dogfooding）。

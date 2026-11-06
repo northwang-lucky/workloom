@@ -1,0 +1,2515 @@
+/**
+ * task-store 模块单测：布局、slug、状态迁移、指针清理、归档与 hooks。
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { markTaskLegacy } from './fixtures/task-artifacts.js'
+
+import {
+  TaskStatus,
+  TaskStage,
+  slugify,
+  createTask,
+  startTask,
+  checkTask,
+  finishTask,
+  archiveTask,
+  listTasks,
+  readTask,
+  recordAlignmentCredential,
+  recordPlanConfirmation,
+  recordExecutorDispatch,
+  recordGateOverride,
+  appendDispatchErrorSuffix,
+  settleExecutorDispatch,
+  runTaskHooks,
+  computeTaskStage,
+} from '../src/task/task-store.js'
+import { EXECUTOR_KINDS } from '../src/dispatch/executor-context.js'
+import { resolveActiveTask, setActiveTask } from '../src/task/active-task.js'
+
+/** 创建临时项目根（含 .workloom，可选 config 与 .developer）。 */
+function makeRoot(options = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-task-'))
+  mkdirSync(join(root, '.workloom'))
+  if (options.config !== undefined) {
+    writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify(options.config))
+  }
+  // 非 git fixture：经本地层关闭 worktree（enabled=false 全链路零行为变化，
+  // 本文件聚焦状态机；worktree 生命周期由 worktree-lifecycle.test.js 集成覆盖）。
+  writeFileSync(
+    join(root, '.workloom', 'config.local.json'),
+    JSON.stringify({ worktree: { enabled: false } }),
+  )
+  if (options.developer !== undefined) {
+    writeFileSync(join(root, '.workloom', '.developer'), options.developer)
+  }
+  return root
+}
+
+/** 列出 tasks/ 下的目录名（不存在时为空数组）；断言创建失败发生在任何写入之前。 */
+function listTaskDirs(root) {
+  const dir = join(root, '.workloom', 'tasks')
+  if (!existsSync(dir)) return []
+  return readdirSync(dir).sort()
+}
+
+/** 读取任务目录下的 task.json（目录相对 .workloom）。 */
+function readTaskJson(root, taskRelPath) {
+  return JSON.parse(readFileSync(join(root, '.workloom', taskRelPath, 'task.json'), 'utf8'))
+}
+
+/** 在临时根内执行 git 命令。 */
+function runGit(root, args) {
+  return execFileSync('git', args, { cwd: root, stdio: 'pipe' })
+}
+
+test('createTask 创建完整布局与默认字段', async () => {
+  const root = makeRoot({ developer: 'alice' })
+  try {
+    const [err, result] = await createTask(root, { title: 'Hello World!' })
+    assert.equal(err, null)
+    assert.ok(result)
+    const dirName = result.taskRelPath.split('/').pop()
+    assert.match(dirName, /^\d{2}-\d{2}-hello-world$/)
+    const task = readTaskJson(root, result.taskRelPath)
+    assert.ok(task.id)
+    assert.equal(task.name, 'hello-world')
+    assert.equal(task.title, 'Hello World!')
+    assert.equal(task.description, '')
+    assert.equal(task.status, TaskStatus.PLANNING)
+    assert.equal(task.priority, 'P2')
+    assert.equal(task.creator, 'alice')
+    assert.equal(task.assignee, '')
+    assert.equal(task.package, null)
+    assert.equal(task.branch, '')
+    assert.equal(task.base_branch, '')
+    assert.ok(!Number.isNaN(Date.parse(task.createdAt)))
+    assert.equal(task.completedAt, null)
+    assert.equal(task.parent, null)
+    assert.deepEqual(task.children, [])
+    assert.deepEqual(task.subtasks, [])
+    assert.equal(task.scope, '')
+    assert.equal(task.commit, '')
+    assert.equal(task.pr_url, '')
+    assert.equal(task.worktree_path, '')
+    assert.deepEqual(task.relatedFiles, [])
+    assert.equal(task.notes, '')
+    assert.deepEqual(task.meta, {})
+    assert.equal(task.check, null)
+    assert.deepEqual(task.overrides, [])
+    assert.deepEqual(task.hooks, {
+      after_create: [],
+      after_start: [],
+      after_finish: [],
+      after_archive: [],
+    })
+    // prd.md 骨架：首行 H1 为任务标题，后接完整任务固定十一小节
+    const prd = readFileSync(join(root, '.workloom', result.taskRelPath, 'prd.md'), 'utf8')
+    assert.match(prd, /^# Hello World!\n\n/)
+    for (const heading of [
+      '## Context',
+      '## Goal',
+      '## Scope',
+      '## Assumptions, Constraints and Dependencies',
+      '## Requirements',
+      '## Acceptance Criteria',
+      '## Edge Cases and Failure Paths',
+      '## Risks and Open Questions',
+      '## Alignment Decisions',
+      '## References',
+      '## Notes',
+    ]) {
+      assert.ok(prd.includes(heading))
+    }
+    // jsonl seed 自述行（无 file 字段）
+    const seed = readFileSync(
+      join(root, '.workloom', result.taskRelPath, 'implement.jsonl'),
+      'utf8',
+    ).trim()
+    const parsed = JSON.parse(seed)
+    assert.ok(parsed._example)
+    assert.equal('file' in parsed, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask mode：light 落 task.json，缺省为 full', async () => {
+  const root = makeRoot()
+  try {
+    const [err, light] = await createTask(root, { title: 'Light Task', mode: 'light' })
+    assert.equal(err, null)
+    assert.ok(light)
+    assert.equal(readTaskJson(root, light.taskRelPath).mode, 'light')
+    const [fullErr, full] = await createTask(root, { title: 'Full Task' })
+    assert.equal(fullErr, null)
+    assert.ok(full)
+    assert.equal(readTaskJson(root, full.taskRelPath).mode, 'full')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask mode：非法取值返回 err 且不产生任务目录', async () => {
+  const root = makeRoot()
+  try {
+    const [err, result] = await createTask(root, { title: 'Bad Mode', mode: 'fast' })
+    assert.ok(err)
+    assert.match(err.message, /invalid mode/)
+    assert.equal(result, null)
+    assert.equal(existsSync(join(root, '.workloom', 'tasks')), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：存量 task.json 缺 mode 读取为 full（不写回）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-mode')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({ id: 'x', name: 'no-mode', title: 'Legacy', status: TaskStatus.PLANNING }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.mode, 'full')
+    // 读取视图只补默认值，不迁移落盘。
+    const raw = JSON.parse(readFileSync(join(root, '.workloom', rel, 'task.json'), 'utf8'))
+    assert.equal('mode' in raw, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('slug 生成规则与目录冲突返回 err', async () => {
+  const root = makeRoot()
+  try {
+    assert.equal(slugify('Hello, World!!!'), 'hello-world')
+    assert.equal(slugify('  A--B  '), 'a-b')
+    assert.equal(slugify('x'.repeat(50)), 'x'.repeat(40))
+    const [err1, r1] = await createTask(root, { title: 'Same Title' })
+    assert.equal(err1, null)
+    assert.ok(r1)
+    const [err2, r2] = await createTask(root, { title: 'Same Title' })
+    assert.ok(err2)
+    assert.equal(r2, null)
+    // 显式 slug 覆盖标题生成
+    const [err3, r3] = await createTask(root, { title: 'Other', slug: 'custom-name' })
+    assert.equal(err3, null)
+    assert.ok(r3)
+    assert.equal(r3.taskRelPath.endsWith('custom-name'), true)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('slug 入口校验：日期前缀/字符集/长度非法均返回 err 且零写入', async () => {
+  const root = makeRoot()
+  try {
+    const before = listTaskDirs(root)
+    const now = new Date()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const todayPrefix = `${month}-${day}`
+    // 日期前缀：当天前缀、其它日期前缀、slug 恰好等于 MM-DD，以及按设计一并拒绝的
+    // `12-30-day-guarantee`（无法与日期前缀区分，文案给出改写指引）。
+    const datedSlugs = [
+      `${todayPrefix}-center-stability`,
+      '10-29-provider-compat',
+      '12-25',
+      '12-30-day-guarantee',
+    ]
+    for (const slug of datedSlugs) {
+      const [err, result] = await createTask(root, { title: 'Dated', slug })
+      assert.ok(err, `slug ${slug} 必须被拒绝`)
+      assert.match(err.message, /date prefix/)
+      assert.equal(result, null)
+    }
+    // 字符集与长度：大写、下划线、空格、首尾连字符、超过 40 字符。
+    const malformedSlugs = [
+      'Bad-Case',
+      'with_underscore',
+      'with space',
+      '-lead',
+      'trail-',
+      'x'.repeat(41),
+    ]
+    for (const slug of malformedSlugs) {
+      const [err, result] = await createTask(root, { title: 'Malformed', slug })
+      assert.ok(err, `slug ${slug} 必须被拒绝`)
+      assert.equal(result, null)
+    }
+    const [longErr] = await createTask(root, { title: 'Long', slug: 'x'.repeat(41) })
+    assert.match(longErr.message, /longer than 40 characters/)
+    // 显式空串单独报错，不再误报成「标题无法派生 slug」。
+    const [emptyErr] = await createTask(root, { title: 'Empty', slug: '' })
+    assert.match(emptyErr.message, /slug cannot be empty/)
+    // 标题派生的 slug 撞上日期前缀时，文案指向改传显式 slug。
+    const [derivedErr] = await createTask(root, { title: '12-25 发布说明' })
+    assert.match(derivedErr.message, /explicit slug/)
+    // 上述失败全部发生在写盘之前：tasks/ 目录内容不变。
+    assert.deepEqual(listTaskDirs(root), before)
+    // 合法 slug 正常创建：数字开头、单字母段、日期形态出现在非开头位置都不误伤。
+    for (const slug of ['2fa-support', 'q3-okr', 'release-12-30']) {
+      const [err, result] = await createTask(root, { title: 'Valid', slug })
+      assert.equal(err, null)
+      assert.ok(result)
+      assert.equal(result.taskRelPath.endsWith(`-${slug}`), true)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 自定义参数（priority/description）与非法优先级', async () => {
+  const root = makeRoot() // 无 .developer，creator 应为空串
+  try {
+    const [err, result] = await createTask(root, {
+      title: 'Custom',
+      priority: 'P0',
+      description: 'desc',
+    })
+    assert.equal(err, null)
+    assert.ok(result)
+    const task = readTaskJson(root, result.taskRelPath)
+    assert.equal(task.creator, '')
+    assert.equal(task.priority, 'P0')
+    assert.equal(task.description, 'desc')
+    assert.equal(task.parent, null)
+    const [err2] = await createTask(root, { title: 'Bad Priority', priority: 'P9' })
+    assert.ok(err2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('startTask 状态迁移与非法迁移', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Start Me' })
+    satisfyStartGate(root, created.taskRelPath)
+    const [err1, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err1, null)
+    assert.ok(started)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.IN_PROGRESS)
+    const [err2] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err2) // 非 planning 不可再启动
+    assert.match(err2.message, /can be started/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('finishTask 清理指向本任务的会话指针', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Finish Me', contextKey: 'dsh_test-1' })
+    const [resErr, current] = resolveActiveTask(root, 'dsh_test-1')
+    assert.equal(resErr, null)
+    assert.equal(current, created.taskRelPath)
+    const [err] = await finishTask(root, {
+      taskRelPath: created.taskRelPath,
+      contextKey: 'dsh_test-1',
+    })
+    assert.equal(err, null)
+    assert.equal(resolveActiveTask(root, 'dsh_test-1')[1], null)
+    // 其他 contextKey 的指针不受影响
+    const [, other] = await createTask(root, { title: 'Other Finish', contextKey: 'dsh_test-2' })
+    await finishTask(root, { taskRelPath: other.taskRelPath, contextKey: 'dsh_test-9' })
+    assert.equal(resolveActiveTask(root, 'dsh_test-2')[1], other.taskRelPath)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask 移动目录、置 completed 并 git 自动提交', async () => {
+  const root = makeRoot({ config: { session_auto_commit: true } })
+  runGit(root, ['init'])
+  runGit(root, ['config', 'user.email', 'test@example.com'])
+  runGit(root, ['config', 'user.name', 'test'])
+  try {
+    const [, created] = await createTask(root, { title: 'Archive Me' })
+    setActiveTask(root, 'dsh_a1', created.taskRelPath)
+    setActiveTask(root, 'dsh_a2', created.taskRelPath)
+    const [err, task] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    assert.equal(err, null)
+    assert.ok(task)
+    assert.equal(task.status, TaskStatus.COMPLETED)
+    assert.ok(task.completedAt)
+    // 目录已移动到 archive/{YYYY-MM}/{slug}
+    const now = new Date()
+    const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const archiveRel = join('tasks', 'archive', yyyyMm, 'archive-me')
+    assert.equal(existsSync(join(root, '.workloom', created.taskRelPath)), false)
+    assert.equal(existsSync(join(root, '.workloom', archiveRel)), true)
+    assert.equal(readTaskJson(root, archiveRel).status, TaskStatus.COMPLETED)
+    // 指向该任务的所有会话指针已清理
+    assert.equal(resolveActiveTask(root, 'dsh_a1')[1], null)
+    assert.equal(resolveActiveTask(root, 'dsh_a2')[1], null)
+    // git 自动提交存在
+    const log = execFileSync('git', ['log', '--oneline'], { cwd: root, encoding: 'utf8' })
+    assert.match(log, /chore\(task\): archive archive-me/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask 关闭自动提交时不产生 git 提交', async () => {
+  const root = makeRoot({ config: { session_auto_commit: false } })
+  runGit(root, ['init'])
+  runGit(root, ['config', 'user.email', 'test@example.com'])
+  runGit(root, ['config', 'user.name', 'test'])
+  try {
+    const [, created] = await createTask(root, { title: 'No Commit' })
+    const [err] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    assert.equal(err, null)
+    let hasCommit = true
+    try {
+      execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root, stdio: 'pipe' })
+    } catch {
+      hasCommit = false
+    }
+    assert.equal(hasCommit, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask 在非 git 目录中 git 失败不阻塞归档', async () => {
+  const root = makeRoot({ config: { session_auto_commit: true } })
+  try {
+    const [, created] = await createTask(root, { title: 'No Git' })
+    const [err, task] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    assert.equal(err, null)
+    assert.equal(task.status, TaskStatus.COMPLETED)
+    const now = new Date()
+    const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    assert.equal(existsSync(join(root, '.workloom', 'tasks', 'archive', yyyyMm, 'no-git')), true)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask 归档目标已存在返回 err', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dup', slug: 'dup' })
+    const now = new Date()
+    const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    // 预创建归档目标目录造成冲突
+    mkdirSync(join(root, '.workloom', 'tasks', 'archive', yyyyMm, 'dup'), { recursive: true })
+    const [err] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    assert.ok(err)
+    assert.match(err.message, /archive target already exists/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('after_create hooks 执行并注入 TASK_JSON_PATH，失败不阻塞', async () => {
+  const root = makeRoot({
+    config: {
+      hooks: {
+        after_create: [
+          'echo created > created.txt',
+          'echo $TASK_JSON_PATH > taskjson.txt',
+          'exit 1',
+        ],
+      },
+    },
+  })
+  try {
+    const [err, result] = await createTask(root, { title: 'Hooked' })
+    assert.equal(err, null)
+    assert.ok(result)
+    assert.equal(readFileSync(join(root, 'created.txt'), 'utf8').trim(), 'created')
+    const expectedJson = join(root, '.workloom', result.taskRelPath, 'task.json')
+    assert.equal(readFileSync(join(root, 'taskjson.txt'), 'utf8').trim(), expectedJson)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('runTaskHooks 返回失败 WARNING 列表', async () => {
+  const root = makeRoot()
+  try {
+    const warnings = await runTaskHooks(root, join(root, 'x.json'), ['true', 'exit 3'])
+    assert.equal(warnings.length, 1)
+    assert.match(warnings[0], /exit 3/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask 冲突失败不破坏原任务状态与位置', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dup Keep', slug: 'dup-keep' })
+    const now = new Date()
+    const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    mkdirSync(join(root, '.workloom', 'tasks', 'archive', yyyyMm, 'dup-keep'), { recursive: true })
+    const [err] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    assert.ok(err)
+    // 原目录未被移动，task.json.status 仍是 planning（不能留下半完成态）
+    assert.equal(existsSync(join(root, '.workloom', created.taskRelPath)), true)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('after_archive hooks 执行并注入 TASK_JSON_PATH，失败不阻塞', async () => {
+  const root = makeRoot({
+    config: {
+      hooks: {
+        after_archive: [
+          'echo archived > archived.txt',
+          'echo $TASK_JSON_PATH > archived-path.txt',
+          'exit 1',
+        ],
+      },
+    },
+  })
+  try {
+    const [, created] = await createTask(root, { title: 'Archive Hook' })
+    const [err] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    assert.equal(err, null)
+    assert.equal(readFileSync(join(root, 'archived.txt'), 'utf8').trim(), 'archived')
+    const now = new Date()
+    const yyyyMm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const expectedJson = join(
+      root,
+      '.workloom',
+      'tasks',
+      'archive',
+      yyyyMm,
+      'archive-hook',
+      'task.json',
+    )
+    assert.equal(readFileSync(join(root, 'archived-path.txt'), 'utf8').trim(), expectedJson)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('startTask 传入 contextKey 时写入会话指针', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Start Pointer' })
+    satisfyStartGate(root, created.taskRelPath)
+    const [err] = await startTask(root, { taskRelPath: created.taskRelPath, contextKey: 'dsh_sp1' })
+    assert.equal(err, null)
+    assert.equal(resolveActiveTask(root, 'dsh_sp1')[1], created.taskRelPath)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask 显式 autoCommit: false 覆盖 config 默认开启', async () => {
+  const root = makeRoot({ config: { session_auto_commit: true } })
+  runGit(root, ['init'])
+  runGit(root, ['config', 'user.email', 'test@example.com'])
+  runGit(root, ['config', 'user.name', 'test'])
+  try {
+    const [, created] = await createTask(root, { title: 'Force Off' })
+    const [err] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    assert.equal(err, null)
+    let hasCommit = true
+    try {
+      execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root, stdio: 'pipe' })
+    } catch {
+      hasCommit = false
+    }
+    assert.equal(hasCommit, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask auto-commit 只暂存本任务路径：另一个在途任务的脏文件零接触', async () => {
+  const root = makeRoot({ config: { session_auto_commit: true } })
+  runGit(root, ['init'])
+  runGit(root, ['config', 'user.email', 'test@example.com'])
+  runGit(root, ['config', 'user.name', 'test'])
+  try {
+    const [, taskA] = await createTask(root, { title: 'Task Alpha' })
+    const [, taskB] = await createTask(root, { title: 'Task Bravo' })
+    // 初始提交：两个任务都被 git 跟踪（归档删除侧路径才能入暂存区）。
+    runGit(root, ['add', '--all'])
+    runGit(root, ['commit', '-m', 'chore: seed'])
+    // 任务 B 的在途修改：归档 A 的自动提交不得把它卷进来。
+    writeFileSync(join(root, '.workloom', taskB.taskRelPath, 'prd.md'), 'dirty in-flight\n')
+    const [err] = await archiveTask(root, {
+      taskRelPath: taskA.taskRelPath,
+      force: true,
+      reason: 'test narrowed staging',
+    })
+    assert.equal(err, null)
+    const show = execFileSync(
+      'git',
+      ['show', '--no-renames', '--name-only', '--format=%s', 'HEAD'],
+      { cwd: root, encoding: 'utf8' },
+    )
+    const [subject, ...files] = show.trim().split('\n')
+    assert.equal(subject, `chore(task): archive ${taskA.task.name}`)
+    // 提交同时覆盖移动前删除与归档后新增，且完全不含任务 B 的路径。
+    assert.ok(
+      files.some((file) => file.startsWith(`.workloom/${taskA.taskRelPath}/`)),
+      'archive commit must stage the removed source path',
+    )
+    assert.ok(
+      files.some((file) => file.includes(`tasks/archive/`) && file.includes(taskA.task.name)),
+      'archive commit must stage the archived target path',
+    )
+    for (const file of files) {
+      assert.ok(
+        !file.includes(taskB.taskRelPath),
+        `archive commit must not touch the in-flight task: ${file}`,
+      )
+    }
+    // 任务 B 依旧脏（未被暂存/提交），任务 A 无残留未提交项。
+    const status = execFileSync('git', ['status', '--porcelain'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+    assert.match(status, new RegExp(`\\.workloom/${taskB.taskRelPath}/prd\\.md`))
+    assert.ok(!status.includes(taskA.taskRelPath), 'archived task must leave no dirty residue')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('listTasks 跳过损坏的任务目录', async () => {
+  const root = makeRoot()
+  try {
+    await createTask(root, { title: 'Good One' })
+    // 伪造一个无 task.json 的目录
+    mkdirSync(join(root, '.workloom', 'tasks', '09-01-broken'), { recursive: true })
+    const [err, list] = listTasks(root)
+    assert.equal(err, null)
+    assert.equal(list.length, 1)
+    assert.equal(list[0].name, 'good-one')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('listTasks 摘要与状态过滤，归档后不再出现', async () => {
+  const root = makeRoot()
+  try {
+    const [, t1] = await createTask(root, { title: 'List One' })
+    const [, t2] = await createTask(root, { title: 'List Two' })
+    satisfyStartGate(root, t2.taskRelPath)
+    await startTask(root, { taskRelPath: t2.taskRelPath })
+    const [err, list] = listTasks(root)
+    assert.equal(err, null)
+    assert.equal(list.length, 2)
+    assert.deepEqual(Object.keys(list[0]).sort(), [
+      'createdAt',
+      'name',
+      'parent',
+      'priority',
+      'status',
+      'taskRelPath',
+      'title',
+    ])
+    // taskRelPath 必须是可定位的任务目录相对路径（name 只是 slug，不等价）。
+    assert.equal(list[0].taskRelPath, t1.taskRelPath)
+    const [err2, filtered] = listTasks(root, { status: TaskStatus.IN_PROGRESS })
+    assert.equal(err2, null)
+    assert.equal(filtered.length, 1)
+    assert.equal(filtered[0].name, 'list-two')
+    await archiveTask(root, {
+      taskRelPath: t1.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test archives without check gate',
+    })
+    const [, after] = listTasks(root)
+    assert.equal(after.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('旧格式 task.json（缺 hooks 字段）读取归一化，归档不再抛错', async () => {
+  const root = makeRoot()
+  try {
+    // 模拟 hooks 机制引入前的旧任务：无 hooks 字段
+    const legacyRel = join('tasks', '08-26-legacy-no-hooks')
+    mkdirSync(join(root, '.workloom', legacyRel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', legacyRel, 'task.json'),
+      JSON.stringify({
+        id: 'legacy-1',
+        name: 'legacy-no-hooks',
+        status: TaskStatus.IN_PROGRESS,
+        createdAt: '2026-08-26',
+      }),
+    )
+    // 读取即归一化：hooks 补齐空数组；check/overrides 补 null/空数组
+    const [readErr, task] = readTask(root, legacyRel)
+    assert.equal(readErr, null)
+    assert.deepEqual(task.hooks, {
+      after_create: [],
+      after_start: [],
+      after_finish: [],
+      after_archive: [],
+    })
+    assert.equal(task.check, null)
+    assert.deepEqual(task.overrides, [])
+    // 存量任务无 check 凭据：archive 门禁硬阻断
+    const [gateErr] = await archiveTask(root, { taskRelPath: legacyRel, autoCommit: false })
+    assert.ok(gateErr)
+    assert.match(gateErr.message, /archive gate failed/)
+    // force 豁免放行并留痕（归档旧任务也不再触发 undefined.after_archive）
+    const [archiveErr, archived] = await archiveTask(root, {
+      taskRelPath: legacyRel,
+      autoCommit: false,
+      force: true,
+      reason: 'legacy task predates the check gate',
+    })
+    assert.equal(archiveErr, null)
+    assert.equal(archived.status, TaskStatus.COMPLETED)
+    assert.equal(archived.overrides.length, 1)
+    assert.equal(archived.overrides[0].gate, 'archive')
+    // 落盘的归档 task.json 也带完整 hooks
+    assert.deepEqual(readTaskJson(root, archived.taskRelPath).hooks, {
+      after_create: [],
+      after_start: [],
+      after_finish: [],
+      after_archive: [],
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('hooks 仅含部分事件时补齐其余空数组', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-partial-hooks')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({
+        id: 'partial-1',
+        name: 'partial-hooks',
+        status: TaskStatus.IN_PROGRESS,
+        hooks: { after_archive: ['echo done'] },
+      }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.deepEqual(task.hooks, {
+      after_create: [],
+      after_start: [],
+      after_finish: [],
+      after_archive: ['echo done'],
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/**
+ * 填满 prd 十一小节（脱离 placeholder，首行带 H1，R/AC 追踪合法，并带收敛 marker：
+ * start 与 review/confirm 共用同一结构分类器，marker 也是放行条件）。
+ */
+function writeFilledPrd(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'prd.md'),
+    '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nDo the thing.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n',
+  )
+}
+
+/** 写入一条有效 jsonl 记录（覆盖 seed）。 */
+function writeEffectiveJsonl(root, taskRelPath, name) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, name),
+    '{"file": "AGENTS.md", "reason": "spec"}\n',
+  )
+}
+
+/**
+ * 写轻量任务的最低 prd：H1 + Goal 实填，其余小节仍为骨架 placeholder，
+ * 且没有开放节点标记（轻量 start 门只保留 H1 + Goal）。
+ */
+function writeLightPrd(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'prd.md'),
+    '# Light fix\n\n## Goal\n\nRepair the shell file.\n\n## Requirements\n\n(placeholder: group requirements by capability or behavior as numbered items R1, R2, ...; each item is one necessary, decidable statement; do not transcribe Q&A rounds)\n\n## Acceptance Criteria\n\n(placeholder: list acceptance criteria as numbered items AC1, AC2, ...; each item cites the R numbers it covers and states its verification method)\n\n## Notes\n\n(placeholder: add notes that do not belong to any section above)\n',
+  )
+}
+
+/** 记录 PRD 内容确认（模拟 workloom_task_align confirm 成功）。 */
+function recordAlignment(root, taskRelPath) {
+  const [err] = recordAlignmentCredential(root, taskRelPath, {
+    summary: 'frontier empty, all decisions settled',
+  })
+  assert.equal(err, null)
+}
+
+/** 记录 PLAN 内容确认（模拟 workloom_task_align target=plan confirm 成功）。 */
+function recordPlan(root, taskRelPath) {
+  const [err] = recordPlanConfirmation(root, taskRelPath, {
+    summary: 'plan covers every AC, steps verified',
+  })
+  assert.equal(err, null)
+}
+
+/** 写入满足 start PLAN 门禁的最小 plan.md（外层四要素 + 五字段伪代码协议，无溯源要求）。 */
+function writeGatePlan(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'plan.md'),
+    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit:\n  Input: adjust src/a.js behavior.\n  Output: function returns updated result.\n  Preconditions: none\n  Procedure: edit the guarded branch per anchors.\n  Failure: none\n- Verify: pnpm lint\n',
+  )
+}
+
+/**
+ * 满足 start 门禁：填 prd + plan + 两个 jsonl 各一条有效记录 + 记录 PRD/PLAN
+ * 两份内容确认（startTask 成功前置的快捷组合；旧 grilling 判定不再参与门禁）。
+ */
+function satisfyStartGate(root, taskRelPath) {
+  writeFilledPrd(root, taskRelPath)
+  writeGatePlan(root, taskRelPath)
+  writeEffectiveJsonl(root, taskRelPath, 'implement.jsonl')
+  writeEffectiveJsonl(root, taskRelPath, 'check.jsonl')
+  recordAlignment(root, taskRelPath)
+  recordPlan(root, taskRelPath)
+}
+
+test('start 门禁：骨架 prd 与 seed jsonl 被拒绝，状态保持 planning', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated Start' })
+    const [err, task] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err)
+    assert.equal(task, null)
+    assert.match(err.message, /start gate failed/)
+    assert.match(err.message, /Goal/)
+    assert.match(err.message, /implement\.jsonl has no effective records/)
+    assert.match(err.message, /check\.jsonl has no effective records/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：prd 填满后仍要求两个 jsonl 各有有效记录', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated Jsonl' })
+    writeFilledPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
+    recordAlignment(root, created.taskRelPath)
+    recordPlan(root, created.taskRelPath)
+    const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err1)
+    assert.match(err1.message, /implement\.jsonl has no effective records/)
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    const [err2] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err2)
+    assert.match(err2.message, /check\.jsonl has no effective records/)
+    assert.doesNotMatch(err2.message, /implement\.jsonl/)
+    // 全部满足后放行
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err3, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err3, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：force 放行并记录 overrides（含 reason）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Force Start' })
+    const [err, started] = await startTask(root, {
+      taskRelPath: created.taskRelPath,
+      force: true,
+      reason: 'hotfix, no spec to reference',
+    })
+    assert.equal(err, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    const overrides = readTaskJson(root, created.taskRelPath).overrides
+    assert.equal(overrides.length, 1)
+    assert.equal(overrides[0].gate, 'start')
+    assert.equal(overrides[0].tool, 'workloom_task_start')
+    assert.equal(overrides[0].reason, 'hotfix, no spec to reference')
+    assert.ok(!Number.isNaN(Date.parse(overrides[0].at)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：prd 无一级标题（H1）被拒绝，补上后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated H1' })
+    // 填满小节但首行不是 H1：门禁必须拒绝
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'prd.md'),
+      '## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+    )
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err1)
+    assert.match(err1.message, /prd\.md missing H1 title/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // 首行补上 H1 后放行
+    writeFilledPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
+    recordAlignment(root, created.taskRelPath)
+    recordPlan(root, created.taskRelPath)
+    const [err2, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err2, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：缺小节与 placeholder 小节文案不同，且一次列出全部 prd 内容问题', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated Sections' })
+    const taskDir = join(root, '.workloom', created.taskRelPath)
+    // 缺 H1 + 缺 Notes 标题 + Requirements 仍为 placeholder（无开放节点标记参与判断）
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: group requirements by capability or behavior as numbered items R1, R2, ...; each item is one necessary, decidable statement; do not transcribe Q&A rounds)\n\n## Acceptance Criteria\n\n- ac\n',
+    )
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err)
+    assert.match(err.message, /prd\.md missing H1 title/)
+    assert.match(err.message, /prd\.md section "Notes" is missing/)
+    assert.match(err.message, /prd\.md section "Requirements" is still a placeholder/)
+    assert.doesNotMatch(err.message, /open-nodes/)
+    // 区分 missing 与 placeholder：Requirements 不得报 missing，Notes 不得报 placeholder
+    assert.doesNotMatch(err.message, /section "Requirements" is missing/)
+    assert.doesNotMatch(err.message, /section "Notes" is still a placeholder/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // 无标记的合法 prd 不再出现任何 prd 内容拦截项（marker 门已删除），
+    // start 只剩 PLAN 与凭据两份确认缺失。
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nDo the thing.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n',
+    )
+    const [cleanErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(cleanErr)
+    assert.doesNotMatch(cleanErr.message, /prd\.md/)
+    assert.match(cleanErr.message, /plan\.md is missing/)
+    assert.match(cleanErr.message, /no alignment credential recorded/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：planning 无 alignment 凭据被拦截，confirm 后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated Align' })
+    satisfyStartGate(root, created.taskRelPath)
+    // 清掉 alignment 凭据（模拟旧 planning 任务 / confirm 前状态）
+    const raw = readTaskJson(root, created.taskRelPath)
+    delete raw.alignment
+    writeFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), JSON.stringify(raw))
+    const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err1)
+    assert.match(err1.message, /no alignment credential recorded/)
+    assert.match(err1.message, /workloom_task_align/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // 重新 confirm（recordAlignment）后放行
+    recordAlignment(root, created.taskRelPath)
+    const [err2, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err2, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：PRD 已确认但 PLAN 未确认被拦截，target=plan confirm 后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gated Plan Confirm' })
+    satisfyStartGate(root, created.taskRelPath)
+    // 清掉 PLAN 确认记录（模拟 PLAN 复核后、用户确认前的状态）
+    const raw = readTaskJson(root, created.taskRelPath)
+    delete raw.planConfirmation
+    writeFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), JSON.stringify(raw))
+    const [err1] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(err1)
+    assert.match(err1.message, /plan\.md content has not been confirmed/)
+    assert.match(err1.message, /target=plan/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+    // 记录 PLAN 确认后放行，task.json 同时存在两份确认记录
+    recordPlan(root, created.taskRelPath)
+    const [err2, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err2, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.deepEqual(Object.keys(saved.alignment).sort(), ['passedAt', 'summary'])
+    assert.deepEqual(Object.keys(saved.planConfirmation).sort(), ['passedAt', 'summary'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：确认后修改 prd 不产生 stale 错误（无哈希失效判定）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'No Stale Start' })
+    satisfyStartGate(root, created.taskRelPath)
+    // prd 在确认之后被修改：门禁不再比对文档哈希，start 仍然放行。
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'prd.md'),
+      '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nChanged requirement.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens after the change\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n',
+    )
+    const [err, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    // overrides 无 stale_alignment 留痕
+    assert.deepEqual(readTaskJson(root, created.taskRelPath).overrides, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 light：H1 + Goal 即可 start（免确认记录、双 jsonl 与 marker）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light Gate', mode: 'light' })
+    writeLightPrd(root, created.taskRelPath)
+    // 两个 jsonl 只有 seed 行、task.json 无任何确认记录。
+    const [err, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    assert.equal(started.mode, 'light')
+    assert.equal(started.alignment, null)
+    assert.equal(started.planConfirmation, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁：容器任务豁免 PLAN 确认（自身不写 plan.md）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Container Gate' })
+    writeFilledPrd(root, created.taskRelPath)
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    recordAlignment(root, created.taskRelPath)
+    // 挂一个子任务：children 非空即容器形态（PLAN 由 children 承载）
+    const [, child] = await createTask(root, { title: 'Container Child', parent: created.taskRelPath })
+    assert.equal(readTaskJson(root, created.taskRelPath).children.length, 1)
+    assert.equal(child.taskRelPath, readTaskJson(root, created.taskRelPath).children[0])
+    // 无 plan.md、无 planConfirmation：容器任务 start 不被 PLAN 门禁拦截
+    const [err, started] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(started.status, TaskStatus.IN_PROGRESS)
+    assert.equal(started.planConfirmation, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('start 门禁 light：缺 H1 或 Goal placeholder 仍拦截', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light Gated', mode: 'light' })
+    const taskDir = join(root, '.workloom', created.taskRelPath)
+    // 缺 H1
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '## Goal\n\nRepair the shell file.\n\n## Requirements\n\n- req\n',
+    )
+    const [h1Err] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(h1Err)
+    assert.match(h1Err.message, /prd\.md missing H1 title/)
+    // Goal 仍是 placeholder
+    writeFileSync(
+      join(taskDir, 'prd.md'),
+      '# Light fix\n\n## Goal\n\n(placeholder: describe the outcome this task achieves and how it will be observed; the goal must follow from the context above)\n',
+    )
+    const [goalErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(goalErr)
+    assert.match(goalErr.message, /section "Goal" is still a placeholder/)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check 门禁 light：check.jsonl 无有效记录也直接记录自查小结', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light Check', mode: 'light' })
+    writeLightPrd(root, created.taskRelPath)
+    const [startErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(startErr, null)
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'self-check: lint/typecheck/tests green',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'self-check: lint/typecheck/tests green')
+    // check.jsonl 仍是 seed 行（轻量任务不写入该校验记录）。
+    const checkLog = readFileSync(join(root, '.workloom', created.taskRelPath, 'check.jsonl'), 'utf8')
+    assert.match(checkLog, /_example/)
+    assert.doesNotMatch(checkLog, /"file"/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check 门禁 light：含 UI Design 但无 frontend 派发也放行（前端门豁免）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light UI', mode: 'light' })
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'prd.md'),
+      '# Light UI\n\n## Goal\n\nChange a label.\n\n## UI Design\n\n- button label only\n',
+    )
+    const [startErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.equal(startErr, null)
+    // check.jsonl 有有效记录（check 日志门可过），但没有 frontend 派发记录：
+    // 轻量任务的 check 仍放行，专门覆盖前端派发门豁免。
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'light ui self-check',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'light ui self-check')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask 写入 check 字段，重复调用覆盖并刷新 passedAt', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Check Me' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 check 凭据机制，CASE 链路在 case.test.js。
+    markTaskLegacy(root, created.taskRelPath)
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'reviewed against spec, lint green',
+    })
+    assert.equal(err, null)
+    assert.ok(task.check)
+    assert.equal(task.check.summary, 'reviewed against spec, lint green')
+    assert.ok(!Number.isNaN(Date.parse(task.check.passedAt)))
+    const first = readTaskJson(root, created.taskRelPath).check
+    assert.equal(first.summary, 'reviewed against spec, lint green')
+    // 重复调用覆盖（passedAt 刷新为合法 ISO 即可，断言传参差异在 summary）
+    const [err2, task2] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 're-check after fix',
+    })
+    assert.equal(err2, null)
+    assert.equal(readTaskJson(root, created.taskRelPath).check.summary, 're-check after fix')
+    assert.ok(!Number.isNaN(Date.parse(task2.check.passedAt)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask 要求 in_progress 与非空 summary', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Check States' })
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    const [err1] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'too early',
+    })
+    assert.ok(err1)
+    assert.match(err1.message, /in_progress/)
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    const [err2] = await checkTask(root, { taskRelPath: created.taskRelPath, summary: '  ' })
+    assert.ok(err2)
+    assert.match(err2.message, /summary/)
+    // 校验失败不留 check 字段
+    assert.equal(readTaskJson(root, created.taskRelPath).check, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask 门禁：check.jsonl 无有效记录被拒绝，force 放行并留痕', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Check Gate' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 check 门禁与 force 留痕。
+    markTaskLegacy(root, created.taskRelPath)
+    // 清掉 check.jsonl 有效记录，模拟 check 上下文缺失（start 之后再清，绕过 start 门禁）
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'check.jsonl'),
+      '{"_example": "seed"}\n',
+    )
+    const [err1] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'no context',
+    })
+    assert.ok(err1)
+    assert.match(err1.message, /check gate failed/)
+    assert.match(err1.message, /check\.jsonl has no effective records/)
+    assert.equal(readTaskJson(root, created.taskRelPath).check, null)
+    const [err2, task2] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'hotfix check',
+      force: true,
+      reason: 'urgent hotfix',
+    })
+    assert.equal(err2, null)
+    assert.equal(task2.check.summary, 'hotfix check')
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.overrides.length, 1)
+    assert.equal(saved.overrides[0].gate, 'check')
+    assert.equal(saved.overrides[0].tool, 'workloom_task_check')
+    assert.equal(saved.overrides[0].reason, 'urgent hotfix')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archive 门禁：无 check 字段拒绝归档且不移动目录（不区分新旧任务）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Archive Gate' })
+    const [err, task] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+    })
+    assert.ok(err)
+    assert.equal(task, null)
+    assert.match(err.message, /archive gate failed/)
+    assert.match(err.message, /no recorded check/)
+    // 原目录未动，状态不变
+    assert.equal(existsSync(join(root, '.workloom', created.taskRelPath)), true)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archive 门禁：checkTask 留痕后归档成功（完整链路）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Archive Checked' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 archive 链路机制，CASE 链路在 case.test.js。
+    markTaskLegacy(root, created.taskRelPath)
+    await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'full review passed',
+    })
+    const [err, task] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+    })
+    assert.equal(err, null)
+    assert.equal(task.status, TaskStatus.COMPLETED)
+    // 归档位置的 task.json 保留 check 凭据
+    assert.equal(readTaskJson(root, task.taskRelPath).check.summary, 'full review passed')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archive 门禁：force 放行，overrides 写入归档后的 task.json', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Archive Force' })
+    const [err, task] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'legacy task, check not applicable',
+    })
+    assert.equal(err, null)
+    const archived = readTaskJson(root, task.taskRelPath)
+    assert.equal(archived.status, TaskStatus.COMPLETED)
+    assert.equal(archived.overrides.length, 1)
+    assert.equal(archived.overrides[0].gate, 'archive')
+    assert.equal(archived.overrides[0].tool, 'workloom_task_archive')
+    assert.equal(archived.overrides[0].reason, 'legacy task, check not applicable')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 写含「UI Design」小节的填满 prd（H1 + 十一小节填满 + UI Design 额外节）。 */
+function writeUiPrd(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'prd.md'),
+    '# UI Task\n\n## Context\n\nThe gate harness needs a UI sample.\n\n## Goal\n\nDo the UI.\n\n## Scope\n\nIn scope: the UI itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the UI renders by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the UI is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n## UI Design\n\n- pages and IA\n\n',
+  )
+}
+
+test('readTask 归一化：缺 dispatches 字段的旧 task.json 补默认空数组', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-dispatches')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({ id: 'x', name: 'no-dispatches', status: TaskStatus.PLANNING }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.deepEqual(task.dispatches, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 追加派发记录（kind/at/title），保留已有条目', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Record' })
+    const [err1] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'research',
+      title: 'r1',
+    })
+    assert.equal(err1, null)
+    const [err2] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: 'ui impl',
+    })
+    assert.equal(err2, null)
+    const task = readTaskJson(root, created.taskRelPath)
+    assert.equal(task.dispatches.length, 2)
+    assert.equal(task.dispatches[0].kind, 'research')
+    assert.equal(task.dispatches[0].title, 'r1')
+    assert.equal(task.dispatches[1].kind, 'frontend')
+    assert.equal(task.dispatches[1].title, 'ui impl')
+    for (const entry of task.dispatches) {
+      assert.ok(!Number.isNaN(Date.parse(entry.at)))
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 校验 kind/title，非法值返回 err（fail loud）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Bad' })
+    const [err1] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'bogus',
+      title: 'x',
+    })
+    assert.ok(err1)
+    assert.match(err1.message, /invalid dispatch kind/)
+    const [err2] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: '   ',
+    })
+    assert.ok(err2)
+    assert.match(err2.message, /non-empty string/)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：缺 stage 字段的旧 task.json 补默认 implement', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-stage')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({ id: 'x', name: 'no-stage', status: TaskStatus.PLANNING }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.stage, TaskStage.IMPLEMENT)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 同点更新 stage（implement/frontend→implement，check→check，research 保持）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Stage' })
+    // 新任务默认 implement 阶段（显式字段落盘）
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.IMPLEMENT)
+    // implement 派发 → implement
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: EXECUTOR_KINDS.implement,
+      title: 'i1',
+    })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.IMPLEMENT)
+    // check 派发 → check
+    recordExecutorDispatch(root, created.taskRelPath, { kind: EXECUTOR_KINDS.check, title: 'c1' })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.CHECK)
+    // frontend 派发 → implement（check 阶段派 frontend 视为回到实现期）
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: EXECUTOR_KINDS.frontend,
+      title: 'f1',
+    })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.IMPLEMENT)
+    // research 保持当前值（先置 check 再派 research，仍为 check）
+    recordExecutorDispatch(root, created.taskRelPath, { kind: EXECUTOR_KINDS.check, title: 'c2' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: EXECUTOR_KINDS.research,
+      title: 'r2',
+    })
+    assert.equal(readTaskJson(root, created.taskRelPath).stage, TaskStage.CHECK)
+    // dispatches 与 stage 同点落盘：两者一致（5 条派发记录）
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 5)
+    assert.equal(saved.stage, TaskStage.CHECK)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('computeTaskStage 纯函数：五 kind 映射、research/review 保持 current、非法 kind 抛错', () => {
+  // implement/frontend → implement（无论 current）
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.implement), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.implement), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.frontend), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.frontend), TaskStage.IMPLEMENT)
+  // check → check（无论 current）
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.check), TaskStage.CHECK)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.check), TaskStage.CHECK)
+  // research/review 保持 current（规划期动作，不驱动阶段迁移）
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.research), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.research), TaskStage.CHECK)
+  assert.equal(computeTaskStage(TaskStage.IMPLEMENT, EXECUTOR_KINDS.review), TaskStage.IMPLEMENT)
+  assert.equal(computeTaskStage(TaskStage.CHECK, EXECUTOR_KINDS.review), TaskStage.CHECK)
+  // 非法 kind（含 undefined）抛错（fail loud）
+  assert.throws(() => computeTaskStage(TaskStage.IMPLEMENT, 'bogus'), /invalid kind/)
+  assert.throws(() => computeTaskStage(TaskStage.IMPLEMENT, undefined), /invalid kind/)
+})
+
+test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend 派发被拒绝，补派发后放行', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'UI Gate' })
+    writeUiPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    recordAlignment(root, created.taskRelPath)
+    recordPlan(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦前端派发门禁。
+    markTaskLegacy(root, created.taskRelPath)
+    const [err1] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'no ui dispatch',
+    })
+    assert.ok(err1)
+    assert.match(err1.message, /no frontend dispatch recorded for a task with UI requirements/)
+    assert.equal(readTaskJson(root, created.taskRelPath).check, null)
+    // 补 frontend 派发后放行
+    const [recErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: 'ui impl',
+    })
+    assert.equal(recErr, null)
+    const [err2, task2] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'with ui dispatch',
+    })
+    assert.equal(err2, null)
+    assert.equal(task2.check.summary, 'with ui dispatch')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask 前端派发门禁：force 放行并留痕 overrides', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'UI Gate Force' })
+    writeUiPrd(root, created.taskRelPath)
+    writeGatePlan(root, created.taskRelPath)
+    writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
+    writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
+    recordAlignment(root, created.taskRelPath)
+    recordPlan(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force 留痕。
+    markTaskLegacy(root, created.taskRelPath)
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'force ui',
+      force: true,
+      reason: 'ui not applicable',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'force ui')
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.overrides.length, 1)
+    assert.equal(saved.overrides[0].gate, 'check')
+    assert.equal(saved.overrides[0].tool, 'workloom_task_check')
+    assert.equal(saved.overrides[0].reason, 'ui not applicable')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 计算今天生成的 child taskRelPath（用于断言未产生写入/预测去重路径）。 */
+function childRelFor(slug) {
+  const now = new Date()
+  const mmdd = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  return join('tasks', `${mmdd}-${slug}`)
+}
+
+test('createTask 校验：parent 两种形式归一（tasks/ 前缀补全）且存储一致', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent Norm' })
+    const bareId = parent.taskRelPath.slice('tasks/'.length)
+    // 原样（tasks/ 前缀）
+    const [err1, c1] = await createTask(root, { title: 'Child Norm A', parent: parent.taskRelPath })
+    assert.equal(err1, null)
+    assert.equal(c1.task.parent, parent.taskRelPath)
+    // 补 tasks/ 前缀（bare id）
+    const [err2, c2] = await createTask(root, { title: 'Child Norm B', parent: bareId })
+    assert.equal(err2, null)
+    assert.equal(c2.task.parent, parent.taskRelPath)
+    // 父 children 稳定追加两个子任务路径
+    const saved = readTaskJson(root, parent.taskRelPath)
+    assert.deepEqual(saved.children, [c1.taskRelPath, c2.taskRelPath])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 不存在拒绝且不产生写入', async () => {
+  const root = makeRoot()
+  try {
+    const [err, result] = await createTask(root, { title: 'Ghost Child', parent: 'tasks/99-99-ghost' })
+    assert.ok(err)
+    assert.equal(result, null)
+    assert.match(err.message, /parent task not found/)
+    // 子任务目录未被创建（不产生写入）
+    assert.equal(existsSync(join(root, '.workloom', childRelFor('ghost-child'))), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 自引用拒绝', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Self' })
+    // 用相同 slug 使新任务路径与 parent 相同 → 触发自引用（校验先于目录冲突检查）
+    const [err] = await createTask(root, { title: 'Self', parent: parent.taskRelPath })
+    assert.ok(err)
+    assert.match(err.message, /cannot be its own parent/)
+    // 仍只有原父任务一个
+    const [, list] = listTasks(root)
+    assert.equal(list.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 状态 planning/in_progress 放行，completed 拒绝', async () => {
+  const root = makeRoot()
+  try {
+    // planning 放行
+    const [, p1] = await createTask(root, { title: 'Parent Planning' })
+    const [err1, c1] = await createTask(root, { title: 'Child Planning', parent: p1.taskRelPath })
+    assert.equal(err1, null)
+    assert.ok(c1)
+    // in_progress 放行（force 越过 start 门禁）
+    const [, p2] = await createTask(root, { title: 'Parent InProgress' })
+    await startTask(root, { taskRelPath: p2.taskRelPath, force: true, reason: 'test' })
+    const [err2, c2] = await createTask(root, { title: 'Child InProgress', parent: p2.taskRelPath })
+    assert.equal(err2, null)
+    assert.ok(c2)
+    // completed 拒绝（归档后 status=completed）
+    const [, p3] = await createTask(root, { title: 'Parent Archived' })
+    const [archErr, archived] = await archiveTask(root, {
+      taskRelPath: p3.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'test',
+    })
+    assert.equal(archErr, null)
+    const [err3] = await createTask(root, { title: 'Child Archived', parent: archived.taskRelPath })
+    assert.ok(err3)
+    assert.match(err3.message, /planning or in_progress/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：parent 路径逃逸拒绝', async () => {
+  const root = makeRoot()
+  try {
+    // 归一补 tasks/ 后仍解析出 .workloom 之外，insideWorkloom 抛错
+    const [err] = await createTask(root, { title: 'Escape Child', parent: '../../outside' })
+    assert.ok(err)
+    assert.match(err.message, /escapes .workloom directory/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：children 追加子任务路径', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent Link' })
+    const [err, child] = await createTask(root, { title: 'Child Link', parent: parent.taskRelPath })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, parent.taskRelPath)
+    assert.ok(saved.children.includes(child.taskRelPath))
+    assert.equal(saved.children.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：children 去重追加（同路径不重复记录）', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent Dedup' })
+    const childRel = childRelFor('dup-child')
+    // 预置父任务 children 已包含该子任务路径（模拟历史记录），创建同路径子任务时应去重
+    const parentRecord = readTaskJson(root, parent.taskRelPath)
+    parentRecord.children = [childRel]
+    writeFileSync(join(root, '.workloom', parent.taskRelPath, 'task.json'), JSON.stringify(parentRecord))
+    const [err, result] = await createTask(root, { title: 'Dup Child', parent: parent.taskRelPath })
+    assert.equal(err, null)
+    assert.equal(result.taskRelPath, childRel)
+    const saved = readTaskJson(root, parent.taskRelPath)
+    assert.deepEqual(saved.children, [childRel])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 校验：父 children 写回失败抛错（子任务已创建、父 children 未更新）', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Parent RO' })
+    const parentTaskJson = join(root, '.workloom', parent.taskRelPath, 'task.json')
+    chmodSync(parentTaskJson, 0o444) // 父 task.json 只读 → 联动写回失败
+    const [err, result] = await createTask(root, { title: 'Child RO', parent: parent.taskRelPath })
+    assert.ok(err)
+    assert.equal(result, null)
+    assert.match(err.message, /child task created but parent children not updated/)
+    // 子任务已创建（目录与 task.json 存在）
+    assert.equal(existsSync(join(root, '.workloom', childRelFor('child-ro'))), true)
+    // 父 children 未更新（仍为空；恢复权限便于读取断言）
+    chmodSync(parentTaskJson, 0o644)
+    assert.deepEqual(readTaskJson(root, parent.taskRelPath).children, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：缺 alignment 的旧 task.json 补 null，旧 grilling 原样透传（惰性数据不迁移）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '08-26-no-alignment')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({
+        id: 'x',
+        name: 'no-alignment',
+        status: TaskStatus.PLANNING,
+        grilling: { required: true, passedAt: '2026-08-01T00:00:00Z', summary: 'old era' },
+      }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.alignment, null)
+    // 旧 grilling 字段原样保留（不重解释、不参与新语义）
+    assert.deepEqual(task.grilling, {
+      required: true,
+      passedAt: '2026-08-01T00:00:00Z',
+      summary: 'old era',
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTask 新建任务：alignment 默认 null 且不写 grilling 字段（旧语义不进新数据）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'New Model' })
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.alignment, null)
+    assert.equal('grilling' in saved, false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordAlignmentCredential：planning 写入确认记录（只含 passedAt/summary，原子替换）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Align Record' })
+    const [err, task] = recordAlignmentCredential(root, created.taskRelPath, {
+      summary: 'frontier empty',
+    })
+    assert.equal(err, null)
+    assert.equal(task.alignment.summary, 'frontier empty')
+    assert.ok(!Number.isNaN(Date.parse(task.alignment.passedAt)))
+    assert.deepEqual(Object.keys(task.alignment).sort(), ['passedAt', 'summary'])
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.deepEqual(Object.keys(saved.alignment).sort(), ['passedAt', 'summary'])
+    // 旧任务遗留的 prdHash 字段随整体替换自然丢弃（读时容忍，写时覆盖）
+    const rel = created.taskRelPath
+    const legacy = readTaskJson(root, rel)
+    legacy.alignment = { passedAt: '2026-08-01T00:00:00Z', summary: 'old', prdHash: 'deadbeef' }
+    writeFileSync(join(root, '.workloom', rel, 'task.json'), JSON.stringify(legacy))
+    const [err2] = recordAlignmentCredential(root, rel, { summary: 'fresh confirm' })
+    assert.equal(err2, null)
+    const after = readTaskJson(root, rel)
+    assert.equal('prdHash' in after.alignment, false)
+    assert.equal(after.alignment.summary, 'fresh confirm')
+    // 原子替换无临时文件残留
+    const dir = join(root, '.workloom', created.taskRelPath)
+    const residue = readdirSync(dir).filter((name) => name.endsWith('.tmp'))
+    assert.deepEqual(residue, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('旧 CASE 字段在读取归一化与任务写回中原样保留', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Legacy Case Record' })
+    const rel = created.taskRelPath
+    const saved = readTaskJson(root, rel)
+    saved.case = {
+      required: false,
+      designSession: 'legacy-design',
+      confirmedAt: '2026-08-01T00:00:00Z',
+      caseHash: 'legacy-hash',
+      summary: 'legacy confirmation',
+      result: { caseHash: 'old', resultHash: 'old', passedAt: '2026-08-01T00:00:00Z' },
+    }
+    writeFileSync(join(root, '.workloom', rel, 'task.json'), JSON.stringify(saved))
+
+    const [readErr, task] = readTask(root, rel)
+    assert.equal(readErr, null)
+    assert.deepEqual(task.case, saved.case)
+
+    const [writeErr] = recordAlignmentCredential(root, rel, { summary: 'preserve legacy CASE' })
+    assert.equal(writeErr, null)
+    assert.deepEqual(readTaskJson(root, rel).case, saved.case)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordAlignmentCredential：completed 拒绝；summary 校验失败零写入', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Align Bad' })
+    // summary 缺失 → 报错且不写
+    const [err1] = recordAlignmentCredential(root, created.taskRelPath, { summary: '' })
+    assert.ok(err1)
+    assert.match(err1.message, /non-empty summary/)
+    assert.equal(readTaskJson(root, created.taskRelPath).alignment, null)
+    // completed 拒绝
+    const [, archived] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      force: true,
+      reason: 'test archive for completed rejection',
+    })
+    assert.ok(archived)
+    const [err3] = recordAlignmentCredential(root, archived.taskRelPath, { summary: 's' })
+    assert.ok(err3)
+    assert.match(err3.message, /only planning\/in_progress/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordAlignmentCredential：重复确认刷新 passedAt 与 summary（无幂等早退）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Align Refresh' })
+    const [err1, first] = recordAlignmentCredential(root, created.taskRelPath, {
+      summary: 'first confirm',
+    })
+    assert.equal(err1, null)
+    const passedAt = first.alignment.passedAt
+    // 重复 confirm：刷新 passedAt 与 summary（passedAt 语义 = 最近一次确认时间）
+    const [err2, second] = recordAlignmentCredential(root, created.taskRelPath, {
+      summary: 'second confirm',
+    })
+    assert.equal(err2, null)
+    assert.ok(second.alignment.passedAt >= passedAt)
+    assert.equal(second.alignment.summary, 'second confirm')
+    assert.equal(readTaskJson(root, created.taskRelPath).alignment.summary, 'second confirm')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordPlanConfirmation：PRD 已确认后写入 PLAN 确认（只含 passedAt/summary）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Plan Record' })
+    recordAlignment(root, created.taskRelPath)
+    const [err, task] = recordPlanConfirmation(root, created.taskRelPath, {
+      summary: 'plan covers every AC',
+    })
+    assert.equal(err, null)
+    assert.equal(task.planConfirmation.summary, 'plan covers every AC')
+    assert.ok(!Number.isNaN(Date.parse(task.planConfirmation.passedAt)))
+    assert.deepEqual(Object.keys(task.planConfirmation).sort(), ['passedAt', 'summary'])
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.deepEqual(Object.keys(saved.planConfirmation).sort(), ['passedAt', 'summary'])
+    // 重复确认刷新 summary
+    const [err2, again] = recordPlanConfirmation(root, created.taskRelPath, {
+      summary: 'plan revised and re-confirmed',
+    })
+    assert.equal(err2, null)
+    assert.equal(again.planConfirmation.summary, 'plan revised and re-confirmed')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordPlanConfirmation：PRD 未确认拒绝并提示先确认 PRD；completed 拒绝；summary 校验零写入', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Plan Record Bad' })
+    // PRD 未确认 → 拒绝并指引先确认 PRD
+    const [err1] = recordPlanConfirmation(root, created.taskRelPath, { summary: 's' })
+    assert.ok(err1)
+    assert.match(err1.message, /plan confirmation requires a confirmed PRD/)
+    assert.match(err1.message, /target=prd/)
+    assert.equal(readTaskJson(root, created.taskRelPath).planConfirmation, null)
+    // summary 缺失 → 报错且不写
+    recordAlignment(root, created.taskRelPath)
+    const [err2] = recordPlanConfirmation(root, created.taskRelPath, { summary: '' })
+    assert.ok(err2)
+    assert.match(err2.message, /non-empty summary/)
+    assert.equal(readTaskJson(root, created.taskRelPath).planConfirmation, null)
+    // completed 拒绝
+    const [, archived] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      force: true,
+      reason: 'test archive for completed rejection',
+    })
+    assert.ok(archived)
+    const [err3] = recordPlanConfirmation(root, archived.taskRelPath, { summary: 's' })
+    assert.ok(err3)
+    assert.match(err3.message, /only planning\/in_progress/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordAlignmentCredential：旧 grilling 字段往返不丢（窄写口写回保留惰性数据）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Align Legacy' })
+    // 预置旧 grilling 字段（模拟存量任务；写入绕过新 build 语义）
+    const rel = created.taskRelPath
+    const raw = readTaskJson(root, rel)
+    raw.grilling = { required: true, passedAt: '2026-08-01T00:00:00Z', summary: 'old' }
+    writeFileSync(join(root, '.workloom', rel, 'task.json'), JSON.stringify(raw))
+    const [err] = recordAlignmentCredential(root, rel, {
+      summary: 'new confirm',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, rel)
+    // grilling 不被迁移/改写/删除；alignment 并行写入
+    assert.deepEqual(saved.grilling, {
+      required: true,
+      passedAt: '2026-08-01T00:00:00Z',
+      summary: 'old',
+    })
+    assert.equal(saved.alignment.summary, 'new confirm')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 写入与 satisfyStartGate 的 prd 不同的内容（确认后的文档修改）。 */
+function writeChangedPrd(root, taskRelPath) {
+  writeFileSync(
+    join(root, '.workloom', taskRelPath, 'prd.md'),
+    '# Filled\n\n## Goal\n\nChanged after confirm.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+  )
+}
+
+test('checkTask：确认后修改 prd 不产生 stale 错误，check 正常写入（无哈希失效判定）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Check After Change' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦确认后的 prd 修改。
+    markTaskLegacy(root, created.taskRelPath)
+    writeChangedPrd(root, created.taskRelPath)
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'check after prd change',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'check after prd change')
+    // 无 stale_alignment 留痕
+    assert.deepEqual(readTaskJson(root, created.taskRelPath).overrides, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask：force 放行按实际绕过 gate 留痕（仅 check.jsonl 缺失一项）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Check Force Single' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force gate 留痕。
+    markTaskLegacy(root, created.taskRelPath)
+    // 清掉 check.jsonl 有效记录：仅 check 门禁缺失
+    writeFileSync(
+      join(root, '.workloom', created.taskRelPath, 'check.jsonl'),
+      '{"_example": "seed"}\n',
+    )
+    const [err, task] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'single bypass',
+      force: true,
+      reason: 'check gate bypassed',
+    })
+    assert.equal(err, null)
+    assert.equal(task.check.summary, 'single bypass')
+    const gates = readTaskJson(root, created.taskRelPath).overrides.map((o) => o.gate)
+    // 只留实际绕过的 check 一条（stale_alignment 门禁已删除）
+    assert.deepEqual(gates, ['check'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask：确认后修改 prd 不产生 stale 错误，归档正常完成（无哈希失效判定）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Archive After Change' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦确认后的 prd 修改。
+    markTaskLegacy(root, created.taskRelPath)
+    const [checkErr] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'full review passed',
+    })
+    assert.equal(checkErr, null)
+    writeChangedPrd(root, created.taskRelPath)
+    const [err, archived] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+    })
+    assert.equal(err, null)
+    assert.equal(archived.status, TaskStatus.COMPLETED)
+    // 无 stale_alignment 留痕
+    assert.deepEqual(readTaskJson(root, archived.taskRelPath).overrides, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask force：check 缺失绕过 → 只留 archive 单记录（stale 门禁已删除）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Archive Force Single' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force gate 留痕。
+    markTaskLegacy(root, created.taskRelPath)
+    writeChangedPrd(root, created.taskRelPath)
+    const [err, archived] = await archiveTask(root, {
+      taskRelPath: created.taskRelPath,
+      autoCommit: false,
+      force: true,
+      reason: 'missing check bypass',
+    })
+    assert.equal(err, null)
+    const gates = readTaskJson(root, archived.taskRelPath).overrides.map((o) => o.gate)
+    assert.deepEqual(gates, ['archive'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordGateOverride：按指定 gate 留痕（light_dispatch 审计），非法 gate 拒绝', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Gate Override' })
+    const [err] = recordGateOverride(root, created.taskRelPath, 'light_dispatch', 'manual note')
+    assert.equal(err, null)
+    const record = readTaskJson(root, created.taskRelPath).overrides[0]
+    assert.equal(record.gate, 'light_dispatch')
+    assert.equal(record.tool, 'workloom_execute')
+    assert.equal(record.reason, 'manual note')
+    const [badErr] = recordGateOverride(root, created.taskRelPath, 'bogus', 'r')
+    assert.ok(badErr)
+    assert.match(badErr.message, /invalid gate override/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('listTasks 摘要包含 parent 字段', async () => {
+  const root = makeRoot()
+  try {
+    const [, parent] = await createTask(root, { title: 'Summary Parent' })
+    await createTask(root, { title: 'Summary Child', parent: parent.taskRelPath })
+    const [, list] = listTasks(root)
+    const childSummary = list.find((t) => t.title === 'Summary Child')
+    assert.equal(childSummary.parent, parent.taskRelPath)
+    const parentSummary = list.find((t) => t.title === 'Summary Parent')
+    assert.equal(parentSummary.parent, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 初写：派发记录含 status running，stage 更新语义保留', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Running' })
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'frontend',
+      title: 'ui impl',
+      childId: 'child-1',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1)
+    assert.equal(saved.dispatches[0].status, 'running', 'initial write must record status running')
+    assert.equal(saved.dispatches[0].childId, 'child-1')
+    // stage 更新语义保留（frontend → implement）
+    assert.equal(saved.stage, TaskStage.IMPLEMENT)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 失败留痕：显式 status=failed + error 直接写入终态', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Failed' })
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'failed dispatch',
+      status: 'failed',
+      error: 'spawn ENOENT: binary not found',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1)
+    assert.equal(saved.dispatches[0].status, 'failed', '显式 status=failed 应直接写入')
+    assert.equal(saved.dispatches[0].error, 'spawn ENOENT: binary not found')
+    assert.equal(saved.dispatches[0].childId, undefined, '无 childId 时缺省')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 链式留痕：fallbackOf / fallbackAttempt 可选字段写入与读取（旧记录兼容）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Chain' })
+    // 首跳（主模型）失败记录：无 fallbackOf / fallbackAttempt 字段。
+    const [firstErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'primary hop',
+      childId: 'child-0',
+      status: 'failed',
+      error: 'connection error (TRANSPORT)',
+    })
+    assert.equal(firstErr, null)
+    // 第二跳：fallbackOf 指向前一跳 childId，fallbackAttempt 记本跳序号。
+    const [secondErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'fallback hop',
+      childId: 'child-1',
+      model: 'provider-b/m2',
+      modelSource: 'fallback',
+      fallbackOf: 'child-0',
+      fallbackAttempt: 2,
+    })
+    assert.equal(secondErr, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].fallbackOf, undefined, '首跳无链式关联字段')
+    assert.equal(saved.dispatches[0].fallbackAttempt, undefined)
+    assert.equal(saved.dispatches[1].fallbackOf, 'child-0')
+    assert.equal(saved.dispatches[1].fallbackAttempt, 2)
+    assert.equal(saved.dispatches[1].modelSource, 'fallback')
+    // 旧记录（无新字段）读取兼容：字段读取为 undefined，不迁移、不补默认。
+    const [, read] = readTask(root, created.taskRelPath)
+    assert.equal(read.dispatches[0].fallbackOf, undefined)
+    assert.equal(read.dispatches[1].fallbackAttempt, 2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 链式字段形状非法：返回 err（fail loud，不落盘）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Chain Invalid' })
+    const cases = [
+      { fallbackOf: '' },
+      { fallbackOf: 5 },
+      { fallbackAttempt: 0 },
+      { fallbackAttempt: 1 },
+      { fallbackAttempt: 1.5 },
+      { fallbackAttempt: '2' },
+    ]
+    for (const extra of cases) {
+      const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+        kind: 'implement',
+        title: 'invalid chain field',
+        ...extra,
+      })
+      assert.notEqual(err, null, `${JSON.stringify(extra)} must be rejected`)
+    }
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('appendDispatchErrorSuffix：向该 childId 最近一条 failed 记录 error 行追加后缀', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Suffix' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'hop 1',
+      childId: 'child-1',
+      status: 'failed',
+      error: 'connection error (TRANSPORT)',
+    })
+    // 同 childId 的后续 running 记录不应被误改（只追加 failed 记录）。
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'hop 2',
+      childId: 'child-1',
+      fallbackOf: 'child-0',
+      fallbackAttempt: 2,
+    })
+    const [err] = appendDispatchErrorSuffix(
+      root,
+      created.taskRelPath,
+      'child-1',
+      ' (fallback chain exhausted: m1 → m2)',
+    )
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(
+      saved.dispatches[0].error,
+      'connection error (TRANSPORT) (fallback chain exhausted: m1 → m2)',
+    )
+    assert.equal(saved.dispatches[1].error, undefined, 'running 记录不受影响')
+    // 无匹配 failed 记录：no-op（不报错），未知 childId 静默跳过。
+    const [noopErr] = appendDispatchErrorSuffix(root, created.taskRelPath, 'ghost', ' (x)')
+    assert.equal(noopErr, null)
+    // 非法后缀 / 不可读任务：返回 err（调用方只告警）。
+    assert.notEqual(
+      appendDispatchErrorSuffix(root, created.taskRelPath, 'child-1', '')?.[0],
+      null,
+    )
+    assert.notEqual(appendDispatchErrorSuffix(root, 'tasks/missing', 'child-1', ' (x)')?.[0], null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('settleExecutorDispatch 回填 completed/failed：只改 status/error，不动 stage、不重复计数', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Settle Record' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'check',
+      title: 'c1',
+      childId: 'child-1',
+    })
+    // 回填 completed（无 error）
+    const [err1] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'child-1',
+      status: 'completed',
+    })
+    assert.equal(err1, null)
+    let saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1, 'backfill must not append a new record')
+    assert.equal(saved.dispatches[0].status, 'completed')
+    assert.equal(saved.dispatches[0].error, undefined)
+    assert.equal(saved.stage, TaskStage.CHECK, 'backfill must not change stage')
+    // 再初写一条 running 后回填 failed + 一行错误摘要
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'check',
+      title: 'c2',
+      childId: 'child-2',
+    })
+    const [err2] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'child-2',
+      status: 'failed',
+      error: 'the executor failed before it finished',
+    })
+    assert.equal(err2, null)
+    saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 2, 'backfill must not re-count')
+    assert.equal(saved.dispatches[1].status, 'failed')
+    assert.equal(saved.dispatches[1].error, 'the executor failed before it finished')
+    assert.equal(saved.stage, TaskStage.CHECK, 'backfill must not change stage')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('settleExecutorDispatch 按 childId 关联最近一条 running；无匹配/已结算 no-op', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Settle Match' })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'i1',
+      childId: 'child-1',
+    })
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'i2',
+      childId: 'child-1',
+    })
+    // 最后一条同 childId 仍是 running：只回填它（前一条保持 running）
+    const [err] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'child-1',
+      status: 'failed',
+      error: 'declined',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].status, 'running')
+    assert.equal(saved.dispatches[1].status, 'failed')
+    // 未知 childId：no-op（不报错、不新增记录）
+    const [err2] = settleExecutorDispatch(root, created.taskRelPath, {
+      childId: 'ghost',
+      status: 'failed',
+      error: 'x',
+    })
+    assert.equal(err2, null)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：存量无 status 的派发记录读取视为 completed（不迁移落盘）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '09-02-legacy-dispatch')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({
+        id: 'x',
+        name: 'legacy-dispatch',
+        status: TaskStatus.PLANNING,
+        dispatches: [
+          { kind: 'implement', at: new Date().toISOString(), title: 'legacy', childId: 'child-9' },
+        ],
+      }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.dispatches[0].status, 'completed', 'legacy record must read as completed')
+    // 不迁移：落盘文件仍无 status 字段
+    const raw = JSON.parse(readFileSync(join(root, '.workloom', rel, 'task.json'), 'utf8'))
+    assert.equal('status' in raw.dispatches[0], false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('失败派发（初写后未结算）留痕可见：running 记录在 task.json 可读', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Trace' })
+    // 初写后不结算（派发后未回填）：记录仍留在 task.json，缺口 A 场景可见。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'check',
+      title: 'c1',
+      childId: 'child-7',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 1)
+    assert.equal(saved.dispatches[0].status, 'running')
+    assert.equal(saved.dispatches[0].childId, 'child-7')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- 续派模型治理：派发记录绑定字段（design §8.2，阶段三） ----------
+
+test('recordExecutorDispatch 新派落绑定：model/effort/modelSource 写入 dispatches', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Binding' })
+    // 新派轮：写入解析后实际生效的 model/effort 与来源（legacy 配置命中）。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'binding new',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      effort: 'high',
+      modelSource: 'legacy',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].model, 'deepseek-official/deepseek-v4-flash')
+    assert.equal(saved.dispatches[0].effort, 'high')
+    assert.equal(saved.dispatches[0].modelSource, 'legacy')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 续派轮：modelSource 记 spawn、绑定沿用首次派发值', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Spawn Copy' })
+    // 首次派发：绑定值来自配置（modelSource: legacy）。
+    recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'spawn',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      effort: 'high',
+      modelSource: 'legacy',
+    })
+    // 续派轮：复制首次派发记录的 model/effort，modelSource 记 spawn。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'followup',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      effort: 'high',
+      modelSource: 'spawn',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches.length, 2)
+    assert.equal(saved.dispatches[1].model, saved.dispatches[0].model)
+    assert.equal(saved.dispatches[1].effort, saved.dispatches[0].effort)
+    assert.equal(saved.dispatches[1].modelSource, 'spawn')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 绑定字段非法值 fail loud（不落盘）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Bad Binding' })
+    // modelSource 越出枚举值域：记录被拒，不产生 dispatches 条目。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'bad source',
+      childId: 'child-1',
+      model: 'deepseek-official/deepseek-v4-flash',
+      modelSource: 'env',
+    })
+    assert.ok(err instanceof Error)
+    assert.match(err.message, /invalid dispatch modelSource/)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 0)
+    // model 缺省读取为 undefined（旧记录不炸）。
+    const [legacyErr, legacyTask] = readTask(root, created.taskRelPath)
+    assert.equal(legacyErr, null)
+    assert.equal(legacyTask.dispatches.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recordExecutorDispatch 轮换起步：modelSource rotate 放行并落盘（值域只增不减）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Dispatch Rotate Binding' })
+    // 轮换选中链条目起步：绑定值写实际选定 model/effort，来源记 rotate。
+    const [err] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'rotated start',
+      childId: 'child-1',
+      model: 'provider-b/qwen',
+      effort: 'high',
+      modelSource: 'rotate',
+    })
+    assert.equal(err, null)
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.dispatches[0].model, 'provider-b/qwen')
+    assert.equal(saved.dispatches[0].effort, 'high')
+    assert.equal(saved.dispatches[0].modelSource, 'rotate')
+    // 非法值仍拒：rotate 已入值域，其余越界值不变。
+    const [badErr] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'still bad',
+      childId: 'child-2',
+      modelSource: 'rotated',
+    })
+    assert.ok(badErr instanceof Error)
+    assert.match(badErr.message, /invalid dispatch modelSource/)
+    assert.equal(readTaskJson(root, created.taskRelPath).dispatches.length, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('readTask 归一化：旧派发记录缺绑定字段读取为 undefined（不炸）', async () => {
+  const root = makeRoot()
+  try {
+    const rel = join('tasks', '09-03-legacy-binding-dispatch')
+    mkdirSync(join(root, '.workloom', rel), { recursive: true })
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      JSON.stringify({
+        id: 'x',
+        name: 'legacy-binding-dispatch',
+        status: TaskStatus.PLANNING,
+        dispatches: [
+          { kind: 'implement', at: new Date().toISOString(), title: 'legacy', childId: 'child-9' },
+        ],
+      }),
+    )
+    const [err, task] = readTask(root, rel)
+    assert.equal(err, null)
+    assert.equal(task.dispatches[0].model, undefined)
+    assert.equal(task.dispatches[0].effort, undefined)
+    assert.equal(task.dispatches[0].modelSource, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('startTask force 缺 reason 拒绝（R14：force 空 reason 全拒，不写 override、不改状态）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Force No Reason Start' })
+    const [err] = await startTask(root, { taskRelPath: created.taskRelPath, force: true })
+    assert.ok(err)
+    assert.match(err.message, /non-empty reason/)
+    assert.equal(readTaskJson(root, created.taskRelPath).overrides.length, 0)
+    assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checkTask force 缺 reason 拒绝（R14：不留痕、不写 check）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Force No Reason Check' })
+    satisfyStartGate(root, created.taskRelPath)
+    await startTask(root, { taskRelPath: created.taskRelPath })
+    // 旧任务形态（case=null）：本测试聚焦 force reason 校验。
+    markTaskLegacy(root, created.taskRelPath)
+    const [err] = await checkTask(root, {
+      taskRelPath: created.taskRelPath,
+      summary: 'forced',
+      force: true,
+    })
+    assert.ok(err)
+    assert.match(err.message, /non-empty reason/)
+    assert.equal(readTaskJson(root, created.taskRelPath).check, null)
+    assert.equal(readTaskJson(root, created.taskRelPath).overrides.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('archiveTask force 缺 reason 拒绝（R14：不移动目录、不留痕）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Force No Reason Archive' })
+    const rel = created.taskRelPath
+    const [err] = await archiveTask(root, { taskRelPath: rel, force: true, autoCommit: false })
+    assert.ok(err)
+    assert.match(err.message, /non-empty reason/)
+    assert.equal(existsSync(join(root, '.workloom', rel)), true)
+    assert.equal(readTaskJson(root, rel).overrides.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

@@ -5,18 +5,8 @@
       "type": "workspace",
       "setup": ["pnpm install"]
     },
-    "assets": {
-      "path": "packages/assets",
-      "type": "workspace",
-      "setup": []
-    },
-    "adapter-dsh": {
-      "path": "packages/adapter-dsh",
-      "type": "workspace",
-      "setup": ["pnpm install"]
-    },
-    "adapter-pi": {
-      "path": "packages/adapter-pi",
+    "dsh-workloom": {
+      "path": "packages/dsh-workloom",
       "type": "workspace",
       "setup": ["pnpm install"]
     },

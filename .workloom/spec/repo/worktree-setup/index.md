@@ -2,6 +2,7 @@
 
 Dependency preparation for task worktrees, driven by `packages.<name>.setup`.
 
+- layout: task worktrees live under `.workloom/.runtime/worktrees/` (per-machine runtime state, ignored by `.workloom/.gitignore` via the `.runtime/` entry); `start` creates `<task-id>/` (root layout) or `<task-id>/<pkg>/` (sub-repository layout) under that directory
 - config: `setup` is an ordered string array under a package entry; it runs after worktree creation or reuse, and the first failing command aborts start while the task stays planning
 - commands: each command runs as `/bin/sh -c` with cwd at the worktree root, serially in array order; stdout/stderr stream to the host process log and there is no timeout
 - placeholders: only `<worktree>` (worktree root) and `<source-checkout>` (that package's repository main checkout: project root for the root layout, the package checkout for sub-repository/submodule layouts) are allowed; config loading rejects every other `<…>` token

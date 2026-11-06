@@ -1,0 +1,306 @@
+/**
+ * surface：两个 adapter（dsh/pi）契约面共享常量（新增抽象，TypeScript）。
+ *
+ * 设计意图：
+ * - 命令/工具名、注册描述、参数描述、错误前缀等「宿主注册面文案」在两个
+ *   adapter 中逐字重复，统一收敛到这里，随 core 版本走；
+ * - 全部文案英文、逐字提取自下沉前 adapter 现状（不得改写措辞），键名小驼峰；
+ * - 全部 `as const`：类型即字面量，注册面与 adapter 消费处共享同一文本。
+ */
+import { PARENT_MODEL_LABEL } from '../dispatch/dispatch-binding.js';
+/** 两个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。
+ * continue/finish 已改造为同名 skill（skills/workloom-*），不再注册为命令。 */
+export const COMMAND_NAMES = {
+    init: 'workloom-init',
+    doctor: 'workloom-doctor',
+};
+/** 两个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
+export const COMMAND_DESCRIPTIONS = {
+    init: 'Initialize the .workloom skeleton, migrate a legacy .trellis project, and purge it with --purge',
+    doctor: 'Run a structured workflow health check and auto-fix mechanical issues with --fix (results are handed to the model as JSON)',
+};
+/** 十一个工具名（八个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
+export const TOOL_NAMES = {
+    taskCreate: 'workloom_task_create',
+    taskStart: 'workloom_task_start',
+    taskCheck: 'workloom_task_check',
+    taskFinish: 'workloom_task_finish',
+    taskArchive: 'workloom_task_archive',
+    taskList: 'workloom_task_list',
+    taskAlign: 'workloom_task_align',
+    taskCase: 'workloom_task_case',
+    executor: 'workloom_execute',
+    step: 'workloom_step',
+    journal: 'workloom_journal',
+};
+/** 十一个工具的 register 描述文案（两 adapter 逐字相同）。 */
+export const TOOL_DESCRIPTIONS = {
+    taskCreate: 'Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)',
+    taskStart: 'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)',
+    taskCheck: 'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
+    taskAlign: 'Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)',
+    taskCase: 'CASE review: action=review returns the current case.md snapshot, structural issues, blockers, the readyForExecution flag and the current designSession without writing; the main session reviews the CASE against the PRD, the PLAN and the actual code, then continues the same design session for execution (main-session only, no user approval and no confirmation record)',
+    taskFinish: 'Clear the active-task pointer for this session (status unchanged)',
+    taskArchive: 'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
+    taskList: 'List task summaries (optionally filtered by status)',
+    executor: 'Dispatch a workloom executor subagent (research/implement/check/frontend/review) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only); when the kind configures fallback_models, a model-access failure automatically retries the dispatch on the next fallback model in a new child session; with rotate_on_busy enabled, dispatching a kind that already has a running session starts on the next unused model of the fallback pool',
+    step: 'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
+    journal: 'Record this session in the workloom journal (title + work commit hash + summary)',
+};
+/**
+ * 十一个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
+ * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
+ * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
+ */
+export const TOOL_SNIPPETS = {
+    taskCreate: 'workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?) — create a task',
+    taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
+    taskCheck: 'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
+    taskAlign: 'workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content',
+    taskCase: 'workloom_task_case(action, taskPath?) — review the task CASE before continuing the design session',
+    taskFinish: 'workloom_task_finish(taskPath?) — clear the active-task pointer',
+    taskArchive: 'workloom_task_archive(taskPath, autoCommit?, force?, reason?) — archive the completed task',
+    taskList: 'workloom_task_list(status?) — list task summaries',
+    executor: 'workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?, reinject?, purpose?) — dispatch or continue an executor',
+    step: 'workloom_step(stepId) — show one workflow step body',
+    journal: 'workloom_journal(taskPath, title, commit?, summary?) — record the session journal',
+};
+/** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有三处变体）。 */
+export const PARAM_DESCRIPTIONS = {
+    /** 支持活跃任务回退的任务工具（start/check/finish/align）的 taskPath 参数。 */
+    taskPath: 'Task directory relative to .workloom; defaults to the active task',
+    /** 必填 taskPath 变体（archive/journal）：缺参即报错，不回退活跃任务。 */
+    taskPathRequired: 'Task directory relative to .workloom; required (no active-task fallback)',
+    /** executor 工具的 taskPath 参数（措辞多了 of this session）。 */
+    taskPathExecutor: 'Task directory relative to .workloom; defaults to the active task of this session',
+    title: 'Task title',
+    /** create 工具的 package 参数（必填归属，与 worktree 开关无关）。 */
+    package: 'Required package key from the "packages" map in .workloom/config.json (the package this task belongs to)',
+    /** create 工具的 slug 参数（目录名的 MM-DD 段由工具生成，调用方不得自带）。 */
+    slug: 'Optional kebab-case slug; derived from title when omitted. Do not include the MM-DD date prefix: the task directory adds it automatically',
+    priority: 'Priority: P0/P1/P2/P3; defaults to P2',
+    description: 'Optional task description',
+    /** create 工具的 parent 参数（父任务相对路径；模型记录子任务时挂载）。 */
+    parent: 'Optional parent task relative path (tasks/<id> or <id>); the task is recorded as its child',
+    /** create 工具的 mode 参数（轻量任务标记；唯一取值 light，缺省 full）。 */
+    mode: 'Optional task mode: pass "light" for a lightweight task that the main session implements, self-checks, and commits itself (no executor dispatch, relaxed start/check gates); omit it for a full task',
+    autoCommit: 'Override the config session_auto_commit for this archive',
+    status: 'Filter: planning/in_progress/completed',
+    /** check 工具的 summary 参数（2.2 通过摘要）。 */
+    summary: 'Summary of the passed check (what was verified)',
+    /** align 工具的参数：动作（review 只读诊断 / confirm 写入内容确认记录）。 */
+    action: 'Alignment action: review returns the current PRD/PLAN content snapshot, structural issues and the readyToConfirm flag without writing; confirm records the content confirmation for the reviewed document',
+    /** align 工具的 target 参数（确认对象：PRD 缺省；PLAN 须在 PRD 确认之后）。 */
+    target: 'Confirmation target: prd (default) confirms the PRD content; plan confirms the PLAN content and requires the PRD confirmation to be recorded first',
+    /** align 工具 confirm 的内容确认摘要参数（记录覆盖范围/关键决策/确认结果）。 */
+    alignmentSummary: 'Content confirmation summary of the reviewed PRD or PLAN (coverage, key decisions, and the confirmation result); required by action=confirm',
+    /** case 工具的参数：动作（review 只读诊断；主会话复核后直接执行，无确认动作）。 */
+    caseAction: 'CASE action: review returns the current case.md snapshot, structural issues, blockers, readyForExecution and the current designSession without writing; there is no confirm action — the main session reviews the CASE and then continues the design session for execution',
+    /** executor 工具的 purpose 参数（check 派发目的：CASE 设计轮保持 stage）。 */
+    executorPurpose: 'Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution continues the reviewed design session for actual execution and enters check stage. Defaults to execution for backward compatibility',
+    force: 'Bypass the failing workflow gate(s); every actually bypassed gate is recorded in task.json overrides',
+    reason: 'Required non-empty reason when force is true (recorded per bypassed gate for audit)',
+    /** executor 工具的 force 参数（语义：覆盖与配置冲突的 model/effort，reason 必填）。 */
+    forceExecutor: 'Override a conflicting executor model/effort config; requires a non-empty reason (recorded in task.json overrides)',
+    /** executor 工具的 reason 参数（force 为 true 时必填）。 */
+    reasonExecutor: 'Required non-empty reason when force is true (recorded for audit)',
+    /** executor 工具的 title 参数（schema 必填非空；子会话语义标题，前缀由 executor 组装）。 */
+    titleExecutor: 'Required semantic part of the child session title; the executor assembles it as [<KindLabel>] <title>',
+    kind: 'Executor role: research, implement, check, frontend, or review',
+    model: 'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to the matching subagent_profiles entry (by main session model), then subagents.<kind>.model, then the parent session model. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor model',
+    effort: 'Reasoning effort: low/medium/high/xhigh/max; falls back to the matching subagent_profiles entry, then subagents.<kind>.effort. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor effort',
+    prompt: 'Task instructions for the executor subagent',
+    /** executor 工具的 continue_executor 参数（续用同一 continuable 会话；同 kind 边界）。 */
+    continueExecutor: 'Reuse the same continuable executor session instead of dispatching a new one: pass "latest" to reuse the most recent same-kind dispatch of this task, or pass the recorded childId (session id) of a previous same-kind dispatch; cross-kind reuse is rejected. A continuation cannot rebind the executor model/effort bound at its original dispatch: to change the model or effort, start a new dispatch instead',
+    /** executor 工具的 reinject 参数（续接全量重注入开关；默认关）。 */
+    reinjectExecutor: 'Continue by re-injecting the full task context into the existing session instead of sending only the incremental instruction; off by default, use only when context was lost to compaction',
+    stepId: 'Workflow step id, e.g. 1.1 or 2.1',
+    journalTitle: 'Journal entry title',
+    journalCommit: 'Work commit hash for this session',
+    journalSummary: 'One-line session summary',
+};
+/** 错误消息前缀（命令/任务工具/executor/步骤工具）。 */
+export const ERR_PREFIX = {
+    command: 'workloom command',
+    taskTool: 'workloom task tool',
+    executor: 'workloom executor',
+    stepTool: 'workloom step tool',
+};
+/** executor 子代理无文本输出时的返回提示（运行时文案英文）。 */
+export const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.';
+/**
+ * 续派重绑定拒绝文案（两 adapter 共享常量，消除双份维护）。
+ * continue_executor 与 model/effort 同传一律 fail loud——子会话 model/effort 在派发时刻已绑定，
+ * sendMessage 无模型重绑接缝，静默丢弃会让回执谎报生效；换模型必须新开派发。
+ */
+export const CONTINUE_REBIND_REJECT_TEXT = 'continue_executor cannot be combined with model/effort: the child session keeps the ' +
+    'model/effort bound at its original dispatch and sendMessage has no rebinding seam. ' +
+    'To change the model or effort, dispatch a new executor without continue_executor.';
+/** continue_executor 的 latest 魔法值（两 adapter 共享，取同 kind 最近一条派发的 childId）。 */
+export const CONTINUE_EXECUTOR_LATEST = 'latest';
+/**
+ * 续用拒绝文案（两 adapter 共享 builder，消除双份维护；与 CONTINUE_REBIND_REJECT_TEXT
+ * 同属 continue_executor 拒绝面，逐字一致由共享实现保证）。
+ */
+/** latest 无同 kind 记录时的提示文案。 */
+export function buildContinueNoDispatchText(kind) {
+    return (`no previous ${kind} executor dispatch with a recorded child id was found for this task; ` +
+        `dispatch a new executor or pass the exact childId of a previous ${kind} dispatch`);
+}
+/** 显式 childId 无派发记录时的提示文案。 */
+export function buildContinueNoChildIdText(input, kind) {
+    return (`no dispatch record with childId "${input}" was found for this task; ` +
+        `pass "${CONTINUE_EXECUTOR_LATEST}" or the childId of a previous ${kind} dispatch`);
+}
+/** 跨 kind 续用的拒绝文案。 */
+export function buildCrossKindReuseRejectText(input, matchKind, kind) {
+    return (`cross-kind reuse rejected: session "${input}" belongs to a ${matchKind} dispatch, ` +
+        `but this call is kind ${kind}; reuse is limited to the same kind`);
+}
+/** purge 模式标志：rawInput 以该前缀开头时，迁移后直接删除旧 .trellis 目录。 */
+export const PURGE_FLAG = '--purge';
+/** doctor 修复模式标志：rawInput 含该词时启用 --fix（参考 init --purge 的先例）。 */
+export const DOCTOR_FIX_FLAG = '--fix';
+/** 资产目录内的 developer 身份文件名（与 core 的 init 约定一致）。 */
+export const DEVELOPER_FILE = '.developer';
+/**
+ * 命令失败的宿主回执文案（两 adapter 共享）：细节已由 followup/sendUserMessage
+ * 注入模型回合转述，宿主只提示「已转交模型」，不再弹红错。
+ */
+export const COMMAND_FAILURE_ACK = 'The command failed; the details were handed to the model to explain.';
+/**
+ * 拼装命令失败的错误转述文本（注入模型回合，运行时文案英文）。
+ * 保留原始错误消息，指令要求模型按用户语言说明原因并给出建议操作。
+ * @param command 命令名（如 COMMAND_NAMES.init）
+ * @param errorText 原始错误消息
+ * @returns 注入模型的转述文本
+ */
+export function buildErrorRelayText(command, errorText) {
+    return [
+        `The \`${command}\` command failed with the following error:`,
+        '',
+        errorText,
+        '',
+        "Explain to the user in the user's language: what went wrong and the suggested next action.",
+    ].join('\n');
+}
+/**
+ * 拼装命令成功的结果转述文本（注入模型回合，运行时文案英文）。
+ * 保留命令结果原文，指令要求模型按用户语言转述结果并建议下一步。
+ * @param command 命令名（如 COMMAND_NAMES.init）
+ * @param resultText 命令结果原文
+ * @returns 注入模型的转述文本
+ */
+export function buildSuccessRelayText(command, resultText) {
+    return [
+        `The \`${command}\` command succeeded with the following result:`,
+        '',
+        resultText,
+        '',
+        "Report to the user in the user's language: what was done and the suggested next steps.",
+    ].join('\n');
+}
+/** archive 工具收尾提示（引导加载 workloom-finish skill 记录会话日志）。 */
+export const TASK_ARCHIVE_NOTE = 'Task archived. When the session ends, load the workloom-finish skill to record the session journal.';
+/**
+ * create 工具返回的下一步行动指引（Phase 1.1 alignment 入口）：任务创建后自动
+ * 进入统一 alignment——加载 workloom-alignment、按 design tree 收敛到开放节点
+ * 清空并确认后才允许 start（不再问「是否需要 grilling」）。
+ */
+export const TASK_CREATE_NOTE = 'Task created. Next: Phase 1.1 alignment runs automatically — load workloom-alignment and converge the design tree until no open nodes remain, then confirm via workloom_task_align before start.';
+/**
+ * 轻量任务 create 工具返回的下一步行动指引：直接填轻量 prd 最低三件套并 start，
+ * 跳过 Phase 1.1 对齐与双 jsonl（与轻量契约 1.0 同口径）。
+ */
+export const TASK_CREATE_LIGHT_NOTE = 'Light task created. Next: fill prd.md to the light minimum (H1 title, Goal, acceptance points) and start with workloom_task_start; skip Phase 1.1 alignment and the context jsonl files — light tasks are executed entirely by the main session.';
+/**
+ * 拼装 executor 回执行：生效 model/effort 及各自来源（运行时文案英文）。
+ * 字段缺失时显示 `<parent session>` / `<unset>` 与 `(default)` 来源，
+ * 使配置未生效一眼可辨。
+ * 配置来源细分：sources=config 时按 configConfigSource 渲染
+ * `(config: whenMain=<值>)` / `(config: fallback)` / `(config: legacy)`；
+ * 调用方未传细分时保持 `(config)`（向后兼容）。
+ * effort 段条件渲染：effort/effortSource 均未传时整段省略（调用方未传该维度
+ * 时保持 receipt 精简）；任一存在则按原格式渲染（缺失字段仍显示
+ * `<unset>`/`(default)`，兼容浅传参），Pi/DSH 传参行为不变。
+ * 注入统计段条件渲染：injection 传入时同行追加
+ * `; injection: <KB>KB, N inlined, T truncated, I indexed`（KB 一位小数）；指针
+ * 引用条数 >0 时再追加 `, P pointed`（纯 artifact 注入保持原 4 元组，向后兼容）；
+ * 未传时保持原样（向后兼容：不渲染 injection 段）。
+ */
+export function buildExecutorReceipt(params) {
+    const modelLabel = params.model ?? PARENT_MODEL_LABEL;
+    const modelSrc = formatSource(params.modelSource, params.modelConfigSource, params.modelWhenMainValue, params.model);
+    let receipt = `[workloom executor] model: ${modelLabel}${modelSrc}`;
+    if (params.effort !== undefined || params.effortSource !== undefined) {
+        const effortLabel = params.effort ?? '<unset>';
+        const effortSrc = formatSource(params.effortSource, params.effortConfigSource, params.effortWhenMainValue, params.effort);
+        receipt += `, effort: ${effortLabel}${effortSrc}`;
+    }
+    if (params.injection !== undefined) {
+        receipt += renderInjectionSegment(params.injection);
+    }
+    return receipt;
+}
+/**
+ * 拼装续派轮回执（design §8.3，运行时文案英文）：展示子会话 spawn 时刻绑定值。
+ * 绑定有值时 model/effort 各标注 `(spawn binding)`（不再回显当前配置解析结果，
+ * 杜绝「续派换模型谎报生效」）；旧记录无绑定值时整段显示 `(unrecorded spawn
+ * binding)`。effort 仅在绑定记录到值时渲染（与 buildExecutorReceipt 的 effort
+ * 条件段同一口径）；injection 段复用同一渲染。供 dsh-workloom 续派轮调用
+ * （Pi 无 continuation，不消费）。
+ * @param params 绑定数据与注入统计
+ * @returns 续派轮回执文本行
+ */
+export function buildSpawnBindingReceipt(params) {
+    const { binding, injection } = params;
+    if (binding === null || binding.model === undefined || binding.model === '') {
+        // 旧记录无绑定值：标注 unrecorded，不猜测生效模型（无谎报空间）。
+        return `[workloom executor] model: (unrecorded spawn binding)${renderInjectionSegment(injection)}`;
+    }
+    let receipt = `[workloom executor] model: ${binding.model} (spawn binding)`;
+    if (binding.effort !== undefined && binding.effort !== '') {
+        receipt += `, effort: ${binding.effort} (spawn binding)`;
+    }
+    return `${receipt}${renderInjectionSegment(injection)}`;
+}
+/**
+ * 渲染注入统计段（内部）：同行追加 `; injection: <KB>KB, N inlined, T truncated,
+ * I indexed`，指针引用条数 >0 追加 `, P pointed`、allow 工具数存在时追加
+ * `, K tools allowed`。injection 未传时返回空串（向后兼容）。
+ * @param injection 注入统计（可选）
+ * @returns 追加的注入段文本（可为空串）
+ */
+function renderInjectionSegment(injection) {
+    if (injection === undefined)
+        return '';
+    const { bytes, inlined, truncated, indexed, pointed, toolsAllowed } = injection;
+    let segment = `; injection: ${(bytes / 1024).toFixed(1)}KB, ${inlined} inlined, ${truncated} truncated, ${indexed} indexed`;
+    if (pointed !== undefined && pointed > 0) {
+        segment += `, ${pointed} pointed`;
+    }
+    if (toolsAllowed !== undefined) {
+        segment += `, ${toolsAllowed} tools allowed`;
+    }
+    return segment;
+}
+/**
+ * 渲染单字段来源标注：param/default 原样；config 按配置来源细分
+ * （whenMain 带匹配值；细分缺失时保持 `(config)` 向后兼容）。
+ */
+function formatSource(source, configSource, whenMainValue, value) {
+    if (source === 'param')
+        return ' (param)';
+    if (source === 'config') {
+        if (configSource === 'whenMain') {
+            return ` (config: whenMain=${whenMainValue ?? value})`;
+        }
+        if (configSource === 'fallback')
+            return ' (config: fallback)';
+        if (configSource === 'legacy')
+            return ' (config: legacy)';
+        return ' (config)';
+    }
+    return ' (default)';
+}
+//# sourceMappingURL=surface.js.map
