@@ -29,3 +29,13 @@
 1. journal 身份链：init 停写 .developer 后，executeJournalEntry 仍从该文件读身份，测试显式补文件兜底。身份来源重定义归子任务二（journal 能力整体删除）。
 2. AGENTS.md 与 README 首段仍有"资源层（assets）""分发到 DeepSeek Harness 与 Pi"表述，属叙述改写，归子任务七。
 3. core 测试实际 39 个 .test.js（plan 写 38），以仓库实况全量转换，无遗漏。
+
+## 子任务二实现遗留观察（2026-11-07，implement 回报）
+
+1. 衔接点：executor prompt 的 worktree 纪律段经 prompt-compose 读 task.json（三处 readTask），属派发时组装而非回合注入主链；子任务四重写 executor 时可复用 resolveTurnTask 产物收编。
+2. 注入单一解析的实质由 resolveTurnTask 加 dsh 回合缓存实现；session-context 与 workflow-service 保留"未注入缓存记录"回退直读，仅供既有单测直连。
+3. 测试 HOME 加 TMPDIR 隔离成为 core 测试惯例（全局层配置残留字段会污染未隔离测试），后续子任务新增测试沿用。
+
+## 交互约定（2026-11-06，用户提出）
+
+确认文档内容时不直接输出全文：改为结构化摘要加文件链接与关键差异点，全文以任务目录文件为准。
