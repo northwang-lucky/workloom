@@ -300,6 +300,8 @@ test('workloom-migrate-plan 资产可解析：迁移流程与边界关键句 + c
   assert.match(parsed.body, /never scan, never migrate/)
   assert.match(parsed.body, /Covers/)
   assert.match(parsed.body, /\[executed <commit\/date> — <verification state>\]/)
+  // 迁移后的 PLAN 同样携带五字段伪代码协议（与 plan-authoring 标准一致）
+  assert.match(parsed.body, /five protocol fields in order \(Input, Output, Preconditions, Procedure, Failure\)/)
   // continue 路由表含 legacy 分支指针句
   const cont = readFileSync(
     new URL('../../assets/skills/workloom-continue/SKILL.md', import.meta.url),
@@ -373,4 +375,10 @@ test('workloom-alignment evals 可解析且含 review blocker 场景（先修复
   const text = JSON.stringify(blockerCase)
   assert.match(text, /readyToConfirm/)
   assert.match(text, /Notes/)
+  // 伪代码标准场景：合法五字段伪代码可通过，缺输入输出或异常定义被明确指出
+  const pseudocodeCase = evals.evals.find((entry) => entry.id === 'align-plan-pseudocode')
+  assert.ok(pseudocodeCase, 'plan pseudocode case must exist')
+  const pseudocodeText = JSON.stringify(pseudocodeCase)
+  assert.match(pseudocodeText, /Input, Output, Preconditions, Procedure, Failure/)
+  assert.match(pseudocodeText, /missing input\/output fields and a missing failure path/)
 })

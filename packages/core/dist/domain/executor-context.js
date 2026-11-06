@@ -158,12 +158,14 @@ const INJECTION_PROTOCOL_DISCIPLINE = 'Load in layers: read the plan artifact (p
     'Echo the injection marker token in the first line of your report as proof the protocol was read.';
 /**
  * 规定式计划执行纪律句（implement/frontend 纪律段共用，命令式、无弱化词）：
- * 计划是指令性的——严格按其文件/符号/片段锚点与代码块执行；现实与锚点不符
- * （锚点落空、上下文不成立）时禁止即兴发挥，停下并把偏差作为阻塞项写进最终
- * 报告（主会话按契约 2.1 处置句成批交用户决断）。
+ * 计划是指令性的——跟随五字段伪代码协议、真实锚点与验证命令执行；代码块只作
+ * 定位锚点，不要求逐字复制。锚点与现场不符（落空、上下文不成立）时禁止即兴
+ * 发挥，停下并把偏差作为阻塞项写进最终报告（主会话按契约 2.1 处置句成批交
+ * 用户决断）。词数受 implement contract 段 ≤ 300 词上限约束。
  */
-const PRESCRIPTIVE_PLAN_DISCIPLINE = 'The plan is prescriptive: follow its file, symbol, and snippet anchors and its code blocks exactly. ' +
-    'When reality diverges from an anchor, stop and report the divergence as a blocking item; never improvise.';
+const PRESCRIPTIVE_PLAN_DISCIPLINE = 'The plan is prescriptive: follow its protocol fields (Input, Output, Preconditions, Procedure, Failure), ' +
+    'real anchors, and verification commands; code blocks are locating anchors, not verbatim code. ' +
+    'An anchor that mismatches reality is a blocking item; report it, never improvise.';
 /**
  * 无用户通道纪律句（终极权威段共用部分，全 kind 生效，命令式、无弱化词）：
  * 执行器没有用户通道——禁止交互式提问；无法自决的缺口必须停下、把每个开放问题
@@ -236,9 +238,9 @@ ${CONSULT_MATERIALS_ON_DEMAND_RULE}
 ${INJECTION_PROTOCOL_DISCIPLINE}`,
     [EXECUTOR_KINDS.review]: `Audit the plan (plan.md) before implementation starts; code review after implementation is the check executor's job, and you never fix code.
 Audit in four dimensions, item by item:
-- Conformance: the plan meets the prescriptive authoring bar — every step anchored to a file, a symbol, and exact code, and every step verifiable.
+- Conformance: the plan meets the prescriptive authoring bar — every step anchored to real files and symbols, its Edit carrying the five protocol fields in order (Input, Output, Preconditions, Procedure, Failure) with complete behavior, failure paths, AC coverage, and verifiable verification commands.
 - Fidelity: every prd acceptance criterion is covered by the steps' Covers lines; alignment decisions are honored; nothing drifts beyond scope; prd format gaps (missing R/AC numbers or verification methods) are findings.
-- Feasibility: verify anchors against the real code — files exist, symbols resolve, before-snippets locate uniquely, after-code fits its context, and verification commands run; read the actual files (LSP first where available) before claiming a fact.
+- Feasibility: verify anchors against the real code — files exist, symbols resolve, current-code anchors locate uniquely, the pseudocode fits the actual context, and verification commands run; never hunt for after-code — the plan must not contain it; read the actual files (LSP first where available) before claiming a fact.
 - Quality: the planned approach complies with the referenced specs, reuses existing utilities, and weighs better alternatives.
 Classify every finding: P0 = executing the plan as written must fail or violates acceptance; P1 = feasibility risk or a clearly better approach not adopted; P2 = imprecise wording or incomplete references.
 Write the report to plan-review.md in the task directory (append a new section per round); every finding carries its severity, the plan anchor, and a fix suggestion. The plan, the prd, and all code files stay untouched by you.

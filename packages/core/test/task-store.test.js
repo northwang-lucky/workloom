@@ -796,11 +796,11 @@ function recordPlan(root, taskRelPath) {
   assert.equal(err, null)
 }
 
-/** 写入满足 start PLAN 门禁的最小 plan.md（夹具 prd 无 AC 编号，无溯源要求）。 */
+/** 写入满足 start PLAN 门禁的最小 plan.md（外层四要素 + 五字段伪代码协议，无溯源要求）。 */
 function writeGatePlan(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'plan.md'),
-    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit: add implementation\n- Verify: pnpm lint\n',
+    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit:\n  Input: adjust src/a.js behavior.\n  Output: function returns updated result.\n  Preconditions: none\n  Procedure: edit the guarded branch per anchors.\n  Failure: none\n- Verify: pnpm lint\n',
   )
 }
 

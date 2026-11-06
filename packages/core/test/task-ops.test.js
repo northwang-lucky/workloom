@@ -50,7 +50,7 @@ function satisfyStartGate(root, taskRelPath) {
   // 完整实施任务 start 还要求 PLAN（夹具 prd 无 AC 编号，最小 plan 即可通过）。
   writeFileSync(
     join(taskDir, 'plan.md'),
-    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit: add implementation\n- Verify: pnpm lint\n',
+    '# Plan\n\n## Steps\n\n#### 步骤 1.1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Edit:\n  Input: adjust src/a.js behavior.\n  Output: function returns updated result.\n  Preconditions: none\n  Procedure: edit the guarded branch per anchors.\n  Failure: none\n- Verify: pnpm lint\n',
   )
   writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
   writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
@@ -627,7 +627,7 @@ test('align confirm：校验失败零写入、结构通过即落确认记录（�
   }
 })
 
-/** 满足 PLAN 结构门禁的最小 plan（步骤四要素齐全，AC1 覆盖夹具 prd 的 AC 编号）。 */
+/** 满足 PLAN 结构门禁的最小 plan（外层四要素 + 五字段伪代码协议，AC1 覆盖夹具 prd 的 AC 编号）。 */
 const MIN_PLAN = `# Plan
 
 ## Steps
@@ -636,7 +636,12 @@ const MIN_PLAN = `# Plan
 
 - Covers: AC1
 - Target: src/a.js
-- Edit: add implementation
+- Edit:
+  Input: adjust src/a.js behavior.
+  Output: function returns updated result.
+  Preconditions: none
+  Procedure: edit the guarded branch per anchors.
+  Failure: none
 - Verify: pnpm lint
 `
 
@@ -709,7 +714,7 @@ test('align review target=plan：PLAN 缺失或结构不完整时返回全部结
       { code: 'plan_missing', message: 'plan.md is missing' },
     ])
     assert.equal(review.readyToConfirm, false)
-    // 结构不完整：缺 Covers/Verify 字段 + AC 未覆盖，一次性全部返回
+    // 结构不完整：缺 Covers/Verify 外层字段 + Edit 无五字段协议 + AC 未覆盖，一次性全部返回
     writeFileSync(
       join(root, '.workloom', taskRelPath, 'plan.md'),
       '# Plan\n\n## Steps\n\n#### 步骤 1 implement\n\n- Target: src/a.js\n- Edit: add implementation\n',
@@ -721,6 +726,11 @@ test('align review target=plan：PLAN 缺失或结构不完整时返回全部结
         'AC1 is not covered by any plan step',
         'plan.md step 1 missing Covers',
         'plan.md step 1 missing Verify',
+        'plan.md step 1 protocol field "Input" is missing or empty',
+        'plan.md step 1 protocol field "Output" is missing or empty',
+        'plan.md step 1 protocol field "Preconditions" is missing or empty',
+        'plan.md step 1 protocol field "Procedure" is missing or empty',
+        'plan.md step 1 protocol field "Failure" is missing or empty',
       ].sort(),
     )
   } finally {

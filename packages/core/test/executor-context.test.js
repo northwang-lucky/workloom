@@ -932,8 +932,9 @@ const WRITE_SCOPE_DISCIPLINE =
 
 /** 规定式计划执行纪律句（implement/frontend 纪律段共用，与实现逐字同源）。 */
 const PRESCRIPTIVE_PLAN_DISCIPLINE =
-  'The plan is prescriptive: follow its file, symbol, and snippet anchors and its code blocks exactly. ' +
-  'When reality diverges from an anchor, stop and report the divergence as a blocking item; never improvise.'
+  'The plan is prescriptive: follow its protocol fields (Input, Output, Preconditions, Procedure, Failure), ' +
+  'real anchors, and verification commands; code blocks are locating anchors, not verbatim code. ' +
+  'An anchor that mismatches reality is a blocking item; report it, never improvise.'
 
 test('implement/frontend 纪律段各含规定式计划执行句（逐字），research/check 不含', () => {
   const root = makeProject()
@@ -1264,7 +1265,7 @@ test('分层加载协议句：五种 kind contract 段均含分层语义 + 回�
   }
 })
 
-test('implement 版 contract 段词数 ≤ 300（定稿压缩 + 规定式执行句 33 词，空白分隔的英文词元口径）', () => {
+test('implement 版 contract 段词数 ≤ 300（定稿压缩 + 规定式执行句 39 词，空白分隔的英文词元口径）', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
@@ -1389,8 +1390,11 @@ const REVIEW_DISCIPLINE_PINS = [
   'Audit the plan (plan.md) before implementation starts',
   "code review after implementation is the check executor's job, and you never fix code",
   '- Conformance:',
+  'its Edit carrying the five protocol fields in order (Input, Output, Preconditions, Procedure, Failure)',
   '- Fidelity:',
   '- Feasibility:',
+  'current-code anchors locate uniquely, the pseudocode fits the actual context',
+  'never hunt for after-code — the plan must not contain it',
   '- Quality:',
   'P0 = executing the plan as written must fail or violates acceptance',
   'Write the report to plan-review.md in the task directory (append a new section per round)',

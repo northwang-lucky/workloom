@@ -77,6 +77,18 @@
       ]
     },
     {
+      "id": "align-plan-pseudocode",
+      "name": "plan-pseudocode-standard-pass-and-flag",
+      "prompt": "A workloom task is authoring plan.md at 1.4. Step 1's Edit is structured pseudocode: '- Edit:\\n  Input: locate the retry branch in src/client.js.\\n  Output: retry returns the normalized payload.\\n  Preconditions: none\\n  Procedure: replace the branch body per the anchors.\\n  Failure: none'. A candidate step 2's Edit only says 'add error handling and update related code'. Judge both against the plan-authoring standard.",
+      "expected_output": "The structured pseudocode step passes the authoring bar: it anchors to a real file and symbol and carries the five protocol fields in order, with none as the legal value for empty Preconditions and Failure. The vague step is flagged as a defect: no Input/Output fields and no failure-path definition mean the executor would improvise — it returns to authoring with real anchors and the five fields.",
+      "assertions": [
+        "accepts the structured pseudocode step without demanding before/after final code",
+        "checks the five protocol fields Input, Output, Preconditions, Procedure, Failure are present and ordered",
+        "flags the vague step for missing input/output fields and a missing failure path",
+        "treats none as a legal value for an empty Preconditions or Failure field"
+      ]
+    },
+    {
       "id": "align-grill-routing",
       "name": "grill-request-inside-workloom-routes-here",
       "prompt": "While in an active workloom planning task the user says: 'grill this requirement set before we write plan.md'.",

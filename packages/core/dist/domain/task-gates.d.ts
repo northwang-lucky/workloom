@@ -88,11 +88,17 @@ export interface PlanStructureIssue {
     | 'plan_steps_missing'
     | 'plan_steps_empty'
     | 'plan_step_field'
+    | 'plan_protocol_missing'
+    | 'plan_protocol_duplicate'
+    | 'plan_protocol_order'
     | 'plan_ac_missing'
   message: string
 }
 
-/** 校验完整实施任务的 PLAN：步骤四要素齐全，且 PRD 的每个 AC 至少被 Covers 一次。 */
+/**
+ * 校验完整实施任务的 PLAN：步骤四要素齐全，Edit 区域五字段伪代码协议成立，
+ * 且 PRD 的每个 AC 至少被 Covers 一次。
+ */
 export function inspectPlanStructure(planContent: string | null, prdContent: string): PlanStructureIssue[]
 
 /** 统计 jsonl 内容中的有效记录数（有 file 字段的行；坏行抛错）。 */

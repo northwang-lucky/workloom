@@ -305,7 +305,7 @@ test('CASE/PLAN 深度结构校验接受有效材料并聚合缺漏', () => {
     inspectCaseStructure(parentCase, PRD, { taskRelPath: REL, children: ['tasks/a', 'tasks/b'] }),
     [],
   )
-  const plan = `# Plan\n\n## Steps\n\n#### 步骤 1.1 test\n\n- Covers: AC1, AC2\n- Target: src/a.js\n- Edit: exact\n- Verify: node --test\n`
+  const plan = `# Plan\n\n## Steps\n\n#### 步骤 1.1 test\n\n- Covers: AC1, AC2\n- Target: src/a.js\n- Edit:\n  Input: adjust src/a.js behavior.\n  Output: function returns updated result.\n  Preconditions: none\n  Procedure: edit the guarded branch per anchors.\n  Failure: none\n- Verify: node --test\n`
   assert.deepEqual(inspectPlanStructure(plan, PRD), [])
   assert.equal(inspectPlanStructure(null, PRD)[0].code, 'plan_missing')
   assert.ok(inspectPlanStructure(plan.replace('AC2', ''), PRD).some((item) => item.code === 'plan_ac_missing'))

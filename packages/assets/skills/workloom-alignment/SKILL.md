@@ -48,7 +48,7 @@ The title line numbers the question as `❓ **Q<n>**` followed by a bold title; 
 
 **Technical decision boundary**: only decisions that affect scope, acceptance, risk, external interfaces, or irreversible cost enter the alignment. Purely internal implementation choices are deferred to the implement executor.
 
-For implementation work, plan authoring follows convergence at Phase 1.3/1.4 (the plan is required for every full implementation task); read `references/plan-authoring.md` before writing: the plan meets the prescriptive bar — every step anchored to a concrete file, symbol, and exact code change — before 1.4 presents it.
+For implementation work, plan authoring follows convergence at Phase 1.3/1.4 (the plan is required for every full implementation task); read `references/plan-authoring.md` before writing: the plan meets the prescriptive bar — every step anchored to a concrete file and symbol, with its Edit carrying the five protocol fields in order (Input, Output, Preconditions, Procedure, Failure) as structured pseudocode — before 1.4 presents it.
 
 ## Recording
 

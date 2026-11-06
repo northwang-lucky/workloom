@@ -28,8 +28,8 @@ List candidate tasks: every `planning` / `in_progress` task directory that conta
 ## Step 3: Rewrite the plan as plan.md (prescriptive)
 
 1. Read design.md and implement.md fully, plus the rewritten prd.md and any research materials.
-2. Verify every anchor against the current code: open each referenced file, confirm the symbol exists and each before-snippet locates uniquely — the code may have moved since the legacy plan was written. For a large plan, dispatch `research` to gather the anchor facts first.
-3. Write `plan.md` following the workloom-alignment skill's references/plan-authoring.md: `## Design decisions` (from design.md) + `## Steps`, each step carrying Covers (the new AC numbers) / Target / Edit / Verify.
+2. Verify every anchor against the current code: open each referenced file, confirm the symbol exists and any current-code snippet locates uniquely — the code may have moved since the legacy plan was written. For a large plan, dispatch `research` to gather the anchor facts first.
+3. Write `plan.md` following the workloom-alignment skill's references/plan-authoring.md: `## Design decisions` (from design.md) + `## Steps`, each step carrying Covers (the new AC numbers) / Target / Edit / Verify, where Edit carries the five protocol fields in order (Input, Output, Preconditions, Procedure, Failure) as structured pseudocode — current-code snippets serve only as locating anchors, and the complete modified code or a new file's full implementation is never written.
 4. For an `in_progress` task, rewrite the FULL plan: completed steps stay, each annotated `[executed <commit/date> — <verification state>]`; remaining steps are re-anchored against current code.
 5. Put the migration note on the first line under the H1: `> Migrated <date> from design.md + implement.md (pre-plan.md contract), rewritten to the prescriptive bar.`
 
@@ -39,4 +39,4 @@ Present the migrated plan.md with the anchor-verification results to the user. O
 
 ## Completion criteria
 
-The task directory holds a prescriptive `plan.md` (every step with Covers/Target/Edit/Verify) and an R/AC-format `prd.md` whose content confirmation is recorded (confirmation time + summary, no hash); both carry migration notes; `design.md` and `implement.md` are gone.
+The task directory holds a prescriptive `plan.md` (every step with Covers/Target/Edit/Verify, Edit carrying the five protocol fields as structured pseudocode) and an R/AC-format `prd.md` whose content confirmation is recorded (confirmation time + summary, no hash); both carry migration notes; `design.md` and `implement.md` are gone.

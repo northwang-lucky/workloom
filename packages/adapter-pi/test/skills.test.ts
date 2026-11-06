@@ -42,3 +42,19 @@ test('skills 产物不再含旧两个 workloom skill（brainstorm/ui-design 无�
   assert.ok(!names.includes('workloom-brainstorm'), 'brainstorm 目录不得残留')
   assert.ok(!names.includes('workloom-ui-design'), 'ui-design 目录不得残留')
 })
+
+test('skills 同步产物携带 PLAN 五字段伪代码协议（alignment 与 migrate-plan）', () => {
+  // 只核对同步产物与 assets 标准一致，不复制协议判断逻辑
+  const fiveFields = 'five protocol fields in order (Input, Output, Preconditions, Procedure, Failure)'
+  const alignment = readFileSync(join(skillsDir, 'workloom-alignment', 'SKILL.md'), 'utf8')
+  assert.ok(alignment.includes(fiveFields), '同步的 alignment SKILL.md 缺五字段协议句')
+  const planRef = readFileSync(
+    join(skillsDir, 'workloom-alignment', 'references', 'plan-authoring.md'),
+    'utf8',
+  )
+  for (const field of ['Input', 'Output', 'Preconditions', 'Procedure', 'Failure']) {
+    assert.ok(planRef.includes(`${field}:`), `同步的 plan-authoring reference 缺 ${field} 字段模板`)
+  }
+  const migrate = readFileSync(join(skillsDir, 'workloom-migrate-plan', 'SKILL.md'), 'utf8')
+  assert.ok(migrate.includes(fiveFields), '同步的 migrate-plan SKILL.md 缺五字段协议句')
+})

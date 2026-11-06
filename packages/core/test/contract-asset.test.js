@@ -745,8 +745,16 @@ test('契约 1.4 含 plan.md 规定式写作硬性要求段（Authoring bar 关�
     '1.4 Authoring bar 缺文件 + 符号锚点要求',
   )
   assert.ok(
-    reviewBody.includes('every edit carries the exact before/after code'),
-    '1.4 Authoring bar 缺精确前后代码要求',
+    reviewBody.includes('five protocol fields in order — Input, Output, Preconditions, Procedure, Failure'),
+    '1.4 Authoring bar 缺五字段伪代码协议要求',
+  )
+  assert.ok(
+    reviewBody.includes('only as a unique locating anchor'),
+    '1.4 Authoring bar 缺现状代码仅定位要求',
+  )
+  assert.ok(
+    !reviewBody.includes('exact before/after code') && !reviewBody.includes('full content'),
+    '1.4 Authoring bar 不得再要求完整前后代码或新文件全文',
   )
   assert.ok(
     reviewBody.includes('every step ends with its verification command and expected result'),
@@ -893,6 +901,17 @@ test('alignment 技能与 plan-authoring reference 含编号溯源文案（逐�
   const planRef = readFileSync(planRefPath, 'utf8')
   assert.ok(planRef.includes('- **Covers** —'), 'plan-authoring 步骤模板缺 Covers bullet')
   assert.ok(planRef.includes('`(internal)`'), 'plan-authoring 缺内部步骤 Covers 约定')
+  assert.ok(
+    planRef.includes('carrying the five protocol fields in this exact order'),
+    'plan-authoring 步骤模板缺五字段伪代码协议要求',
+  )
+  for (const field of ['Input', 'Output', 'Preconditions', 'Procedure', 'Failure']) {
+    assert.ok(planRef.includes(`${field}:`), `plan-authoring 字段模板缺 ${field} 字段`)
+  }
+  assert.ok(
+    planRef.includes('never write the complete modified code or a new file\'s full implementation'),
+    'plan-authoring 缺禁止完整实现代码要求',
+  )
   assert.ok(
     planRef.includes("every AC in prd.md appears in at least one step's Covers list"),
     'plan-authoring 完成判据缺 AC 覆盖要求',

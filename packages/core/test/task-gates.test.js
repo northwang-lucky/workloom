@@ -14,6 +14,7 @@ import {
   PRD_STRUCTURE_CODES,
   findMissingPrdTitle,
   findUnfilledPrdSections,
+  inspectPlanStructure,
   inspectPrdStructure,
   countEffectiveJsonlRecords,
   evaluateFrontendDispatchGate,
@@ -470,7 +471,7 @@ test('light 派发门禁：light 任务拒绝（文案说明主会话包办）�
   assert.deepEqual(evaluateLightDispatchGate({}), [])
 })
 
-/** 最小合法 PLAN（步骤四要素齐全；夹具 prd 无 AC 编号，无溯源要求）。 */
+/** 最小合法 PLAN（外层四要素 + Edit 五字段伪代码协议齐全；夹具 prd 无 AC 编号，无溯源要求）。 */
 const MIN_PLAN = `# Plan
 
 ## Steps
@@ -479,7 +480,12 @@ const MIN_PLAN = `# Plan
 
 - Covers: AC1
 - Target: src/a.js
-- Edit: add implementation
+- Edit:
+  Input: adjust src/a.js behavior.
+  Output: function returns updated result.
+  Preconditions: none
+  Procedure: edit the guarded branch per anchors.
+  Failure: none
 - Verify: pnpm lint
 `
 
@@ -589,4 +595,120 @@ test('start 门禁：确认后修改 prd/plan 不产生 stale 缺失项（无哈
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+// ---------- PLAN 伪代码协议结构校验（Edit 区域五字段） ----------
+
+/** 协议用例共用 prd（含 AC1，供 Covers 覆盖校验）。 */
+const PROTOCOL_PRD = '# P\n\n## Acceptance Criteria\n\n- AC1: works\n'
+
+/** 合法五字段基线（fence 缩进写法，与 plan-authoring 模板同形；none 是合法值）。 */
+const PROTOCOL_PLAN = `# Plan
+
+## Steps
+
+#### 步骤 1 implement
+
+- Covers: AC1
+- Target: src/a.js
+- Edit:
+  \`\`\`text
+  Input: locate the guarded branch in src/a.js.
+  Output: branch returns the normalized payload.
+  Preconditions: none
+  Procedure:
+    replace the branch body per anchors.
+  Failure: none
+  \`\`\`
+- Verify: pnpm lint
+`
+
+test('PLAN 协议：五字段齐全、none 合法、fence 缩进写法通过', () => {
+  assert.deepEqual(inspectPlanStructure(PROTOCOL_PLAN, PROTOCOL_PRD), [])
+})
+
+test('PLAN 协议：缺字段按字段常量序报告缺失问题', () => {
+  const plan = PROTOCOL_PLAN.replace('  Output: branch returns the normalized payload.\n', '')
+  assert.deepEqual(inspectPlanStructure(plan, PROTOCOL_PRD), [
+    { code: 'plan_protocol_missing', message: 'plan.md step 1 protocol field "Output" is missing or empty' },
+  ])
+})
+
+test('PLAN 协议：空值与纯空白视为缺失内容', () => {
+  const plan = PROTOCOL_PLAN.replace('  Preconditions: none', '  Preconditions:   ')
+  const issues = inspectPlanStructure(plan, PROTOCOL_PRD).filter((issue) => issue.code === 'plan_protocol_missing')
+  assert.deepEqual(issues.map((issue) => issue.message), [
+    'plan.md step 1 protocol field "Preconditions" is missing or empty',
+  ])
+})
+
+test('PLAN 协议：全部存在时顺序不符报乱序；缺字段时不叠加顺序问题', () => {
+  const reordered = PROTOCOL_PLAN.replace('  Input: locate the guarded branch in src/a.js.\n', '').replace(
+    '  Failure: none',
+    '  Input: locate the guarded branch in src/a.js.\n  Failure: none',
+  )
+  assert.deepEqual(
+    inspectPlanStructure(reordered, PROTOCOL_PRD).filter((issue) => issue.code === 'plan_protocol_order'),
+    [
+      {
+        code: 'plan_protocol_order',
+        message: 'plan.md step 1 protocol field order must be Input -> Output -> Preconditions -> Procedure -> Failure',
+      },
+    ],
+  )
+  const missingOne = PROTOCOL_PLAN.replace('  Output: branch returns the normalized payload.\n', '')
+  assert.equal(
+    inspectPlanStructure(missingOne, PROTOCOL_PRD).some((issue) => issue.code === 'plan_protocol_order'),
+    false,
+  )
+})
+
+test('PLAN 协议：重复出现的字段名返回重复问题', () => {
+  const plan = PROTOCOL_PLAN.replace('  Failure: none', '  Output: duplicated anchor line.\n  Failure: none')
+  const issues = inspectPlanStructure(plan, PROTOCOL_PRD).filter((issue) => issue.code === 'plan_protocol_duplicate')
+  assert.deepEqual(issues.map((issue) => issue.message), [
+    'plan.md step 1 protocol field "Output" is duplicated',
+  ])
+})
+
+test('PLAN 协议：Verify 正文与后续步骤的同名字段不参与识别（跨区域隔离）', () => {
+  const plan = PROTOCOL_PLAN.replace(
+    '- Verify: pnpm lint',
+    '- Verify: pnpm lint\n  Input: mentioned inside Verify body',
+  )
+  assert.deepEqual(inspectPlanStructure(plan, PROTOCOL_PRD), [])
+  const withLaterStep = `${PROTOCOL_PLAN}
+#### 步骤 2 docs
+
+- Covers: AC1
+- Target: docs/a.md
+- Edit:
+  Input: rewrite the usage section.
+  Output: doc updated.
+  Preconditions: none
+  Procedure: follow the anchors in docs/a.md.
+  Failure: none
+- Verify: pnpm lint
+`
+  assert.deepEqual(inspectPlanStructure(withLaterStep, PROTOCOL_PRD), [])
+})
+
+test('PLAN 协议：Edit 缺失时只报外层字段问题，跳过协议检查', () => {
+  const plan = '# Plan\n\n## Steps\n\n#### 步骤 1 implement\n\n- Covers: AC1\n- Target: src/a.js\n- Verify: pnpm lint\n'
+  assert.deepEqual(inspectPlanStructure(plan, PROTOCOL_PRD), [
+    { code: 'plan_step_field', message: 'plan.md step 1 missing Edit' },
+  ])
+})
+
+test('PLAN 协议：bullet、额外缩进与无冒号形式不识别为协议字段', () => {
+  const plan = PROTOCOL_PLAN
+    .replace('  Input: locate the guarded branch in src/a.js.', '  - Input: locate the guarded branch in src/a.js.')
+    .replace('  Output: branch returns the normalized payload.', '  Output : branch returns the normalized payload.')
+  const messages = inspectPlanStructure(plan, PROTOCOL_PRD)
+    .filter((issue) => issue.code === 'plan_protocol_missing')
+    .map((issue) => issue.message)
+  assert.deepEqual(messages, [
+    'plan.md step 1 protocol field "Input" is missing or empty',
+    'plan.md step 1 protocol field "Output" is missing or empty',
+  ])
 })
