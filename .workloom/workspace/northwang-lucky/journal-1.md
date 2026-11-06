@@ -418,3 +418,9 @@
 - Commit: 576e422
 - Summary: 三个子任务按顺序交付并归档；父任务完成简短集成验收，修复子任务归档后的父 CASE 路径解析，13/13 SR、6/6 C 通过，LCOV 总体 51.2%，全量测试与证据完整，父任务已归档。
 
+## 简化 workloom 人工确认流程
+
+- Time: 2026-11-06T02:42:08.175Z
+- Commit: bccb7e8
+- Summary: 完成 PRD/PLAN 分阶段内容确认，移除文档哈希与 CASE 用户确认，CASE 由主会话复核后执行；同步 core、workflow、相关技能、双 adapter、测试和 dist。完整 CASE 的 23 条 SR 与 7 条 C 全部通过，core 745 项、DSH 177 项、Pi 205 项测试通过，覆盖率 85.86%。
+
