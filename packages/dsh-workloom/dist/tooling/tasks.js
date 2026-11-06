@@ -9,7 +9,7 @@
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, requireWorkloomCwd, TASK_MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, TASK_MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from "../constants.js";
 /**
  * 注册八个任务管理工具（create/start/check/align/case/finish/archive/list）。
@@ -316,10 +316,5 @@ async function listTasksTool(args, exec) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: list returned no result`);
     }
     return result;
-}
-/** 渲染任务工具结果（结构化摘要文本）。 */
-function renderTask(_args, value) {
-    const text = JSON.stringify(value);
-    return [{ type: 'text', text }];
 }
 //# sourceMappingURL=tasks.js.map

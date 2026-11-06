@@ -36,7 +36,7 @@ export function hasLspTooling(allowNames) {
  */
 export function buildAllowFilter(visibleNames, toolsConfig) {
     return {
-        allow: buildAllowList({ runtime: 'dsh', toolsConfig, visibleNames: [...visibleNames] }),
+        allow: buildAllowList({ toolsConfig, visibleNames: [...visibleNames] }),
     };
 }
 /**

@@ -3,11 +3,6 @@
 /** effort 合法档位（low/medium/high/xhigh/max）。 */
 export const EFFORT_LEVELS: readonly string[]
 
-/** executor 类型枚举（research/implement/check/frontend/review）。 */
-export const EXECUTOR_KINDS: Readonly<
-  Record<'research' | 'implement' | 'check' | 'frontend' | 'review', string>
->
-
 /** 按 kind 的执行器纪律段正文（硬指令，并入注入文本末尾的终极权威段）。 */
 export const EXECUTOR_CONTRACT_BY_KIND: Readonly<
   Record<'research' | 'implement' | 'check' | 'frontend' | 'review', string>
@@ -18,16 +13,6 @@ export function assertEffort(effort: string | undefined): void
 
 /** 校验 executor kind；undefined 通过；非法值抛 Error。 */
 export function assertKind(kind: string | undefined): void
-
-/** jsonl 单条有效记录（有 file 字段的行）。 */
-export interface JsonlEntry {
-  file: string
-  reason: string | undefined
-  type: string | undefined
-}
-
-/** 解析 jsonl 全文为有效条目列表；坏行/无 file 非 seed 行抛错。 */
-export function parseJsonlEntries(content: string, jsonlName: string): JsonlEntry[]
 
 /** 注入的合成 artifact（adapter 从 assets 读取后传入：路径 + 全文）。 */
 export interface ExecutorArtifactContent {

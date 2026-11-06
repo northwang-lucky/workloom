@@ -24,7 +24,6 @@ import {
   COMMAND_DESCRIPTIONS,
   COMMAND_FAILURE_ACK,
   COMMAND_NAMES,
-  DOCTOR_FIX_FLAG,
   ERR_PREFIX,
   ensureSpecTemplates,
   executeInitCommand,
@@ -131,7 +130,7 @@ function ensureTemplates(cwd: string): void {
 }
 
 /**
- * doctor 命令：解析 --fix，跑健康检查引擎，followup 注入 JSON 报告 + 引导语触发模型回合。
+ * doctor 命令：跑健康检查引擎，followup 注入 JSON 报告 + 引导语触发模型回合。
  * @param invocation 命令调用
  * @returns 成功提示或失败转述回执
  */
@@ -144,8 +143,7 @@ function handleDoctor(invocation: CommandInvocation): CommandResult {
       `${ERR_PREFIX.command}: cannot determine the working directory of this session`,
     )
   }
-  const fix = hasFixFlag(invocation.rawInput)
-  const [err, report] = runDoctor(cwd, { fix })
+  const [err, report] = runDoctor(cwd)
   if (err !== null || report === null) {
     return relayFailure(
       invocation,
@@ -158,16 +156,6 @@ function handleDoctor(invocation: CommandInvocation): CommandResult {
     kind: 'success',
     text: `Workloom doctor: ${report.summary.total} issue(s) found; handed the health report to the model.`,
   }
-}
-
-/**
- * 判定自由输入是否启用 --fix（精确 `--fix` 或以 `--fix ` 开头，参考 init --purge 的先例）。
- * @param rawInput 命令自由输入
- * @returns 是否启用修复
- */
-function hasFixFlag(rawInput: string): boolean {
-  const raw = rawInput.trim()
-  return raw === DOCTOR_FIX_FLAG || raw.startsWith(`${DOCTOR_FIX_FLAG} `)
 }
 
 /**

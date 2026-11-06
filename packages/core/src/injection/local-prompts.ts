@@ -11,8 +11,6 @@
  * - 目录不存在 = 无片段，整体零行为；文件缺失/内容为空 = 跳过该目标注入；
  * - 三层叠加顺序：全局 → 项目共享 → 项目本机；各层内 all.md 在前、<target>.md 在后
  *   （排序职责在 readLocalFragments，filterAndOrderLocal 只按目标过滤、保持输入顺序）；
- * - requiresTools 机制已整体移除：front-matter 出现 requiresTools / requires_tools
- *   残留 → fail loud（错误文案指明该机制已废止），不再参与注入条件；
  * - 本模块 runtime 无关（core 承载），注入落地由两 adapter 负责；主 agent 目标为
  *   main，executor 子代理目标为各自 kind（research/implement/check/frontend/review），
  *   all 对两者通用。
@@ -21,8 +19,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-
-import { parse as parseYaml } from 'yaml'
 
 import { insideWorkloom } from '../workspace/locate.js'
 
@@ -49,11 +45,11 @@ export const LOCAL_FRAGMENT_TARGETS = Object.freeze([
 /** LocalFragmentTarget 类型（合法片段目标）。 */
 export type LocalFragmentTarget = (typeof LOCAL_FRAGMENT_TARGETS)[number]
 
-/** 解析后的本机片段（target 来自文件名映射；正文为 front-matter 剥离后的文本）。 */
+/** 解析后的本机片段（target 来自文件名映射；正文为全文）。 */
 export interface LocalFragment {
   /** 片段目标（main 为主 agent，research/implement/check/frontend/review 为 executor kind，all 通用）。 */
   target: LocalFragmentTarget
-  /** Markdown 正文（front-matter 剥离，trim 保留原文）。 */
+  /** Markdown 正文（trim 保留原文）。 */
   text: string
 }
 
@@ -67,12 +63,6 @@ const TARGET_BY_FILE = Object.freeze({
   'review.md': 'review',
   'all.md': 'all',
 } as const)
-
-/** front-matter 分隔行（开头与结尾均为此行）。 */
-const FRONT_MATTER_DELIMITER = '---'
-
-/** 已废止的工具门控字段（requiresTools 机制整体移除后，残留即 fail loud）。 */
-const DEPRECATED_TOOL_FIELDS = ['requiresTools', 'requires_tools']
 
 /** 合成排序权重：all 在前（0）、专属在后（1）。 */
 const RANK_ALL = 0
@@ -94,7 +84,7 @@ function isTarget(target: string): target is LocalFragmentTarget {
 export class WorkloomLocalPromptError extends Error {
   /** 出错文件名（相对所在 prompts 层；纯解析无文件名上下文时为 ''）。 */
   readonly file: string
-  /** 出错字段路径（如 requiresTools、front-matter、filename、target）。 */
+  /** 出错字段路径（filename 或 target）。 */
   readonly field: string
   /** 具体原因（不含前缀）。 */
   readonly reason: string
@@ -115,10 +105,7 @@ export class WorkloomLocalPromptError extends Error {
 }
 
 /**
- * 解析片段正文（纯函数）：可选 YAML front-matter（--- 包裹）+ Markdown 正文。
- * 无 front-matter 视为无条件片段；front-matter 出现 requiresTools / requires_tools
- * 残留 → fail loud（指明该机制已废止）；其余未知字段 / 非法 front-matter 同样
- * 抛 WorkloomLocalPromptError（无文件名上下文，file 为 ''，由 IO 层补全）。
+ * 解析片段正文（纯函数）：正文即全文（无条件片段，不携带元数据）。
  * @param target 片段目标（来自文件名的映射，如 'main'；'all' 为通用片段）
  * @param body 文件全文
  * @returns 解析后的片段（正文 trim 保留原文）
@@ -131,23 +118,7 @@ export function parseLocalFragment(target: string, body: string): LocalFragment 
       `unknown target "${target}" (must be one of ${LOCAL_FRAGMENT_TARGETS.join('/')})`,
     )
   }
-  const { meta, text } = splitFrontMatter(body)
-  if (meta === null) {
-    // 无 front-matter：正文即全文（无条件片段）。
-    return { target, text: text.trim() }
-  }
-  const doc = parseFrontMatterMeta(meta)
-  for (const key of Object.keys(doc)) {
-    if (DEPRECATED_TOOL_FIELDS.includes(key)) {
-      throw new WorkloomLocalPromptError(
-        '',
-        key,
-        'the requiresTools gating mechanism was removed; delete this field and inject the fragment unconditionally',
-      )
-    }
-    throw new WorkloomLocalPromptError('', key, 'unknown field')
-  }
-  return { target, text: text.trim() }
+  return { target, text: body.trim() }
 }
 
 /**
@@ -259,7 +230,7 @@ function readAllFragments(dir: string): LocalFragment[] {
       }
       throw error
     }
-    if (parsed.text === '') continue // 只有 front-matter 无正文：跳过
+    if (parsed.text === '') continue // 空片段：跳过
     fragments.push(parsed)
   }
   return fragments.sort((a, b) => rankOf(a.target) - rankOf(b.target))
@@ -281,53 +252,6 @@ export function targetFromFileName(name: string): LocalFragmentTarget {
     )
   }
   return target
-}
-
-/**
- * 拆分 front-matter 与正文（内部）：首行为 '---' 时按第二个 '---' 行切分；
- * 无分隔符开头返回 null（无 front-matter）。
- * @param body 文件全文
- * @returns {meta, text}：meta 为 front-matter 文本（无则为 null），text 为正文
- */
-function splitFrontMatter(body: string): { meta: string | null; text: string } {
-  const lines = body.split('\n')
-  const first = lines[0]
-  if (first === undefined || first.trim() !== FRONT_MATTER_DELIMITER) {
-    return { meta: null, text: body }
-  }
-  for (const [index, line] of lines.entries()) {
-    if (index === 0) continue
-    if (line.trim() === FRONT_MATTER_DELIMITER) {
-      return { meta: lines.slice(1, index).join('\n'), text: lines.slice(index + 1).join('\n') }
-    }
-  }
-  throw new WorkloomLocalPromptError(
-    '',
-    'front-matter',
-    `unterminated front-matter (missing closing "${FRONT_MATTER_DELIMITER}" line)`,
-  )
-}
-
-/**
- * 解析 front-matter YAML 文本（内部）：解析失败或根非 map 抛错（field 为 front-matter）。
- * @param meta front-matter 文本
- * @returns 字段映射
- */
-function parseFrontMatterMeta(meta: string): Record<string, unknown> {
-  let doc: unknown
-  try {
-    doc = parseYaml(meta) ?? {}
-  } catch (error) {
-    throw new WorkloomLocalPromptError(
-      '',
-      'front-matter',
-      `parse failed: ${String(error)}`,
-    )
-  }
-  if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) {
-    throw new WorkloomLocalPromptError('', 'front-matter', 'must be an object map')
-  }
-  return doc as Record<string, unknown>
 }
 
 /** 层内合成排序权重（内部）：all 在前、专属在后。 */

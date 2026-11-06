@@ -84,7 +84,7 @@ function addArchive(root, slug, material, completedAt) {
 }
 
 mkdirSync(target)
-write(target, '.workloom/config.json', '{"packages":{"repo":{"path":"."}},"worktree":{"enabled":true},"subagent_profiles":[],"subagents":{"check":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max","rotate_on_busy":false},"implement":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max","rotate_on_busy":false}}}\n')
+write(target, '.workloom/config.json', '{"packages":{"repo":{"path":"."}},"worktree":{"enabled":true},"subagent_profiles":[],"subagents":{"check":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max"},"implement":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max"}}}\n')
 write(target, '.workloom/spec/README.md', '# Archived fixture spec\n\nUse deterministic local verification.\n')
 write(target, '.gitignore', '.pi/\n.workloom/.runtime/\n.workloom/worktree/\n')
 write(target, 'src/current.txt', 'base\n')

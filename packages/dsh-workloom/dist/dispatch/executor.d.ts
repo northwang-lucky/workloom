@@ -51,12 +51,7 @@
  *   插件激活时注册一次，受限 kind 子代理的 write/edit 只允许落在其 cwd 的
  *   .workloom/ 内（越界拒绝），派发成功时登记子会话身份，重启后守卫按任务记录懒重建；
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：后台 receipt
- *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨；同步走链成功时追加
- *   (failover attempt N: <model>) 标注实际生效模型。
- * - 失败转移（executor-failover.ts）：配置 fallback_models 的 kind 在模型不可访问
- *   （白名单 code）时自动换模型——派发时同步走链（本文件），运行中失败在结算后
- *   fire-and-forget 新开会话重派（executor-settle 钩子）；未配置 / 显式 model /
- *   非白名单错误一律维持现状（零行为变化）。
+ *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨。
  * - 并发容量闸（executor-capacity.ts）：新派发与续用入口均先取本主会话 running 集合
  *   （DSH 原生 listDescendants(parentId) 直子级 running 行，会话级，不跨会话），
  *   结合 dispatches 记录 + label 解析补全 childId→kind 映射，调用 core 的
@@ -64,27 +59,15 @@
  *   续用路径先把目标 childId 从 running 集合排除（其槽不重复计）；拒绝时返回英文
  *   at capacity 回执文案（注明撞限层级与计数），不写 dispatches、不 spawn，主会话稍后
  *   自行重试；不引入队列与 pending 态。
- * - 同类并发轮换（rotate_on_busy，core executor-rotation 纯函数 + 本文件编排）：
- *   开关开且未显式 model 且链非空时，闸放行后的同步段把 [主模型位, fallback_models…]
- *   池按「同 kind 已占用模型」顺延取首个未占用条目作起始绑定（全占用回绕主模型位），
- *   并把环形顺序物化为线性转移链（起点之后的环序，绕回段含主模型位条目）；留痕
- *   modelSource 记 rotate，回执追加 (rotated: <model>)；占用取数三级优先：进程内
- *   绑定登记 → 本任务 dispatches 记录 → 读不到按主模型位归一（保守）。开关关 /
- *   显式 model / 续用轮 / 容量拒绝路径零行为变化。
  *
  * 模块边界：本文件负责工具注册（registerExecutor）与执行编排（executeTool）；
  * 参数 schema 装配在 executor-schema.ts，prompt 组装在 executor-injection.ts，
  * receipt 渲染在 executor-receipt.ts，continuable 会话操作在 executor-continuation.ts，
- * 终态回填在 executor-settle.ts，失败转移编排在 executor-failover.ts，工具面白名单在
+ * 终态回填在 executor-settle.ts，工具面白名单在
  * executor-dispatch.ts，research 守卫在 executor-guard.ts，并发容量闸在
  * executor-capacity.ts。
  */
 import type { Context } from '@deepseek-ai/cordis';
-/** 纯文本块最小形状（render 与返回值共用）。 */
-export interface TextBlockLike {
-    type: 'text';
-    text: string;
-}
 /**
  * 注册 workloom_execute 工具（register 自绑定 fiber 生命周期，插件卸载自动注销）。
  * @param ctx 插件上下文（tools/subagents 由宿主注入，官方 Context 增强类型）

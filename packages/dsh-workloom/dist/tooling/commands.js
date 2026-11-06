@@ -13,7 +13,7 @@
  * - 顺序变化（规格允许）：先读资产（null 报 missing asset）再调 core。
  */
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
-import { buildDoctorRelayText, buildErrorRelayText, buildSuccessRelayText, COMMAND_DESCRIPTIONS, COMMAND_FAILURE_ACK, COMMAND_NAMES, DOCTOR_FIX_FLAG, ERR_PREFIX, ensureSpecTemplates, executeInitCommand, readResourceText, runDoctor, TEMPLATE_SPEC_DETAIL_ENTRY, TEMPLATE_SPEC_INDEX_ENTRY, } from '@workloom-ai/core';
+import { buildDoctorRelayText, buildErrorRelayText, buildSuccessRelayText, COMMAND_DESCRIPTIONS, COMMAND_FAILURE_ACK, COMMAND_NAMES, ERR_PREFIX, ensureSpecTemplates, executeInitCommand, readResourceText, runDoctor, TEMPLATE_SPEC_DETAIL_ENTRY, TEMPLATE_SPEC_INDEX_ENTRY, } from '@workloom-ai/core';
 import { SOURCE_PLUGIN } from "../constants.js";
 /**
  * 注册两个 workloom 命令（ctx.commands 由 inject 声明为硬依赖；
@@ -95,7 +95,7 @@ function ensureTemplates(cwd) {
     }
 }
 /**
- * doctor 命令：解析 --fix，跑健康检查引擎，followup 注入 JSON 报告 + 引导语触发模型回合。
+ * doctor 命令：跑健康检查引擎，followup 注入 JSON 报告 + 引导语触发模型回合。
  * @param invocation 命令调用
  * @returns 成功提示或失败转述回执
  */
@@ -104,8 +104,7 @@ function handleDoctor(invocation) {
     if (cwd === null) {
         return relayFailure(invocation, COMMAND_NAMES.doctor, `${ERR_PREFIX.command}: cannot determine the working directory of this session`);
     }
-    const fix = hasFixFlag(invocation.rawInput);
-    const [err, report] = runDoctor(cwd, { fix });
+    const [err, report] = runDoctor(cwd);
     if (err !== null || report === null) {
         return relayFailure(invocation, COMMAND_NAMES.doctor, err?.message ?? `${ERR_PREFIX.command}: doctor returned no report`);
     }
@@ -114,15 +113,6 @@ function handleDoctor(invocation) {
         kind: 'success',
         text: `Workloom doctor: ${report.summary.total} issue(s) found; handed the health report to the model.`,
     };
-}
-/**
- * 判定自由输入是否启用 --fix（精确 `--fix` 或以 `--fix ` 开头，参考 init --purge 的先例）。
- * @param rawInput 命令自由输入
- * @returns 是否启用修复
- */
-function hasFixFlag(rawInput) {
-    const raw = rawInput.trim();
-    return raw === DOCTOR_FIX_FLAG || raw.startsWith(`${DOCTOR_FIX_FLAG} `);
 }
 /**
  * 通过 followup 注入指引文本并触发模型回合（workloom 来源）。

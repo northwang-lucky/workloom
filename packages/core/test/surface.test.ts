@@ -16,7 +16,6 @@ import {
   COMMAND_DESCRIPTIONS,
   COMMAND_NAMES,
   CONTINUE_EXECUTOR_LATEST,
-  DOCTOR_FIX_FLAG,
   ERR_PREFIX,
   PARAM_DESCRIPTIONS,
   TASK_ARCHIVE_NOTE,
@@ -226,21 +225,22 @@ test('TOOL_SNIPPETS.taskCreate 签名含 mode?，PARAM_DESCRIPTIONS.mode 说明�
   assert.match(mode, /main session/, 'mode description must explain main-session ownership')
 })
 
-test('doctor 命令键对齐：COMMAND_NAMES.doctor / COMMAND_DESCRIPTIONS.doctor / --fix', () => {
+test('doctor 命令键对齐：COMMAND_NAMES.doctor / COMMAND_DESCRIPTIONS.doctor', () => {
   assert.equal(COMMAND_NAMES.doctor, 'workloom-doctor')
   assert.ok(COMMAND_DESCRIPTIONS.doctor !== '', 'doctor description must be non-empty')
-  assert.equal(DOCTOR_FIX_FLAG, '--fix', 'doctor fix flag must be --fix')
+  assert.ok(
+    !COMMAND_DESCRIPTIONS.doctor.includes('--fix'),
+    'doctor must not advertise the retired --fix flag',
+  )
 })
 
-test('continue/finish 已改造为 skill：命令面无残留，archive/journal 契约要求必填 taskPath', () => {
+test('continue/finish 已改造为 skill：命令面无残留，archive 契约要求必填 taskPath', () => {
   // 命令面只剩 init/doctor：continue/finish 以同名 skill 注册（资产层），不得回流。
   assert.deepEqual(Object.values(COMMAND_NAMES).sort(), ['workloom-doctor', 'workloom-init'])
   assert.ok(!JSON.stringify(COMMAND_NAMES).includes('workloom-continue'))
   assert.ok(!JSON.stringify(COMMAND_NAMES).includes('workloom-finish'))
-  // archive/journal 的 taskPath 必填：snippet 不得再带 ?，必填描述非空。
+  // archive 的 taskPath 必填：snippet 不得再带 ?，必填描述非空。
   assert.ok(!TOOL_SNIPPETS.taskArchive.includes('taskPath?'), 'archive taskPath is required')
-  assert.ok(!TOOL_SNIPPETS.journal.includes('taskPath?'), 'journal taskPath is required')
-  assert.match(TOOL_SNIPPETS.journal, /workloom_journal\(taskPath, title/)
   assert.ok(
     typeof PARAM_DESCRIPTIONS.taskPathRequired === 'string' &&
       PARAM_DESCRIPTIONS.taskPathRequired !== '',

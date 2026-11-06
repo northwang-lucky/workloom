@@ -9,13 +9,15 @@ import {
   CASE_FILES,
   CASE_PURPOSES,
   createCaseRecord,
+  inspectCaseStructure,
+} from '../src/task/case-structure.ts'
+import {
   evaluateCaseExecutionGate,
   evaluateCaseOutcomeGate,
-  inspectCaseStructure,
-} from '../src/task/case.js'
+} from '../src/task/case-gates.ts'
 import { evaluateStartGate, inspectPlanStructure } from '../src/task/task-gates.js'
 import { archiveTask, checkTask, computeTaskStage, readTask } from '../src/task/task-store.js'
-import { executeTaskCase } from '../src/task/case-service.ts'
+import { executeTaskCase } from '../src/task/doc-review.ts'
 
 const REL = 'tasks/demo'
 const PRD = `# Demo

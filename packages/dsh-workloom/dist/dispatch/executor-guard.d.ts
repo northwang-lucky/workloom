@@ -50,5 +50,5 @@ export declare function registerWriteGuardChild(state: WriteGuardState, root: st
 export declare function confinedWriteGuard(state: WriteGuardState): (execution: Readonly<WriteGuardExecution>) => string | undefined;
 /** 插件激活时注册受限写守卫（一次；卸载由 ctx.tools.guard 的 disposer 处理）。 */
 export declare function registerWriteGuard(ctx: Context): void;
-/** 受限写 kind 派发成功时登记子会话 id（executor.ts/failover 派发路径；不移除）。 */
+/** 受限写 kind 派发成功时登记子会话 id（executor.ts 派发路径；不移除）。 */
 export declare function registerWriteGuardChildId(root: string, childId: string): void;

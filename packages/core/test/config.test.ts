@@ -9,14 +9,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { DEFAULT_CONFIG, WorkloomConfigError } from '../src/workspace/config-defaults.ts'
+import { loadConfig } from '../src/workspace/config-load.ts'
 import {
-  DEFAULT_CONFIG,
   detectExecutorConflicts,
-  loadConfig,
   resolveSubagentDefaults,
   splitProviderModel,
-  WorkloomConfigError,
-} from '../src/workspace/config.js'
+} from '../src/workspace/config-subagent.ts'
 
 /** 创建临时项目根。 */
 function makeRoot() {
@@ -73,16 +72,12 @@ test('config.json 对象层加载：字段覆盖与布尔解析', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    max_journal_lines: 500,
     session_auto_commit: false,
-    session_commit_message: 'chore: journal',
     prompt_injection: { skip_keyword: '' },
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.maxJournalLines, 500)
     assert.equal(config.sessionAutoCommit, false)
-    assert.equal(config.sessionCommitMessage, 'chore: journal')
     assert.equal(config.promptInjection.skipKeyword, '')
   } finally {
     cleanup(root, home)
@@ -92,10 +87,10 @@ test('config.json 对象层加载：字段覆盖与布尔解析', () => {
 test('config.js CommonJS 导出加载（module.exports）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.js', 'module.exports = { max_journal_lines: 600 }\n')
+  writeProjectFile(root, 'config.js', 'module.exports = { session_auto_commit: false }\n')
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.maxJournalLines, 600)
+    assert.equal(config.sessionAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -104,10 +99,10 @@ test('config.js CommonJS 导出加载（module.exports）', () => {
 test('config.js ESM 导出归一（export default 取 .default）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.js', 'export default { max_journal_lines: 700 }\n')
+  writeProjectFile(root, 'config.js', 'export default { session_auto_commit: false }\n')
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.maxJournalLines, 700)
+    assert.equal(config.sessionAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -118,7 +113,7 @@ test('config.js 导出函数：工厂入参为低层合并结果，返回值即�
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
     subagents: { implement: { model: 'm-base' } },
-    session_commit_message: 'base',
+    session_auto_commit: false,
   })
   writeProjectFile(
     root,
@@ -128,8 +123,8 @@ test('config.js 导出函数：工厂入参为低层合并结果，返回值即�
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.deepEqual(config.subagents, { implement: { model: 'm-factory', effort: 'max' } })
-    // 工厂返回值即本层最终形态：session_commit_message 保留（来自 ...base 展开）
-    assert.equal(config.sessionCommitMessage, 'base')
+    // 工厂返回值即本层最终形态：session_auto_commit 保留（来自 ...base 展开）
+    assert.equal(config.sessionAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -160,18 +155,17 @@ test('三层优先级链：全局 → 项目 → local 逐层覆盖', () => {
   const root = makeRoot()
   const home = makeHome()
   writeHomeFile(home, 'config.json', {
-    session_commit_message: 'global',
-    max_journal_lines: 100,
+    prompt_injection: { skip_keyword: 'global' },
   })
   writeProjectFile(root, 'config.json', {
-    session_commit_message: 'project',
+    prompt_injection: { skip_keyword: 'project' },
     packages: { cli: { path: 'packages/cli' } },
   })
-  writeProjectFile(root, 'config.local.json', { max_journal_lines: 300 })
+  writeProjectFile(root, 'config.local.json', { session_auto_commit: false })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.sessionCommitMessage, 'project') // 项目覆盖全局
-    assert.equal(config.maxJournalLines, 300) // local 覆盖项目
+    assert.equal(config.promptInjection.skipKeyword, 'project') // 项目覆盖全局
+    assert.equal(config.sessionAutoCommit, false) // local 覆盖项目
     assert.deepEqual(config.packages, { cli: { path: 'packages/cli', setup: [] } }) // 项目字段保留
   } finally {
     cleanup(root, home)
@@ -181,11 +175,10 @@ test('三层优先级链：全局 → 项目 → local 逐层覆盖', () => {
 test('全局层缺失 = 零行为（项目配置不受影响）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.json', { max_journal_lines: 200 })
+  writeProjectFile(root, 'config.json', { session_auto_commit: false })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.maxJournalLines, 200)
-    assert.equal(config.sessionCommitMessage, DEFAULT_CONFIG.sessionCommitMessage)
+    assert.equal(config.sessionAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -265,7 +258,7 @@ test('遗留 config.local.yaml 探测报错（错误文案指明迁移目标文�
 test('JSON 解析失败报错（带字段路径）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.json', '{"max_journal_lines": ')
+  writeProjectFile(root, 'config.json', '{"session_auto_commit": ')
   try {
     assert.throws(
       () => loadConfig(root, { homeDir: home }),
@@ -337,22 +330,18 @@ test('config.js 加载期抛错转 WorkloomConfigError（带字段路径）', ()
 
 // ---------- L1：全局白名单 ----------
 
-test('全局白名单：6 类项目无关字段放行', () => {
+test('全局白名单：项目无关字段放行', () => {
   const root = makeRoot()
   const home = makeHome()
   writeHomeFile(home, 'config.json', {
     subagent_profiles: [{ subagents: { implement: { model: 'm' } } }],
     session_auto_commit: false,
-    session_commit_message: 'global-commit',
-    max_journal_lines: 123,
     prompt_injection: { skip_keyword: 'skip' },
     context_injection: { max_file_bytes: 100 },
   })
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.sessionAutoCommit, false)
-    assert.equal(config.sessionCommitMessage, 'global-commit')
-    assert.equal(config.maxJournalLines, 123)
     assert.equal(config.promptInjection.skipKeyword, 'skip')
     assert.equal(config.contextInjection.maxFileBytes, 100)
     assert.deepEqual(config.subagentProfiles, [
@@ -641,46 +630,7 @@ test('subagents 结构非法抛 WorkloomConfigError（带字段路径）', () =>
   }
 })
 
-test('subagents model map 形式解析（key 不白名单）与 value 非 string 报错', () => {
-  const root = makeRoot()
-  const home = makeHome()
-  writeProjectFile(root, 'config.json', {
-    subagents: {
-      implement: {
-        model: { dsh: 'deepseek-official/deepseek-v4-flash', pi: 'deepseek/deepseek-v4-flash' },
-        effort: 'max',
-      },
-      research: { model: 'm-plain' },
-    },
-  })
-  try {
-    const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config.subagents.implement, {
-      model: { dsh: 'deepseek-official/deepseek-v4-flash', pi: 'deepseek/deepseek-v4-flash' },
-      effort: 'max',
-    })
-    assert.deepEqual(config.subagents.research, { model: 'm-plain' })
-  } finally {
-    cleanup(root, home)
-  }
-  const bad = makeRoot()
-  const badHome = makeHome()
-  writeProjectFile(bad, 'config.json', { subagents: { research: { model: { dsh: 5 } } } })
-  try {
-    assert.throws(
-      () => loadConfig(bad, { homeDir: badHome }),
-      (error) => {
-        assert.ok(error instanceof WorkloomConfigError)
-        assert.equal(error.field, 'subagents.research.model.dsh')
-        return true
-      },
-    )
-  } finally {
-    cleanup(bad, badHome)
-  }
-})
-
-test('subagent_profiles 合法解析：string/map whenMain 与兜底条目（tools 同步解析）', () => {
+test('subagent_profiles 合法解析：string whenMain 与兜底条目（tools 同步解析）', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
@@ -690,10 +640,7 @@ test('subagent_profiles 合法解析：string/map whenMain 与兜底条目（too
         subagents: { implement: { model: 'deepseek-v4-flash', effort: 'max' } },
       },
       {
-        whenMain: {
-          dsh: 'qwen-token-plan-cn/qwen3.8-flash',
-          pi: 'ark-coding-plan/glm-5.3-flash',
-        },
+        whenMain: 'ark-coding-plan/glm-5.3-flash',
         subagents: { research: { model: 'deepseek-v4-pro' } },
       },
       { subagents: { check: { effort: 'medium' } } },
@@ -704,10 +651,7 @@ test('subagent_profiles 合法解析：string/map whenMain 与兜底条目（too
     assert.deepEqual(config.subagentProfiles, [
       { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'deepseek-v4-flash', effort: 'max' } } },
       {
-        whenMain: {
-          dsh: 'qwen-token-plan-cn/qwen3.8-flash',
-          pi: 'ark-coding-plan/glm-5.3-flash',
-        },
+        whenMain: 'ark-coding-plan/glm-5.3-flash',
         subagents: { research: { model: 'deepseek-v4-pro' } },
       },
       { subagents: { check: { effort: 'medium' } } },
@@ -771,49 +715,25 @@ test('多条无 whenMain 条目抛错（fail loud）', () => {
   }
 })
 
-test('whenMain 条件重叠抛错（string/string、string/map、map/map）', () => {
-  const cases = [
-    {
-      doc: { subagent_profiles: [{ whenMain: 'kimi-coding/k3' }, { whenMain: 'kimi-coding/k3' }] },
-      value: 'kimi-coding/k3',
-    },
-    {
-      doc: {
-        subagent_profiles: [
-          { whenMain: 'kimi-coding/k3' },
-          { whenMain: { dsh: 'kimi-coding/k3' } },
-        ],
+test('whenMain 条件重叠抛错（相同 provider/model 字符串）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [{ whenMain: 'kimi-coding/k3' }, { whenMain: 'kimi-coding/k3' }],
+  })
+  try {
+    assert.throws(
+      () => loadConfig(root, { homeDir: home }),
+      (error) => {
+        assert.ok(error instanceof WorkloomConfigError)
+        assert.equal(error.field, 'subagent_profiles')
+        assert.match(error.message, /overlap/)
+        assert.ok(error.message.includes('kimi-coding/k3'))
+        return true
       },
-      value: 'kimi-coding/k3',
-    },
-    {
-      doc: {
-        subagent_profiles: [
-          { whenMain: { dsh: 'kimi-coding/k3', pi: 'ark-coding-plan/glm-5.3-flash' } },
-          { whenMain: { dsh: 'other/x', pi: 'ark-coding-plan/glm-5.3-flash' } },
-        ],
-      },
-      value: 'ark-coding-plan/glm-5.3-flash',
-    },
-  ]
-  for (const { doc, value } of cases) {
-    const root = makeRoot()
-    const home = makeHome()
-    writeProjectFile(root, 'config.json', doc)
-    try {
-      assert.throws(
-        () => loadConfig(root, { homeDir: home }),
-        (error) => {
-          assert.ok(error instanceof WorkloomConfigError)
-          assert.equal(error.field, 'subagent_profiles')
-          assert.match(error.message, /overlap/)
-          assert.ok(error.message.includes(value))
-          return true
-        },
-      )
-    } finally {
-      cleanup(root, home)
-    }
+    )
+  } finally {
+    cleanup(root, home)
   }
 })
 
@@ -839,7 +759,7 @@ test('未知字段容错忽略（旧平台字段与 executor.gate 残留不报�
 test('非法值显式抛错（fail loud）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.json', { max_journal_lines: -1 })
+  writeProjectFile(root, 'config.json', { session_auto_commit: 'maybe' })
   try {
     assert.throws(() => loadConfig(root, { homeDir: home }), WorkloomConfigError)
   } finally {
@@ -898,25 +818,6 @@ test('resolveSubagentDefaults：不修改入参', () => {
   assert.deepEqual(config, before)
 })
 
-test('resolveSubagentDefaults：model map 按 runtime 取值、缺 key 抛错', () => {
-  const config = { subagents: { implement: { model: { dsh: 'm-dsh', pi: 'm-pi' }, effort: 'high' } } }
-  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'dsh').model, 'm-dsh')
-  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'pi').model, 'm-pi')
-  assert.throws(
-    () => resolveSubagentDefaults({ subagents: { implement: { model: { dsh: 'x' } } } }, 'implement', {}, 'pi'),
-    (error) => {
-      assert.ok(error instanceof WorkloomConfigError)
-      assert.equal(error.field, 'subagents.implement.model')
-      assert.match(error.message, /missing entry for runtime "pi"/)
-      return true
-    },
-  )
-  assert.throws(
-    () => resolveSubagentDefaults({ subagents: { implement: { model: { dsh: 'x' } } } }, 'implement', {}),
-    WorkloomConfigError,
-  )
-})
-
 test('resolveSubagentDefaults：whenMain string 两段归一化命中、裸 id 不命中', () => {
   const config = {
     subagents: { implement: { model: 'legacy-m', effort: 'high' } },
@@ -924,7 +825,7 @@ test('resolveSubagentDefaults：whenMain string 两段归一化命中、裸 id �
       { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'profile-m', effort: 'max' } } },
     ],
   }
-  const hit = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3')
+  const hit = resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3')
   assert.deepEqual(hit, {
     model: 'profile-m',
     effort: 'max',
@@ -934,20 +835,8 @@ test('resolveSubagentDefaults：whenMain string 两段归一化命中、裸 id �
     tools: undefined,
     maxConcurrent: 3,
   })
-  const miss = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'k3')
+  const miss = resolveSubagentDefaults(config, 'implement', {}, 'k3')
   assert.equal(miss.model, 'legacy-m')
-})
-
-test('resolveSubagentDefaults：whenMain map 按 runtime 取值命中、mainModel 缺失跳过', () => {
-  const config = {
-    subagents: { implement: { model: 'legacy-m' } },
-    subagentProfiles: [
-      { whenMain: { dsh: 'dsh/x', pi: 'pi/y' }, subagents: { implement: { model: 'profile-m' } } },
-    ],
-  }
-  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'dsh/x').model, 'profile-m')
-  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'pi', 'dsh/x').model, 'legacy-m')
-  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'dsh').model, 'legacy-m')
 })
 
 test('resolveSubagentDefaults：兜底条目优先、kind 级联、字段独立合并', () => {
@@ -959,11 +848,11 @@ test('resolveSubagentDefaults：兜底条目优先、kind 级联、字段独立�
     ],
   }
   assert.equal(
-    resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3').model,
+    resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3').model,
     'fallback-m',
   )
-  assert.equal(resolveSubagentDefaults(config, 'research', {}, 'dsh', 'kimi-coding/k3').model, 'legacy-r')
-  assert.deepEqual(resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3'), {
+  assert.equal(resolveSubagentDefaults(config, 'research', {}, 'kimi-coding/k3').model, 'legacy-r')
+  assert.deepEqual(resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3'), {
     model: 'fallback-m',
     effort: 'high',
     sources: { model: 'config', effort: 'config' },
@@ -985,35 +874,18 @@ test('resolveSubagentDefaults：tools 随命中 profile 条目该 kind 透出（
       },
     ],
   }
-  const hit = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3')
+  const hit = resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3')
   assert.deepEqual(hit.tools, { includes: ['lsp_*'], excludes: ['bash'] })
   // 未命中 profile 条目（mainModel 不匹配）→ tools 为 undefined（legacy 层不支持 tools）。
-  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'other/x').tools, undefined)
+  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'other/x').tools, undefined)
   // 命中条目但该 kind 未配 tools → undefined。
   const noTools = { subagents: {}, subagentProfiles: [{ subagents: { research: { model: 'm' } } }] }
-  assert.equal(resolveSubagentDefaults(noTools, 'research', {}, 'dsh', 'kimi-coding/k3').tools, undefined)
+  assert.equal(resolveSubagentDefaults(noTools, 'research', {}, 'kimi-coding/k3').tools, undefined)
 })
 
-test('resolveSubagentDefaults：profile 命中时 model map 缺当前 runtime key 抛错（带 profile 字段路径）', () => {
+test('resolveSubagentDefaults：显式参数覆盖 profile/legacy 配置', () => {
   const config = {
-    subagents: {},
-    subagentProfiles: [
-      { whenMain: 'kimi-coding/k3', subagents: { implement: { model: { dsh: 'm-dsh' } } } },
-    ],
-  }
-  assert.throws(
-    () => resolveSubagentDefaults(config, 'implement', {}, 'pi', 'kimi-coding/k3'),
-    (error) => {
-      assert.ok(error instanceof WorkloomConfigError)
-      assert.equal(error.field, 'subagent_profiles[0].subagents.implement.model')
-      return true
-    },
-  )
-})
-
-test('resolveSubagentDefaults：显式参数覆盖 profile/map 配置（不触发 runtime 解析）', () => {
-  const config = {
-    subagents: { implement: { model: { dsh: 'm-dsh' } } },
+    subagents: { implement: { model: 'legacy-m' } },
     subagentProfiles: [
       { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'profile-m' } } },
     ],
@@ -1022,7 +894,6 @@ test('resolveSubagentDefaults：显式参数覆盖 profile/map 配置（不触�
     config,
     'implement',
     { model: 'm-tool' },
-    'dsh',
     'kimi-coding/k3',
   )
   assert.deepEqual(effective, {
@@ -1153,7 +1024,7 @@ test('resolveSubagentDefaults：fallbackModels 分层合并（profile 优先、l
       { subagents: { implement: { model: 'fallback-m' } } },
     ],
   }
-  const hit = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3')
+  const hit = resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3')
   assert.deepEqual(hit, {
     model: 'profile-m',
     effort: undefined,
@@ -1165,105 +1036,13 @@ test('resolveSubagentDefaults：fallbackModels 分层合并（profile 优先、l
     fallbackModels: [{ model: 'profile-fb-1' }, { model: 'profile-fb-2', effort: 'high' }],
   })
   // 命中兜底条目但该 kind 未配链 → 回退旧 subagents 的链（字段级合并）。
-  const legacy = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'other/x')
+  const legacy = resolveSubagentDefaults(config, 'implement', {}, 'other/x')
   assert.deepEqual(legacy.fallbackModels, [{ model: 'legacy-fb' }])
   assert.equal(legacy.configSources.fallbackModels, 'legacy')
   // 全程未配置：字段不出现（与现状逐字一致，避免污染既有 deepEqual 断言）。
   const none = resolveSubagentDefaults({ subagents: {} }, 'implement', {})
   assert.equal(none.fallbackModels, undefined)
   assert.equal('fallbackModels' in none.configSources, false)
-})
-
-// ---------- L5c：rotate_on_busy 同类并发轮换开关 ----------
-
-test('rotate_on_busy 合法解析：两层同语法，仅 true 落内存字段', () => {
-  const root = makeRoot()
-  const home = makeHome()
-  writeProjectFile(root, 'config.json', {
-    subagents: {
-      implement: { rotate_on_busy: false },
-      research: { rotate_on_busy: true },
-    },
-    subagent_profiles: [
-      { subagents: { check: { rotate_on_busy: true }, frontend: { rotate_on_busy: false } } },
-    ],
-  })
-  try {
-    const config = loadConfig(root, { homeDir: home })
-    // false/缺省不落字段（与 fallbackModels 空数组等价缺省同模式）。
-    assert.equal(config.subagents.implement.rotateOnBusy, undefined)
-    assert.equal(config.subagents.research.rotateOnBusy, true)
-    assert.equal(config.subagentProfiles[0].subagents.check.rotateOnBusy, true)
-    assert.equal(config.subagentProfiles[0].subagents.frontend.rotateOnBusy, undefined)
-  } finally {
-    cleanup(root, home)
-  }
-})
-
-test('rotate_on_busy 非布尔按字段路径 fail loud（两层与非法形状全覆盖）', () => {
-  const cases = [
-    {
-      doc: { subagents: { implement: { rotate_on_busy: 'true' } } },
-      field: 'subagents.implement.rotate_on_busy',
-    },
-    {
-      doc: { subagents: { implement: { rotate_on_busy: 1 } } },
-      field: 'subagents.implement.rotate_on_busy',
-    },
-    {
-      doc: { subagents: { implement: { rotate_on_busy: null } } },
-      field: 'subagents.implement.rotate_on_busy',
-    },
-    {
-      doc: {
-        subagent_profiles: [{ subagents: { implement: { rotate_on_busy: 'yes' } } }],
-      },
-      field: 'subagent_profiles[0].subagents.implement.rotate_on_busy',
-    },
-  ]
-  for (const { doc, field } of cases) {
-    const root = makeRoot()
-    const home = makeHome()
-    writeProjectFile(root, 'config.json', doc)
-    try {
-      assert.throws(
-        () => loadConfig(root, { homeDir: home }),
-        (error) => {
-          assert.ok(error instanceof WorkloomConfigError)
-          assert.equal(error.field, field)
-          assert.match(error.message, /must be a boolean/)
-          return true
-        },
-      )
-    } finally {
-      cleanup(root, home)
-    }
-  }
-})
-
-test('resolveSubagentDefaults：rotateOnBusy 分层合并（profile 优先、legacy 回退、未配置不出现字段）', () => {
-  const config = {
-    subagents: { implement: { model: 'legacy-m', rotateOnBusy: true } },
-    subagentProfiles: [
-      {
-        whenMain: 'kimi-coding/k3',
-        subagents: { implement: { model: 'profile-m', rotateOnBusy: true } },
-      },
-      { subagents: {} },
-    ],
-  }
-  // 命中 profile 条目：开关与来源记 whenMain。
-  const hit = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'kimi-coding/k3')
-  assert.equal(hit.rotateOnBusy, true)
-  assert.equal(hit.configSources.rotateOnBusy, 'whenMain')
-  // 命中无该 kind 配置的兜底条目：回退旧 subagents，来源记 legacy。
-  const legacy = resolveSubagentDefaults(config, 'implement', {}, 'dsh', 'other/x')
-  assert.equal(legacy.rotateOnBusy, true)
-  assert.equal(legacy.configSources.rotateOnBusy, 'legacy')
-  // 全程未配置：字段不出现（与现状逐字一致，避免污染既有 deepEqual 断言）。
-  const none = resolveSubagentDefaults({ subagents: {} }, 'implement', {})
-  assert.equal(none.rotateOnBusy, undefined)
-  assert.equal('rotateOnBusy' in none.configSources, false)
 })
 
 // ---------- L6：model 拆分与冲突检测 ----------
@@ -1282,10 +1061,10 @@ test('splitProviderModel：provider 前缀拆分与裸 id、非法输入抛错',
 
 test('detectExecutorConflicts：配置限定字段与显式参数不一致时报冲突，一致不报', () => {
   const config = { subagents: { implement: { model: 'deepseek-official/x', effort: 'high' } } }
-  const conflicting = detectExecutorConflicts(config, 'implement', { model: 'other/y' }, 'dsh')
+  const conflicting = detectExecutorConflicts(config, 'implement', { model: 'other/y' })
   assert.equal(conflicting.length, 1)
   assert.equal(conflicting[0].field, 'model')
-  const consistent = detectExecutorConflicts(config, 'implement', { model: 'deepseek-official/x' }, 'dsh')
+  const consistent = detectExecutorConflicts(config, 'implement', { model: 'deepseek-official/x' })
   assert.equal(consistent.length, 0)
 })
 
@@ -1306,12 +1085,12 @@ test('provenance：全程无 subagent_profiles/subagents 时来源字段为 unde
   // 配置文件存在但只写无关字段：同样不定义来源字段
   const withDoc = makeRoot()
   const withDocHome = makeHome()
-  writeProjectFile(withDoc, 'config.json', { max_journal_lines: 300 })
+  writeProjectFile(withDoc, 'config.json', { session_auto_commit: false })
   try {
     const config = loadConfig(withDoc, { homeDir: withDocHome })
     assert.equal(config.subagentProfilesSource, undefined)
     assert.equal(config.subagentsSource, undefined)
-    assert.equal(config.maxJournalLines, 300)
+    assert.equal(config.sessionAutoCommit, false)
   } finally {
     cleanup(withDoc, withDocHome)
   }
@@ -1370,7 +1149,7 @@ test('provenance：对象层不含该 key 时沿用低层来源（顶层 key 覆
     subagent_profiles: [{ subagents: { implement: { model: 'g' } } }],
   })
   // 项目/local 对象层只写了别的字段：不覆盖来源层
-  writeProjectFile(root, 'config.json', { max_journal_lines: 200 })
+  writeProjectFile(root, 'config.json', { prompt_injection: { skip_keyword: 'p' } })
   writeProjectFile(root, 'config.local.json', { session_auto_commit: false })
   try {
     const config = loadConfig(root, { homeDir: home })
@@ -1429,13 +1208,13 @@ test('provenance：工厂层返回文档不含 subagent_profiles 时沿用低层
   writeProjectFile(
     root,
     'config.local.js',
-    'module.exports = () => ({ max_journal_lines: 400 })\n',
+    'module.exports = () => ({ session_auto_commit: false })\n',
   )
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.subagentProfilesSource, 'project')
     assert.deepEqual(config.subagentProfiles, [])
-    assert.equal(config.maxJournalLines, 400)
+    assert.equal(config.sessionAutoCommit, false)
   } finally {
     cleanup(root, home)
   }

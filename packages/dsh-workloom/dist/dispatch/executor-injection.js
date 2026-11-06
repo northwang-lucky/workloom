@@ -1,4 +1,5 @@
 import { buildExecutorPrompt, ERR_PREFIX, loadCaseResultTemplateText, loadCaseTemplateText, readTask, TEMPLATE_CASE_ENTRY, TEMPLATE_CASE_RESULT_ENTRY, } from '@workloom-ai/core';
+import { buildExecutorContractSection } from "./discipline-text.js";
 /** resources 条目在仓内的展示路径前缀（注入头与缺失报错用）。 */
 const RESOURCES_REPO_PREFIX = 'packages/core/resources/';
 /** CASE 模板资产（loader 由 core resources 清单提供；路径为仓内事实路径）。 */
@@ -44,6 +45,8 @@ export function buildFullInjection(root, taskRelPath, kind, userPrompt, localDir
         taskRelPath,
         kind,
         userPrompt,
+        // runtime 纪律文本（dsh 侧组装）：契约节整段注入（组装机制在 core）。
+        contractSection: buildExecutorContractSection(kind, hasLsp, userPrompt),
         localDirectives,
         hasLsp,
         purpose,

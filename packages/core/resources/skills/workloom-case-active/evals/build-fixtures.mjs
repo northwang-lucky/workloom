@@ -91,7 +91,7 @@ function addTask(root, options) {
 }
 
 mkdirSync(target)
-write(target, '.workloom/config.json', '{"packages":{"repo":{"path":"."}},"worktree":{"enabled":false},"subagent_profiles":[],"subagents":{"check":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max","rotate_on_busy":false},"implement":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max","rotate_on_busy":false}}}\n')
+write(target, '.workloom/config.json', '{"packages":{"repo":{"path":"."}},"worktree":{"enabled":false},"subagent_profiles":[],"subagents":{"check":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max"},"implement":{"model":"minimax-cn/MiniMax-M3.1-Flash","effort":"max"}}}\n')
 write(target, '.workloom/spec/README.md', '# Fixture spec\n\nUse deterministic local verification.\n')
 write(target, '.gitignore', '.pi/\n.workloom/.runtime/\n')
 const at = '2026-01-01T00:00:00.000Z'

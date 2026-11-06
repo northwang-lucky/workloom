@@ -22,8 +22,9 @@ import { execFile } from 'node:child_process'
 
 import { writeFileAtomic } from '../workspace/file-atomic.js'
 import { findWorkloomRoot, insideWorkloom, WORKLOOM_DIR } from '../workspace/locate.js'
-import { loadConfig } from '../workspace/config.js'
-import { EXECUTOR_KINDS } from '../dispatch/executor-context.js'
+import { loadConfig } from '../workspace/config-load.ts'
+// executor kind 值域的单一来源（过渡栖身地，与 executor-context 解耦）。
+import { EXECUTOR_KINDS, isExecutorKind } from '../dispatch/executor-kinds.ts'
 import { isTaskModeValue, TASK_MODES } from './task-mode.js'
 import {
   clearActiveTask,
@@ -31,22 +32,20 @@ import {
   resolveActiveTask,
   setActiveTask,
 } from './active-task.js'
-import { gitAddCommit } from '../workspace/git.js'
-import { cleanupTaskWorktree, createTaskWorktree } from '../workspace/worktree.js'
+import { gitAddCommit } from '../workspace/git-ops.ts'
+import { cleanupTaskWorktree, createTaskWorktree } from '../workspace/worktree-lifecycle.ts'
 import {
   GATES,
-  PRD_SECTIONS,
   evaluateCheckLogGate,
   evaluateFrontendDispatchGate,
   evaluateStartGate,
   makeOverride,
 } from './task-gates.js'
+// PRD 骨架常量与结构解析的单一实现在 prd-structure（骨架生成与门禁判定共享）。
+import { PRD_SECTIONS } from './prd-structure.ts'
 // CASE 生命周期门禁（import 紧随其门禁来源之后；写面只剩 start 的 required 转换）。
-import {
-  CASE_PURPOSES,
-  createCaseRecord,
-  evaluateCaseOutcomeGate,
-} from './case.js'
+import { CASE_PURPOSES, createCaseRecord } from './case-structure.ts'
+import { evaluateCaseOutcomeGate } from './case-gates.ts'
 
 /** 错误消息前缀。 */
 const ERR_PREFIX = 'workloom task'
@@ -90,7 +89,6 @@ const FILE_NAMES = Object.freeze({
   prd: 'prd.md',
   implementLog: 'implement.jsonl',
   checkLog: 'check.jsonl',
-  developer: '.developer',
 })
 
 /**
@@ -193,20 +191,6 @@ function requireProjectRoot(root) {
     throw new Error(`${ERR_PREFIX}: no .workloom directory found (searched up from ${root})`)
   }
   return found.root
-}
-
-/**
- * 读取 .workloom/.developer 内容作为 creator；文件缺失返回空串。
- * @param {string} root 项目根
- * @returns {string}
- */
-function readDeveloper(root) {
-  try {
-    return readFileSync(insideWorkloom(root, FILE_NAMES.developer), 'utf8').trim()
-  } catch (error) {
-    if (isEnoent(error)) return ''
-    throw error
-  }
 }
 
 /**
@@ -381,7 +365,7 @@ function stripTaskPath(task) {
  * @param {object} input
  * @param {import('./task-store.d.ts').CreateTaskParams} input.params 创建参数
  * @param {string} input.slug 任务 slug
- * @param {string} input.creator 创建者（.developer 内容）
+ * @param {string} input.creator 创建者（身份文件退役后恒为空串；字段保留保数据布局兼容）
  * @param {import('../workspace/config.d.ts').WorkloomConfig} input.config 配置（hooks 种子）
  * @param {string} input.now 创建时间 ISO
  * @returns {import('./task-store.d.ts').TaskRecord}
@@ -440,7 +424,7 @@ function buildTaskRecord(input) {
 
 /**
  * 生成 prd.md 骨架内容：以 `# <任务 title>` 一级标题开头，后接既有小节顺序。
- * 骨架常量 PRD_SECTIONS 在 task-gates.js（placeholder 判定与骨架生成共享）。
+ * 骨架常量 PRD_SECTIONS 在 prd-structure.ts（placeholder 判定与骨架生成共享）。
  * @param {string} title 任务标题（prd 首行 H1）
  * @returns {string}
  */
@@ -628,7 +612,8 @@ async function createTaskInternal(root, params) {
   if (existsSync(taskDir)) {
     throw new Error(`${ERR_PREFIX}: task directory already exists: ${taskRelPath}`)
   }
-  const creator = readDeveloper(projectRoot)
+  // 身份能力退役（R6）：.developer 读取整体去除，creator 恒为空串（字段保留保数据布局兼容）。
+  const creator = ''
   const config = loadConfig(projectRoot)
   // package 归属校验（design §5.1）：传入即校验 ∈ config.packages，未知值 fail loud
   // （文案列已声明包 + 指引 workloom-packages-scan）；置于任何写盘（mkdirSync）
@@ -1256,7 +1241,7 @@ function buildDispatchRecord(entry) {
   if (typeof entry.title !== 'string' || entry.title.trim() === '') {
     throw new Error(`${ERR_PREFIX}: dispatch entry title must be a non-empty string`)
   }
-  if (!Object.values(EXECUTOR_KINDS).includes(entry.kind)) {
+  if (!isExecutorKind(entry.kind)) {
     throw new Error(
       `${ERR_PREFIX}: invalid dispatch kind: ${String(entry.kind)} (must be one of ${Object.values(
         EXECUTOR_KINDS,
@@ -1367,7 +1352,7 @@ function buildDispatchRecord(entry) {
  * @returns {import('./task-store.d.ts').TaskStageValue} 新阶段
  */
 export function computeTaskStage(current, kind, purpose = CASE_PURPOSES.EXECUTION) {
-  if (typeof kind !== 'string' || !Object.values(EXECUTOR_KINDS).includes(kind)) {
+  if (!isExecutorKind(kind)) {
     throw new Error(
       `${ERR_PREFIX}: invalid kind: ${String(kind)} (must be one of ${Object.values(
         EXECUTOR_KINDS,
@@ -1583,7 +1568,9 @@ export function listTasks(root, params = {}) {
 }
 
 /**
- * 列出任务摘要（内部实现）。
+ * 列出任务摘要（内部实现）：活跃区固定枚举；includeArchived 时追加 archive 的
+ * 月份分层目录（tasks/archive/<YYYY-MM>/<name>）。两区各自保持目录遍历序
+ * （活跃区在前、归档区在后）；缺失或损坏的目录不阻塞列表。
  * @param {string} root 项目根
  * @param {import('./task-store.d.ts').ListTasksParams} params
  * @returns {import('./task-store.d.ts').TaskSummary[]}
@@ -1594,12 +1581,11 @@ function listTasksInternal(root, params) {
   if (!existsSync(tasksDir)) return []
   /** @type {import('./task-store.d.ts').TaskSummary[]} */
   const summaries = []
-  for (const entry of readdirSync(tasksDir, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name === DIR_NAMES.archive) continue
-    const taskRelPath = join(DIR_NAMES.tasks, entry.name)
+  /** @param {string} taskRelPath 任务目录相对 .workloom 的路径 */
+  const collect = (taskRelPath) => {
     const [taskErr, task] = readTask(projectRoot, taskRelPath)
-    if (taskErr || !task) continue // 缺失或损坏的目录不阻塞列表
-    if (params.status !== undefined && task.status !== params.status) continue
+    if (taskErr || !task) return // 缺失或损坏的目录不阻塞列表
+    if (params.status !== undefined && task.status !== params.status) return
     summaries.push({
       name: task.name,
       title: task.title,
@@ -1609,6 +1595,21 @@ function listTasksInternal(root, params) {
       parent: task.parent ?? null,
       taskRelPath,
     })
+  }
+  for (const entry of readdirSync(tasksDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name === DIR_NAMES.archive) continue
+    collect(join(DIR_NAMES.tasks, entry.name))
+  }
+  if (params.includeArchived !== true) return summaries
+  const archiveDir = join(tasksDir, DIR_NAMES.archive)
+  if (!existsSync(archiveDir)) return summaries
+  for (const month of readdirSync(archiveDir, { withFileTypes: true })) {
+    if (!month.isDirectory()) continue
+    const monthDir = join(archiveDir, month.name)
+    for (const taskEntry of readdirSync(monthDir, { withFileTypes: true })) {
+      if (!taskEntry.isDirectory()) continue
+      collect(join(DIR_NAMES.tasks, DIR_NAMES.archive, month.name, taskEntry.name))
+    }
   }
   return summaries
 }

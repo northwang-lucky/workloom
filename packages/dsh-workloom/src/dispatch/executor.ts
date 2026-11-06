@@ -51,12 +51,7 @@
  *   插件激活时注册一次，受限 kind 子代理的 write/edit 只允许落在其 cwd 的
  *   .workloom/ 内（越界拒绝），派发成功时登记子会话身份，重启后守卫按任务记录懒重建；
  * - 返回文本尾部追加 receipt 行，标注生效 model 及来源与复用标记：后台 receipt
- *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨；同步走链成功时追加
- *   (failover attempt N: <model>) 标注实际生效模型。
- * - 失败转移（executor-failover.ts）：配置 fallback_models 的 kind 在模型不可访问
- *   （白名单 code）时自动换模型——派发时同步走链（本文件），运行中失败在结算后
- *   fire-and-forget 新开会话重派（executor-settle 钩子）；未配置 / 显式 model /
- *   非白名单错误一律维持现状（零行为变化）。
+ *   标注 (reused) 于续用轮，使配置来源/复用一眼可辨。
  * - 并发容量闸（executor-capacity.ts）：新派发与续用入口均先取本主会话 running 集合
  *   （DSH 原生 listDescendants(parentId) 直子级 running 行，会话级，不跨会话），
  *   结合 dispatches 记录 + label 解析补全 childId→kind 映射，调用 core 的
@@ -64,31 +59,25 @@
  *   续用路径先把目标 childId 从 running 集合排除（其槽不重复计）；拒绝时返回英文
  *   at capacity 回执文案（注明撞限层级与计数），不写 dispatches、不 spawn，主会话稍后
  *   自行重试；不引入队列与 pending 态。
- * - 同类并发轮换（rotate_on_busy，core executor-rotation 纯函数 + 本文件编排）：
- *   开关开且未显式 model 且链非空时，闸放行后的同步段把 [主模型位, fallback_models…]
- *   池按「同 kind 已占用模型」顺延取首个未占用条目作起始绑定（全占用回绕主模型位），
- *   并把环形顺序物化为线性转移链（起点之后的环序，绕回段含主模型位条目）；留痕
- *   modelSource 记 rotate，回执追加 (rotated: <model>)；占用取数三级优先：进程内
- *   绑定登记 → 本任务 dispatches 记录 → 读不到按主模型位归一（保守）。开关关 /
- *   显式 model / 续用轮 / 容量拒绝路径零行为变化。
  *
  * 模块边界：本文件负责工具注册（registerExecutor）与执行编排（executeTool）；
  * 参数 schema 装配在 executor-schema.ts，prompt 组装在 executor-injection.ts，
  * receipt 渲染在 executor-receipt.ts，continuable 会话操作在 executor-continuation.ts，
- * 终态回填在 executor-settle.ts，失败转移编排在 executor-failover.ts，工具面白名单在
+ * 终态回填在 executor-settle.ts，工具面白名单在
  * executor-dispatch.ts，research 守卫在 executor-guard.ts，并发容量闸在
  * executor-capacity.ts。
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 
+import { randomUUID } from 'node:crypto'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 // Context 增强类型登记：tools/subagents 官方服务类型
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-tools'
 
-import type { ExecutorInjectionStats, RunningExecutorRecord } from '@workloom-ai/core'
+import type { ExecutorInjectionStats, TextBlockLike } from '@workloom-ai/core'
 
 import {
   assertEffort,
@@ -98,33 +87,34 @@ import {
   composeLocalDirectivesText,
   CONTINUE_REBIND_REJECT_TEXT,
   detectExecutorConflicts,
-  DISPATCH_MODEL_SOURCES,
   ERR_PREFIX,
   evaluateLightDispatchGate,
   findWorkloomRoot,
   GATES,
   buildExecutorIncrementalPrompt,
   loadConfig,
-  materializeRingChain,
-  PARENT_MODEL_LABEL,
   PARAM_DESCRIPTIONS,
   readTask,
   recordExecutorDispatch,
   recordExecutorOverride,
   recordGateOverride,
+  renderOutput,
   resolveSubagentDefaults,
   resolveTaskRelPath,
-  selectRotationStartIndex,
   splitProviderModel,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
 } from '@workloom-ai/core'
 
 import { CONTEXT_KEY_PREFIX, DISPATCH_WARN_PREFIX } from '../constants.ts'
-import { assertAllowListNonEmpty, buildAllowFilter, hasLspTooling } from './executor-dispatch.ts'
+import {
+  assertAllowListNonEmpty,
+  buildAllowFilter,
+  hasLspTooling,
+  SPAWN_PROVIDER,
+} from './executor-dispatch.ts'
 import {
   collectRunningExecutors,
-  collectUsedModels,
   evaluateCapacityGate,
   generateDispatchSeq,
   registerInFlightDispatch,
@@ -137,16 +127,8 @@ import {
   readSpawnBinding,
 } from './executor-continuation.ts'
 import type { TurnMeta } from './executor-continuation.ts'
-import {
-  handleSettledDispatch,
-  markFailoverContinued,
-  registerFailoverContext,
-  startDispatchWithFailover,
-} from './executor-failover.ts'
-import type { FallbackModelEntry } from './executor-failover.ts'
-import { buildFallbackAgentOptions } from './executor-failover-chain.ts'
 import { registerDispatchSettlement, trackDispatchSettle } from './executor-settle.ts'
-import { registerExecutorToolface } from './executor-toolface.ts'
+import { registerExecutorToolface, registerExecutorToolfaceChild, releaseExecutorToolfaceChild } from './executor-toolface.ts'
 import { readMainModel } from './main-model.ts'
 import { buildExecutorSchema } from './executor-schema.ts'
 import {
@@ -156,18 +138,11 @@ import {
 } from './executor-injection.ts'
 import {
   buildSpawnEntryBinding,
-  renderOutput,
   translateForkContinueError,
 } from './executor-receipt.ts'
 
 /** 覆盖审计记录失败告警前缀（记录失败不阻塞派发）。 */
 const OVERRIDE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to record executor override:`
-
-/** 纯文本块最小形状（render 与返回值共用）。 */
-export interface TextBlockLike {
-  type: 'text'
-  text: string
-}
 
 /** 工具参数最小形状（execute 入参；title 由 schema 保证必填非空）。 */
 interface ExecutorArgs {
@@ -211,9 +186,8 @@ export function registerExecutor(ctx: Context): void {
   // 受限写执行器守卫：插件激活时注册一次（机制强制面：受限 kind 只能写 <cwd>/.workloom/）。
   registerWriteGuard(ctx)
   // 派发终态回填通道：全局 subagent/end 监听按 childId 自动回填 dispatches 终态
-  // （register 自绑定 fiber 生命周期，插件卸载自动清理）；settle 完成后接失败转移
-  // 钩子（模型不可访问时按 fallback_models 链新开会话重派）。
-  registerDispatchSettlement(ctx, (settled) => handleSettledDispatch(ctx, settled))
+  // （register 自绑定 fiber 生命周期，插件卸载自动清理）。
+  registerDispatchSettlement(ctx)
   // 工具面收窄通道：agent/created 串行监听按 childId 施加白名单
   // （DSH 0.2.1 起按次 toolFilter 通道取消后的官方替代路径）。
   registerExecutorToolface(ctx)
@@ -265,24 +239,12 @@ async function executeTool(
   // assertEffort 校验合法档位（非法值 fail loud，不静默丢弃）。
   const config = loadConfig(root)
   const mainModel = readMainModel(parent)
-  const effective = resolveSubagentDefaults(
-    config,
-    params.kind,
-    { model: params.model, effort: params.effort },
-    'dsh',
-    mainModel,
-  )
+  const effective = resolveSubagentDefaults(config, params.kind, { model: params.model, effort: params.effort }, mainModel)
   // effort 非法档位 fail loud（core 校验，与 adapter-pi 语义一致）；冲突检测：
   // 显式 model/effort 与配置（按主模型合并后的生效值）不一致时，无 force 返回
   // 提示（不派发）；force 放行须带非空 reason 留痕，覆盖审计写入 task.json。
   assertEffort(effective.effort)
-  const conflicts = detectExecutorConflicts(
-    config,
-    params.kind,
-    { model: params.model, effort: params.effort },
-    'dsh',
-    mainModel,
-  )
+  const conflicts = detectExecutorConflicts(config, params.kind, { model: params.model, effort: params.effort }, mainModel)
   if (conflicts.length > 0 && params.force !== true) {
     return {
       kind: 'notice',
@@ -367,37 +329,25 @@ async function executeTool(
   // 即「executor 子代理禁止再派发 workloom_execute」。
   let childId: string
   let reused = false
+  // 本机片段合成文本：新派发与 reinject 续接两条路径共用同一组装（单次解析，R7）。
+  const [localErr, localDirectives] = composeLocalDirectivesText(root, params.kind)
+  if (localErr !== null) throw localErr
   // 续派轮的 spawn 绑定（design §8.3）：从 childId 首次派发记录读取的 model/effort，
   // 续派记录沿用该值、回执如实展示；新派轮为 null（绑定在派发后由本函数落盘）。
   let spawnBinding: { model?: string; effort?: string } | null = null
-  // 新派发的失败转移链（配置解析结果；续用轮不消费）与同步走链成功时的标注
-  //（本跳序号 + 实际生效模型 + 上一跳 childId，用于 dispatches 链式留痕）。
-  let failoverChain: FallbackModelEntry[] = []
-  let failover:
-    | { attempt: number; model: string; effort?: string; fallbackOf: string }
-    | undefined
   // 本轮实际发送内容与其注入统计：新派发/续接 reinject 走全量 buildExecutorPrompt
   // 产物；续接默认只发主会话增量指令（不重注入全量上下文），注入统计如实反映
   // 实际发送内容（增量时内联/截断/索引为 0、KB 为增量体积）。
   let sendText: string
   let injection: ExecutorInjectionStats
-  // 同类并发轮换（design §6）：rotate_on_busy 选中链条目起步时的标注（实际选定
-  // model/effort）；主模型位起步（开关关/无同类/全占用回绕/显式 model）为 undefined。
-  let rotation: { model: string; effort?: string } | undefined
-  // 起始绑定模型 label（留痕/转移上下文共用）：轮换选中链条目时更新为该条目模型，
-  // 其余（含续用轮）保持主模型位。
-  let selectedModel = effective.model ?? PARENT_MODEL_LABEL
   /**
-   * 派发入口并发容量闸（新派发与续用共用）：一次取数两用——text 供闸判定，
-   * running 供放行后的轮换选取（避免二次 listDescendants 的异步窗口）。
-   * 拒绝时 text 为 at capacity 回执文案（外层据此返回文本、不写 dispatches、
-   * 不 spawn）；放行 text 为 null。续用路径传入 excludeChildId，把目标 child 从
-   * running 集合排除（其已有 running 槽不重复计）。
+   * 派发入口并发容量闸（新派发与续用共用）：拒绝时返回 at capacity 回执文案
+   * （外层据此返回文本、不写 dispatches、不 spawn）；放行返回 null。
+   * 续用路径传入 excludeChildId，把目标 child 从 running 集合排除（其已有
+   * running 槽不重复计）。
    * @param excludeChildId 续用目标 childId（新派发不传）
    */
-  async function runCapacityGate(
-    excludeChildId?: string,
-  ): Promise<{ text: string | null; running: RunningExecutorRecord[] }> {
+  async function runCapacityGate(excludeChildId?: string): Promise<string | null> {
     const running = await collectRunningExecutors(
       ctx.subagents,
       parent!,
@@ -406,13 +356,12 @@ async function executeTool(
       taskRelPath,
       excludeChildId,
     )
-    const text = evaluateCapacityGate(
+    return evaluateCapacityGate(
       running,
       params.kind,
       config.executor.maxConcurrent,
       effective.maxConcurrent,
     )
-    return { text, running }
   }
   if (params.continue_executor !== undefined) {
     // 定位失败返回明确提示（不报错）：旧记录缺 childId / 无同 kind 记录 / 跨 kind /
@@ -434,31 +383,20 @@ async function executeTool(
     // 并发容量闸（续用）：先把目标 childId 从 running 集合排除（其已有 running 槽不重复计），
     // 再取本会话 running 集合判定；拒绝时返回 at capacity 文本，不投递、不写 dispatches。
     const continueCapacity = await runCapacityGate(childId)
-    if (continueCapacity.text !== null) {
+    if (continueCapacity !== null) {
       return {
         kind: 'notice',
-        output: [{ type: 'text', text: continueCapacity.text }],
+        output: [{ type: 'text', text: continueCapacity }],
       }
     }
     // 读取首次派发记录落盘的绑定（读不到/旧记录缺字段返回 null → 回执 unrecorded）。
-    // 先读绑定再登记 in-flight（同步序，无 await 间隙）：登记值尽量取该 child 的
-    // 真实绑定模型，读不到按主模型位归一（保守宁多占主模型位）。
     spawnBinding = readSpawnBinding(root, taskRelPath, childId)
     // 续用闸放行后同步登记 in-flight 条目（占槽），关闭并行工具调用的异步窗口竞态；
     // sendMessage 投递成功后移除本地项（child 已在 native 视野）。
     const continueSeq = generateDispatchSeq()
-    registerInFlightDispatch(
-      continueSeq,
-      params.kind,
-      spawnBinding?.model ?? effective.model ?? PARENT_MODEL_LABEL,
-    )
+    registerInFlightDispatch(continueSeq, params.kind)
     if (params.reinject === true) {
       // 显式 reinject：恢复全量上下文注入（压缩丢失的兜底），与现状行为一致。
-      const [localErr, localDirectives] = composeLocalDirectivesText(
-        root,
-        params.kind,
-      )
-      if (localErr !== null) throw localErr
       const built = buildFullInjection(
         root,
         taskRelPath,
@@ -498,19 +436,12 @@ async function executeTool(
       })
       // 投递成功：child 已在 native 视野，移除 in-flight 本地项。
       releaseInFlightDispatch(continueSeq)
-      // 续用轮标记：该 child 若之后死于白名单错误，转移说明需注明增量指令已丢失。
-      markFailoverContinued(childId)
     } catch (error) {
       // 投递失败：释放 in-flight 槽位，不留永久占位。
       releaseInFlightDispatch(continueSeq)
       throw translateForkContinueError(error)
     }
   } else {
-    const [localErr, localDirectives] = composeLocalDirectivesText(
-      root,
-      params.kind,
-    )
-    if (localErr !== null) throw localErr
     const built = buildFullInjection(
       root,
       taskRelPath,
@@ -522,95 +453,41 @@ async function executeTool(
     )
     sendText = built.text
     injection = injectionStats(built, allowFilter.allow.length)
-    // 并发容量闸（新派发）：一次取数两用——text 供判定，running 供轮换选取；
-    // 拒绝时返回 at capacity 文本，不 spawn、不写 dispatches。
+    // 并发容量闸（新派发）：拒绝时返回 at capacity 文本，不 spawn、不写 dispatches。
     const dispatchGate = await runCapacityGate()
-    if (dispatchGate.text !== null) {
+    if (dispatchGate !== null) {
       return {
         kind: 'notice',
-        output: [{ type: 'text', text: dispatchGate.text }],
-      }
-    }
-    // 失败转移链：仅新派发且未显式传 model 时启用（显式即明确意图）。
-    failoverChain = params.model === undefined ? (effective.fallbackModels ?? []) : []
-    // 同类并发轮换（design §6）：开关开 + 未显式 model + 链非空时，把池视为环形，
-    // 在闸放行后的同步段选取首个未被同类占用的条目作起始绑定，并把环形顺序物化
-    // 为线性转移链（i=0 恒等现状，零行为变化）。全占用回绕主模型位：不拒绝、
-    // 不排队，绑定与链维持现状。占用读不到的绑定归一为主模型位 label（保守）。
-    // 本段与下方 in-flight 登记之间不得有 await 间隙（code-style concurrency）。
-    if (
-      effective.rotateOnBusy === true &&
-      params.model === undefined &&
-      failoverChain.length > 0
-    ) {
-      const primaryEntry = {
-        model: effective.model ?? PARENT_MODEL_LABEL,
-        ...(effective.effort !== undefined ? { effort: effective.effort } : {}),
-      }
-      const pool = [primaryEntry, ...failoverChain]
-      const usedModels = collectUsedModels(
-        dispatchGate.running,
-        params.kind,
-        primaryEntry.model,
-      )
-      const startIndex = selectRotationStartIndex({
-        poolModels: pool.map((entry) => entry.model),
-        usedModels,
-      })
-      if (startIndex > 0) {
-        const materialized = materializeRingChain({ pool, startIndex })
-        failoverChain = materialized.chain
-        rotation = {
-          model: materialized.startEntry?.model ?? primaryEntry.model,
-          ...(materialized.startEntry?.effort !== undefined
-            ? { effort: materialized.startEntry.effort }
-            : {}),
-        }
+        output: [{ type: 'text', text: dispatchGate }],
       }
     }
     const childLabel = buildChildLabel(root, taskRelPath, params.kind, params.title)
-    // 起始绑定与 in-flight 登记用的实际选定模型 label：轮换选中链条目时为该条目
-    // （agentOptions 按链条目另组），其余为主模型位（现状 agentOptions）。
-    const rotationAgentOptions =
-      rotation === undefined ? agentOptions : buildFallbackAgentOptions(rotation)
-    if (rotation !== undefined) selectedModel = rotation.model
-    // 闸放行后同步登记 in-flight 条目（占槽，携带实际选定模型——并行两笔同类
-    // 派发在同步段互见选择、不撞同一模型）；startContinuable 成功返回后 child 已进
-    // native 视野→移除本地项；失败/异常路径同样移除。
+    // 闸放行后同步登记 in-flight 条目（占槽），关闭并行工具调用的异步窗口竞态；
+    // startActivation 成功返回后 child 已进 native 视野→移除本地项；失败路径同样移除。
     const dispatchSeq = generateDispatchSeq()
-    registerInFlightDispatch(dispatchSeq, params.kind, selectedModel)
+    registerInFlightDispatch(dispatchSeq, params.kind)
+    // 预分配 childId 并在创建前登记工具白名单（agent/created 早于 startActivation
+    // 返回）；启动失败撤销登记，避免 id 泄漏进索引。
+    const reservedChildId = SessionId(randomUUID())
+    registerExecutorToolfaceChild(reservedChildId, allowFilter.allow)
     try {
-      // 起始模型失败于白名单 code 时在本次工具调用内按链重试（executor-failover.ts）；
-      // 每跳预分配 childId、创建前登记工具白名单、失败撤销登记并留 failed 记录。
-      // 轮换选中链条目时起始绑定记 rotate（审计口径），失败留痕沿用该绑定。
-      const outcome = await startDispatchWithFailover({
-        ctx,
-        parent,
-        signal: exec.signal,
-        root,
-        taskRelPath,
-        kind: params.kind,
-        title: params.title,
+      const started = await ctx.subagents.startActivation({
+        provider: SPAWN_PROVIDER,
         label: childLabel,
-        sendText,
-        allowNames: allowFilter.allow,
-        agentOptions: rotationAgentOptions,
-        chain: failoverChain,
-        primaryBinding:
-          rotation !== undefined
-            ? {
-                model: rotation.model,
-                ...(rotation.effort !== undefined ? { effort: rotation.effort } : {}),
-                modelSource: DISPATCH_MODEL_SOURCES.ROTATE,
-              }
-            : buildNewDispatchBinding(params, effective, mainModel),
-        primaryModel: selectedModel,
-        purpose: params.purpose,
+        childId: reservedChildId,
+        request: {
+          prompt: [{ type: 'text', text: sendText }],
+          parent,
+          agentOptions,
+          maxDepth: 1,
+        },
+        signal: exec.signal,
+        delivery: 'parent',
       })
-      childId = outcome.started.childId
-      failover = outcome.failover
+      childId = started.childId
     } catch (error) {
-      // 启动失败 / 链穷尽：释放 in-flight 槽位，不留永久占位（错误原样抛出）。
+      // 启动失败：撤销白名单登记、释放 in-flight 槽位，不留永久占位（错误原样抛出）。
+      releaseExecutorToolfaceChild(reservedChildId)
       releaseInFlightDispatch(dispatchSeq)
       throw error
     }
@@ -629,54 +506,16 @@ async function executeTool(
     childId,
     // 白名单落记录：冷恢复时据此重建限制，不依赖插件内存索引。
     toolsAllow: allowFilter.allow,
-    // 续派轮沿用 spawn 绑定（可能无绑定字段 → 不落）；新派轮轮换选中链条目时落
-    // 实际选定绑定（modelSource: rotate）；其余新派轮落本次生效绑定。
+    // 续派轮沿用 spawn 绑定（可能无绑定字段 → 不落）；新派轮落本次生效绑定。
     ...(reused
       ? buildSpawnEntryBinding(spawnBinding)
-      : rotation !== undefined
-        ? {
-            model: rotation.model,
-            ...(rotation.effort !== undefined ? { effort: rotation.effort } : {}),
-            modelSource: DISPATCH_MODEL_SOURCES.ROTATE,
-          }
-        : buildNewDispatchBinding(params, effective, mainModel)),
-    // 同步走链成功：覆盖为起点之外的转移绑定，并落链式关联（上一跳 childId）。
-    ...(failover !== undefined
-      ? {
-          model: failover.model,
-          ...(failover.effort !== undefined ? { effort: failover.effort } : {}),
-          modelSource: DISPATCH_MODEL_SOURCES.FALLBACK,
-          fallbackOf: failover.fallbackOf,
-          fallbackAttempt: failover.attempt,
-        }
-      : {}),
+      : buildNewDispatchBinding(params, effective, mainModel)),
   })
   if (dispatchErr !== null) {
     console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`)
   }
   // 登记终态回填定位（subagent/end 按 childId 关联 dispatches 记录）。
   trackDispatchSettle(childId, root, taskRelPath)
-  // 失败转移上下文（结算后按链重派）：仅新派发、未显式传 model、链非空时登记；
-  // 显式 model / 未配置链不登记，转移天然不发生（零行为变化）。chain/起点按轮换
-  // 物化链填写（轮换起点为链首，异步重派沿物化链续走环形顺序）。
-  if (!reused && params.model === undefined && failoverChain.length > 0) {
-    registerFailoverContext(childId, {
-      root,
-      taskRelPath,
-      kind: params.kind,
-      title: params.title,
-      firstPrompt: params.prompt,
-      continued: false,
-      chain: failoverChain,
-      attempt: failover?.attempt ?? 1,
-      currentModel: failover?.model ?? selectedModel,
-      primaryModel: selectedModel,
-      parent,
-      allowNames: allowFilter.allow,
-      hasLsp,
-      purpose: params.purpose,
-    })
-  }
   // 受限写 kind 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
   if (WRITE_GUARDED_KINDS.includes(params.kind)) {
     registerWriteGuardChildId(root, childId)
@@ -690,12 +529,6 @@ async function executeTool(
     // 续派轮传 spawn 绑定（可能为 undefined = 记录无绑定，回执渲染 unrecorded）；
     // 新派轮不传（走现状 receipt，未绑定字段时仍显示 (param)/(config…) 现状）。
     ...(reused ? { spawnBinding: spawnBinding ?? undefined } : {}),
-    // 同类并发轮换选中链条目起步：回执追加 (rotated: <model>) 标注。
-    ...(rotation !== undefined ? { rotation: { model: rotation.model } } : {}),
-    // 同步走链成功：回执如实标注实际生效模型与跳序号。
-    ...(failover !== undefined
-      ? { failover: { attempt: failover.attempt, model: failover.model } }
-      : {}),
   }
   return {
     kind: 'background',

@@ -7,27 +7,22 @@
  * - always-on 行为规范（norms）随快照每轮重新组装：契约升级后下一轮即生效，
  *   不依赖模型自觉或新开会话；
  * - 内容全部英文，整块包裹在 <workloom-session-context> 标记内，便于模型识别边界；
- * - 数据读取采取「可降级」策略：developer/git 读取失败降级为占位值，任务解析失败显式
+ * - 数据读取采取「可降级」策略：git 读取失败降级为占位值，任务解析失败显式
  *   返回 err（结构性故障不静默）；全部同步 I/O，供同步 text provider 直接调用；
  * - root 约定为项目根（由 adapter 传 findWorkloomRoot 的结果），内部只拼路径不再向上查找。
  */
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { insideWorkloom } from '../workspace/locate.js';
-import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from '../workspace/git.js';
+import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from "../workspace/git-query.js";
 import { resolveActiveTask } from '../task/active-task.js';
 import { listTasks, readTask, TaskStatus } from '../task/task-store.js';
-import { loadConfig } from '../workspace/config.js';
+import { loadConfig } from "../workspace/config-load.js";
 import { collectSpecIndexes } from './spec-index.js';
-import { renderExecutorProfilesSection } from '../dispatch/executor-profiles.js';
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom session context';
 /** 注入块开/闭标记（包住整份快照）。 */
 const BLOCK_OPEN = '<workloom-session-context>';
 const BLOCK_CLOSE = '</workloom-session-context>';
-/** developer 文件相对 .workloom 的路径。 */
-const DEVELOPER_REL_PATH = '.developer';
-/** 未知占位值（developer 与 git 分支共用同一占位语义）。 */
+/** 未知占位值（git 分支读取失败时使用）。 */
 const UNKNOWN_VALUE = 'unknown';
 /** 无活跃任务行（整行固定文案）。 */
 const NO_ACTIVE_TASK_LINE = 'No active task.';
@@ -47,7 +42,6 @@ const CANDIDATE_STATUS_RANK = new Map([
 const LAST_DISPATCH_PREFIX = 'Last dispatch: ';
 /** 各行的固定标签前缀。 */
 const LINE_LABELS = Object.freeze({
-    developer: 'Developer: ',
     activeTask: 'Active task: "',
     git: 'Git: branch ',
     worktree: 'Worktree: ',
@@ -70,7 +64,7 @@ const LOCAL_DIRECTIVES_LABEL = 'Local directives:';
 const EXECUTOR_NORMS = [
     'Executor (always-on):',
     '- You are a leaf executor: implement the task directly, never delegate to other agents.',
-    '- Do not call workloom orchestration tools (workloom_execute, workloom_step, workloom_task_*, workloom_journal) or any subagent-spawning tools.',
+    '- Do not call workloom orchestration tools (workloom_execute, workloom_step, workloom_task_*) or any subagent-spawning tools.',
     '- Implement strictly per the task artifacts (prd/plan) and the files referenced by the task jsonl.',
     '- Follow test-first discipline: write the failing test, then the minimal implementation, then run it green.',
     '- Verify your work (lint, typecheck, tests, build) before reporting; never commit or push.',
@@ -94,27 +88,25 @@ export function assembleSessionContext(params) {
     }
 }
 /**
- * 组装实现（内部）：depth=0 按 Developer / Active task / 候选任务（无活跃任务时）/
- * Last dispatch / Executor profiles / Git / Worktree / 工作流 / guidelines 顺序拼行，
- * 结尾按需追加 norms 小节（always-on
- * 规范原文）；depth>0（executor 等叶子子代理）按白名单只拼 Active task / guidelines /
- * executor norms——Developer / Last dispatch / Executor profiles / Git / 工作流概览
- * 对执行器无价值，裁剪省注入体积。整体包进块标记。配置一次读取、两节消费（画像节
- * + guidelines 共用 loadConfig 结果），配置解析失败时两节各自整节降级，不拖垮快照。
+ * 组装实现（内部）：depth=0 按 Active task / 候选任务（无活跃任务时）/
+ * Last dispatch / Git / Worktree / 工作流顺序拼行，结尾按需追加 norms 小节
+ * （always-on 规范原文）；depth>0（executor 等叶子子代理）按白名单只拼
+ * Active task / guidelines / executor norms——Last dispatch / Git /
+ * 工作流概览对执行器无价值，裁剪省注入体积。整体包进块标记。配置一次读取供
+ * guidelines 节消费，配置解析失败时该节整节降级，不拖垮快照。
  * @param params 入参
  * @returns 快照文本
  */
 function assembleInternal(params) {
     const config = loadConfigSafely(params.root);
     const depth = params.delegationDepth ?? 0;
-    const active = activeTaskContext(params);
+    const active = params.turnTask != null
+        ? activeTaskContextFromRecord(params.turnTask)
+        : activeTaskContext(params);
     const lines = [];
-    if (depth === 0) {
-        lines.push(`${LINE_LABELS.developer}${readDeveloper(params.root)}`);
-    }
     lines.push(active.line);
     if (depth === 0) {
-        lines.push(...candidateTaskLines(params.root, active.task), ...lastDispatchLines(active.task), ...executorProfilesLines(params, config), gitLine(params.root), ...worktreeLines(params.root, active.task));
+        lines.push(...candidateTaskLines(params.root, active.task), ...lastDispatchLines(active.task), gitLine(params.root), ...worktreeLines(params.root, active.task));
         if (params.workflowSteps.length > 0) {
             const overview = params.workflowSteps
                 .map((step) => `${step.id} ${step.title}`)
@@ -140,8 +132,8 @@ function assembleInternal(params) {
     return `${BLOCK_OPEN}\n${lines.join('\n')}\n${BLOCK_CLOSE}`;
 }
 /**
- * 尽力加载配置（内部）：配置解析失败返回 null（配置错误不 fail loud——画像节与
- * guidelines 节各自整节降级，保持既有降级策略，不拖垮整份快照）。
+ * 尽力加载配置（内部）：配置解析失败返回 null（配置错误不 fail loud——guidelines
+ * 节整节降级，保持既有降级策略，不拖垮整份快照）。
  * @param root 项目根
  * @returns 配置对象或 null
  */
@@ -151,24 +143,6 @@ function loadConfigSafely(root) {
     }
     catch {
         return null;
-    }
-}
-/**
- * 组装 Executor profiles 节（内部）：复用 renderExecutorProfilesSection 渲染五个
- * kind 画像；配置缺失（解析失败已降级为 null）或画像解析失败（如 per-runtime
- * model 缺 runtime）时整节不输出。
- * @param params 入参（mainModel 供 whenMain 匹配与标题展示）
- * @param config 配置对象（可能为 null）
- * @returns 节行列表（可能为空）
- */
-function executorProfilesLines(params, config) {
-    if (config === null)
-        return [];
-    try {
-        return renderExecutorProfilesSection(config, { mainModel: params.mainModel });
-    }
-    catch {
-        return [];
     }
 }
 /** norms 是否非空（null/undefined/空白视为无 norms，快照结构不变）。 */
@@ -181,7 +155,7 @@ function hasText(text) {
 }
 /**
  * 组装 guidelines 段：收集 spec 索引并逐行缩进；无 spec 返回空（段不输出）。
- * config 解析失败时整段降级为空（与 developer/git 降级同策，不拖垮整份快照）；
+ * config 解析失败时整段降级为空（与 git 降级同策，不拖垮整份快照）；
  * spec 目录读取失败仍抛错上行（fail loud，行为规格 §3.6）。
  * @param root 项目根
  * @param config 配置对象（assembleInternal 已加载；解析失败为 null）
@@ -202,22 +176,6 @@ function guidelinesLines(root, config) {
     return lines;
 }
 /**
- * 读取 .workloom/.developer 作为 developer；文件缺失或内容为空降级为 unknown。
- * @param root 项目根
- * @returns developer 值
- */
-function readDeveloper(root) {
-    try {
-        const raw = readFileSync(insideWorkloom(root, DEVELOPER_REL_PATH), 'utf8').trim();
-        return raw === '' ? UNKNOWN_VALUE : raw;
-    }
-    catch (error) {
-        if (isEnoent(error))
-            return UNKNOWN_VALUE;
-        throw error;
-    }
-}
-/**
  * 解析活跃任务（内部）：一次 readTask、同时产出 Active task 行与任务记录（供
  * Last dispatch 行消费）。无任务返回固定文案 + null；任务解析失败抛错（结构性故障）。
  * @param params 入参
@@ -233,9 +191,17 @@ function activeTaskContext(params) {
     if (taskErr || task === null) {
         throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`);
     }
+    return activeTaskContextFromRecord(task);
+}
+/**
+ * 从已解析的任务记录组装活跃任务行（单一解析链下游；零额外读盘）。
+ * @param task 活跃任务记录
+ * @returns 活跃任务行与任务记录
+ */
+function activeTaskContextFromRecord(task) {
     // 数据布局被破坏（缺 title/status）属结构性故障：显式抛错而非渲染 undefined。
     if (typeof task.title !== 'string' || typeof task.status !== 'string') {
-        throw new Error(`${ERR_PREFIX}: task record missing title or status: ${taskRelPath}`);
+        throw new Error(`${ERR_PREFIX}: task record missing title or status: ${task.taskRelPath}`);
     }
     // 旧任务迁移提示（AC22）：本功能前开始的完整任务（case=null）指路 workloom-case-active。
     const legacyCase = task.status === 'in_progress' && task.mode === 'full' && task.case === null
@@ -250,7 +216,7 @@ function activeTaskContext(params) {
  * 组装候选任务节（内部）：无活跃任务时列出项目内既有任务，按接续优先级排序
  * （in_progress > completed > planning，组内保持 listTasks 的目录遍历序，目录名
  * 带日期前缀即创建序），让新会话开局就能定位可接续的工作；有活跃任务、listTasks
- * 失败或无可渲染任务时输出空列表。信息节整体降级（与 developer/git 降级同策），
+ * 失败或无可渲染任务时输出空列表。信息节整体降级（与 git 降级同策），
  * 不拖垮快照。
  * @param root 项目根
  * @param task 活跃任务记录（无任务为 null）
@@ -367,9 +333,5 @@ function worktreeLines(root, task) {
 /** 把任意异常归一为 Error（内部）。 */
 function toError(value) {
     return value instanceof Error ? value : new Error(String(value));
-}
-/** 判断异常是否为文件不存在（内部）。 */
-function isEnoent(error) {
-    return error?.code === 'ENOENT';
 }
 //# sourceMappingURL=session-context.js.map

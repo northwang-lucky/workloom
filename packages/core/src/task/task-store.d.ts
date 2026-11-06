@@ -312,6 +312,8 @@ export interface ArchiveTaskParams {
 /** listTasks 参数。 */
 export interface ListTasksParams {
   status?: TaskStatusValue
+  /** 是否追加枚举 archive/ 下的归档任务（缺省 false，只列活跃区）。 */
+  includeArchived?: boolean
 }
 
 /** 由标题生成 kebab-case slug。 */

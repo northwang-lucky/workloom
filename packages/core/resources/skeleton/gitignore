@@ -1,0 +1,9 @@
+# Runtime state (session pointers and task worktrees), per-machine.
+.runtime/
+
+# Local config overrides (per-machine).
+config.local.json
+config.local.js
+
+# Local prompt extensions (per-machine discipline fragments).
+prompts.local/

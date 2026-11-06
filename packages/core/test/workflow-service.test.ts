@@ -10,9 +10,20 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { assembleBreadcrumb, assembleWorkflowProjection } from '../src/injection/workflow-service.ts'
+import { assembleBreadcrumbSync, assembleWorkflowProjection } from '../src/injection/workflow-service.ts'
 import { createTask } from '../src/task/task-store.js'
 import { setActiveTask } from '../src/task/active-task.js'
+
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir 注入
+// 缝时吃 os.homedir 实时值）；本机真实全局配置会泄漏进单测。重定向 HOME 到临时目录
+// 使全局层恒为空（与 config.test.ts 的 homeDir 注入、executor.test.ts 的重定向同口径）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-core-home-'))
+// TMPDIR 一并指向隔离目录：夹具临时目录随之落在 HOME 之内，findWorkloomRoot 的
+// 上溯在 HOME 边界停下（与真实环境“家目录为上溯边界”的语义一致），不会误发现
+// 本机真实家目录的 .workloom。
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
+
 
 /** 内联小契约（front-matter 与四个状态块，与 assets 的 states 对齐）。 */
 const CONTRACT_TEXT = [
@@ -66,7 +77,7 @@ function addTask(root, contextKey, status) {
 test('无任务时返回 no_task 指引块', async () => {
   const root = makeProject()
   try {
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_1',
       contractText: CONTRACT_TEXT,
@@ -82,7 +93,7 @@ test('任务 planning 时返回 planning 指引块', async () => {
   const root = makeProject()
   try {
     addTask(root, 'dsh_wf_2', 'planning')
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_2',
       contractText: CONTRACT_TEXT,
@@ -107,7 +118,7 @@ test('overlay 覆盖 planning 块正文后生效', async () => {
         '',
       ].join('\n'),
     )
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_3',
       contractText: CONTRACT_TEXT,
@@ -126,7 +137,7 @@ test('用户消息命中 skip 关键词时返回 null', async () => {
       join(root, '.workloom', 'config.json'),
       JSON.stringify({ prompt_injection: { skip_keyword: 'stop-workloom' } }),
     )
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_4',
       contractText: CONTRACT_TEXT,
@@ -142,7 +153,7 @@ test('用户消息命中 skip 关键词时返回 null', async () => {
 test('根目录无 .workloom 时返回 err', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-wf-'))
   try {
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_5',
       contractText: CONTRACT_TEXT,
@@ -160,7 +171,7 @@ test('overlay 引入未声明状态时返回 err', async () => {
   try {
     const overlayText = '[workflow-state:archived]\noval\n[/workflow-state:archived]\n'
     writeFileSync(join(root, '.workloom', 'workflow.override.md'), overlayText)
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_6',
       contractText: CONTRACT_TEXT,
@@ -183,7 +194,7 @@ test('task.json 状态损坏时返回 err', async () => {
     json.status = 'banana'
     writeFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), JSON.stringify(json))
     setActiveTask(root, 'dsh_wf_7', created.taskRelPath)
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_7',
       contractText: CONTRACT_TEXT,
@@ -201,7 +212,7 @@ test('delegationDepth>0 时完全不注入 breadcrumb（返回 null）', async (
   try {
     // 深度>0（executor 等叶子子代理）：跳过全部编排，直接返回 null，不读契约与任务。
     addTask(root, 'dsh_wf_8', 'in_progress')
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_8',
       contractText: CONTRACT_TEXT,
@@ -218,7 +229,7 @@ test('delegationDepth 缺省为 0：行为与现状一致（规划任务返回�
   const root = makeProject()
   try {
     addTask(root, 'dsh_wf_9', 'planning')
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_wf_9',
       contractText: CONTRACT_TEXT,
@@ -284,7 +295,7 @@ test('light 任务 breadcrumb 取自轻量契约', async () => {
   const root = makeProject()
   try {
     addTaskWithMode(root, 'dsh_light_1', 'planning', 'light')
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_light_1',
       contractText: CONTRACT_TEXT,
@@ -301,7 +312,7 @@ test('full 任务 breadcrumb 不受 lightContractText 影响（逐字不变护�
   const root = makeProject()
   try {
     addTaskWithMode(root, 'dsh_light_2', 'planning', 'full')
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_light_2',
       contractText: CONTRACT_TEXT,
@@ -322,7 +333,7 @@ test('light 轨不叠加项目 overlay（overlay 仅作用于 full 轨）', asyn
       join(root, '.workloom', 'workflow.override.md'),
       '[workflow-state:planning]\nOverlay full-track text.\n[/workflow-state:planning]\n',
     )
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_light_3',
       contractText: CONTRACT_TEXT,
@@ -339,7 +350,7 @@ test('light 任务缺轻量契约文本时 breadcrumb 返回 err（fail loud）'
   const root = makeProject()
   try {
     addTaskWithMode(root, 'dsh_light_4', 'in_progress', 'light')
-    const [err, text] = await assembleBreadcrumb({
+    const [err, text] = assembleBreadcrumbSync({
       root,
       contextKey: 'dsh_light_4',
       contractText: CONTRACT_TEXT,

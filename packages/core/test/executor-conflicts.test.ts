@@ -13,8 +13,7 @@ import {
   assertForceReason,
   buildConflictNotice,
   detectExecutorConflicts,
-  WorkloomConfigError,
-} from '../src/workspace/config.js'
+} from '../src/workspace/config-subagent.ts'
 import { readTask, recordExecutorOverride } from '../src/task/task-store.js'
 
 /** 构造只含 subagents 的配置对象（检测只消费该字段）。 */
@@ -47,7 +46,6 @@ test('detectExecutorConflicts：裸 id 与带前缀同模型 → 冲突', () => 
       config,
       'implement',
       { model: 'deepseek-official/deepseek-v4-flash' },
-      'dsh',
     ),
     [
       {
@@ -62,17 +60,17 @@ test('detectExecutorConflicts：裸 id 与带前缀同模型 → 冲突', () => 
 
 test('detectExecutorConflicts：完全相同的 model 不冲突（裸 id 与同前缀各一例）', () => {
   const bare = makeConfig({ implement: { model: 'deepseek-v4-flash' } })
-  assert.deepEqual(detectExecutorConflicts(bare, 'implement', { model: 'deepseek-v4-flash' }, 'dsh'), [])
+  assert.deepEqual(detectExecutorConflicts(bare, 'implement', { model: 'deepseek-v4-flash' }), [])
   const prefixed = makeConfig({ implement: { model: 'deepseek-official/deepseek-v4-flash' } })
   assert.deepEqual(
-    detectExecutorConflicts(prefixed, 'implement', { model: 'deepseek-official/deepseek-v4-flash' }, 'dsh'),
+    detectExecutorConflicts(prefixed, 'implement', { model: 'deepseek-official/deepseek-v4-flash' }),
     [],
   )
 })
 test('detectExecutorConflicts：配置带前缀、传入裸 id 也视为冲突（provider 缺一侧）', () => {
   const config = makeConfig({ implement: { model: 'deepseek-official/deepseek-v4-flash' } })
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'deepseek-v4-flash' }, 'dsh'),
+    detectExecutorConflicts(config, 'implement', { model: 'deepseek-v4-flash' }),
     [
       {
         field: 'model',
@@ -87,7 +85,7 @@ test('detectExecutorConflicts：配置带前缀、传入裸 id 也视为冲突�
 test('detectExecutorConflicts：model 前缀不同同 model 名视为冲突', () => {
   const config = makeConfig({ implement: { model: 'deepseek-official/deepseek-v4-flash' } })
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'deepseek/deepseek-v4-flash' }, 'dsh'),
+    detectExecutorConflicts(config, 'implement', { model: 'deepseek/deepseek-v4-flash' }),
     [
       {
         field: 'model',
@@ -99,46 +97,19 @@ test('detectExecutorConflicts：model 前缀不同同 model 名视为冲突', ()
   )
 })
 
-test('detectExecutorConflicts：model map 按 runtime 解析后比较', () => {
-  const config = makeConfig({ implement: { model: { dsh: 'dsh/model-x', pi: 'pi/model-x' } } })
-  assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'pi/model-x' }, 'dsh'),
-    [
-      {
-        field: 'model',
-        configured: 'dsh/model-x',
-        passed: 'pi/model-x',
-        configuredSource: 'legacy',
-      },
-    ],
-  )
-  assert.deepEqual(detectExecutorConflicts(config, 'implement', { model: 'pi/model-x' }, 'pi'), [])
-})
-
-test('detectExecutorConflicts：model map 缺当前 runtime key 抛错（fail loud）', () => {
-  const config = makeConfig({ implement: { model: { dsh: 'dsh/model-x' } } })
-  assert.throws(
-    () => detectExecutorConflicts(config, 'implement', { model: 'x' }, 'pi'),
-    (error) => {
-      assert.ok(error instanceof WorkloomConfigError)
-      assert.equal(error.field, 'subagents.implement.model')
-      return true
-    },
-  )
-})
 test('detectExecutorConflicts：effort 不等 → 冲突；相等 → 无冲突', () => {
   const config = makeConfig({ implement: { effort: 'high' } })
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { effort: 'max' }, 'dsh'),
+    detectExecutorConflicts(config, 'implement', { effort: 'max' }),
     [{ field: 'effort', configured: 'high', passed: 'max', configuredSource: 'legacy' }],
   )
-  assert.deepEqual(detectExecutorConflicts(config, 'implement', { effort: 'high' }, 'dsh'), [])
+  assert.deepEqual(detectExecutorConflicts(config, 'implement', { effort: 'high' }), [])
 })
 
 test('detectExecutorConflicts：model/effort 独立判定（互不干扰）', () => {
   const config = makeConfig({ implement: { model: 'm-cfg', effort: 'high' } })
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'm-passed', effort: 'high' }, 'dsh'),
+    detectExecutorConflicts(config, 'implement', { model: 'm-passed', effort: 'high' }),
     [
       {
         field: 'model',
@@ -149,29 +120,29 @@ test('detectExecutorConflicts：model/effort 独立判定（互不干扰）', ()
     ],
   )
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'm-cfg', effort: 'max' }, 'dsh'),
+    detectExecutorConflicts(config, 'implement', { model: 'm-cfg', effort: 'max' }),
     [{ field: 'effort', configured: 'high', passed: 'max', configuredSource: 'legacy' }],
   )
 })
 
 test('detectExecutorConflicts：无该 kind 条目不触发', () => {
   const config = makeConfig({ research: { model: 'm-r' } })
-  assert.deepEqual(detectExecutorConflicts(config, 'implement', { model: 'x', effort: 'max' }, 'dsh'), [])
-  assert.deepEqual(detectExecutorConflicts(makeConfig({}), 'implement', { model: 'x' }, 'dsh'), [])
+  assert.deepEqual(detectExecutorConflicts(config, 'implement', { model: 'x', effort: 'max' }), [])
+  assert.deepEqual(detectExecutorConflicts(makeConfig({}), 'implement', { model: 'x' }), [])
 })
 
 test('detectExecutorConflicts：overrides 未传字段或配置未限定字段均不触发', () => {
   const config = makeConfig({ implement: { model: 'm-cfg' } })
-  assert.deepEqual(detectExecutorConflicts(config, 'implement', {}, 'dsh'), [])
-  assert.deepEqual(detectExecutorConflicts(config, 'implement', { effort: 'max' }, 'dsh'), [])
+  assert.deepEqual(detectExecutorConflicts(config, 'implement', {}), [])
+  assert.deepEqual(detectExecutorConflicts(config, 'implement', { effort: 'max' }), [])
   const effortOnly = makeConfig({ implement: { effort: 'high' } })
-  assert.deepEqual(detectExecutorConflicts(effortOnly, 'implement', { model: 'm-x' }, 'dsh'), [])
+  assert.deepEqual(detectExecutorConflicts(effortOnly, 'implement', { model: 'm-x' }), [])
 })
 
 test('detectExecutorConflicts：纯函数不修改入参', () => {
   const config = makeConfig({ implement: { model: 'm-cfg', effort: 'high' } })
   const before = structuredClone(config)
-  detectExecutorConflicts(config, 'implement', { model: 'm-other', effort: 'max' }, 'dsh')
+  detectExecutorConflicts(config, 'implement', { model: 'm-other', effort: 'max' })
   assert.deepEqual(config, before)
 })
 test('buildConflictNotice：含 kind/配置值/传入值与 force+reason 引导', () => {
@@ -218,12 +189,12 @@ test('detectExecutorConflicts：mainModel 命中 profile 时与 profile 配置�
   }
   // 传入与 profile 配置一致 → 无冲突
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'profile-m' }, 'dsh', 'kimi-coding/k3'),
+    detectExecutorConflicts(config, 'implement', { model: 'profile-m' }, 'kimi-coding/k3'),
     [],
   )
   // 传入 legacy 值 → 与 profile 值冲突（来源 whenMain，带匹配值）
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'legacy-m' }, 'dsh', 'kimi-coding/k3'),
+    detectExecutorConflicts(config, 'implement', { model: 'legacy-m' }, 'kimi-coding/k3'),
     [
       {
         field: 'model',
@@ -243,12 +214,12 @@ test('detectExecutorConflicts：配置侧值来自 legacy（未命中或 mainMod
   }
   // mainModel 未命中 → 配置值 legacy
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'other-m' }, 'dsh', 'x/y'),
+    detectExecutorConflicts(config, 'implement', { model: 'other-m' }, 'x/y'),
     [{ field: 'model', configured: 'legacy-m', passed: 'other-m', configuredSource: 'legacy' }],
   )
   // mainModel 缺失 → whenMain 全部跳过 → legacy
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { model: 'other-m' }, 'dsh'),
+    detectExecutorConflicts(config, 'implement', { model: 'other-m' }),
     [{ field: 'model', configured: 'legacy-m', passed: 'other-m', configuredSource: 'legacy' }],
   )
 })
@@ -262,7 +233,7 @@ test('detectExecutorConflicts：effort 按合并链比较（profile 命中时 ef
   }
   // 命中 profile：配置值 max；传入 high → 冲突（来源 whenMain）
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { effort: 'high' }, 'dsh', 'kimi-coding/k3'),
+    detectExecutorConflicts(config, 'implement', { effort: 'high' }, 'kimi-coding/k3'),
     [
       {
         field: 'effort',
@@ -275,7 +246,7 @@ test('detectExecutorConflicts：effort 按合并链比较（profile 命中时 ef
   )
   // 未命中：配置值 high；传入 max → 冲突（来源 legacy）
   assert.deepEqual(
-    detectExecutorConflicts(config, 'implement', { effort: 'max' }, 'dsh', 'x/y'),
+    detectExecutorConflicts(config, 'implement', { effort: 'max' }, 'x/y'),
     [{ field: 'effort', configured: 'high', passed: 'max', configuredSource: 'legacy' }],
   )
 })

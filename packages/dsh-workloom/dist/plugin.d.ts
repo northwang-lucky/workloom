@@ -15,6 +15,7 @@
  *   （0.1.7 起 DSH 原生消费并持久化），不再需要 agent/created 监听补丁。
  */
 import type { Context } from '@deepseek-ai/cordis';
+import type { TaskRecordWithPath } from '@workloom-ai/core';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 /** 自激活判定的结果：当前发起 agent 与所在项目根（导出供组装函数公共签名引用）。 */
 export interface InjectionTarget {
@@ -46,6 +47,8 @@ export declare function renderSessionContext(target: InjectionTarget): string;
 export interface SessionContextBuildOptions {
     /** 委派深度（agent 持久化 delegationDepth；缺省 0 为顶层）。 */
     delegationDepth?: number;
+    /** 本回合已解析的活跃任务记录（单一解析；null = 无活跃任务）。 */
+    turnTask?: TaskRecordWithPath | null;
     /** 本机片段合成文本（主 agent 目标；空串 = 不注入）。 */
     localDirectives?: string;
     /** 轻量契约全文；活跃任务为 light 时必须提供。 */
@@ -57,9 +60,6 @@ export interface SessionContextBuildOptions {
  * steps 经 core 的 assembleWorkflowProjection 解析生效契约（light 任务取轻量
  * 契约，其余取主契约），norms 恒出自主契约；解析/组装失败只告警，不阻塞会话。
  * 委派深度透传 core（缺省 0）：深度>0 时 norms 段整体替换为 executor 版。
- * mainModel 由 target.agent 的 requestHeader 快照读取（design §6）：Executor
- * profiles 节的 whenMain 条目按它匹配、首行标题展示；取不到时传 undefined（core
- * 走 main model unknown 分支，whenMain 条目跳过，不 fail loud）。
  * @param target 注入目标（agent + 项目根）
  * @param contractText 主契约全文
  * @param options 可选项（delegationDepth/localDirectives/lightContractText）

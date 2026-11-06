@@ -24,62 +24,6 @@ export const GATES: Readonly<Record<GateKey, GateValue>>
 /** 卡点对应的工具名常量对象。 */
 export const GATE_TOOLS: Readonly<Record<GateValue, string>>
 
-/** prd 骨架小节定义。 */
-export interface PrdSection {
-  heading: string
-  placeholder: string
-}
-
-/** prd.md 骨架小节常量（完整任务固定十一小节，顺序即文档顺序）。 */
-export const PRD_SECTIONS: readonly PrdSection[]
-
-/** prd 结构问题 code（冻结值域：缺文件/H1/小节/占位/R-AC 追踪五类）。 */
-export type PrdStructureCode =
-  | 'prd_missing'
-  | 'prd_title_missing'
-  | 'prd_section_missing'
-  | 'prd_section_placeholder'
-  | 'prd_requirements_empty'
-  | 'prd_acceptance_empty'
-  | 'prd_reference_duplicate'
-  | 'prd_ac_unknown_reference'
-  | 'prd_ac_verification_missing'
-
-/** 单条 prd 结构问题：稳定 code + 英文运行时文案 + 可选小节名。 */
-export interface PrdStructureIssue {
-  code: PrdStructureCode
-  message: string
-  section?: string
-}
-
-/** 小节类结构问题 code（PrdStructureCode 的子集，携带 section 字段）。 */
-export type PrdSectionIssueCode = 'prd_section_missing' | 'prd_section_placeholder'
-
-/** prd 结构问题 code 常量对象（键名与 code 一一对应）。 */
-export const PRD_STRUCTURE_CODES: Readonly<{
-  PRD_MISSING: 'prd_missing'
-  PRD_TITLE_MISSING: 'prd_title_missing'
-  PRD_SECTION_MISSING: 'prd_section_missing'
-  PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder'
-  PRD_REQUIREMENTS_EMPTY: 'prd_requirements_empty'
-  PRD_ACCEPTANCE_EMPTY: 'prd_acceptance_empty'
-  PRD_REFERENCE_DUPLICATE: 'prd_reference_duplicate'
-  PRD_AC_UNKNOWN_REFERENCE: 'prd_ac_unknown_reference'
-  PRD_AC_VERIFICATION_MISSING: 'prd_ac_verification_missing'
-}>
-
-/** prd 文件缺失文案（start 门禁、review 诊断、confirm 拦截共用同一句）。 */
-export const PRD_MISSING: string
-
-/** 判定 prd.md 是否缺一级标题（H1）：缺失返回缺失文案，通过返回 null。 */
-export function findMissingPrdTitle(prdContent: string): string | null
-
-/** 找出仍为 placeholder 的 prd 小节标题列表（缺失小节视为未填）。 */
-export function findUnfilledPrdSections(prdContent: string): string[]
-
-/** 检查 prd.md 结构与内容门禁，一次性返回全部问题（顺序：H1 → 小节 → R/AC 追踪）。 */
-export function inspectPrdStructure(prdContent: string | null): PrdStructureIssue[]
-
 /** PLAN 文件缺失文案（完整实施任务 start 门禁拦截）。 */
 export const PLAN_MISSING: string
 

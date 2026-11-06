@@ -14,22 +14,6 @@ export interface TurnMeta {
         model?: string;
         effort?: string;
     };
-    /**
-     * 失败转移标注（design §5）：派发时同步走链成功时传入实际生效模型与本跳序号，
-     * 回执尾追加 ` (failover attempt N: <model>)`；主模型直接成功时不设。
-     */
-    failover?: {
-        attempt: number;
-        model: string;
-    };
-    /**
-     * 同类并发轮换标注（design §6）：rotate_on_busy 选中链条目起步时传入实际选定
-     * 模型，回执尾追加 ` (rotated: <model>)`；主模型位起步（开关关/无同类/全占用
-     * 回绕/显式 model）不设。与 failover 标注独立并存，以实际生效模型为准。
-     */
-    rotation?: {
-        model: string;
-    };
 }
 /** buildTurnReceiptText 消费的生效默认值形状（core ResolveSubagentDefaultsResult）。 */
 export type ResolvedDefaultsLike = ResolveSubagentDefaultsResult;

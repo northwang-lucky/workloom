@@ -1,6 +1,5 @@
 /**
- * local-prompts 单测（prompts 三层叠加 + requiresTools 移除后）：
- * front-matter 解析、requiresTools/requires_tools 残留 fail loud、目标过滤、
+ * local-prompts 单测：片段解析（正文即全文）、目标过滤、
  * 三层目录叠加（全局 → 项目 prompts → 项目 prompts.local，层内 all 在前）。
  */
 import { test } from 'node:test'
@@ -13,7 +12,6 @@ import {
   WorkloomLocalPromptError,
   composeLocalDirectivesText,
   filterAndOrderLocal,
-  parseLocalFragment,
   readLocalFragments,
 } from '../src/injection/local-prompts.ts'
 
@@ -54,57 +52,6 @@ function writeGlobalFragment(homeDir, name, body) {
 function cleanup(...paths) {
   for (const path of paths) rmSync(path, { recursive: true, force: true })
 }
-
-test('无 front-matter 片段：无条件、正文全文本保留（无 requiresTools 字段）', () => {
-  const frag = parseLocalFragment('main', '# Local rule\nUse the LSP tools.\n')
-  assert.deepEqual(frag, { target: 'main', text: '# Local rule\nUse the LSP tools.' })
-})
-
-test('空 front-matter（--- 立即闭合）视为无条件片段', () => {
-  const frag = parseLocalFragment('check', '---\n---\nBody text')
-  assert.deepEqual(frag, { target: 'check', text: 'Body text' })
-})
-
-test('front-matter 出现 requiresTools / requires_tools → fail loud（文案指明机制已废止）', () => {
-  for (const field of ['requiresTools', 'requires_tools']) {
-    assert.throws(() => parseLocalFragment('main', `---\n${field}: [write]\n---\nbody`), (err) => {
-      assert.ok(err instanceof WorkloomLocalPromptError)
-      assert.equal(err.field, field)
-      assert.match(err.message, /removed|retired|deprecated/i)
-      return true
-    })
-  }
-})
-
-test('非法 YAML front-matter：抛 WorkloomLocalPromptError（field 为 front-matter）', () => {
-  assert.throws(
-    () => parseLocalFragment('main', '---\nrequiresTools: [unclosed\n---\nbody'),
-    (err) => {
-      assert.ok(err instanceof WorkloomLocalPromptError)
-      assert.equal(err.field, 'front-matter')
-      assert.match(err.message, /parse failed/)
-      return true
-    },
-  )
-})
-
-test('front-matter 根非 map：抛 WorkloomLocalPromptError', () => {
-  assert.throws(() => parseLocalFragment('main', '---\n- a\n- b\n---\nbody'), (err) => {
-    assert.ok(err instanceof WorkloomLocalPromptError)
-    assert.equal(err.field, 'front-matter')
-    assert.match(err.message, /object map/)
-    return true
-  })
-})
-
-test('未知 front-matter 字段：fail loud（字段路径入错误）', () => {
-  assert.throws(() => parseLocalFragment('main', '---\nfoo: 1\n---\nbody'), (err) => {
-    assert.ok(err instanceof WorkloomLocalPromptError)
-    assert.equal(err.field, 'foo')
-    assert.match(err.message, /unknown field/)
-    return true
-  })
-})
 
 test('filterAndOrderLocal：按目标过滤并保持输入顺序（all 通用）', () => {
   const mainFragment = { target: 'main', text: 'MAIN' }
@@ -182,21 +129,6 @@ test('未知 .md 文件名 fail loud（文案含合法清单）；非 .md / 隐�
     assert.equal(fragments.find((f) => f.target === 'main').text, 'real')
   } finally {
     cleanup(root2, home)
-  }
-})
-
-test('readLocalFragments：坏 front-matter fail loud（路径入错误信息）', () => {
-  const root = makeRoot()
-  const home = makeHome()
-  writeLocalFragment(root, 'main.md', '---\nfoo: [unclosed\n---\nbody')
-  try {
-    const [err, fragments] = readLocalFragments(root, home)
-    assert.ok(err instanceof WorkloomLocalPromptError)
-    assert.equal(err.file, 'main.md')
-    assert.equal(err.field, 'front-matter')
-    assert.deepEqual(fragments, [])
-  } finally {
-    cleanup(root, home)
   }
 })
 

@@ -22,9 +22,7 @@
  * - 两条注册表与结算同生命周期：trackDispatchSettle 派发时清除上轮残留错误
  *   （错误登记覆盖式取最近、仅 error 终态消费），每条结算后消费条目（每 epoch
  *   结算一次；后续续用轮派发时重新登记），避免注册表无界增长；
- * - 监听器同步边界，内部 try/catch 只告警不冒泡（serial 派发下监听器抛错会拒绝 agent 注册）；
- * - 结算完成后可选调用失败转移钩子（executor-failover 注册）：钩子在同步边界内发起
- *   自己的 fire-and-forget 工作，本身抛错只告警（失败转移不阻断/不回滚结算）。
+ * - 监听器同步边界，内部 try/catch 只告警不冒泡（serial 派发下监听器抛错会拒绝 agent 注册）。
  */
 import type { Context } from '@deepseek-ai/cordis'
 
@@ -61,33 +59,13 @@ interface PendingSettle {
   taskRelPath: string
 }
 
-/** turn/end 结构化错误：单行渲染（dispatches.error）+ 原始 code（失败转移分类）。 */
+/** turn/end 结构化错误：单行渲染（dispatches.error）+ 原始 code。 */
 export interface CapturedTurnError {
   /** `<message> (<code>)` 单行渲染（dispatches.error 写入值）。 */
   line: string
-  /** 原始 DSH LlmFailure code（失败转移白名单分类用）。 */
+  /** 原始 DSH LlmFailure code（与单行渲染括号内一致）。 */
   code: string
 }
-
-/** 结算信息（settle 完成后交给失败转移钩子；注册表条目已消费）。 */
-export interface SettledDispatch {
-  /** 子代理 durable session id。 */
-  id: string
-  /** 项目根。 */
-  root: string
-  /** 任务目录相对 .workloom 的路径。 */
-  taskRelPath: string
-  /** subagent/end 载荷的终止原因（可能缺省）。 */
-  stopReason: string | undefined
-  /** 捕获到的结构化 turn/end 错误（无登记 / 解码失败时缺省）。 */
-  error: CapturedTurnError | undefined
-}
-
-/**
- * 结算完成钩子（失败转移入口）：在监听器同步边界内调用，实现方自行 fire-and-forget；
- * 钩子自身抛错只告警，不影响结算。
- */
-export type DispatchSettledHook = (settled: SettledDispatch) => void
 
 /** childId → 派发所在任务（进程内注册表，派发时刻登记、结算时消费）。 */
 const pendingByChildId = new Map<string, PendingSettle>()
@@ -112,16 +90,11 @@ export function trackDispatchSettle(childId: string, root: string, taskRelPath: 
 /**
  * 注册终态回填两条全局监听（apply 激活时经 registerExecutor 调用）：
  * session/event 捕获登记表内 childId 的真实错误，subagent/end 按载荷 info.id
- * 关联 dispatches 记录回填终态（completed/failed + 一行错误摘要）；settle 完成后
- * 可选调用失败转移钩子（同步边界内发起，钩子自行 fire-and-forget）。
+ * 关联 dispatches 记录回填终态（completed/failed + 一行错误摘要）。
  * @param ctx 插件作用域上下文（两事件均为全局事件，此处监听可见所有会话/子代理）
- * @param onSettled 可选的结算完成钩子（失败转移入口；缺省零行为变化）
  * @returns 统一注销函数（fiber 生命周期自动清理）
  */
-export function registerDispatchSettlement(
-  ctx: Context,
-  onSettled?: DispatchSettledHook,
-): () => void {
+export function registerDispatchSettlement(ctx: Context): () => void {
   const disposeCapture = ctx.on('session/event', captureTurnEndError)
   const disposeSettle = ctx.on('subagent/end', (info: SubagentEndInfoLike) => {
     try {
@@ -151,21 +124,6 @@ export function registerDispatchSettlement(
         }
         if (!hasRunningDispatch(pending.root, pending.taskRelPath, info.id)) {
           break
-        }
-      }
-      // 结算完成后的失败转移钩子（同步边界内发起，钩子自行 fire-and-forget）；
-      // 钩子抛错只告警，不冒泡事件流、不影响已完成的结算。
-      if (onSettled !== undefined) {
-        try {
-          onSettled({
-            id: info.id,
-            root: pending.root,
-            taskRelPath: pending.taskRelPath,
-            stopReason: info.stopReason,
-            error: captured,
-          })
-        } catch (error) {
-          console.warn(`${SETTLE_WARN_PREFIX} failover hook: ${String(error)}`)
         }
       }
     } catch (error) {
@@ -223,7 +181,7 @@ export function extractTurnErrorText(reason: unknown): string | null {
 
 /**
  * 提取 turn/end 错误载荷为结构化 { line, code }（纯函数，独立可测）：line 为
- * `<message> (<code>)` 单行（内部空白折叠），code 保留原始值供失败转移分类；
+ * `<message> (<code>)` 单行（内部空白折叠），code 保留原始值供调用方细分；
  * 形状不符/字段缺失返回 null（解码失败，调用方按登记缺失回退泛化文案）。
  * @param reason turn/end 的终止原因（可能缺失/形状未知）
  * @returns 结构化错误，或 null（非 error 终态/解码失败）

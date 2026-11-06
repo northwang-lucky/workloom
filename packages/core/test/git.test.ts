@@ -10,15 +10,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import {
-  gitAddCommit,
-  gitCurrentBranchSync,
-  gitHasRebaseHead,
-  gitMergeFfOnly,
-  gitRebase,
-  gitRebaseAbort,
-  gitStatusSync,
-} from '../src/workspace/git.js'
+import { gitCurrentBranchSync, gitHasRebaseHead, gitStatusSync } from '../src/workspace/git-query.ts'
+import { gitAddCommit, gitMergeFfOnly, gitRebase, gitRebaseAbort } from '../src/workspace/git-ops.ts'
 
 /** git 提交所需的最小身份环境变量（不依赖全局 git config）。 */
 const GIT_IDENTITY_ENV = {

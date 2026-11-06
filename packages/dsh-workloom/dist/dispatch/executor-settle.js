@@ -31,13 +31,11 @@ export function trackDispatchSettle(childId, root, taskRelPath) {
 /**
  * 注册终态回填两条全局监听（apply 激活时经 registerExecutor 调用）：
  * session/event 捕获登记表内 childId 的真实错误，subagent/end 按载荷 info.id
- * 关联 dispatches 记录回填终态（completed/failed + 一行错误摘要）；settle 完成后
- * 可选调用失败转移钩子（同步边界内发起，钩子自行 fire-and-forget）。
+ * 关联 dispatches 记录回填终态（completed/failed + 一行错误摘要）。
  * @param ctx 插件作用域上下文（两事件均为全局事件，此处监听可见所有会话/子代理）
- * @param onSettled 可选的结算完成钩子（失败转移入口；缺省零行为变化）
  * @returns 统一注销函数（fiber 生命周期自动清理）
  */
-export function registerDispatchSettlement(ctx, onSettled) {
+export function registerDispatchSettlement(ctx) {
     const disposeCapture = ctx.on('session/event', captureTurnEndError);
     const disposeSettle = ctx.on('subagent/end', (info) => {
         try {
@@ -68,22 +66,6 @@ export function registerDispatchSettlement(ctx, onSettled) {
                 }
                 if (!hasRunningDispatch(pending.root, pending.taskRelPath, info.id)) {
                     break;
-                }
-            }
-            // 结算完成后的失败转移钩子（同步边界内发起，钩子自行 fire-and-forget）；
-            // 钩子抛错只告警，不冒泡事件流、不影响已完成的结算。
-            if (onSettled !== undefined) {
-                try {
-                    onSettled({
-                        id: info.id,
-                        root: pending.root,
-                        taskRelPath: pending.taskRelPath,
-                        stopReason: info.stopReason,
-                        error: captured,
-                    });
-                }
-                catch (error) {
-                    console.warn(`${SETTLE_WARN_PREFIX} failover hook: ${String(error)}`);
                 }
             }
         }
@@ -144,7 +126,7 @@ export function extractTurnErrorText(reason) {
 }
 /**
  * 提取 turn/end 错误载荷为结构化 { line, code }（纯函数，独立可测）：line 为
- * `<message> (<code>)` 单行（内部空白折叠），code 保留原始值供失败转移分类；
+ * `<message> (<code>)` 单行（内部空白折叠），code 保留原始值供调用方细分；
  * 形状不符/字段缺失返回 null（解码失败，调用方按登记缺失回退泛化文案）。
  * @param reason turn/end 的终止原因（可能缺失/形状未知）
  * @returns 结构化错误，或 null（非 error 终态/解码失败）

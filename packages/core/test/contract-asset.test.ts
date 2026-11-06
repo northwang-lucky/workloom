@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { CASE_STRUCTURE } from '../src/task/case.js'
+import { CASE_STRUCTURE } from '../src/task/case-structure.ts'
 import { parseContract } from '../src/injection/workflow-contract.js'
 import { WORKFLOW_PROTOCOL_VERSION } from '../src/injection/protocol.js'
 

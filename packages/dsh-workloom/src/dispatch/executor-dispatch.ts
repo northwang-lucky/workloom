@@ -44,7 +44,7 @@ export function buildAllowFilter(
   toolsConfig?: AllowToolsConfig | undefined,
 ): { allow: string[] } {
   return {
-    allow: buildAllowList({ runtime: 'dsh', toolsConfig, visibleNames: [...visibleNames] }),
+    allow: buildAllowList({ toolsConfig, visibleNames: [...visibleNames] }),
   }
 }
 

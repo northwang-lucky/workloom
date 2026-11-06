@@ -1,32 +1,15 @@
 /**
- * dsh-workloom executor 的 receipt 组装与输出渲染：canonical 值→模型可见文本、
- * fork 接续失败转译、续派轮绑定落盘字段。
+ * dsh-workloom executor 的 receipt 组装与 fork 接续失败转译：fork 接续失败转译、
+ * 续派轮绑定落盘字段。
  *
  * 设计意图：
- * - 与 executor.ts（工具注册与执行编排）分离：本模块只负责「输出渲染」——
- *   renderOutput 从 canonical 值投影模型可见文本，renderBackground 拼装后台派发
- *   的可读文本，translateForkContinueError 转译 fork 接续失败，
- *   buildSpawnEntryBinding 装配续派轮绑定落盘字段；
+ * - 与 executor.ts（工具注册与执行编排）分离：canonical 值→模型可见文本的投影
+ *   （renderOutput/renderBackground）统一在 core surface，本模块只保留
+ *   translateForkContinueError 转译 fork 接续失败、buildSpawnEntryBinding 装配
+ *   续派轮绑定落盘字段；
  * - 均为纯函数，便于单测。
  */
-import type { TextBlockLike } from './executor.ts';
 import type { DispatchModelSource } from '@workloom-ai/core';
-/**
- * 从 canonical 值投影模型可见文本（纯函数）：后台派发拼 childId + receipt 为
- * 可读文本（子代理标识 + 完整 receipt，指引等待完成通知）；提示面取 output
- * 首块文本（冲突中断/续用拒绝/容量拒绝等未派发路径）。
- * @param value canonical 结果
- * @returns 文本块
- */
-export declare function renderOutput(value: unknown): TextBlockLike;
-/**
- * 拼装后台派发的模型可见文本：子代理标识 + 后台语义指引 + receipt（主会话据此
- * 继续其他工作，完成报告由 subagent-settled 通知送达）。
- * @param childId 子代理 durable session id
- * @param receipt 完整 receipt 文本（model/effort + 注入四元组）
- * @returns 后台派发文本
- */
-export declare function renderBackground(childId: string, receipt: string): string;
 /**
  * 转译 continue 接续失败：sendMessage reject 的 message 含 "belongs to another parent
  * session"（DSH parent 严格校验：child.parentSession ≠ 当前会话，fork 分身接续源

@@ -14,7 +14,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { findWorkloomRoot, insideWorkloom } from '../workspace/locate.js';
-import { loadConfig } from '../workspace/config.js';
+import { loadConfig } from "../workspace/config-load.js";
 import { parseContract } from './workflow-contract.js';
 import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from './breadcrumb.js';
 import { resolveActiveTask } from '../task/active-task.js';
@@ -37,14 +37,6 @@ const TASK_STATUS_MAP = Object.freeze({
     in_progress: CONTRACT_STATUS.IN_PROGRESS,
     completed: CONTRACT_STATUS.COMPLETED,
 });
-/**
- * 组装当前会话的 breadcrumb 指引文本（异步入口，规格约定）。
- * @param params 入参
- * @returns [err, text]：err 为任一编排步骤的失败；skip 命中时 text 为 null
- */
-export async function assembleBreadcrumb(params) {
-    return assembleBreadcrumbSync(params);
-}
 /**
  * 组装当前会话的 breadcrumb 指引文本（同步核心）。
  * 全部编排步骤均为同步 I/O，故可同步求值；adapter 的 systemPrompt
@@ -76,11 +68,13 @@ export function assembleBreadcrumbSync(params) {
  * @param lightContractText 轻量契约全文（活跃任务为 light 时必须提供）
  * @returns [err, projection]：失败时 err 非空
  */
-export function assembleWorkflowProjection(root, contextKey, contractText, lightContractText) {
+export function assembleWorkflowProjection(root, contextKey, contractText, lightContractText, turnTask) {
     try {
         const projectRoot = requireWorkloomRoot(root);
         const main = parseContractOrThrow(contractText, 'contract');
-        const active = resolveActiveTaskState(projectRoot, contextKey);
+        const active = turnTask != null
+            ? resolveActiveTaskStateFromRecord(turnTask)
+            : resolveActiveTaskState(projectRoot, contextKey);
         const effective = active?.mode === TASK_MODES.LIGHT ? parseLightContract(lightContractText) : main;
         return [null, { steps: effective.steps, norms: main.norms }];
     }
@@ -99,7 +93,9 @@ function assembleBreadcrumbInternal(params) {
     const projectRoot = requireWorkloomRoot(params.root);
     const config = loadConfig(projectRoot);
     const main = parseContractOrThrow(params.contractText, 'contract');
-    const active = resolveActiveTaskState(projectRoot, params.contextKey);
+    const active = params.turnTask != null
+        ? resolveActiveTaskStateFromRecord(params.turnTask)
+        : resolveActiveTaskState(projectRoot, params.contextKey);
     const contractStatus = active?.contractStatus ?? CONTRACT_STATUS.NO_TASK;
     let contract;
     if (active?.mode === TASK_MODES.LIGHT) {
@@ -199,9 +195,17 @@ function resolveActiveTaskState(root, contextKey) {
     if (taskErr || task === null) {
         throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`);
     }
+    return resolveActiveTaskStateFromRecord(task);
+}
+/**
+ * 从已解析的任务记录解析模式与契约状态（单一解析链的下游；零额外读盘）。
+ * @param task 活跃任务记录
+ * @returns 任务模式与契约状态
+ */
+function resolveActiveTaskStateFromRecord(task) {
     const contractStatus = TASK_STATUS_MAP[task.status];
     if (contractStatus === undefined) {
-        throw new Error(`${ERR_PREFIX}: unknown task status: ${task.status} (task: ${taskRelPath})`);
+        throw new Error(`${ERR_PREFIX}: unknown task status: ${task.status}`);
     }
     return { mode: task.mode, contractStatus };
 }

@@ -7,16 +7,26 @@
  * - always-on 行为规范（norms）随快照每轮重新组装：契约升级后下一轮即生效，
  *   不依赖模型自觉或新开会话；
  * - 内容全部英文，整块包裹在 <workloom-session-context> 标记内，便于模型识别边界；
- * - 数据读取采取「可降级」策略：developer/git 读取失败降级为占位值，任务解析失败显式
+ * - 数据读取采取「可降级」策略：git 读取失败降级为占位值，任务解析失败显式
  *   返回 err（结构性故障不静默）；全部同步 I/O，供同步 text provider 直接调用；
  * - root 约定为项目根（由 adapter 传 findWorkloomRoot 的结果），内部只拼路径不再向上查找。
  */
+import type { TaskRecordWithPath } from '../task/task-store.d.ts';
+/** 注入回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物；null = 无活跃任务）。 */
+export interface SessionContextTaskHint {
+    turnTask?: TaskRecordWithPath | null;
+}
 /** assembleSessionContext 入参。 */
 export interface SessionContextParams {
     /** 项目根（必须已是 findWorkloomRoot 的结果，不再向上查找）。 */
     root: string;
     /** runtime 会话标识（adapter 组装，如 dsh_<session-id>）。 */
     contextKey: string;
+    /**
+     * 本回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物；单一解析，
+     * 提供后本入口零次额外读盘）；null = 无活跃任务；缺省时内部回退解析（兼容直连调用方）。
+     */
+    turnTask?: TaskRecordWithPath | null;
     /** 工作流步骤概览（契约 steps 的投影：id + title）。 */
     workflowSteps: readonly {
         id: string;
@@ -33,12 +43,6 @@ export interface SessionContextParams {
      * 避免 all.md 重复注入）；空串/未传 = 不注入。
      */
     localDirectives?: string | null;
-    /**
-     * 主会话模型（"provider/model"，adapter 从请求头快照读取后传入）。Executor
-     * profiles 节的 whenMain 条目按它匹配、首行标题展示；缺省/空白/null = 取不到
-     * （whenMain 条目跳过，标题标注 main model unknown）。
-     */
-    mainModel?: string | null;
 }
 /**
  * 组装当前会话的上下文快照文本（同步）。

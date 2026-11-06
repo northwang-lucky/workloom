@@ -9,32 +9,6 @@ const FORK_CONTINUE_GUIDANCE = 'Cannot continue the recorded executor: it belong
     '(typically because the current session is a fork). Dispatch a fresh executor instead, carrying the ' +
     'needed context in the prompt.';
 /**
- * 从 canonical 值投影模型可见文本（纯函数）：后台派发拼 childId + receipt 为
- * 可读文本（子代理标识 + 完整 receipt，指引等待完成通知）；提示面取 output
- * 首块文本（冲突中断/续用拒绝/容量拒绝等未派发路径）。
- * @param value canonical 结果
- * @returns 文本块
- */
-export function renderOutput(value) {
-    const result = value;
-    if (result.kind === 'background') {
-        return { type: 'text', text: renderBackground(result.childId ?? '', result.receipt ?? '') };
-    }
-    const text = result.output?.[0]?.text ?? '';
-    return { type: 'text', text };
-}
-/**
- * 拼装后台派发的模型可见文本：子代理标识 + 后台语义指引 + receipt（主会话据此
- * 继续其他工作，完成报告由 subagent-settled 通知送达）。
- * @param childId 子代理 durable session id
- * @param receipt 完整 receipt 文本（model/effort + 注入四元组）
- * @returns 后台派发文本
- */
-export function renderBackground(childId, receipt) {
-    return (`Dispatched in background; child session: ${childId}. Continue with other work; ` +
-        `the completion report arrives via the subagent notice.\n\n${receipt}`);
-}
-/**
  * 转译 continue 接续失败：sendMessage reject 的 message 含 "belongs to another parent
  * session"（DSH parent 严格校验：child.parentSession ≠ 当前会话，fork 分身接续源
  * 会话派发的 executor 必然命中）时，转为引导文案（保持 isError 语义：仍抛错，

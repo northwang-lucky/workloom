@@ -1,7 +1,5 @@
 /** workloom 配置对象：loadConfig 的返回类型（快照字段，供 JSDoc 引用）。 */
 export interface WorkloomConfig {
-  sessionCommitMessage: string
-  maxJournalLines: number
   sessionAutoCommit: boolean
   contextInjection: {
     maxFileBytes: number
@@ -65,18 +63,18 @@ export interface WorktreeConfig {
 }
 
 /**
- * subagent_profiles 条目：whenMain 为命中条件（string 对所有 runtime 同值，
- * 或按 runtime 取值的 map），缺省 = 兜底条目（无条件命中，最多一条）；
+ * subagent_profiles 条目：whenMain 为命中条件（完整 provider/model 字符串，
+ * 归一化比较），缺省 = 兜底条目（无条件命中，最多一条）；
  * subagents 沿用 SubagentConfigEntry 的 per-kind 形态。
  */
 export interface SubagentProfile {
-  whenMain?: string | Record<string, string>
+  whenMain?: string
   subagents: Record<string, SubagentConfigEntry>
 }
 
 /**
  * tools 字段（仅 subagent_profiles 内层支持）：在默认工具白名单上扩充 / 移除；
- * 成员为工具名或 `*` 尾缀前缀模式（如 `lsp_*`，仅前缀匹配），空数组合法、重复去重。
+ * 成员为工具名或 `*` 尾缀前缀模式（如 `LSP 前缀模式`，仅前缀匹配），空数组合法、重复去重。
  */
 export interface SubagentTools {
   /** 在默认白名单上额外补入的工具名（含前缀模式）。 */
@@ -98,12 +96,11 @@ export interface SubagentFallbackModel {
 }
 
 /**
- * subagents 配置条目：model 支持 string（所有 runtime 同值）或按 runtime 取值的
- * map（如 `{ dsh: 'a/x', pi: 'b/y' }`）；map 的 key 为 runtime 名，不白名单。
+ * subagents 配置条目：model 为 model 字符串（provider/model 或裸 id）。
  * tools 仅 subagent_profiles 内层条目携带（顶层 subagents 出现 tools 报错）。
  */
 export interface SubagentConfigEntry {
-  model?: string | Record<string, string>
+  model?: string
   effort?: string
   tools?: SubagentTools
   /**
@@ -116,12 +113,6 @@ export interface SubagentConfigEntry {
    * subagent_profiles 内层同一语法；空数组等价缺省（不落字段）。
    */
   fallbackModels?: SubagentFallbackModel[]
-  /**
-   * 同类并发轮换开关（配置字段 `rotate_on_busy`）：true = 本 kind 已有同类在跑时
-   * 新派发按 [主模型位, fallback_models…] 池顺延取首个未占用模型。仅显式 true 落
-   * 字段（false/缺省不落）；两层同语法。
-   */
-  rotateOnBusy?: boolean
 }
 
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
@@ -144,8 +135,6 @@ export interface ResolveSubagentDefaultsResult {
     effort?: SubagentConfigSource
     /** 失败转移链来源（未配置链时属性不定义）。 */
     fallbackModels?: SubagentConfigSource
-    /** 同类并发轮换开关来源（未配置时属性不定义）。 */
-    rotateOnBusy?: SubagentConfigSource
   }
   /** configSources 为 whenMain 时的匹配值（receipt 展示用，如 kimi-coding/k3）。 */
   whenMainValue?: string
@@ -162,11 +151,6 @@ export interface ResolveSubagentDefaultsResult {
    * 未配置时回退旧 subagents 同 kind 条目；两处均未配置时属性不定义。
    */
   fallbackModels?: SubagentFallbackModel[]
-  /**
-   * 同类并发轮换开关（配置字段 `rotate_on_busy`）：仅显式 true 时出现
-   * （profile 命中条目优先、legacy 回退；未配置时属性不定义，零行为变化）。
-   */
-  rotateOnBusy?: boolean
 }
 
 /** 内置默认配置。 */

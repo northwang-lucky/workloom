@@ -15,10 +15,10 @@ export declare const COMMAND_NAMES: {
 };
 /** 两个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
 export declare const COMMAND_DESCRIPTIONS: {
-    readonly init: "Initialize the .workloom skeleton, migrate a legacy .trellis project, and purge it with --purge";
-    readonly doctor: "Run a structured workflow health check and auto-fix mechanical issues with --fix (results are handed to the model as JSON)";
+    readonly init: "Initialize the .workloom skeleton (rerun with --purge to fill in missing pieces)";
+    readonly doctor: "Run a structured workflow health check (results are handed to the model as JSON)";
 };
-/** 十一个工具名（八个任务工具 + executor + 步骤详情 + journal，模型可见）。 */
+/** 十个工具名（八个任务工具 + executor + 步骤详情，模型可见）。 */
 export declare const TOOL_NAMES: {
     readonly taskCreate: "workloom_task_create";
     readonly taskStart: "workloom_task_start";
@@ -30,7 +30,6 @@ export declare const TOOL_NAMES: {
     readonly taskCase: "workloom_task_case";
     readonly executor: "workloom_execute";
     readonly step: "workloom_step";
-    readonly journal: "workloom_journal";
 };
 /** 十一个工具的 register 描述文案（两 adapter 逐字相同）。 */
 export declare const TOOL_DESCRIPTIONS: {
@@ -42,12 +41,11 @@ export declare const TOOL_DESCRIPTIONS: {
     readonly taskFinish: "Clear the active-task pointer for this session (status unchanged)";
     readonly taskArchive: "Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)";
     readonly taskList: "List task summaries (optionally filtered by status)";
-    readonly executor: "Dispatch a workloom executor subagent (research/implement/check/frontend/review) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only); when the kind configures fallback_models, a model-access failure automatically retries the dispatch on the next fallback model in a new child session; with rotate_on_busy enabled, dispatching a kind that already has a running session starts on the next unused model of the fallback pool";
+    readonly executor: "Dispatch a workloom executor subagent (research/implement/check/frontend/review) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only)";
     readonly step: "Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract";
-    readonly journal: "Record this session in the workloom journal (title + work commit hash + summary)";
 };
 /**
- * 十一个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
+ * 十个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
  * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
@@ -62,13 +60,12 @@ export declare const TOOL_SNIPPETS: {
     readonly taskList: "workloom_task_list(status?) — list task summaries";
     readonly executor: "workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?, reinject?, purpose?) — dispatch or continue an executor";
     readonly step: "workloom_step(stepId) — show one workflow step body";
-    readonly journal: "workloom_journal(taskPath, title, commit?, summary?) — record the session journal";
 };
 /** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有三处变体）。 */
 export declare const PARAM_DESCRIPTIONS: {
     /** 支持活跃任务回退的任务工具（start/check/finish/align）的 taskPath 参数。 */
     readonly taskPath: "Task directory relative to .workloom; defaults to the active task";
-    /** 必填 taskPath 变体（archive/journal）：缺参即报错，不回退活跃任务。 */
+    /** 必填 taskPath 变体（archive）：缺参即报错，不回退活跃任务。 */
     readonly taskPathRequired: "Task directory relative to .workloom; required (no active-task fallback)";
     /** executor 工具的 taskPath 参数（措辞多了 of this session）。 */
     readonly taskPathExecutor: "Task directory relative to .workloom; defaults to the active task of this session";
@@ -114,9 +111,6 @@ export declare const PARAM_DESCRIPTIONS: {
     /** executor 工具的 reinject 参数（续接全量重注入开关；默认关）。 */
     readonly reinjectExecutor: "Continue by re-injecting the full task context into the existing session instead of sending only the incremental instruction; off by default, use only when context was lost to compaction";
     readonly stepId: "Workflow step id, e.g. 1.1 or 2.1";
-    readonly journalTitle: "Journal entry title";
-    readonly journalCommit: "Work commit hash for this session";
-    readonly journalSummary: "One-line session summary";
 };
 /** 错误消息前缀（命令/任务工具/executor/步骤工具）。 */
 export declare const ERR_PREFIX: {
@@ -147,10 +141,6 @@ export declare function buildContinueNoChildIdText(input: string, kind: string):
 export declare function buildCrossKindReuseRejectText(input: string, matchKind: string, kind: string): string;
 /** purge 模式标志：rawInput 以该前缀开头时，迁移后直接删除旧 .trellis 目录。 */
 export declare const PURGE_FLAG = "--purge";
-/** doctor 修复模式标志：rawInput 含该词时启用 --fix（参考 init --purge 的先例）。 */
-export declare const DOCTOR_FIX_FLAG = "--fix";
-/** 资产目录内的 developer 身份文件名（与 core 的 init 约定一致）。 */
-export declare const DEVELOPER_FILE = ".developer";
 /**
  * 命令失败的宿主回执文案（两 adapter 共享）：细节已由 followup/sendUserMessage
  * 注入模型回合转述，宿主只提示「已转交模型」，不再弹红错。
@@ -247,3 +237,32 @@ export declare function buildSpawnBindingReceipt(params: {
     } | null;
     injection?: ExecutorInjectionStats;
 }): string;
+/** 纯文本块最小形状（工具 output.render 与 canonical 返回值共用）。 */
+export interface TextBlockLike {
+    type: 'text';
+    text: string;
+}
+/**
+ * 从 executor 工具 canonical 值投影模型可见文本（纯函数）：后台派发拼 childId +
+ * receipt 为可读文本（子代理标识 + 完整 receipt，指引等待完成通知）；提示面取
+ * output 首块文本（冲突中断/续用拒绝/容量拒绝等未派发路径；skills 工具的
+ * canonical 值同为 output 形状，共用本投影）。
+ * @param value canonical 结果
+ * @returns 文本块
+ */
+export declare function renderOutput(value: unknown): TextBlockLike;
+/**
+ * 拼装后台派发的模型可见文本：子代理标识 + 后台语义指引 + receipt（主会话据此
+ * 继续其他工作，完成报告由子代理结算通知送达）。
+ * @param childId 子代理 durable session id
+ * @param receipt 完整 receipt 文本（model/effort + 注入四元组）
+ * @returns 后台派发文本
+ */
+export declare function renderBackground(childId: string, receipt: string): string;
+/**
+ * 渲染结构化对象结果的模型可见文本（任务工具 output.render 共用）：整值 JSON 序列化为单块。
+ * @param _args 工具参数（投影不消费）
+ * @param value canonical 结果对象
+ * @returns 单块 JSON 文本
+ */
+export declare function renderTask(_args: unknown, value: unknown): TextBlockLike[];

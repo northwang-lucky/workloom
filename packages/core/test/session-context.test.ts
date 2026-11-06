@@ -1,7 +1,7 @@
 /**
  * session-context 单测：assembleSessionContext 快照组装（临时项目目录）。
  *
- * 覆盖：developer 默认 unknown 与读取；无活跃任务行与候选任务节（排序/截断/降级/白名单）；
+ * 覆盖：无活跃任务行与候选任务节（排序/截断/降级/白名单）；
  * 活跃任务行（标题/状态/路径）；
  * git 分支与脏计数及非 git 降级；workflow 概览拼接与空数组省略；块包裹格式；
  * delegationDepth>0 的 executor 版白名单（仅 Active task / Guidelines / Executor norms）。
@@ -58,10 +58,15 @@ function addBareTask(root, dirName, fields) {
   writeFileSync(join(taskDir, 'task.json'), `${JSON.stringify(fields)}\n`)
 }
 
-/** 写入项目 .workloom 下的配置文件（对象 → JSON；隔离全局层用）。 */
-function writeProjectConfig(root, name, value) {
-  writeFileSync(join(root, '.workloom', name), JSON.stringify(value, null, 2))
-}
+// 测试隔离：未走 withEmptyHome 的用例也读 $HOME/.workloom/config 全局层；本机
+// 真实全局配置会泄漏进单测。重定向 HOME 到临时目录使全局层恒为空（withEmptyHome
+// 用例自行再次换目录，恢复后回到本临时目录，语义不变）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-sess-home-'))
+// TMPDIR 一并指向隔离目录：夹具临时目录随之落在 HOME 之内，findWorkloomRoot 的
+// 上溯在 HOME 边界停下（与真实环境“家目录为上溯边界”的语义一致），不会误发现
+// 本机真实家目录的 .workloom。
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
 
 /**
  * 以空 home 目录执行回调（隔离 $HOME/.workloom 全局配置层；os.homedir 每次调用
@@ -78,36 +83,6 @@ function withEmptyHome(fn) {
   }
 }
 
-test('developer 缺失时降级为 unknown 且不报错', () => {
-  const root = makeProject()
-  try {
-    const [err, text] = assembleSessionContext({
-      root,
-      contextKey: 'dsh_sess_1',
-      workflowSteps: [],
-    })
-    assert.equal(err, null)
-    assert.match(text, /\nDeveloper: unknown\n/)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('developer 从 .workloom/.developer 读取', () => {
-  const root = makeProject()
-  try {
-    writeFileSync(join(root, '.workloom', '.developer'), 'alice\n')
-    const [err, text] = assembleSessionContext({
-      root,
-      contextKey: 'dsh_sess_2',
-      workflowSteps: [],
-    })
-    assert.equal(err, null)
-    assert.match(text, /\nDeveloper: alice\n/)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
 
 test('无活跃任务时输出 No active task.', () => {
   const root = makeProject()
@@ -396,7 +371,6 @@ test('delegationDepth>0：快照仅含块标记 + Active task 行 + Guidelines �
       workflowSteps: [{ id: '2.1', title: 'Implement' }],
       norms: contractNorms,
       delegationDepth: 1,
-      mainModel: 'kimi-coding/k3',
     })
     assert.equal(err, null)
     // 块标记包裹
@@ -419,10 +393,8 @@ test('delegationDepth>0：快照仅含块标记 + Active task 行 + Guidelines �
       'contract norms must be replaced entirely',
     )
     assert.ok(normsSection.includes('leaf executor'), 'executor norms name the leaf executor role')
-    // 被删行全量不出现（Developer / Last dispatch / Executor profiles / Git / Workflow 概览）
-    assert.ok(!text.includes('Developer: '), 'developer line must be dropped at depth > 0')
+    // 被删行全量不出现（Last dispatch / Git / Workflow 概览）
     assert.ok(!text.includes('Last dispatch:'), 'last dispatch line must be dropped at depth > 0')
-    assert.ok(!text.includes('Executor profiles'), 'profiles section must be dropped at depth > 0')
     assert.ok(!text.includes('Git: '), 'git line must be dropped at depth > 0')
     assert.ok(!text.includes('Workflow:'), 'workflow overview must be dropped at depth > 0')
   } finally {
@@ -554,7 +526,6 @@ test('S3 主会话注入：norms 段逐字未动（防瘦身误伤纪律），�
       'norms body must be preserved verbatim before block close',
     )
     // 状态块字段齐全（瘦身只针对测量证实有收益的部分，不得删除状态字段）
-    assert.match(text, /\nDeveloper: /)
     assert.match(text, /\nGit: /)
     assert.match(text, /\nWorkflow: 1\.0 Create task \| 2\.1 Implement\n/)
   } finally {
@@ -562,54 +533,7 @@ test('S3 主会话注入：norms 段逐字未动（防瘦身误伤纪律），�
   }
 })
 
-test('Executor profiles 节紧跟 Active task、Git 之前；命中行带来源层标注', () => {
-  const root = makeProject()
-  try {
-    addTask(root, 'dsh_sess_p1', 'Implement X', 'planning')
-    writeProjectConfig(root, 'config.json', {
-      subagent_profiles: [
-        {
-          whenMain: 'kimi-coding/k3',
-          subagents: {
-            implement: {
-              model: 'deepseek/deepseek-v4-pro',
-              effort: 'max',
-              tools: { includes: ['lsp_diagnostics', 'lsp_symbols'] },
-            },
-          },
-        },
-      ],
-    })
-    const [err, text] = withEmptyHome(() =>
-      assembleSessionContext({
-        root,
-        contextKey: 'dsh_sess_p1',
-        workflowSteps: [],
-        mainModel: 'kimi-coding/k3',
-      }),
-    )
-    assert.equal(err, null)
-    const activeIdx = text.indexOf('\nActive task: "Implement X" (planning) at tasks/08-24-demo.\n')
-    const profilesIdx = text.indexOf('\nExecutor profiles (main model kimi-coding/k3):\n')
-    const gitIdx = text.indexOf('\nGit: ')
-    assert.ok(activeIdx >= 0 && profilesIdx > activeIdx && gitIdx > profilesIdx, 'order: active task → profiles → git')
-    assert.ok(
-      text.includes(
-        'implement: deepseek/deepseek-v4-pro | effort max | tools: includes [lsp_diagnostics, lsp_symbols] | source: project config (whenMain match)',
-      ),
-      'configured row carries model/effort/tools and layer tag',
-    )
-    assert.ok(
-      text.includes('  research: not configured (inherits parent session model)'),
-      'unconfigured row uses the inherit-notice',
-    )
-    assert.ok(!text.includes('Last dispatch:'), 'no dispatch records → no Last dispatch line')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('Last dispatch 节：最新一条在 Active task 与画像节之间，格式含时间/childId/error', () => {
+test('Last dispatch 节：最新一条紧跟 Active task，格式含时间/childId/error', () => {
   const root = makeProject()
   try {
     addTaskWithDispatches(root, 'dsh_sess_p2', 'Implement X', 'in_progress', [
@@ -634,7 +558,6 @@ test('Last dispatch 节：最新一条在 Active task 与画像节之间，格�
         root,
         contextKey: 'dsh_sess_p2',
         workflowSteps: [],
-        mainModel: 'kimi-coding/k3',
       }),
     )
     assert.equal(err, null)
@@ -642,11 +565,9 @@ test('Last dispatch 节：最新一条在 Active task 与画像节之间，格�
     const dispatchIdx = text.indexOf(
       '\nLast dispatch: implement failed at 2026-09-03T10:00:00.000Z (child child-2) — the executor failed before it finished\n',
     )
-    const profilesIdx = text.indexOf('\nExecutor profiles (main model kimi-coding/k3):\n')
     const gitIdx = text.indexOf('\nGit: ')
     assert.ok(dispatchIdx > activeIdx, 'dispatch line after active task line')
-    assert.ok(profilesIdx > dispatchIdx, 'profiles section after dispatch line')
-    assert.ok(gitIdx > profilesIdx, 'git after profiles section')
+    assert.ok(gitIdx > dispatchIdx, 'git after dispatch line')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -694,29 +615,6 @@ test('Last dispatch 无活跃任务/无派发记录：不输出该行', () => {
     )
     assert.equal(emptyErr, null)
     assert.ok(!emptyText.includes('Last dispatch:'), 'empty dispatches → no dispatch line')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('画像解析失败（无 runtime 的 per-runtime model map）：整节降级不拖垮快照', () => {
-  const root = makeProject()
-  try {
-    addTask(root, 'dsh_sess_p5', 'Broken config', 'in_progress')
-    // 兜底条目命中但 model 是 per-runtime map：core 无 runtime 时 fail loud → 节降级
-    writeProjectConfig(root, 'config.local.json', {
-      subagent_profiles: [
-        { subagents: { implement: { model: { dsh: 'deepseek/deepseek-v4-flash' } } } },
-      ],
-    })
-    const [err, text] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_p5', workflowSteps: [] }),
-    )
-    assert.equal(err, null, 'config error must not fail the whole snapshot')
-    assert.ok(!text.includes('Executor profiles'), 'profiles section dropped on resolution error')
-    assert.ok(!text.includes('inherits parent session model'), 'no partial profile rows leak')
-    assert.match(text, /\nGit: /, 'rest of snapshot stays intact')
-    assert.ok(text.endsWith('\n</workloom-session-context>'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

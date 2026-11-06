@@ -24,19 +24,16 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { insideWorkloom, WORKLOOM_DIR } from '../workspace/locate.js';
-import { loadConfig } from '../workspace/config.js';
+import { loadConfig } from "../workspace/config-load.js";
 import { readTask } from '../task/task-store.js';
-import { CASE_FILES, CASE_PURPOSES, evaluateCaseExecutionGate } from '../task/case.js';
+import { CASE_FILES, CASE_PURPOSES } from "../task/case-structure.js";
+import { evaluateCaseExecutionGate } from "../task/case-gates.js";
+// kind 值域与 jsonl 解析的单一实现外移（过渡栖身地：消除与 task-store/task-gates
+// 的循环 import）；相对导入带 .ts 后缀，构建期重写为 .js。
+import { EXECUTOR_KINDS } from "./executor-kinds.js";
+import { jsonlPointerLines } from "../task/jsonl.js";
 /** effort 合法档位（低 → 高）。 */
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
-/** executor 类型枚举（子代理角色）。 */
-export const EXECUTOR_KINDS = Object.freeze({
-    research: 'research',
-    implement: 'implement',
-    check: 'check',
-    frontend: 'frontend',
-    review: 'review',
-});
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom executor context';
 /** prd 文件名（唯一物化 artifact：check/research/review 内联全文节块，implement/frontend 软指针）。 */
@@ -376,7 +373,7 @@ function buildInternal(params) {
         stats.filesPointed += pointerLines.length;
         const jsonlName = JSONL_FILES[params.kind];
         if (jsonlName !== undefined) {
-            pointerLines.push(...materializeJsonlEntries(params.root, taskDir, jsonlName, stats));
+            pointerLines.push(...jsonlPointerLines({ root: params.root, taskDir, jsonlName, stats }));
         }
         if (pointerLines.length > 0) {
             parts.push(`${POINTER_LIST_HEADING}\n${pointerLines.join('\n')}`);
@@ -599,35 +596,6 @@ function splitH2Sections(text) {
     }));
 }
 /**
- * 物化 jsonl 引用条目为指针行列表（切片 ①，内部，失败抛错）。
- * 逐行 JSON {file, reason?, type?}：无 file 行跳过；两角色（implement/check，
- * frontend 同 implement）统一输出「路径 + reason」纯指针行——逐行 mandate 由分层
- * 加载协议句统一取代；越界路径与缺失文件跳过；指针行极轻量且是可靠性基线，不受
- * 预算截断/索引降级影响（预算仅对 artifact 内容生效，128KB 上限保留作兜底）；
- * jsonl 缺失按空处理。
- * @param {string} root 项目根
- * @param {string} taskDir 任务目录绝对路径
- * @param {string} jsonlName jsonl 文件名
- * @param {import('./executor-context.d.ts').ExecutorPromptStats} stats 统计
- * @returns {string[]} 指针行文本列表
- */
-function materializeJsonlEntries(root, taskDir, jsonlName, stats) {
-    const raw = readTaskFile(join(taskDir, jsonlName));
-    if (raw === null)
-        return [];
-    const lines = [];
-    for (const entry of parseJsonlEntries(raw, jsonlName)) {
-        const absFile = resolveInsideRoot(root, entry.file);
-        if (absFile === null)
-            continue; // 越界路径跳过，防路径逃逸
-        if (!existsSync(absFile))
-            continue; // 引用文件缺失跳过，指针不指向空
-        lines.push(pointerLine(entry.file, entry.reason));
-        stats.filesPointed += 1;
-    }
-    return lines;
-}
-/**
  * 拼装指针行：`- <file>` 或 `- <file> (<reason>)`（reason 缺失省略括号；逐行
  * 「read before acting」后缀已删，逐行 mandate 由分层加载协议句统一取代）。
  * @param {string} file 条目路径
@@ -680,77 +648,6 @@ function listResearchMarkdownNames(taskDir) {
         throw error;
     }
     return entries.filter((name) => name.endsWith('.md')).sort();
-}
-/**
- * 解析 jsonl 全文为有效条目列表（导出供 task-gates 复用同一判定逻辑）。
- * 空行跳过；seed _example 行跳过；坏行/无 file 非 seed 行抛错（fail loud）。
- * @param {string} content jsonl 全文
- * @param {string} jsonlName jsonl 文件名（错误消息用）
- * @returns {import('./executor-context.d.ts').JsonlEntry[]}
- */
-export function parseJsonlEntries(content, jsonlName) {
-    const entries = [];
-    const lines = content.split('\n');
-    for (const [index, rawLine] of lines.entries()) {
-        const line = rawLine.trim();
-        if (line === '')
-            continue;
-        const entry = parseJsonlLine(line, jsonlName, index + 1);
-        if (entry === null)
-            continue; // 无 file 字段的行（含 seed _example）自动跳过
-        entries.push(entry);
-    }
-    return entries;
-}
-/**
- * 解析单行 jsonl（内部）：坏行/非对象/无 file 条目抛错（仅 seed _example 行豁免）；
- * file 存在但非字符串/空串视为结构性故障抛错。
- * @param {string} line 单行内容
- * @param {string} jsonlName jsonl 文件名（错误消息用）
- * @param {number} lineNo 行号（错误消息用）
- * @returns {import('./executor-context.d.ts').JsonlEntry | null}
- */
-function parseJsonlLine(line, jsonlName, lineNo) {
-    let parsed;
-    try {
-        parsed = JSON.parse(line);
-    }
-    catch (error) {
-        throw new Error(`${ERR_PREFIX}: failed to parse ${jsonlName} line ${lineNo}: ${String(error)}`, { cause: error });
-    }
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        throw new Error(`${ERR_PREFIX}: ${jsonlName} line ${lineNo}: entry must be a JSON object`);
-    }
-    if (parsed.file === undefined) {
-        // 只放行 seed 自述行：其余无 file 条目属数据问题，fail loud（无灰区口径）。
-        if (parsed._example !== undefined)
-            return null;
-        throw new Error(`${ERR_PREFIX}: ${jsonlName} line ${lineNo}: entry has no file field (only the seeded _example line may omit it)`);
-    }
-    if (typeof parsed.file !== 'string' || parsed.file === '') {
-        throw new Error(`${ERR_PREFIX}: ${jsonlName} line ${lineNo}: file must be a non-empty string`);
-    }
-    const reason = parsed.reason;
-    const type = parsed.type;
-    if (reason !== undefined && typeof reason !== 'string') {
-        throw new Error(`${ERR_PREFIX}: ${jsonlName} line ${lineNo}: reason must be a string`);
-    }
-    if (type !== undefined && typeof type !== 'string') {
-        throw new Error(`${ERR_PREFIX}: ${jsonlName} line ${lineNo}: type must be a string`);
-    }
-    return { file: parsed.file, reason, type };
-}
-/**
- * 把 file 解析为项目根内绝对路径；越界返回 null（跳过该条目，防路径逃逸）。
- * @param {string} root 项目根
- * @param {string} file jsonl 条目相对项目根的路径
- * @returns {string | null}
- */
-function resolveInsideRoot(root, file) {
-    const abs = resolve(root, file);
-    if (abs !== root && !abs.startsWith(`${root}/`))
-        return null;
-    return abs;
 }
 /**
  * 按字节上限截断文本；超限时截断内容后追加截断提示，返回截断标记。

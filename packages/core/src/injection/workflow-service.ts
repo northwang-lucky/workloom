@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs'
 
 import { findWorkloomRoot, insideWorkloom } from '../workspace/locate.js'
-import { loadConfig } from '../workspace/config.js'
+import { loadConfig } from '../workspace/config-load.ts'
 import { parseContract } from './workflow-contract.js'
 import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from './breadcrumb.js'
 import { resolveActiveTask } from '../task/active-task.js'
@@ -83,14 +83,20 @@ interface ActiveTaskState {
 }
 
 /**
- * 组装当前会话的 breadcrumb 指引文本（异步入口，规格约定）。
- * @param params 入参
- * @returns [err, text]：err 为任一编排步骤的失败；skip 命中时 text 为 null
+ * assembleBreadcrumbSync 入参（可携带回合任务记录实现单一解析）。
  */
-export async function assembleBreadcrumb(
-  params: AssembleBreadcrumbParams,
-): Promise<[Error | null, string | null]> {
-  return assembleBreadcrumbSync(params)
+export interface AssembleBreadcrumbParams {
+  root: string
+  contextKey: string
+  contractText: string
+  lightContractText?: string | null
+  userPrompt?: string
+  delegationDepth?: number
+  /**
+   * 本回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物）。
+   * 提供后本入口零次额外读盘；缺省时内部回退解析（兼容直连调用方）。
+   */
+  turnTask?: TaskRecordWithPath | null
 }
 
 /**
@@ -130,11 +136,14 @@ export function assembleWorkflowProjection(
   contextKey: string,
   contractText: string,
   lightContractText: string | null | undefined,
+  turnTask?: TaskRecordWithPath | null,
 ): [Error | null, WorkflowProjection | null] {
   try {
     const projectRoot = requireWorkloomRoot(root)
     const main = parseContractOrThrow(contractText, 'contract')
-    const active = resolveActiveTaskState(projectRoot, contextKey)
+    const active = turnTask != null
+      ? resolveActiveTaskStateFromRecord(turnTask)
+      : resolveActiveTaskState(projectRoot, contextKey)
     const effective =
       active?.mode === TASK_MODES.LIGHT ? parseLightContract(lightContractText) : main
     return [null, { steps: effective.steps, norms: main.norms }]
@@ -154,7 +163,10 @@ function assembleBreadcrumbInternal(params: AssembleBreadcrumbParams): string | 
   const projectRoot = requireWorkloomRoot(params.root)
   const config = loadConfig(projectRoot)
   const main = parseContractOrThrow(params.contractText, 'contract')
-  const active = resolveActiveTaskState(projectRoot, params.contextKey)
+  const active =
+    params.turnTask != null
+      ? resolveActiveTaskStateFromRecord(params.turnTask)
+      : resolveActiveTaskState(projectRoot, params.contextKey)
   const contractStatus = active?.contractStatus ?? CONTRACT_STATUS.NO_TASK
   let contract: WorkflowContract
   if (active?.mode === TASK_MODES.LIGHT) {
@@ -255,9 +267,18 @@ function resolveActiveTaskState(root: string, contextKey: string): ActiveTaskSta
   if (taskErr || task === null) {
     throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`)
   }
+  return resolveActiveTaskStateFromRecord(task)
+}
+
+/**
+ * 从已解析的任务记录解析模式与契约状态（单一解析链的下游；零额外读盘）。
+ * @param task 活跃任务记录
+ * @returns 任务模式与契约状态
+ */
+function resolveActiveTaskStateFromRecord(task: TaskRecordWithPath): ActiveTaskState | null {
   const contractStatus = TASK_STATUS_MAP[task.status]
   if (contractStatus === undefined) {
-    throw new Error(`${ERR_PREFIX}: unknown task status: ${task.status} (task: ${taskRelPath})`)
+    throw new Error(`${ERR_PREFIX}: unknown task status: ${task.status}`)
   }
   return { mode: task.mode, contractStatus }
 }

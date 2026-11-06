@@ -2,27 +2,19 @@
  * workloom-doctor 检查引擎的类型、检查元信息与共享常量（新增抽象，TypeScript）。
  *
  * 设计意图：
- * - 集中定义 DoctorReport 相关类型、12 类检查元信息（CHECK_META）与跨模块常量；
- * - doctor-checks.ts / doctor-fixes.ts / doctor.ts 各自从此处引用类型与常量，避免循环依赖；
+ * - 集中定义 DoctorReport 相关类型、最小检查集元信息（CHECK_META）与跨模块常量；
+ * - doctor-checks.ts / doctor.ts 各自从此处引用类型与常量，避免循环依赖；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 
 import type { TaskRecordWithPath } from '../task/task-store.d.ts'
 
-/** 检查项 code 枚举。 */
-export type DoctorIssueCode =
-  | 'task-lifecycle'
-  | 'parent-child'
-  | 'archive'
-  | 'dispatch-audit'
-  | 'stage-consistency'
-  | 'active-pointer'
-  | 'doc-completeness'
-  | 'spec-ref'
-  | 'config'
-  | 'local-prompts'
-  | 'workflow-overlay'
-  | 'worktree'
+/**
+ * 检查项 code 枚举（瘦身期最小集）：旧工作流语义检查全部随状态机重建退役，
+ * 仅保留不依赖旧工作流语义的 worktree 与 config 两类（对齐决策 4）；
+ * 检查集留空槽，由子任务三状态机重建承接。
+ */
+export type DoctorIssueCode = 'config' | 'worktree'
 
 /** 严重级别。 */
 export type DoctorSeverity = 'error' | 'warn'
@@ -70,20 +62,13 @@ export interface DoctorSummary {
 export interface DoctorReport {
   checks: DoctorCheck[]
   summary: DoctorSummary
-  /** --fix 时：已修复项（修复前 issue 快照）；否则为空数组。 */
-  fixed: DoctorIssue[]
-  /**
-   * 检查后仍存留的全部 issue：--fix 后为「复核残留」（含未修成的 fixable 与全部
-   * non-fixable）；无 --fix 时等于当前全部 issue。
-   */
+  /** 空槽提示行：检查集待状态机重建（瘦身期显式标注，不静默返回空）。 */
+  slotsNote: string
+  /** 当前全部 issue（两检查产出）。 */
   manual: DoctorIssue[]
 }
 
 /** runDoctor 入参。 */
-export interface RunDoctorOpts {
-  fix: boolean
-}
-
 /** 任务节点（当前实际位置 + 记录）。 */
 export interface TaskNode {
   name: string
@@ -98,22 +83,18 @@ export const ARCHIVE_DIR = 'archive'
 /** task.json 写回缩进（保持 2 空格 + 尾换行）。 */
 export const JSON_INDENT = 2
 
-/** 12 类检查的元信息（顺序即输出顺序；每类必出现）。 */
+/**
+ * 最小检查集元信息（顺序即输出顺序；每类必出现）。
+ * 空槽提示：旧检查项的空位由 buildReport 以 slotsNote 显式标注（不静默返回空）。
+ */
 export const CHECK_META: ReadonlyArray<{
   code: DoctorIssueCode
   title: string
   severity: DoctorSeverity
 }> = [
-  { code: 'task-lifecycle', title: 'Task state machine', severity: 'warn' },
-  { code: 'parent-child', title: 'Parent-child consistency', severity: 'error' },
-  { code: 'archive', title: 'Archive integrity', severity: 'error' },
-  { code: 'dispatch-audit', title: 'Executor dispatch audit', severity: 'warn' },
-  { code: 'stage-consistency', title: 'Task stage consistency', severity: 'warn' },
-  { code: 'active-pointer', title: 'Active-task pointer', severity: 'warn' },
-  { code: 'doc-completeness', title: 'Documentation completeness', severity: 'warn' },
-  { code: 'spec-ref', title: 'Spec reference integrity', severity: 'warn' },
   { code: 'config', title: 'Configuration', severity: 'warn' },
-  { code: 'local-prompts', title: 'Local prompts', severity: 'warn' },
-  { code: 'workflow-overlay', title: 'Workflow overlay migration', severity: 'warn' },
   { code: 'worktree', title: 'Worktree consistency', severity: 'warn' },
 ]
+
+/** 检查集空槽提示行文案（doctor 报告显式携带，不静默返回空）。 */
+export const DOCTOR_SLOTS_NOTE = '检查集待状态机重建'

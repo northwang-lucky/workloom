@@ -40,8 +40,8 @@ Completion criteria: `git status` shows no dirty files belonging to this task.
 
 #### 3.1 Archive and record
 
-Load the `workloom-finish` skill: check dirty files → archive the task (`workloom_task_archive`) → record the session (journal). Both `workloom_task_archive` and `workloom_journal` require an explicit `taskPath`. The archive gate still requires a recorded check, which the self-check in 2.2 provides.
-Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session.
+Load the `workloom-finish` skill: check dirty files → archive the task (`workloom_task_archive`), which requires an explicit `taskPath`. The archive gate still requires a recorded check, which the self-check in 2.2 provides.
+Completion criteria: the task is under `archive/` with `status` `completed`.
 
 [workflow-state:planning]
 The light task is in planning. Fill prd.md to the light minimum (H1, Goal, acceptance points) and run `workloom_task_start`; skip Phase 1.1 alignment, the context jsonl files, and the full-section structure gate. Do not write implementation code before the task starts.

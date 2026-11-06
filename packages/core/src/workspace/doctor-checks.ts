@@ -1,45 +1,26 @@
 /**
- * doctor 检查引擎的检查收集与报告组装（12 类检查 + collectChecks + buildReport）。
+ * doctor 检查引擎（瘦身后最小集，TypeScript）：只收集 config 与 worktree 两类
+ * 只读检查，报告携带空槽提示行「检查集待状态机重建」；旧工作流语义检查的空位
+ * 由子任务三状态机重建承接，期间检查项变少属预期行为。
  *
  * 设计意图：
- * - 全部检查只读，不写任何 `.workloom/` 文件；写入逻辑在 doctor-fixes.ts；
- * - 单类检查规则实现见 doctor-check-rules.ts / doctor-local-prompts.ts（本文件只做
- *   收集与汇总）；
- * - 任务扫描（collectTasks）与 issue 辅助（makeIssue 等）见 doctor-tasks.ts，按需引用；
- * - buildReport 负责把 checks[] 汇总为 DoctorReport（summary + manual[]）；
- * - local-prompts 检查的正向状态（已加载片段）经 check.info 收集，随报告 JSON 输出；
+ * - 全部检查只读，不写任何 `.workloom/` 文件；
+ * - 单类检查规则实现见 doctor-check-rules.ts（本文件只做收集与汇总）；
+ * - 任务扫描（loadTaskNodes）与 issue 辅助（makeIssue 等）见 doctor-tasks.ts，按需引用；
+ * - buildReport 负责把 checks[] 汇总为 DoctorReport（summary + slotsNote + manual[]）；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 
 import { findWorkloomRoot } from './locate.js'
-import { CHECK_META } from './doctor-types.ts'
+import { CHECK_META, DOCTOR_SLOTS_NOTE } from './doctor-types.ts'
 import type {
   DoctorCheck,
   DoctorIssue,
   DoctorIssueCode,
   DoctorReport,
-  TaskNode,
 } from './doctor-types.ts'
-import {
-  checkActivePointer,
-  checkArchive,
-  checkConfig,
-  checkDispatchAudit,
-  checkDocCompleteness,
-  checkParentChild,
-  checkSpecRef,
-  checkStageConsistency,
-  checkTaskLifecycle,
-  checkWorkflowOverlay,
-  checkWorktree,
-} from './doctor-check-rules.ts'
-import { checkLocalPrompts } from './doctor-local-prompts.ts'
-import {
-  allIssues,
-  collectTasks,
-  makeIssue,
-  pushIssues,
-} from './doctor-tasks.ts'
+import { checkConfig, checkWorktree } from './doctor-check-rules.ts'
+import { allIssues, makeIssue, pushIssues } from './doctor-tasks.ts'
 
 /** 收集全部检查：无 .workloom 时只出 config issue，其余检查为空。 */
 export function collectChecks(root: string): DoctorCheck[] {
@@ -62,38 +43,22 @@ export function collectChecks(root: string): DoctorCheck[] {
     }))
   }
   const projectRoot = found.root
-  const nodes = collectTasks(projectRoot)
-  const byName = new Map<string, TaskNode>(nodes.map((node) => [node.name, node]))
   /** @type {Map<DoctorIssueCode, DoctorIssue[]>} */
   const issueMap = new Map<DoctorIssueCode, DoctorIssue[]>()
-  const infoMap = new Map<DoctorIssueCode, string[]>()
   for (const meta of CHECK_META) {
     issueMap.set(meta.code, [])
-    infoMap.set(meta.code, [])
   }
-  pushIssues(issueMap, 'task-lifecycle', checkTaskLifecycle(projectRoot, nodes))
-  pushIssues(issueMap, 'parent-child', checkParentChild(nodes, byName))
-  pushIssues(issueMap, 'archive', checkArchive(nodes, byName))
-  pushIssues(issueMap, 'dispatch-audit', checkDispatchAudit(nodes))
-  pushIssues(issueMap, 'stage-consistency', checkStageConsistency(nodes))
-  pushIssues(issueMap, 'active-pointer', checkActivePointer(projectRoot, byName))
-  pushIssues(issueMap, 'doc-completeness', checkDocCompleteness(projectRoot, nodes))
-  pushIssues(issueMap, 'spec-ref', checkSpecRef(projectRoot, nodes))
   pushIssues(issueMap, 'config', checkConfig(projectRoot))
-  const local = checkLocalPrompts(projectRoot)
-  pushIssues(issueMap, 'local-prompts', local.issues)
-  infoMap.set('local-prompts', local.info)
-  pushIssues(issueMap, 'workflow-overlay', checkWorkflowOverlay(projectRoot))
   pushIssues(issueMap, 'worktree', checkWorktree(projectRoot))
   return CHECK_META.map((meta) => ({
     ...meta,
     issues: issueMap.get(meta.code) ?? [],
-    info: infoMap.get(meta.code) ?? [],
+    info: [],
   }))
 }
 
-/** 组装报告：summary 取自当前 checks（fix 后即复核残留）。 */
-export function buildReport(checks: DoctorCheck[], fixed: DoctorIssue[]): DoctorReport {
+/** 组装报告：summary 取自当前 checks；slotsNote 携带空槽提示（不静默返回空）。 */
+export function buildReport(checks: DoctorCheck[]): DoctorReport {
   const issues = allIssues(checks)
   return {
     checks,
@@ -102,8 +67,7 @@ export function buildReport(checks: DoctorCheck[], fixed: DoctorIssue[]): Doctor
       fixable: issues.filter((issue) => issue.fixable).length,
       manual: issues.filter((issue) => !issue.fixable).length,
     },
-    fixed,
-    // 无 --fix 时 manual 即为全部存量 issue；fix 后为复核残留。
+    slotsNote: DOCTOR_SLOTS_NOTE,
     manual: issues,
   }
 }

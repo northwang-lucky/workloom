@@ -13,6 +13,7 @@
  *   供 systemPrompt 的同步 text provider 直接调用，避免编排逻辑重复。
  */
 import type { WorkflowStep } from './workflow-contract-types.ts';
+import type { TaskRecordWithPath } from '../task/task-store.d.ts';
 /** overlay 文件相对 .workloom 的路径（doctor overlay 检查等共享）。 */
 export declare const OVERLAY_REL_PATH = "workflow.override.md";
 /** assembleBreadcrumb 入参。 */
@@ -41,11 +42,21 @@ export interface WorkflowProjection {
     norms: string | null;
 }
 /**
- * 组装当前会话的 breadcrumb 指引文本（异步入口，规格约定）。
- * @param params 入参
- * @returns [err, text]：err 为任一编排步骤的失败；skip 命中时 text 为 null
+ * assembleBreadcrumbSync 入参（可携带回合任务记录实现单一解析）。
  */
-export declare function assembleBreadcrumb(params: AssembleBreadcrumbParams): Promise<[Error | null, string | null]>;
+export interface AssembleBreadcrumbParams {
+    root: string;
+    contextKey: string;
+    contractText: string;
+    lightContractText?: string | null;
+    userPrompt?: string;
+    delegationDepth?: number;
+    /**
+     * 本回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物）。
+     * 提供后本入口零次额外读盘；缺省时内部回退解析（兼容直连调用方）。
+     */
+    turnTask?: TaskRecordWithPath | null;
+}
 /**
  * 组装当前会话的 breadcrumb 指引文本（同步核心）。
  * 全部编排步骤均为同步 I/O，故可同步求值；adapter 的 systemPrompt
@@ -67,4 +78,4 @@ export declare function assembleBreadcrumbSync(params: AssembleBreadcrumbParams)
  * @param lightContractText 轻量契约全文（活跃任务为 light 时必须提供）
  * @returns [err, projection]：失败时 err 非空
  */
-export declare function assembleWorkflowProjection(root: string, contextKey: string, contractText: string, lightContractText: string | null | undefined): [Error | null, WorkflowProjection | null];
+export declare function assembleWorkflowProjection(root: string, contextKey: string, contractText: string, lightContractText: string | null | undefined, turnTask?: TaskRecordWithPath | null): [Error | null, WorkflowProjection | null];

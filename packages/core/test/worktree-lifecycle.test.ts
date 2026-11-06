@@ -34,6 +34,17 @@ import * as workloom from '../src/index.ts'
 
 import { markTaskLegacy } from './fixtures/task-artifacts.js'
 
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir 注入
+// 缝时吃 os.homedir 实时值）；本机真实全局配置会泄漏进单测。重定向 HOME 到临时目录
+// 使全局层恒为空（与 config.test.ts 的 homeDir 注入、executor.test.ts 的重定向同口径）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-core-home-'))
+// TMPDIR 一并指向隔离目录：夹具临时目录随之落在 HOME 之内，findWorkloomRoot 的
+// 上溯在 HOME 边界停下（与真实环境“家目录为上溯边界”的语义一致），不会误发现
+// 本机真实家目录的 .workloom。
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
+
+
 const {
   createTask,
   executeArchiveTask,

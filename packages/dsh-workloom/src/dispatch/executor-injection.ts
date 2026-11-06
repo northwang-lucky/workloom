@@ -17,6 +17,7 @@ import {
   TEMPLATE_CASE_ENTRY,
   TEMPLATE_CASE_RESULT_ENTRY,
 } from '@workloom-ai/core'
+import { buildExecutorContractSection } from './discipline-text.ts'
 
 /** resources 条目在仓内的展示路径前缀（注入头与缺失报错用）。 */
 const RESOURCES_REPO_PREFIX = 'packages/core/resources/'
@@ -77,6 +78,8 @@ export function buildFullInjection(
     taskRelPath,
     kind,
     userPrompt,
+    // runtime 纪律文本（dsh 侧组装）：契约节整段注入（组装机制在 core）。
+    contractSection: buildExecutorContractSection(kind, hasLsp, userPrompt),
     localDirectives,
     hasLsp,
     purpose,

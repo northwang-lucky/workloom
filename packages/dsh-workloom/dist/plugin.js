@@ -16,13 +16,11 @@
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
 import { CONTEXT_KEY_PREFIX, PLUGIN_NAME } from "./constants.js";
-import { assembleBreadcrumbSync, assembleSessionContext, assembleWorkflowProjection, assertWorkflowProtocolVersion, composeLocalDirectivesText, findWorkloomRoot, loadWorkflowContractText, loadWorkflowLightContractText, parseContract, WorkflowContractError, } from '@workloom-ai/core';
+import { assembleBreadcrumbSync, assembleSessionContext, assembleWorkflowProjection, resolveTurnTask, assertWorkflowProtocolVersion, composeLocalDirectivesText, findWorkloomRoot, loadWorkflowContractText, loadWorkflowLightContractText, parseContract, WorkflowContractError, } from '@workloom-ai/core';
 import { registerCommands } from "./tooling/commands.js";
 import { registerExecutor } from "./dispatch/executor.js";
-import { readMainModel } from "./dispatch/main-model.js";
 import { registerSkills, registerStepsTool } from "./tooling/skills.js";
 import { registerTaskTools } from "./tooling/tasks.js";
-import { registerJournalTool } from "./tooling/journal-tool.js";
 /** 注入 section 名（systemPrompt 注册键，同名重复注册会抛错）。 */
 const SECTION_NAME = 'workloom-breadcrumb';
 /** 注入顺序：persona(0) 之后、工具指引(100-199)之前。 */
@@ -82,7 +80,31 @@ export function apply(ctx) {
     registerSkills(ctx);
     registerStepsTool(ctx);
     registerTaskTools(ctx);
-    registerJournalTool(ctx);
+}
+/** 回合任务缓存（contextKey → 已解析记录）：两个 systemPrompt provider 同回合
+ * 各触发一次，缓存保证 resolveActiveTask + readTask 每回合只执行一次（R7）。 */
+const turnTaskCache = new Map();
+/**
+ * 取本回合的活跃任务记录（回合内缓存）：同 contextKey 第二次起零读盘。
+ * 解析失败只告警并返回 null（无任务语义），不阻塞会话注入。
+ * @param target 注入目标
+ * @param contextKey 会话标识
+ * @returns 任务记录或 null
+ */
+function getTurnTask(target, contextKey) {
+    const cached = turnTaskCache.get(contextKey);
+    if (cached !== undefined)
+        return cached;
+    try {
+        const task = resolveTurnTask(target.root, contextKey);
+        turnTaskCache.set(contextKey, task);
+        return task;
+    }
+    catch (error) {
+        console.warn(`${CONTEXT_WARN_PREFIX} turn task: ${error instanceof Error ? error.message : String(error)}`);
+        turnTaskCache.set(contextKey, null);
+        return null;
+    }
 }
 /**
  * 解析注入目标：优先取组装上下文里的 agent（更精确），拿不到再回退发起链；
@@ -114,9 +136,11 @@ function renderBreadcrumb(target) {
     const contractText = loadWorkflowContractText();
     if (contractText === null)
         return '';
+    const contextKey = `${CONTEXT_KEY_PREFIX}_${target.agent.id}`;
     const [err, text] = assembleBreadcrumbSync({
         root: target.root,
-        contextKey: `${CONTEXT_KEY_PREFIX}_${target.agent.id}`,
+        contextKey,
+        turnTask: getTurnTask(target, contextKey),
         contractText,
         lightContractText: loadWorkflowLightContractText(),
         userPrompt: extractUserPrompt(target.agent),
@@ -141,11 +165,13 @@ export function renderSessionContext(target) {
     const contractText = loadWorkflowContractText();
     if (contractText === null)
         return '';
+    const contextKey = `${CONTEXT_KEY_PREFIX}_${target.agent.id}`;
     const [localErr, directives] = composeLocalDirectivesText(target.root, 'main');
     if (localErr !== null) {
         console.warn(`${CONTEXT_WARN_PREFIX} local directives: ${localErr.message}`);
     }
     return assembleSessionContextText(target, contractText, {
+        turnTask: getTurnTask(target, contextKey),
         delegationDepth: delegationDepthOf(target.agent),
         localDirectives: localErr !== null ? '' : directives,
         lightContractText: loadWorkflowLightContractText(),
@@ -157,9 +183,6 @@ export function renderSessionContext(target) {
  * steps 经 core 的 assembleWorkflowProjection 解析生效契约（light 任务取轻量
  * 契约，其余取主契约），norms 恒出自主契约；解析/组装失败只告警，不阻塞会话。
  * 委派深度透传 core（缺省 0）：深度>0 时 norms 段整体替换为 executor 版。
- * mainModel 由 target.agent 的 requestHeader 快照读取（design §6）：Executor
- * profiles 节的 whenMain 条目按它匹配、首行标题展示；取不到时传 undefined（core
- * 走 main model unknown 分支，whenMain 条目跳过，不 fail loud）。
  * @param target 注入目标（agent + 项目根）
  * @param contractText 主契约全文
  * @param options 可选项（delegationDepth/localDirectives/lightContractText）
@@ -167,7 +190,7 @@ export function renderSessionContext(target) {
  */
 export function assembleSessionContextText(target, contractText, options = {}) {
     const contextKey = `${CONTEXT_KEY_PREFIX}_${target.agent.id}`;
-    const [projectionErr, projection] = assembleWorkflowProjection(target.root, contextKey, contractText, options.lightContractText ?? null);
+    const [projectionErr, projection] = assembleWorkflowProjection(target.root, contextKey, contractText, options.lightContractText ?? null, options.turnTask);
     if (projectionErr || projection === null) {
         console.warn(`${CONTEXT_WARN_PREFIX} ${projectionErr?.message ?? 'workflow projection returned no projection'}`);
         return '';
@@ -175,11 +198,11 @@ export function assembleSessionContextText(target, contractText, options = {}) {
     const [err, text] = assembleSessionContext({
         root: target.root,
         contextKey,
+        turnTask: options.turnTask,
         workflowSteps: projection.steps,
         norms: projection.norms,
         delegationDepth: options.delegationDepth ?? 0,
         localDirectives: options.localDirectives ?? '',
-        mainModel: readMainModel(target.agent),
     });
     if (err) {
         console.warn(`${CONTEXT_WARN_PREFIX} ${err.message}`);

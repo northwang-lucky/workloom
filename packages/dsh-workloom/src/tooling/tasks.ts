@@ -24,6 +24,7 @@ import {
   executeStartTask,
   executeTaskCase,
   PARAM_DESCRIPTIONS,
+  renderTask,
   requireWorkloomCwd,
   TASK_MODES,
   TOOL_DESCRIPTIONS,
@@ -31,12 +32,6 @@ import {
 } from '@workloom-ai/core'
 
 import { CONTEXT_KEY_PREFIX } from '../constants.ts'
-
-/** 文本结果块。 */
-interface TextBlockLike {
-  type: 'text'
-  text: string
-}
 
 /**
  * 注册八个任务管理工具（create/start/check/align/case/finish/archive/list）。
@@ -373,8 +368,3 @@ async function listTasksTool(args: unknown, exec: ToolRunContext): Promise<unkno
   return result
 }
 
-/** 渲染任务工具结果（结构化摘要文本）。 */
-function renderTask(_args: unknown, value: unknown): TextBlockLike[] {
-  const text = JSON.stringify(value)
-  return [{ type: 'text', text }]
-}

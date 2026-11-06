@@ -11,8 +11,6 @@
  * - 目录不存在 = 无片段，整体零行为；文件缺失/内容为空 = 跳过该目标注入；
  * - 三层叠加顺序：全局 → 项目共享 → 项目本机；各层内 all.md 在前、<target>.md 在后
  *   （排序职责在 readLocalFragments，filterAndOrderLocal 只按目标过滤、保持输入顺序）；
- * - requiresTools 机制已整体移除：front-matter 出现 requiresTools / requires_tools
- *   残留 → fail loud（错误文案指明该机制已废止），不再参与注入条件；
  * - 本模块 runtime 无关（core 承载），注入落地由两 adapter 负责；主 agent 目标为
  *   main，executor 子代理目标为各自 kind（research/implement/check/frontend/review），
  *   all 对两者通用。
@@ -25,11 +23,11 @@ export declare const LOCAL_PROMPTS_REL = "prompts.local";
 export declare const LOCAL_FRAGMENT_TARGETS: readonly ["main", "research", "implement", "check", "frontend", "review", "all"];
 /** LocalFragmentTarget 类型（合法片段目标）。 */
 export type LocalFragmentTarget = (typeof LOCAL_FRAGMENT_TARGETS)[number];
-/** 解析后的本机片段（target 来自文件名映射；正文为 front-matter 剥离后的文本）。 */
+/** 解析后的本机片段（target 来自文件名映射；正文为全文）。 */
 export interface LocalFragment {
     /** 片段目标（main 为主 agent，research/implement/check/frontend/review 为 executor kind，all 通用）。 */
     target: LocalFragmentTarget;
-    /** Markdown 正文（front-matter 剥离，trim 保留原文）。 */
+    /** Markdown 正文（trim 保留原文）。 */
     text: string;
 }
 /**
@@ -39,7 +37,7 @@ export interface LocalFragment {
 export declare class WorkloomLocalPromptError extends Error {
     /** 出错文件名（相对所在 prompts 层；纯解析无文件名上下文时为 ''）。 */
     readonly file: string;
-    /** 出错字段路径（如 requiresTools、front-matter、filename、target）。 */
+    /** 出错字段路径（filename 或 target）。 */
     readonly field: string;
     /** 具体原因（不含前缀）。 */
     readonly reason: string;
@@ -51,10 +49,7 @@ export declare class WorkloomLocalPromptError extends Error {
     constructor(file: string, field: string, reason: string);
 }
 /**
- * 解析片段正文（纯函数）：可选 YAML front-matter（--- 包裹）+ Markdown 正文。
- * 无 front-matter 视为无条件片段；front-matter 出现 requiresTools / requires_tools
- * 残留 → fail loud（指明该机制已废止）；其余未知字段 / 非法 front-matter 同样
- * 抛 WorkloomLocalPromptError（无文件名上下文，file 为 ''，由 IO 层补全）。
+ * 解析片段正文（纯函数）：正文即全文（无条件片段，不携带元数据）。
  * @param target 片段目标（来自文件名的映射，如 'main'；'all' 为通用片段）
  * @param body 文件全文
  * @returns 解析后的片段（正文 trim 保留原文）

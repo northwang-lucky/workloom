@@ -1,31 +1,35 @@
-/** 执行器工具白名单组装（core 单一事实源，双 runtime 共用）。 */
-
-/** DSH 原生工具候选名单（显式枚举，非模式；lsp_* 不入默认）。 */
-export const NATIVE_TOOLS_DSH: readonly string[]
-
-/** Pi 内置工具候选名单（read/bash/edit/write）。 */
-export const NATIVE_TOOLS_PI: readonly string[]
-
+/**
+ * 执行器工具白名单组装（runtime 无关单一事实源，纯函数，TypeScript）。
+ *
+ * 设计意图：
+ * - 默认候选名单显式枚举（非模式）：DSH 为原生工具全集 − 全部 LSP 前缀模式；交互类
+ *   （ask_user_question）、编排类（subagent 族 / workflow / ralph 族 /
+ *   send_message / list_agents / interrupt_agent / create_goal / update_goal /
+ *   exit_plan_mode）与任务工具（插件注册）均不入默认，机制层断根；
+ * - LSP 前缀模式 默认不授，经 subagent_profiles 的 tools.includes 前缀模式补回；
+ *   插件工具不入默认，同样经 includes 补入；
+ * - buildAllowList 与运行时可见集求交：未知名/前缀静默忽略（restrict 传未知名
+ *   会 fail），去重、保序（基集按原生声明顺序，includes 追加在后）。
+ */
+/** DSH 原生工具候选名单（显式枚举，非模式；顺序即保序基准）。 */
+export declare const NATIVE_TOOLS_DSH: readonly string[];
 /** tools 配置的最小形状（config 的 SubagentTools 投影）。 */
 export interface AllowToolsConfig {
-  /** 在默认白名单上额外补入的工具名（含尾缀 `*` 前缀模式）。 */
-  includes?: string[]
-  /** 从默认白名单上移除的工具名（含尾缀 `*` 前缀模式）。 */
-  excludes?: string[]
+    /** 在默认白名单上额外补入的工具名（含尾缀 `*` 前缀模式）。 */
+    includes?: string[];
+    /** 从默认白名单上移除的工具名（含尾缀 `*` 前缀模式）。 */
+    excludes?: string[];
 }
-
 /** buildAllowList 入参。 */
 export interface BuildAllowListParams {
-  /** runtime 名（dsh/pi；决定默认候选名单）。 */
-  runtime: 'dsh' | 'pi'
-  /** 该 kind 的 tools 配置（includes/excludes；缺省零行为）。 */
-  toolsConfig?: AllowToolsConfig
-  /** 运行时可见工具名集合（DSH schemas 全局视图 / Pi 理论工具集）。 */
-  visibleNames: Iterable<string>
+    /** 该 kind 的 tools 配置（includes/excludes；缺省零行为）。 */
+    toolsConfig?: AllowToolsConfig;
+    /** 运行时可见工具名集合（DSH schemas 父代理作用域视图）。 */
+    visibleNames: Iterable<string>;
 }
-
 /**
- * 组装工具 allow 清单：默认候选名单 ± includes/excludes（支持尾缀 `*` 前缀
- * 模式，仅前缀匹配），与可见集求交（未知名/前缀静默忽略），去重、保序。
+ * 组装执行器工具 allow 清单：基集 = DSH 原生候选 ∩ 可见集；includes 扩充 /
+ * excludes 移除（均支持尾缀 `*` 前缀模式，仅前缀匹配）；与可见集求交（未知名/
+ * 前缀静默忽略）；去重、保序（基集按原生声明顺序，includes 追加在后）。
  */
-export function buildAllowList(params: BuildAllowListParams): string[]
+export declare function buildAllowList({ toolsConfig, visibleNames }: BuildAllowListParams): string[];

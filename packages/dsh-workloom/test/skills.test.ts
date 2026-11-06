@@ -323,9 +323,8 @@ test('workloom-continue/workloom-finish 资产可解析：路由表与收尾五�
     assert.equal(err, null, `${name} SKILL.md must parse`)
     assert.equal(parsed.name, name)
     assert.ok(parsed.description !== '', `${name} description must be non-empty`)
-    // archive/journal 的 taskPath 必填指引必须写进 skill 步骤。
+    // archive 的 taskPath 必填指引必须写进 skill 步骤。
     assert.match(parsed.body, /workloom_task_archive/)
-    assert.match(parsed.body, /workloom_journal/)
     assert.match(parsed.body, /`?taskPath`?/)
   }
   // continue 走路由表，finish 走收尾五步（原命令语义平移）。

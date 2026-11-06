@@ -11,16 +11,19 @@ import { join } from 'node:path'
 import {
   PLAN_MISSING,
   PLAN_NOT_CONFIRMED,
-  PRD_STRUCTURE_CODES,
-  findMissingPrdTitle,
-  findUnfilledPrdSections,
-  inspectPlanStructure,
-  inspectPrdStructure,
   countEffectiveJsonlRecords,
   evaluateFrontendDispatchGate,
   evaluateLightDispatchGate,
   evaluateStartGate,
+  inspectPlanStructure,
 } from '../src/task/task-gates.js'
+// PRD 结构解析的单一实现（task-gates 与 case 共用解析层）。
+import {
+  PRD_STRUCTURE_CODES,
+  findMissingPrdTitle,
+  findUnfilledPrdSections,
+  inspectPrdStructure,
+} from '../src/task/prd-structure.ts'
 
 /** 骨架 prd 原文（字面量独立于此模块常量，防同义反复）：完整任务固定十一小节。 */
 const SKELETON_PRD = `## Context

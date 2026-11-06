@@ -25,11 +25,13 @@ import {
   lookupWorkflowStep,
   PARAM_DESCRIPTIONS,
   readResourceText,
+  renderOutput,
   resourceDirOf,
   SKILL_ENTRIES,
   TOOL_DESCRIPTIONS,
   TOOL_NAMES,
 } from '@workloom-ai/core'
+import type { TextBlockLike } from '@workloom-ai/core'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom skill'
@@ -45,12 +47,6 @@ const REQUIRED_KEYS = ['name', 'description'] as const
 
 /** skill 注册跳过告警前缀（运行时文案英文）。 */
 const SKILL_WARN_PREFIX = `${ERR_PREFIX}: registration skipped:`
-
-/** 纯文本块最小形状（render 与返回值共用）。 */
-interface TextBlockLike {
-  type: 'text'
-  text: string
-}
 
 /** 解析出的 skill front-matter（body 为分隔符后正文，trim 后）。 */
 export interface ParsedSkillFrontmatter {
@@ -236,13 +232,3 @@ function executeStepTool(args: unknown, exec?: ToolRunContext): StepToolValue {
   }
 }
 
-/**
- * 从 canonical 值投影模型可见文本（纯函数，仅提取 output 首块文本）。
- * @param value canonical 结果
- * @returns 文本块
- */
-function renderOutput(value: unknown): TextBlockLike {
-  const result = value as { output?: readonly { text?: string }[] }
-  const text = result.output?.[0]?.text ?? ''
-  return { type: 'text', text }
-}

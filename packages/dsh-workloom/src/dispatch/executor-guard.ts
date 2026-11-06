@@ -169,7 +169,7 @@ export function registerWriteGuard(ctx: Context): void {
   ctx.tools.guard(confinedWriteGuard(pluginGuardState))
 }
 
-/** 受限写 kind 派发成功时登记子会话 id（executor.ts/failover 派发路径；不移除）。 */
+/** 受限写 kind 派发成功时登记子会话 id（executor.ts 派发路径；不移除）。 */
 export function registerWriteGuardChildId(root: string, childId: string): void {
   registerWriteGuardChild(pluginGuardState, root, childId)
 }

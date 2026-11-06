@@ -9,8 +9,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { initWorkloom } from '../src/workspace/init.js'
-import { DEFAULT_CONFIG, loadConfig } from '../src/workspace/config.js'
+import { initWorkloom } from '../src/workspace/init.ts'
+import {
+  DEFAULT_CONFIG,
+} from '../src/workspace/config-defaults.ts'
+import {
+  loadConfig,
+} from '../src/workspace/config-load.ts'
 
 /** 完整骨架路径清单（相对 root，与实现创建顺序一致）。 */
 const SKELETON = [
@@ -134,13 +139,13 @@ test('force 幂等补建且不覆盖已有 config.json', () => {
   const root = makeRoot()
   try {
     mkdirSync(join(root, '.workloom'))
-    writeFileSync(join(root, '.workloom', 'config.json'), '{"max_journal_lines": 500}\n')
+    writeFileSync(join(root, '.workloom', 'config.json'), '{"session_auto_commit": false}\n')
     const [err, result] = initWorkloom(root, { force: true })
     assert.equal(err, null)
     assert.ok(result)
     assert.equal(
       readFileSync(join(root, '.workloom', 'config.json'), 'utf8'),
-      '{"max_journal_lines": 500}\n',
+      '{"session_auto_commit": false}\n',
     )
     assert.ok(existsSync(join(root, '.workloom', 'tasks')))
     assert.ok(!result.created.includes('.workloom/config.json'))

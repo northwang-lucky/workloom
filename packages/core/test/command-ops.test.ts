@@ -1,29 +1,26 @@
 /**
- * command-ops 模块单测：init 参数解析、迁移摘要、init 编排、journal 必填
- * taskPath 与记录编排。测试依赖 dist（test 脚本先 build 再跑 node --test），
+ * command-ops 模块单测：init 参数解析与 init 命令编排。
  * 临时目录 setup 照 init.test.js 先例（mkdtemp + finally rmSync）。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import {
-  executeInitCommand,
-  executeJournalEntry,
-  migrationSummaryLines,
-  parseInitArgs,
-} from '../src/index.ts'
-import { createTask } from '../src/task/task-store.js'
-import { initWorkloom } from '../src/workspace/init.js'
+import { executeInitCommand, parseInitArgs } from '../src/index.ts'
+
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir 注入
+// 缝时吃 os.homedir 实时值）；本机真实全局配置会泄漏进单测。重定向 HOME 到临时目录
+// 使全局层恒为空（与 config.test.ts 的 homeDir 注入、executor.test.ts 的重定向同口径）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-core-home-'))
+// TMPDIR 一并指向隔离目录：夹具临时目录随之落在 HOME 之内，findWorkloomRoot 的
+// 上溯在 HOME 边界停下（与真实环境“家目录为上溯边界”的语义一致），不会误发现
+// 本机真实家目录的 .workloom。
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
 
 /** 创建临时项目根。 */
-/** init 骨架不再落身份文件：测试显式补写 .developer（journal 身份读取仍认该文件）。 */
-function seedDeveloper(root, name) {
-  writeFileSync(join(root, '.workloom', '.developer'), name)
-}
-
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-command-'))
 }
@@ -35,66 +32,22 @@ function seedLegacy(root) {
 }
 
 test('parseInitArgs 精确 --purge 进入 purge 模式（含 trim）', () => {
-  assert.deepEqual(parseInitArgs('--purge'), { purge: true, developer: '' })
-  assert.deepEqual(parseInitArgs('  --purge  '), { purge: true, developer: '' })
+  assert.deepEqual(parseInitArgs('--purge'), { purge: true })
+  assert.deepEqual(parseInitArgs('  --purge  '), { purge: true })
 })
 
 test('parseInitArgs --purge 后带空格也进入 purge 模式', () => {
-  assert.deepEqual(parseInitArgs('--purge now'), { purge: true, developer: '' })
+  assert.deepEqual(parseInitArgs('--purge now'), { purge: true })
 })
 
 test('parseInitArgs 类似前缀不误判为 purge', () => {
-  assert.deepEqual(parseInitArgs('--purge-x'), { purge: false, developer: '--purge-x' })
-  assert.deepEqual(parseInitArgs('--purgex'), { purge: false, developer: '--purgex' })
+  assert.deepEqual(parseInitArgs('--purge-x'), { purge: false })
+  assert.deepEqual(parseInitArgs('--purgex'), { purge: false })
 })
 
-test('parseInitArgs 非 purge 输入视为 developer identity', () => {
-  assert.deepEqual(parseInitArgs('alice'), { purge: false, developer: 'alice' })
-  assert.deepEqual(parseInitArgs(''), { purge: false, developer: '' })
-})
-
-/** 构造最小迁移结果（未覆盖字段取默认）。 */
-function summaryResult(overrides) {
-  return {
-    migrated: [],
-    skipped: [],
-    unsupported: [],
-    droppedConfigFields: [],
-    archivedWorkflow: null,
-    legacyRemoved: false,
-    legacyRoot: '/tmp/x',
-    ...overrides,
-  }
-}
-
-test('migrationSummaryLines 无新增时给已迁移措辞', () => {
-  const lines = migrationSummaryLines(summaryResult({ migrated: [] }))
-  assert.ok(lines[0].includes('Already migrated'))
-})
-
-test('migrationSummaryLines 完整摘要覆盖各字段', () => {
-  const lines = migrationSummaryLines(
-    summaryResult({
-      migrated: ['tasks', 'workspace'],
-      skipped: ['tasks/08-01-demo'],
-      unsupported: ['.trellis/workflow.md'],
-      droppedConfigFields: ['channel'],
-      archivedWorkflow: '.workloom/migrated/trellis-workflow.md',
-      legacyRemoved: false,
-    }),
-  )
-  const joined = lines.join('\n')
-  assert.match(joined, /Migrated: tasks, workspace/)
-  assert.match(joined, /Skipped existing entries: 1/)
-  assert.match(joined, /Unsupported entries/)
-  assert.match(joined, /Dropped legacy config fields: channel/)
-  assert.match(joined, /archived to .workloom\/migrated\/trellis-workflow.md/)
-  assert.match(joined, /--purge to delete it once you confirm the migration/)
-})
-
-test('migrationSummaryLines 已删除旧目录时给 removed 措辞', () => {
-  const lines = migrationSummaryLines(summaryResult({ legacyRemoved: true }))
-  assert.ok(lines.some((line) => line.includes('Legacy .trellis directory was removed.')))
+test('parseInitArgs 非 purge 自由输入同样返回非 purge', () => {
+  assert.deepEqual(parseInitArgs('alice'), { purge: false })
+  assert.deepEqual(parseInitArgs(''), { purge: false })
 })
 
 test('executeInitCommand 干净目录 init 生成骨架文本', () => {
@@ -121,7 +74,6 @@ test('executeInitCommand 二次 init（force 补建）报 nothing was created', 
     const [err, text] = executeInitCommand(root, '--purge')
     assert.equal(err, null)
     assert.ok(text.includes('The skeleton is already complete; nothing was created.'))
-    assert.ok(text.includes('Legacy .trellis directory was removed.'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -139,155 +91,14 @@ test('executeInitCommand purge 且无旧项目先报错', () => {
   }
 })
 
-test('executeInitCommand 带旧 .trellis 时附迁移摘要', () => {
+test('executeInitCommand 带旧 .trellis 时骨架照常落盘且不动旧目录', () => {
   const root = makeRoot()
   try {
     seedLegacy(root)
     const [err, text] = executeInitCommand(root, '')
     assert.equal(err, null)
-    assert.ok(text.includes('Migrated: .workloom/tasks'))
-    assert.ok(text.includes('Legacy .trellis directory is kept'))
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeInitCommand 迁移失败附 WARNING 不阻塞结果', () => {
-  const root = makeRoot()
-  try {
-    mkdirSync(join(root, '.trellis'))
-    writeFileSync(join(root, '.trellis', 'config.yaml'), 'channel: [unclosed\n')
-    const [err, text] = executeInitCommand(root, '')
-    assert.equal(err, null)
-    assert.ok(text.includes('WARNING: legacy migration failed'))
-    assert.ok(text.includes('rerun /workloom-init'))
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeJournalEntry 缺 taskPath 拒绝（必填，不回退活跃任务）', async () => {
-  const root = makeRoot()
-  try {
-    const [err, result] = await executeJournalEntry(root, { title: 'No TaskPath' })
-    assert.ok(err)
-    assert.match(err.message, /taskPath is required/)
-    assert.equal(result, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeJournalEntry taskPath 指向不存在任务报错（存在性校验）', async () => {
-  const root = makeRoot()
-  try {
-    initWorkloom(root)
-    seedDeveloper(root, 'alice')
-    const [err, result] = await executeJournalEntry(root, {
-      taskPath: 'tasks/ghost',
-      title: 'Ghost Task',
-    })
-    assert.ok(err)
-    assert.match(err.message, /task\.json missing: tasks\/ghost/)
-    assert.equal(result, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeJournalEntry 成功写 journal 文件（含身份与标题）', async () => {
-  const root = makeRoot()
-  try {
-    initWorkloom(root)
-    seedDeveloper(root, 'alice')
-    const [, created] = await createTask(root, { title: 'Journal Task' })
-    const [err, result] = await executeJournalEntry(root, {
-      taskPath: created.taskRelPath,
-      title: 'Session One',
-      commit: 'abc123',
-      summary: 'Wrapped up the demo',
-    })
-    assert.equal(err, null)
-    assert.match(result.journalFile, /^journal-\d+\.md$/)
-    assert.ok(result.journalPath.startsWith('workspace/alice/'))
-    const content = readFileSync(join(root, '.workloom', result.journalPath), 'utf8')
-    assert.ok(content.includes('Session One'))
-    assert.ok(content.includes('abc123'))
-    assert.ok(content.includes('Wrapped up the demo'))
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeJournalEntry 无 developer 身份报错', async () => {
-  const root = makeRoot()
-  try {
-    // init 骨架不再落 .developer：readExistingDeveloper 返回 undefined，视为无身份。
-    initWorkloom(root)
-    const [err, result] = await executeJournalEntry(root, {
-      taskPath: 'tasks/any',
-      title: 'No Identity',
-    })
-    assert.ok(err)
-    assert.match(err.message, /no developer identity found/)
-    assert.equal(result, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeJournalEntry 项目不存在（无 .workloom）同样报无身份', async () => {
-  const root = makeRoot()
-  try {
-    // 不 init：readExistingDeveloper 返回 undefined，与空串分支同文案。
-    const [err, result] = await executeJournalEntry(root, {
-      taskPath: 'tasks/any',
-      title: 'Nowhere',
-    })
-    assert.ok(err)
-    assert.match(err.message, /no developer identity found/)
-    assert.equal(result, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeJournalEntry 空 title 报错（addSession 校验转发）', async () => {
-  const root = makeRoot()
-  try {
-    initWorkloom(root)
-    seedDeveloper(root, 'alice')
-    const [, created] = await createTask(root, { title: 'Title Gate' })
-    const [err, result] = await executeJournalEntry(root, {
-      taskPath: created.taskRelPath,
-      title: '',
-    })
-    assert.ok(err)
-    assert.match(err.message, /title must not be empty/)
-    assert.equal(result, null)
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('executeJournalEntry 空 commit/summary 视为未提供且记录成功', async () => {
-  // 过滤无观测副作用（addSession 对 commit/summary 用 ?? '' 兜底，空串与省略
-  // 落盘相同）：本用例验证空串输入走成功路径、不触发换行校验之外的错误。
-  const root = makeRoot()
-  try {
-    initWorkloom(root)
-    seedDeveloper(root, 'alice')
-    const [, created] = await createTask(root, { title: 'Empty Fields' })
-    const [err, result] = await executeJournalEntry(root, {
-      taskPath: created.taskRelPath,
-      title: 'Session Two',
-      commit: '',
-      summary: '',
-    })
-    assert.equal(err, null)
-    assert.ok(result.journalPath.startsWith('workspace/alice/'))
-    const content = readFileSync(join(root, '.workloom', result.journalPath), 'utf8')
-    assert.ok(content.includes('Session Two'))
+    assert.ok(text.includes('Workloom initialized'))
+    assert.ok(existsSync(join(root, '.trellis')), 'legacy .trellis must stay untouched')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

@@ -15,16 +15,17 @@ export {
   insideWorkloom,
 } from './workspace/locate.js'
 
+export { DEFAULT_CONFIG, WorkloomConfigError, renderSetupCommand } from './workspace/config-defaults.ts'
+
 export {
-  DEFAULT_CONFIG,
   resolveSubagentDefaults,
   splitProviderModel,
   detectExecutorConflicts,
   buildConflictNotice,
   assertForceReason,
-  WorkloomConfigError,
-  loadConfig,
-} from './workspace/config.js'
+} from './workspace/config-subagent.ts'
+
+export { loadConfig } from './workspace/config-load.ts'
 
 export {
   MODEL_INACCESSIBLE_CODES,
@@ -40,30 +41,22 @@ export {
   resolveDispatchModelSource,
 } from './dispatch/dispatch-binding.js'
 
-export {
-  materializeRingChain,
-  selectRotationStartIndex,
-} from './dispatch/executor-rotation.js'
-
-export type {
-  MaterializedRingChain,
-  RotationPoolEntry,
-} from './dispatch/executor-rotation.d.ts'
+// executor kind 值域（子任务四成组切换前的过渡栖身地）。
+export { EXECUTOR_KINDS } from './dispatch/executor-kinds.ts'
+export type { ExecutorKind } from './dispatch/executor-kinds.ts'
 
 export {
   EFFORT_LEVELS,
-  EXECUTOR_KINDS,
   assertEffort,
   assertKind,
   buildExecutorIncrementalPrompt,
   buildExecutorPrompt,
-} from './dispatch/executor-context.js'
+} from './injection/prompt-compose.ts'
 
 export {
   NATIVE_TOOLS_DSH,
-  NATIVE_TOOLS_PI,
   buildAllowList,
-} from './dispatch/executor-tools.js'
+} from './dispatch/executor-tools.ts'
 
 export {
   evaluateExecutorCapacity,
@@ -76,9 +69,8 @@ export type {
   CapacityResult,
 } from './dispatch/executor-capacity.d.ts'
 
-export { initWorkloom } from './workspace/init.js'
-
-export { migrateLegacyTrellis } from './workspace/migrate.js'
+export { initWorkloom } from './workspace/init.ts'
+export type { InitWorkloomParams, InitWorkloomResult } from './workspace/init.ts'
 
 export {
   evaluateAlignmentGate,
@@ -93,10 +85,14 @@ export {
   CASE_MISSING,
   createCaseRecord,
   inspectCaseStructure,
+} from './task/case-structure.ts'
+
+export {
   evaluateCaseExecutionGate,
   evaluateCaseOutcomeGate,
-  listCaseChangedFiles,
-} from './task/case.js'
+} from './task/case-gates.ts'
+
+export { listCaseChangedFiles } from './task/case-scope.ts'
 
 export type {
   CasePurpose,
@@ -148,51 +144,56 @@ export {
   clearPointersToTask,
 } from './task/active-task.js'
 
+// git 查询面与集成操作面（拆分后各自导出）。
 export {
   countDirtyLines,
-  gitAddCommit,
   gitChangedFilesSync,
   gitStatusSync,
   gitCurrentBranchSync,
   gitRevParse,
   gitIsAncestor,
   gitHasMergeHead,
+  gitHasRebaseHead,
+  gitWorktreeList,
+  gitBranchExists,
+  gitCheckRefFormat,
+} from './workspace/git-query.ts'
+
+export {
+  gitAddCommit,
   gitMerge,
   gitMergeAbort,
   gitRebase,
-  gitHasRebaseHead,
   gitRebaseAbort,
   gitMergeFfOnly,
   gitWorktreeAdd,
   gitWorktreeRemove,
-  gitWorktreeList,
   gitWorktreePrune,
   gitBranchDelete,
-  gitBranchExists,
-  gitCheckRefFormat,
-} from './workspace/git.js'
+} from './workspace/git-ops.ts'
 
-export type { GitWorktreeEntry } from './workspace/git.js'
+export type { GitWorktreeEntry } from './workspace/git-query.ts'
 
 export {
-  createTaskWorktree,
   cleanupTaskWorktree,
-  resolveTaskRepo,
+  createTaskWorktree,
   renderBranchName,
-} from './workspace/worktree.js'
+  resolveTaskRepo,
+} from './workspace/worktree-lifecycle.ts'
 
-export { addSession, listJournals } from './workspace/journal.js'
-
-export { DEVELOPER_PATTERN, assertDeveloper } from './workspace/identity.js'
+// prd 结构解析的单一实现（骨架常量/结构诊断/AC 编号/追溯行）。
+export {
+  PRD_SECTIONS,
+  PRD_STRUCTURE_CODES,
+  PRD_MISSING,
+  findMissingPrdTitle,
+  findUnfilledPrdSections,
+  inspectPrdStructure,
+} from './task/prd-structure.ts'
 
 export {
   GATES,
   GATE_TOOLS,
-  PRD_SECTIONS,
-  PRD_STRUCTURE_CODES,
-  findMissingPrdTitle,
-  findUnfilledPrdSections,
-  inspectPrdStructure,
   countEffectiveJsonlRecords,
   evaluateStartGate,
   evaluateCheckLogGate,
@@ -211,8 +212,12 @@ export {
   TEMPLATE_SPEC_DETAIL_ENTRY,
   TEMPLATE_CASE_ENTRY,
   TEMPLATE_CASE_RESULT_ENTRY,
+  SKELETON_CONFIG_ENTRY,
+  SKELETON_GITIGNORE_ENTRY,
+  SKELETON_SPEC_README_ENTRY,
   SKILL_ENTRIES,
   readResourceText,
+  loadSkeletonText,
   loadWorkflowContractText,
   loadWorkflowLightContractText,
   loadCaseTemplateText,
@@ -221,10 +226,12 @@ export {
 } from './resources-manifest.ts'
 
 export {
-  assembleBreadcrumb,
   assembleBreadcrumbSync,
   assembleWorkflowProjection,
 } from './injection/workflow-service.ts'
+
+// 会话注入单一解析门面（每轮恰好一次 resolveActiveTask + readTask）。
+export { resolveTurnTask } from './injection/session-assemble.ts'
 
 export { assembleSessionContext } from './injection/session-context.ts'
 
@@ -237,22 +244,14 @@ export {
   composeLocalDirectivesText,
 } from './injection/local-prompts.ts'
 
-export {
-  parseInitArgs,
-  readExistingDeveloper,
-  migrationSummaryLines,
-  executeInitCommand,
-  executeJournalEntry,
-} from './workspace/command-ops.ts'
+export { parseInitArgs, executeInitCommand } from './workspace/command-ops.ts'
 
-export { executeAlignTask } from './task/alignment-service.ts'
-
-export { executeTaskCase } from './task/case-service.ts'
+// 任务文档复核服务（align review/confirm 与 case review-only 同一编排模块）。
+export { executeAlignTask, executeTaskCase } from './task/doc-review.ts'
 export type {
-  CaseReviewResult,
   ExecuteTaskCaseParams,
   ExecuteTaskCaseResult,
-} from './task/case-service.ts'
+} from './task/doc-review.ts'
 
 export {
   requireWorkloomCwd,
@@ -286,8 +285,6 @@ export {
   buildContinueNoChildIdText,
   buildCrossKindReuseRejectText,
   PURGE_FLAG,
-  DOCTOR_FIX_FLAG,
-  DEVELOPER_FILE,
   COMMAND_FAILURE_ACK,
   buildErrorRelayText,
   buildSuccessRelayText,
@@ -296,9 +293,13 @@ export {
   TASK_ARCHIVE_NOTE,
   TASK_CREATE_NOTE,
   TASK_CREATE_LIGHT_NOTE,
+  // 投影统一：TextBlockLike 与 render 族唯一实现在 surface（dsh 四站点消费）。
+  renderOutput,
+  renderBackground,
+  renderTask,
 } from './injection/surface.ts'
 
-export type { ExecutorInjectionStats } from './injection/surface.ts'
+export type { ExecutorInjectionStats, TextBlockLike } from './injection/surface.ts'
 
 export type {
   WorkloomConfig,
@@ -324,17 +325,14 @@ export type {
 export type {
   AllowToolsConfig,
   BuildAllowListParams,
-} from './dispatch/executor-tools.d.ts'
+} from './dispatch/executor-tools.ts'
 
 export type {
   BuildExecutorPromptParams,
   ExecutorPromptStats,
   ExecutorPromptResult,
-} from './dispatch/executor-context.d.ts'
+} from './injection/prompt-compose.ts'
 
-export type { InitWorkloomParams, InitWorkloomResult } from './workspace/init.d.ts'
-
-export type { MigrateLegacyTrellisParams, MigrateLegacyTrellisResult } from './workspace/migrate.d.ts'
 
 export type { WorkflowContract, WorkflowStep } from './injection/workflow-contract-types.ts'
 
@@ -379,13 +377,15 @@ export type {
 
 export type { TaskModeKey, TaskModeValue } from './task/task-mode.d.ts'
 
+export type { GateKey, GateValue } from './task/task-gates.d.ts'
+
 export type {
-  GateKey,
-  GateValue,
   PrdSection,
   PrdStructureCode,
   PrdStructureIssue,
-} from './task/task-gates.d.ts'
+  PrdSectionIssueCode,
+  TraceabilityRowRefs,
+} from './task/prd-structure.ts'
 
 export type {
   ExecuteAlignTaskParams,
@@ -395,7 +395,8 @@ export type {
   AlignTarget,
   PrdConfirmResult,
   PlanConfirmResult,
-} from './task/alignment-service.ts'
+  CaseReviewResult,
+} from './task/doc-review.ts'
 
 export type { SessionPointer } from './task/active-task.d.ts'
 
@@ -412,16 +413,7 @@ export type {
   DoctorSummary,
   DoctorIssueCode,
   DoctorSeverity,
-  RunDoctorOpts,
 } from './workspace/doctor.ts'
 
 export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './task/task-ops.ts'
 
-export type { ExecuteJournalEntryParams } from './workspace/command-ops.ts'
-
-export type {
-  JournalEntryParams,
-  AddSessionResult,
-  ListJournalsParams,
-  JournalSummary,
-} from './workspace/journal.d.ts'

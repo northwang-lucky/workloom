@@ -5,8 +5,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { gitChangedFilesSync } from '../workspace/git.js';
+import { gitChangedFilesSync } from "../workspace/git-query.js";
 import { insideWorkloom } from '../workspace/locate.js';
+// markdown 小节切分与 PRD AC/追溯行解析的单一实现在 prd-structure（task-gates 与
+// case 的共用解析层）；相对导入带 .ts 后缀，构建期重写为 .js。
+import { acceptanceIds, sectionMap, splitHeadings, traceabilityRows } from "./prd-structure.js";
 /** @typedef {import('./case.d.ts').CaseStructureIssue} CaseStructureIssue */
 /** @typedef {import('./case.d.ts').CaseStructureOptions} CaseStructureOptions */
 /** @typedef {import('./case.d.ts').TaskCaseRecord} TaskCaseRecord */
@@ -105,49 +108,6 @@ function parseDocument(content, missingCode, missingMessage, issues) {
         issues.push(issue('frontmatter_invalid', `invalid YAML front matter: ${String(error)}`));
         return { meta: null, body: content.slice(match[0].length) };
     }
-}
-/**
- * 按标题级别切分，忽略围栏代码块中的伪标题。
- * @param {string} content Markdown 正文
- * @param {number} level 标题级别（2 或 3）
- * @returns {{heading: string, body: string}[]} 有序小节
- */
-function splitHeadings(content, level) {
-    /** @type {{heading: string, lines: string[]}[]} */
-    const sections = [];
-    /** @type {{heading: string, lines: string[]} | null} */
-    let current = null;
-    let fence = '';
-    const heading = new RegExp(`^#{${level}}\\s+(.+)$`);
-    for (const line of content.split('\n')) {
-        const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1]?.[0];
-        if (marker !== undefined) {
-            if (fence === '')
-                fence = marker;
-            else if (fence === marker)
-                fence = '';
-        }
-        const match = fence === '' ? heading.exec(line) : null;
-        if (match !== null) {
-            current = { heading: match[1]?.trim() ?? '', lines: [] };
-            sections.push(current);
-            continue;
-        }
-        if (current !== null)
-            current.lines.push(line);
-    }
-    return sections.map((section) => ({
-        heading: section.heading,
-        body: section.lines.join('\n').trim(),
-    }));
-}
-/**
- * @param {string} content Markdown 正文
- * @param {number} level 标题级别
- * @returns {Map<string, string>} 标题到正文的映射
- */
-function sectionMap(content, level) {
-    return new Map(splitHeadings(content, level).map((section) => [section.heading, section.body]));
 }
 /**
  * @param {string} body 小节正文
@@ -293,44 +253,6 @@ function parseExclusions(body) {
  */
 function targetFiles(items) {
     return items.map((item) => (field(item.body, 'Target') ?? '').split('#')[0]?.replaceAll('`', '').trim() ?? '').filter(Boolean);
-}
-/**
- * @param {string} prdContent PRD 全文
- * @returns {string[]} 排序后的 AC 编号
- */
-function acceptanceIds(prdContent) {
-    const body = sectionMap(prdContent, 2).get('Acceptance Criteria') ?? '';
-    return [...new Set(body.match(/AC\d+/g) ?? [])].sort((a, b) => Number(a.slice(2)) - Number(b.slice(2)));
-}
-/**
- * 解析 Traceability 表格数据行（按列）：AC 列 / Static review 列 / Runtime cases 列。
- * 引用只从各自列提取——AC 编号本身（如 AC1）不充当 C 引用（修复同号 C 误匹配）。
- * @param {string} body Traceability 小节正文
- * @returns {Map<string, {srRefs: string[], cRefs: string[]}>} AC 编号到该行引用
- */
-function traceabilityRows(body) {
-    /** @type {Map<string, {srRefs: string[], cRefs: string[]}>} */
-    const rows = new Map();
-    for (const line of body.split('\n')) {
-        if (!line.trim().startsWith('|'))
-            continue;
-        const cells = line
-            .split('|')
-            .slice(1, -1)
-            .map((cell) => cell.trim().replaceAll('`', ''));
-        if (cells.length < 3)
-            continue;
-        const ac = cells[0] ?? '';
-        // AC 列正则已排除表头（AC）与分隔行（---）；`-` 是合法的空列占位，
-        // 单独 SR 或 C 列为空都允许，只有两列皆空才报 traceability_empty。
-        if (!/^AC\d+$/.test(ac))
-            continue;
-        rows.set(ac, {
-            srRefs: cells[1]?.match(/SR\d+/g) ?? [],
-            cRefs: cells[2]?.match(/C\d+/g) ?? [],
-        });
-    }
-    return rows;
 }
 /**
  * @param {string} body Traceability 正文

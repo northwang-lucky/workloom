@@ -9,10 +9,10 @@ import {
   createCaseRecord,
   PARAM_DESCRIPTIONS,
   readTask,
+  recordExecutorDispatch,
 } from '@workloom-ai/core'
 import { buildExecutorSchema } from '../src/dispatch/executor-schema.ts'
 import { buildFullInjection } from '../src/dispatch/executor-injection.ts'
-import { recordFailedDispatchAttempt } from '../src/dispatch/executor-failover-chain.ts'
 
 const REL = 'tasks/demo'
 const CASE_TEXT = '# CASE custom marker\n'
@@ -55,24 +55,25 @@ test('DSH purpose schema 与全量/增量 CASE 注入', () => {
   }
 })
 
-test('DSH 超预算 CASE 明确失败，失败记录保留 purpose/fallbackOf', () => {
+test('DSH 超预算 CASE 明确失败，失败记录保留 purpose', () => {
   const root = makeRoot(8)
   try {
     assert.throws(
       () => buildFullInjection(root, REL, 'check', 'design', '', false, 'case-design'),
       /exceeding maxArtifactBytes=8/,
     )
-    recordFailedDispatchAttempt({
-      root,
-      taskRelPath: REL,
+    // 失败派发留痕（core 正式写口）：failed 记录保留 purpose 字段（审计可溯）；
+    // 换新设计会话按 core 不变式要求带 fallbackOf 链回旧会话。
+    const [recordErr] = recordExecutorDispatch(root, REL, {
       kind: 'check',
-      title: 'design failover',
+      title: 'design fail',
       childId: 'child-exec',
-      error: new Error('model unavailable'),
+      status: 'failed',
+      error: 'model unavailable',
       fallbackOf: 'child-design',
-      fallbackAttempt: 2,
       purpose: 'case-design',
     })
+    assert.equal(recordErr, null)
     const [, task] = readTask(root, REL)
     assert.equal(task.stage, 'implement')
     assert.equal(task.case.designSession, 'child-exec')

@@ -146,7 +146,7 @@ const pluginGuardState = createWriteGuardState();
 export function registerWriteGuard(ctx) {
     ctx.tools.guard(confinedWriteGuard(pluginGuardState));
 }
-/** 受限写 kind 派发成功时登记子会话 id（executor.ts/failover 派发路径；不移除）。 */
+/** 受限写 kind 派发成功时登记子会话 id（executor.ts 派发路径；不移除）。 */
 export function registerWriteGuardChildId(root, childId) {
     registerWriteGuardChild(pluginGuardState, root, childId);
 }

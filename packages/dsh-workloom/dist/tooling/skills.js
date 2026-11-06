@@ -15,7 +15,7 @@
  *   运行时由宿主注入（plugin.ts 的 inject 已声明硬依赖）。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { ERR_PREFIX as SURFACE_ERR_PREFIX, loadWorkflowContractText, lookupWorkflowStep, PARAM_DESCRIPTIONS, readResourceText, resourceDirOf, SKILL_ENTRIES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { ERR_PREFIX as SURFACE_ERR_PREFIX, loadWorkflowContractText, lookupWorkflowStep, PARAM_DESCRIPTIONS, readResourceText, renderOutput, resourceDirOf, SKILL_ENTRIES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom skill';
 /** front-matter 分隔行（与工作流契约解析一致）。 */
@@ -188,15 +188,5 @@ function executeStepTool(args, exec) {
         kind: 'foreground',
         output: [{ type: 'text', text: `## ${step.id} ${step.title}\n\n${step.body}` }],
     };
-}
-/**
- * 从 canonical 值投影模型可见文本（纯函数，仅提取 output 首块文本）。
- * @param value canonical 结果
- * @returns 文本块
- */
-function renderOutput(value) {
-    const result = value;
-    const text = result.output?.[0]?.text ?? '';
-    return { type: 'text', text };
 }
 //# sourceMappingURL=skills.js.map

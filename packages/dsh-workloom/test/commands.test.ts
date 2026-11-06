@@ -170,22 +170,6 @@ test('doctor 成功：followup 注入 JSON 报告 + 引导语，返回 success �
   }
 })
 
-test('doctor --fix：把可修 completed 任务归档并注入 fixed[]', async () => {
-  const { ctx, handlers } = makeCtx()
-  registerCommands(ctx)
-  const root = makeWorkloomRoot()
-  try {
-    writeCompletedTask(root, 'done-task')
-    const { invocation, followups } = makeInvocation(root, '--fix')
-    const result = await handlers.get(COMMAND_NAMES.doctor)(invocation)
-    assert.equal(result.kind, 'success')
-    const text = followupText(followups[0])
-    assert.ok(text.includes('"fixed"'), 'relay text must include fixed[] after --fix')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
 test('doctor 无 .workloom：作为 config issue 报告，命令成功', async () => {
   const { ctx, handlers } = makeCtx()
   registerCommands(ctx)

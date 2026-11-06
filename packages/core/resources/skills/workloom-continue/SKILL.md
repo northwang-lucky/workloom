@@ -39,6 +39,6 @@ Locate where work left off and resume from the matching Phase step. Do the routi
 
 ## Note
 
-When the route reaches 3.1 Wrap up, every `workloom_task_archive` and `workloom_journal` call must pass `taskPath` explicitly — both tools require it and never fall back to the active task.
+When the route reaches 3.1 Wrap up, every `workloom_task_archive` call must pass `taskPath` explicitly — the tool requires it and never falls back to the active task.
 
 Completion criteria: the exact Phase step is located and its execution has started.
