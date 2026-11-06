@@ -44,13 +44,12 @@ export function registerCommands(ctx: Context): void {
   ctx.commands.register({
     name: COMMAND_NAMES.init,
     description: COMMAND_DESCRIPTIONS.init,
-    input: { hint: 'developer identity | --purge' },
+    input: { hint: '--purge' },
     handler: handleInit,
   })
   ctx.commands.register({
     name: COMMAND_NAMES.doctor,
     description: COMMAND_DESCRIPTIONS.doctor,
-    input: { hint: '--fix' },
     handler: handleDoctor,
   })
 }
