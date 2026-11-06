@@ -430,3 +430,9 @@
 - Commit: 28da1c0
 - Summary: PLAN 的 Edit 改为 Input、Output、Preconditions、Procedure、Failure 五字段伪代码协议，保留真实锚点、AC 覆盖与验证。结构检查覆盖缺失、空值、重复、乱序和跨区域边界；workflow、实施与评审纪律、迁移技能、评测和测试已同步。CASE 13 条 SR 与 6 条 C 全部通过，最终覆盖率 96.24%。
 
+## 调研并升级 workloom PRD 格式
+
+- Time: 2026-11-06T07:26:56.307Z
+- Commit: 32bdbed
+- Summary: 完成业界 PRD 调研并融合为固定十一小节；加入反流水账叙述规则、R/AC 编号与验证追踪，删除开放节点标记及程序依赖。同步 workflow、轻量流程、alignment、迁移技能、评测、测试和 dist；任务证据目录退出生产 lint。CASE 17 条 SR 与 9 条 C 全部通过，提交后最终覆盖率 94.1%。
+
