@@ -424,3 +424,9 @@
 - Commit: bccb7e8
 - Summary: 完成 PRD/PLAN 分阶段内容确认，移除文档哈希与 CASE 用户确认，CASE 由主会话复核后执行；同步 core、workflow、相关技能、双 adapter、测试和 dist。完整 CASE 的 23 条 SR 与 7 条 C 全部通过，core 745 项、DSH 177 项、Pi 205 项测试通过，覆盖率 85.86%。
 
+## 改造 PLAN 伪代码编写规范
+
+- Time: 2026-11-06T04:36:18.747Z
+- Commit: 28da1c0
+- Summary: PLAN 的 Edit 改为 Input、Output、Preconditions、Procedure、Failure 五字段伪代码协议，保留真实锚点、AC 覆盖与验证。结构检查覆盖缺失、空值、重复、乱序和跨区域边界；workflow、实施与评审纪律、迁移技能、评测和测试已同步。CASE 13 条 SR 与 6 条 C 全部通过，最终覆盖率 96.24%。
+
