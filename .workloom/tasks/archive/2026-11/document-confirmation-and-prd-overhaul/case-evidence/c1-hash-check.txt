@@ -1,0 +1,16 @@
+# C1 步骤 4：sha256sum 与规范化 SHA-256 复核
+## simplify-document-confirmations
+sha256sum case.md       = f044c449390bf607818243e847e919ce8364d28d0f23047fdc137d6f9bc3cacd  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/simplify-document-confirmations/case.md
+sha256sum case-result   = 81f685b187ab6d4de59b971c5efb7adf6b98ab43d146c4fc84c2c5a6bb00dd7e  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/simplify-document-confirmations/case-result.md
+normalized case.md      = f044c449390bf607818243e847e919ce8364d28d0f23047fdc137d6f9bc3cacd（== task.case.caseHash: True）
+normalized case-result  = 81f685b187ab6d4de59b971c5efb7adf6b98ab43d146c4fc84c2c5a6bb00dd7e（== task.case.result.resultHash: True）
+## plan-pseudocode-standard
+sha256sum case.md       = 547c5e0b2cc976f3812aef7bb5a1ab36873037b2574f5038479b3538a6adce4f  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/plan-pseudocode-standard/case.md
+sha256sum case-result   = 3316339ab5b74596a0ec93a589e78b298e6b84fa872c640b3f6dc5126695f520  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/plan-pseudocode-standard/case-result.md
+normalized case.md      = 547c5e0b2cc976f3812aef7bb5a1ab36873037b2574f5038479b3538a6adce4f（== task.case.caseHash: True）
+normalized case-result  = 3316339ab5b74596a0ec93a589e78b298e6b84fa872c640b3f6dc5126695f520（== task.case.result.resultHash: True）
+## prd-industry-format-overhaul
+sha256sum case.md       = 7118485c6a37eb890a73a23b30aba136b4d49f9653e87004f8d58371e2de04a4  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/prd-industry-format-overhaul/case.md
+sha256sum case-result   = c5f95f932078a0c852b7ef0604308353a58889d271bb1e920b1f069375739c40  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/prd-industry-format-overhaul/case-result.md
+normalized case.md      = 7118485c6a37eb890a73a23b30aba136b4d49f9653e87004f8d58371e2de04a4（== task.case.caseHash: True）
+normalized case-result  = c5f95f932078a0c852b7ef0604308353a58889d271bb1e920b1f069375739c40（== task.case.result.resultHash: True）

@@ -1,0 +1,43 @@
+# C2 主仓库提交历史与归档顺序核对
+- 执行时间: 2026-11-06T07:48:09Z
+## 步骤 1：三个工作提交可达性（merge-base --is-ancestor，exit 0 即可达）
+ancestor-ok bccb7e818128959f272a4aa64a60737c73435743
+ancestor-ok 28da1c06e06ef3ec8bbd8ce51d18d45be1298877
+ancestor-ok 32bdbeda724c3b2630e5135b6b2edc8bb3292e09
+## 步骤 2/3：git log --oneline -30（自新到旧）
+dc86f52 chore: record journal
+9fc3391 chore(task): archive prd-industry-format-overhaul
+32bdbed feat(prd): 重构需求文档结构与叙述规范
+b3a2875 chore: record journal
+bbf2353 chore(task): archive plan-pseudocode-standard
+28da1c0 refactor(plan): 改用五字段伪代码协议
+9b1140b chore: record journal
+943fa67 chore(task): archive simplify-document-confirmations
+bccb7e8 refactor(workflow): 简化文档确认与 CASE 授权流程
+84c5453 chore: record journal
+a2ae2f1 chore(task): archive check-case-coverage
+576e422 fix(case): 修复子任务归档后的父任务路径解析
+a602791 chore: record journal
+bdfb773 chore(task): archive case-archived-skill
+134120d feat(skill): 增加归档任务 CASE 重建技能
+e34d111 chore: record journal
+a73755c chore(task): 整理 case-active 评测证据为普通文件
+6b4c272 chore(task): archive case-active-skill
+853937a feat(skill): 增加未归档任务 CASE 补写与验收技能
+ff36654 chore: record journal
+4d1a98a chore(task): archive full-task-case-coverage
+79c7ce6 feat(case): 增加完整任务 CASE 设计、执行与覆盖率验证
+36cb389 chore: record journal
+c26d816 chore(task): archive task-slug-validation
+79e69d2 fix(core): 拒绝自带日期前缀的 slug，补 createTask 的 slug 入口校验
+2f633fd chore: record journal
+f799cc1 chore(task): archive plan-system-upgrade
+304bde4 docs(spec): red-green-expectations 扩充 B 任务三条教训（枚举生成物消费者、机制入口穷尽、清扫口径变体）
+b3710c9 chore: record journal
+7478dcb chore(task): archive review-executor
+## 步骤 4/5：顺序断言与 completedAt 对照
+- 工作提交自旧到新: bccb7e8 -> 28da1c0 -> 32bdbed，与 task.children 顺序一致
+- 归档提交自旧到新: 943fa67 -> bbf2353 -> 9fc3391，与 task.children 顺序一致
+- 每个归档提交紧随其对应工作提交之后（943fa67/bccb7e8、bbf2353/28da1c0、9fc3391/32bdbed）
+- completedAt 顺序 02:41 -> 04:36 -> 07:26 与执行顺序一致
+- 结论: PASS

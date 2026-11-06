@@ -1,0 +1,113 @@
+{
+  "children": [
+    {
+      "declared": "tasks/11-06-simplify-document-confirmations",
+      "slug": "simplify-document-confirmations",
+      "status": "completed",
+      "completedAt": "2026-11-06T02:41:49.872Z",
+      "checkPassedAt": "2026-11-06T02:40:50.673Z",
+      "checkSummary": "完整 CASE 已通过：SR1–SR23 与 C1–C7 全部通过，Open issues 为 none。lint、typecheck、build、core 745 项、DSH 177 项、Pi 205 项及资产测试均通过；覆盖率 4798/5588（85.86%）。检查阶段修复了旧 CASE 字段保留的 P1 和 migrate-plan 文案的 P2，修复后已完整重跑。当前任务的 RESULT 仅为旧宿主兼容保留 caseHash 字段，目标模板和新校验已删除该机制。",
+      "caseRequired": true,
+      "caseConfirmedAt": "2026-11-06T02:26:07.369Z",
+      "legacyCompatFields": {
+        "caseHash": "f044c449390bf607818243e847e919ce8364d28d0f23047fdc137d6f9bc3cacd",
+        "confirmedAtPresent": true,
+        "overridesCount": 0
+      },
+      "resultStatus": "passed",
+      "resultCaseHash": "f044c449390bf607818243e847e919ce8364d28d0f23047fdc137d6f9bc3cacd",
+      "summaryCounts": {
+        "staticReview": "23/23",
+        "runtimeCases": "7/7; blocked: 0",
+        "coverage": "generated",
+        "standardVerification": "passed"
+      },
+      "openIssues": "- none",
+      "sha256sum": {
+        "case.md": "f044c449390bf607818243e847e919ce8364d28d0f23047fdc137d6f9bc3cacd  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/simplify-document-confirmations/case.md",
+        "case-result.md": "81f685b187ab6d4de59b971c5efb7adf6b98ab43d146c4fc84c2c5a6bb00dd7e  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/simplify-document-confirmations/case-result.md"
+      },
+      "normalized": {
+        "case.md": "f044c449390bf607818243e847e919ce8364d28d0f23047fdc137d6f9bc3cacd",
+        "case-result.md": "81f685b187ab6d4de59b971c5efb7adf6b98ab43d146c4fc84c2c5a6bb00dd7e"
+      },
+      "hashMatch": {
+        "caseHash": true,
+        "resultHash": true
+      }
+    },
+    {
+      "declared": "tasks/11-06-plan-pseudocode-standard",
+      "slug": "plan-pseudocode-standard",
+      "status": "completed",
+      "completedAt": "2026-11-06T04:36:00.822Z",
+      "checkPassedAt": "2026-11-06T04:35:26.823Z",
+      "checkSummary": "PLAN 伪代码规范已完成并通过提交后复核：SR1–SR13、C1–C6 全部通过，Open issues 为 none。core 753 项、DSH 177 项、Pi 206 项及全部标准验证通过；最终 SR 范围覆盖率为 1815/1886（96.24%）。代码基线已刷新到提交 28da1c0，结果门禁为 0 问题。",
+      "caseRequired": true,
+      "caseConfirmedAt": "2026-11-06T04:12:49.961Z",
+      "legacyCompatFields": {
+        "caseHash": "547c5e0b2cc976f3812aef7bb5a1ab36873037b2574f5038479b3538a6adce4f",
+        "confirmedAtPresent": true,
+        "overridesCount": 0
+      },
+      "resultStatus": "passed",
+      "resultCaseHash": "547c5e0b2cc976f3812aef7bb5a1ab36873037b2574f5038479b3538a6adce4f",
+      "summaryCounts": {
+        "staticReview": "13/13",
+        "runtimeCases": "6/6; blocked: 0",
+        "coverage": "generated",
+        "standardVerification": "passed"
+      },
+      "openIssues": "- none",
+      "sha256sum": {
+        "case.md": "547c5e0b2cc976f3812aef7bb5a1ab36873037b2574f5038479b3538a6adce4f  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/plan-pseudocode-standard/case.md",
+        "case-result.md": "3316339ab5b74596a0ec93a589e78b298e6b84fa872c640b3f6dc5126695f520  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/plan-pseudocode-standard/case-result.md"
+      },
+      "normalized": {
+        "case.md": "547c5e0b2cc976f3812aef7bb5a1ab36873037b2574f5038479b3538a6adce4f",
+        "case-result.md": "3316339ab5b74596a0ec93a589e78b298e6b84fa872c640b3f6dc5126695f520"
+      },
+      "hashMatch": {
+        "caseHash": true,
+        "resultHash": true
+      }
+    },
+    {
+      "declared": "tasks/11-06-prd-industry-format-overhaul",
+      "slug": "prd-industry-format-overhaul",
+      "status": "completed",
+      "completedAt": "2026-11-06T07:26:22.858Z",
+      "checkPassedAt": "2026-11-06T07:26:11.268Z",
+      "checkSummary": "PRD 格式升级在提交 32bdbed 后完成复核：SR1–SR17、C1–C9 全部通过，Open issues 为 none。三包全量测试、lint、typecheck、build 全部通过，最终 SR 范围覆盖率 3323/3532（94.1%），结果门禁为 0 问题。",
+      "caseRequired": true,
+      "caseConfirmedAt": "2026-11-06T06:42:58.890Z",
+      "legacyCompatFields": {
+        "caseHash": "7118485c6a37eb890a73a23b30aba136b4d49f9653e87004f8d58371e2de04a4",
+        "confirmedAtPresent": true,
+        "overridesCount": 5
+      },
+      "resultStatus": "passed",
+      "resultCaseHash": "7118485c6a37eb890a73a23b30aba136b4d49f9653e87004f8d58371e2de04a4",
+      "summaryCounts": {
+        "staticReview": "17/17",
+        "runtimeCases": "9/9; blocked: 0",
+        "coverage": "generated",
+        "standardVerification": "passed"
+      },
+      "openIssues": "- none",
+      "sha256sum": {
+        "case.md": "7118485c6a37eb890a73a23b30aba136b4d49f9653e87004f8d58371e2de04a4  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/prd-industry-format-overhaul/case.md",
+        "case-result.md": "c5f95f932078a0c852b7ef0604308353a58889d271bb1e920b1f069375739c40  /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/tasks/archive/2026-11/prd-industry-format-overhaul/case-result.md"
+      },
+      "normalized": {
+        "case.md": "7118485c6a37eb890a73a23b30aba136b4d49f9653e87004f8d58371e2de04a4",
+        "case-result.md": "c5f95f932078a0c852b7ef0604308353a58889d271bb1e920b1f069375739c40"
+      },
+      "hashMatch": {
+        "caseHash": true,
+        "resultHash": true
+      }
+    }
+  ],
+  "failures": []
+}
