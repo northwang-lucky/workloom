@@ -307,7 +307,7 @@ test('check doc-completeness：prd 缺 H1/占位符、jsonl 无有效记录', ()
     writeTask(root, 'doc-task', rec('doc-task', { status: 'in_progress' }))
     writeFileSync(
       join(root, '.workloom', 'tasks', 'doc-task', 'prd.md'),
-      'no H1 here\n\n## Goal\n\n(placeholder: describe the goal this task aims to achieve)\n',
+      'no H1 here\n\n## Goal\n\n(placeholder: describe the outcome this task achieves and how it will be observed; the goal must follow from the context above)\n',
     )
     writeFileSync(
       join(root, '.workloom', 'tasks', 'doc-task', 'implement.jsonl'),
@@ -335,7 +335,7 @@ test('check doc-completeness：缺小节与 placeholder 小节分别生成独立
     writeTask(root, 'doc-sections', rec('doc-sections', { status: 'in_progress' }))
     writeFileSync(
       join(root, '.workloom', 'tasks', 'doc-sections', 'prd.md'),
-      '# Title\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
+      '# Title\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: group requirements by capability or behavior as numbered items R1, R2, ...; each item is one necessary, decidable statement; do not transcribe Q&A rounds)\n\n## Acceptance Criteria\n\n- ac\n',
     )
     writeFileSync(
       join(root, '.workloom', 'tasks', 'doc-sections', 'implement.jsonl'),
@@ -356,8 +356,10 @@ test('check doc-completeness：缺小节与 placeholder 小节分别生成独立
     assert.ok(placeholderIssue, 'placeholder section reported as its own issue')
     assert.match(missingIssue.hint, /Notes/)
     assert.match(placeholderIssue.hint, /Requirements/)
-    // open-nodes marker 不属于普通文档完整性检查（属 Phase 1.1 alignment readiness）
-    assert.ok(!dc.issues.some((i) => i.message.includes('open-nodes')), 'marker must not be a doc issue')
+    // R/AC 追踪问题不投影到 doctor（Requirements 仍为 placeholder，追踪检查被跳过，
+    // 文档问题里不得出现追踪类文案）；开放节点标记已删除，也不再有 marker 文案。
+    assert.ok(!dc.issues.some((i) => i.message.includes('open-nodes')), 'marker text must not appear')
+    assert.ok(!dc.issues.some((i) => i.message.includes('requirement items')), 'R/AC issues must not be doc issues')
     for (const issue of dc.issues) assertIssueSchema(issue, 'doc-completeness')
   } finally {
     rmSync(root, { recursive: true, force: true })

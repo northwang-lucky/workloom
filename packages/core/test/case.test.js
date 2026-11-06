@@ -314,7 +314,7 @@ test('CASE/PLAN 深度结构校验接受有效材料并聚合缺漏', () => {
 test('start 门要求完整实施任务 PLAN，父任务豁免', () => {
   const { root, taskDir } = makeRoot()
   try {
-    const prd = `${PRD}\n## Alignment Decisions\n\n<!-- workloom:open-nodes=none -->\n`
+    const prd = `${PRD}\n## Alignment Decisions\n\n- design tree converged\n`
     writeFileSync(join(taskDir, 'prd.md'), prd)
     writeFileSync(join(taskDir, 'implement.jsonl'), '{"file":"src/a.js"}\n')
     writeFileSync(join(taskDir, 'check.jsonl'), '{"file":"src/a.js"}\n')

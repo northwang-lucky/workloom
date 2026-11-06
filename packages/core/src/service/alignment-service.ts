@@ -17,7 +17,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { findOpenNodeState } from '../domain/alignment.js'
 import { inspectPlanStructure, inspectPrdStructure, PRD_MISSING } from '../domain/task-gates.js'
 import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js'
 import { readTask, recordAlignmentCredential, recordPlanConfirmation } from '../domain/task-store.js'
@@ -30,7 +29,6 @@ import type {
   TaskRecordWithPath,
   TaskStatusValue,
 } from '../domain/task-store.d.ts'
-import type { OpenNodeState } from '../domain/alignment.d.ts'
 
 /** task 目录内 prd/plan 文件名（与 task-store 数据布局一致）。 */
 const PRD_FILE = 'prd.md'
@@ -59,9 +57,7 @@ export interface AlignReviewResult {
   prd: string | null
   /** target=plan 时的 PLAN 快照；target=prd 恒为 null。 */
   plan: string | null
-  /** PRD 的开放节点状态（target=plan 时仍返回，供主会话对照）。 */
-  openNodeState: OpenNodeState | null
-  /** 当前确认对象的结构问题（PRD：H1 → 骨架小节 → open nodes；PLAN：标题/Steps/字段/AC 覆盖）。 */
+  /** 当前确认对象的结构问题（PRD：H1 → 骨架小节 → R/AC 追踪；PLAN：标题/Steps/字段/AC 覆盖）。 */
   structureIssues: ConfirmStructureIssue[]
   /** structureIssues 的英文文案投影，供主会话直接展示。 */
   confirmBlockers: string[]
@@ -186,7 +182,6 @@ function reviewAlign(
     status: task.status,
     prd,
     plan,
-    openNodeState: prd === null ? null : findOpenNodeState(prd),
     structureIssues,
     confirmBlockers: structureIssues.map((issue) => issue.message),
     readyToConfirm: structureIssues.length === 0,
@@ -212,7 +207,7 @@ function confirmPrdAlign(
   if (prd === null) {
     throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_MISSING}`)
   }
-  // 内容 blocker 一次取全（H1 → 骨架小节 → open nodes），仍只抛一个 Error。
+  // 内容 blocker 一次取全（H1 → 骨架小节 → R/AC 追踪），仍只抛一个 Error。
   const blockers = inspectPrdStructure(prd).map((issue) => issue.message)
   if (blockers.length > 0) {
     throw new Error(

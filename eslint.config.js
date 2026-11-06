@@ -9,6 +9,9 @@ export default defineConfig([
     ignores: [
       '**/dist/**',
       'node_modules/**',
+      // .workloom 是任务文档、证据与临时脚本的目录（含历史归档），不属于生产
+      // 源码；整体忽略，避免历史产物阻塞 lint（归档内容不可修改）。
+      '.workloom/**',
       '.agents/**',
       '.claude/**',
       'docs/**',

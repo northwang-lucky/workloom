@@ -45,7 +45,7 @@ function satisfyStartGate(root, taskRelPath) {
   const taskDir = join(root, '.workloom', taskRelPath)
   writeFileSync(
     join(taskDir, 'prd.md'),
-    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
+    '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nDo the thing.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n',
   )
   // 完整实施任务 start 还要求 PLAN（夹具 prd 无 AC 编号，最小 plan 即可通过）。
   writeFileSync(
@@ -354,30 +354,52 @@ test('executeStartTask 返回记录无 grillingPending/grillingNote（alignment 
   }
 })
 
-/** 完整可确认 prd（H1 + 四小节实填 + 收敛 marker，含 Alignment Decisions）。 */
+/** 完整可确认 prd（H1 + 十一小节实填 + R/AC 追踪 + 收敛 marker）。 */
 const CONVERGED_ALIGN_PRD = `# Filled
+
+## Context
+
+The gate harness needs a filled sample.
 
 ## Goal
 
 Do the thing.
 
+## Scope
+
+In scope: the thing itself. Non-goals: none.
+
+## Assumptions, Constraints and Dependencies
+
+No new dependencies beyond the gate harness.
+
 ## Requirements
 
-- req
+- R1: the thing happens by default
 
 ## Acceptance Criteria
 
-- ac
+- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.
 
-## Notes
+## Edge Cases and Failure Paths
 
-- note
+None: no boundary conditions beyond the gate itself.
+
+## Risks and Open Questions
+
+None: no open questions remain.
 
 ## Alignment Decisions
 
 - design tree converged
 
-<!-- workloom:open-nodes=none -->
+## References
+
+None.
+
+## Notes
+
+- note
 `
 
 /** 创建任务并写入指定 prd 内容，返回 prd.md 绝对路径（骨架 prd 由 create 生成）。 */
@@ -402,7 +424,6 @@ test('align review：prd 文件缺失仍成功返回快照字段，并报 prd_mi
     assert.equal(review.status, 'planning')
     assert.equal(review.prd, null)
     assert.equal(review.plan, null)
-    assert.equal(review.openNodeState, null)
     assert.deepEqual(review.structureIssues, [
       { code: 'prd_missing', message: 'prd.md is missing' },
     ])
@@ -419,14 +440,13 @@ test('align review：缺 ## Notes 标题报 section missing（不误报 placehol
   const root = makeRoot()
   try {
     const contextKey = 'dsh_review_section'
-    const missingNotes = CONVERGED_ALIGN_PRD.replace('## Notes\n\n- note\n\n', '')
+    const missingNotes = CONVERGED_ALIGN_PRD.replace('## Notes\n\n- note\n', '')
     await makeAlignTask(root, contextKey, missingNotes)
     const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
     assert.equal(err, null)
     // review 只读：返回内容快照（无哈希字段）
     assert.equal(review.prd, missingNotes)
     assert.equal('prdHash' in review, false)
-    assert.equal(review.openNodeState, 'none')
     assert.deepEqual(review.structureIssues, [
       {
         code: 'prd_section_missing',
@@ -442,13 +462,14 @@ test('align review：缺 ## Notes 标题报 section missing（不误报 placehol
   }
 })
 
-test('align review：## Notes 保留但正文仍为 placeholder → placeholder blocker', async () => {
+test('align review：小节正文仍为 placeholder → placeholder blocker', async () => {
   const root = makeRoot()
   try {
     const contextKey = 'dsh_review_placeholder'
+    // References 正文整体替换为骨架占位文案（收敛 marker 在 Notes 节内，不影响本断言）
     const notesPlaceholder = CONVERGED_ALIGN_PRD.replace(
-      '- note',
-      '(placeholder: add notes and constraints)',
+      'None.',
+      '(placeholder: link the research reports, specs, and external sources this PRD relies on; write none when there are none)',
     )
     await makeAlignTask(root, contextKey, notesPlaceholder)
     const [err, review] = executeAlignTask(root, contextKey, { action: 'review' })
@@ -456,8 +477,8 @@ test('align review：## Notes 保留但正文仍为 placeholder → placeholder 
     assert.deepEqual(review.structureIssues, [
       {
         code: 'prd_section_placeholder',
-        message: 'prd.md section "Notes" is still a placeholder',
-        section: 'Notes',
+        message: 'prd.md section "References" is still a placeholder',
+        section: 'References',
       },
     ])
     assert.equal(review.readyToConfirm, false)
@@ -466,7 +487,7 @@ test('align review：## Notes 保留但正文仍为 placeholder → placeholder 
   }
 })
 
-test('align review：H1 缺失与 open-nodes 非 none 各自返回可机器消费的 code', async () => {
+test('align review：H1 缺失返回可机器消费的 code；无标记与旧标记文本均不参与判断', async () => {
   const root = makeRoot()
   try {
     const contextKey = 'dsh_review_multi'
@@ -476,23 +497,16 @@ test('align review：H1 缺失与 open-nodes 非 none 各自返回可机器消�
     assert.deepEqual(noTitleReview.structureIssues, [
       { code: 'prd_title_missing', message: 'prd.md missing H1 title' },
     ])
-    const pending = CONVERGED_ALIGN_PRD.replace('open-nodes=none', 'open-nodes=pending')
-    writeFileSync(join(root, '.workloom', noTitleReview.taskRelPath, 'prd.md'), pending)
-    const [, pendingReview] = executeAlignTask(root, contextKey, { action: 'review' })
-    assert.equal(pendingReview.openNodeState, 'pending')
-    assert.deepEqual(pendingReview.structureIssues, [
-      {
-        code: 'prd_open_nodes_not_none',
-        message: 'prd.md open nodes are not converged (marker state: "pending")',
-      },
-    ])
-    const noMarker = CONVERGED_ALIGN_PRD.replace('<!-- workloom:open-nodes=none -->\n', '')
-    writeFileSync(join(root, '.workloom', noTitleReview.taskRelPath, 'prd.md'), noMarker)
-    const [, noMarkerReview] = executeAlignTask(root, contextKey, { action: 'review' })
-    assert.equal(noMarkerReview.openNodeState, null)
-    assert.deepEqual(noMarkerReview.structureIssues, [
-      { code: 'prd_open_nodes_missing', message: 'prd.md open-nodes marker is missing' },
-    ])
+    // 无标记的合法 prd：review 零结构问题（开放节点标记已删除）
+    writeFileSync(join(root, '.workloom', noTitleReview.taskRelPath, 'prd.md'), CONVERGED_ALIGN_PRD)
+    const [, cleanReview] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.deepEqual(cleanReview.structureIssues, [])
+    assert.equal(cleanReview.readyToConfirm, true)
+    // 历史文件中的旧 pending 标记只作为普通文本保留，不参与任何逻辑
+    const legacy = `${CONVERGED_ALIGN_PRD}\n<!-- workloom:open-nodes=pending -->\n`
+    writeFileSync(join(root, '.workloom', noTitleReview.taskRelPath, 'prd.md'), legacy)
+    const [, legacyReview] = executeAlignTask(root, contextKey, { action: 'review' })
+    assert.deepEqual(legacyReview.structureIssues, [])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -509,7 +523,6 @@ test('align review：内容完整的 prd → 无结构问题且 readyToConfirm',
     assert.deepEqual(review.structureIssues, [])
     assert.deepEqual(review.confirmBlockers, [])
     assert.equal(review.readyToConfirm, true)
-    assert.equal(review.openNodeState, 'none')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -521,7 +534,7 @@ test('align confirm：多个内容问题只抛一个 Error，消息按固定顺�
     const contextKey = 'dsh_confirm_multi'
     const broken = `## Requirements
 
-(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)
+(placeholder: group requirements by capability or behavior as numbered items R1, R2, ...; each item is one necessary, decidable statement; do not transcribe Q&A rounds)
 
 ## Acceptance Criteria
 
@@ -530,8 +543,6 @@ test('align confirm：多个内容问题只抛一个 Error，消息按固定顺�
 ## Notes
 
 - note
-
-<!-- workloom:open-nodes=pending -->
 `
     const { taskRelPath } = await makeAlignTask(root, contextKey, broken)
     const [err] = executeAlignTask(root, contextKey, {
@@ -544,9 +555,15 @@ test('align confirm：多个内容问题只抛一个 Error，消息按固定顺�
       err.message.split('\n').filter((line) => line.startsWith('- ')),
       [
         '- prd.md missing H1 title',
+        '- prd.md section "Context" is missing',
         '- prd.md section "Goal" is missing',
+        '- prd.md section "Scope" is missing',
+        '- prd.md section "Assumptions, Constraints and Dependencies" is missing',
         '- prd.md section "Requirements" is still a placeholder',
-        '- prd.md open nodes are not converged (marker state: "pending")',
+        '- prd.md section "Edge Cases and Failure Paths" is missing',
+        '- prd.md section "Risks and Open Questions" is missing',
+        '- prd.md section "Alignment Decisions" is missing',
+        '- prd.md section "References" is missing',
       ],
     )
     // 失败零写入
@@ -573,7 +590,7 @@ test('align confirm：校验失败零写入、结构通过即落确认记录（�
     assert.match(rej1.message, /section "Notes" is still a placeholder/)
     const [, before] = readTask(root, created.taskRelPath)
     assert.equal(before.alignment, null)
-    // 写入完整收敛 prd（含 Alignment Decisions + open-nodes=none）与 jsonl
+    // 写入完整收敛 prd（无开放节点标记）与 jsonl
     const converged = CONVERGED_ALIGN_PRD
     writeFileSync(join(taskDir, 'prd.md'), converged)
     writeFileSync(join(taskDir, 'implement.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
@@ -583,18 +600,7 @@ test('align confirm：校验失败零写入、结构通过即落确认记录（�
     assert.equal(revErr, null)
     assert.equal(review.prd, converged)
     assert.equal(review.prdHash, undefined)
-    // 开放节点 pending → confirm 拒绝
-    writeFileSync(
-      join(taskDir, 'prd.md'),
-      converged.replace('workloom:open-nodes=none', 'workloom:open-nodes=pending'),
-    )
-    const [openErr] = executeAlignTask(root, contextKey, {
-      action: 'confirm',
-      summary: 's',
-    })
-    assert.ok(openErr)
-    assert.match(openErr.message, /open nodes are not converged/)
-    writeFileSync(join(taskDir, 'prd.md'), converged)
+    assert.equal(review.readyToConfirm, true)
     // confirm 缺 summary：结构通过后显式拒绝
     const [noSummaryErr] = executeAlignTask(root, contextKey, {
       action: 'confirm',
@@ -663,8 +669,6 @@ Do the thing.
 ## Notes
 
 - note
-
-<!-- workloom:open-nodes=none -->
 `
 
 /** PLAN 确认夹具：写带 AC 的 prd + plan，可选先记录 PRD 确认。 */

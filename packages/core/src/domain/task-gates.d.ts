@@ -30,17 +30,20 @@ export interface PrdSection {
   placeholder: string
 }
 
-/** prd.md 骨架小节常量（顺序即文档顺序）。 */
+/** prd.md 骨架小节常量（完整任务固定十一小节，顺序即文档顺序）。 */
 export const PRD_SECTIONS: readonly PrdSection[]
 
-/** prd 结构问题 code（冻结值域，覆盖缺文件/H1/小节/marker 六类）。 */
+/** prd 结构问题 code（冻结值域：缺文件/H1/小节/占位/R-AC 追踪五类）。 */
 export type PrdStructureCode =
   | 'prd_missing'
   | 'prd_title_missing'
   | 'prd_section_missing'
   | 'prd_section_placeholder'
-  | 'prd_open_nodes_missing'
-  | 'prd_open_nodes_not_none'
+  | 'prd_requirements_empty'
+  | 'prd_acceptance_empty'
+  | 'prd_reference_duplicate'
+  | 'prd_ac_unknown_reference'
+  | 'prd_ac_verification_missing'
 
 /** 单条 prd 结构问题：稳定 code + 英文运行时文案 + 可选小节名。 */
 export interface PrdStructureIssue {
@@ -58,8 +61,11 @@ export const PRD_STRUCTURE_CODES: Readonly<{
   PRD_TITLE_MISSING: 'prd_title_missing'
   PRD_SECTION_MISSING: 'prd_section_missing'
   PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder'
-  PRD_OPEN_NODES_MISSING: 'prd_open_nodes_missing'
-  PRD_OPEN_NODES_NOT_NONE: 'prd_open_nodes_not_none'
+  PRD_REQUIREMENTS_EMPTY: 'prd_requirements_empty'
+  PRD_ACCEPTANCE_EMPTY: 'prd_acceptance_empty'
+  PRD_REFERENCE_DUPLICATE: 'prd_reference_duplicate'
+  PRD_AC_UNKNOWN_REFERENCE: 'prd_ac_unknown_reference'
+  PRD_AC_VERIFICATION_MISSING: 'prd_ac_verification_missing'
 }>
 
 /** prd 文件缺失文案（start 门禁、review 诊断、confirm 拦截共用同一句）。 */
@@ -71,7 +77,7 @@ export function findMissingPrdTitle(prdContent: string): string | null
 /** 找出仍为 placeholder 的 prd 小节标题列表（缺失小节视为未填）。 */
 export function findUnfilledPrdSections(prdContent: string): string[]
 
-/** 检查 prd.md 结构与内容门禁，一次性返回全部问题（顺序：H1 → 小节 → open nodes）。 */
+/** 检查 prd.md 结构与内容门禁，一次性返回全部问题（顺序：H1 → 小节 → R/AC 追踪）。 */
 export function inspectPrdStructure(prdContent: string | null): PrdStructureIssue[]
 
 /** PLAN 文件缺失文案（完整实施任务 start 门禁拦截）。 */

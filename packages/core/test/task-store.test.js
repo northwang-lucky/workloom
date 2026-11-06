@@ -118,10 +118,22 @@ test('createTask 创建完整布局与默认字段', async () => {
       after_finish: [],
       after_archive: [],
     })
-    // prd.md 骨架：首行 H1 为任务标题，后接四小节
+    // prd.md 骨架：首行 H1 为任务标题，后接完整任务固定十一小节
     const prd = readFileSync(join(root, '.workloom', result.taskRelPath, 'prd.md'), 'utf8')
     assert.match(prd, /^# Hello World!\n\n/)
-    for (const heading of ['## Goal', '## Requirements', '## Acceptance Criteria', '## Notes']) {
+    for (const heading of [
+      '## Context',
+      '## Goal',
+      '## Scope',
+      '## Assumptions, Constraints and Dependencies',
+      '## Requirements',
+      '## Acceptance Criteria',
+      '## Edge Cases and Failure Paths',
+      '## Risks and Open Questions',
+      '## Alignment Decisions',
+      '## References',
+      '## Notes',
+    ]) {
       assert.ok(prd.includes(heading))
     }
     // jsonl seed 自述行（无 file 字段）
@@ -751,13 +763,13 @@ test('hooks 仅含部分事件时补齐其余空数组', async () => {
 })
 
 /**
- * 填满 prd 四小节（脱离 placeholder，首行带 H1，并带收敛 marker：
+ * 填满 prd 十一小节（脱离 placeholder，首行带 H1，R/AC 追踪合法，并带收敛 marker：
  * start 与 review/confirm 共用同一结构分类器，marker 也是放行条件）。
  */
 function writeFilledPrd(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'prd.md'),
-    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
+    '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nDo the thing.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n',
   )
 }
 
@@ -771,12 +783,12 @@ function writeEffectiveJsonl(root, taskRelPath, name) {
 
 /**
  * 写轻量任务的最低 prd：H1 + Goal 实填，其余小节仍为骨架 placeholder，
- * 且没有 open-nodes marker（轻量 start 门只保留 H1 + Goal）。
+ * 且没有开放节点标记（轻量 start 门只保留 H1 + Goal）。
  */
 function writeLightPrd(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'prd.md'),
-    '# Light fix\n\n## Goal\n\nRepair the shell file.\n\n## Requirements\n\n(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)\n\n## Acceptance Criteria\n\n(placeholder: list the acceptance criteria as numbered items AC1, AC2, ...; each item carries its verification method and the R items it covers)\n\n## Notes\n\n(placeholder: add notes and constraints)\n',
+    '# Light fix\n\n## Goal\n\nRepair the shell file.\n\n## Requirements\n\n(placeholder: group requirements by capability or behavior as numbered items R1, R2, ...; each item is one necessary, decidable statement; do not transcribe Q&A rounds)\n\n## Acceptance Criteria\n\n(placeholder: list acceptance criteria as numbered items AC1, AC2, ...; each item cites the R numbers it covers and states its verification method)\n\n## Notes\n\n(placeholder: add notes that do not belong to any section above)\n',
   )
 }
 
@@ -915,10 +927,10 @@ test('start 门禁：缺小节与 placeholder 小节文案不同，且一次列�
   try {
     const [, created] = await createTask(root, { title: 'Gated Sections' })
     const taskDir = join(root, '.workloom', created.taskRelPath)
-    // 缺 H1 + 缺 Notes 标题 + Requirements 仍为 placeholder + marker 仍 pending
+    // 缺 H1 + 缺 Notes 标题 + Requirements 仍为 placeholder（无开放节点标记参与判断）
     writeFileSync(
       join(taskDir, 'prd.md'),
-      '## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)\n\n## Acceptance Criteria\n\n- ac\n\n<!-- workloom:open-nodes=pending -->\n',
+      '## Goal\n\nDo the thing.\n\n## Requirements\n\n(placeholder: group requirements by capability or behavior as numbered items R1, R2, ...; each item is one necessary, decidable statement; do not transcribe Q&A rounds)\n\n## Acceptance Criteria\n\n- ac\n',
     )
     writeEffectiveJsonl(root, created.taskRelPath, 'implement.jsonl')
     writeEffectiveJsonl(root, created.taskRelPath, 'check.jsonl')
@@ -927,19 +939,22 @@ test('start 门禁：缺小节与 placeholder 小节文案不同，且一次列�
     assert.match(err.message, /prd\.md missing H1 title/)
     assert.match(err.message, /prd\.md section "Notes" is missing/)
     assert.match(err.message, /prd\.md section "Requirements" is still a placeholder/)
-    assert.match(err.message, /prd\.md open nodes are not converged \(marker state: "pending"\)/)
+    assert.doesNotMatch(err.message, /open-nodes/)
     // 区分 missing 与 placeholder：Requirements 不得报 missing，Notes 不得报 placeholder
     assert.doesNotMatch(err.message, /section "Requirements" is missing/)
     assert.doesNotMatch(err.message, /section "Notes" is still a placeholder/)
     assert.equal(readTaskJson(root, created.taskRelPath).status, TaskStatus.PLANNING)
-    // marker 缺失同样拦截
+    // 无标记的合法 prd 不再出现任何 prd 内容拦截项（marker 门已删除），
+    // start 只剩 PLAN 与凭据两份确认缺失。
     writeFileSync(
       join(taskDir, 'prd.md'),
-      '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n',
+      '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nDo the thing.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n',
     )
-    const [markerErr] = await startTask(root, { taskRelPath: created.taskRelPath })
-    assert.ok(markerErr)
-    assert.match(markerErr.message, /prd\.md open-nodes marker is missing/)
+    const [cleanErr] = await startTask(root, { taskRelPath: created.taskRelPath })
+    assert.ok(cleanErr)
+    assert.doesNotMatch(cleanErr.message, /prd\.md/)
+    assert.match(cleanErr.message, /plan\.md is missing/)
+    assert.match(cleanErr.message, /no alignment credential recorded/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1004,7 +1019,7 @@ test('start 门禁：确认后修改 prd 不产生 stale 错误（无哈希失�
     // prd 在确认之后被修改：门禁不再比对文档哈希，start 仍然放行。
     writeFileSync(
       join(root, '.workloom', created.taskRelPath, 'prd.md'),
-      '# Filled\n\n## Goal\n\nChanged requirement.\n\n## Requirements\n\n- req2\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
+      '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nChanged requirement.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens after the change\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n',
     )
     const [err, started] = await startTask(root, { taskRelPath: created.taskRelPath })
     assert.equal(err, null)
@@ -1071,7 +1086,7 @@ test('start 门禁 light：缺 H1 或 Goal placeholder 仍拦截', async () => {
     // Goal 仍是 placeholder
     writeFileSync(
       join(taskDir, 'prd.md'),
-      '# Light fix\n\n## Goal\n\n(placeholder: describe the goal this task aims to achieve)\n',
+      '# Light fix\n\n## Goal\n\n(placeholder: describe the outcome this task achieves and how it will be observed; the goal must follow from the context above)\n',
     )
     const [goalErr] = await startTask(root, { taskRelPath: created.taskRelPath })
     assert.ok(goalErr)
@@ -1288,11 +1303,11 @@ test('archive 门禁：force 放行，overrides 写入归档后的 task.json', a
   }
 })
 
-/** 写含「UI Design」小节的填满 prd（H1 + 四小节填满 + UI Design 额外节）。 */
+/** 写含「UI Design」小节的填满 prd（H1 + 十一小节填满 + UI Design 额外节）。 */
 function writeUiPrd(root, taskRelPath) {
   writeFileSync(
     join(root, '.workloom', taskRelPath, 'prd.md'),
-    '# UI Task\n\n## Goal\n\nDo the UI.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n## UI Design\n\n- pages and IA\n\n<!-- workloom:open-nodes=none -->\n',
+    '# UI Task\n\n## Context\n\nThe gate harness needs a UI sample.\n\n## Goal\n\nDo the UI.\n\n## Scope\n\nIn scope: the UI itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the UI renders by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the UI is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n## UI Design\n\n- pages and IA\n\n',
   )
 }
 

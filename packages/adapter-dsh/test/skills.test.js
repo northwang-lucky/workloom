@@ -343,7 +343,7 @@ test('workloom-continue/workloom-finish 资产可解析：路由表与收尾五�
   assert.match(finish, /bookkeeping commit/)
 })
 
-test('workloom-alignment 资产可解析：name/description/whenToUse + 收敛标记与 references 就位', () => {
+test('workloom-alignment 资产可解析：name/description/whenToUse + 固定小节叙述规则与 references 就位', () => {
   const doc = readFileSync(
     new URL('../../assets/skills/workloom-alignment/SKILL.md', import.meta.url),
     'utf8',
@@ -354,7 +354,11 @@ test('workloom-alignment 资产可解析：name/description/whenToUse + 收敛�
   assert.match(parsed.description, /Phase 1\.1/)
   assert.match(parsed.description, /workloom task/)
   assert.ok(parsed.whenToUse !== undefined, 'whenToUse must be present')
-  assert.match(parsed.body, /<!-- workloom:open-nodes=pending\|none -->/)
+  // 固定小节 + 反流水账叙述规则；开放节点 HTML 标记已删除
+  assert.match(parsed.body, /fixed section set/)
+  assert.match(parsed.body, /Organize Requirements by capability or behavior/)
+  assert.match(parsed.body, /never stack entries in Q&A order/)
+  assert.ok(!parsed.body.includes('workloom:open-nodes'), 'skill must not carry the removed marker')
   assert.match(parsed.body, /workloom_task_align/)
   // review 内容就绪门禁：blocker 未清空不得请求用户确认
   assert.match(parsed.body, /readyToConfirm/)
@@ -381,4 +385,23 @@ test('workloom-alignment evals 可解析且含 review blocker 场景（先修复
   const pseudocodeText = JSON.stringify(pseudocodeCase)
   assert.match(pseudocodeText, /Input, Output, Preconditions, Procedure, Failure/)
   assert.match(pseudocodeText, /missing input\/output fields and a missing failure path/)
+  // 叙述质量对照评测：连贯 PRD 被接受，流水账 PRD 被判为内容质量问题
+  const coherentCase = evals.evals.find((entry) => entry.id === 'align-narrative-coherent')
+  assert.ok(coherentCase, 'narrative coherent case must exist')
+  assert.ok(coherentCase.assertions.length > 0)
+  assert.ok(
+    coherentCase.assertions.some((line) => line.includes('capability-grouped')),
+    'coherent 场景缺按能力组织的接受断言',
+  )
+  const logCase = evals.evals.find((entry) => entry.id === 'align-narrative-log')
+  assert.ok(logCase, 'narrative log case must exist')
+  assert.ok(logCase.assertions.length > 0)
+  assert.ok(
+    logCase.assertions.some((line) => line.includes('Q&A-round-stacked')),
+    'log 场景缺流水账堆叠缺陷断言',
+  )
+  for (const item of evals.evals) {
+    assert.ok(!/[\u3400-\u9fff]/.test(item.prompt), 'alignment eval prompt must not contain CJK')
+    assert.ok(!/[\u3400-\u9fff]/.test(item.assertions.join('\n')), 'alignment eval assertions must not contain CJK')
+  }
 })

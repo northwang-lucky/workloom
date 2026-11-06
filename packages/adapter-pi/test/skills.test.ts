@@ -58,3 +58,28 @@ test('skills 同步产物携带 PLAN 五字段伪代码协议（alignment 与 mi
   const migrate = readFileSync(join(skillsDir, 'workloom-migrate-plan', 'SKILL.md'), 'utf8')
   assert.ok(migrate.includes(fiveFields), '同步的 migrate-plan SKILL.md 缺五字段协议句')
 })
+
+test('skills 同步产物携带 PRD 新格式口径（固定小节叙述规则、无 open-nodes 标记、对照评测场景）', () => {
+  // 与 adapter-dsh 的 skills.test.js 同口径：只核对同步产物，不复制判断逻辑
+  const alignment = readFileSync(join(skillsDir, 'workloom-alignment', 'SKILL.md'), 'utf8')
+  assert.ok(alignment.includes('fixed section set'), '同步的 alignment SKILL.md 缺固定小节句')
+  assert.ok(
+    alignment.includes('Organize Requirements by capability or behavior'),
+    '同步的 alignment SKILL.md 缺按能力组织需求句',
+  )
+  assert.ok(
+    alignment.includes('never stack entries in Q&A order'),
+    '同步的 alignment SKILL.md 缺反流水账句',
+  )
+  assert.ok(
+    !alignment.includes('workloom:open-nodes'),
+    '同步的 alignment SKILL.md 不得携带已删除的开放节点标记',
+  )
+  const evals = JSON.parse(
+    readFileSync(join(skillsDir, 'workloom-alignment', 'evals', 'evals.json'), 'utf8'),
+  )
+  assert.equal(evals.skill_name, 'workloom-alignment')
+  const ids = evals.evals.map((item: { id: string }) => item.id)
+  assert.ok(ids.includes('align-narrative-coherent'), '评测缺连贯叙述对照场景')
+  assert.ok(ids.includes('align-narrative-log'), '评测缺流水账叙述对照场景')
+})

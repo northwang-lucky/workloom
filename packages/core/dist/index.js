@@ -16,7 +16,7 @@ export { NATIVE_TOOLS_DSH, NATIVE_TOOLS_PI, buildAllowList, } from './domain/exe
 export { evaluateExecutorCapacity, formatAtCapacityReceipt, } from './domain/executor-capacity.js';
 export { initWorkloom } from './domain/init.js';
 export { migrateLegacyTrellis } from './domain/migrate.js';
-export { findOpenNodeState, evaluateAlignmentGate, ALIGNMENT_MISSING, } from './domain/alignment.js';
+export { evaluateAlignmentGate, ALIGNMENT_MISSING, } from './domain/alignment.js';
 // CASE 领域导出（生命周期、结构校验、门禁与文件范围）。
 export { CASE_FILES, CASE_PURPOSES, CASE_STRUCTURE, CASE_MISSING, createCaseRecord, inspectCaseStructure, evaluateCaseExecutionGate, evaluateCaseOutcomeGate, listCaseChangedFiles, } from './domain/case.js';
 export { writeFileAtomic } from './domain/file-atomic.js';

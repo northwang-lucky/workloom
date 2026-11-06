@@ -59,7 +59,7 @@
         "runs action=review before any confirm",
         "checks readyToConfirm on the review result before involving the user",
         "presents the prd content to the user only once readyToConfirm is true",
-        "sets the <!-- workloom:open-nodes=none --> marker before confirming",
+        "checks Risks and Open Questions records nothing undecided before confirming (no HTML marker involved)",
         "confirms with target=prd and a summary only after explicit user confirmation, recording no hash"
       ]
     },
@@ -74,6 +74,30 @@
         "distinguishes a missing section from a section that is still a placeholder",
         "re-runs action=review after the fix and checks readyToConfirm again",
         "keeps the missing summary out of the content blocker list (it is a confirm call parameter)"
+      ]
+    },
+    {
+      "id": "align-narrative-coherent",
+      "name": "capability-grouped-narrative-prd-accepted",
+      "prompt": "A workloom task's prd.md organizes Requirements by capability (R1 caching layer, R2 invalidation policy, R3 offline fallback — each a decidable statement), carries an AC per requirement citing its R numbers with a verification method, and its Alignment Decisions keeps only the three key choices with their rationale. Judge the document against the recording standard.",
+      "expected_output": "The document passes the narrative bar: the reading main line runs background → goal → scope → requirements → acceptance, requirements are grouped by capability or behavior rather than stacked in Q&A order, every AC traces to an R number with a verification method, and Alignment Decisions keeps key choices with rationale instead of per-round replies.",
+      "assertions": [
+        "accepts the capability-grouped requirements without asking to renumber them by conversation order",
+        "checks each AC cites a defined R number and carries a verification method",
+        "confirms the Alignment Decisions section holds key choices with rationale, not Q/A numbering",
+        "declares the document ready for review without demanding per-round reply transcripts"
+      ]
+    },
+    {
+      "id": "align-narrative-log",
+      "name": "qa-stacked-narrative-prd-flagged",
+      "prompt": "A workloom task's prd.md lists Requirements as 'R1: from round 1 the user said caching', 'R2: from round 2 the user added invalidation', repeats the same caching summary inside both Requirements and Alignment Decisions, and its Acceptance Criteria say 'AC1: works well' with no R reference and no verification method. Judge the document against the recording standard.",
+      "expected_output": "The document fails the narrative bar and is sent back for restructuring: Requirements must be regrouped by capability or behavior instead of Q&A rounds, the duplicated caching summary keeps one primary home section and is cross-referenced elsewhere, AC1 must cite a defined R number and carry a verification method, and Alignment Decisions must drop the per-round transcript.",
+      "assertions": [
+        "flags the Q&A-round-stacked requirements as a narrative defect to regroup by capability",
+        "flags the duplicated caching summary and keeps one primary home section with cross-references",
+        "flags AC1 for citing no R number and carrying no verification method",
+        "removes the per-round reply transcript from Alignment Decisions before re-running review"
       ]
     },
     {

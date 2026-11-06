@@ -16,7 +16,7 @@ This contract covers active light tasks only: it has no `no_task` block (the mai
 
 #### 1.0 Start task
 
-Create the light task with `workloom_task_create` and pass `mode: "light"`, then fill prd.md to the light minimum: an H1 title, a filled `## Goal` section, and the acceptance points you will verify. Skip Phase 1.1 alignment — light tasks carry no alignment credential, no implement/check jsonl, and no open-nodes marker. Run `workloom_task_start`; the light start gate only rejects a missing prd.md, a missing H1 title, or a missing/placeholder Goal section.
+Create the light task with `workloom_task_create` and pass `mode: "light"`, then fill prd.md to the light minimum: an H1 title, a filled `## Goal` section, and the acceptance points you will verify. Skip Phase 1.1 alignment — light tasks carry no alignment credential, no implement/check jsonl, and no full-section structure gate. Run `workloom_task_start`; the light start gate only rejects a missing prd.md, a missing H1 title, or a missing/placeholder Goal section.
 Completion criteria: prd.md meets the light minimum and `task.json` `status` is `in_progress`.
 
 ## Phase 2 Execute
@@ -44,7 +44,7 @@ Load the `workloom-finish` skill: check dirty files → archive the task (`workl
 Completion criteria: the task is under `archive/` with `status` `completed`, and the journal has recorded this session.
 
 [workflow-state:planning]
-The light task is in planning. Fill prd.md to the light minimum (H1, Goal, acceptance points) and run `workloom_task_start`; skip Phase 1.1 alignment, the context jsonl files, and the open-nodes marker. Do not write implementation code before the task starts.
+The light task is in planning. Fill prd.md to the light minimum (H1, Goal, acceptance points) and run `workloom_task_start`; skip Phase 1.1 alignment, the context jsonl files, and the full-section structure gate. Do not write implementation code before the task starts.
 [/workflow-state:planning]
 
 [workflow-state:in_progress]

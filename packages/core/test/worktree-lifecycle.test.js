@@ -209,12 +209,12 @@ function makePlainProject(base) {
   return root
 }
 
-/** 满足 start 门禁：填 prd（含 H1）四小节 + 收敛 marker + 两个 jsonl 各一条有效记录。 */
+/** 满足 start 门禁：填 prd（含 H1）十一小节 + R/AC 追踪 + 收敛 marker + 两个 jsonl 各一条有效记录。 */
 function satisfyStartGate(root, taskRelPath) {
   const taskDir = join(root, '.workloom', taskRelPath)
   writeFileSync(
     join(taskDir, 'prd.md'),
-    '# Filled\n\n## Goal\n\nDo the thing.\n\n## Requirements\n\n- req\n\n## Acceptance Criteria\n\n- ac\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
+    '# Filled\n\n## Context\n\nThe gate harness needs a filled sample.\n\n## Goal\n\nDo the thing.\n\n## Scope\n\nIn scope: the thing itself. Non-goals: none.\n\n## Assumptions, Constraints and Dependencies\n\nNo new dependencies beyond the gate harness.\n\n## Requirements\n\n- R1: the thing happens by default\n\n## Acceptance Criteria\n\n- AC1（覆盖 R1）: the thing is observable. Verification: run the gate tests.\n\n## Edge Cases and Failure Paths\n\nNone: no boundary conditions beyond the gate itself.\n\n## Risks and Open Questions\n\nNone: no open questions remain.\n\n## Alignment Decisions\n\n- design tree converged\n\n## References\n\nNone.\n\n## Notes\n\n- note\n\n<!-- workloom:open-nodes=none -->\n',
   )
   // 完整实施任务 start 还要求 PLAN（夹具 prd 无 AC 编号，最小 plan 即可通过）。
   writeFileSync(

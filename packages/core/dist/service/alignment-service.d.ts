@@ -14,7 +14,6 @@
  *   findWorkloomRoot），adapter 只负责投影返回与主会话限制。
  */
 import type { TaskAlignmentRecord, TaskPlanConfirmationRecord, TaskStatusValue } from '../domain/task-store.d.ts';
-import type { OpenNodeState } from '../domain/alignment.d.ts';
 /** 确认对象：prd（缺省，兼容旧调用）或 plan。 */
 export type AlignTarget = 'prd' | 'plan';
 /** 结构诊断的公共形态（PRD 与 PLAN 结构分类器产物形状一致，section 字段可选）。 */
@@ -35,9 +34,7 @@ export interface AlignReviewResult {
     prd: string | null;
     /** target=plan 时的 PLAN 快照；target=prd 恒为 null。 */
     plan: string | null;
-    /** PRD 的开放节点状态（target=plan 时仍返回，供主会话对照）。 */
-    openNodeState: OpenNodeState | null;
-    /** 当前确认对象的结构问题（PRD：H1 → 骨架小节 → open nodes；PLAN：标题/Steps/字段/AC 覆盖）。 */
+    /** 当前确认对象的结构问题（PRD：H1 → 骨架小节 → R/AC 追踪；PLAN：标题/Steps/字段/AC 覆盖）。 */
     structureIssues: ConfirmStructureIssue[];
     /** structureIssues 的英文文案投影，供主会话直接展示。 */
     confirmBlockers: string[];

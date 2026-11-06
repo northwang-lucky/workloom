@@ -269,8 +269,9 @@ export function checkActivePointer(root, byName) {
 }
 /**
  * 把一条 PRD 结构 issue 投影为 doctor 文档完整性 issue（内部）。
- * 只投影文档类 code（缺 H1、缺小节、placeholder 小节）；open-nodes 属 alignment
- * 就绪诊断，不混入普通文档检查，返回 null 表示不生成 doctor issue。
+ * 只投影文档类 code（缺 H1、缺小节、placeholder 小节）；R/AC 追踪问题属
+ * review/confirm/start 门禁，都不混入普通文档检查（doctor 只查文档完整性），
+ * 返回 null 表示不生成 doctor issue。
  * @param issue PRD 结构 issue
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param prdPath prd.md 展示路径
@@ -321,12 +322,12 @@ export function checkDocCompleteness(root, nodes) {
                 message: 'prd.md is missing.',
                 path: prdPath,
                 fixable: false,
-                hint: 'Write prd.md with Goal, Requirements, Acceptance Criteria and Notes sections.',
+                hint: 'Write prd.md with the full sections: Context, Goal, Scope, Assumptions Constraints and Dependencies, Requirements, Acceptance Criteria, Edge Cases and Failure Paths, Risks and Open Questions, Alignment Decisions, References, Notes.',
             }));
         }
         else {
-            // 文档结构问题与 review/confirm/start 共用同一分类器；open-nodes marker 属
-            // Phase 1.1 alignment readiness，不作为普通文档完整性告警（避免历史任务噪音）。
+            // 文档结构问题与 review/confirm/start 共用同一分类器；R/AC 追踪问题不作
+            // 普通文档完整性告警（属确认门禁，避免 review 与 doctor 双重报噪音）。
             for (const issue of inspectPrdStructure(prd)) {
                 const docIssue = toDocIssue(issue, node.relPath, prdPath);
                 if (docIssue !== null)

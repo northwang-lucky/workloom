@@ -18,7 +18,7 @@ export { evaluateExecutorCapacity, formatAtCapacityReceipt, } from './domain/exe
 export type { RunningExecutorRecord, CapacityCheckParams, CapacityResult, } from './domain/executor-capacity.d.ts';
 export { initWorkloom } from './domain/init.js';
 export { migrateLegacyTrellis } from './domain/migrate.js';
-export { findOpenNodeState, evaluateAlignmentGate, ALIGNMENT_MISSING, } from './domain/alignment.js';
+export { evaluateAlignmentGate, ALIGNMENT_MISSING, } from './domain/alignment.js';
 export { CASE_FILES, CASE_PURPOSES, CASE_STRUCTURE, CASE_MISSING, createCaseRecord, inspectCaseStructure, evaluateCaseExecutionGate, evaluateCaseOutcomeGate, listCaseChangedFiles, } from './domain/case.js';
 export type { CasePurpose, CaseStructureIssue, CaseStructureOptions, TaskCaseRecord, } from './domain/case.d.ts';
 export { writeFileAtomic } from './domain/file-atomic.js';
@@ -58,7 +58,6 @@ export type { AssembleBreadcrumbParams, WorkflowProjection, } from './service/wo
 export type { TaskStatusKey, TaskStatusValue, TaskPriorityKey, TaskPriorityValue, TaskStageKey, TaskStageValue, TaskHooks, TaskRecord, TaskRecordWithPath, StartedTaskRecord, TaskCheckRecord, TaskAlignmentRecord, TaskPlanConfirmationRecord, TaskSummary, CreateTaskParams, CreateTaskResult, StartTaskParams, FinishTaskParams, ArchiveTaskParams, ArchiveTaskResult, ListTasksParams, CheckTaskParams, AlignmentCredentialInput, PlanConfirmationInput, DispatchPurpose, TaskCaseRecordCarrier, DispatchRecord, DispatchRecordInput, DispatchStatus, DispatchModelSource, DispatchSettleInput, } from './domain/task-store.d.ts';
 export type { TaskModeKey, TaskModeValue } from './domain/task-mode.d.ts';
 export type { GateKey, GateValue, PrdSection, PrdStructureCode, PrdStructureIssue, } from './domain/task-gates.d.ts';
-export type { OpenNodeState } from './domain/alignment.d.ts';
 export type { ExecuteAlignTaskParams, ExecuteAlignTaskResult, AlignReviewResult, AlignConfirmResult, AlignTarget, PrdConfirmResult, PlanConfirmResult, } from './service/alignment-service.js';
 export type { SessionPointer } from './domain/active-task.d.ts';
 export type { SessionContextParams } from './service/session-context.js';

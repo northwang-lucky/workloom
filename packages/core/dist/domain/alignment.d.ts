@@ -2,17 +2,8 @@
 
 import type { TaskAlignmentRecord, TaskStatusValue } from './task-store.d.ts'
 
-/** 开放节点标记取值（`<!-- workloom:open-nodes=pending|none -->`）。 */
-export type OpenNodeState = 'pending' | 'none'
-
-/** 开放节点标记值域常量对象。 */
-export const OPEN_NODE_MARKER: Readonly<{ PENDING: 'pending'; NONE: 'none' }>
-
 /** alignment 门禁缺失项文案：无凭据（planning start 拦截）。 */
 export const ALIGNMENT_MISSING: string
-
-/** 扫描全文中的开放节点标记：无标记 null；任一 pending → pending；全 none → none。 */
-export function findOpenNodeState(content: string): OpenNodeState | null
 
 /**
  * 求值 alignment 门禁矩阵：凭据只判「有无」，不比对文档哈希。

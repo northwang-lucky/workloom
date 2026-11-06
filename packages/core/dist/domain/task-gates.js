@@ -13,7 +13,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { evaluateAlignmentGate, findOpenNodeState, OPEN_NODE_MARKER, } from './alignment.js';
+import { evaluateAlignmentGate } from './alignment.js';
 import { insideWorkloom } from './locate.js';
 import { EXECUTOR_KINDS, parseJsonlEntries } from './executor-context.js';
 import { TASK_MODES } from './task-mode.js';
@@ -52,23 +52,55 @@ export const GATE_TOOLS = Object.freeze({
     light_dispatch: 'workloom_execute',
 });
 /**
- * prd.md 骨架：各小节标题与占位说明（顺序即文档顺序）。
- * task-store 生成骨架与本模块 placeholder 判定共用此常量。
- * Requirements/Acceptance Criteria 的占位文本承载 R/AC 编号溯源格式指引；
+ * prd.md 骨架：完整任务的固定十一小节（顺序即文档顺序）。
+ * task-store 生成骨架与本模块 placeholder 判定共用此常量（单一来源）。
+ * 占位说明用英文：明确该节要回答的问题、应建立的前后关系，并内嵌反流水账
+ * 要求与 R/AC 编号溯源格式指引；不适用的小节由作者写 none/not applicable。
  * 细则在契约 1.1、alignment 技能 Recording 节与 plan-authoring reference。
  * @type {readonly import('./task-gates.d.ts').PrdSection[]}
  */
 export const PRD_SECTIONS = Object.freeze([
-    { heading: 'Goal', placeholder: '(placeholder: describe the goal this task aims to achieve)' },
+    {
+        heading: 'Context',
+        placeholder: '(placeholder: explain the problem background and why this task exists now; describe the consumer-observable situation, not the solution)',
+    },
+    {
+        heading: 'Goal',
+        placeholder: '(placeholder: describe the outcome this task achieves and how it will be observed; the goal must follow from the context above)',
+    },
+    {
+        heading: 'Scope',
+        placeholder: '(placeholder: state what is in scope and what is explicitly excluded (non-goals); keep each boundary decidable)',
+    },
+    {
+        heading: 'Assumptions, Constraints and Dependencies',
+        placeholder: '(placeholder: list assumptions taken, hard constraints respected, and external dependencies relied on; write none with a short reason when a category does not apply)',
+    },
     {
         heading: 'Requirements',
-        placeholder: '(placeholder: list the functional requirements as numbered items R1, R2, ...; each item is a single decidable statement)',
+        placeholder: '(placeholder: group requirements by capability or behavior as numbered items R1, R2, ...; each item is one necessary, decidable statement; do not transcribe Q&A rounds)',
     },
     {
         heading: 'Acceptance Criteria',
-        placeholder: '(placeholder: list the acceptance criteria as numbered items AC1, AC2, ...; each item carries its verification method and the R items it covers)',
+        placeholder: '(placeholder: list acceptance criteria as numbered items AC1, AC2, ...; each item cites the R numbers it covers and states its verification method)',
     },
-    { heading: 'Notes', placeholder: '(placeholder: add notes and constraints)' },
+    {
+        heading: 'Edge Cases and Failure Paths',
+        placeholder: '(placeholder: describe boundary conditions and failure modes with how each is handled; write none with a short reason when there are none)',
+    },
+    {
+        heading: 'Risks and Open Questions',
+        placeholder: '(placeholder: record unresolved questions and risks directly; the main session decides convergence from this content)',
+    },
+    {
+        heading: 'Alignment Decisions',
+        placeholder: '(placeholder: record only the key decisions with their rationale; do not save Q/A numbering or per-round replies)',
+    },
+    {
+        heading: 'References',
+        placeholder: '(placeholder: link the research reports, specs, and external sources this PRD relies on; write none when there are none)',
+    },
+    { heading: 'Notes', placeholder: '(placeholder: add notes that do not belong to any section above)' },
 ]);
 /** prd 小节标题行前缀（`## ` 切分只消费二级标题，H1 行不影响小节解析）。 */
 const SECTION_HEADING_PREFIX = '## ';
@@ -79,8 +111,11 @@ const SECTION_HEADING_PREFIX = '## ';
  *   PRD_TITLE_MISSING: 'prd_title_missing',
  *   PRD_SECTION_MISSING: 'prd_section_missing',
  *   PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder',
- *   PRD_OPEN_NODES_MISSING: 'prd_open_nodes_missing',
- *   PRD_OPEN_NODES_NOT_NONE: 'prd_open_nodes_not_none',
+ *   PRD_REQUIREMENTS_EMPTY: 'prd_requirements_empty',
+ *   PRD_ACCEPTANCE_EMPTY: 'prd_acceptance_empty',
+ *   PRD_REFERENCE_DUPLICATE: 'prd_reference_duplicate',
+ *   PRD_AC_UNKNOWN_REFERENCE: 'prd_ac_unknown_reference',
+ *   PRD_AC_VERIFICATION_MISSING: 'prd_ac_verification_missing',
  * }>}
  */
 export const PRD_STRUCTURE_CODES = Object.freeze({
@@ -88,25 +123,167 @@ export const PRD_STRUCTURE_CODES = Object.freeze({
     PRD_TITLE_MISSING: 'prd_title_missing',
     PRD_SECTION_MISSING: 'prd_section_missing',
     PRD_SECTION_PLACEHOLDER: 'prd_section_placeholder',
-    PRD_OPEN_NODES_MISSING: 'prd_open_nodes_missing',
-    PRD_OPEN_NODES_NOT_NONE: 'prd_open_nodes_not_none',
+    PRD_REQUIREMENTS_EMPTY: 'prd_requirements_empty',
+    PRD_ACCEPTANCE_EMPTY: 'prd_acceptance_empty',
+    PRD_REFERENCE_DUPLICATE: 'prd_reference_duplicate',
+    PRD_AC_UNKNOWN_REFERENCE: 'prd_ac_unknown_reference',
+    PRD_AC_VERIFICATION_MISSING: 'prd_ac_verification_missing',
 });
 /** prd 文件缺失文案（start 门禁、review 诊断、confirm 拦截共用同一句）。 */
 export const PRD_MISSING = 'prd.md is missing';
 /** prd 一级标题缺失文案（start 门禁缺失项与结构诊断共用）。 */
 const PRD_TITLE_MISSING = 'prd.md missing H1 title';
-/** open-nodes marker 缺失文案（未声明标记不得视为已收敛）。 */
-const PRD_OPEN_NODES_MISSING = 'prd.md open-nodes marker is missing';
-/**
- * 非 none 的 open-nodes 状态诊断文案（marker 状态作为参数）。
- * @param {string} markerState 扫描到的 marker 状态
- * @returns {string} 诊断文案
- */
-const prdOpenNodesNotNone = (markerState) => `prd.md open nodes are not converged (marker state: "${markerState}")`;
 /** 小节标题缺失的原因短语（与 PRD_SECTION_MISSING code 对应）。 */
 const SECTION_MISSING_REASON = 'is missing';
 /** 小节正文仍为骨架 placeholder 的原因短语（与 PRD_SECTION_PLACEHOLDER code 对应）。 */
 const SECTION_PLACEHOLDER_REASON = 'is still a placeholder';
+/** Requirements 小节标题（R/AC 追踪检查按标题定位正文）。 */
+const REQUIREMENTS_SECTION = 'Requirements';
+/** Acceptance Criteria 小节标题（R/AC 追踪检查按标题定位正文）。 */
+const ACCEPTANCE_SECTION = 'Acceptance Criteria';
+/**
+ * R 条目行形态：`- R<number>` 后接编号标注（可选，如 `（覆盖 R1）`）再接
+ * 英文或中文冒号。标注与冒号间的空白宽容；无冒号的 `- R1 xxx` 不识别。
+ */
+const R_ITEM_RE = /^- R(\d+)\s*(?:\([^)]*\)|（[^）]*）)?\s*[:\uFF1A]/;
+/**
+ * AC 条目行形态：与 R 条目同构（`- AC<number>`，标注可选，冒号中英皆可）。
+ * 本任务 PRD 的 `AC1（覆盖 R1、R6）：` 写法由此放行，不要求额外英文格式。
+ */
+const AC_ITEM_RE = /^- AC(\d+)\s*(?:\([^)]*\)|（[^）]*）)?\s*[:\uFF1A]/;
+/** 小节内条目起始行形态（R 与 AC 条目行共用，用于条目范围切分）。 */
+const TRACE_ITEM_LINE_RE = /^- (?:R|AC)\d+/;
+/** 任意标题行（条目范围在标题处截断，防止后续小节内容并入上一条目）。 */
+const ANY_HEADING_LINE_RE = /^#{1,6}\s/;
+/** AC 条目内的 R 引用形态：词边界 R + 数字（PRD 等大写词不误报）。 */
+const R_REFERENCE_RE = /\bR(\d+)/g;
+/** AC 验证标识词表：条目正文含其一即视为带验证方法（中英文皆可）。 */
+const AC_VERIFICATION_MARKERS = Object.freeze(['验证方法', 'Verification', 'Verify']);
+/**
+ * 把小节正文切成条目列表（内部）：条目行（R/AC 编号行）开启新条目，
+ * 后续非条目、非标题、非空行并入当前条目正文；标题行截断条目范围。
+ * @param {string} body 小节正文（trim 后）
+ * @returns {string[]} 条目全文列表（条目首行 + 归属续行）
+ */
+function splitTraceItems(body) {
+    const items = [];
+    let current = null;
+    for (const line of body.split('\n')) {
+        if (TRACE_ITEM_LINE_RE.test(line)) {
+            current = line;
+            items.push(current);
+            continue;
+        }
+        if (ANY_HEADING_LINE_RE.test(line)) {
+            current = null;
+            continue;
+        }
+        if (current !== null && line.trim() !== '')
+            current += `\n${line}`;
+    }
+    return items;
+}
+/**
+ * 提取 R/AC 条目编号（内部）：条目全文按条目正则取首个编号。
+ * @param {string[]} items 条目全文列表
+ * @param {RegExp} itemRe 条目行正则（捕获编号）
+ * @returns {number[]} 编号列表（按出现顺序，可能重复）
+ */
+function extractItemNumbers(items, itemRe) {
+    const numbers = [];
+    for (const item of items) {
+        const match = itemRe.exec(item);
+        if (match !== null)
+            numbers.push(Number(match[1]));
+    }
+    return numbers;
+}
+/**
+ * 检查 Requirements 小节的 R 追踪（内部）：至少一条编号条目且编号不重复。
+ * @param {string} body Requirements 小节正文
+ * @returns {import('./task-gates.d.ts').PrdStructureIssue[]} R 侧追踪问题
+ */
+function inspectRequirementsTrace(body) {
+    const numbers = extractItemNumbers(splitTraceItems(body), R_ITEM_RE);
+    if (numbers.length === 0) {
+        return [
+            {
+                code: PRD_STRUCTURE_CODES.PRD_REQUIREMENTS_EMPTY,
+                message: `prd.md section "${REQUIREMENTS_SECTION}" has no "- R<number>:" requirement items`,
+            },
+        ];
+    }
+    const issues = [];
+    const seen = new Set();
+    for (const number of numbers) {
+        if (seen.has(number)) {
+            issues.push({
+                code: PRD_STRUCTURE_CODES.PRD_REFERENCE_DUPLICATE,
+                message: `prd.md requirement R${number} is duplicated`,
+            });
+            continue;
+        }
+        seen.add(number);
+    }
+    return issues;
+}
+/**
+ * 检查 Acceptance Criteria 小节的 AC 追踪（内部）：至少一条编号条目、编号不重复、
+ * 每条至少引用一个已定义 R 且带验证标识（验证方法/Verification/Verify）。
+ * Requirements 无任何 R 定义（prd_requirements_empty 已报告）时跳过引用检查，
+ * 避免每个 AC 级联报未知引用的噪音。
+ * @param {string} body Acceptance Criteria 小节正文
+ * @param {Set<number>} requirementNumbers Requirements 侧已定义的 R 编号
+ * @returns {import('./task-gates.d.ts').PrdStructureIssue[]} AC 侧追踪问题
+ */
+function inspectAcceptanceTrace(body, requirementNumbers) {
+    const items = splitTraceItems(body);
+    const numbers = extractItemNumbers(items, AC_ITEM_RE);
+    if (numbers.length === 0) {
+        return [
+            {
+                code: PRD_STRUCTURE_CODES.PRD_ACCEPTANCE_EMPTY,
+                message: `prd.md section "${ACCEPTANCE_SECTION}" has no "- AC<number>:" acceptance items`,
+            },
+        ];
+    }
+    const issues = [];
+    const seen = new Set();
+    for (const [index, item] of items.entries()) {
+        const number = numbers[index];
+        if (seen.has(number)) {
+            issues.push({
+                code: PRD_STRUCTURE_CODES.PRD_REFERENCE_DUPLICATE,
+                message: `prd.md acceptance criterion AC${number} is duplicated`,
+            });
+            continue;
+        }
+        seen.add(number);
+        if (requirementNumbers.size > 0) {
+            const referenced = [...item.matchAll(R_REFERENCE_RE)].map((match) => Number(match[1]));
+            const unknown = [...new Set(referenced.filter((ref) => !requirementNumbers.has(ref)))].sort((a, b) => a - b);
+            if (!referenced.some((ref) => requirementNumbers.has(ref))) {
+                issues.push({
+                    code: PRD_STRUCTURE_CODES.PRD_AC_UNKNOWN_REFERENCE,
+                    message: `prd.md acceptance criterion AC${number} references no defined R item`,
+                });
+            }
+            else if (unknown.length > 0) {
+                issues.push({
+                    code: PRD_STRUCTURE_CODES.PRD_AC_UNKNOWN_REFERENCE,
+                    message: `prd.md acceptance criterion AC${number} references undefined R${unknown.join(', R')}`,
+                });
+            }
+        }
+        if (!AC_VERIFICATION_MARKERS.some((marker) => item.includes(marker))) {
+            issues.push({
+                code: PRD_STRUCTURE_CODES.PRD_AC_VERIFICATION_MISSING,
+                message: `prd.md acceptance criterion AC${number} has no verification method (expected 验证方法, Verification, or Verify)`,
+            });
+        }
+    }
+    return issues;
+}
 /** prd 一级标题行判定：`# ` 开头且 `# ` 之后有非空标题文本。 */
 const PRD_TITLE_LINE_RE = /^#\s+\S+/;
 /** prd.md 中标识「涉及前端展示」的小节标题（与 alignment 的 UI 适用性节点一致）。 */
@@ -123,7 +300,7 @@ const UI_NOT_APPLICABLE_PREFIXES = Object.freeze(['不适用', 'n/a', 'not appli
 const FRONTEND_DISPATCH_MISSING = 'no frontend dispatch recorded for a task with UI requirements';
 /**
  * 轻量任务 start 门保留的 prd 小节：只要求 Goal（最低可审计性）。
- * H1 校验独立于小节过滤，永远保留；其余小节/marker/对齐凭证/双 jsonl 一律跳过。
+ * H1 校验独立于小节过滤，永远保留；其余小节/R-AC 追踪/对齐凭证/双 jsonl 一律跳过。
  */
 const LIGHT_START_SECTION = 'Goal';
 /** 轻量任务派发拒绝文案（主会话包办语义；适配层据此给出提示与 force 指引）。 */
@@ -148,7 +325,11 @@ export function findMissingPrdTitle(prdContent) {
  *
  * 设计意图：把「当前 prd 内容能否通过 confirm」的判断收敛为单一纯函数，
  * 调用方只消费结构化 issue，不再各自复制 PRD 解析规则。
- * 顺序固定：H1 → PRD_SECTIONS 顺序的四个小节 → open-nodes marker。
+ * 顺序固定：H1 → PRD_SECTIONS 顺序的小节 → R/AC 追踪；固定小节与追踪检查
+ * 结束即返回，不读取 HTML 注释（开放节点标记已删除，历史文件中的旧标记
+ * 只作为普通文本保留，不参与逻辑）。
+ * R/AC 追踪只在 Requirements/Acceptance Criteria 两节齐全且非 placeholder 时求值，
+ * 缺失与 placeholder 问题已单独报告，不重复叠加空列表问题。
  * @param {string | null} prdContent prd.md 全文（缺失传 null）
  * @returns {import('./task-gates.d.ts').PrdStructureIssue[]} 结构问题列表（空数组表示通过）
  */
@@ -161,28 +342,28 @@ export function inspectPrdStructure(prdContent) {
         issues.push({ code: PRD_STRUCTURE_CODES.PRD_TITLE_MISSING, message: PRD_TITLE_MISSING });
     }
     const bodies = splitSectionBodies(prdContent);
+    const sectionStates = new Map();
     for (const section of PRD_SECTIONS) {
         const body = bodies.get(section.heading);
         if (body === undefined) {
+            sectionStates.set(section.heading, 'missing');
             issues.push(makeSectionIssue(PRD_STRUCTURE_CODES.PRD_SECTION_MISSING, section.heading));
             continue;
         }
         if (body === section.placeholder) {
+            sectionStates.set(section.heading, 'placeholder');
             issues.push(makeSectionIssue(PRD_STRUCTURE_CODES.PRD_SECTION_PLACEHOLDER, section.heading));
         }
     }
-    const openNodeState = findOpenNodeState(prdContent);
-    if (openNodeState === null) {
-        issues.push({
-            code: PRD_STRUCTURE_CODES.PRD_OPEN_NODES_MISSING,
-            message: PRD_OPEN_NODES_MISSING,
-        });
-    }
-    else if (openNodeState !== OPEN_NODE_MARKER.NONE) {
-        issues.push({
-            code: PRD_STRUCTURE_CODES.PRD_OPEN_NODES_NOT_NONE,
-            message: prdOpenNodesNotNone(openNodeState),
-        });
+    const requirementsBody = bodies.get(REQUIREMENTS_SECTION);
+    const acceptanceBody = bodies.get(ACCEPTANCE_SECTION);
+    if (sectionStates.get(REQUIREMENTS_SECTION) === undefined &&
+        sectionStates.get(ACCEPTANCE_SECTION) === undefined &&
+        requirementsBody !== undefined &&
+        acceptanceBody !== undefined) {
+        const requirementNumbers = new Set(extractItemNumbers(splitTraceItems(requirementsBody), R_ITEM_RE));
+        issues.push(...inspectRequirementsTrace(requirementsBody));
+        issues.push(...inspectAcceptanceTrace(acceptanceBody, requirementNumbers));
     }
     return issues;
 }
@@ -242,11 +423,11 @@ export function evaluateStartGate(root, taskRelPath, task) {
         missing.push(PRD_MISSING);
     }
     else if (light) {
-        // 轻量任务：只保留 H1 与 Goal 两类拦截，其余小节/marker/确认记录/PLAN/jsonl 全部跳过。
+        // 轻量任务：只保留 H1 与 Goal 两类拦截，其余小节/R-AC 追踪/确认记录/PLAN/jsonl 全部跳过。
         missing.push(...inspectLightStartPrd(prd));
     }
     else {
-        // prd 内容门禁与 review/confirm 共用分类器：一次列出 H1/小节/marker 的全部问题。
+        // prd 内容门禁与 review/confirm 共用分类器：一次列出 H1/小节/R-AC 追踪的全部问题。
         missing.push(...inspectPrdStructure(prd).map((issue) => issue.message));
         // PLAN 门禁：完整实施任务必须有结构完整的 plan.md（父任务豁免，改由 children 的
         // PLAN 在 CASE 校验中消费；轻量任务走 light 分支天然不受影响）。
@@ -465,7 +646,8 @@ function sectionBody(content, heading) {
 }
 /**
  * 轻量任务 prd 最低结构检查（内部）：从全量分类结果里只保留 H1 缺失与
- * Goal 小节（缺失或 placeholder）问题；其余小节与 open-nodes marker 不拦截。
+ * Goal 小节（缺失或 placeholder）问题；其余小节、R/AC 追踪（不带 section
+ * 字段）一律不拦截。
  * @param {string} prdContent prd.md 全文
  * @returns {string[]} 缺失项描述列表
  */

@@ -81,7 +81,6 @@ export { initWorkloom } from './domain/init.js'
 export { migrateLegacyTrellis } from './domain/migrate.js'
 
 export {
-  findOpenNodeState,
   evaluateAlignmentGate,
   ALIGNMENT_MISSING,
 } from './domain/alignment.js'
@@ -369,8 +368,6 @@ export type {
   PrdStructureCode,
   PrdStructureIssue,
 } from './domain/task-gates.d.ts'
-
-export type { OpenNodeState } from './domain/alignment.d.ts'
 
 export type {
   ExecuteAlignTaskParams,

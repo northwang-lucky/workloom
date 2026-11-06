@@ -52,20 +52,17 @@ For implementation work, plan authoring follows convergence at Phase 1.3/1.4 (th
 
 ## Recording
 
-Write every settled conclusion into the task's `prd.md` incrementally. Number Requirements as R1, R2, ... (each a single decidable statement) and Acceptance Criteria as AC1, AC2, ... (each with its verification method — a runnable command or an observable action plus expected result — and the R items it covers); the plan's steps later declare the AC numbers they cover, keeping the prd → plan → review → check chain traceable by number. Maintain a `## Alignment Decisions` section that records:
+Write every settled conclusion into the task's `prd.md` incrementally. The full-task PRD uses a fixed section set — Context, Goal, Scope, Assumptions Constraints and Dependencies, Requirements, Acceptance Criteria, Edge Cases and Failure Paths, Risks and Open Questions, Alignment Decisions, References, Notes (`UI Design` joins when it applies) — and a section whose category does not apply keeps its heading with `none` or `not applicable` plus a short reason. Keep the reading main line intact: Context explains why the task exists, Goal states the outcome that follows from it, Scope bounds the work, and Requirements map onto the Acceptance Criteria — a reader who never saw the conversation must still understand why, what, and how done is judged.
+
+Organize Requirements by capability or behavior and number them R1, R2, ... (each a single decidable statement); never stack entries in Q&A order or transcribe per-round replies as standalone requirement items. Number Acceptance Criteria as AC1, AC2, ... (each citing the R items it covers and carrying its verification method — a runnable command or an observable action plus expected result); the plan's steps later declare the AC numbers they cover, keeping the prd → plan → review → check chain traceable by number. Give every fact one primary home section and cross-reference it elsewhere instead of re-summarizing it. Record unresolved questions directly in `## Risks and Open Questions` — the main session decides convergence from that content, and no HTML marker exists anywhere in the flow.
+
+`## Alignment Decisions` records only the decisions that affect scope, acceptance, risk, or external interfaces:
 
 - the key choices and their recommended alternatives,
 - rejected options and why,
-- the open nodes still pending,
-- a convergence summary,
+- a convergence summary.
 
-and end the section with the language-neutral machine-checkable marker:
-
-```html
-<!-- workloom:open-nodes=pending|none -->
-```
-
-Keep the marker `pending` while any node is open; set it to `none` only at convergence.
+It never stores Q/A numbering, per-round replies, or a second copy of requirement text that already lives in its home section.
 
 ## Convergence protocol
 
@@ -73,8 +70,8 @@ The order is fixed:
 
 1. The frontier is empty — no open node remains.
 2. Finalize `prd.md` (all skeleton sections filled, decisions recorded).
-3. Run `workloom_task_align` with `action=review`. It returns the prd content snapshot, the open-node state, `structureIssues`, `confirmBlockers` and `readyToConfirm` — no hash anywhere.
-4. **Check `readyToConfirm` before involving the user.** While it is `false`, the current `prd.md` has content blockers — a missing `prd.md`, a missing H1, a missing skeleton section (for example `## Notes`), a section still holding its placeholder text, or a missing / non-`none` open-nodes marker. Fix every entry of `structureIssues` / `confirmBlockers` in `prd.md`, then re-run `action=review`. Do not show the snapshot to the user and do not request a confirmation while any content blocker remains.
+3. Run `workloom_task_align` with `action=review`. It returns the prd content snapshot, `structureIssues`, `confirmBlockers` and `readyToConfirm` — no hash anywhere.
+4. **Check `readyToConfirm` before involving the user.** While it is `false`, the current `prd.md` has content blockers — a missing `prd.md`, a missing H1, a missing skeleton section (for example `## Notes`), a section still holding its placeholder text, or a Requirements/Acceptance Criteria traceability defect (no R/AC items, duplicated numbers, an AC citing an undefined R, or a missing verification method). Fix every entry of `structureIssues` / `confirmBlockers` in `prd.md`, then re-run `action=review`. Do not show the snapshot to the user and do not request a confirmation while any content blocker remains.
 5. With `readyToConfirm` true, present the prd.md content to the user and ask them to confirm it.
 6. After the user confirms the content, run `workloom_task_align` with `target=prd`, `action=confirm`, and a non-empty `summary` of the confirmation (nodes covered, key decisions, confirmation result). The record stores only the confirmation time and the summary; repeating the confirm refreshes both, and no hash is computed, received, or returned.
 
@@ -90,4 +87,4 @@ The order is fixed:
 
 ## Completion criteria
 
-The frontier is empty, prd.md has no grey areas, the `<!-- workloom:open-nodes=none -->` marker is in place, `workloom_task_align` action=review returns `readyToConfirm` true, and the PRD content confirmation is recorded via `action=confirm` (`target=prd`) with a non-empty summary right after the user confirms the content.
+The frontier is empty, prd.md has no grey areas and records nothing undecided in Risks and Open Questions, `workloom_task_align` action=review returns `readyToConfirm` true, and the PRD content confirmation is recorded via `action=confirm` (`target=prd`) with a non-empty summary right after the user confirms the content.

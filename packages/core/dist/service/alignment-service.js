@@ -15,7 +15,6 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { findOpenNodeState } from '../domain/alignment.js';
 import { inspectPlanStructure, inspectPrdStructure, PRD_MISSING } from '../domain/task-gates.js';
 import { findWorkloomRoot, insideWorkloom } from '../domain/locate.js';
 import { readTask, recordAlignmentCredential, recordPlanConfirmation } from '../domain/task-store.js';
@@ -92,7 +91,6 @@ function reviewAlign(root, taskRelPath, task, target) {
         status: task.status,
         prd,
         plan,
-        openNodeState: prd === null ? null : findOpenNodeState(prd),
         structureIssues,
         confirmBlockers: structureIssues.map((issue) => issue.message),
         readyToConfirm: structureIssues.length === 0,
@@ -113,7 +111,7 @@ function confirmPrdAlign(root, taskRelPath, params) {
     if (prd === null) {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_MISSING}`);
     }
-    // 内容 blocker 一次取全（H1 → 骨架小节 → open nodes），仍只抛一个 Error。
+    // 内容 blocker 一次取全（H1 → 骨架小节 → R/AC 追踪），仍只抛一个 Error。
     const blockers = inspectPrdStructure(prd).map((issue) => issue.message);
     if (blockers.length > 0) {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_BLOCKERS_PREFIX}\n` +

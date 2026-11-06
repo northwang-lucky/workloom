@@ -200,7 +200,7 @@ test('契约 v20 1.1 含 design tree 固定根节点族、frontier 批次、推�
   assert.ok(alignBody.includes('deep implementation research stays in Phase 1.2'), '缺 1.2 边界')
 })
 
-test('契约 v20 1.1 含技术决策边界、增量写入、开放节点标记与收敛顺序', () => {
+test('契约 v25 1.1 含技术决策边界、固定小节、增量写入与收敛顺序（无开放节点标记）', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
@@ -208,10 +208,50 @@ test('契约 v20 1.1 含技术决策边界、增量写入、开放节点标记�
     alignBody.includes('affect scope, acceptance, risk, external interfaces, or irreversible cost'),
     '缺技术决策进入 alignment 的边界（范围/验收/风险/外部接口/不可逆成本）',
   )
-  assert.ok(alignBody.includes('## Alignment Decisions'), '缺 Alignment Decisions 小节约定')
+  assert.ok(alignBody.includes('Alignment Decisions keep the key choices with their rationale'), '缺 Alignment Decisions 小节约定')
+  // 固定小节集合：完整任务十一小节 + 适用时 UI Design，不适用显式 none/not applicable
+  assert.ok(alignBody.includes('fixed section set'), '缺固定小节集合约定')
+  for (const section of [
+    'Context',
+    'Goal',
+    'Scope',
+    'Assumptions Constraints and Dependencies',
+    'Requirements',
+    'Acceptance Criteria',
+    'Edge Cases and Failure Paths',
+    'Risks and Open Questions',
+    'Alignment Decisions',
+    'References',
+    'Notes',
+  ]) {
+    assert.ok(alignBody.includes(section), `1.1 固定小节缺 ${section}`)
+  }
+  assert.ok(alignBody.includes('keeps its heading with `none` or `not applicable`'), '缺不适用小节显式保留规则')
+  // 叙述主线与反流水账规则
   assert.ok(
-    alignBody.includes('<!-- workloom:open-nodes=pending|none -->'),
-    '缺开放节点可机检标记',
+    alignBody.includes('background explains the goal, the goal limits the scope, the scope supports the requirements, and the requirements map to the acceptance'),
+    '缺背景→目标→范围→需求→验收主线句',
+  )
+  assert.ok(
+    alignBody.includes('Group Requirements by capability or behavior'),
+    '缺按能力或行为组织需求规则',
+  )
+  assert.ok(
+    alignBody.includes('never stack entries in Q&A order or transcribe per-round replies'),
+    '缺禁止问答顺序堆叠与逐轮答复入文规则',
+  )
+  assert.ok(
+    alignBody.includes('Give every fact one primary home section'),
+    '缺同一事实单一归属小节规则',
+  )
+  assert.ok(
+    alignBody.includes('Record unresolved questions directly in Risks and Open Questions'),
+    '缺开放问题由 Risks and Open Questions 承载规则',
+  )
+  // 开放节点标记已删除：全文不得再出现该 HTML 标记
+  assert.ok(
+    !alignBody.includes('workloom:open-nodes'),
+    '1.1 不得再含开放节点 HTML 标记',
   )
   // 收敛顺序：frontier 空 → finalize prd → review 就绪 → 展示内容请用户确认 → target=prd confirm
   const order = [
@@ -873,9 +913,12 @@ test('契约 1.1 与 planning 面包屑含 R/AC 编号溯源格式要求', () =>
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
-  assert.ok(alignBody.includes('Number Requirements as R1, R2, ...'), '1.1 缺 R 编号要求句')
   assert.ok(
-    alignBody.includes('number Acceptance Criteria as AC1, AC2, ...'),
+    alignBody.includes('Group Requirements by capability or behavior and number them R1, R2, ...'),
+    '1.1 缺按能力组织 + R 编号要求句',
+  )
+  assert.ok(
+    alignBody.includes('Number Acceptance Criteria as AC1, AC2, ...'),
     '1.1 缺 AC 编号要求句',
   )
   assert.ok(alignBody.includes('its verification method'), '1.1 缺 AC 验证方法要求')
@@ -893,7 +936,23 @@ test('alignment 技能与 plan-authoring reference 含编号溯源文案（逐�
     new URL('../../assets/skills/workloom-alignment/SKILL.md', import.meta.url),
   )
   const skill = readFileSync(skillPath, 'utf8')
-  assert.ok(skill.includes('Number Requirements as R1, R2, ...'), 'Recording 节缺 R 编号要求')
+  assert.ok(
+    skill.includes('Organize Requirements by capability or behavior and number them R1, R2, ...'),
+    'Recording 节缺按能力组织 + R 编号要求',
+  )
+  assert.ok(
+    skill.includes('never stack entries in Q&A order or transcribe per-round replies'),
+    'Recording 节缺禁止问答顺序堆叠与逐轮答复入文规则',
+  )
+  assert.ok(
+    skill.includes('Give every fact one primary home section'),
+    'Recording 节缺同一事实单一归属规则',
+  )
+  assert.ok(
+    skill.includes('no HTML marker exists anywhere in the flow'),
+    'Recording 节缺无标记明文',
+  )
+  assert.ok(!skill.includes('workloom:open-nodes'), '技能不得再含开放节点 HTML 标记')
   assert.ok(skill.includes('Acceptance Criteria as AC1, AC2, ...'), 'Recording 节缺 AC 编号要求')
   const planRefPath = fileURLToPath(
     new URL('../../assets/skills/workloom-alignment/references/plan-authoring.md', import.meta.url),
@@ -915,6 +974,39 @@ test('alignment 技能与 plan-authoring reference 含编号溯源文案（逐�
   assert.ok(
     planRef.includes("every AC in prd.md appears in at least one step's Covers list"),
     'plan-authoring 完成判据缺 AC 覆盖要求',
+  )
+})
+
+test('alignment 评测含叙述连贯与问答流水账对照场景（可机检断言覆盖重复、断裂、问答式记录）', () => {
+  const evalsPath = fileURLToPath(
+    new URL('../../assets/skills/workloom-alignment/evals/evals.json', import.meta.url),
+  )
+  const evals = JSON.parse(readFileSync(evalsPath, 'utf8'))
+  const coherent = evals.evals.find((item) => item.id === 'align-narrative-coherent')
+  const log = evals.evals.find((item) => item.id === 'align-narrative-log')
+  assert.ok(coherent, '缺 align-narrative-coherent 对照场景')
+  assert.ok(log, '缺 align-narrative-log 对照场景')
+  // 正例：按能力组织且主线连贯的 PRD 被接受
+  assert.ok(
+    coherent.assertions.some((line) => line.includes('capability-grouped')),
+    '连贯场景缺按能力组织接受断言',
+  )
+  // 反例：问答堆叠、重复摘要、无溯源无验证方法被判为内容质量问题
+  assert.ok(
+    log.assertions.some((line) => line.includes('Q&A-round-stacked')),
+    '流水账场景缺问答堆叠缺陷断言',
+  )
+  assert.ok(
+    log.assertions.some((line) => line.includes('duplicated caching summary')),
+    '流水账场景缺重复摘要断言',
+  )
+  assert.ok(
+    log.assertions.some((line) => line.includes('no verification method')),
+    '流水账场景缺验证方法缺失断言',
+  )
+  assert.ok(
+    log.assertions.some((line) => line.includes('per-round reply transcript')),
+    '流水账场景缺逐轮答复记录断言',
   )
 })
 
