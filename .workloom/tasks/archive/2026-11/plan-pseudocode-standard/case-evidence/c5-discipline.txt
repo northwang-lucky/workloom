@@ -1,0 +1,19 @@
+PASS step1 implement 含新伪代码执行纪律
+PASS step1 implement 含锚点失配阻塞上报
+PASS step1 implement 无旧逐字执行句
+PASS step1 frontend 含新伪代码执行纪律
+PASS step1 frontend 含锚点失配阻塞上报
+PASS step1 frontend 无旧逐字执行句
+PASS step2 Conformance 含五字段/行为/异常/AC/验证关键词
+PASS step2 Feasibility 含锚点定位与验证命令
+PASS step2 Feasibility 明确禁 after-code 且旧句清零
+PASS step3 diff 仅两处 hunk | ["@@ -201,13 +201,15 @@ const INJECTION_PROTOCOL_DISCIPLINE =","@@ -287,9 +289,9 @@ ${CONSULT_MATERIALS_ON_DEMAND_RULE}"]
+PASS step3 diff 含纪律常量与 review 指引两处
+PASS step3 增删行不触碰 Fidelity/Quality/其他 kind | ["- * 计划是指令性的——严格按其文件/符号/片段锚点与代码块执行；现实与锚点不符","- * （锚点落空、上下文不成立）时禁止即兴发挥，停下并把偏差作为阻塞项写进最终","- * 报告（主会话按契约 2.1 处置句成批交用户决断）。","+ * 计划是指令性的——跟随五字段伪代码协议、真实锚点与验证命令执行；代码块只作","+ * 定位锚点，不要求逐字复制。锚点与现场不符（落空、上下文不成立）时禁止即兴","+ * 发挥，停下并把偏差作为阻塞项写进最终报告（主会话按契约 2.1 处置句成批交","+ * 用户决断）。词数受 implement contract 段 ≤ 300 词上限约束。","-  'The plan is prescriptive: follow its file, symbol, and snippet anchors and its code blocks exactly. ' +","-  'When reality diverges from an anchor, stop and report the divergence as a blocking item; never improvise.'","+  'The plan is prescriptive: follow its protocol fields (Input, Output, Preconditions, Procedure, Failure), ' +","+  'real anchors, and verification commands; code blocks are locating anchors, not verbatim code. ' +","+  'An anchor that mismatches reality is a blocking item; report it, never improvise.'","-- Conformance: the plan meets the prescriptive authoring bar — every step anchored to a file, a symbol, and exact code, and every step verifiable.","+- Conformance: the plan meets the prescriptive authoring bar — every step anchored to real files and symbols, its Edit carrying the five protocol fields in order (Input, Output, Preconditions, Procedure, Failure) with complete behavior, failure paths, AC coverage, and verifiable verification commands.","-- Feasibility: verify anchors against the real code — files exist, symbols resolve, before-snippets locate uniquely, after-code fits its context, and verification commands run; read the actual files (LSP first where available) before claiming a fact.","+- Feasibility: verify anchors against the real code — files exist, symbols resolve, current-code anchors locate uniquely, the pseudocode fits the actual context, and verification commands run; never hunt for after-code — the plan must not contain it; read the actual files (LSP first where available) before claiming a fact."]
+PASS step3 改动量 9+/7-（含注释） | 9	7	packages/core/src/domain/executor-context.js
+C5 DISCIPLINE: ALL PASS
+== C5 step4: node --test test/executor-context.test.js ==
+ℹ tests 43
+ℹ pass 43
+ℹ fail 0
+ℹ skipped 0

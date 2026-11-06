@@ -1,0 +1,6 @@
+{"file":".workloom/spec/repo/architecture/index.md","reason":"检查结构校验、资产和 adapter 是否保持既有分层"}
+{"file":".workloom/spec/repo/domain-module/index.md","reason":"检查 domain 实现与类型声明是否同步"}
+{"file":".workloom/spec/repo/code-style/index.md","reason":"检查协议校验、测试完整性和验证命令"}
+{"file":".workloom/spec/repo/language/index.md","reason":"检查资产、运行时文案和注释的语言分工"}
+{"file":".workloom/spec/repo/workflow/index.md","reason":"检查步骤集合和协议版本是否保持一致"}
+{"file":".workloom/spec/repo/deployment/index.md","reason":"检查 src 与 dist 是否同步"}

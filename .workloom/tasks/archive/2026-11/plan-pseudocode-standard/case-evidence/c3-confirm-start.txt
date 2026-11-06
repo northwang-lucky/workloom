@@ -1,0 +1,19 @@
+PASS step3 PRD 内容确认成功
+PASS step3 缺 Failure：review readyToConfirm=false
+PASS step3 缺 Failure：structureIssues 指向 Failure | [{"code":"plan_protocol_missing","message":"plan.md step 1 protocol field \"Failure\" is missing or empty"}]
+PASS step3 缺 Failure：confirm 被拒 | workloom task tool: confirm rejected: plan.md content blockers:
+- plan.md step 1 protocol field "Failure" is missing or empty
+PASS step3 缺 Failure：start 被拒且消息同源 | workloom task: start gate failed: plan.md step 1 protocol field "Failure" is missing or empty (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+PASS step3 confirm 被拒零写入（无 planConfirmation）
+PASS step4 乱序：review 报 order 问题 | ["plan.md step 1 protocol field order must be Input -> Output -> Preconditions -> Procedure -> Failure"]
+PASS step4 乱序：confirm 被拒
+PASS step4 乱序：start 被拒 | workloom task: start gate failed: plan.md step 1 protocol field order must be Input -> Output -> Preconditions -> Procedure -> Failure (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+PASS step5 PRD 重新确认成功
+PASS step5 漏 AC：review 报 plan_ac_missing | [{"code":"plan_ac_missing","message":"AC2 is not covered by any plan step"}]
+PASS step5 漏 AC：confirm 被拒
+PASS step5 漏 AC：start 被拒 | workloom task: start gate failed: AC2 is not covered by any plan step (pass force: true with a non-empty reason to bypass; the bypass is recorded in task.json overrides)
+PASS step6 合法 PLAN：review readyToConfirm=true 且无结构问题 | []
+PASS step6 合法 PLAN：confirm 成功
+PASS step6 planConfirmation 键集合恰为 passedAt/summary | {"passedAt":"2026-11-06T04:20:06.809Z","summary":"PLAN 内容确认：五字段伪代码齐备"}
+PASS step6 合法 PLAN：start 成功且 in_progress
+C3 E2E: ALL PASS

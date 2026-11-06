@@ -1,0 +1,35 @@
+== C1 step1: pnpm lint && pnpm -r typecheck && pnpm -r build ==
+$ eslint .
+Scope: 4 of 5 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/adapter-dsh typecheck$ tsc -p tsconfig.json --noEmit
+packages/adapter-pi typecheck$ tsc -p tsconfig.json
+packages/adapter-dsh typecheck: Done
+packages/adapter-pi typecheck: Done
+Scope: 4 of 5 workspace projects
+packages/core build$ tsc -p tsconfig.json && node scripts/copy-domain-dts.mjs
+packages/core build: copy-domain-dts: 已分发 19 个手写 d.ts 到 dist/domain/
+packages/core build: Done
+packages/adapter-pi build$ node scripts/sync-skills.mjs
+packages/adapter-dsh build$ tsc -p tsconfig.json
+packages/adapter-pi build: Synced 11 skill directories into /data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-plan-pseudocode-standard/packages/adapter-pi/skills
+packages/adapter-pi build: Done
+packages/adapter-dsh build: Done
+exit=0
+== C1 step2: node --test test/*.test.js ==
+✔ ⑪b 占位符渲染：<worktree>/<source-checkout> 渲染为解析后的绝对路径 (43.895353ms)
+✔ ⑪b2 子仓布局：<source-checkout>=package 检出、cwd=嵌套 worktree 根 (108.727105ms)
+✔ ⑪c 任一命令失败：start 报错、保持 planning、后续命令未执行、现场保留 (48.979825ms)
+✔ ⑪d 重跑 start（幂等复用路径）：setup 再次执行（配置修复后自愈） (61.994787ms)
+✔ ⑪e 未配置 setup：start 零行为变化 (41.948071ms)
+✔ ⑪f worktree.enabled=false：setup 不执行 (18.254165ms)
+✔ ⑪g 非 git 项目：start 拒绝且 setup 不执行 (5.491664ms)
+ℹ tests 753
+ℹ suites 0
+ℹ pass 753
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2573.142542

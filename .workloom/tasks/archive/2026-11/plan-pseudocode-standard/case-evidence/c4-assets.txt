@@ -1,0 +1,35 @@
+PASS step1 1.4 bar 含五字段顺序句
+PASS step1 1.4 bar 含 none 语义
+PASS step1 1.4 bar 含锚点边界（仅定位）
+PASS step1 1.4 bar 禁完整实现
+PASS step1 1.4 bar 无旧逐字要求
+PASS step1 面包屑改伪代码门槛
+PASS step1 version 25
+PASS step1 保留句逐字一致：Load in layers: read the…
+PASS step1 保留句逐字一致：batch the questions…
+PASS step1 步骤 id 集合不变
+PASS step2 五字段模板按序齐全
+PASS step2 none 语义
+PASS step2 锚点仅定位边界
+PASS step2 禁完整实现要求
+PASS step2 无终稿代码措辞
+PASS step2 Covers/(internal)/AC 判据保留
+PASS step3 alignment 指针改伪代码门槛
+PASS step3 migrate-plan 五字段句
+PASS step3 migrate-plan 标题保留：## Step 1: Scan…
+PASS step3 migrate-plan 标题保留：## Step 2: Rewri…
+PASS step3 migrate-plan 标题保留：## Step 3: Rewri…
+PASS step3 migrate-plan 标题保留：## Step 4: Confi…
+PASS step4 伪代码场景存在
+PASS step4 场景接受合法伪代码
+PASS step4 终稿代码仅出现在否定句中
+PASS step4 缺输入输出/异常被列为问题
+PASS step4 五字段顺序断言
+PASS step4 无场景要求完整代码
+PASS step5 资产无 CJK
+C4 ASSETS: ALL PASS
+== C4 step6: node --test test/contract-asset.test.js test/protocol.test.js ==
+ℹ tests 49
+ℹ pass 49
+ℹ fail 0
+ℹ skipped 0

@@ -1,0 +1,18 @@
+PASS step2 合法五字段（none 合法）通过 | []
+PASS step3 缺 Input 被拒 | ["plan_protocol_missing"]
+PASS step3 缺 Output 被拒 | ["plan_protocol_missing"]
+PASS step3 缺 Preconditions 被拒 | ["plan_protocol_missing"]
+PASS step3 缺 Procedure 被拒 | ["plan_protocol_missing"]
+PASS step3 缺 Failure 被拒 | ["plan_protocol_missing"]
+PASS step3 五个变体诊断互不相同
+PASS step4 空字段（无冒号后内容且无缩进续行）被拒 | ["plan_protocol_missing"]
+PASS step4 纯空白视为缺失
+PASS step5 乱序返回 order 问题码 | ["plan_protocol_order"]
+PASS step5 缺字段时不叠加顺序问题
+PASS step6 重复字段被拒 | ["plan_protocol_duplicate"]
+PASS step7 Verify 区域同名字段不补位（步骤1仍报缺 Input） | [{"code":"plan_protocol_missing","message":"plan.md step 1 protocol field \"Input\" is missing or empty"},{"code":"plan_protocol_missing","message":"plan.md step 2 protocol field \"Input\" is missing or empty"},{"code":"plan_protocol_missing","message":"plan.md step 2 protocol field \"Output\" is missing or empty"},{"code":"plan_protocol_missing","message":"plan.md step 2 protocol field \"Preconditions\" is missing or empty"},{"code":"plan_protocol_missing","message":"plan.md step 2 protocol field \"Procedure\" is missing or empty"}]
+PASS step7 后续步骤 Failure 不污染步骤1判定
+PASS step8 Edit 缺失只报外层字段问题 | [{"code":"plan_step_field","message":"plan.md step 1 missing Edit"}]
+PASS step9 Covers 漏 AC 时报 plan_ac_missing | ["plan_ac_missing"]
+PASS step10 本任务真实 PLAN 通过新校验器 | []
+C2 MATRIX: ALL PASS

@@ -1,0 +1,50 @@
+== C6 step1: adapter-dsh pnpm test ==
+ℹ tests 177
+ℹ suites 0
+ℹ pass 177
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 539.752488
+== C6 step2: adapter-pi pnpm build && bun test ==
+(pass) 竞态核心：第一个派发 await 点挂起时，第二个派发被容量闸拒绝 [1.93ms]
+(pass) 时序证明：闸判定→登记之间无 await（同步） [1.22ms]
+
+ 206 pass
+ 0 fail
+Ran 206 tests across 22 files. [502.00ms]
+pi exit=0
+== C6 step3: Pi skills copy byte-identical + adapter src protocol-logic scan ==
+identical: workloom-alignment/SKILL.md
+identical: workloom-alignment/references/plan-authoring.md
+identical: workloom-migrate-plan/SKILL.md
+--- adapter src protocol-logic hits ---
+0
+== C6 step4: git state ==
+ M packages/adapter-dsh/test/skills.test.js
+ M packages/adapter-pi/test/skills.test.ts
+ M packages/assets/skills/workloom-alignment/SKILL.md
+ M packages/assets/skills/workloom-alignment/evals/evals.json
+ M packages/assets/skills/workloom-alignment/references/plan-authoring.md
+ M packages/assets/skills/workloom-migrate-plan/SKILL.md
+ M packages/assets/workflow/workflow.md
+ M packages/core/dist/domain/executor-context.js
+ M packages/core/dist/domain/executor-context.js.map
+ M packages/core/dist/domain/task-gates.d.ts
+ M packages/core/dist/domain/task-gates.js
+ M packages/core/dist/domain/task-gates.js.map
+ M packages/core/src/domain/executor-context.js
+ M packages/core/src/domain/task-gates.d.ts
+ M packages/core/src/domain/task-gates.js
+ M packages/core/test/case.test.js
+ M packages/core/test/contract-asset.test.js
+ M packages/core/test/executor-context.test.js
+ M packages/core/test/task-gates.test.js
+ M packages/core/test/task-ops.test.js
+ M packages/core/test/task-store.test.js
+ M packages/core/test/worktree-compat.test.js
+ M packages/core/test/worktree-lifecycle.test.js
+ packages/core/test/worktree-compat.test.js         |   2 +-
+ packages/core/test/worktree-lifecycle.test.js      |   2 +-
+ 23 files changed, 522 insertions(+), 53 deletions(-)

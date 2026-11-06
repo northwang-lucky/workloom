@@ -1,0 +1,4 @@
+src/domain/executor-context.js	885/901	98.22%
+src/domain/task-gates.js	602/645	93.33%
+src/service/alignment-service.ts	328/340	96.47%
+Overall lines: 1815/1886 (96.24%)

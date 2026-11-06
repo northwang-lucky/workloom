@@ -1,0 +1,17 @@
+== C1 step3/4: absence + presence scan ==
+absence packages/assets/workflow/workflow.md: 0 hit(s) 
+absence packages/assets/skills/workloom-alignment/SKILL.md: 0 hit(s) 
+absence packages/assets/skills/workloom-alignment/references/plan-authoring.md: 0 hit(s) 
+absence packages/assets/skills/workloom-alignment/evals/evals.json: 0 hit(s) 
+absence packages/assets/skills/workloom-migrate-plan/SKILL.md: 0 hit(s) 
+absence packages/core/src/domain/executor-context.js: 1 hit(s) "after-code"
+presence packages/assets/workflow/workflow.md: missingFields=[] pseudocode=true
+presence packages/assets/skills/workloom-alignment/references/plan-authoring.md: missingFields=[] pseudocode=true
+presence packages/assets/skills/workloom-migrate-plan/SKILL.md: missingFields=[] pseudocode=true
+SCAN FAIL (absent=1, present=0)
+== refined check: old requirement sentences vs SR10-mandated prohibition ==
+old-requirement "before-snippets locate uniquely, after-code fits its context": absent (PASS)
+old-requirement "follow its file, symbol, and snippet anchors and its code blocks exactly": absent (PASS)
+old-requirement "anchored to a file, a symbol, and exact code": absent (PASS)
+SR10-required prohibition "never hunt for after-code — the plan must not contain it": present (PASS)
+after-code raw occurrences: 1 | all inside prohibition sentence: true
