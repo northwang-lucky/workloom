@@ -1,0 +1,7 @@
+# 生产 profile pin 快照（任务开始时记录）
+# 来源: ~/.dsh/profiles/web/pnpm-lock.yaml
+# 包: @workloom-ai/adapter-dsh
+# specifier: github:northwang-lucky/workloom#path:packages/adapter-dsh
+pin_commit: 1dc46f7ce515afb0e9b907aae809ca9d11dc8e9d
+tarball: https://codeload.github.com/northwang-lucky/workloom/tar.gz/1dc46f7ce515afb0e9b907aae809ca9d11dc8e9d#path:packages/adapter-dsh
+recorded_at: 2026-11-06T21:13:03+08:00
