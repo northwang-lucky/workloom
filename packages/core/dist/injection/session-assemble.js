@@ -13,8 +13,7 @@
  * - 任务解析失败（结构性故障）向上抛错由入口的元组契约表达；指针缺失按
  *   无活跃任务处理（正常态）。
  */
-import { resolveActiveTask } from '../task/active-task.js';
-import { readTask } from '../task/task-store.js';
+import { readTaskView, resolveActiveTask } from "../task/state-machine.js";
 import { ERR_PREFIX } from "./surface.js";
 export { composeLocalDirectivesText } from "./local-prompts.js";
 /**
@@ -30,7 +29,7 @@ export function resolveTurnTask(root, contextKey) {
         throw ptrErr;
     if (taskRelPath === null)
         return null;
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr || task === null) {
         throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`);
     }

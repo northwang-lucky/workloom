@@ -11,8 +11,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { assembleBreadcrumbSync, assembleWorkflowProjection } from '../src/injection/workflow-service.ts'
-import { createTask } from '../src/task/task-store.js'
-import { setActiveTask } from '../src/task/active-task.js'
+import { createTask } from '../src/task/task-storage.ts'
+import { setActiveTask } from '../src/task/state-machine.ts'
 
 // 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir 注入
 // 缝时吃 os.homedir 实时值）；本机真实全局配置会泄漏进单测。重定向 HOME 到临时目录
@@ -200,7 +200,8 @@ test('task.json 状态损坏时返回 err', async () => {
       contractText: CONTRACT_TEXT,
     })
     assert.notEqual(err, null)
-    assert.match(err.message, /unknown task status/)
+    // 兼容读单点：未映射的 status 值报可判定错误（不再静默映射）。
+    assert.match(err.message, /unmapped status value/)
     assert.equal(text, null)
   } finally {
     rmSync(root, { recursive: true, force: true })

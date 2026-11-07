@@ -27,7 +27,7 @@ import {
 } from './case-structure.ts'
 import { listCaseChangedFiles, taskDirectory, worktreeDirectory } from './case-scope.ts'
 import type { CaseStructureIssue, CaseStructureOptions } from './case-structure.ts'
-import type { TaskRecord } from './task-store.d.ts'
+import type { TaskRecord } from './task-storage.ts'
 
 /** RESULT 缺失文案。 */
 const RESULT_MISSING = 'case-result.md is missing'

@@ -53,10 +53,27 @@ const {
   executeStartTask,
   initWorkloom,
   loadConfig,
-  readTask,
-  recordAlignmentCredential,
-  recordPlanConfirmation,
+  readTaskView,
+  confirmPrd,
+  confirmPlan,
+  recordCasePhase,
+  recordPlanReview,
+  setActiveTask,
 } = workloom
+
+/**
+ * 把 CASE 轨道幂等推进到 approved（checking 迁移的 case-approved 守卫前置；
+ * 旧任务夹具经 markTaskLegacy 还原为 case=null，本助手等价 case-active 补轨道）。
+ */
+function advanceCaseTrack(root, taskRelPath) {
+  const rank = { none: 0, designing: 1, reviewing: 2, approved: 3, executing: 4, done: 5 }
+  for (const phase of ['designing', 'reviewing', 'approved']) {
+    const [, view] = workloom.readTaskView(root, taskRelPath)
+    if (rank[view.casePhase] >= rank[phase]) continue
+    const [err] = recordCasePhase(root, taskRelPath, phase)
+    if (err !== null) throw err
+  }
+}
 
 /** 提交用固定身份（-c 逐命令注入，不依赖全局 gitconfig）。 */
 const GIT_USER = 'workloom-test'
@@ -238,11 +255,13 @@ function satisfyStartGate(root, taskRelPath) {
 
 /** 记录 PRD 与 PLAN 内容确认（模拟两次 confirm 后状态）。 */
 function alignTask(root, taskRelPath) {
-  const [err] = recordAlignmentCredential(root, taskRelPath, {
+  const [err] = confirmPrd(root, taskRelPath, {
     summary: 'frontier empty, all decisions settled',
   })
   assert.equal(err, null)
-  const [planErr] = recordPlanConfirmation(root, taskRelPath, {
+  recordPlanReview(root, taskRelPath, 'reviewing')
+  recordPlanReview(root, taskRelPath, 'clean')
+  const [planErr] = confirmPlan(root, taskRelPath, {
     summary: 'plan covers every AC, steps verified',
   })
   assert.equal(planErr, null)
@@ -490,6 +509,7 @@ test('⑤ archive merge-keep-branch：合并回 base + 删 worktree + 保留分�
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, {
@@ -541,6 +561,7 @@ test('⑥ archive 冲突：abort + 冲突通知 + 不落档；手工合并后续
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -596,6 +617,7 @@ test('⑦ archive：主检出 HEAD ≠ base_branch 拒绝清理', gitSkip, async
   runGit(root, ['checkout', '-b', 'dev'])
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -626,6 +648,7 @@ test('⑧a cleanup=manual：archive 归档但不动 worktree 与分支', gitSkip
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, {
@@ -650,7 +673,7 @@ test('⑧b 无 worktree 任务清理 no-op（worktree_path 空）', gitSkip, asy
   const { taskRelPath } = await createGated(root, contextKey, 'No Worktree Task')
 
   // 直接调接缝：cleanup 对 worktree_path 空任务返回 skipped:no-worktree（design 3.4 步 1）。
-  const [, task] = readTask(root, taskRelPath)
+  const [, task] = readTaskView(root, taskRelPath)
   const [cleanErr, cleanRes] = await workloom.cleanupTaskWorktree(root, task, loadConfig(root))
   assert.equal(cleanErr, null, cleanErr?.message)
   assert.equal(cleanRes.skipped, 'no-worktree')
@@ -660,6 +683,7 @@ test('⑧b 无 worktree 任务清理 no-op（worktree_path 空）', gitSkip, asy
   assert.equal(readTaskJson(root, taskRelPath).worktree_path, '')
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, {
@@ -746,6 +770,7 @@ test('⑨a submodule：start 在 submodule 建 worktree；archive 合并后 gitl
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, {
@@ -790,6 +815,7 @@ test('⑨b 中段失败容忍：清理成功 + 归档移动失败 → 重跑幂�
   runGit(wtAbs, ['commit', '-m', 'feat: sub task work'])
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
 
@@ -846,6 +872,7 @@ test('⑨c nested repo 对照：未注册 submodule 无 gitlink 联动', gitSkip
   runGit(wtAbs, ['commit', '-m', 'feat: nested task work'])
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, {
@@ -898,6 +925,7 @@ test('⑫a 默认即 rebase-keep-branch：归档线性合入 + 删 worktree + �
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_a', { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -937,6 +965,7 @@ test('⑫b rebase 真实生效：base 推进后归档把任务提交重写到新
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_b', { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -969,6 +998,7 @@ test('⑫c rebase 冲突：abort 恢复 + 手工指引 + 重跑跳 rebase 续做
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_c', { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -1021,6 +1051,7 @@ test('⑫d rebase-delete-branch：归档后任务分支被删（remove 之后）
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_d', { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -1045,6 +1076,7 @@ test('⑫e rebase 模式：主检出 HEAD ≠ base_branch 拒绝清理', gitSkip
   runGit(root, ['checkout', '-b', 'dev'])
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, 'dsh_wtl_rb_e', { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -1077,6 +1109,7 @@ test('⑫f submodule：rebase 模式归档线性合入 + 根仓 gitlink 窄提�
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr, archived] = await executeArchiveTask(root, { taskPath: taskRelPath, autoCommit: false })
@@ -1117,6 +1150,7 @@ test('补a 脏 worktree archive 无条件拒绝（force 不豁免）', gitSkip, 
 
   // 旧任务形态（case=null）：本文件聚焦 worktree/archive 机制，CASE 链路在 case.test.js。
   markTaskLegacy(root, taskRelPath)
+  advanceCaseTrack(root, taskRelPath)
   const [checkErr] = await executeCheckTask(root, contextKey, { summary: 'ok' })
   assert.equal(checkErr, null, checkErr?.message)
   const [archErr] = await archiveExpectingDirty(root, taskRelPath, undefined)
@@ -1188,10 +1222,11 @@ test('⑩ 存量 package=null 任务 start fail loud（提示手工编辑 task.j
   // 直调 createTask（存量语义：不经 execute 层 package 必填）→ package=null。
   const [createErr, created] = await createTask(root, {
     title: 'Legacy Null Package',
-    contextKey,
   })
   assert.equal(createErr, null, createErr?.message)
   assert.ok(created)
+  // 指针绑定归编排层：直调 createTask 后显式激活会话任务。
+  setActiveTask(root, contextKey, created.taskRelPath)
   satisfyStartGate(root, created.taskRelPath)
   alignTask(root, created.taskRelPath)
 

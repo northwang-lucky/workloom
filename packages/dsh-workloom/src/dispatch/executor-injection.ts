@@ -5,7 +5,7 @@
  * - 与 executor.ts（工具注册与执行编排）分离：本模块只负责 prompt 相关的纯函数
  *   ——buildFullInjection 调 core buildExecutorPrompt 组装全量注入文本，
  *   injectionStats 投影注入统计供 receipt 渲染，buildChildLabel 装配子会话标题；
- * - 均为纯函数或只读副作用（buildChildLabel 的 readTask 回退），便于单测。
+ * - 均为纯函数或只读副作用（buildChildLabel 的 readTaskView 回退），便于单测。
  */
 import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core'
 import {
@@ -13,7 +13,7 @@ import {
   ERR_PREFIX,
   loadCaseResultTemplateText,
   loadCaseTemplateText,
-  readTask,
+  readTaskView,
   TEMPLATE_CASE_ENTRY,
   TEMPLATE_CASE_RESULT_ENTRY,
 } from '@workloom-ai/core'
@@ -130,7 +130,7 @@ export function buildChildLabel(root: string, taskRelPath: string, kind: string,
   if (semantic !== undefined && semantic !== '') {
     return `[${kindLabel}] ${semantic}`
   }
-  const [taskErr, task] = readTask(root, taskRelPath)
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   const taskTitle = task?.title
   if (taskErr !== null || taskTitle === undefined || taskTitle.trim() === '') {
     return `workloom-${kind}`

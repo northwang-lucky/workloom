@@ -59,7 +59,6 @@ test('未命中时生成完整骨架', () => {
     }
     assert.deepEqual(result.created, SKELETON)
     assert.equal(result.root, root)
-    assert.equal(result.legacyTrellisRoot, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -161,18 +160,6 @@ test('init 停写 .workloom/.developer（带 developer 入参也不落身份文�
     const [err] = initWorkloom(root)
     assert.equal(err, null)
     assert.ok(!existsSync(join(root, '.workloom', '.developer')))
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('检测旧 .trellis 目录并在结果中报告', () => {
-  const root = makeRoot()
-  try {
-    mkdirSync(join(root, '.trellis'))
-    const [err, result] = initWorkloom(root)
-    assert.equal(err, null)
-    assert.equal(result.legacyTrellisRoot, root)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

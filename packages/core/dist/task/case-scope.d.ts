@@ -1,4 +1,4 @@
-import type { TaskRecord } from './task-store.d.ts';
+import type { TaskRecord } from './task-storage.ts';
 /**
  * @param {string} root 项目根
  * @param {string} taskRelPath 任务相对路径

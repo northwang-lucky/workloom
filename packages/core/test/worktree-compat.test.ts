@@ -34,8 +34,9 @@ import {
   gitStatusSync,
   initWorkloom,
   listTasks,
-  recordAlignmentCredential,
-  recordPlanConfirmation,
+  confirmPrd,
+  confirmPlan,
+  recordPlanReview,
   resolveActiveTask,
   setActiveTask,
 } from '../src/index.ts'
@@ -137,11 +138,13 @@ function satisfyStartGate(root, taskRelPath) {
 
 /** 记录 PRD 与 PLAN 内容确认（模拟两次 confirm 后状态）。 */
 function alignTask(root, taskRelPath) {
-  const [err] = recordAlignmentCredential(root, taskRelPath, {
+  const [err] = confirmPrd(root, taskRelPath, {
     summary: 'frontier empty, all decisions settled',
   })
   assert.equal(err, null)
-  const [planErr] = recordPlanConfirmation(root, taskRelPath, {
+  recordPlanReview(root, taskRelPath, 'reviewing')
+  recordPlanReview(root, taskRelPath, 'clean')
+  const [planErr] = confirmPlan(root, taskRelPath, {
     summary: 'plan covers every AC, steps verified',
   })
   assert.equal(planErr, null)

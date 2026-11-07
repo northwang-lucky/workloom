@@ -82,7 +82,11 @@ function relayFailure(
   return { kind: 'success', text: COMMAND_FAILURE_ACK }
 }
 
-/** init 命令：初始化 .workloom 骨架并可选迁移（编排下沉 core），成功后补落 spec 模板并注入转述。 */
+/**
+ * init 命令：初始化 .workloom 骨架（幂等；--purge 仅限旧 .trellis 项目，force 补齐
+ * 缺件，无旧项目时报 nothing to purge，不删除任何目录；编排下沉 core），
+ * 成功后补落 spec 模板并注入转述。
+ */
 function handleInit(invocation: CommandInvocation): CommandResult {
   const cwd = cwdOf(invocation)
   if (cwd === null) {

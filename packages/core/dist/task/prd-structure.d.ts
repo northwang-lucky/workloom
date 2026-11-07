@@ -26,7 +26,7 @@ export interface PrdSection {
 }
 /**
  * prd.md 骨架：完整任务的固定十一小节（顺序即文档顺序）。
- * task-store 生成骨架与本模块 placeholder 判定共用此常量（单一来源）。
+ * task-storage 生成骨架与本模块 placeholder 判定共用此常量（单一来源）。
  * 占位说明用英文：明确该节要回答的问题、应建立的前后关系，并内嵌反流水账
  * 要求与 R/AC 编号溯源格式指引；不适用的小节由作者写 none/not applicable。
  */
@@ -124,3 +124,19 @@ export interface TraceabilityRowRefs {
  * @returns AC 编号到该行引用
  */
 export declare function traceabilityRows(body: string): Map<string, TraceabilityRowRefs>;
+/** PLAN 文件缺失文案（结构问题 message 与状态机 PLAN_CONFIRM_MISSING 共用同一字面量）。 */
+export declare const PLAN_DOC_MISSING = "plan.md is missing";
+/** 单条 PLAN 结构问题：稳定 code + 英文运行时文案。 */
+export interface PlanStructureIssue {
+    code: 'plan_missing' | 'plan_title_missing' | 'plan_steps_missing' | 'plan_steps_empty' | 'plan_step_field' | 'plan_protocol_missing' | 'plan_protocol_duplicate' | 'plan_protocol_order' | 'plan_ac_missing';
+    message: string;
+}
+/**
+ * 校验完整实施任务的 PLAN 文档（共享解析层，非门禁）：步骤四要素齐全，
+ * Edit 区域五字段伪代码协议成立，且 PRD 的每个 AC 至少被 Covers 一次；
+ * 协议问题与 AC 问题一次全部返回。
+ * @param planContent plan.md 全文或 null
+ * @param prdContent prd.md 全文
+ * @returns 结构问题列表
+ */
+export declare function inspectPlanDoc(planContent: string | null, prdContent: string): PlanStructureIssue[];

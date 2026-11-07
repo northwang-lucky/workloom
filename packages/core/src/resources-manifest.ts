@@ -32,6 +32,9 @@ export const TEMPLATE_CASE_ENTRY = 'templates/case.md'
 /** CASE 执行结果模板条目（注入展示路径与读取共用）。 */
 export const TEMPLATE_CASE_RESULT_ENTRY = 'templates/case-result.md'
 
+/** research-facts 报告模板条目（research 角色产出结构的规范资产，登记进清单）。 */
+export const TEMPLATE_RESEARCH_FACTS_ENTRY = 'templates/research-facts.md'
+
 /** init 骨架种子：config.json（种子根包 repo）。 */
 export const SKELETON_CONFIG_ENTRY = 'skeleton/config.json'
 

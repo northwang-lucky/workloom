@@ -11,7 +11,7 @@
  *   返回 err（结构性故障不静默）；全部同步 I/O，供同步 text provider 直接调用；
  * - root 约定为项目根（由 adapter 传 findWorkloomRoot 的结果），内部只拼路径不再向上查找。
  */
-import type { TaskRecordWithPath } from '../task/task-store.d.ts';
+import type { TaskRecordWithPath } from '../task/task-storage.ts';
 /** 注入回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物；null = 无活跃任务）。 */
 export interface SessionContextTaskHint {
     turnTask?: TaskRecordWithPath | null;

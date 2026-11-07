@@ -1,8 +1,11 @@
 /**
- * 构建产物单测（R8/AC9）：手写 src/<子包>/*.d.ts 必须原样分发进 dist/<子包>/。
+ * 构建产物单测：手写 src/<子包>/*.d.ts 必须原样分发进 dist/<子包>/。
  * dist/index.d.ts 的类型重导出（CleanupTaskWorktreeResult 等接口）依赖这份
- * 一致性；tsc 只从 JSDoc 生成函数签名，不拷贝手写锚点，缺失时 dist 类型面
- * 丢接口，仅被 skipLibCheck 掩盖。core 的 test 脚本先 build 后测，时序天然满足。
+ * 一致性；tsc 不拷贝手写锚点，缺失时 dist 类型面丢接口，仅被 skipLibCheck 掩盖。
+ * task 子包的手写锚点已随状态机重构清零（类型内联进 task-storage 与
+ * state-machine）；实余锚点是 workspace/dispatch/injection 过渡期 JS 模块的
+ * 手写声明。core 的 test 脚本先 build 后测，时序天然满足；src 与 dist 的
+ * 文件清单镜像由 dist-mirror.test.ts 单独守卫。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

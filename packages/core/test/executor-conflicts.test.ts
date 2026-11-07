@@ -1,6 +1,6 @@
 /**
  * executor 参数与 subagents 配置冲突检测 + force 记录单测
- * （config/task-gates/task-store 接缝：detectExecutorConflicts /
+ * （config/状态机守卫/派发记录接缝：detectExecutorConflicts /
  * buildConflictNotice / assertForceReason / recordExecutorOverride）。
  */
 import { test } from 'node:test'
@@ -14,7 +14,8 @@ import {
   buildConflictNotice,
   detectExecutorConflicts,
 } from '../src/workspace/config-subagent.ts'
-import { readTask, recordExecutorOverride } from '../src/task/task-store.js'
+import { readTaskRecord } from '../src/task/task-storage.ts'
+import { recordExecutorOverride } from '../src/task/dispatch-records.ts'
 
 /** 构造只含 subagents 的配置对象（检测只消费该字段）。 */
 function makeConfig(subagents) {
@@ -291,7 +292,7 @@ test('recordExecutorOverride：reason 缺失时条目不含 reason 字段', () =
   try {
     const [err] = recordExecutorOverride(root, taskRelPath)
     assert.equal(err, null)
-    const [readErr, task] = readTask(root, taskRelPath)
+    const [readErr, task] = readTaskRecord(root, taskRelPath)
     assert.equal(readErr, null)
     assert.equal('reason' in task.overrides[0], false)
   } finally {

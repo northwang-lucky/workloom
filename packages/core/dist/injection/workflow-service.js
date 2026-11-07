@@ -17,9 +17,7 @@ import { findWorkloomRoot, insideWorkloom } from '../workspace/locate.js';
 import { loadConfig } from "../workspace/config-load.js";
 import { parseContract } from './workflow-contract.js';
 import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from './breadcrumb.js';
-import { resolveActiveTask } from '../task/active-task.js';
-import { readTask } from '../task/task-store.js';
-import { TASK_MODES } from '../task/task-mode.js';
+import { MODES, readTaskView, resolveActiveTask, toTaskView } from "../task/state-machine.js";
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom workflow';
 /** overlay 文件相对 .workloom 的路径（doctor overlay 检查等共享）。 */
@@ -75,7 +73,7 @@ export function assembleWorkflowProjection(root, contextKey, contractText, light
         const active = turnTask != null
             ? resolveActiveTaskStateFromRecord(turnTask)
             : resolveActiveTaskState(projectRoot, contextKey);
-        const effective = active?.mode === TASK_MODES.LIGHT ? parseLightContract(lightContractText) : main;
+        const effective = active?.mode === MODES.LIGHT ? parseLightContract(lightContractText) : main;
         return [null, { steps: effective.steps, norms: main.norms }];
     }
     catch (error) {
@@ -98,7 +96,7 @@ function assembleBreadcrumbInternal(params) {
         : resolveActiveTaskState(projectRoot, params.contextKey);
     const contractStatus = active?.contractStatus ?? CONTRACT_STATUS.NO_TASK;
     let contract;
-    if (active?.mode === TASK_MODES.LIGHT) {
+    if (active?.mode === MODES.LIGHT) {
         // 轻量轨不叠加项目 overlay（overlay 的状态校验针对主契约 states）。
         contract = parseLightContract(params.lightContractText);
     }
@@ -191,7 +189,7 @@ function resolveActiveTaskState(root, contextKey) {
         throw ptrErr;
     if (taskRelPath === null)
         return null;
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr || task === null) {
         throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`);
     }
@@ -203,11 +201,13 @@ function resolveActiveTaskState(root, contextKey) {
  * @returns 任务模式与契约状态
  */
 function resolveActiveTaskStateFromRecord(task) {
-    const contractStatus = TASK_STATUS_MAP[task.status];
+    // 兼容读单点：模式与状态经 toTaskView 映射（full→standard、completed→archived 等）。
+    const view = toTaskView(task, task.taskRelPath);
+    const contractStatus = TASK_STATUS_MAP[view.status];
     if (contractStatus === undefined) {
-        throw new Error(`${ERR_PREFIX}: unknown task status: ${task.status}`);
+        throw new Error(`${ERR_PREFIX}: unknown task status: ${view.status}`);
     }
-    return { mode: task.mode, contractStatus };
+    return { mode: view.mode, contractStatus };
 }
 /** 把任意异常归一为 Error（内部）。 */
 function toError(value) {

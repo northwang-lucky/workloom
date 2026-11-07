@@ -1,4 +1,4 @@
-import { evaluateExecutorCapacity, formatAtCapacityReceipt, readTask } from '@workloom-ai/core';
+import { evaluateExecutorCapacity, formatAtCapacityReceipt, readTaskView } from '@workloom-ai/core';
 import { KIND_LABELS } from "./executor-injection.js";
 /** 派发序号 → in-flight 条目（进程内同步，本会话计数语义不变）。 */
 const inFlightDispatches = new Map();
@@ -80,7 +80,7 @@ function kindFromLabel(label) {
 export async function collectRunningExecutors(service, parent, signal, root, taskRelPath, excludeChildId) {
     const entries = await service.listDescendants(parent.id, signal);
     // childId → kind：优先本任务 dispatches 记录（workloom 派发留痕，权威来源）。
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     const kindByChildId = new Map();
     if (taskErr === null && task !== null) {
         for (const d of task.dispatches ?? []) {

@@ -156,16 +156,90 @@ test('createTaskTool 透传 parent：子任务落盘 parent 字段且父 childre
   }
 })
 
-test('create 工具 schema 含 mode（可选，枚举 light，描述引用 PARAM_DESCRIPTIONS.mode）', () => {
+test('create 工具 schema 含 mode（可选，枚举三值 light/standard/parent）与 autonomy（可选，枚举三值）', () => {
   const def = setupCreateTool()
   const props = def.parameters.properties
   assert.equal(props.mode.type, 'string')
-  assert.deepEqual(props.mode.enum, ['light'])
+  assert.deepEqual(props.mode.enum, ['light', 'standard', 'parent'])
   assert.equal(props.mode.description, PARAM_DESCRIPTIONS.mode)
   assert.ok(!def.parameters.required.includes('mode'), 'mode must be optional')
+  assert.equal(props.autonomy.type, 'string')
+  assert.deepEqual(props.autonomy.enum, ['manual', 'semi', 'auto'])
+  assert.equal(props.autonomy.description, PARAM_DESCRIPTIONS.autonomy)
+  assert.ok(!def.parameters.required.includes('autonomy'), 'autonomy must be optional')
 })
 
-test('createTaskTool 透传 mode：light 任务落 task.json，缺省 full', async () => {
+test('workloom_task_autonomy 工具：schema 必填 autonomy 枚举三值；execute 切换留痕带时间戳', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-autonomy-'))
+  mkdirSync(join(root, '.workloom'))
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({ packages: { repo: { path: '.' } } }),
+  )
+  try {
+    const { ctx, registered } = makeCtx()
+    registerTaskTools(ctx)
+    const def = registered.find((entry) => entry.name === 'workloom_task_autonomy')
+    assert.ok(def, 'autonomy tool must be registered')
+    const props = def.parameters.properties
+    assert.deepEqual(props.autonomy.enum, ['manual', 'semi', 'auto'])
+    assert.ok(def.parameters.required.includes('autonomy'), 'autonomy must be required')
+    assert.equal(props.autonomy.description, PARAM_DESCRIPTIONS.autonomy)
+    assert.equal(props.taskPath.description, PARAM_DESCRIPTIONS.taskPath)
+    const exec = { agent: makeAgent(root), signal: new AbortController().signal }
+    const createDef = registered[0]
+    const created = await createDef.execute({ title: 'Autonomy Demo', package: 'repo' }, exec)
+    assert.equal(readTaskJson(root, created.taskRelPath).autonomy, 'manual')
+    // 三值互切均允许，切换记录带时间戳（taskPath 缺省回退活跃任务）。
+    const result = await def.execute({ autonomy: 'semi' }, exec)
+    assert.equal(result.taskRelPath, created.taskRelPath)
+    assert.equal(result.task.autonomy, 'semi')
+    const saved = readTaskJson(root, created.taskRelPath)
+    assert.equal(saved.autonomy, 'semi')
+    assert.equal(saved.autonomyLog.length, 1)
+    assert.equal(saved.autonomyLog[0].from, 'manual')
+    assert.equal(saved.autonomyLog[0].to, 'semi')
+    assert.ok(!Number.isNaN(Date.parse(saved.autonomyLog[0].at)))
+    // 再切 auto：留痕追加；同值切换幂等不追加。
+    await def.execute({ autonomy: 'auto', taskPath: created.taskRelPath }, exec)
+    await def.execute({ autonomy: 'auto', taskPath: created.taskRelPath }, exec)
+    const after = readTaskJson(root, created.taskRelPath)
+    assert.equal(after.autonomy, 'auto')
+    assert.equal(after.autonomyLog.length, 2)
+    // 非法值 fail loud（可判定错误）。
+    await assert.rejects(
+      def.execute({ autonomy: 'turbo', taskPath: created.taskRelPath }, exec),
+      /invalid autonomy/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTaskTool 透传 autonomy：落 task.json 默认 manual，指定值直落', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-create-autonomy-'))
+  mkdirSync(join(root, '.workloom'))
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({ packages: { repo: { path: '.' } } }),
+  )
+  try {
+    const def = setupCreateTool()
+    const exec = { agent: makeAgent(root), signal: new AbortController().signal }
+    const std = await def.execute({ title: 'Std Autonomy', package: 'repo' }, exec)
+    assert.equal(readTaskJson(root, std.taskRelPath).autonomy, 'manual')
+    const auto = await def.execute({ title: 'Auto Task', package: 'repo', autonomy: 'auto' }, exec)
+    assert.equal(readTaskJson(root, auto.taskRelPath).autonomy, 'auto')
+    await assert.rejects(
+      def.execute({ title: 'Bad Autonomy', package: 'repo', autonomy: 'turbo' }, exec),
+      /invalid autonomy/,
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('createTaskTool 透传 mode：light 任务落 task.json，缺省 standard', async () => {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-tasks-'))
   mkdirSync(join(root, '.workloom'))
   writeFileSync(
@@ -177,8 +251,8 @@ test('createTaskTool 透传 mode：light 任务落 task.json，缺省 full', asy
     const exec = { agent: makeAgent(root), signal: new AbortController().signal }
     const light = await def.execute({ title: 'Light', package: 'repo', mode: 'light' }, exec)
     assert.equal(readTaskJson(root, light.taskRelPath).mode, 'light')
-    const full = await def.execute({ title: 'Full', package: 'repo' }, exec)
-    assert.equal(readTaskJson(root, full.taskRelPath).mode, 'full')
+    const std = await def.execute({ title: 'Std', package: 'repo' }, exec)
+    assert.equal(readTaskJson(root, std.taskRelPath).mode, 'standard')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

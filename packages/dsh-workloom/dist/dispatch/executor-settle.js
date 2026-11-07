@@ -1,4 +1,4 @@
-import { ERR_PREFIX, readTask, settleExecutorDispatch } from '@workloom-ai/core';
+import { ERR_PREFIX, readTaskView, settleExecutorDispatch } from '@workloom-ai/core';
 /** 回填失败告警前缀（记录失败只告警，不阻塞事件流）。 */
 const SETTLE_WARN_PREFIX = `${ERR_PREFIX.executor}: WARNING: failed to settle executor dispatch:`;
 /** 结算回退告警前缀（error 登记缺失/提取失败：回退泛化文案，只告警不阻塞）。 */
@@ -208,7 +208,7 @@ function limitErrorLine(errorText) {
  * @returns 仍有 running 条目时 true
  */
 function hasRunningDispatch(root, taskRelPath, childId) {
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr !== null || task === null)
         return false;
     const dispatches = task.dispatches;

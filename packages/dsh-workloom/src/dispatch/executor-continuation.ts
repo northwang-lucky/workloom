@@ -16,7 +16,7 @@ import {
   buildSpawnBindingReceipt,
   CONTINUE_EXECUTOR_LATEST,
   ERR_PREFIX,
-  readTask,
+  readTaskView,
 } from '@workloom-ai/core'
 import type {
   DispatchRecord,
@@ -94,7 +94,7 @@ export function readSpawnBinding(
   taskRelPath: string,
   childId: string,
 ): { model?: string; effort?: string } | null {
-  const [taskErr, task] = readTask(root, taskRelPath)
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   if (taskErr !== null || task === null) return null
   const dispatches: readonly DispatchRecord[] = task.dispatches ?? []
   for (const entry of dispatches) {
@@ -124,7 +124,7 @@ export function locateContinueChildId(
   kind: string,
   input: string,
 ): [string | null, string] {
-  const [taskErr, task] = readTask(root, taskRelPath)
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   if (taskErr !== null || task === null) {
     return [
       `${ERR_PREFIX.executor}: cannot read the task record to locate the previous executor session ` +

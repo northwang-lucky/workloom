@@ -8,7 +8,7 @@
  * - 完成报告由 DSH 的 subagent-settled 通知送达，本模块不等待 turn 结算、
  *   不判定终止、不释放 Activation（executor 派发恒为后台语义）。
  */
-import { buildContinueNoChildIdText, buildContinueNoDispatchText, buildCrossKindReuseRejectText, buildExecutorReceipt, buildSpawnBindingReceipt, CONTINUE_EXECUTOR_LATEST, ERR_PREFIX, readTask, } from '@workloom-ai/core';
+import { buildContinueNoChildIdText, buildContinueNoDispatchText, buildCrossKindReuseRejectText, buildExecutorReceipt, buildSpawnBindingReceipt, CONTINUE_EXECUTOR_LATEST, ERR_PREFIX, readTaskView, } from '@workloom-ai/core';
 /**
  * 拼装一轮 turn 的 receipt 文本（后台返回值与对模型可见文本共用同一渲染）：生效
  * model/effort 及来源 + 注入统计 + (forced)/(reused) 标注。
@@ -54,7 +54,7 @@ export function buildTurnReceiptText(meta, effective) {
  * @returns 首次派发记录的绑定 {model?, effort?}，无记录/无绑定字段返回 null
  */
 export function readSpawnBinding(root, taskRelPath, childId) {
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr !== null || task === null)
         return null;
     const dispatches = task.dispatches ?? [];
@@ -82,7 +82,7 @@ export function readSpawnBinding(root, taskRelPath, childId) {
  * @returns [失败提示, childId]（失败时 childId 为空串）
  */
 export function locateContinueChildId(root, taskRelPath, kind, input) {
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr !== null || task === null) {
         return [
             `${ERR_PREFIX.executor}: cannot read the task record to locate the previous executor session ` +

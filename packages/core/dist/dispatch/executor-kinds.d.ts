@@ -3,8 +3,8 @@
  *
  * 设计意图：
  * - kind 值域（research/implement/check/frontend/review）保留到子任务四成组切换；
- *   本模块是过渡栖身地：从 executor-context 外移，消除 task-store → task-gates →
- *   executor-context → task-store 的循环 import；
+ *   本模块是过渡栖身地：kind 值域独立成纯常量模块，任务层（存储/状态机/派发
+ *   记录）与注入层共享同一来源，避免跨层循环依赖；
  * - 纯常量模块，无副作用、无依赖。
  */
 /** executor 类型（子代理角色；research/implement/check/frontend/review）。 */

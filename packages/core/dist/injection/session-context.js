@@ -13,8 +13,8 @@
  */
 import { join } from 'node:path';
 import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from "../workspace/git-query.js";
-import { resolveActiveTask } from '../task/active-task.js';
-import { listTasks, readTask, TaskStatus } from '../task/task-store.js';
+import { listTasks, TaskStatus } from "../task/task-storage.js";
+import { MODES, readTaskView, resolveActiveTask, toTaskView } from "../task/state-machine.js";
 import { loadConfig } from "../workspace/config-load.js";
 import { collectSpecIndexes } from './spec-index.js';
 /** 错误消息前缀（运行时文案英文）。 */
@@ -187,7 +187,7 @@ function activeTaskContext(params) {
         throw ptrErr;
     if (taskRelPath === null)
         return { line: NO_ACTIVE_TASK_LINE, task: null };
-    const [taskErr, task] = readTask(params.root, taskRelPath);
+    const [taskErr, task] = readTaskView(params.root, taskRelPath);
     if (taskErr || task === null) {
         throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`);
     }
@@ -203,12 +203,15 @@ function activeTaskContextFromRecord(task) {
     if (typeof task.title !== 'string' || typeof task.status !== 'string') {
         throw new Error(`${ERR_PREFIX}: task record missing title or status: ${task.taskRelPath}`);
     }
-    // 旧任务迁移提示（AC22）：本功能前开始的完整任务（case=null）指路 workloom-case-active。
-    const legacyCase = task.status === 'in_progress' && task.mode === 'full' && task.case === null
+    // 兼容读单点：模式/阶段/轨道值经 toTaskView 映射（full→standard 等），未映射值抛错。
+    const view = toTaskView(task, task.taskRelPath);
+    // 旧任务迁移提示：本功能前开始的非轻量任务（case=null）指路 workloom-case-active。
+    const legacyCase = view.status === 'in_progress' && view.mode !== MODES.LIGHT && view.case === null
         ? ' CASE migration: use workloom-case-active to design and confirm case.md before the final check.'
         : '';
     return {
-        line: `${LINE_LABELS.activeTask}${task.title}" (${task.status}) at ${task.taskRelPath}.${legacyCase}`,
+        // 快照展示当前自治度（autonomy 三值；确认迁移行为的会话可见面）。
+        line: `${LINE_LABELS.activeTask}${task.title}" (${view.status}, autonomy: ${view.autonomy}) at ${task.taskRelPath}.${legacyCase}`,
         task,
     };
 }

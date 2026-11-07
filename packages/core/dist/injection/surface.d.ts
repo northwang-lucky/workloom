@@ -15,10 +15,10 @@ export declare const COMMAND_NAMES: {
 };
 /** 两个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
 export declare const COMMAND_DESCRIPTIONS: {
-    readonly init: "Initialize the .workloom skeleton (rerun with --purge to fill in missing pieces)";
+    readonly init: "Initialize the .workloom skeleton (idempotent; --purge applies to legacy .trellis projects only: it force-fills missing pieces and fails when no legacy .trellis project exists)";
     readonly doctor: "Run a structured workflow health check (results are handed to the model as JSON)";
 };
-/** 十个工具名（八个任务工具 + executor + 步骤详情，模型可见）。 */
+/** 十一个工具名（九个任务工具 + executor + 步骤详情，模型可见）。 */
 export declare const TOOL_NAMES: {
     readonly taskCreate: "workloom_task_create";
     readonly taskStart: "workloom_task_start";
@@ -28,36 +28,39 @@ export declare const TOOL_NAMES: {
     readonly taskList: "workloom_task_list";
     readonly taskAlign: "workloom_task_align";
     readonly taskCase: "workloom_task_case";
+    readonly taskAutonomy: "workloom_task_autonomy";
     readonly executor: "workloom_execute";
     readonly step: "workloom_step";
 };
-/** 十一个工具的 register 描述文案（两 adapter 逐字相同）。 */
+/** 全部工具的 register 描述文案（两 adapter 逐字相同）。 */
 export declare const TOOL_DESCRIPTIONS: {
     readonly taskCreate: "Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)";
     readonly taskStart: "Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)";
     readonly taskCheck: "Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)";
     readonly taskAlign: "Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)";
     readonly taskCase: "CASE review: action=review returns the current case.md snapshot, structural issues, blockers, the readyForExecution flag and the current designSession without writing; the main session reviews the CASE against the PRD, the PLAN and the actual code, then continues the same design session for execution (main-session only, no user approval and no confirmation record)";
-    readonly taskFinish: "Clear the active-task pointer for this session (status unchanged)";
+    readonly taskFinish: "Clear the session task pointer for this session (status unchanged)";
     readonly taskArchive: "Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)";
     readonly taskList: "List task summaries (optionally filtered by status)";
+    readonly taskAutonomy: "Set the task autonomy level (manual/semi/auto): manual keeps every content confirmation human; semi auto-records the PLAN confirmation once the plan review track is clean; auto auto-records both the PRD and PLAN confirmations. Auto-recorded confirmations carry an audit trail (source + autonomy snapshot). The switch only affects confirmations that have not happened yet and is logged with a timestamp";
     readonly executor: "Dispatch a workloom executor subagent (research/implement/check/frontend/review) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only)";
     readonly step: "Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract";
 };
 /**
- * 十个工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
+ * 全部工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
  * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
  * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
  */
 export declare const TOOL_SNIPPETS: {
-    readonly taskCreate: "workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?) — create a task";
+    readonly taskCreate: "workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?, autonomy?) — create a task";
     readonly taskStart: "workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress";
     readonly taskCheck: "workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass";
     readonly taskAlign: "workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content";
     readonly taskCase: "workloom_task_case(action, taskPath?) — review the task CASE before continuing the design session";
-    readonly taskFinish: "workloom_task_finish(taskPath?) — clear the active-task pointer";
+    readonly taskFinish: "workloom_task_finish(taskPath?) — clear the session task pointer";
     readonly taskArchive: "workloom_task_archive(taskPath, autoCommit?, force?, reason?) — archive the completed task";
     readonly taskList: "workloom_task_list(status?) — list task summaries";
+    readonly taskAutonomy: "workloom_task_autonomy(taskPath?, autonomy) — switch the task autonomy level (manual/semi/auto)";
     readonly executor: "workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?, reinject?, purpose?) — dispatch or continue an executor";
     readonly step: "workloom_step(stepId) — show one workflow step body";
 };
@@ -66,7 +69,7 @@ export declare const PARAM_DESCRIPTIONS: {
     /** 支持活跃任务回退的任务工具（start/check/finish/align）的 taskPath 参数。 */
     readonly taskPath: "Task directory relative to .workloom; defaults to the active task";
     /** 必填 taskPath 变体（archive）：缺参即报错，不回退活跃任务。 */
-    readonly taskPathRequired: "Task directory relative to .workloom; required (no active-task fallback)";
+    readonly taskPathRequired: "Task directory relative to .workloom; required (no session-task fallback)";
     /** executor 工具的 taskPath 参数（措辞多了 of this session）。 */
     readonly taskPathExecutor: "Task directory relative to .workloom; defaults to the active task of this session";
     readonly title: "Task title";
@@ -78,8 +81,10 @@ export declare const PARAM_DESCRIPTIONS: {
     readonly description: "Optional task description";
     /** create 工具的 parent 参数（父任务相对路径；模型记录子任务时挂载）。 */
     readonly parent: "Optional parent task relative path (tasks/<id> or <id>); the task is recorded as its child";
-    /** create 工具的 mode 参数（轻量任务标记；唯一取值 light，缺省 full）。 */
-    readonly mode: "Optional task mode: pass \"light\" for a lightweight task that the main session implements, self-checks, and commits itself (no executor dispatch, relaxed start/check gates); omit it for a full task";
+    /** create 工具的 mode 参数（三值：light/standard/parent，缺省 standard）。 */
+    readonly mode: "Optional task mode: \"light\" for a lightweight task that the main session implements, self-checks, and commits itself (no executor dispatch, relaxed start/check gates); \"standard\" (default) for the full workflow with executor dispatch and the CASE track; \"parent\" for a container task that orchestrates child tasks";
+    /** 自治度参数（create 与 workloom_task_autonomy 共用；三值互切，只影响未发生的确认）。 */
+    readonly autonomy: "Task autonomy level: \"manual\" (default; every content confirmation is human), \"semi\" (the PRD confirmation stays human, the PLAN confirmation is auto-recorded once the plan review track is clean), or \"auto\" (both confirmations are auto-recorded with an audit trail); switching only affects confirmations that have not happened yet";
     readonly autoCommit: "Override the config session_auto_commit for this archive";
     readonly status: "Filter: planning/in_progress/completed";
     /** check 工具的 summary 参数（2.2 通过摘要）。 */
@@ -139,7 +144,11 @@ export declare function buildContinueNoDispatchText(kind: string): string;
 export declare function buildContinueNoChildIdText(input: string, kind: string): string;
 /** 跨 kind 续用的拒绝文案。 */
 export declare function buildCrossKindReuseRejectText(input: string, matchKind: string, kind: string): string;
-/** purge 模式标志：rawInput 以该前缀开头时，迁移后直接删除旧 .trellis 目录。 */
+/**
+ * purge 模式标志：仅适用于旧 .trellis 项目——rawInput 以该前缀开头时，init 以
+ * force 语义补齐骨架缺件；无旧 .trellis 项目时报 nothing to purge。不删除任何
+ * 目录（整条 trellis 检测链的去留裁定归子任务六）。
+ */
 export declare const PURGE_FLAG = "--purge";
 /**
  * 命令失败的宿主回执文案（两 adapter 共享）：细节已由 followup/sendUserMessage

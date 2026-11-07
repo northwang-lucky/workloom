@@ -8,7 +8,7 @@ import {
   buildExecutorIncrementalPrompt,
   createCaseRecord,
   PARAM_DESCRIPTIONS,
-  readTask,
+  readTaskView,
   recordExecutorDispatch,
 } from '@workloom-ai/core'
 import { buildExecutorSchema } from '../src/dispatch/executor-schema.ts'
@@ -74,8 +74,9 @@ test('DSH 超预算 CASE 明确失败，失败记录保留 purpose', () => {
       purpose: 'case-design',
     })
     assert.equal(recordErr, null)
-    const [, task] = readTask(root, REL)
-    assert.equal(task.stage, 'implement')
+    const [, task] = readTaskView(root, REL)
+    // case-design 派发不推进主线阶段（兼容读把旧值 implement 映射为 implementing）。
+    assert.equal(task.stage, 'implementing')
     assert.equal(task.case.designSession, 'child-exec')
     const record = task.dispatches.find((entry) => entry.childId === 'child-exec')
     assert.equal(record.purpose, 'case-design')

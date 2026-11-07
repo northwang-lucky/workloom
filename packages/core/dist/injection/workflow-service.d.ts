@@ -13,7 +13,7 @@
  *   供 systemPrompt 的同步 text provider 直接调用，避免编排逻辑重复。
  */
 import type { WorkflowStep } from './workflow-contract-types.ts';
-import type { TaskRecordWithPath } from '../task/task-store.d.ts';
+import type { TaskRecordWithPath } from '../task/task-storage.ts';
 /** overlay 文件相对 .workloom 的路径（doctor overlay 检查等共享）。 */
 export declare const OVERLAY_REL_PATH = "workflow.override.md";
 /** assembleBreadcrumb 入参。 */

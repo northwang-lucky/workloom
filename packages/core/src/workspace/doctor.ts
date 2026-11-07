@@ -4,9 +4,9 @@
  * 设计意图：
  * - 本文件只做编排：runDoctor 收口异常 → doctorInternal 出「检查报告」；
  *   具体只读检查见 doctor-checks.ts，类型与元信息见 doctor-types.ts；
- * - --fix 修复能力已随 doctor-fixes 退役：本命令只出报告，检查集的重建归
- *   子任务三的状态机（期间检查项变少属预期行为）；
- * - 复用 domain task-store/active-task/task-gates/config API；仅在必要时补充极薄只读辅助；
+ * - --fix 修复能力已随 doctor-fixes 退役：本命令只出报告；检查集已由状态机
+ *   重建为五类（生命周期一致性/确认完整性/CASE 一致性/worktree/config）；
+ * - 复用 task-storage/state-machine/config API；仅在必要时补充极薄只读辅助；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 
@@ -54,7 +54,6 @@ export function buildDoctorRelayText(report: DoctorReport): string {
     '',
     JSON.stringify(report, null, 2),
     '',
-    'Note: the check set is being rebuilt by the state machine; only the worktree and config checks remain.',
     "Based on this JSON, report the workflow health to the user in the user's language:",
     '- Summarize the total issues and their distribution across the checks.',
     '- For each issue, explain what is wrong, its severity, and the affected task/path.',

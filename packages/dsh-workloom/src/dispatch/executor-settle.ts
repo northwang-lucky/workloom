@@ -26,7 +26,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 
-import { ERR_PREFIX, readTask, settleExecutorDispatch } from '@workloom-ai/core'
+import { ERR_PREFIX, readTaskView, settleExecutorDispatch } from '@workloom-ai/core'
 import type { DispatchStatus } from '@workloom-ai/core'
 
 /** 回填失败告警前缀（记录失败只告警，不阻塞事件流）。 */
@@ -267,7 +267,7 @@ function limitErrorLine(errorText: string): string {
  * @returns 仍有 running 条目时 true
  */
 function hasRunningDispatch(root: string, taskRelPath: string, childId: string): boolean {
-  const [taskErr, task] = readTask(root, taskRelPath)
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   if (taskErr !== null || task === null) return false
   const dispatches = task.dispatches
   if (!Array.isArray(dispatches)) return false

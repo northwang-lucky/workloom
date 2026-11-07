@@ -7,17 +7,18 @@
  * - align review 只读：按 target 返回 PRD 或 PLAN 的内容快照、结构诊断与现有
  *   确认记录（零写盘）；不完整的草稿照样可读，就绪与否由 readyToConfirm 表达；
  * - align confirm 同步全链路：内容 blocker（prd-structure 单一解析器）聚合拒绝
- *   → summary 非空 → 只经 task-store 的窄写口原子落盘（PRD 用
- *   recordAlignmentCredential，PLAN 用 recordPlanConfirmation）；确认记录只含
- *   passedAt 与 summary，无哈希，每次确认都刷新为最近一次；
- * - PLAN 确认要求 PRD 已有确认记录（顺序前置在窄写口硬校验，R3）；
+ *   → summary（人工确认必填；semi/auto 的 PLAN 与 auto 的 PRD 自动记录）→
+ *   只经 state-machine 的确认迁移窄写口原子落盘（confirmPrd / confirmPlan）；
+ *   确认记录含 passedAt/summary/source/autonomy，无哈希，每次确认刷新为最近一次；
+ * - PLAN 确认要求 PRD 已有确认记录且 planReview 轨道 clean（守卫在状态机硬校验，
+ *   与 autonomy 无关）；
  * - case review 只读：CASE 由主会话对照 PRD、PLAN 与实际代码复核；复核满意后
  *   直接续接同一 designSession 执行，不写任何复核凭证；
  * - cwd/root/task 解析与 task-ops 同款（requireWorkloomCwd + resolveTaskRelPath +
  *   findWorkloomRoot），adapter 只负责投影返回与主会话限制。
  */
 import type { CaseStructureIssue } from './case-structure.ts';
-import type { TaskAlignmentRecord, TaskPlanConfirmationRecord, TaskStatusValue } from './task-store.d.ts';
+import type { TaskAlignmentRecord, TaskPlanConfirmationRecord, TaskStatusValue } from './task-storage.ts';
 /** 确认对象：prd（缺省，兼容旧调用）或 plan。 */
 export type AlignTarget = 'prd' | 'plan';
 /** 结构诊断的公共形态（PRD 与 PLAN 结构分类器产物形状一致，section 字段可选）。 */

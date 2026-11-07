@@ -9,10 +9,10 @@
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, TASK_MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { AUTONOMY, ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeSetAutonomy, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from "../constants.js";
 /**
- * 注册八个任务管理工具（create/start/check/align/case/finish/archive/list）。
+ * 注册九个任务管理工具（create/start/check/align/case/finish/archive/list/autonomy）。
  * @param ctx 插件作用域上下文
  */
 export function registerTaskTools(ctx) {
@@ -29,7 +29,16 @@ export function registerTaskTools(ctx) {
                 priority: { type: 'string', description: PARAM_DESCRIPTIONS.priority },
                 description: { type: 'string', description: PARAM_DESCRIPTIONS.description },
                 parent: { type: 'string', description: PARAM_DESCRIPTIONS.parent },
-                mode: { type: 'string', enum: [TASK_MODES.LIGHT], description: PARAM_DESCRIPTIONS.mode },
+                mode: {
+                    type: 'string',
+                    enum: [MODES.LIGHT, MODES.STANDARD, MODES.PARENT],
+                    description: PARAM_DESCRIPTIONS.mode,
+                },
+                autonomy: {
+                    type: 'string',
+                    enum: [AUTONOMY.MANUAL, AUTONOMY.SEMI, AUTONOMY.AUTO],
+                    description: PARAM_DESCRIPTIONS.autonomy,
+                },
             },
             required: ['title', 'package'],
             additionalProperties: false,
@@ -141,6 +150,26 @@ export function registerTaskTools(ctx) {
         execute: (args, exec) => archiveTaskTool(args, exec),
     });
     tools.register({
+        name: TOOL_NAMES.taskAutonomy,
+        description: TOOL_DESCRIPTIONS.taskAutonomy,
+        parameters: {
+            type: 'object',
+            properties: {
+                taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+                autonomy: {
+                    type: 'string',
+                    enum: [AUTONOMY.MANUAL, AUTONOMY.SEMI, AUTONOMY.AUTO],
+                    description: PARAM_DESCRIPTIONS.autonomy,
+                },
+            },
+            required: ['autonomy'],
+            additionalProperties: false,
+        },
+        output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+        isConcurrencySafe: () => true,
+        execute: (args, exec) => setAutonomyTool(args, exec),
+    });
+    tools.register({
         name: TOOL_NAMES.taskList,
         description: TOOL_DESCRIPTIONS.taskList,
         parameters: {
@@ -191,6 +220,7 @@ async function createTaskTool(args, exec) {
         description: typeof typed.description === 'string' ? typed.description : undefined,
         parent: stringOf(typed, 'parent'),
         mode: stringOf(typed, 'mode'),
+        autonomy: stringOf(typed, 'autonomy'),
     });
     if (err !== null || result === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`);
@@ -304,6 +334,19 @@ async function archiveTaskTool(args, exec) {
     });
     if (err !== null || result === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: archive returned no result`);
+    }
+    return result;
+}
+/** autonomy 工具：切换任务自治度（三值互切，留痕带时间戳；编排下沉 core）。 */
+async function setAutonomyTool(args, exec) {
+    const typed = args;
+    const cwd = cwdOf(exec);
+    const [err, result] = executeSetAutonomy(cwd, contextKeyOf(exec), {
+        taskPath: taskPathOf(typed),
+        autonomy: typeof typed.autonomy === 'string' ? typed.autonomy : '',
+    });
+    if (err !== null || result === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: autonomy returned no result`);
     }
     return result;
 }

@@ -2,8 +2,12 @@
  * workloom core 公共入口。
  *
  * 分层约定：
- * - src/domain/ 下是 runtime 无关的领域行为模块，纯 JS（JSDoc 注释）；
- * - 其余模块是新增抽象，用 TypeScript 编写。
+ * - src 按 task / dispatch / injection / workspace 四个功能子包划分，全部 TypeScript；
+ * - task 子包内部分层：task-storage（task.json 物理读写）、state-machine（值域、
+ *   兼容读、迁移表与守卫）、dispatch-records（派发记录与 override 留痕），
+ *   task-ops / doc-review 承载生命周期与文档复核编排；
+ * - 少数过渡期纯 JS 行为模块（locate/file-atomic/git 等）以 .js + 手写 .d.ts 锚点
+ *   形态存在，随后续子任务陆续 TS 化。
  * 本包整体经 tsc 构建发布，不得 import 任何 runtime 包。
  */
 
@@ -72,10 +76,56 @@ export type {
 export { initWorkloom } from './workspace/init.ts'
 export type { InitWorkloomParams, InitWorkloomResult } from './workspace/init.ts'
 
+// 任务模式状态机（五枚举、兼容读单点、三模式迁移表、守卫注册表、迁移与轨道/确认入口）。
 export {
-  evaluateAlignmentGate,
-  ALIGNMENT_MISSING,
-} from './task/alignment.js'
+  MODES,
+  STAGES,
+  CASE_PHASES,
+  PLAN_REVIEW_PHASES,
+  AUTONOMY,
+  GUARD_KEYS,
+  GUARDS,
+  TRANSITIONS,
+  CASE_PHASE_EDGES,
+  PLAN_REVIEW_EDGES,
+  OVERRIDE_GATES,
+  GATE_TOOL_NAMES,
+  LIGHT_DISPATCH_REJECT_TEXT,
+  PLAN_CONFIRM_MISSING,
+  PLAN_CONFIRM_MISSING_TEXT,
+  readTaskView,
+  statusOfStage,
+  isLegalCasePhaseEdge,
+  isLegalPlanReviewEdge,
+  findTransitionPath,
+  evaluateGuard,
+  evaluateTransition,
+  migrateTask,
+  recordCasePhase,
+  recordPlanReview,
+  confirmPrd,
+  confirmPlan,
+} from './task/state-machine.ts'
+
+export type {
+  TaskView,
+  TaskTransition,
+  TaskModeValue,
+  TaskStageValue,
+  GuardKey,
+  GuardFn,
+  GuardContext,
+  GuardResult,
+  TransitionEvaluation,
+  MigrateTaskParams,
+  MigrateTaskResult,
+  ConfirmEntryInput,
+  ConfirmSource,
+  OverrideGateKey,
+  CasePhaseValue,
+  PlanReviewPhaseValue,
+  AutonomyValue,
+} from './task/state-machine.ts'
 
 // CASE 领域导出（生命周期、结构校验、门禁与文件范围）。
 export {
@@ -112,37 +162,43 @@ export {
 
 export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './injection/breadcrumb.js'
 
+// 任务存储层（task.json 物理读写、创建、列表、hooks 与确认凭据窄写口）。
 export {
   TaskStatus,
   TaskPriority,
-  TaskStage,
-  DISPATCH_MODEL_SOURCES,
   slugify,
   createTask,
+  listTasks,
+  runTaskHooks,
+  findArchivedTaskPath,
+} from './task/task-storage.ts'
+
+// 派发记录层（dispatches 初写/结算/失败链后缀与 overrides 留痕）。
+export {
+  DISPATCH_MODEL_SOURCES,
+  recordExecutorDispatch,
+  settleExecutorDispatch,
+  appendDispatchErrorSuffix,
+  recordExecutorOverride,
+  recordGateOverride,
+} from './task/dispatch-records.ts'
+
+// 生命周期编排（start/check/finish/archive 的物理写与门禁编排）。
+export {
   startTask,
   checkTask,
   finishTask,
   archiveTask,
-  listTasks,
-  readTask,
-  runTaskHooks,
-  recordExecutorOverride,
-  recordGateOverride,
-  recordAlignmentCredential,
-  recordPlanConfirmation,
-  recordExecutorDispatch,
-  settleExecutorDispatch,
-  appendDispatchErrorSuffix,
-} from './task/task-store.js'
+} from './task/task-ops.ts'
 
-export { TASK_MODES, isTaskModeValue } from './task/task-mode.js'
-
+// 会话指针（原 active-task 五函数收编进状态机指针段，指针文件机制不变）。
 export {
   setActiveTask,
   clearActiveTask,
   resolveActiveTask,
+  listPointers,
   clearPointersToTask,
-} from './task/active-task.js'
+} from './task/state-machine.ts'
 
 // git 查询面与集成操作面（拆分后各自导出）。
 export {
@@ -186,22 +242,12 @@ export {
   PRD_SECTIONS,
   PRD_STRUCTURE_CODES,
   PRD_MISSING,
+  PLAN_DOC_MISSING,
   findMissingPrdTitle,
   findUnfilledPrdSections,
   inspectPrdStructure,
+  inspectPlanDoc,
 } from './task/prd-structure.ts'
-
-export {
-  GATES,
-  GATE_TOOLS,
-  countEffectiveJsonlRecords,
-  evaluateStartGate,
-  evaluateCheckLogGate,
-  evaluateFrontendDispatchGate,
-  evaluateLightDispatchGate,
-  LIGHT_DISPATCH_REJECT,
-  makeOverride,
-} from './task/task-gates.js'
 
 // resources 清单导出（skills/templates/workflow 资源的集中登记与读取）。
 export {
@@ -212,6 +258,7 @@ export {
   TEMPLATE_SPEC_DETAIL_ENTRY,
   TEMPLATE_CASE_ENTRY,
   TEMPLATE_CASE_RESULT_ENTRY,
+  TEMPLATE_RESEARCH_FACTS_ENTRY,
   SKELETON_CONFIG_ENTRY,
   SKELETON_GITIGNORE_ENTRY,
   SKELETON_SPEC_README_ENTRY,
@@ -262,6 +309,8 @@ export {
   executeFinishTask,
   executeArchiveTask,
   executeListTasks,
+  executeSetAutonomy,
+  setAutonomy,
 } from './task/task-ops.ts'
 
 export { lookupWorkflowStep } from './injection/step-lookup.ts'
@@ -346,44 +395,44 @@ export type {
   TaskStatusValue,
   TaskPriorityKey,
   TaskPriorityValue,
-  TaskStageKey,
-  TaskStageValue,
+  GateValue,
   TaskHooks,
   TaskRecord,
   TaskRecordWithPath,
-  StartedTaskRecord,
   TaskCheckRecord,
   TaskAlignmentRecord,
   TaskPlanConfirmationRecord,
   TaskSummary,
   CreateTaskParams,
   CreateTaskResult,
+  ListTasksParams,
+  AutonomySwitchRecord,
+  DispatchPurpose,
+  DispatchRecord,
+  DispatchStatus,
+  DispatchModelSource,
+} from './task/task-storage.ts'
+
+export type {
+  DispatchRecordInput,
+  DispatchSettleInput,
+} from './task/dispatch-records.ts'
+
+export type {
+  StartedTaskRecord,
   StartTaskParams,
+  CheckTaskParams,
   FinishTaskParams,
   ArchiveTaskParams,
   ArchiveTaskResult,
-  ListTasksParams,
-  CheckTaskParams,
-  AlignmentCredentialInput,
-  PlanConfirmationInput,
-  DispatchPurpose,
-  TaskCaseRecordCarrier,
-  DispatchRecord,
-  DispatchRecordInput,
-  DispatchStatus,
-  DispatchModelSource,
-  DispatchSettleInput,
-} from './task/task-store.d.ts'
-
-export type { TaskModeKey, TaskModeValue } from './task/task-mode.d.ts'
-
-export type { GateKey, GateValue } from './task/task-gates.d.ts'
+} from './task/task-ops.ts'
 
 export type {
   PrdSection,
   PrdStructureCode,
   PrdStructureIssue,
   PrdSectionIssueCode,
+  PlanStructureIssue,
   TraceabilityRowRefs,
 } from './task/prd-structure.ts'
 
@@ -398,7 +447,7 @@ export type {
   CaseReviewResult,
 } from './task/doc-review.ts'
 
-export type { SessionPointer } from './task/active-task.d.ts'
+export type { SessionPointer, SessionPointerWithContext } from './task/state-machine.ts'
 
 export type { SessionContextParams } from './injection/session-context.ts'
 
@@ -415,5 +464,10 @@ export type {
   DoctorSeverity,
 } from './workspace/doctor.ts'
 
-export type { ExecuteCreateTaskParams, ExecuteCreateTaskResult } from './task/task-ops.ts'
+export type {
+  ExecuteCreateTaskParams,
+  ExecuteCreateTaskResult,
+  ExecuteSetAutonomyParams,
+  ExecuteSetAutonomyResult,
+} from './task/task-ops.ts'
 

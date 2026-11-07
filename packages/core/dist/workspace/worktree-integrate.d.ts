@@ -10,7 +10,7 @@
  * - 一致性扫描只读：不 prune、不删除任何路径，非 git 项目返回空结果。
  */
 import type { TaskRepoResolution } from './worktree.d.ts';
-import type { TaskRecord } from '../task/task-store.d.ts';
+import type { TaskRecord } from '../task/task-storage.ts';
 /** 错误消息前缀（运行时文案英文）。 */
 export declare const ERR_PREFIX = "workloom worktree";
 /** worktree 根目录（相对 .workloom，布局定版收敛进运行时状态目录 `.runtime/worktrees/…`）。 */

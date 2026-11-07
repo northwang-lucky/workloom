@@ -28,7 +28,7 @@ export interface PrdSection {
 
 /**
  * prd.md 骨架：完整任务的固定十一小节（顺序即文档顺序）。
- * task-store 生成骨架与本模块 placeholder 判定共用此常量（单一来源）。
+ * task-storage 生成骨架与本模块 placeholder 判定共用此常量（单一来源）。
  * 占位说明用英文：明确该节要回答的问题、应建立的前后关系，并内嵌反流水账
  * 要求与 R/AC 编号溯源格式指引；不适用的小节由作者写 none/not applicable。
  */
@@ -497,4 +497,208 @@ export function traceabilityRows(body: string): Map<string, TraceabilityRowRefs>
     })
   }
   return rows
+}
+
+/* ---------------- PLAN 结构解析（自旧门禁模块迁入并改名 inspectPlanDoc） ---------------- */
+
+/** PLAN 文件缺失文案（结构问题 message 与状态机 PLAN_CONFIRM_MISSING 共用同一字面量）。 */
+export const PLAN_DOC_MISSING = 'plan.md is missing'
+
+/** 单条 PLAN 结构问题：稳定 code + 英文运行时文案。 */
+export interface PlanStructureIssue {
+  code:
+    | 'plan_missing'
+    | 'plan_title_missing'
+    | 'plan_steps_missing'
+    | 'plan_steps_empty'
+    | 'plan_step_field'
+    | 'plan_protocol_missing'
+    | 'plan_protocol_duplicate'
+    | 'plan_protocol_order'
+    | 'plan_ac_missing'
+  message: string
+}
+
+/** PLAN 一级标题匹配（trimStart 后必须以 `# ` 开头）。 */
+const PLAN_TITLE_RE = /^#\s+\S/
+
+/** PLAN 每个实施步骤的必需字段（依 plan-authoring 顺序）。 */
+const PLAN_REQUIRED_FIELDS = Object.freeze(['Covers', 'Target', 'Edit', 'Verify'])
+
+/** PLAN 步骤 Edit 区域内的五个伪代码协议字段（数组顺序即校验与报告顺序）。 */
+const PLAN_PROTOCOL_FIELDS = Object.freeze(['Input', 'Output', 'Preconditions', 'Procedure', 'Failure'])
+
+/** 协议字段行形态：去公共缩进后行首必须是 `字段名:`（bullet、额外缩进、无冒号均不算）。 */
+const PLAN_PROTOCOL_FIELD_LINE_RE = new RegExp(`^(?:${PLAN_PROTOCOL_FIELDS.join('|')}):`)
+
+/**
+ * 外层步骤字段行形态（`- 字段名` 或 `- 字段名:`）。
+ * @param name 外层字段名
+ * @returns 行首匹配正则
+ */
+function makePlanFieldLineRe(name: string): RegExp {
+  return new RegExp(`^- ${name}(?:\\s|:)`, 'm')
+}
+
+/**
+ * 提取当前步骤 Edit 区域的正文行：`- Edit:` 之后到 `- Verify:` 之前的行。
+ * 只读当前步骤区域，Verify 与后续步骤中的同名文本不会误判为协议内容；
+ * Edit 缺失时返回 null，调用方跳过协议检查（外层字段检查已覆盖）。
+ * @param body 步骤正文（不含标题行）
+ * @returns Edit 区域行
+ */
+function extractEditRegionLines(body: string): string[] | null {
+  const lines = body.split('\n')
+  const editIdx = lines.findIndex((line) => /^- Edit(?:\s|:)/.test(line))
+  if (editIdx === -1) return null
+  const rest = lines.slice(editIdx + 1)
+  const verifyIdx = rest.findIndex((line) => /^- Verify(?:\s|:)/.test(line))
+  return verifyIdx === -1 ? rest : rest.slice(0, verifyIdx)
+}
+
+/**
+ * 移除行列表的公共前导空白（空行不参与计算）：围栏行与协议字段行因此对齐到
+ * 列首，更深缩进的 Procedure 明细行保留剩余缩进，不会被识别为字段。
+ * @param lines 原始行
+ * @returns 去公共缩进后的行
+ */
+function stripCommonIndent(lines: string[]): string[] {
+  let minIndent = Infinity
+  for (const line of lines) {
+    if (line.trim() === '') continue
+    minIndent = Math.min(minIndent, line.length - line.trimStart().length)
+  }
+  if (!Number.isFinite(minIndent)) return lines
+  return lines.map((line) => (line.trim() === '' ? '' : line.slice(minIndent)))
+}
+
+/**
+ * 围栏定界行（``` 或 ```lang）是结构符号，既不是字段也不是字段值。
+ * @param line 待判定的行
+ */
+function isFenceLine(line: string): boolean {
+  return /^```/.test(line)
+}
+
+/**
+ * 按出现位置扫描去缩进后的 Edit 区域，收集协议字段及取值状态（内部）。
+ * 字段值允许在冒号后或后续行；空值与纯空白视为缺失内容，`none` 是合法值。
+ * @param lines 去公共缩进后的 Edit 区域行
+ * @returns 出现序字段列表
+ */
+function scanProtocolFields(lines: string[]): { name: string; index: number; empty: boolean }[] {
+  const fields: { name: string; index: number; empty: boolean }[] = []
+  let current: { name: string; index: number; empty: boolean } | null = null
+  for (const [index, line] of lines.entries()) {
+    if (isFenceLine(line)) continue
+    const match = PLAN_PROTOCOL_FIELD_LINE_RE.exec(line)
+    if (match !== null) {
+      current = { name: match[0].slice(0, -1), index, empty: line.slice(match[0].length).trim() === '' }
+      fields.push(current)
+      continue
+    }
+    // 非字段行归属上一个字段：出现任何非空白内容即证明该字段有值。
+    if (current !== null && line.trim() !== '') current.empty = false
+  }
+  return fields
+}
+
+/**
+ * 校验一个步骤 Edit 区域的五字段伪代码协议（内部）：缺失/空值、重复、乱序
+ * 分别给出问题码；缺失与空值按字段常量序报告，全部存在时才比较出现顺序。
+ * @param body 步骤正文
+ * @param stepNo 步骤序号（1 起，错误文案用）
+ * @returns 协议问题列表
+ */
+function inspectStepProtocolFields(body: string, stepNo: number): PlanStructureIssue[] {
+  const regionLines = extractEditRegionLines(body)
+  if (regionLines === null) return []
+  const fields = scanProtocolFields(stripCommonIndent(regionLines))
+  const firstByName = new Map<string, { name: string; index: number; empty: boolean }>()
+  for (const field of fields) {
+    if (!firstByName.has(field.name)) firstByName.set(field.name, field)
+  }
+  const issues: PlanStructureIssue[] = []
+  for (const name of PLAN_PROTOCOL_FIELDS) {
+    const field = firstByName.get(name)
+    if (field === undefined || field.empty) {
+      issues.push({
+        code: 'plan_protocol_missing',
+        message: `plan.md step ${stepNo} protocol field "${name}" is missing or empty`,
+      })
+    }
+  }
+  for (const name of PLAN_PROTOCOL_FIELDS) {
+    if (fields.filter((field) => field.name === name).length > 1) {
+      issues.push({
+        code: 'plan_protocol_duplicate',
+        message: `plan.md step ${stepNo} protocol field "${name}" is duplicated`,
+      })
+    }
+  }
+  if (firstByName.size === PLAN_PROTOCOL_FIELDS.length) {
+    const order = PLAN_PROTOCOL_FIELDS.map((name) => firstByName.get(name)?.index ?? 0)
+    const sorted = [...order].sort((a, b) => a - b)
+    if (order.some((value, i) => value !== sorted[i])) {
+      issues.push({
+        code: 'plan_protocol_order',
+        message: `plan.md step ${stepNo} protocol field order must be ${PLAN_PROTOCOL_FIELDS.join(' -> ')}`,
+      })
+    }
+  }
+  return issues
+}
+
+/**
+ * 校验完整实施任务的 PLAN 文档（共享解析层，非门禁）：步骤四要素齐全，
+ * Edit 区域五字段伪代码协议成立，且 PRD 的每个 AC 至少被 Covers 一次；
+ * 协议问题与 AC 问题一次全部返回。
+ * @param planContent plan.md 全文或 null
+ * @param prdContent prd.md 全文
+ * @returns 结构问题列表
+ */
+export function inspectPlanDoc(planContent: string | null, prdContent: string): PlanStructureIssue[] {
+  if (planContent === null) return [{ code: 'plan_missing', message: PLAN_DOC_MISSING }]
+  const issues: PlanStructureIssue[] = []
+  if (!PLAN_TITLE_RE.test(planContent.trimStart())) {
+    issues.push({ code: 'plan_title_missing', message: 'plan.md missing H1 title' })
+  }
+  if (!/^## Steps$/m.test(planContent)) {
+    issues.push({ code: 'plan_steps_missing', message: 'plan.md section "Steps" is missing' })
+    return issues
+  }
+  const blocks = planContent.split(/(?=^####\s+步骤\s+\S+)/m).slice(1)
+  if (blocks.length === 0) {
+    issues.push({ code: 'plan_steps_empty', message: 'plan.md must contain at least one implementation step' })
+  }
+  const covered = new Set<string>()
+  for (const [index, block] of blocks.entries()) {
+    const body = block.split('\n').slice(1).join('\n')
+    for (const name of PLAN_REQUIRED_FIELDS) {
+      if (!makePlanFieldLineRe(name).test(body)) {
+        issues.push({ code: 'plan_step_field', message: `plan.md step ${index + 1} missing ${name}` })
+      }
+    }
+    issues.push(...inspectStepProtocolFields(body, index + 1))
+    const covers = /^- Covers:\s*(.+)$/m.exec(body)?.[1] ?? ''
+    for (const ac of covers.match(/AC\d+/g) ?? []) covered.add(ac)
+  }
+  const acceptance = sectionBody(prdContent, 'Acceptance Criteria').match(/AC\d+/g) ?? []
+  for (const ac of new Set(acceptance)) {
+    if (!covered.has(ac)) issues.push({ code: 'plan_ac_missing', message: `${ac} is not covered by any plan step` })
+  }
+  return issues
+}
+
+/**
+ * 读取一个二级标题正文（PLAN 校验内部复用，不消费代码围栏中的标题）。
+ * @param content Markdown 全文
+ * @param heading 二级标题名
+ * @returns 标题正文
+ */
+function sectionBody(content: string, heading: string): string {
+  const match = new RegExp(`^## ${heading}\\s*$`, 'm').exec(content)
+  if (match === null) return ''
+  const rest = content.slice(match.index + match[0].length)
+  return rest.split(/^##\s+/m)[0] ?? ''
 }

@@ -1,4 +1,4 @@
-import { buildExecutorPrompt, ERR_PREFIX, loadCaseResultTemplateText, loadCaseTemplateText, readTask, TEMPLATE_CASE_ENTRY, TEMPLATE_CASE_RESULT_ENTRY, } from '@workloom-ai/core';
+import { buildExecutorPrompt, ERR_PREFIX, loadCaseResultTemplateText, loadCaseTemplateText, readTaskView, TEMPLATE_CASE_ENTRY, TEMPLATE_CASE_RESULT_ENTRY, } from '@workloom-ai/core';
 import { buildExecutorContractSection } from "./discipline-text.js";
 /** resources 条目在仓内的展示路径前缀（注入头与缺失报错用）。 */
 const RESOURCES_REPO_PREFIX = 'packages/core/resources/';
@@ -95,7 +95,7 @@ export function buildChildLabel(root, taskRelPath, kind, title) {
     if (semantic !== undefined && semantic !== '') {
         return `[${kindLabel}] ${semantic}`;
     }
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     const taskTitle = task?.title;
     if (taskErr !== null || taskTitle === undefined || taskTitle.trim() === '') {
         return `workloom-${kind}`;

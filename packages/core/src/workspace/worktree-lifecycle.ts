@@ -57,7 +57,7 @@ import type {
   CreateTaskWorktreeResult,
   TaskRepoResolution,
 } from './worktree.d.ts'
-import type { TaskRecord } from '../task/task-store.d.ts'
+import type { TaskRecord } from '../task/task-storage.ts'
 
 /**
  * 解析任务 package 所属仓（design §3.1）。
@@ -165,7 +165,7 @@ export async function renderBranchName(
  * worktree 创建或幂等复用成功后执行 packages.<name>.setup（PRD R3-R6），失败即
  * 中止 start 并保留现场；重跑 start 走复用路径重新准备以自愈。
  * @param {string} root 项目根
- * @param {import('../task/task-store.d.ts').TaskRecord} task 任务记录（package/parent/createdAt/name）
+ * @param {import('../task/task-storage.ts').TaskRecord} task 任务记录（package/parent/createdAt/name）
  * @param {string} taskRelPath 任务目录相对 .workloom 的路径
  * @param {import('./config.d.ts').WorkloomConfig} config 项目配置
  * @returns {Promise<[Error | null, import('./worktree.d.ts').CreateTaskWorktreeResult | null]>}
@@ -339,7 +339,7 @@ export async function createTaskWorktree(
  * 已 rebase 跳过 rebase、已 merged 跳过合并、gitlink 无 diff 跳过提交、无注册
  * 跳过 remove（幂等续做）。
  * @param {string} root 项目根
- * @param {import('../task/task-store.d.ts').TaskRecord} task 任务记录
+ * @param {import('../task/task-storage.ts').TaskRecord} task 任务记录
  * @param {import('./config.d.ts').WorkloomConfig} config 项目配置
  * @returns {Promise<[Error | null, import('./worktree.d.ts').CleanupTaskWorktreeResult | null]>}
  */

@@ -88,13 +88,13 @@ import {
   CONTINUE_REBIND_REJECT_TEXT,
   detectExecutorConflicts,
   ERR_PREFIX,
-  evaluateLightDispatchGate,
+  evaluateGuard,
   findWorkloomRoot,
-  GATES,
+  OVERRIDE_GATES,
   buildExecutorIncrementalPrompt,
   loadConfig,
   PARAM_DESCRIPTIONS,
-  readTask,
+  readTaskView,
   recordExecutorDispatch,
   recordExecutorOverride,
   recordGateOverride,
@@ -262,33 +262,33 @@ async function executeTool(
       console.warn(`${OVERRIDE_WARN_PREFIX} ${overrideErr}`)
     }
   }
-  // 派发门禁（共用同一次 readTask；阻断返回提示文本而非抛错，模型可见可 force 重试）：
-  // - 轻量任务拒绝：light 任务由主会话包办实现/自查/提交，任何 kind 都不派发
-  //   （含续用）；force 放行记 light_dispatch override。（文档确认哈希已删除，
-  //   派发不再做 stale alignment 判定。）
-  const [taskErr, task] = readTask(root, taskRelPath)
+  // 派发门禁语义改查状态机守卫（light-dispatch，共用同一次 readTaskView；阻断返回
+  // 提示文本而非抛错，模型可见可 force 重试）：light 任务由主会话包办实现/自查/
+  // 提交，任何 kind 都不派发（含续用）；force 放行经 dispatch-records 记
+  // light_dispatch override 留痕。
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   if (taskErr !== null || task === null) {
-    console.warn(`${OVERRIDE_WARN_PREFIX} ${taskErr?.message ?? 'readTask returned no task'}`)
+    console.warn(`${OVERRIDE_WARN_PREFIX} ${taskErr?.message ?? 'readTaskView returned no task'}`)
   } else {
-    const lightMissing = evaluateLightDispatchGate(task)
-    if (lightMissing.length > 0 && params.force !== true) {
+    const [lightErr, lightReason] = evaluateGuard('light-dispatch', task, { root, taskRelPath })
+    if (lightErr !== null && params.force !== true) {
       return {
         kind: 'notice',
         output: [
           {
             type: 'text',
-            text: `${lightMissing.join('; ')} ` +
+            text: `${lightReason ?? lightErr.message} ` +
               '(pass force: true with a non-empty reason to bypass; the override is recorded in task.json overrides)',
           },
         ],
       }
     }
-    if (lightMissing.length > 0) {
+    if (lightErr !== null) {
       assertForceReason(params.force, params.reason)
       const [lightOverrideErr] = recordGateOverride(
         root,
         taskRelPath,
-        GATES.LIGHT_DISPATCH,
+        OVERRIDE_GATES.LIGHT_DISPATCH,
         params.reason ?? '',
       )
       if (lightOverrideErr !== null) {

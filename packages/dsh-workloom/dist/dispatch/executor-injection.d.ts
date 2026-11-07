@@ -5,7 +5,7 @@
  * - 与 executor.ts（工具注册与执行编排）分离：本模块只负责 prompt 相关的纯函数
  *   ——buildFullInjection 调 core buildExecutorPrompt 组装全量注入文本，
  *   injectionStats 投影注入统计供 receipt 渲染，buildChildLabel 装配子会话标题；
- * - 均为纯函数或只读副作用（buildChildLabel 的 readTask 回退），便于单测。
+ * - 均为纯函数或只读副作用（buildChildLabel 的 readTaskView 回退），便于单测。
  */
 import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core';
 /** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */

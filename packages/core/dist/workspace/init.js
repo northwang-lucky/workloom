@@ -8,13 +8,12 @@
  * - 模板外置：config 种子、.gitignore 种子与 spec README 种子全部落在
  *   core/resources/skeleton/ 并经 resources-manifest 登记，本模块经 manifest
  *   读取，内嵌模板字符串清零；种子缺失 fail loud（部署残缺不静默降级）；
- * - 顺带检测旧 .trellis 目录并报告（迁移由后续实现点消费，本模块只报告）；
  * - 生成自包含的 .workloom/.gitignore：运行时状态忽略策略随骨架分发，
  *   接入方仓库无需在根 .gitignore 手工维护 workloom 内部布局规则。
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { detectLegacyTrellis, findWorkloomRoot, WORKLOOM_DIR } from './locate.js';
+import { findWorkloomRoot, WORKLOOM_DIR } from './locate.js';
 import { loadSkeletonText, SKELETON_CONFIG_ENTRY, SKELETON_GITIGNORE_ENTRY, SKELETON_SPEC_README_ENTRY, } from "../resources-manifest.js";
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom init';
@@ -80,11 +79,11 @@ function initWorkloomInternal(root, params) {
         writeFileSync(gitignoreFile, loadSkeletonText(SKELETON_GITIGNORE_ENTRY));
         created.push(join(WORKLOOM_DIR, FILE_NAMES.gitignore));
     }
-    const legacy = detectLegacyTrellis(root);
+    // 旧 .trellis 检测链保留在 locate（command-ops 的 purge 校验消费）；
+    // init 结果不再输出 legacyTrellisRoot（死输出：无消费方，去留裁定归子任务六）。
     return {
         root: target,
         created,
-        legacyTrellisRoot: legacy === null ? null : legacy.root,
     };
 }
 /** @param value 未知异常 @returns 归一化 Error */

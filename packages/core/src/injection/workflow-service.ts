@@ -19,12 +19,11 @@ import { findWorkloomRoot, insideWorkloom } from '../workspace/locate.js'
 import { loadConfig } from '../workspace/config-load.ts'
 import { parseContract } from './workflow-contract.js'
 import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from './breadcrumb.js'
-import { resolveActiveTask } from '../task/active-task.js'
-import { readTask } from '../task/task-store.js'
-import { TASK_MODES } from '../task/task-mode.js'
+import { MODES, readTaskView, resolveActiveTask, toTaskView } from '../task/state-machine.ts'
 
 import type { WorkflowContract, WorkflowStep } from './workflow-contract-types.ts'
-import type { TaskRecordWithPath } from '../task/task-store.d.ts'
+import type { TaskRecordWithPath, TaskStatusValue } from '../task/task-storage.ts'
+import type { TaskModeValue } from '../task/state-machine.ts'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom workflow'
@@ -41,7 +40,7 @@ const CONTRACT_STATUS = Object.freeze({
 })
 
 /** 任务状态 → 契约状态映射（task.json 只有这三种取值，映射即契约域声明）。 */
-const TASK_STATUS_MAP: Readonly<Record<TaskRecordWithPath['status'], string>> = Object.freeze({
+const TASK_STATUS_MAP: Readonly<Record<TaskStatusValue, string>> = Object.freeze({
   planning: CONTRACT_STATUS.PLANNING,
   in_progress: CONTRACT_STATUS.IN_PROGRESS,
   completed: CONTRACT_STATUS.COMPLETED,
@@ -76,8 +75,8 @@ export interface WorkflowProjection {
 
 /** 活跃任务解析结果（内部）：模式决定生效契约，状态决定状态文案。 */
 interface ActiveTaskState {
-  /** 任务模式（读取归一化后只会是 full | light）。 */
-  mode: TaskRecordWithPath['mode']
+  /** 任务模式（兼容读映射后只会是 light | standard | parent）。 */
+  mode: TaskModeValue
   /** 映射进契约 states 的状态。 */
   contractStatus: string
 }
@@ -145,7 +144,7 @@ export function assembleWorkflowProjection(
       ? resolveActiveTaskStateFromRecord(turnTask)
       : resolveActiveTaskState(projectRoot, contextKey)
     const effective =
-      active?.mode === TASK_MODES.LIGHT ? parseLightContract(lightContractText) : main
+      active?.mode === MODES.LIGHT ? parseLightContract(lightContractText) : main
     return [null, { steps: effective.steps, norms: main.norms }]
   } catch (error) {
     return [toError(error), null]
@@ -169,7 +168,7 @@ function assembleBreadcrumbInternal(params: AssembleBreadcrumbParams): string | 
       : resolveActiveTaskState(projectRoot, params.contextKey)
   const contractStatus = active?.contractStatus ?? CONTRACT_STATUS.NO_TASK
   let contract: WorkflowContract
-  if (active?.mode === TASK_MODES.LIGHT) {
+  if (active?.mode === MODES.LIGHT) {
     // 轻量轨不叠加项目 overlay（overlay 的状态校验针对主契约 states）。
     contract = parseLightContract(params.lightContractText)
   } else {
@@ -263,7 +262,7 @@ function resolveActiveTaskState(root: string, contextKey: string): ActiveTaskSta
   const [ptrErr, taskRelPath] = resolveActiveTask(root, contextKey)
   if (ptrErr) throw ptrErr
   if (taskRelPath === null) return null
-  const [taskErr, task] = readTask(root, taskRelPath)
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   if (taskErr || task === null) {
     throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`)
   }
@@ -276,11 +275,13 @@ function resolveActiveTaskState(root: string, contextKey: string): ActiveTaskSta
  * @returns 任务模式与契约状态
  */
 function resolveActiveTaskStateFromRecord(task: TaskRecordWithPath): ActiveTaskState | null {
-  const contractStatus = TASK_STATUS_MAP[task.status]
+  // 兼容读单点：模式与状态经 toTaskView 映射（full→standard、completed→archived 等）。
+  const view = toTaskView(task, task.taskRelPath)
+  const contractStatus = TASK_STATUS_MAP[view.status]
   if (contractStatus === undefined) {
-    throw new Error(`${ERR_PREFIX}: unknown task status: ${task.status}`)
+    throw new Error(`${ERR_PREFIX}: unknown task status: ${view.status}`)
   }
-  return { mode: task.mode, contractStatus }
+  return { mode: view.mode, contractStatus }
 }
 
 /** 把任意异常归一为 Error（内部）。 */

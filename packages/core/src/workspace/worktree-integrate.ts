@@ -17,7 +17,7 @@ import { gitAddCommit } from './git-ops.ts'
 import { gitRevParse, gitWorktreeListSync } from './git-query.ts'
 import { WORKLOOM_DIR } from './locate.js'
 import type { TaskRepoResolution } from './worktree.d.ts'
-import type { TaskRecord } from '../task/task-store.d.ts'
+import type { TaskRecord } from '../task/task-storage.ts'
 
 /** 错误消息前缀（运行时文案英文）。 */
 export const ERR_PREFIX = 'workloom worktree'

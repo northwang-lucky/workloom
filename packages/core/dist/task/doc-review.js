@@ -7,10 +7,11 @@
  * - align review 只读：按 target 返回 PRD 或 PLAN 的内容快照、结构诊断与现有
  *   确认记录（零写盘）；不完整的草稿照样可读，就绪与否由 readyToConfirm 表达；
  * - align confirm 同步全链路：内容 blocker（prd-structure 单一解析器）聚合拒绝
- *   → summary 非空 → 只经 task-store 的窄写口原子落盘（PRD 用
- *   recordAlignmentCredential，PLAN 用 recordPlanConfirmation）；确认记录只含
- *   passedAt 与 summary，无哈希，每次确认都刷新为最近一次；
- * - PLAN 确认要求 PRD 已有确认记录（顺序前置在窄写口硬校验，R3）；
+ *   → summary（人工确认必填；semi/auto 的 PLAN 与 auto 的 PRD 自动记录）→
+ *   只经 state-machine 的确认迁移窄写口原子落盘（confirmPrd / confirmPlan）；
+ *   确认记录含 passedAt/summary/source/autonomy，无哈希，每次确认刷新为最近一次；
+ * - PLAN 确认要求 PRD 已有确认记录且 planReview 轨道 clean（守卫在状态机硬校验，
+ *   与 autonomy 无关）；
  * - case review 只读：CASE 由主会话对照 PRD、PLAN 与实际代码复核；复核满意后
  *   直接续接同一 designSession 执行，不写任何复核凭证；
  * - cwd/root/task 解析与 task-ops 同款（requireWorkloomCwd + resolveTaskRelPath +
@@ -20,13 +21,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CASE_FILES, inspectCaseStructure } from "./case-structure.js";
 import { listCaseChangedFiles } from "./case-scope.js";
-import { inspectPlanStructure } from './task-gates.js';
-import { PRD_MISSING, inspectPrdStructure } from "./prd-structure.js";
+import { PRD_MISSING, inspectPlanDoc, inspectPrdStructure } from "./prd-structure.js";
 import { findWorkloomRoot, insideWorkloom } from '../workspace/locate.js';
-import { findArchivedTaskPath, readTask, recordAlignmentCredential, recordPlanConfirmation } from './task-store.js';
+import { findArchivedTaskPath } from "./task-storage.js";
+import { AUTONOMY, confirmPlan, confirmPrd, readTaskView } from "./state-machine.js";
 import { ERR_PREFIX } from "../injection/surface.js";
 import { requireWorkloomCwd, resolveTaskRelPath } from "./task-ops.js";
-/** task 目录内 prd/plan 文件名（与 task-store 数据布局一致）。 */
+/** task 目录内 prd/plan 文件名（与 task-storage 数据布局一致）。 */
 const PRD_FILE = 'prd.md';
 const PLAN_FILE = 'plan.md';
 /** confirm 聚合内容 blocker 的消息标题（失败仍只抛一个 Error）。 */
@@ -64,7 +65,7 @@ export function executeTaskCase(cwd, contextKey, params) {
         }
         const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool);
         const root = requireProjectRoot(cwd);
-        const [taskErr, task] = readTask(root, taskRelPath);
+        const [taskErr, task] = readTaskView(root, taskRelPath);
         if (taskErr !== null || task === null) {
             throw taskErr ?? new Error(`${ERR_PREFIX.taskTool}: read returned no task: ${taskRelPath}`);
         }
@@ -82,7 +83,7 @@ function executeAlignInternal(cwd, contextKey, params) {
     const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool);
     const root = requireProjectRoot(cwd);
     // 任务记录：确认记录与状态来自 task.json 归一化读取（门禁对旧数据安全）。
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr !== null || task === null) {
         throw taskErr ?? new Error(`${ERR_PREFIX.taskTool}: read returned no task: ${taskRelPath}`);
     }
@@ -92,8 +93,8 @@ function executeAlignInternal(cwd, contextKey, params) {
         return reviewAlign(root, taskRelPath, task, target);
     }
     return target === 'plan'
-        ? confirmPlanAlign(root, taskRelPath, params)
-        : confirmPrdAlign(root, taskRelPath, params);
+        ? confirmPlanAlign(root, taskRelPath, params, task)
+        : confirmPrdAlign(root, taskRelPath, params, task);
 }
 /**
  * align review 编排：读确认对象文档（缺失以结构问题表达，不报错——模型据此判断
@@ -106,7 +107,7 @@ function reviewAlign(root, taskRelPath, task, target) {
     const structureIssues = target === 'plan'
         ? prd === null
             ? inspectPrdStructure(prd)
-            : inspectPlanStructure(plan, prd)
+            : inspectPlanDoc(plan, prd)
         : inspectPrdStructure(prd);
     return {
         action: 'review',
@@ -126,7 +127,7 @@ function reviewAlign(root, taskRelPath, task, target) {
  * PRD confirm 编排：前置校验全部通过才写确认记录（失败零写入）。
  * 校验顺序固定：prd 内容 blocker（分类器聚合）→ summary 非空 → 窄写口原子落盘。
  */
-function confirmPrdAlign(root, taskRelPath, params) {
+function confirmPrdAlign(root, taskRelPath, params, view) {
     const prd = readTaskDocument(root, taskRelPath, PRD_FILE);
     if (prd === null) {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_MISSING}`);
@@ -137,8 +138,10 @@ function confirmPrdAlign(root, taskRelPath, params) {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_BLOCKERS_PREFIX}\n` +
             blockers.map((blocker) => `- ${blocker}`).join('\n'));
     }
-    const summary = requireConfirmSummary(params);
-    const [err, saved] = recordAlignmentCredential(root, taskRelPath, { summary });
+    // autonomy=auto 自动记录（summary 由状态机注明自动来源）；manual/semi 的 PRD
+    // 确认保持人工，summary 必填非空。
+    const entry = view.autonomy === AUTONOMY.AUTO ? {} : { summary: requireConfirmSummary(params) };
+    const [err, saved] = confirmPrd(root, taskRelPath, entry);
     if (err !== null || saved === null || saved.alignment === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: confirm returned no result`);
     }
@@ -154,20 +157,22 @@ function confirmPrdAlign(root, taskRelPath, params) {
  * PLAN confirm 编排：PLAN 结构校验通过 + summary 非空后写 PLAN 确认记录。
  * 「PRD 已确认」的顺序前置在窄写口硬校验（拒绝时指引先确认 PRD）。
  */
-function confirmPlanAlign(root, taskRelPath, params) {
+function confirmPlanAlign(root, taskRelPath, params, view) {
     const prd = readTaskDocument(root, taskRelPath, PRD_FILE);
     if (prd === null) {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PRD_MISSING}`);
     }
     const plan = readTaskDocument(root, taskRelPath, PLAN_FILE);
     // PLAN 缺失或结构不完整时一次返回全部结构问题（仍只抛一个 Error）。
-    const blockers = inspectPlanStructure(plan, prd).map((issue) => issue.message);
+    const blockers = inspectPlanDoc(plan, prd).map((issue) => issue.message);
     if (blockers.length > 0) {
         throw new Error(`${ERR_PREFIX.taskTool}: confirm rejected: ${PLAN_BLOCKERS_PREFIX}\n` +
             blockers.map((blocker) => `- ${blocker}`).join('\n'));
     }
-    const summary = requireConfirmSummary(params);
-    const [err, saved] = recordPlanConfirmation(root, taskRelPath, { summary });
+    // autonomy=semi/auto 的 PLAN 确认自动记录（Judger 评审轨道与 autonomy 无关，
+    // plan-review-clean 守卫在状态机内硬拦）；manual 保持人工，summary 必填非空。
+    const entry = view.autonomy === AUTONOMY.MANUAL ? { summary: requireConfirmSummary(params) } : {};
+    const [err, saved] = confirmPlan(root, taskRelPath, entry);
     if (err !== null || saved === null || saved.planConfirmation === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: confirm returned no result`);
     }

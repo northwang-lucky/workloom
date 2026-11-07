@@ -13,7 +13,7 @@
  * - 任务解析失败（结构性故障）向上抛错由入口的元组契约表达；指针缺失按
  *   无活跃任务处理（正常态）。
  */
-import type { TaskRecordWithPath } from '../task/task-store.d.ts';
+import type { TaskView } from '../task/state-machine.ts';
 export { composeLocalDirectivesText } from './local-prompts.ts';
 /**
  * 解析当前回合的活跃任务记录（每轮恰好一次）：指针缺失返回 null（无活跃任务，
@@ -22,4 +22,4 @@ export { composeLocalDirectivesText } from './local-prompts.ts';
  * @param contextKey runtime 会话标识
  * @returns 任务记录或 null
  */
-export declare function resolveTurnTask(root: string, contextKey: string): TaskRecordWithPath | null;
+export declare function resolveTurnTask(root: string, contextKey: string): TaskView | null;

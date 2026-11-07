@@ -3,10 +3,9 @@
  *
  * 设计意图：
  * - implement/check.jsonl 的行解析语义收敛为单一模块：空行跳过、seed _example 行
- *   豁免、坏行/无 file 非 seed 行 fail loud；executor-context 的指针物化与
- *   task-gates 的有效记录计数消费同一实现，不再复制解析规则；
- * - 从 executor-context 外移，消除 task-store → task-gates → executor-context →
- *   task-store 的循环 import；
+ *   豁免、坏行/无 file 非 seed 行 fail loud；指针物化与状态机守卫的有效记录
+ *   计数消费同一实现，不再复制解析规则；
+ * - 独立成共享解析层模块，任务层与注入层共用且互不依赖；
  * - 物化（jsonlPointerLines）只做两件 IO：读 jsonl 文件与逐条 existence 检查；
  *   越界路径（防逃逸）与缺失文件跳过，指针不指向空；
  * - 纯同步；除物化的两个只读 IO 外无副作用。
@@ -29,7 +28,7 @@ export interface JsonlEntry {
 const ERR_PREFIX = 'workloom executor context'
 
 /**
- * 解析 jsonl 全文为有效条目列表（executor-context 指针物化与 task-gates 计数共用）。
+ * 解析 jsonl 全文为有效条目列表（指针物化与状态机守卫的有效记录计数共用）。
  * 空行跳过；seed _example 行跳过；坏行/无 file 非 seed 行抛错（fail loud）。
  * @param content jsonl 全文
  * @param jsonlName jsonl 文件名（错误消息用）

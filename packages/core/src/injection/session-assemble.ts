@@ -14,9 +14,8 @@
  *   无活跃任务处理（正常态）。
  */
 
-import { resolveActiveTask } from '../task/active-task.js'
-import { readTask } from '../task/task-store.js'
-import type { TaskRecordWithPath } from '../task/task-store.d.ts'
+import { readTaskView, resolveActiveTask } from '../task/state-machine.ts'
+import type { TaskView } from '../task/state-machine.ts'
 import { ERR_PREFIX } from './surface.ts'
 
 export { composeLocalDirectivesText } from './local-prompts.ts'
@@ -28,11 +27,11 @@ export { composeLocalDirectivesText } from './local-prompts.ts'
  * @param contextKey runtime 会话标识
  * @returns 任务记录或 null
  */
-export function resolveTurnTask(root: string, contextKey: string): TaskRecordWithPath | null {
+export function resolveTurnTask(root: string, contextKey: string): TaskView | null {
   const [ptrErr, taskRelPath] = resolveActiveTask(root, contextKey)
   if (ptrErr) throw ptrErr
   if (taskRelPath === null) return null
-  const [taskErr, task] = readTask(root, taskRelPath)
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   if (taskErr || task === null) {
     throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`)
   }

@@ -8,6 +8,11 @@ export type DocumentMeta = Record<string, unknown>;
 export interface TaskCaseRecord {
     required: boolean;
     designSession: string | null;
+    /**
+     * CASE 轨道阶段（state-machine 的 CASE_PHASES 值域；写入口为 recordCasePhase，
+     * 旧记录缺字段读作 none）。存储层保持字符串原值，值域解释归兼容读单点。
+     */
+    phase?: string;
 }
 /** CASE 结构问题（稳定 code + 英文文案）。 */
 export interface CaseStructureIssue {

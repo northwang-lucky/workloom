@@ -7,7 +7,6 @@ import { join } from 'node:path'
 
 import {
   CASE_FILES,
-  CASE_PURPOSES,
   createCaseRecord,
   inspectCaseStructure,
 } from '../src/task/case-structure.ts'
@@ -15,8 +14,9 @@ import {
   evaluateCaseExecutionGate,
   evaluateCaseOutcomeGate,
 } from '../src/task/case-gates.ts'
-import { evaluateStartGate, inspectPlanStructure } from '../src/task/task-gates.js'
-import { archiveTask, checkTask, computeTaskStage, readTask } from '../src/task/task-store.js'
+import { inspectPlanDoc } from '../src/task/prd-structure.ts'
+import { archiveTask, checkTask } from '../src/task/task-ops.ts'
+import { evaluateGuard, readTaskView, toTaskView } from '../src/task/state-machine.ts'
 import { executeTaskCase } from '../src/task/doc-review.ts'
 
 const REL = 'tasks/demo'
@@ -308,9 +308,9 @@ test('CASE/PLAN 深度结构校验接受有效材料并聚合缺漏', () => {
     [],
   )
   const plan = `# Plan\n\n## Steps\n\n#### 步骤 1.1 test\n\n- Covers: AC1, AC2\n- Target: src/a.js\n- Edit:\n  Input: adjust src/a.js behavior.\n  Output: function returns updated result.\n  Preconditions: none\n  Procedure: edit the guarded branch per anchors.\n  Failure: none\n- Verify: node --test\n`
-  assert.deepEqual(inspectPlanStructure(plan, PRD), [])
-  assert.equal(inspectPlanStructure(null, PRD)[0].code, 'plan_missing')
-  assert.ok(inspectPlanStructure(plan.replace('AC2', ''), PRD).some((item) => item.code === 'plan_ac_missing'))
+  assert.deepEqual(inspectPlanDoc(plan, PRD), [])
+  assert.equal(inspectPlanDoc(null, PRD)[0].code, 'plan_missing')
+  assert.ok(inspectPlanDoc(plan.replace('AC2', ''), PRD).some((item) => item.code === 'plan_ac_missing'))
 })
 
 test('start 门要求完整实施任务 PLAN，父任务豁免', () => {
@@ -326,14 +326,23 @@ test('start 门要求完整实施任务 PLAN，父任务豁免', () => {
       children: [],
       alignment: { passedAt: '2026-01-01T00:00:00.000Z', summary: 'prd confirmed' },
     }
-    assert.ok(evaluateStartGate(root, REL, task).includes('plan.md is missing'))
-    assert.ok(!evaluateStartGate(root, REL, { ...task, children: ['tasks/child'] }).includes('plan.md is missing'))
+    // start-ready 守卫（收编旧 start 门禁的结构与 jsonl 段）：完整实施任务
+    // 必须有 PLAN；容器任务（children 非空）豁免 PLAN 结构检查。
+    const ctx = { root, taskRelPath: REL }
+    const [, reason] = evaluateGuard('start-ready', toTaskView(task, REL), ctx)
+    assert.ok(reason !== null && reason.includes('plan.md is missing'))
+    const [, containerReason] = evaluateGuard(
+      'start-ready',
+      toTaskView({ ...task, children: ['tasks/child'] }, REL),
+      ctx,
+    )
+    assert.ok(containerReason === null || !containerReason.includes('plan.md is missing'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('CASE 执行前置只要求 case.md 与 designSession，purpose stage 保持', () => {
+test('CASE 执行前置只要求 case.md 与 designSession', () => {
   const { root, taskDir } = makeRoot()
   try {
     const caseContent = validCase()
@@ -350,9 +359,6 @@ test('CASE 执行前置只要求 case.md 与 designSession，purpose stage 保�
     // case.md 缺失仍拒绝
     rmSync(join(taskDir, CASE_FILES.document))
     assert.deepEqual(evaluateCaseExecutionGate(root, REL, task), ['case.md is missing'])
-    assert.equal(computeTaskStage('implement', 'check', CASE_PURPOSES.DESIGN), 'implement')
-    assert.equal(computeTaskStage('implement', 'check', CASE_PURPOSES.EXECUTION), 'check')
-    assert.equal(computeTaskStage('implement', 'check'), 'check')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -453,7 +459,7 @@ test('archive 同样拒绝核心 CASE 问题且不移动任务目录', async () 
       reason: 'test',
     })
     assert.ok(err)
-    assert.match(err.message, /CASE archive gate failed/)
+    assert.match(err.message, /transition rejected/)
     assert.equal(readFileSync(join(taskDir, 'task.json'), 'utf8'), before)
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -488,7 +494,7 @@ test('service 只支持 review：返回内容、结构诊断、会话链与就�
     writeFileSync(join(taskDir, CASE_FILES.document), `${caseContent}\n`)
     const [, changed] = executeTaskCase(root, 'unused', { action: 'review', taskPath: REL })
     assert.equal(changed.readyForExecution, true)
-    const [, saved] = readTask(root, REL)
+    const [, saved] = readTaskView(root, REL)
     assert.deepEqual(evaluateCaseExecutionGate(root, REL, saved), [])
     // task.json 未写入任何确认凭证
     assert.equal('confirmedAt' in saved.case, false)

@@ -21,7 +21,7 @@
  */
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SubagentDescendantListEntry } from '@deepseek-ai/dsh-subagent'
-import { evaluateExecutorCapacity, formatAtCapacityReceipt, readTask } from '@workloom-ai/core'
+import { evaluateExecutorCapacity, formatAtCapacityReceipt, readTaskView } from '@workloom-ai/core'
 import type { RunningExecutorRecord } from '@workloom-ai/core'
 
 import { KIND_LABELS } from './executor-injection.ts'
@@ -133,7 +133,7 @@ export async function collectRunningExecutors(
 ): Promise<RunningExecutorRecord[]> {
   const entries = await service.listDescendants(parent.id, signal)
   // childId → kind：优先本任务 dispatches 记录（workloom 派发留痕，权威来源）。
-  const [taskErr, task] = readTask(root, taskRelPath)
+  const [taskErr, task] = readTaskView(root, taskRelPath)
   const kindByChildId = new Map<string, string>()
   if (taskErr === null && task !== null) {
     for (const d of task.dispatches ?? []) {

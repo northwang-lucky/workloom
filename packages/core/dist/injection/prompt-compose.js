@@ -25,11 +25,10 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { insideWorkloom, WORKLOOM_DIR } from '../workspace/locate.js';
 import { loadConfig } from "../workspace/config-load.js";
-import { readTask } from '../task/task-store.js';
+import { evaluateGuard, readTaskView } from "../task/state-machine.js";
 import { CASE_FILES, CASE_PURPOSES } from "../task/case-structure.js";
-import { evaluateCaseExecutionGate } from "../task/case-gates.js";
-// kind 值域与 jsonl 解析的单一实现外移（过渡栖身地：消除与 task-store/task-gates
-// 的循环 import）；相对导入带 .ts 后缀，构建期重写为 .js。
+// kind 值域与 jsonl 解析的单一实现外移（纯常量与共享解析层，任务层与注入层
+// 共用）；相对导入带 .ts 后缀，构建期重写为 .js。
 import { EXECUTOR_KINDS } from "../dispatch/executor-kinds.js";
 import { jsonlPointerLines } from "../task/jsonl.js";
 /** effort 合法档位（低 → 高）。 */
@@ -251,18 +250,36 @@ function buildInternal(params) {
  * @returns {string} 发送给原会话的增量指令
  */
 export function buildExecutorIncrementalPrompt(params) {
-    const [taskErr, task] = readTask(params.root, params.taskRelPath);
+    const [taskErr, task] = readTaskView(params.root, params.taskRelPath);
     if (taskErr !== null || task === null)
         throw taskErr ?? new Error('executor task not found');
     if (params.kind !== EXECUTOR_KINDS.check)
         return params.userPrompt;
     const purpose = params.purpose ?? CASE_PURPOSES.EXECUTION;
     if (purpose === CASE_PURPOSES.EXECUTION) {
-        const missing = evaluateCaseExecutionGate(params.root, params.taskRelPath, task);
-        if (missing.length > 0)
-            throw new Error(`CASE execution rejected: ${missing.join('; ')}`);
+        assertCheckDispatchGuards(params.root, params.taskRelPath, task);
     }
     return params.userPrompt;
+}
+/**
+ * check 派发入口的状态机守卫查询（execution 轮专用）：case-execution-ready
+ * （CASE 文档与设计会话链可用，拒绝文案保持 CASE execution rejected 前缀）与
+ * ui-dispatch-ready（涉及前端展示的任务须先有 frontend 派发；本任务不接
+ * executor，查询点即本派发入口，子任务四按角色重接）。
+ * @param root 项目根
+ * @param taskRelPath 任务目录相对 .workloom 的路径
+ * @param task 任务视图
+ */
+function assertCheckDispatchGuards(root, taskRelPath, task) {
+    const ctx = { root, taskRelPath };
+    const [caseErr, caseReason] = evaluateGuard('case-execution-ready', task, ctx);
+    if (caseErr !== null) {
+        throw new Error(`CASE execution rejected: ${caseReason ?? caseErr.message}`);
+    }
+    const [uiErr, uiReason] = evaluateGuard('ui-dispatch-ready', task, ctx);
+    if (uiErr !== null) {
+        throw new Error(`check dispatch rejected: ${uiReason ?? uiErr.message}`);
+    }
 }
 /**
  * 内联当前 CASE 全文（内部，仅 check）：紧跟 prd 块。execution 轮先校验执行
@@ -278,16 +295,14 @@ export function buildExecutorIncrementalPrompt(params) {
 function inlineCurrentCase(parts, params, taskDir, ci, stats) {
     if (params.kind !== EXECUTOR_KINDS.check)
         return;
-    const [taskErr, task] = readTask(params.root, params.taskRelPath);
+    const [taskErr, task] = readTaskView(params.root, params.taskRelPath);
     // 任务记录缺失/损坏静默降级（与 worktree 段同口径：prompt 组装对坏记录宽容，
     // S2 零 diff 用例钉死该不变量）；记录可读时 execution 轮才做执行前置校验（fail loud）。
     if (taskErr !== null || task === null)
         return;
     const purpose = params.purpose ?? CASE_PURPOSES.EXECUTION;
     if (purpose === CASE_PURPOSES.EXECUTION) {
-        const missing = evaluateCaseExecutionGate(params.root, params.taskRelPath, task);
-        if (missing.length > 0)
-            throw new Error(`CASE execution rejected: ${missing.join('; ')}`);
+        assertCheckDispatchGuards(params.root, params.taskRelPath, task);
     }
     const path = join(taskDir, CASE_FILES.document);
     const text = readTaskFile(path);
@@ -326,7 +341,7 @@ function inlineCaseTemplates(parts, params, stats) {
  * @returns {string | null} 段文本（不注入为 null）
  */
 function buildWorktreeSection(root, taskRelPath) {
-    const [taskErr, task] = readTask(root, taskRelPath);
+    const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr || task === null)
         return null;
     const worktreePath = task.worktree_path;

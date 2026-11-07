@@ -2398,7 +2398,7 @@ test('旧凭据遗留 prdHash 字段不驱动任何派发行为', async () => {
   }
 })
 
-// ---------- 轻量任务派发拒绝（light task mode） ----------
+// ---------- 派发门禁收敛状态机守卫（light-dispatch，经 evaluateGuard 查询） ----------
 
 /** 把测试任务改成 light 模式（其余字段保留最小形状）。 */
 function writeLightTask(root) {
