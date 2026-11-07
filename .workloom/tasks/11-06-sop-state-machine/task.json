@@ -25,11 +25,65 @@
   "meta": {},
   "check": null,
   "case": null,
-  "alignment": null,
+  "alignment": {
+    "passedAt": "2026-11-07T02:01:29.242Z",
+    "summary": "子任务三 prd 经用户补充确认后刷新：新增 Scope 10 与 R10、AC8，planReview 轨道（none、reviewing、revising、clean）与 plan 确认守卫 plan-review-clean 入范围，Judger 评审在任何 autonomy 值下不跳过；非目标补 Judger 派发绑定归子任务四；对齐决定补 planReview 独立轨道建模与 Judger 一等公民澄清（2026-11-07 用户提出）；其余范围与验收不变。"
+  },
   "planConfirmation": null,
   "overrides": [],
   "stage": "implement",
-  "dispatches": [],
+  "dispatches": [
+    {
+      "kind": "review",
+      "at": "2026-11-07T01:56:49.784Z",
+      "title": "评审子任务三 PLAN",
+      "status": "completed",
+      "childId": "fc716e26-6fd4-49f9-afb9-db0ad83fd261",
+      "model": "qwen-token-plan-cn/qwen3.8-max",
+      "modelSource": "inherit",
+      "toolsAllow": [
+        "read",
+        "write",
+        "edit",
+        "bash",
+        "glob",
+        "grep",
+        "read_image",
+        "todo_write",
+        "job_output",
+        "job_list",
+        "job_kill",
+        "web_search",
+        "web_fetch",
+        "skill"
+      ]
+    },
+    {
+      "kind": "review",
+      "at": "2026-11-07T01:56:49.812Z",
+      "title": "追溯评审子任务一二代码",
+      "status": "completed",
+      "childId": "79d8459b-9dc5-452f-b33f-2059442a1939",
+      "model": "qwen-token-plan-cn/qwen3.8-max",
+      "modelSource": "inherit",
+      "toolsAllow": [
+        "read",
+        "write",
+        "edit",
+        "bash",
+        "glob",
+        "grep",
+        "read_image",
+        "todo_write",
+        "job_output",
+        "job_list",
+        "job_kill",
+        "web_search",
+        "web_fetch",
+        "skill"
+      ]
+    }
+  ],
   "hooks": {
     "after_create": [],
     "after_start": [],

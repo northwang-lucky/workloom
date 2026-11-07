@@ -2,7 +2,7 @@
   "name": "workloom",
   "version": "0.0.0",
   "private": true,
-  "description": "把 AI 编码工作流抽象为 runtime 无关的 core/assets，经 adapter 插件分发到各 runtime",
+  "description": "workloom-sop：core 与 dsh-workloom 两包，以 DeepSeek Harness 插件形态提供需求交付能力",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -22,6 +22,6 @@
     "typescript-eslint": "^8.67.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18.0"
   }
 }

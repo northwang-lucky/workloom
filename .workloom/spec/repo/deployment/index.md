@@ -1,11 +1,11 @@
-# repo/deployment standards
+# repo/deployment 规范
 
-Deploying this repo's build artifacts into the DSH web profile.
+把本仓库构建产物部署进 DSH web profile。
 
-- install shape: the production profile (`~/.dsh/profiles/web`) depends on `github:northwang-lucky/workloom#path:packages/adapter-dsh`; pnpm-lock pins the commit, and the loop below follows that source shape
-- dist committed: `packages/core/dist/` and `packages/adapter-dsh/dist/` are tracked (gitignore negation) so `github:…#path:` subdirectory installs work without a build step; every src change must rebuild and commit dist in the same commit — a stale dist ships stale behavior to git installs
-- d.ts distribution: core's build runs `scripts/copy-domain-dts.mjs` after tsc and overwrites `dist/domain/*.d.ts` with the handwritten `src/domain/*.d.ts` anchors — the authoritative source for the interfaces `dist/index.d.ts` re-exports (tsc alone emits function signatures only, so anchors missing from dist degrade the package type surface to error types masked by consumer `skipLibCheck`); generated d.ts without a handwritten anchor (e.g. git, breadcrumb) stay tsc output; the copy fails loud when the generated version exports a name the anchor lacks, and `test/dist-dts.test.js` asserts anchor/dist byte equality after every build
-- change loop: edit src → `pnpm -r build` + `pnpm -r typecheck` + the package's `node --test` → commit dist in the same commit → push → run `pnpm update @workloom-ai/adapter-dsh` in the profile directory so the lock repins to the new commit (verified 2026-09-28; replaces the retired `dsh plugin add` reinstall)
-- taking effect: adapter-dsh is a host-side bundle read at host boot, so every change needs an instance restart; restart via `dsh-stop --only-ui && dsh-start --only-ui`, owned by the user with fresh per-run authorization — the agent never restarts on its own
-- retired paths: the `~/dsh/bin/dsh-sync-workloom` rsync hard-copy and `dsh plugin add` belong to the old flow, and the script no longer exists on this machine; only a hypothetical `file:`-installed profile still needs manual hard-copy sync of `dist/` plus the full `assets/` package, else the next restart fails on missing files
-- counter-example: building a new skill asset, committing neither dist nor a lock repin, and the profile loading a stale asset list after restart
+- install shape: 生产 profile（`~/.dsh/profiles/web`）依赖 `github:northwang-lucky/workloom#path:packages/dsh-workloom`；pnpm-lock 钉提交，下面循环按该源形态。临时说明：容器切换前生产 pin 仍在旧提交的 `packages/adapter-dsh` 路径（容器决定 10），切换时重钉到新路径
+- dist committed: `packages/core/dist/` 与 `packages/dsh-workloom/dist/` 入库（gitignore 例外），使 `github:…#path:` 子目录安装免构建步骤；每次 src 改动必须同 commit 重建并提交 dist——过期 dist 会给 git 安装发过期行为；提交前比对 dist 与 src 文件清单镜像，防已删模块残留
+- d.ts distribution: core 构建在 tsc 后跑 `scripts/copy-domain-dts.mjs`，用手写 src `.d.ts` 锚点（现为 worktree.d.ts、config.d.ts 等过渡锚点）覆盖对应 dist 产物；锚点与 dist 字节相等由 `test/dist-dts.test.ts` 每次构建后断言
+- change loop: 改 src → `pnpm -r build` + `pnpm -r typecheck` + 该包 `node --test` → dist 同 commit 提交 → push → 在 profile 目录跑 `pnpm update @workloom-ai/dsh-workloom` 把锁重钉到新提交
+- taking effect: dsh-workloom 是 host 侧 bundle，启动时读取，每次变更需实例重启；重启经 `dsh-stop --only-ui && dsh-start --only-ui`，用户所有、逐次授权——agent 不自行重启
+- retired paths: `dsh-sync-workloom` rsync 硬拷贝与 `dsh plugin add` 属旧流程，脚本本机已不存在
+- counter-example: 构建新 skill 资源后既不提交 dist 也不重钉锁，profile 重启后加载旧资源清单

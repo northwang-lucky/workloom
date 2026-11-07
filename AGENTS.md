@@ -35,13 +35,13 @@ cd packages/core && pnpm test
 cd packages/dsh-workloom && pnpm test
 ```
 
-## 插件变更流程（adapter-dsh）
+## 插件变更流程（dsh-workloom）
 
-生产 profile 经 `github:northwang-lucky/workloom#path:packages/adapter-dsh` 安装本仓库子目录，pnpm-lock 钉提交。变更循环：
+生产 profile 经 `github:northwang-lucky/workloom#path:packages/dsh-workloom` 安装本仓库子目录，pnpm-lock 钉提交。临时说明：容器切换前生产 pin 仍在旧提交的 `packages/adapter-dsh` 路径（容器决定 10），切换时重钉到新路径。变更循环：
 
 1. 改 src，跑 `pnpm -r build` + `pnpm -r typecheck` + 对应包 `node --test`；
 2. `dist/` 入库：同 commit 重建并提交（git 子目录安装无构建步骤）；
-3. push 后在 profile 目录（`~/.dsh/profiles/web`）`pnpm update @workloom-ai/adapter-dsh` 把锁重钉到新提交；
+3. push 后在 profile 目录（`~/.dsh/profiles/web`）`pnpm update @workloom-ai/dsh-workloom` 把锁重钉到新提交；
 4. 生效：host 侧 bundle 启动时读取，需用户授权后重启实例（`dsh-stop --only-ui && dsh-start --only-ui`），agent 不自行重启。
 
 旧流程 `dsh-sync-workloom` rsync 硬拷贝与 `dsh plugin add` 重装已退役（脚本本机已不存在）。细则见 `.workloom/spec/repo/deployment`。

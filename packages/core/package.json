@@ -1,7 +1,7 @@
 {
   "name": "@workloom-ai/core",
   "version": "0.1.0",
-  "description": "workloom 核心逻辑层：任务生命周期、工作流契约、breadcrumb 组装、journal（与 runtime 无关）",
+  "description": "runtime 无关核心：任务状态机、注入组装、workspace 与 git 能力，含 resources 内容目录",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
