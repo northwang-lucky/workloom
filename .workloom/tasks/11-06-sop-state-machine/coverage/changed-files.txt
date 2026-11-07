@@ -1,0 +1,9 @@
+packages/core/src/index.ts	473/473	100.00%	uncovered: (none)	fromDist=false
+packages/core/src/task/dispatch-records.ts	482/527	91.46%	uncovered: 145-146 202-203 238-239 287-288 316-317 319-320 322-325 328-329 344-345 360-361 363-364 370-371 376-380 384-385 389-390 392-393 422-426 519-521	fromDist=false
+packages/core/src/task/doc-review.ts	401/417	96.16%	uncovered: 184-185 206-207 264-265 279-280 302-303 353-354 392-393 405-406	fromDist=false
+packages/core/src/task/state-machine.ts	1361/1427	95.37%	uncovered: 713-714 930-931 1116-1120 1126-1130 1265-1266 1280-1281 1304-1308 1311-1315 1323-1324 1334-1354 1377-1378 1391-1392 1397-1401 1404-1405 1417-1420	fromDist=false
+packages/core/src/task/task-ops.ts	905/934	96.90%	uncovered: 109-110 225-226 304-305 340-341 429-430 529-539 589-590 833-834 912-913 916-917	fromDist=false
+packages/core/src/task/task-storage.ts	1116/1146	97.38%	uncovered: 362-363 764-765 792-795 940-943 1013-1014 1050-1060 1089-1090 1114-1115 1133	fromDist=false
+packages/core/src/workspace/doctor-check-rules.ts	514/571	90.02%	uncovered: 68-77 336-337 442-455 472-484 502-513 558-560 569-571	fromDist=false
+packages/dsh-workloom/src/dispatch/executor.ts	519/538	96.47%	uncovered: 211-212 215-218 221-224 262-263 295-296 489-493	fromDist=false
+packages/dsh-workloom/src/tooling/tasks.ts	345/417	82.73%	uncovered: 239-242 276-288 291-304 323 334-336 358-359 364-372 375-388 405-416	fromDist=false

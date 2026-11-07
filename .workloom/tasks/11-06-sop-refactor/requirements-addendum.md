@@ -36,6 +36,13 @@
 2. 注入单一解析的实质由 resolveTurnTask 加 dsh 回合缓存实现；session-context 与 workflow-service 保留"未注入缓存记录"回退直读，仅供既有单测直连。
 3. 测试 HOME 加 TMPDIR 隔离成为 core 测试惯例（全局层配置残留字段会污染未隔离测试），后续子任务新增测试沿用。
 
+## 子任务三实现裁定记录（2026-11-07，implement 回报）
+
+1. 步骤 4 的旧审计名 grep 用无词边界模式误报新名 LIGHT_DISPATCH_REJECT_TEXT 子串；词边界复核旧名零命中，check 阶段按词边界口径验收。
+2. state-machine.ts 1427 行与 task-storage.ts 1197 行超 600 行风格线：迁移表、守卫与入口需同单元评审，拆分计划留子任务四（角色与 kind 切换时顺带），本任务接受现状。
+3. plan 留白处的实现裁定全部接受：三模式补归档出口边（保留任意在档阶段可归档的逃生语义）；planning 到 implementing 守卫拆 prd-confirmed 加 plan-confirmed 加 start-ready 三键（合力等价旧 evaluateStartGate）；ui-dispatch-ready 同时挂 check 派发入口与 checking 迁移边（不放宽旧语义）；执行结算置 done 以 case-result status passed 为条件；force 恒校验非空 reason；视图 status 由 stage 反推保证归档态双字段一致。
+4. 提交由主会话执行（executor 契约禁止 commit），工作 commit 落任务分支。
+
 ## 交互约定（2026-11-06，用户提出）
 
 确认文档内容时不直接输出全文：改为结构化摘要加文件链接与关键差异点，全文以任务目录文件为准。
@@ -49,3 +56,21 @@
 ## Judger 一等公民澄清（2026-11-07，用户提出）
 
 Judger 与其他四角色同为一等公民，功能明确落地：子任务三落 planReview 轨道（none、reviewing、revising、clean）、记录入口与 plan 确认守卫（plan-review-clean，与 autonomy 无关）；子任务四落 Judger 角色派发绑定与评审会话编排。重构流程自身自本日起 dogfood 该口径：plan 交用户确认前先经 Judger 评审轮并修到零意见。
+
+## 追溯评审意见路由（2026-11-07，会话 79d8459b，报告 retro-review.md）
+
+1. init --purge 文案与行为矛盾：文案对齐与 legacyTrellisRoot 死输出归子任务三步骤 5；整条 trellis 链去留裁定归子任务六。
+2. 注入用 spec 失实：已以 chore commit 25ad2fc 修正 architecture 一族与 verify.md。
+3. 生产安装流程文档失效：已以 25ad2fc 修正 AGENTS.md 与 deployment spec，旧 pin 路径留临时说明。
+4. dist 同 commit 纪律无守卫：dist 镜像守卫测试归子任务三步骤 8；纪律条目约束子任务三至七。
+5. resolveTurnTask 零测试与回退通道：归子任务四收编时补直测并删回退。
+6. failover.js 死导出：归子任务四随单次重试迁移 dsh。
+7. dispatch-binding.js 未迁与过期注释：归子任务四。
+8. NATIVE_TOOLS_DSH 驻 core：归子任务四评估移 dsh、清单参数化。
+9. prompt-compose.ts 超 600 行：归子任务四顺带拆分。
+10. package.json 与 pnpm-workspace 元数据：已以 25ad2fc 修正。
+11. README 状态行失实：归子任务七（首段已登记）。
+12. 四个 spec 小项与 research-facts 模板未登记：spec 口径归子任务七；manifest 登记归子任务三步骤 5。
+13. journal 文案窗口期全站点清单：归子任务七一次清完。
+14. 六处过期注释：子任务三三处（index.ts 头、task-ops errPrefix、dist-dts 注释）、子任务四两处（constants.ts、cordis.patch.yml）、子任务五一处（worktree.d.ts）。
+15. 本地 packages/adapter-dsh 死目录：主会话已删。
