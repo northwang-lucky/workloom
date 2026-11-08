@@ -21,7 +21,8 @@
     "tasks/11-06-sop-roles",
     "tasks/11-06-sop-parent-child",
     "tasks/11-06-sop-migrate-skill",
-    "tasks/11-06-sop-docs-skills"
+    "tasks/11-06-sop-docs-skills",
+    "tasks/11-08-rotate-on-busy"
   ],
   "subtasks": [],
   "scope": "",

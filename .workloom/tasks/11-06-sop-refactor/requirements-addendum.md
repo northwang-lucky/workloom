@@ -74,3 +74,23 @@ Judger 与其他四角色同为一等公民，功能明确落地：子任务三�
 13. journal 文案窗口期全站点清单：归子任务七一次清完。
 14. 六处过期注释：子任务三三处（index.ts 头、task-ops errPrefix、dist-dts 注释）、子任务四两处（constants.ts、cordis.patch.yml）、子任务五一处（worktree.d.ts）。
 15. 本地 packages/adapter-dsh 死目录：主会话已删。
+
+## 全局配置事故记录（2026-11-06 23:11 发生，2026-11-08 排查定性）
+
+事故：子任务二 implement 执行器（会话 21b7e467）于 11-06 23:11:00 在 worktree 跑 core 全量测试（当时 82 个失败），其中尚未生效隔离的测试（worktree-lifecycle、migrate、command-ops、spec-templates 等）以真实 $HOME 为项目根执行：init 骨架补齐写入 ~/.workloom/{.gitignore,spec/.templates/,.runtime/worktrees}；migrate 测试夹具在 $HOME 造 .trellis 后触发迁移，把 ~/.workloom/config.json（2082 字节，含五角色 subagent_profiles 全配置）覆盖为夹具产物（59 字节，仅 prompt_injection.skip_keyword），并写 ~/.workloom/migrated/trellis-workflow.md。证据链：全局 .gitignore 与仓库 skeleton/gitignore 逐字一致；测试失败文案含 "workloom init: .workloom already exists at /data00/home/wangyubo.1219"（worktree-lifecycle.test:310）；config.json/spec 模板/migrated 产物 mtime 同分钟；~/.trellis 现已不存在（夹具自清理）。时间线：22:29 执行器发现真实全局配置泄漏进测试（rotate_on_busy unknown field），23:10 给 11+1 个测试文件打 HOME 隔离补丁（部分未生效），23:11:00 全量测试触发本事故；HOME+TMPDIR 隔离惯例即此事故后确立（增补记录"子任务二实现遗留观察"第 3 条）。
+
+配置恢复依据（时间序）：10-30 00:52 会话 1a492f86 全文 read（74 行）+ 同会话 edit 加 review 条目；10-30 17:49 最后一次修改（review 改 kimi-coding/kimi-for-coding、fallback 改 deepseek-flash、键序前移，疑似用户手改，无会话记录）；11-03 21:39 会话 9731e696 cat 转储（日志截断，前 40 行含 research/review 全文与 implement 头部，ls 显示 2082 字节、mtime 10-30 17:49）；11-06 23:06 交接会话画像渲染（五角色 model/effort/tools 全量）。frontend 与 check 的 fallback 链取 10-30 全文读版本，标注为高置信推断。
+
+防复发与切换前置项：新代码侧 migrate.js 已删（子任务二）、测试隔离已成惯例、子任务四 CASE 探针全部隔离，仓库侧不复发；但生产旧 pin（1dc46f7）仍带 migrate.js——切换新 pin 前，禁止在无 .workloom 的目录运行 init/migrate 类命令或探针。
+
+处置记录（2026-11-08，用户裁定"全按推荐"）：①全局配置已按事发前终态原样写回（五角色 subagent_profiles 含 rotate_on_busy 与 fallback_models，2318 字节；画像渲染与事发前 11-06 23:06 逐项一致，trellis 夹具残留的 prompt_injection 节去除；原 59 字节残留备份于 /tmp/config-incident-59bytes-backup.json）。②事故产物整体隔离至 /tmp/workloom-incident-quarantine-20261108/（.gitignore、migrated/、.runtime/、spec/、tasks/、workspace/ 六项）——依据 11-03 会话转储的 ls（当时 ~/.workloom 仅 config.json 与 prompts/），此六项全部为 23:11 事故写入的夹具与骨架，无用户历史数据；prompts/（9 月）保留。③用户新裁定（2026-11-08）：rotate_on_busy 在新版也必须支持——推翻子任务二"轮换随转移链删除"的改判与子任务四 Q8 的"'rotate' 惰性"建议；承载位置已定：子任务八 tasks/11-08-rotate-on-busy（用户选 A，子任务四归档后执行、排序在子任务五之前、生产 pin 切换前必须归档），旧 executor-rotation.js 语义（62332be 删除，git 历史可取）与 'rotate' 模型来源值为承载任务输入。④pin 切换前置修正：rotate_on_busy 不再要求删除，改为切换前确认其支持已落地归档；subagent_profiles 内层键由旧 kind 名改新 role 名仍是硬前置（不改则加载 WARNING 且配置不命中）；条目内层字段 subagents 须改 roles（用户 2026-11-08 裁定字段改名，子任务四步骤 8 落地，新代码对旧字段名抛迁移错误，不改则切换后加载即拒）。trellis 链去留裁定（子任务六）以本事故为输入。
+
+## 子任务四实现与检查遗留观察（2026-11-08，implement/check 回报）
+
+1. 执行器操作纪律教训：实施续作轮一次因超大 bash 内联文本导致工具参数 JSON 损坏、会话中断（无代码损伤，续接恢复）。长任务派发单已固化纪律：大文件一律 write/edit 落盘、bash 只跑短命令。
+2. case.md 两处措辞缺陷（C7 的 clean 标记缺 revising→reviewing 中间边、C8 空正文口径与子任务三钉住语义不符）：执行轮按冻结边表与钉住测试语义执行并登记 Resolved Findings。CASE 设计纪律输入：设计探针步骤前先核对状态机合法边表与既有钉住测试。
+3. 测试隔离脆弱面：dsh 的 commands/skills/plugin/dist-mirror 四测试文件仍无 HOME+TMPDIR 隔离块（本任务已给 case-executor/inject/tasks/case 四文件补齐；commands.test 因 doctor 按 issue 报告配置错误而天然耐受）。建议后续簿记轮统一补齐，登记于 notes-stale-comments.md 第四节。
+4. 工具观察：task-fingerprint.mjs 对 282 路径 staged diff 超 spawnSync 缓冲上限报 ENOBUFS，执行轮按其算法以 python 流式等价复算；work commit 落定后自然消失。
+5. evals.json:15 旧角色名词归子任务七（notes-stale-comments.md 第六节）。
+6. 子任务八输入确认：旧 executor-rotation.js 与 executor.ts 轮换段可从 git 历史 62332be^ 取；'rotate' 模型来源值与 fallback_models 解析面已在子任务四保留且恢复消费（单次重试一跳），轮换恢复只需接派发层选模逻辑与配置字段解析（roles 条目内 rotate_on_busy）。
+7. 生产 pin 切换前置（现行有效清单）：全局配置内层字段 subagents→roles、角色键改新五值；rotate_on_busy 待子任务八落地后恢复合法。见"全局配置事故记录"节④。
