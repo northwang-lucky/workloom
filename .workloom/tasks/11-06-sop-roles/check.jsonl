@@ -1,1 +1,8 @@
 {"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md"}
+{"file": ".workloom/spec/repo/architecture/index.md"}
+{"file": ".workloom/spec/repo/domain-module/index.md"}
+{"file": ".workloom/spec/repo/commits/index.md"}
+{"file": ".workloom/spec/repo/deployment/index.md"}
+{"file": ".workloom/spec/repo/language/index.md"}
+{"file": ".workloom/tasks/11-06-sop-roles/research/roles-dispatch-facts.md"}
