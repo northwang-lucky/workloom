@@ -9,12 +9,13 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { NATIVE_TOOLS_DSH, PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
+import { PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
 import { registerExecutor } from '../src/dispatch/executor.ts'
 import {
   assertAllowListNonEmpty,
   buildAllowFilter,
   hasLspTooling,
+  NATIVE_TOOLS,
 } from '../src/dispatch/executor-dispatch.ts'
 import {
   createWriteGuardState,
@@ -252,7 +253,7 @@ function setupExecutor(overrides = {}) {
  */
 function execArgs(extra = {}) {
   return {
-    kind: 'implement',
+    role: 'developer',
     prompt: 'test',
     taskPath: 'tasks/test-task',
     title: 'executor test',
@@ -275,7 +276,7 @@ function emitSessionEvent(setup, session, event) {
 }
 
 test('agentOptions 携带 provider+model（带前缀时）', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -290,11 +291,11 @@ test('agentOptions 携带 provider+model（带前缀时）', async () => {
 })
 
 test('agentOptions 仅 model（裸 id，无 provider）', async () => {
-  const root = makeProject({ subagents: { research: { model: 'deepseek-v4-flash' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { researcher: { model: 'deepseek-v4-flash' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(execArgs({ kind: 'research' }), {
+    await execute(execArgs({ role: 'researcher' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
@@ -312,7 +313,7 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(execArgs({ kind: 'check' }), {
+    await execute(execArgs({ role: 'checker' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
@@ -324,7 +325,7 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
 })
 
 test('s1: 派发走 startActivation（delivery: parent），返回 durable childId + receipt', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -337,7 +338,7 @@ test('s1: 派发走 startActivation（delivery: parent），返回 durable child
     assert.equal(startCalls.length, 1)
     const spec = startCalls[0]
     assert.equal(spec.provider, 'spawn')
-    assert.equal(spec.label, '[Implement] continuable dispatch test')
+    assert.equal(spec.label, '[Developer] continuable dispatch test')
     assert.equal(spec.request.maxDepth, 1)
     assert.equal(spec.signal, signal)
     assert.equal(spec.request.parent, parent)
@@ -494,12 +495,12 @@ test('派发成功：task.json dispatches 记录 { kind, at, title, childId }', 
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
     await execute(
-      { kind: 'frontend', prompt: 'test', taskPath: 'tasks/test-task', title: 'ui impl' },
+      { role: 'frontend-developer', prompt: 'test', taskPath: 'tasks/test-task', title: 'ui impl' },
       { agent: parent, signal: new AbortController().signal },
     )
     const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
     assert.equal(task.dispatches.length, 1)
-    assert.equal(task.dispatches[0].kind, 'frontend')
+    assert.equal(task.dispatches[0].kind, 'frontend-developer')
     assert.equal(task.dispatches[0].title, 'ui impl')
     assert.equal(task.dispatches[0].childId, 'child-1')
     assert.ok(!Number.isNaN(Date.parse(task.dispatches[0].at)))
@@ -509,7 +510,7 @@ test('派发成功：task.json dispatches 记录 { kind, at, title, childId }', 
 })
 
 test('receipt 行出现在返回 receipt 尾部（来源标注正确，无 effort 段）', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash' } } }] })
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
@@ -520,7 +521,7 @@ test('receipt 行出现在返回 receipt 尾部（来源标注正确，无 effor
     const text = result.receipt
     assert.ok(text.includes('[workloom executor]'))
     assert.ok(text.includes('deepseek-official/deepseek-v4-flash'))
-    assert.ok(text.includes('(config: legacy)'))
+    assert.ok(text.includes('(config: fallback)'))
     assert.ok(!text.includes('effort:'), 'DSH receipt must not render the effort segment')
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -528,7 +529,7 @@ test('receipt 行出现在返回 receipt 尾部（来源标注正确，无 effor
 })
 
 test('receipt 行：param 来源标注正确', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'param-provider/param-model' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'param-provider/param-model' } } }] })
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
@@ -702,7 +703,7 @@ test('receipt 行：无配置时显示 default 来源（无 effort 段）', asyn
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
-    const result = await execute(execArgs({ kind: 'check' }), {
+    const result = await execute(execArgs({ role: 'checker' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
@@ -715,21 +716,21 @@ test('receipt 行：无配置时显示 default 来源（无 effort 段）', asyn
   }
 })
 
-test('主模型 provider/model 为空串：whenMain 按取不到跳过，回退旧 subagents', async () => {
+test('主模型 provider/model 为空串：whenMain 按取不到跳过，回退兜底条目', async () => {
   const root = makeProject({
     subagent_profiles: [
       {
         whenMain: 'deepseek-official/deepseek-v4-flash',
-        subagents: { implement: { model: 'profile-provider/profile-model' } },
+        roles: { developer: { model: 'profile-provider/profile-model' } },
       },
+      { roles: { developer: { model: 'fallback-provider/fallback-model' } } },
     ],
-    subagents: { implement: { model: 'legacy-provider/legacy-model' } },
   })
   try {
     const { execute, startCalls } = setupExecutor()
     // requestHeader 快照的 provider/model 均为空串：readMainModel 返回 undefined
     // （空串拼出的 "/" 会在 core 匹配时抛错，按无值处理），whenMain 条目跳过
-    // 不 fail loud，生效值回退旧 subagents（receipt 标 legacy）。
+    // 不 fail loud，生效值回退无 whenMain 的兜底条目（receipt 标 fallback）。
     const parent = makeAgent(root, () => ({ config: { provider: '', model: '' } }))
     const result = await execute(execArgs({ title: 'empty main model test' }), {
       agent: parent,
@@ -737,36 +738,36 @@ test('主模型 provider/model 为空串：whenMain 按取不到跳过，回退�
     })
     assert.equal(startCalls.length, 1)
     const opts = startCalls[0].request.agentOptions
-    assert.equal(opts.provider, 'legacy-provider')
-    assert.equal(opts.model, 'legacy-model')
+    assert.equal(opts.provider, 'fallback-provider')
+    assert.equal(opts.model, 'fallback-model')
     const text = result.receipt
-    assert.ok(text.includes('legacy-provider/legacy-model'))
-    assert.ok(text.includes('(config: legacy)'))
+    assert.ok(text.includes('fallback-provider/fallback-model'))
+    assert.ok(text.includes('(config: fallback)'))
     assert.ok(!text.includes('profile-provider'), 'whenMain entry must not take effect')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('label 组装：五种 kind 均为 [<KindLabel>] <task title>（title 缺省回退）', async () => {
+test('label 组装：五角色均为 [<RoleLabel>] <task title>（title 缺省回退）', async () => {
   const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const cases = [
-      ['research', 'Research'],
-      ['implement', 'Implement'],
-      ['check', 'Check'],
-      ['frontend', 'Frontend'],
-      ['review', 'Review'],
+      ['researcher', 'Researcher'],
+      ['developer', 'Developer'],
+      ['checker', 'Checker'],
+      ['frontend-developer', 'Frontend Developer'],
+      ['judger', 'Judger'],
     ]
-    for (const [kind, kindLabel] of cases) {
+    for (const [role, roleLabel] of cases) {
       // title 缺省（undefined）：回退 task title「Test」
-      await execute(execArgs({ kind, title: undefined }), {
+      await execute(execArgs({ role, title: undefined }), {
         agent: parent,
         signal: new AbortController().signal,
       })
-      assert.equal(startCalls[startCalls.length - 1].label, `[${kindLabel}] Test`)
+      assert.equal(startCalls[startCalls.length - 1].label, `[${roleLabel}] Test`)
     }
     assert.equal(startCalls.length, 5)
   } finally {
@@ -774,7 +775,7 @@ test('label 组装：五种 kind 均为 [<KindLabel>] <task title>（title 缺�
   }
 })
 
-test('label 回退：task title 空白时回退 workloom-<kind>（连字符）', async () => {
+test('label 回退：task title 空白时回退 workloom-<role>（连字符）', async () => {
   const root = makeProject()
   try {
     writeFileSync(
@@ -787,49 +788,49 @@ test('label 回退：task title 空白时回退 workloom-<kind>（连字符）',
       agent: parent,
       signal: new AbortController().signal,
     })
-    assert.equal(startCalls[0].label, 'workloom-implement')
+    assert.equal(startCalls[0].label, 'workloom-developer')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('label 回退：readTask 失败时回退 workloom-<kind>（连字符）', async () => {
+test('label 回退：readTask 失败时回退 workloom-<role>（连字符）', async () => {
   const root = makeProject()
   try {
     // task.json 损坏：readTask 报错，但 buildExecutorPrompt 只读 md/jsonl，不受影响。
     writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), '{ not json')
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    await execute(execArgs({ kind: 'research', title: undefined }), {
+    await execute(execArgs({ role: 'researcher', title: undefined }), {
       agent: parent,
       signal: new AbortController().signal,
     })
-    assert.equal(startCalls[0].label, 'workloom-research')
+    assert.equal(startCalls[0].label, 'workloom-researcher')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('label 组装：title 传入时五种 kind 均为 [<KindLabel>] <title>', async () => {
+test('label 组装：title 传入时五角色均为 [<RoleLabel>] <title>', async () => {
   const root = makeProject()
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
     const cases = [
-      ['research', 'Research'],
-      ['implement', 'Implement'],
-      ['check', 'Check'],
-      ['frontend', 'Frontend'],
-      ['review', 'Review'],
+      ['researcher', 'Researcher'],
+      ['developer', 'Developer'],
+      ['checker', 'Checker'],
+      ['frontend-developer', 'Frontend Developer'],
+      ['judger', 'Judger'],
     ]
-    for (const [kind, kindLabel] of cases) {
-      await execute(execArgs({ kind, title: 'fix executor label prefix' }), {
+    for (const [role, roleLabel] of cases) {
+      await execute(execArgs({ role, title: 'fix executor label prefix' }), {
         agent: parent,
         signal: new AbortController().signal,
       })
       assert.equal(
         startCalls[startCalls.length - 1].label,
-        `[${kindLabel}] fix executor label prefix`,
+        `[${roleLabel}] fix executor label prefix`,
       )
     }
     assert.equal(startCalls.length, 5)
@@ -847,7 +848,7 @@ test('label 回退：title 为空白字符串时走缺省 task title 路径', as
       agent: parent,
       signal: new AbortController().signal,
     })
-    assert.equal(startCalls[0].label, '[Implement] Test')
+    assert.equal(startCalls[0].label, '[Developer] Test')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -863,7 +864,7 @@ test('label 组装：title 传入时不依赖 readTask（task.json 损坏仍可�
       agent: parent,
       signal: new AbortController().signal,
     })
-    assert.equal(startCalls[0].label, '[Implement] semantic title wins')
+    assert.equal(startCalls[0].label, '[Developer] semantic title wins')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -877,6 +878,26 @@ test('参数面：title schema 必填（required + minLength 1）且描述引用
   assert.equal(props.title.type, 'string')
   assert.equal(props.title.minLength, 1)
   assert.equal(props.title.description, PARAM_DESCRIPTIONS.titleExecutor)
+})
+
+test('参数面：role schema 五新值 enum、无 kind 参数、required=[role,prompt,title]、additionalProperties 拒 kind（AC4）', () => {
+  const { registered } = setupExecutor()
+  const params = registered[0].parameters
+  const props = params.properties
+  // kind 参数退役：属性面无 kind，additionalProperties:false 使传 kind 被拒（fail loud）。
+  assert.equal(props.kind, undefined, 'legacy kind parameter must be gone from the schema')
+  assert.equal(params.additionalProperties, false, 'unknown params (including legacy kind) must be rejected')
+  // role 参数：五新值 enum（schema 层拒绝旧值），描述引用 PARAM_DESCRIPTIONS.role。
+  assert.equal(props.role.type, 'string')
+  assert.deepEqual(props.role.enum, [
+    'researcher',
+    'developer',
+    'frontend-developer',
+    'checker',
+    'judger',
+  ])
+  assert.equal(props.role.description, PARAM_DESCRIPTIONS.role)
+  assert.deepEqual(params.required, ['role', 'prompt', 'title'])
 })
 
 test('参数面：force/reason schema 描述引用 PARAM_DESCRIPTIONS', () => {
@@ -921,8 +942,8 @@ test('参数面：schema 不含 foreground（unknown 参数由 additionalPropert
   )
 })
 
-test('effort 配置生效：subagents.<kind>.effort 进入 reasoningEffort，receipt 标 (config)', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'max' } } })
+test('effort 配置生效：profile roles 条目 effort 进入 reasoningEffort，receipt 标 (config)', async () => {
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'max' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -936,14 +957,14 @@ test('effort 配置生效：subagents.<kind>.effort 进入 reasoningEffort，rec
     assert.equal(opts.model, 'deepseek-v4-flash')
     assert.equal(opts.reasoningEffort, 'max')
     const text = result.receipt
-    assert.ok(text.includes('effort: max (config: legacy)'))
+    assert.ok(text.includes('effort: max (config: fallback)'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
 test('effort 单独生效：无 model 配置时 agentOptions 仅含 reasoningEffort', async () => {
-  const root = makeProject({ subagents: { implement: { effort: 'max' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { effort: 'max' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -962,7 +983,7 @@ test('effort 单独生效：无 model 配置时 agentOptions 仅含 reasoningEff
 })
 
 test('effort 参数优先：显式 effort 生效并标 (param)（与配置一致时无冲突）', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -984,7 +1005,7 @@ test('effort 参数优先：显式 effort 生效并标 (param)（与配置一致
 })
 
 test('effort 冲突无 force：返回提示（含 effort 维度）且不派发', async () => {
-  const root = makeProject({ subagents: { implement: { effort: 'high' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { effort: 'high' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -996,10 +1017,10 @@ test('effort 冲突无 force：返回提示（含 effort 维度）且不派发',
     assert.equal(startCalls.length, 0)
     assert.ok(
       text.includes(
-        'workloom executor: explicit parameters conflict with subagents.implement config:',
+        'workloom executor: explicit parameters conflict with subagent_profiles.developer config:',
       ),
     )
-    assert.ok(text.includes('effort: config "high" (config: legacy), passed "max"'))
+    assert.ok(text.includes('effort: config "high" (config: fallback), passed "max"'))
     assert.ok(text.includes('force: true with a non-empty reason'))
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -1007,7 +1028,7 @@ test('effort 冲突无 force：返回提示（含 effort 维度）且不派发',
 })
 
 test('effort 冲突 + force + reason：放行派发、overrides 记录 executor_model_effort', async () => {
-  const root = makeProject({ subagents: { implement: { effort: 'high' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { effort: 'high' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1035,7 +1056,7 @@ test('effort 冲突 + force + reason：放行派发、overrides 记录 executor_
 })
 
 test('非法 effort 档位：派发时 fail loud（assertEffort 文案）', async () => {
-  const root = makeProject({ subagents: { implement: { effort: 'high' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { effort: 'high' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1053,7 +1074,7 @@ test('非法 effort 档位：派发时 fail loud（assertEffort 文案）', asyn
 })
 
 test('冲突无 force：model 冲突返回提示且不派发（未传 effort 参数，无 effort 冲突）', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1065,12 +1086,12 @@ test('冲突无 force：model 冲突返回提示且不派发（未传 effort 参
     assert.equal(startCalls.length, 0)
     assert.ok(
       text.includes(
-        'workloom executor: explicit parameters conflict with subagents.implement config:',
+        'workloom executor: explicit parameters conflict with subagent_profiles.developer config:',
       ),
     )
     assert.ok(
       text.includes(
-        'model: config "deepseek-official/deepseek-v4-flash" (config: legacy), passed "deepseek-official/deepseek-v4-pro"',
+        'model: config "deepseek-official/deepseek-v4-flash" (config: fallback), passed "deepseek-official/deepseek-v4-pro"',
       ),
     )
     assert.ok(
@@ -1084,7 +1105,7 @@ test('冲突无 force：model 冲突返回提示且不派发（未传 effort 参
 })
 
 test('冲突 + force 缺 reason：抛错', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1106,7 +1127,7 @@ test('冲突 + force 缺 reason：抛错', async () => {
 })
 
 test('冲突 + force + reason：放行派发、overrides 写入、receipt 带 (forced)', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } }] })
   try {
     // 配置含 effort 但工具只传 model（未传 effort 参数）：effort 不参与冲突，force 仅因 model 冲突。
     const { execute, startCalls } = setupExecutor()
@@ -1128,7 +1149,7 @@ test('冲突 + force + reason：放行派发、overrides 写入、receipt 带 (f
     assert.equal(task.overrides[0].reason, 'user asked to use the pro model')
     // 派发审计同样落盘：force 放行后仍记录一次成功派发（含 childId）。
     assert.equal(task.dispatches.length, 1)
-    assert.equal(task.dispatches[0].kind, 'implement')
+    assert.equal(task.dispatches[0].kind, 'developer')
     assert.equal(task.dispatches[0].childId, 'child-1')
     const text = result.receipt
     assert.ok(text.endsWith('(forced)'))
@@ -1140,7 +1161,7 @@ test('冲突 + force + reason：放行派发、overrides 写入、receipt 带 (f
 })
 
 test('无冲突（归一化等价）：正常派发且无 (forced) 标注', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } }] })
   try {
     // 工具只传等价 model（不传 effort）：无 model/effort 冲突，正常派发（无 (forced) 标注）。
     const { execute, startCalls } = setupExecutor()
@@ -1184,7 +1205,7 @@ test('工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 al
     assert.equal(schemasScopes[0], parent)
     // allow = 原生候选 ∩ 可见集：只有 write/edit 可见且原生；workloom 工具/委派候选
     // /lsp_* 不入 allow（默认白名单不授编排/交互/任务工具）。
-    const expectedAllow = [...NATIVE_TOOLS_DSH].filter((name) => visible.includes(name))
+    const expectedAllow = [...NATIVE_TOOLS].filter((name) => visible.includes(name))
     assert.deepEqual(expectedAllow, ['write', 'edit'])
     // 白名单经 agent/created 施加到子代理：restrict 收到求交后的清单。
     assert.equal(restrictCalls.length, 1, 'agent/created must apply the whitelist once')
@@ -1202,7 +1223,7 @@ test('工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 al
 
 test('工具白名单：config tools.includes 补入 lsp_* 前缀模式（可见集求交）', async () => {
   const root = makeProject({
-    subagent_profiles: [{ subagents: { implement: { tools: { includes: ['lsp_*'] } } } }],
+    subagent_profiles: [{ roles: { developer: { tools: { includes: ['lsp_*'] } } } }],
   })
   try {
     const visible = [...Object.values(TOOL_NAMES), 'write', 'edit', 'lsp_diagnostics', 'lsp_symbols']
@@ -1223,7 +1244,7 @@ test('工具白名单：config tools.includes 补入 lsp_* 前缀模式（可见
 
 test('工具白名单：config tools.excludes 移除原生工具；未知名静默忽略', async () => {
   const root = makeProject({
-    subagent_profiles: [{ subagents: { implement: { tools: { excludes: ['bash', 'nonexistent'] } } } }],
+    subagent_profiles: [{ roles: { developer: { tools: { excludes: ['bash', 'nonexistent'] } } } }],
   })
   try {
     // 可见集含 bash（原生候选）与 write/edit。
@@ -1292,28 +1313,28 @@ test('executor-dispatch 拆分面：allow 成形与空清单兜底可直接导�
   )
 })
 
-test('s4: 跨 kind 续用被拒（返回提示，不派发不 sendMessage）', async () => {
+test('s4: 跨角色续用被拒（返回提示，不派发不 sendMessage）', async () => {
   const root = makeProject()
   try {
     const { execute, startCalls, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
-    // 两个 kind 的派发记录（child-1: implement、child-2: check）。
+    // 两个角色的派发记录（child-1: developer、child-2: checker）。
     await execute(execArgs({ title: 'impl round' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
-    await execute(execArgs({ kind: 'check', title: 'check round' }), {
+    await execute(execArgs({ role: 'checker', title: 'check round' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
-    // implement 续用 check 会话（显式 childId）：同 kind 校验拒绝。
+    // developer 续用 checker 会话（显式 childId）：同角色校验拒绝。
     const result = await execute(
       execArgs({ title: 'cross kind reuse', continue_executor: 'child-2' }),
       { agent: parent, signal: new AbortController().signal },
     )
     const text = result.output[0].text
-    assert.ok(text.includes('cross-kind reuse rejected'), 'must return a clear reuse rejection')
-    assert.ok(text.includes('check'), 'notice must name the recorded kind')
+    assert.ok(text.includes('cross-role reuse rejected'), 'must return a clear reuse rejection')
+    assert.ok(text.includes('checker'), 'notice must name the recorded role')
     assert.equal(startCalls.length, 2, 'no new dispatch for a rejected reuse')
     assert.equal(sendMessageCalls.length, 0, 'sendMessage must not fire for a rejected reuse')
   } finally {
@@ -1321,17 +1342,17 @@ test('s4: 跨 kind 续用被拒（返回提示，不派发不 sendMessage）', a
   }
 })
 
-test('续用定位：无同 kind 记录（latest）返回明确提示不派发', async () => {
+test('续用定位：无同角色记录（latest）返回明确提示不派发', async () => {
   const root = makeProject()
   try {
     const { execute, startCalls, sendMessageCalls } = setupExecutor()
     const parent = makeAgent(root)
-    const result = await execute(execArgs({ kind: 'research', continue_executor: 'latest' }), {
+    const result = await execute(execArgs({ role: 'researcher', continue_executor: 'latest' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
     const text = result.output[0].text
-    assert.ok(text.includes('no previous research executor dispatch'), 'must explain the miss')
+    assert.ok(text.includes('no previous researcher executor dispatch'), 'must explain the miss')
     assert.equal(startCalls.length, 0)
     assert.equal(sendMessageCalls.length, 0)
   } finally {
@@ -1355,7 +1376,7 @@ test('续用定位：旧记录缺 childId（latest）返回明确提示不报错
       signal: new AbortController().signal,
     })
     const text = result.output[0].text
-    assert.ok(text.includes('no previous implement executor dispatch'), 'must explain the miss')
+    assert.ok(text.includes('no previous developer executor dispatch'), 'must explain the miss')
     assert.equal(startCalls.length, 0)
     assert.equal(sendMessageCalls.length, 0)
   } finally {
@@ -1561,7 +1582,7 @@ test('S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律�
     )
     // 含 LSP 工具：需要 config tools.includes 把 lsp_* 补入 allow（默认白名单不授 lsp）。
     const lspRoot = makeProject({
-      subagent_profiles: [{ subagents: { implement: { tools: { includes: ['lsp_*'] } } } }],
+      subagent_profiles: [{ roles: { developer: { tools: { includes: ['lsp_*'] } } } }],
     })
     try {
       const {
@@ -1592,7 +1613,7 @@ test('S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律�
 })
 
 test('s1-bg: 后台派发立即返回（不等 turn 结算），返回 {kind, childId, receipt}', async () => {
-  const root = makeProject({ subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } } })
+  const root = makeProject({ subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash' } } }] })
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
@@ -1659,9 +1680,19 @@ test('s2-settle-fail: turn/end error 捕获 → 结算以真实错误整体替�
       }),
     )
     emitSubagentEnd(setup, { runId: 'epoch-2', id: 'child-1', stopReason: 'error' })
+    await settleHooks()
     const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
     assert.equal(task.dispatches[0].status, 'failed')
-    assert.equal(task.dispatches[0].error, 'provider rejected the request (UNKNOWN_MODEL)')
+    // 真实错误单行渲染整体替换泛化摘要；UNKNOWN_MODEL 命中白名单且无 fallback 链：
+    // 结算收口在 error 行尾追加 failover 穷尽文案后缀（步骤 11 行为）。
+    assert.ok(
+      task.dispatches[0].error.startsWith('provider rejected the request (UNKNOWN_MODEL)'),
+      `real error line must lead, got: ${task.dispatches[0].error}`,
+    )
+    assert.ok(
+      task.dispatches[0].error.includes('the fallback chain is exhausted after 1 attempt(s)'),
+      `exhausted notice must be appended for whitelisted codes without a chain, got: ${task.dispatches[0].error}`,
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1848,29 +1879,29 @@ test('executor-guard：rebuildWriteGuardChildIds 从任务 task.json dispatches 
   const root = makeGuardRoot()
   try {
     const tasksDir = join(root, '.workloom', 'tasks')
-    // 两个普通任务目录：含 research/implement 派发记录与缺 childId 的 research。
+    // 两个普通任务目录：含 researcher/developer 派发记录与缺 childId 的 researcher。
     mkdirSync(join(tasksDir, 't1'), { recursive: true })
     writeFileSync(
       join(tasksDir, 't1', 'task.json'),
       JSON.stringify({
         dispatches: [
-          { kind: 'research', childId: 'res-1' },
-          { kind: 'implement', childId: 'impl-1' },
-          { kind: 'review', childId: 'rev-1' },
-          { kind: 'research' },
+          { kind: 'researcher', childId: 'res-1' },
+          { kind: 'developer', childId: 'impl-1' },
+          { kind: 'judger', childId: 'rev-1' },
+          { kind: 'researcher' },
         ],
       }),
     )
     mkdirSync(join(tasksDir, 't2'), { recursive: true })
     writeFileSync(
       join(tasksDir, 't2', 'task.json'),
-      JSON.stringify({ dispatches: [{ kind: 'research', childId: 'res-2' }] }),
+      JSON.stringify({ dispatches: [{ kind: 'researcher', childId: 'res-2' }] }),
     )
     // archive 目录下的任务排除（不区分活跃/已结算，但归档不重建）。
     mkdirSync(join(tasksDir, 'archive', '2026-09', 't3'), { recursive: true })
     writeFileSync(
       join(tasksDir, 'archive', '2026-09', 't3', 'task.json'),
-      JSON.stringify({ dispatches: [{ kind: 'research', childId: 'archived-res' }] }),
+      JSON.stringify({ dispatches: [{ kind: 'researcher', childId: 'archived-res' }] }),
     )
     const ids = rebuildWriteGuardChildIds(root)
     assert.deepEqual([...ids].sort(), ['res-1', 'res-2', 'rev-1'])
@@ -1883,18 +1914,19 @@ test('executor-guard：重启后新派发先登记时先重建再加入新 id（
   const root = makeGuardRoot()
   try {
     const tasksDir = join(root, '.workloom', 'tasks')
-    // 重启前的派发记录：旧 research 子会话 childId 落在 task.json。
+    // 重启前的派发记录（历史旧值 research 兼容用例：经兼容读归一识别为
+    // researcher 受守卫身份，AC8）：旧子会话 childId 落在 task.json。
     mkdirSync(join(tasksDir, 't1'), { recursive: true })
     writeFileSync(
       join(tasksDir, 't1', 'task.json'),
       JSON.stringify({ dispatches: [{ kind: 'research', childId: 'res-old' }] }),
     )
-    // 重启后新 research 派发先到：登记路径集合缺失时须先重建再加入新 id，
+    // 重启后新派发先到：登记路径集合缺失时须先重建再加入新 id，
     // 否则仅含新 id 的集合占位后懒重建永不触发（旧子会话失守）。
     const state = createWriteGuardState()
     registerWriteGuardChild(state, root, 'res-new')
     assert.deepEqual([...state.byRoot.get(root)].sort(), ['res-new', 'res-old'])
-    // 毒化场景闭环：旧 research 子会话越界 write 仍被守卫拒绝。
+    // 毒化场景闭环：旧值记录的子会话越界 write 仍被守卫拒绝。
     const guard = confinedWriteGuard(state)
     const denied = guard({
       name: 'write',
@@ -1908,7 +1940,7 @@ test('executor-guard：重启后新派发先登记时先重建再加入新 id（
   }
 })
 
-test('executor-guard：confinedWriteGuard 拒绝越界 write/edit、放行域内与非受守卫 kind', () => {
+test('executor-guard：confinedWriteGuard 拒绝越界 write/edit、放行域内与非受守卫角色', () => {
   const root = makeGuardRoot()
   try {
     const state = createWriteGuardState()
@@ -1932,7 +1964,7 @@ test('executor-guard：confinedWriteGuard 拒绝越界 write/edit、放行域内
     assert.equal(guard(child('edit', '.workloom/config.json')), undefined)
     // 非 write/edit 工具：放行。
     assert.equal(guard(child('bash', undefined)), undefined)
-    // 非受守卫 kind 子代理：放行。
+    // 非受守卫角色子代理：放行。
     assert.equal(
       guard({
         name: 'write',
@@ -1946,20 +1978,20 @@ test('executor-guard：confinedWriteGuard 拒绝越界 write/edit、放行域内
   }
 })
 
-test('executor-guard 接线：research 派发登记子会话 id，守卫拒绝越界 write、放行域内', async () => {
+test('executor-guard 接线：researcher 派发登记子会话 id，守卫拒绝越界 write、放行域内', async () => {
   const root = makeProject()
   try {
     const setup = setupExecutor()
     const parent = makeAgent(root)
     await setup.execute(
-      execArgs({ kind: 'research', title: 'guard integration test' }),
+      execArgs({ role: 'researcher', title: 'guard integration test' }),
       { agent: parent, signal: new AbortController().signal },
     )
     // 插件激活时守卫注册一次（mock 捕获）。
     assert.equal(setup.guardRegistrations.length, 1)
     const guard = setup.guardRegistrations[0]
     const researchChild = { id: 'child-1', session: { header: { cwd: root } } }
-    // research 子会话越界 write：拒绝（英文）。
+    // researcher 子会话越界 write：拒绝（英文）。
     const denied = guard({
       name: 'write',
       arguments: { file_path: '/tmp/escape.md' },
@@ -1967,7 +1999,7 @@ test('executor-guard 接线：research 派发登记子会话 id，守卫拒绝�
     })
     assert.ok(typeof denied === 'string')
     assert.match(denied, /denied/)
-    // research 子会话域内 write：放行。
+    // researcher 子会话域内 write：放行。
     assert.equal(
       guard({
         name: 'write',
@@ -1981,19 +2013,19 @@ test('executor-guard 接线：research 派发登记子会话 id，守卫拒绝�
   }
 })
 
-test('executor-guard 接线：review 派发登记子会话 id，守卫拒绝越界 write、放行域内', async () => {
+test('executor-guard 接线：judger 派发登记子会话 id，守卫拒绝越界 write、放行域内', async () => {
   const root = makeProject()
   try {
     const setup = setupExecutor()
     const parent = makeAgent(root)
     await setup.execute(
-      execArgs({ kind: 'review', title: 'review guard integration test' }),
+      execArgs({ role: 'judger', title: 'review guard integration test' }),
       { agent: parent, signal: new AbortController().signal },
     )
     assert.equal(setup.guardRegistrations.length, 1)
     const guard = setup.guardRegistrations[0]
     const reviewChild = { id: 'child-1', session: { header: { cwd: root } } }
-    // review 子会话越界 write：拒绝（英文）。
+    // judger 子会话越界 write：拒绝（英文）。
     const denied = guard({
       name: 'write',
       arguments: { file_path: '/tmp/escape.md' },
@@ -2001,7 +2033,7 @@ test('executor-guard 接线：review 派发登记子会话 id，守卫拒绝越�
     })
     assert.ok(typeof denied === 'string', 'review child out-of-domain write must be denied')
     assert.match(denied, /denied/)
-    // review 子会话域内 write（审查报告路径）：放行。
+    // judger 子会话域内 write（审查报告路径）：放行。
     assert.equal(
       guard({
         name: 'write',
@@ -2015,7 +2047,7 @@ test('executor-guard 接线：review 派发登记子会话 id，守卫拒绝越�
   }
 })
 
-test('executor-guard 接线：仅受守卫 kind 派发登记（implement 派发不登记，越界 write 放行）', async () => {
+test('executor-guard 接线：仅受守卫角色派发登记（developer 派发不登记，越界 write 放行）', async () => {
   const root = makeProject()
   try {
     const setup = setupExecutor()
@@ -2032,7 +2064,7 @@ test('executor-guard 接线：仅受守卫 kind 派发登记（implement 派发�
         agent: { id: 'child-1', session: { header: { cwd: root } } },
       }),
       undefined,
-      'non-research child must not be guarded',
+      'non-researcher child must not be guarded',
     )
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -2049,7 +2081,7 @@ function readDispatches(root) {
 
 test('续派 + model 同传：fail loud 拒绝（相同值也拒；无登记/结算副作用）', async () => {
   const root = makeProject({
-    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash' } },
+    subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash' } } }],
   })
   try {
     const { execute, startCalls, sendMessageCalls } = setupExecutor()
@@ -2098,9 +2130,9 @@ test('续派 + effort 同传：fail loud 拒绝（不产生登记副作用）', 
   }
 })
 
-test('新派记录落绑定：param/legacy 来源标注与生效值写入 dispatches', async () => {
+test('新派记录落绑定：param 来源标注与生效值写入 dispatches', async () => {
   const root = makeProject({
-    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
+    subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } }],
   })
   try {
     // param 来源：显式 model + 与配置归一化等价（无冲突），记录标 param。
@@ -2128,7 +2160,7 @@ test('新派记录落绑定：whenMain 来源标注（主模型命中 profile）
     subagent_profiles: [
       {
         whenMain: 'deepseek-official/deepseek-v4-flash',
-        subagents: { implement: { model: 'kimi-coding/k3', effort: 'high' } },
+        roles: { developer: { model: 'kimi-coding/k3', effort: 'high' } },
       },
     ],
   })
@@ -2169,31 +2201,10 @@ test('新派记录落绑定：inherit 且主模型不可读 → modelSource inhe
   }
 })
 
-test('新派记录落绑定：legacy 来源标注（旧 subagents 配置命中）', async () => {
-  const root = makeProject({
-    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
-  })
-  try {
-    // 不传显式 model/effort：解析链回退 legacy subagents，来源标 legacy。
-    const { execute } = setupExecutor()
-    const parent = makeAgent(root)
-    await execute(execArgs({ title: 'legacy binding' }), {
-      agent: parent,
-      signal: new AbortController().signal,
-    })
-    const records = readDispatches(root)
-    assert.equal(records[0].model, 'deepseek-official/deepseek-v4-flash')
-    assert.equal(records[0].effort, 'high')
-    assert.equal(records[0].modelSource, 'legacy')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
 test('新派记录落绑定：fallback 来源标注（无 whenMain 的 profile 兜底条目命中）', async () => {
   const root = makeProject({
     subagent_profiles: [
-      { subagents: { implement: { model: 'kimi-coding/k3', effort: 'medium' } } },
+      { roles: { developer: { model: 'kimi-coding/k3', effort: 'medium' } } },
     ],
   })
   try {
@@ -2235,12 +2246,12 @@ test('新派记录落绑定：inherit 时 model 落主会话模型快照（model
 
 test('续派轮记录沿用 childId 首次绑定：modelSource 记 spawn', async () => {
   const root = makeProject({
-    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
+    subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } }],
   })
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
-    // 第一轮：新派（dispatches[0] 绑定 legacy 配置生效值）。
+    // 第一轮：新派（dispatches[0] 绑定兜底 profile 配置生效值）。
     await execute(execArgs({ title: 'spawn round' }), {
       agent: parent,
       signal: new AbortController().signal,
@@ -2263,18 +2274,18 @@ test('续派轮记录沿用 childId 首次绑定：modelSource 记 spawn', async
 
 test('续派回执：展示 spawn 绑定值 (spawn binding)；不再回显当前配置来源', async () => {
   const root = makeProject({
-    subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } },
+    subagent_profiles: [{ roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', effort: 'high' } } }],
   })
   try {
     const { execute } = setupExecutor()
     const parent = makeAgent(root)
-    // 第一轮新派：回执标 (config: legacy)（现状口径不变）。
+    // 第一轮新派：回执标 (config: fallback)（兜底 profile 条目命中）。
     const first = await execute(execArgs({ title: 'receipt spawn round' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
     assert.ok(first.receipt.includes('deepseek-official/deepseek-v4-flash'))
-    assert.ok(first.receipt.includes('(config: legacy)'))
+    assert.ok(first.receipt.includes('(config: fallback)'))
     // 第二轮续派：回执展示 spawn 绑定（值来自首次派发记录），不再显示 (config…) 与 (reused) 外的来源。
     const second = await execute(
       execArgs({ title: 'receipt sendMessage round', continue_executor: 'latest' }),
@@ -2286,7 +2297,7 @@ test('续派回执：展示 spawn 绑定值 (spawn binding)；不再回显当前
     )
     assert.ok(second.receipt.includes('(reused)'), 'reused marker must stay')
     assert.ok(
-      !second.receipt.includes('(config: legacy)'),
+      !second.receipt.includes('(config: fallback)'),
       'sendMessage receipt must not echo the current config source',
     )
   } finally {
@@ -2416,23 +2427,23 @@ function writeLightTask(root) {
   )
 }
 
-test('light 派发门禁：light 任务拒绝所有 kind（提示主会话包办，不 spawn）', async () => {
+test('light 派发门禁：light 任务拒绝所有角色（提示主会话包办，不 spawn）', async () => {
   const root = makeProject({})
   writeLightTask(root)
   try {
     const { execute, startCalls } = setupExecutor()
     const parent = makeAgent(root)
-    for (const kind of ['research', 'implement', 'check', 'frontend']) {
-      const result = await execute(execArgs({ kind, title: `light ${kind}` }), {
+    for (const role of ['researcher', 'developer', 'checker', 'frontend-developer']) {
+      const result = await execute(execArgs({ role, title: `light ${role}` }), {
         agent: parent,
         signal: new AbortController().signal,
       })
       const text = result.output[0].text
-      assert.match(text, /light task/, `${kind}: rejection must name light tasks`)
-      assert.match(text, /main session/, `${kind}: rejection must explain main-session ownership`)
+      assert.match(text, /light task/, `${role}: rejection must name light tasks`)
+      assert.match(text, /main session/, `${role}: rejection must explain main-session ownership`)
       assert.ok(
         text.includes('force: true with a non-empty reason'),
-        `${kind}: rejection must carry the force guidance`,
+        `${role}: rejection must carry the force guidance`,
       )
     }
     assert.equal(startCalls.length, 0, 'light 任务不得 spawn 任何执行器')
@@ -2528,7 +2539,7 @@ test('循环 settle：同 childId 两条 running 一次 end 全部回填 complet
     const childId = task1.dispatches[0].childId
     // 手动注入第二条 running 记录（模拟 steering 续用追加的同 childId 第二条）
     task1.dispatches.push({
-      kind: 'implement',
+      kind: 'developer',
       title: 'steer round',
       childId,
       status: 'running',
@@ -2565,7 +2576,7 @@ test('循环 settle：同 childId 两条 running 一次 end 全部回填 failed'
     const childId = task1.dispatches[0].childId
     // 手动注入第二条 running 记录
     task1.dispatches.push({
-      kind: 'implement',
+      kind: 'developer',
       title: 'steer round',
       childId,
       status: 'running',
@@ -2590,13 +2601,13 @@ test('循环 settle：同 childId 两条 running 一次 end 全部回填 failed'
 // ---------- 并发容量闸（R3 派发入口闸） ----------
 
 /** 构造 listDescendants 返回的 running 直子级条目（SubagentDescendantListEntry 最小形状）。 */
-function makeRunningChild(childId, kindLabel) {
-  return { kind: 'child', id: childId, parentId: 'parent-session', depth: 1, activity: 'running', mode: 'continuable', label: `[${kindLabel}] t` }
+function makeRunningChild(childId, roleLabel) {
+  return { kind: 'child', id: childId, parentId: 'parent-session', depth: 1, activity: 'running', mode: 'continuable', label: `[${roleLabel}] t` }
 }
 
 /**
- * 在 task.json 预写 running dispatches（供 collectRunningExecutors 读取 childId→kind
- * 映射），并返回各 childId 对应的 kindLabel 文案（构造 listDescendants mock 用）。
+ * 在 task.json 预写 running dispatches（供 collectRunningExecutors 读取 childId→role
+ * 映射），并返回各 childId 对应的 roleLabel 文案（构造 listDescendants mock 用）。
  */
 function seedRunningDispatches(root, entries) {
   const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
@@ -2615,12 +2626,12 @@ test('capacity: 全局达限拒绝（2 running / 显式 limit 2）并返回 at c
   const root = makeProject({ executor: { max_concurrent: 2 } })
   try {
     seedRunningDispatches(root, [
-      { childId: 'child-a', kind: 'implement' },
-      { childId: 'child-b', kind: 'research' },
+      { childId: 'child-a', kind: 'developer' },
+      { childId: 'child-b', kind: 'researcher' },
     ])
     const { execute, startCalls } = setupExecutor({
       listDescendants: async () => [
-        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-a', 'Developer'),
         makeRunningChild('child-b', 'Research'),
       ],
     })
@@ -2643,13 +2654,13 @@ test('capacity: 全局显式 0 = 不限（多 running 仍放行）', async () =>
   const root = makeProject({ executor: { max_concurrent: 0 } })
   try {
     seedRunningDispatches(root, [
-      { childId: 'child-a', kind: 'implement' },
-      { childId: 'child-b', kind: 'research' },
-      { childId: 'child-c', kind: 'check' },
+      { childId: 'child-a', kind: 'developer' },
+      { childId: 'child-b', kind: 'researcher' },
+      { childId: 'child-c', kind: 'checker' },
     ])
     const { execute, startCalls } = setupExecutor({
       listDescendants: async () => [
-        makeRunningChild('child-a', 'Implement'),
+        makeRunningChild('child-a', 'Developer'),
         makeRunningChild('child-b', 'Research'),
         makeRunningChild('child-c', 'Check'),
       ],
@@ -2665,22 +2676,22 @@ test('capacity: 全局显式 0 = 不限（多 running 仍放行）', async () =>
   }
 })
 
-test('capacity: kind 闸达限拒绝（kind 2/2）并返回 kind 层回执文案', async () => {
+test('capacity: 角色闸达限拒绝（role 2/2）并返回角色层回执文案', async () => {
   const root = makeProject({
     executor: { max_concurrent: 0 },
     subagent_profiles: [
-      { subagents: { implement: { model: 'deepseek-official/deepseek-v4-flash', max_concurrent: 2 } } },
+      { roles: { developer: { model: 'deepseek-official/deepseek-v4-flash', max_concurrent: 2 } } },
     ],
   })
   try {
     seedRunningDispatches(root, [
-      { childId: 'child-a', kind: 'implement' },
-      { childId: 'child-b', kind: 'implement' },
+      { childId: 'child-a', kind: 'developer' },
+      { childId: 'child-b', kind: 'developer' },
     ])
     const { execute, startCalls } = setupExecutor({
       listDescendants: async () => [
-        makeRunningChild('child-a', 'Implement'),
-        makeRunningChild('child-b', 'Implement'),
+        makeRunningChild('child-a', 'Developer'),
+        makeRunningChild('child-b', 'Developer'),
       ],
     })
     const parent = makeAgent(root)
@@ -2688,50 +2699,50 @@ test('capacity: kind 闸达限拒绝（kind 2/2）并返回 kind 层回执文案
       agent: parent,
       signal: new AbortController().signal,
     })
-    assert.equal(startCalls.length, 0, 'kind at capacity must not spawn')
-    // 新回执格式：全局闸 0（不限）→ 省略 global 段，只报 kind 计数。
-    assert.equal(result.output[0].text, 'implement kind at capacity (2/2)')
+    assert.equal(startCalls.length, 0, 'role at capacity must not spawn')
+    // 新回执格式：全局闸 0（不限）→ 省略 global 段，只报角色计数。
+    assert.equal(result.output[0].text, 'developer role at capacity (2/2)')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('capacity: 缺省配置（全局 0 不限、每 kind 3）——同 kind 3 running 拒第 4 笔、不同 kind 放行', async () => {
-  // 不写任何并发配置：新缺省 = 全局 0（不限）+ 每 kind 3（AC1）。
+test('capacity: 缺省配置（全局 0 不限、每角色 3）——同角色 3 running 拒第 4 笔、不同角色放行', async () => {
+  // 不写任何并发配置：新缺省 = 全局 0（不限）+ 每角色 3（AC1）。
   const root = makeProject()
   try {
     seedRunningDispatches(root, [
-      { childId: 'child-a', kind: 'implement' },
-      { childId: 'child-b', kind: 'implement' },
-      { childId: 'child-c', kind: 'implement' },
-      { childId: 'child-d', kind: 'research' },
+      { childId: 'child-a', kind: 'developer' },
+      { childId: 'child-b', kind: 'developer' },
+      { childId: 'child-c', kind: 'developer' },
+      { childId: 'child-d', kind: 'researcher' },
     ])
     const { execute, startCalls } = setupExecutor({
       listDescendants: async () => [
-        makeRunningChild('child-a', 'Implement'),
-        makeRunningChild('child-b', 'Implement'),
-        makeRunningChild('child-c', 'Implement'),
-        makeRunningChild('child-d', 'Research'),
+        makeRunningChild('child-a', 'Developer'),
+        makeRunningChild('child-b', 'Developer'),
+        makeRunningChild('child-c', 'Developer'),
+        makeRunningChild('child-d', 'Researcher'),
       ],
     })
     const parent = makeAgent(root)
-    // 全局在途 4（> 旧缺省 2）但全局缺省 0 = 不限；research 1/3 → 放行（不同 kind 不挤占）。
-    const allowResult = await execute(execArgs({ kind: 'research', title: 'default capacity allow test' }), {
+    // 全局在途 4（> 旧缺省 2）但全局缺省 0 = 不限；researcher 1/3 → 放行（不同角色不挤占）。
+    const allowResult = await execute(execArgs({ role: 'researcher', title: 'default capacity allow test' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
     assert.equal(
       startCalls.length,
       1,
-      `default global 0 must allow research dispatch, got: ${JSON.stringify(allowResult)}`,
+      `default global 0 must allow researcher dispatch, got: ${JSON.stringify(allowResult)}`,
     )
-    // implement 已 3/3 → 第 4 笔同 kind 拒绝，回执省略 global 段（AC4）。
+    // developer 已 3/3 → 第 4 笔同角色拒绝，回执省略 global 段（AC4）。
     const rejectResult = await execute(execArgs({ title: 'default capacity reject test' }), {
       agent: parent,
       signal: new AbortController().signal,
     })
-    assert.equal(startCalls.length, 1, 'default kind limit 3 must not spawn')
-    assert.equal(rejectResult.output[0].text, 'implement kind at capacity (3/3)')
+    assert.equal(startCalls.length, 1, 'default role limit 3 must not spawn')
+    assert.equal(rejectResult.output[0].text, 'developer role at capacity (3/3)')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -2742,9 +2753,9 @@ test('capacity: 续用不误占槽（排除目标 childId 后未达限 → 放�
   // child-a），排除后 running=0 → 放行。
   const root = makeProject({ executor: { max_concurrent: 2 } })
   try {
-    seedRunningDispatches(root, [{ childId: 'child-a', kind: 'implement' }])
+    seedRunningDispatches(root, [{ childId: 'child-a', kind: 'developer' }])
     const { execute, sendMessageCalls } = setupExecutor({
-      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+      listDescendants: async () => [makeRunningChild('child-a', 'Developer')],
     })
     const parent = makeAgent(root)
     await execute(
@@ -2765,14 +2776,14 @@ test('capacity: 续用目标之外达限 → 续用被拒（排除目标后其�
   try {
     // child-a 为续用目标（需在 dispatches 中定位成功），child-b/child-c 为其他 running。
     seedRunningDispatches(root, [
-      { childId: 'child-a', kind: 'implement' },
-      { childId: 'child-b', kind: 'implement' },
-      { childId: 'child-c', kind: 'research' },
+      { childId: 'child-a', kind: 'developer' },
+      { childId: 'child-b', kind: 'developer' },
+      { childId: 'child-c', kind: 'researcher' },
     ])
     const { execute, sendMessageCalls } = setupExecutor({
       listDescendants: async () => [
-        makeRunningChild('child-a', 'Implement'),
-        makeRunningChild('child-b', 'Implement'),
+        makeRunningChild('child-a', 'Developer'),
+        makeRunningChild('child-b', 'Developer'),
         makeRunningChild('child-c', 'Research'),
       ],
     })
@@ -2902,6 +2913,324 @@ test('工具面索引：冷恢复能从任务记录读回白名单（旧记录�
     assert.deepEqual(rebuilt.get('child-with-allow'), ['write', 'edit'])
     assert.equal(rebuilt.get('child-legacy'), undefined, 'records without toolsAllow cannot be rebuilt')
     assert.equal(rebuilt.get('child-empty'), undefined, 'an empty whitelist is not a usable restriction')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- planReview 派发联动（R7：judger + plan-review 自动置 reviewing） ----------
+
+/** 读取任务当前 planReview 轨道形状（断言辅助；缺省读 none/0 形态）。 */
+function readPlanReview(root) {
+  const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+  return task.planReview ?? { phase: 'none', revisions: 0 }
+}
+
+/** 预置任务 planReview 轨道形状（reviewing/clean 场景夹具）。 */
+function seedPlanReview(root, planReview) {
+  const path = join(root, '.workloom/tasks/test-task/task.json')
+  const task = JSON.parse(readFileSync(path, 'utf8'))
+  task.planReview = planReview
+  writeFileSync(path, JSON.stringify(task))
+}
+
+test('planReview 联动：judger + plan-review 派发后 phase 置 reviewing，记录带 purpose', async () => {
+  const root = makeProject()
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      execArgs({ role: 'judger', purpose: 'plan-review', title: 'plan review round' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.deepEqual(readPlanReview(root), { phase: 'reviewing', revisions: 0 })
+    const records = readDispatches(root)
+    assert.equal(records[0].kind, 'judger')
+    assert.equal(records[0].purpose, 'plan-review')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('planReview 联动：reviewing 再派幂等（相位与轮数不变）', async () => {
+  const root = makeProject()
+  try {
+    seedPlanReview(root, { phase: 'reviewing', revisions: 0 })
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      execArgs({ role: 'judger', purpose: 'plan-review', title: 'review again' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.deepEqual(readPlanReview(root), { phase: 'reviewing', revisions: 0 })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('planReview 联动：clean 态派发不动轨道，仅输出一行 WARNING', async () => {
+  const warnings = []
+  const originalWarn = console.warn
+  console.warn = (message) => warnings.push(String(message))
+  const root = makeProject()
+  try {
+    seedPlanReview(root, { phase: 'clean', revisions: 0 })
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      execArgs({ role: 'judger', purpose: 'plan-review', title: 'review after clean' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    // clean→reviewing 非合法边：轨道不动，WARNING 说明原因；派发本身不回滚。
+    assert.deepEqual(readPlanReview(root), { phase: 'clean', revisions: 0 })
+    assert.ok(
+      warnings.some((w) => w.includes('plan review track is clean')),
+      'clean-phase dispatch must warn instead of moving the track',
+    )
+    assert.equal(readDispatches(root).length, 1, 'dispatch itself must not roll back')
+  } finally {
+    console.warn = originalWarn
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('planReview 联动：judger 无 purpose（追溯评审）不动轨道、记录不带 purpose', async () => {
+  const root = makeProject()
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(execArgs({ role: 'judger', title: 'retro audit' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.deepEqual(readPlanReview(root), { phase: 'none', revisions: 0 })
+    assert.equal(readDispatches(root)[0].purpose, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('planReview 联动：checker purpose case-design 行为不变（CASE 轨道置 designing，planReview 不动）', async () => {
+  const root = makeProject()
+  try {
+    const { execute } = setupExecutor()
+    const parent = makeAgent(root)
+    await execute(
+      execArgs({ role: 'checker', purpose: 'case-design', title: 'design round' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    const task = JSON.parse(
+      readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'),
+    )
+    assert.equal(task.case.phase, 'designing')
+    assert.equal(task.planReview, undefined)
+    assert.equal(readDispatches(root)[0].purpose, 'case-design')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('NATIVE_TOOLS 名单钉住：DSH 原生候选全集 15 名（不含 lsp_* 与交互/编排工具）', () => {
+  // 显式枚举断言（自 core executor-tools.test 迁入：清单落位 dsh 后由 dsh 钉住）。
+  assert.deepEqual([...NATIVE_TOOLS], [
+    'read',
+    'write',
+    'edit',
+    'bash',
+    'glob',
+    'grep',
+    'read_image',
+    'view_image',
+    'todo_write',
+    'job_output',
+    'job_list',
+    'job_kill',
+    'web_search',
+    'web_fetch',
+    'skill',
+  ])
+  for (const name of NATIVE_TOOLS) {
+    assert.ok(!name.startsWith('lsp_'), `default must not include LSP tool: ${name}`)
+  }
+})
+
+// ---------- 模型失败转移一跳重试（结算钩子接线） ----------
+
+/** 构造可捕获 followup 通知的父代理（结算 followup 投影通道断言用）。 */
+function makeNotifiableAgent(root, requestHeader) {
+  const notices = []
+  const base = makeAgent(root, requestHeader)
+  return {
+    parent: { ...base, followup: (message) => notices.push(JSON.stringify(message)) },
+    notices,
+  }
+}
+
+/** 发出 turn/end 结构化错误 + subagent/end error 终态（结算失败并触发重试钩子）。 */
+function emitModelFailure(setup, childId, code = 'TRANSPORT') {
+  emitSessionEvent(setup, { id: childId }, {
+    type: 'turn/end',
+    data: { reason: { kind: 'error', error: { message: 'Connection error.', code } } },
+  })
+  emitSubagentEnd(setup, { id: childId, stopReason: 'error' })
+}
+
+/** 等待异步重试钩子完成（钩子 fire-and-forget，宏任务节拍内落定）。 */
+async function settleHooks() {
+  await new Promise((resolve) => setTimeout(resolve, 10))
+}
+
+/** 失败转移夹具配置：developer 主模型 + 单跳 fallback 链。 */
+function failoverConfig() {
+  return {
+    subagent_profiles: [
+      {
+        roles: {
+          developer: {
+            model: 'provider-a/m1',
+            fallback_models: [{ model: 'provider-b/m2', effort: 'high' }],
+          },
+        },
+      },
+    ],
+  }
+}
+
+test('模型失败转移：有链一跳重派——记录 fallbackOf/fallbackAttempt=2/modelSource=fallback，prompt 保留原文加尾部 note', async () => {
+  const root = makeProject(failoverConfig())
+  try {
+    const setup = setupExecutor()
+    const { parent, notices } = makeNotifiableAgent(root)
+    await setup.execute(
+      execArgs({ prompt: 'ORIGINAL PROMPT BODY', title: 'failover retry' }),
+      { agent: parent, signal: new AbortController().signal },
+    )
+    assert.equal(setup.startCalls.length, 1)
+    // 首跳死于模型不可访问错误（TRANSPORT 命中白名单）→ 结算 failed + 一跳重派。
+    emitModelFailure(setup, 'child-1')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 2, 'one-hop retry must spawn a new child session')
+    const retrySpec = setup.startCalls[1]
+    // 重派绑定 = 链中下一模型（provider 拆分传入）+ 链条目 effort。
+    assert.equal(retrySpec.request.agentOptions.provider, 'provider-b')
+    assert.equal(retrySpec.request.agentOptions.model, 'm2')
+    assert.equal(retrySpec.label, '[Developer] failover retry')
+    // 重派 prompt 保留原 prompt 全文，尾部追加 failover note 段（keeping the
+    // original prompt + appending a failover note）。
+    const retryText = retrySpec.request.prompt[0].text
+    assert.ok(retryText.includes('ORIGINAL PROMPT BODY'), 'original prompt must be kept in full')
+    assert.ok(
+      retryText.includes(
+        'Failover: the previous attempt on model provider-a/m1 died with a model-access error (TRANSPORT)',
+      ),
+      'failover note must be appended',
+    )
+    assert.ok(
+      retryText.indexOf('ORIGINAL PROMPT BODY') < retryText.indexOf('Failover: the previous attempt'),
+      'note must sit at the tail of the original prompt',
+    )
+    // 记录形状：原记录 failed；重派记录 running + fallbackOf/fallbackAttempt=2 +
+    // 绑定链条目生效值 + modelSource=fallback + toolsAllow 同面。
+    const records = readDispatches(root)
+    assert.equal(records.length, 2)
+    assert.equal(records[0].status, 'failed')
+    const retry = records[1]
+    assert.equal(retry.status, 'running')
+    assert.equal(retry.kind, 'developer')
+    assert.equal(retry.childId, 'child-2')
+    assert.equal(retry.fallbackOf, 'child-1')
+    assert.equal(retry.fallbackAttempt, 2)
+    assert.equal(retry.model, 'provider-b/m2')
+    assert.equal(retry.effort, 'high')
+    assert.equal(retry.modelSource, 'fallback')
+    // 父会话通知（结算 followup 投影）：一行转移通知含下一模型与跳序。
+    assert.ok(
+      notices.some((text) => text.includes('starting failover attempt 2 of 2 on provider-b/m2')),
+      'parent must be notified through the followup projection',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('模型失败转移：重派子会话二次失败不再跳（fallbackOf 非空硬挡），failed 附阻断文案', async () => {
+  const root = makeProject(failoverConfig())
+  try {
+    const setup = setupExecutor()
+    const { parent, notices } = makeNotifiableAgent(root)
+    await setup.execute(execArgs({ prompt: 'retry hop body', title: 'failover second' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    emitModelFailure(setup, 'child-1')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 2)
+    notices.length = 0
+    // 重派子会话（记录 fallbackOf 非空）再次死于白名单错误：一跳上限硬挡。
+    emitModelFailure(setup, 'child-2')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 2, 'one-hop limit: no third spawn')
+    const records = readDispatches(root)
+    assert.equal(records.length, 2)
+    assert.equal(records[1].status, 'failed')
+    // 完整尝试链留在 dispatches.error：失败行 + failover 阻断文案后缀。
+    assert.ok(
+      records[1].error.includes('automatic failover was skipped (the one-hop failover limit is reached)'),
+      `blocked notice must be appended to the failed record error, got: ${records[1].error}`,
+    )
+    assert.ok(
+      notices.some((text) => text.includes('the dispatch stays failed')),
+      'parent must be notified about the blocked second hop',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('模型失败转移：无链结算 failed 附穷尽文案，不重派', async () => {
+  const root = makeProject({
+    subagent_profiles: [{ roles: { developer: { model: 'provider-a/m1' } } }],
+  })
+  try {
+    const setup = setupExecutor()
+    const { parent, notices } = makeNotifiableAgent(root)
+    await setup.execute(execArgs({ prompt: 'no chain body', title: 'failover nochain' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    emitModelFailure(setup, 'child-1')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 1, 'no chain: no retry spawn')
+    const records = readDispatches(root)
+    assert.equal(records.length, 1)
+    assert.equal(records[0].status, 'failed')
+    assert.ok(
+      records[0].error.includes('the fallback chain is exhausted after 1 attempt(s)'),
+      `exhausted notice must be appended, got: ${records[0].error}`,
+    )
+    assert.ok(notices.some((text) => text.includes('re-dispatch manually with a healthy model')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('模型失败转移：非白名单错误码不触发（业务失败宁可漏转不误转）', async () => {
+  const root = makeProject(failoverConfig())
+  try {
+    const setup = setupExecutor()
+    const { parent, notices } = makeNotifiableAgent(root)
+    await setup.execute(execArgs({ prompt: 'business failure body', title: 'failover business' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // INVARIANT 属业务性失败：结算 failed，但不触发转移、不追加 failover 文案。
+    emitModelFailure(setup, 'child-1', 'INVARIANT')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 1, 'non-whitelist code must not retry')
+    const records = readDispatches(root)
+    assert.equal(records[0].status, 'failed')
+    assert.ok(!records[0].error.includes('failover'), 'no failover wording for business failures')
+    assert.equal(notices.length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

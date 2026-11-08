@@ -11,7 +11,7 @@
  * - 注入失败只 console.warn，绝不阻塞会话（注入是增强，不是门禁）；
  * - 服务面全部使用宿主官方类型（Context 增强）：systemPrompt/agents/commands/
  *   tools/subagents/skills 由 inject 声明硬依赖，缺任一插件不激活；
- * - effort 经 startContinuable 的 agentOptions.reasoningEffort 原生通道透传
+ * - effort 经 startActivation 的 agentOptions.reasoningEffort 原生通道透传
  *   （0.1.7 起 DSH 原生消费并持久化），不再需要 agent/created 监听补丁。
  */
 import type { Context } from '@deepseek-ai/cordis';

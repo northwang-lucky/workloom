@@ -1,6 +1,6 @@
 # Test-first reference (workloom-alignment)
 
-Read this reference only when the alignment's test-first applicability node concludes that implementation requires test-first delivery (or critical paths only). It decides which seams join the alignment scope; the red → green method itself lives in the generic `tdd` skill, which the implement executor loads in Phase 2.1.
+Read this reference only when the alignment's test-first applicability node concludes that implementation requires test-first delivery (or critical paths only). It decides which seams join the alignment scope; the red → green method itself lives in the generic `tdd` skill, which the Developer loads in Phase 2.1.
 
 ## The applicability question
 
@@ -22,4 +22,4 @@ A **seam** is the public boundary you test at: the interface where you observe b
 
 ## Completion criteria
 
-The seams under test are confirmed with the user, recorded in prd.md acceptance criteria, and unambiguous enough that a later implement executor can red → green exactly those seams without re-litigating scope.
+The seams under test are confirmed with the user, recorded in prd.md acceptance criteria, and unambiguous enough that a later Developer can red → green exactly those seams without re-litigating scope.

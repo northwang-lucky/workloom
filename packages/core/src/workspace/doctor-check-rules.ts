@@ -26,7 +26,7 @@ import { loadConfig } from './config-load.ts'
 import { insideWorkloom, WORKLOOM_DIR } from './locate.js'
 import { scanWorktreeConsistencySync } from './worktree-integrate.ts'
 import { makeIssue } from './doctor-tasks.ts'
-import { readTaskRecord } from '../task/task-storage.ts'
+import { readTaskRecord } from '../task/storage/index.ts'
 import {
   CASE_PHASES,
   MODES,
@@ -35,13 +35,13 @@ import {
   TRANSITIONS,
   statusOfStage,
   toTaskView,
-} from '../task/state-machine.ts'
+} from '../task/state/index.ts'
 import { CASE_FILES, CASE_PURPOSES } from '../task/case-structure.ts'
-import { EXECUTOR_KINDS } from '../dispatch/executor-kinds.ts'
+import { EXECUTOR_ROLES } from '../dispatch/executor-roles.ts'
 
 import type { DoctorIssue, DoctorTaskNode } from './doctor-types.ts'
 import { ARCHIVE_DIR, TASK_DIR } from './doctor-types.ts'
-import type { TaskModeValue, TaskStageValue } from '../task/state-machine.ts'
+import type { TaskModeValue, TaskStageValue } from '../task/state/index.ts'
 
 /* ---------------- 任务扫描（三类任务级检查共享） ---------------- */
 
@@ -333,7 +333,7 @@ export function checkCaseConsistency(root: string, nodes: DoctorTaskNode[]): Doc
     if (caseRecord !== null && typeof caseRecord.designSession === 'string' && caseRecord.designSession !== '') {
       const hasDesignDispatch = view.dispatches.some(
         (entry) =>
-          entry.kind === EXECUTOR_KINDS.check &&
+          entry.kind === EXECUTOR_ROLES.CHECKER &&
           (entry.purpose ?? CASE_PURPOSES.EXECUTION) === CASE_PURPOSES.DESIGN &&
           entry.childId === caseRecord.designSession,
       )
@@ -356,7 +356,7 @@ export function checkCaseConsistency(root: string, nodes: DoctorTaskNode[]): Doc
     if (approvedOrLater.includes(view.casePhase)) {
       const hasExecutionDispatch = view.dispatches.some(
         (entry) =>
-          entry.kind === EXECUTOR_KINDS.check &&
+          entry.kind === EXECUTOR_ROLES.CHECKER &&
           (entry.purpose ?? CASE_PURPOSES.EXECUTION) === CASE_PURPOSES.EXECUTION,
       )
       if (!hasExecutionDispatch) {
@@ -508,7 +508,7 @@ export function checkConfig(root: string): DoctorIssue[] {
         message: 'No .workloom/config.json or config.js; using built-in defaults.',
         path: join(WORKLOOM_DIR, 'config.json'),
         fixable: false,
-        hint: 'Create .workloom/config.json to customize hooks, packages and subagents.',
+        hint: 'Create .workloom/config.json to customize hooks, packages and subagent_profiles.',
       }),
     )
   } else {

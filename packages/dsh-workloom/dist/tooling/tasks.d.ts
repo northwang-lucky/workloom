@@ -10,7 +10,8 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 /**
- * 注册九个任务管理工具（create/start/check/align/case/finish/archive/list/autonomy）。
+ * 注册十个任务管理工具（create/start/check/align/case/planreview/finish/archive/
+ * list/autonomy）。
  * @param ctx 插件作用域上下文
  */
 export declare function registerTaskTools(ctx: Context): void;

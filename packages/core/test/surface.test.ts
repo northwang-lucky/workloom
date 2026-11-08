@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import {
   buildContinueNoChildIdText,
   buildContinueNoDispatchText,
-  buildCrossKindReuseRejectText,
+  buildCrossRoleReuseRejectText,
   buildErrorRelayText,
   buildExecutorReceipt,
   buildSpawnBindingReceipt,
@@ -398,19 +398,19 @@ test('续用拒绝文案 builder：输出与两 adapter 既有文案逐字一致
   // 以下三段文案是 dsh-workloom 的共享实现（原双份内联上移），
   // 任何一侧文案变化都必须先改这里——逐字锚点即「两端一致」的机器可验形式。
   assert.equal(
-    buildContinueNoDispatchText('implement'),
-    'no previous implement executor dispatch with a recorded child id was found for this task; ' +
-      'dispatch a new executor or pass the exact childId of a previous implement dispatch',
+    buildContinueNoDispatchText('developer'),
+    'no previous developer executor dispatch with a recorded child id was found for this task; ' +
+      'dispatch a new executor or pass the exact childId of a previous developer dispatch',
   )
   assert.equal(
-    buildContinueNoChildIdText('abc', 'research'),
+    buildContinueNoChildIdText('abc', 'researcher'),
     'no dispatch record with childId "abc" was found for this task; ' +
-      'pass "latest" or the childId of a previous research dispatch',
+      'pass "latest" or the childId of a previous researcher dispatch',
   )
   assert.equal(
-    buildCrossKindReuseRejectText('abc', 'research', 'implement'),
-    'cross-kind reuse rejected: session "abc" belongs to a research dispatch, ' +
-      'but this call is kind implement; reuse is limited to the same kind',
+    buildCrossRoleReuseRejectText('abc', 'researcher', 'developer'),
+    'cross-role reuse rejected: session "abc" belongs to a researcher dispatch, ' +
+      'but this call is role developer; reuse is limited to the same role',
   )
   assert.equal(CONTINUE_EXECUTOR_LATEST, 'latest')
 })

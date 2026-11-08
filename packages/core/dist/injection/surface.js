@@ -7,7 +7,6 @@
  * - 全部文案英文、逐字提取自下沉前 adapter 现状（不得改写措辞），键名小驼峰；
  * - 全部 `as const`：类型即字面量，注册面与 adapter 消费处共享同一文本。
  */
-import { PARENT_MODEL_LABEL } from '../dispatch/dispatch-binding.js';
 /** 两个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。
  * continue/finish 已改造为同名 skill（skills/workloom-*），不再注册为命令。 */
 export const COMMAND_NAMES = {
@@ -19,7 +18,7 @@ export const COMMAND_DESCRIPTIONS = {
     init: 'Initialize the .workloom skeleton (idempotent; --purge applies to legacy .trellis projects only: it force-fills missing pieces and fails when no legacy .trellis project exists)',
     doctor: 'Run a structured workflow health check (results are handed to the model as JSON)',
 };
-/** 十一个工具名（九个任务工具 + executor + 步骤详情，模型可见）。 */
+/** 十二个工具名（十个任务工具 + executor + 步骤详情，模型可见）。 */
 export const TOOL_NAMES = {
     taskCreate: 'workloom_task_create',
     taskStart: 'workloom_task_start',
@@ -29,6 +28,7 @@ export const TOOL_NAMES = {
     taskList: 'workloom_task_list',
     taskAlign: 'workloom_task_align',
     taskCase: 'workloom_task_case',
+    taskPlanReview: 'workloom_task_planreview',
     taskAutonomy: 'workloom_task_autonomy',
     executor: 'workloom_execute',
     step: 'workloom_step',
@@ -40,11 +40,12 @@ export const TOOL_DESCRIPTIONS = {
     taskCheck: 'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
     taskAlign: 'Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)',
     taskCase: 'CASE review: action=review returns the current case.md snapshot, structural issues, blockers, the readyForExecution flag and the current designSession without writing; the main session reviews the CASE against the PRD, the PLAN and the actual code, then continues the same design session for execution (main-session only, no user approval and no confirmation record)',
+    taskPlanReview: 'Mark the plan review track phase (main-session only): revising enters a revision round after Judger findings (the round counter is recorded); clean records the review as converged with zero findings (required before the PLAN confirmation). The reviewing phase is not marked here — a judger dispatch with purpose plan-review sets it automatically',
     taskFinish: 'Clear the session task pointer for this session (status unchanged)',
     taskArchive: 'Archive the task (completed + moved to archive/, optional git auto-commit; requires a recorded check unless force is set)',
     taskList: 'List task summaries (optionally filtered by status)',
     taskAutonomy: 'Set the task autonomy level (manual/semi/auto): manual keeps every content confirmation human; semi auto-records the PLAN confirmation once the plan review track is clean; auto auto-records both the PRD and PLAN confirmations. Auto-recorded confirmations carry an audit trail (source + autonomy snapshot). The switch only affects confirmations that have not happened yet and is logged with a timestamp',
-    executor: 'Dispatch a workloom executor subagent (research/implement/check/frontend/review) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same kind only)',
+    executor: 'Dispatch a workloom executor subagent (researcher/developer/frontend-developer/checker/judger) with the task context inlined; the child session stays continuable, so pass continue_executor to follow up in the same session (same role only)',
     step: 'Show the body of one workloom workflow step (e.g. 1.1) from the workflow contract',
 };
 /**
@@ -58,11 +59,12 @@ export const TOOL_SNIPPETS = {
     taskCheck: 'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
     taskAlign: 'workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content',
     taskCase: 'workloom_task_case(action, taskPath?) — review the task CASE before continuing the design session',
+    taskPlanReview: 'workloom_task_planreview(phase, taskPath?) — mark the plan review track revising/clean',
     taskFinish: 'workloom_task_finish(taskPath?) — clear the session task pointer',
     taskArchive: 'workloom_task_archive(taskPath, autoCommit?, force?, reason?) — archive the completed task',
     taskList: 'workloom_task_list(status?) — list task summaries',
     taskAutonomy: 'workloom_task_autonomy(taskPath?, autonomy) — switch the task autonomy level (manual/semi/auto)',
-    executor: 'workloom_execute(kind, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?, reinject?, purpose?) — dispatch or continue an executor',
+    executor: 'workloom_execute(role, prompt, taskPath?, model?, effort?, title, force?, reason?, continue_executor?, reinject?, purpose?) — dispatch or continue an executor',
     step: 'workloom_step(stepId) — show one workflow step body',
 };
 /** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有三处变体）。 */
@@ -98,8 +100,10 @@ export const PARAM_DESCRIPTIONS = {
     alignmentSummary: 'Content confirmation summary of the reviewed PRD or PLAN (coverage, key decisions, and the confirmation result); required by action=confirm',
     /** case 工具的参数：动作（review 只读诊断；主会话复核后直接执行，无确认动作）。 */
     caseAction: 'CASE action: review returns the current case.md snapshot, structural issues, blockers, readyForExecution and the current designSession without writing; there is no confirm action — the main session reviews the CASE and then continues the design session for execution',
-    /** executor 工具的 purpose 参数（check 派发目的：CASE 设计轮保持 stage）。 */
-    executorPurpose: 'Optional check dispatch purpose: case-design keeps the current stage and records the design session; execution continues the reviewed design session for actual execution and enters check stage. Defaults to execution for backward compatibility',
+    /** executor 工具的 purpose 参数（checker：CASE 设计/执行轮；judger：plan-review 评审派发）。 */
+    executorPurpose: 'Optional dispatch purpose: checker accepts case-design (keeps the current stage and records the design session) or execution (continues the reviewed design session for actual execution and enters check stage; the checker default); judger accepts plan-review (a PLAN review dispatch: the task planReview phase is automatically set to reviewing). Other roles take no purpose',
+    /** planreview 工具的 phase 参数（Owner 手动标记的两个相位）。 */
+    planReviewPhase: 'Plan review track phase to mark: revising enters a revision round after Judger findings (the round counter is recorded); clean records the review as converged with zero findings (the PLAN confirmation requires clean)',
     force: 'Bypass the failing workflow gate(s); every actually bypassed gate is recorded in task.json overrides',
     reason: 'Required non-empty reason when force is true (recorded per bypassed gate for audit)',
     /** executor 工具的 force 参数（语义：覆盖与配置冲突的 model/effort，reason 必填）。 */
@@ -107,13 +111,13 @@ export const PARAM_DESCRIPTIONS = {
     /** executor 工具的 reason 参数（force 为 true 时必填）。 */
     reasonExecutor: 'Required non-empty reason when force is true (recorded for audit)',
     /** executor 工具的 title 参数（schema 必填非空；子会话语义标题，前缀由 executor 组装）。 */
-    titleExecutor: 'Required semantic part of the child session title; the executor assembles it as [<KindLabel>] <title>',
-    kind: 'Executor role: research, implement, check, frontend, or review',
-    model: 'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to the matching subagent_profiles entry (by main session model), then subagents.<kind>.model, then the parent session model. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor model',
-    effort: 'Reasoning effort: low/medium/high/xhigh/max; falls back to the matching subagent_profiles entry, then subagents.<kind>.effort. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor effort',
+    titleExecutor: 'Required semantic part of the child session title; the executor assembles it as [<RoleLabel>] <title>',
+    role: 'Executor role: researcher, developer, frontend-developer, checker, or judger',
+    model: 'Model id for the executor subagent; supports "provider/model" prefix (required for cross-provider dispatch). Falls back to the matching subagent_profiles entry (by main session model; per-role settings live at subagent_profiles[i].roles.<role>), then the parent session model. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor model',
+    effort: 'Reasoning effort: low/medium/high/xhigh/max; falls back to the matching subagent_profiles entry (subagent_profiles[i].roles.<role>), then the parent session effort. Passing this overrides the three-tier config resolution (global > project > project-local); pass it only when the user explicitly asks to change the executor effort',
     prompt: 'Task instructions for the executor subagent',
-    /** executor 工具的 continue_executor 参数（续用同一 continuable 会话；同 kind 边界）。 */
-    continueExecutor: 'Reuse the same continuable executor session instead of dispatching a new one: pass "latest" to reuse the most recent same-kind dispatch of this task, or pass the recorded childId (session id) of a previous same-kind dispatch; cross-kind reuse is rejected. A continuation cannot rebind the executor model/effort bound at its original dispatch: to change the model or effort, start a new dispatch instead',
+    /** executor 工具的 continue_executor 参数（续用同一 continuable 会话；同角色边界）。 */
+    continueExecutor: 'Reuse the same continuable executor session instead of dispatching a new one: pass "latest" to reuse the most recent same-role dispatch of this task, or pass the recorded childId (session id) of a previous same-role dispatch; cross-role reuse is rejected. A continuation cannot rebind the executor model/effort bound at its original dispatch: to change the model or effort, start a new dispatch instead',
     /** executor 工具的 reinject 参数（续接全量重注入开关；默认关）。 */
     reinjectExecutor: 'Continue by re-injecting the full task context into the existing session instead of sending only the incremental instruction; off by default, use only when context was lost to compaction',
     stepId: 'Workflow step id, e.g. 1.1 or 2.1',
@@ -125,6 +129,11 @@ export const ERR_PREFIX = {
     executor: 'workloom executor',
     stepTool: 'workloom step tool',
 };
+/**
+ * 模型继承父会话时的展示标签（receipt 主模型位口径；原 dispatch-binding 跨模块
+ * 常量，唯一消费方在本模块，收为模块内单源不再对外导出）。
+ */
+const PARENT_MODEL_LABEL = '<parent session>';
 /** executor 子代理无文本输出时的返回提示（运行时文案英文）。 */
 export const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.';
 /**
@@ -135,26 +144,26 @@ export const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.
 export const CONTINUE_REBIND_REJECT_TEXT = 'continue_executor cannot be combined with model/effort: the child session keeps the ' +
     'model/effort bound at its original dispatch and sendMessage has no rebinding seam. ' +
     'To change the model or effort, dispatch a new executor without continue_executor.';
-/** continue_executor 的 latest 魔法值（两 adapter 共享，取同 kind 最近一条派发的 childId）。 */
+/** continue_executor 的 latest 魔法值（两 adapter 共享，取同角色最近一条派发的 childId）。 */
 export const CONTINUE_EXECUTOR_LATEST = 'latest';
 /**
  * 续用拒绝文案（两 adapter 共享 builder，消除双份维护；与 CONTINUE_REBIND_REJECT_TEXT
  * 同属 continue_executor 拒绝面，逐字一致由共享实现保证）。
  */
-/** latest 无同 kind 记录时的提示文案。 */
-export function buildContinueNoDispatchText(kind) {
-    return (`no previous ${kind} executor dispatch with a recorded child id was found for this task; ` +
-        `dispatch a new executor or pass the exact childId of a previous ${kind} dispatch`);
+/** latest 无同角色记录时的提示文案。 */
+export function buildContinueNoDispatchText(role) {
+    return (`no previous ${role} executor dispatch with a recorded child id was found for this task; ` +
+        `dispatch a new executor or pass the exact childId of a previous ${role} dispatch`);
 }
 /** 显式 childId 无派发记录时的提示文案。 */
-export function buildContinueNoChildIdText(input, kind) {
+export function buildContinueNoChildIdText(input, role) {
     return (`no dispatch record with childId "${input}" was found for this task; ` +
-        `pass "${CONTINUE_EXECUTOR_LATEST}" or the childId of a previous ${kind} dispatch`);
+        `pass "${CONTINUE_EXECUTOR_LATEST}" or the childId of a previous ${role} dispatch`);
 }
-/** 跨 kind 续用的拒绝文案。 */
-export function buildCrossKindReuseRejectText(input, matchKind, kind) {
-    return (`cross-kind reuse rejected: session "${input}" belongs to a ${matchKind} dispatch, ` +
-        `but this call is kind ${kind}; reuse is limited to the same kind`);
+/** 跨角色续用的拒绝文案。 */
+export function buildCrossRoleReuseRejectText(input, matchRole, role) {
+    return (`cross-role reuse rejected: session "${input}" belongs to a ${matchRole} dispatch, ` +
+        `but this call is role ${role}; reuse is limited to the same role`);
 }
 /**
  * purge 模式标志：仅适用于旧 .trellis 项目——rawInput 以该前缀开头时，init 以

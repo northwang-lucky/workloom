@@ -10,7 +10,7 @@ import { resolve } from 'node:path'
 
 import { gitChangedFilesSync } from '../workspace/git-query.ts'
 import { insideWorkloom } from '../workspace/locate.js'
-import type { TaskRecord } from './task-storage.ts'
+import type { TaskRecord } from './storage/index.ts'
 
 /**
  * @param {string} root 项目根

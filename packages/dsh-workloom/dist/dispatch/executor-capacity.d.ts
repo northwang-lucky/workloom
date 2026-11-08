@@ -6,9 +6,11 @@
  *   kind='child' 且 activity='running'），仅计本主会话在途 child，符合「按主会话
  *   计数」语义（对齐决策 2A），不跨会话；0.1.7 起 listChildren 只回目录投影
  *   （无 activity），enriched 行（kind/activity/hasChildren）由 listDescendants 返回；
- * - childId→kind 映射：优先从本任务 dispatches 记录读取（workloom 派发留痕，权威来源），
- *   缺失时回退解析 listDescendants 的 label（[<KindLabel>] <title>），两路均无则 kind 置空
- *   （仍占全局槽、不占任何 kind 槽——保守安全）；
+ * - childId→role 映射：优先从本任务 dispatches 记录读取（workloom 派发留痕，权威
+ *   来源；视图层已归一为新角色值），缺失时回退解析 listDescendants 的 label
+ *   （[<RoleLabel>] <title>），收集值经 tryNormalizeExecutorRole 归一；两路均无或
+ *   归一落空则 role 置空并加 WARNING（仍占全局槽、不占任何角色槽——保守安全，
+ *   避免全局容量漏计）；
  * - 判定委托 core 的 evaluateExecutorCapacity 纯函数，拒绝时返回 formatAtCapacityReceipt
  *   文案（不抛错、不写 dispatches、不 spawn），主会话稍后自行重试；
  * - 续用路径调用方传入 excludeChildId，把目标 child 从 running 集合排除（其槽不重复计）；
@@ -30,9 +32,9 @@ export declare function generateDispatchSeq(): string;
 /**
  * 登记 in-flight 派发（同步：闸判定通过后立即调用，再 await startActivation）。
  * @param seq 派发序号（generateDispatchSeq 生成）
- * @param kind 本次派发的 executor 类型
+ * @param role 本次派发的 executor 角色
  */
-export declare function registerInFlightDispatch(seq: string, kind: string): void;
+export declare function registerInFlightDispatch(seq: string, role: string): void;
 /**
  * 释放 in-flight 派发（startActivation 成功返回后 child 已进 native 视野，
  * 或失败/异常路径）。
@@ -53,12 +55,12 @@ export interface RunningCollectionService {
     listDescendants(parentId: Agent['id'], signal?: AbortSignal): Promise<SubagentDescendantListEntry[]>;
 }
 /**
- * 收集本主会话 running executor 集合（DSH native 会话级 + dispatches 补 kind）。
+ * 收集本主会话 running executor 集合（DSH native 会话级 + dispatches 补 role）。
  * @param service 子代理服务（listDescendants 枚举）
  * @param parent 发起 agent（取 id 作为 listDescendants 的根会话 id）
  * @param signal 取消信号
  * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径（读 dispatches 补 kind）
+ * @param taskRelPath 任务目录相对 .workloom 的路径（读 dispatches 补 role）
  * @param excludeChildId 排除的 childId（续用路径：目标 child 不重复占槽）
  * @returns running executor 记录集合
  */
@@ -66,9 +68,9 @@ export declare function collectRunningExecutors(service: RunningCollectionServic
 /**
  * 判定并发闸（纯同步，无副作用）：放行返回 null，拒绝返回 at capacity 回执文案。
  * @param running 本主会话 running executor 集合
- * @param kind 本次派发的 executor 类型
+ * @param role 本次派发的 executor 角色
  * @param globalLimit 全局并发上限（0 = 不限）
- * @param kindLimit 本次 kind 上限（undefined = 该层不限，0 = 不限，> 0 = 上限）
+ * @param roleLimit 本次角色上限（undefined = 该层不限，0 = 不限，> 0 = 上限）
  * @returns null = 放行；非 null = 拒绝，值为英文 at capacity 回执文案
  */
-export declare function evaluateCapacityGate(running: RunningExecutorRecord[], kind: string, globalLimit: number, kindLimit: number | undefined): string | null;
+export declare function evaluateCapacityGate(running: RunningExecutorRecord[], role: string, globalLimit: number, roleLimit: number | undefined): string | null;

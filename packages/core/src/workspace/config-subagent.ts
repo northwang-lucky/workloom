@@ -1,17 +1,21 @@
 /**
- * config subagent 解析与冲突检测（TypeScript）：subagents / subagent_profiles
- * 两层条目解析、resolveSubagentDefaults 合并链、executor 参数冲突检测。
+ * config subagent 解析与冲突检测（TypeScript）：subagent_profiles 条目解析、
+ * resolveSubagentDefaults 合并链、executor 参数冲突检测。
  *
  * 设计意图：
  * - 与加载编排（config-load）和校验器叶子（config-defaults）拆分：本模块承载
  *   subagent 配置的解析语义与运行期合并/冲突口径，单向上引 defaults；
+ * - 根层级 subagents 已退役（R5，config-load 侧 fail loud）：解析链收敛为
+ *   显式参数 > subagent_profiles 命中条目 > undefined（继承宿主默认）；
+ *   profile 条目内部命中旧 kind 键时加载期一次性 WARNING（不抛错不破坏存量环境）；
  * - per-runtime 分支整体移除：entry.model 与 whenMain 仅支持 string
  *   （所有 runtime 同值），map 形式与 resolveEntryModel 一并退役；
  * - 解析失败显式抛 WorkloomConfigError（fail loud，无灰区）。
  */
 
+import { LEGACY_KIND_TO_ROLE } from '../dispatch/executor-roles.ts'
 import {
-  DEFAULT_KIND_MAX_CONCURRENT,
+  DEFAULT_ROLE_MAX_CONCURRENT,
   WorkloomConfigError,
   requireMap,
   requireNonNegativeInt,
@@ -27,51 +31,34 @@ import type {
   WorkloomConfig,
 } from './config.d.ts'
 
-/** 校验 subagents 映射：每个值是含可选 model/effort 的对象，key 不限集合
- * （不对 executor kind 白名单校验，可容纳未来新增 kind / 拼写错误）。
- * @param value 用户文档中的 subagents 字段
- * @returns 条目映射
- */
-export function parseSubagents(value: unknown): Record<string, SubagentConfigEntry> {
-  return parseSubagentsEntries('subagents', requireMap('subagents', value), {
-    allowTools: false,
-    allowMaxConcurrent: false,
-  })
-}
+/** 已告警的旧角色键（进程级去重：loadConfig 派发期高频调用，同键只 WARNING 一次）。 */
+const warnedLegacyRoleKeys = new Set<string>()
 
 /**
- * 校验 subagents 条目映射（解析核心，前缀可参数化：旧 subagents 字段与
- * subagent_profiles 内层复用同一套 entry 校验）。条目内未知字段 fail loud
- * （两层一致）；tools 与 max_concurrent 字段仅 subagent_profiles 层支持
- * （allowTools / allowMaxConcurrent 开关，legacy 层出现即报错）。
- * fallback_models（失败转移链）两层语法与语义完全一致，不受层开关约束。
- * @param prefix 字段路径前缀（subagents 或 subagent_profiles[i].subagents）
+ * 校验 profile 条目映射（解析核心，subagent_profiles[i].roles 专用）。
+ * 条目内未知字段 fail loud；key 命中旧 kind 五值时输出加载期一次性 WARNING
+ * （文案指向新 role 键名，不抛错不破坏存量环境——旧键配置在新角色值域下
+ * 不再命中任何派发，静默失效与根层级迁移指引的口径一致）。
+ * @param prefix 字段路径前缀（subagent_profiles[i].roles）
  * @param map 条目映射
- * @param options 层间字段开关
  * @returns 条目映射（camelCase 内存形态）
  */
-export function parseSubagentsEntries(
+function parseProfileEntries(
   prefix: string,
   map: Record<string, unknown>,
-  options: { allowTools: boolean; allowMaxConcurrent: boolean },
 ): Record<string, SubagentConfigEntry> {
-  const { allowTools, allowMaxConcurrent } = options
   const result: Record<string, SubagentConfigEntry> = {}
   for (const [name, entry] of Object.entries(map)) {
+    if (name in LEGACY_KIND_TO_ROLE && !warnedLegacyRoleKeys.has(name)) {
+      warnedLegacyRoleKeys.add(name)
+      const renamed = LEGACY_KIND_TO_ROLE[name as keyof typeof LEGACY_KIND_TO_ROLE]
+      console.warn(
+        `workloom config: WARNING: ${prefix}.${name} uses a legacy executor kind key; ` +
+          `rename it to "${renamed}" (legacy keys no longer match any dispatch role)`,
+      )
+    }
     const spec = requireMap(`${prefix}.${name}`, entry)
     for (const key of Object.keys(spec)) {
-      if (key === 'tools' && !allowTools) {
-        throw new WorkloomConfigError(
-          `${prefix}.${name}.tools`,
-          'is only supported under subagent_profiles',
-        )
-      }
-      if (key === 'max_concurrent' && !allowMaxConcurrent) {
-        throw new WorkloomConfigError(
-          `${prefix}.${name}.max_concurrent`,
-          'is only supported under subagent_profiles',
-        )
-      }
       if (
         key !== 'model' &&
         key !== 'effort' &&
@@ -81,8 +68,7 @@ export function parseSubagentsEntries(
       ) {
         throw new WorkloomConfigError(
           `${prefix}.${name}.${key}`,
-          // allowed 清单按层条件化：tools / max_concurrent 仅 profiles 层合法。
-          `unknown field (allowed: model, effort, fallback_models${allowMaxConcurrent ? ', max_concurrent' : ''}${allowTools ? ', tools' : ''})`,
+          'unknown field (allowed: model, effort, fallback_models, max_concurrent, tools)',
         )
       }
     }
@@ -193,9 +179,11 @@ function parseToolList(field: string, value: unknown): string[] {
 }
 
 /**
- * 校验 subagent_profiles 数组：每条为 {whenMain?, subagents}，顺序即匹配顺序。
- * whenMain 为 string（完整 provider/model）；内层 subagents 复用
- * parseSubagentsEntries 的 entry 校验（allowTools = true，tools 字段在此层合法）。
+ * 校验 subagent_profiles 数组：每条为 {whenMain?, roles}，顺序即匹配顺序。
+ * whenMain 为 string（完整 provider/model）；内层 roles 经 parseProfileEntries
+ * 做 entry 校验（tools/max_concurrent/fallback_models 字段均在此层合法）；
+ * 条目出现旧内层字段名 subagents 时抛错给 roles 迁移指引（用户 2026-11-08
+ * 裁定：与根层级退役同 fail loud 口径，不做兼容读）。
  * 解析后做歧义检查（多条兜底条目、whenMain 条件重叠，均 fail loud）。
  * @param value 用户文档中的 subagent_profiles 字段
  * @returns profile 数组
@@ -207,15 +195,19 @@ export function parseSubagentProfiles(value: unknown): SubagentProfile[] {
   const result: SubagentProfile[] = []
   for (let i = 0; i < value.length; i++) {
     const entry = requireMap(`subagent_profiles[${i}]`, value[i])
-    const parsed: SubagentProfile = { subagents: {} }
+    // 旧内层字段名 subagents：出现即抛迁移指引（决定 15，不做兼容读）。
+    if (entry.subagents !== undefined) {
+      throw new WorkloomConfigError(
+        `subagent_profiles[${i}].subagents`,
+        'is no longer supported; rename the field to roles (subagent_profiles[i].roles.<role>)',
+      )
+    }
+    const parsed: SubagentProfile = { roles: {} }
     if (entry.whenMain !== undefined) {
       parsed.whenMain = parseWhenMain(`subagent_profiles[${i}].whenMain`, entry.whenMain)
     }
-    const subs = requireMap(`subagent_profiles[${i}].subagents`, entry.subagents ?? {})
-    parsed.subagents = parseSubagentsEntries(`subagent_profiles[${i}].subagents`, subs, {
-      allowTools: true,
-      allowMaxConcurrent: true,
-    })
+    const subs = requireMap(`subagent_profiles[${i}].roles`, entry.roles ?? {})
+    parsed.roles = parseProfileEntries(`subagent_profiles[${i}].roles`, subs)
     result.push(parsed)
   }
   assertNoAmbiguousProfiles(result)
@@ -282,82 +274,70 @@ function assertNoAmbiguousProfiles(profiles: readonly SubagentProfile[]): void {
 }
 
 /**
- * 合并 executor 子代理默认 model/effort：工具调用参数优先，未出现的字段回退到
- * subagent_profiles 命中条目（按主会话模型匹配），再回退到旧 subagents 配置
- * （按 kind 对应条目）；全部缺失时字段为 undefined（继承父会话）。model 与
- * effort 独立合并，失败转移链（fallbackModels）同样字段级合并。
- * 纯同步、无副作用（不修改入参）。
+ * 合并 executor 子代理默认 model/effort：显式参数优先，未出现的字段回退到
+ * subagent_profiles 命中条目（按主会话模型匹配）；全部缺失时字段为 undefined
+ * （继承宿主默认）。model 与 effort 独立合并，失败转移链（fallbackModels）
+ * 同样字段级合并。纯同步、无副作用（不修改入参）。
  * @param config 配置对象
- * @param kind executor 类型（research/implement/check/frontend/review）
+ * @param role executor 角色（researcher/developer/frontend-developer/checker/judger）
  * @param overrides 工具调用参数（仅覆盖出现的字段）
  * @param mainModel 主会话模型（provider/model 字符串；取不到时不传，
- *   全部 whenMain 条目跳过，走兜底/旧 subagents）
+ *   全部 whenMain 条目跳过，走无 whenMain 的兜底条目）
  * @returns 合并结果与字段来源
  */
 export function resolveSubagentDefaults(
   config: WorkloomConfig,
-  kind: string,
+  role: string,
   overrides: { model?: string; effort?: string },
   mainModel?: string,
 ): ResolveSubagentDefaultsResult {
   // 顺序匹配 subagent_profiles：无 whenMain 的条目无条件命中（兜底）；whenMain
   // 条目在 mainModel 可取且归一化相等时命中；mainModel 取不到时一律跳过
   // whenMain 条目（运行时信息缺失，非配置错误，不 fail loud）。
-  let matched: { index: number; subagents: Record<string, SubagentConfigEntry>; source: 'whenMain' | 'fallback'; whenMainValue?: string } | null = null
+  let matched: { index: number; roles: Record<string, SubagentConfigEntry>; source: 'whenMain' | 'fallback'; whenMainValue?: string } | null = null
   const profiles = config.subagentProfiles ?? []
   for (const [i, profile] of profiles.entries()) {
     if (profile.whenMain === undefined) {
-      matched = { index: i, subagents: profile.subagents, source: 'fallback' }
+      matched = { index: i, roles: profile.roles, source: 'fallback' }
       break
     }
     if (mainModel === undefined) continue
     const value = whenMainValueFor(profile.whenMain, mainModel)
     if (value !== undefined) {
-      matched = { index: i, subagents: profile.subagents, source: 'whenMain', whenMainValue: value }
+      matched = { index: i, roles: profile.roles, source: 'whenMain', whenMainValue: value }
       break
     }
   }
-  // 命中条目未配置该 kind 时该层为空对象，字段依次回退旧 subagents（kind 级联）。
-  const profileLayer = matched?.subagents[kind] ?? {}
-  const legacyLayer = config.subagents[kind]
-  // 字段独立合并：显式参数 > 命中 profile 条目字段 > 旧 subagents 字段；字段路径带
-  // 来源层级便于定位。
+  // 命中条目未配置该角色时该层为空对象（字段继承宿主默认）。
+  const profileLayer = matched?.roles[role] ?? {}
+  // 字段独立合并：显式参数 > 命中 profile 条目字段 > undefined（继承宿主默认）。
   let model: string | undefined
-  let modelConfigSource: 'whenMain' | 'fallback' | 'legacy' | undefined
+  let modelConfigSource: 'whenMain' | 'fallback' | undefined
   if (overrides.model !== undefined) {
     model = overrides.model
   } else if (matched !== null && profileLayer.model !== undefined) {
     model = profileLayer.model
     modelConfigSource = matched.source
-  } else if (legacyLayer?.model !== undefined) {
-    model = legacyLayer.model
-    modelConfigSource = 'legacy'
   }
   let effort: string | undefined
-  let effortConfigSource: 'whenMain' | 'fallback' | 'legacy' | undefined
+  let effortConfigSource: 'whenMain' | 'fallback' | undefined
   if (overrides.effort !== undefined) {
     effort = overrides.effort
   } else if (matched !== null && profileLayer.effort !== undefined) {
     effort = profileLayer.effort
     effortConfigSource = matched.source
-  } else if (legacyLayer?.effort !== undefined) {
-    effort = legacyLayer.effort
-    effortConfigSource = 'legacy'
   }
-  // 失败转移链：字段级分层合并（命中 profile 条目的链优先于旧 subagents 链），
-  // 解析期已限定 string；未配置时字段不出现（零行为变化）。
+  // 失败转移链：命中 profile 条目的链生效；解析期已限定 string；未配置时字段
+  // 不出现（零行为变化）。步骤 11 的结算重试钩子按本链一跳重派。
   let fallbackModels: SubagentFallbackModel[] | undefined
-  let fallbackModelsSource: 'whenMain' | 'fallback' | 'legacy' | undefined
+  let fallbackModelsSource: 'whenMain' | 'fallback' | undefined
   if (matched !== null && profileLayer.fallbackModels !== undefined) {
     fallbackModels = profileLayer.fallbackModels
     fallbackModelsSource = matched.source
-  } else if (legacyLayer?.fallbackModels !== undefined) {
-    fallbackModels = legacyLayer.fallbackModels
-    fallbackModelsSource = 'legacy'
   }
-  // kind 层并发上限：仅 subagent_profiles 命中条目携带（legacy 层不支持），
-  // 未命中 / 未配置时兜底硬编码缺省 3（显式 0 = 该 kind 不限，?? 不吞 0）。
-  const maxConcurrent = profileLayer.maxConcurrent ?? DEFAULT_KIND_MAX_CONCURRENT
+  // 角色层并发上限：仅 subagent_profiles 命中条目携带，未命中 / 未配置时兜底
+  // 硬编码缺省 3（显式 0 = 该角色不限，?? 不吞 0）。
+  const maxConcurrent = profileLayer.maxConcurrent ?? DEFAULT_ROLE_MAX_CONCURRENT
   return {
     model,
     effort,
@@ -372,11 +352,11 @@ export function resolveSubagentDefaults(
       // 链来源仅在配置侧提供链时出现（未配置时字段不定义，兼容既有深比较断言）。
       ...(fallbackModelsSource !== undefined ? { fallbackModels: fallbackModelsSource } : {}),
     },
-    // tools 仅 subagent_profiles 层支持（legacy 层无 tools）：命中条目的该 kind
-    // tools 字段原样透出，未命中时为 undefined（调用方按 allow 清单组装消费）。
+    // tools：命中条目的该角色 tools 字段原样透出，未命中时为 undefined
+    // （调用方按 allow 清单组装消费）。
     tools: profileLayer.tools,
-    // maxConcurrent：命中 profile 条目该 kind 的 max_concurrent 原样透出，
-    // 未配置时兜底缺省 3（0 = 不限；> 0 = 该 kind 上限）。
+    // maxConcurrent：命中 profile 条目该角色的 max_concurrent 原样透出，
+    // 未配置时兜底缺省 3（0 = 不限；> 0 = 该角色上限）。
     maxConcurrent,
     // 失败转移链：解析后的模型字符串 + 可选 effort（adapter 按序消费）；
     // 未配置时字段不出现（零行为变化）。
@@ -425,28 +405,28 @@ export function splitProviderModel(model: string): { provider?: string; model: s
 const ERR_PREFIX = 'workloom executor'
 
 /**
- * 检测显式 executor 参数与 subagents 配置的冲突（纯函数，不修改入参）。
+ * 检测显式 executor 参数与 subagent_profiles 配置的冲突（纯函数，不修改入参）。
  *
  * 设计意图：
- * - 配置限定了某 kind 的 model/effort 时，工具显式传参与配置不一致等于静默
+ * - 配置限定了某角色的 model/effort 时，工具显式传参与配置不一致等于静默
  *   绕过用户配置，需中断提示（force 放行须留痕审计）；
  * - 归一化比较：model 拆 provider/model 后各自相等才算一致；裸 id 与带前缀
  *   id 因 provider 一侧缺失视为冲突（跨 provider 派发语义不同）；
- * - 配置侧生效值按合并链解析（resolveSubagentDefaults 同口径：profile 命中
- *   条目 > 旧 subagents）；model/effort 独立判定，配置未限定的字段不触发。
+ * - 配置侧生效值按合并链解析（resolveSubagentDefaults 同口径：subagent_profiles
+ *   命中条目）；model/effort 独立判定，配置未限定的字段不触发。
  * @param config 配置对象
- * @param kind executor 类型（research/implement/check/frontend/review）
+ * @param role executor 角色（researcher/developer/frontend-developer/checker/judger）
  * @param overrides 工具显式参数
  * @param mainModel 主会话模型（provider/model；whenMain 匹配用）
  * @returns 冲突清单（空数组表示无冲突）
  */
 export function detectExecutorConflicts(
   config: WorkloomConfig,
-  kind: string,
+  role: string,
   overrides: { model?: string; effort?: string },
   mainModel?: string,
 ): ExecutorConflict[] {
-  const merged = resolveSubagentDefaults(config, kind, {}, mainModel)
+  const merged = resolveSubagentDefaults(config, role, {}, mainModel)
   const conflicts: ExecutorConflict[] = []
   if (
     overrides.model !== undefined &&
@@ -492,14 +472,14 @@ function sameProviderModel(configured: string, passed: string): boolean {
 
 /**
  * 组装冲突中断提示（英文运行时文案）：adapter 检测到冲突且未 force 时返回该
- * 文本、不派发；含该 kind 的配置值（带来源细分）、传入值与 force+reason 用法。
- * @param kind executor 类型（research/implement/check/frontend/review）
+ * 文本、不派发；含该角色的配置值（带来源细分）、传入值与 force+reason 用法。
+ * @param role executor 角色（researcher/developer/frontend-developer/checker/judger）
  * @param conflicts 冲突清单（非空）
  * @returns 提示文本
  */
-export function buildConflictNotice(kind: string, conflicts: readonly ExecutorConflict[]): string {
+export function buildConflictNotice(role: string, conflicts: readonly ExecutorConflict[]): string {
   return [
-    `${ERR_PREFIX}: explicit parameters conflict with subagents.${kind} config:`,
+    `${ERR_PREFIX}: explicit parameters conflict with subagent_profiles.${role} config:`,
     ...conflicts.map(
       (conflict) =>
         `- ${conflict.field}: config "${conflict.configured}"${configSourceSuffix(conflict)}, passed "${conflict.passed}"`,
@@ -510,7 +490,7 @@ export function buildConflictNotice(kind: string, conflicts: readonly ExecutorCo
 
 /**
  * 冲突条目配置值的来源细分标注：whenMain 带匹配值（receipt 同款文案）；
- * fallback/legacy 直接标注；无来源（旧调用方构造）时不追加（向后兼容）。
+ * fallback 直接标注；无来源（旧调用方构造）时不追加（向后兼容）。
  * @param conflict 冲突条目
  * @returns 追加的标注文本（可为空串）
  */
@@ -519,7 +499,6 @@ function configSourceSuffix(conflict: ExecutorConflict): string {
     return ` (config: whenMain=${conflict.whenMainValue ?? conflict.configured})`
   }
   if (conflict.configuredSource === 'fallback') return ' (config: fallback)'
-  if (conflict.configuredSource === 'legacy') return ' (config: legacy)'
   return ''
 }
 

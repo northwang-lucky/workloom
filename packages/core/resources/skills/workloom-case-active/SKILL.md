@@ -6,7 +6,7 @@ whenToUse: Use on planning/in_progress full tasks that need CASE design, complet
 
 # Workloom Case Active
 
-Supplement CASE artifacts for non-archived full tasks without replacing the normal workflow. The main session orchestrates; a check executor designs and executes CASE. Keep one active task at a time. The CASE needs no user confirmation: the main session reviews it against PRD, PLAN, and the real code, then continues the same design session for execution.
+Supplement CASE artifacts for non-archived full tasks without replacing the normal workflow. The main session orchestrates; a Checker designs and executes CASE. Keep one active task at a time. The CASE needs no user confirmation: the main session reviews it against PRD, PLAN, and the real code, then continues the same design session for execution.
 
 ## Boundaries
 
@@ -24,23 +24,23 @@ Supplement CASE artifacts for non-archived full tasks without replacing the norm
 
 ## Step 2: Design CASE
 
-1. Dispatch `workloom_execute` with `kind: check`, `purpose: case-design`, a semantic title, and a prompt to create or revise case.md from the current PRD, PLAN, real code, and canonical assets. Never pass model or effort on a continuation.
-2. If `case.designSession` exists, continue that session with `kind: check` and `purpose: case-design` for review revisions. If it is absent, start the design dispatch and record the resulting child id. For an old task with `case: null`, the design dispatch records a fresh `required: true` record holding only `required` and `designSession`.
+1. Dispatch `workloom_execute` with `role: checker`, `purpose: case-design`, a semantic title, and a prompt to create or revise case.md from the current PRD, PLAN, real code, and canonical assets. Never pass model or effort on a continuation.
+2. If `case.designSession` exists, continue that session with `role: checker` and `purpose: case-design` for review revisions. If it is absent, start the design dispatch and record the resulting child id. For an old task with `case: null`, the design dispatch records a fresh `required: true` record holding only `required` and `designSession`.
 3. Every execution generates a new actual result — old CASE results are never reused or replayed; a new design that needs execution reruns the CASE end to end.
 4. The canonical adapter injection supplies the current CASE and the template bodies on full injection. If they are missing, report an asset defect; do not paste a replacement template into the skill.
 
 ## Step 3: Review
 
 1. Run `workloom_task_case` with `action: review`. The main session reviews the CASE itself against PRD, PLAN, real code, actual git changes, and the coverage scope — the user is never asked to approve a CASE snapshot or hash.
-2. Continue the same design session with `kind: check`, `purpose: case-design`, and concrete changes for every problem. Re-run review until `readyForExecution=true`.
+2. Continue the same design session with `role: checker`, `purpose: case-design`, and concrete changes for every problem. Re-run review until `readyForExecution=true`.
 3. Once the main session's actual review is satisfied, continue the same `case.designSession` for execution directly — no confirmation message, no review summary, and no fingerprint credential is recorded anywhere.
 4. Any later CASE change is re-reviewed by the main session the same way before execution continues.
 
 ## Step 4: Wait for readiness or execute
 
 1. Planning tasks and in_progress tasks whose implementation is still running stop after the CASE review. Leave the task in its current status and create no execution result.
-2. Treat implementation as ready only when the latest implement/frontend dispatches report completion and the main session confirms no implementation work remains. If this cannot be established, defer execution.
-3. For a ready task whose review is satisfied, continue `case.designSession` with `kind: check` and `purpose: execution`. The check executor completes every SR item, then C1 through Cn in order, collects real coverage, and writes case-result.md, case-evidence/, and coverage/ against the reviewed CASE.
+2. Treat implementation as ready only when the latest Developer/frontend-developer dispatches report completion and the main session confirms no implementation work remains. If this cannot be established, defer execution.
+3. For a ready task whose review is satisfied, continue `case.designSession` with `role: checker` and `purpose: execution`. The Checker completes every SR item, then C1 through Cn in order, collects real coverage, and writes case-result.md, case-evidence/, and coverage/ against the reviewed CASE.
 4. The result must record `codeFingerprint=<current-hex>` inside codeBaseline as the current code evidence; a missing fingerprint is a defect in the result, and the execution reruns to produce it.
 5. P2 fixes follow the existing check discipline and trigger a full SR/C/coverage rerun. Report P0/P1 to the main session. Never force a core CASE failure.
 

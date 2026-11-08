@@ -39,7 +39,7 @@ Rebuild CASE verification for one archived full task. The original is read-only.
 
 ## Step 4: Design and review CASE
 
-1. Dispatch implementation and `kind: check`, `purpose: case-design` concurrently when implementation is needed. If the new plan needs no code change, only the CASE design dispatch is required.
+1. Dispatch implementation and `role: checker`, `purpose: case-design` concurrently when implementation is needed. If the new plan needs no code change, only the CASE design dispatch is required.
 2. Main-session review covers the new PRD, PLAN, current code, source metadata, and all changed files. Revisions continue the same design session with `purpose: case-design`.
 3. Historical CASE/RESULT is read-only reference. The new CASE has its own Source task, current validation commit, and current acceptance scope.
 4. Once the main session's actual review is satisfied, continue the same design session for execution directly — the user is never asked to approve the CASE, and no review credential is recorded. A generic continue does not replace the main session's own review.

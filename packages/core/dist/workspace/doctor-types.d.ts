@@ -10,8 +10,8 @@
  *   五类就位退役；
  * - 运行时 issue/message 文案英文；注释中文。
  */
-import type { TaskRecordWithPath } from '../task/task-storage.ts';
-import type { TaskView } from '../task/state-machine.ts';
+import type { TaskRecordWithPath } from '../task/storage/index.ts';
+import type { TaskView } from '../task/state/index.ts';
 /** 检查项 code 枚举（五类：生命周期/确认完整性/CASE 一致性/worktree/config）。 */
 export type DoctorIssueCode = 'lifecycle-consistency' | 'confirm-completeness' | 'case-consistency' | 'worktree' | 'config';
 /** 严重级别。 */

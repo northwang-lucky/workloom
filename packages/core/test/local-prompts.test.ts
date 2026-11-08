@@ -13,6 +13,7 @@ import {
   composeLocalDirectivesText,
   filterAndOrderLocal,
   readLocalFragments,
+  targetFromFileName,
 } from '../src/injection/local-prompts.ts'
 
 /** 创建临时项目根（含 .workloom）。 */
@@ -56,7 +57,7 @@ function cleanup(...paths) {
 test('filterAndOrderLocal：按目标过滤并保持输入顺序（all 通用）', () => {
   const mainFragment = { target: 'main', text: 'MAIN' }
   const allFragment = { target: 'all', text: 'ALL' }
-  const checkFragment = { target: 'check', text: 'CHECK' }
+  const checkFragment = { target: 'checker', text: 'CHECK' }
   // 目标 main：all 与 main 片段命中，其余过滤；输入顺序保持（排序职责在 readLocalFragments）。
   assert.deepEqual(filterAndOrderLocal([mainFragment, checkFragment, allFragment], 'main'), [
     mainFragment,
@@ -112,7 +113,7 @@ test('未知 .md 文件名 fail loud（文案含合法清单）；非 .md / 隐�
     assert.equal(err.file, 'weird.md')
     assert.match(
       err.message,
-      /main\.md, research\.md, implement\.md, check\.md, frontend\.md, review\.md, all\.md/,
+      /main\.md, researcher\.md, developer\.md, frontend-developer\.md, checker\.md, judger\.md, all\.md, research\.md, implement\.md, check\.md, frontend\.md, review\.md/,
     )
   } finally {
     cleanup(root, home)
@@ -154,19 +155,19 @@ test('readLocalFragments 三层叠加：全局 → 项目 prompts → 项目 pro
 test('composeLocalDirectivesText：三层按 全局→项目→local、层内 all 前专属后 拼接', () => {
   const root = makeRoot()
   const home = makeHome()
-  // 全局：all + implement
+  // 全局：all + developer
   writeGlobalFragment(home, 'all.md', 'G-ALL')
-  writeGlobalFragment(home, 'implement.md', 'G-IMPLEMENT')
-  // 项目共享：all + implement
+  writeGlobalFragment(home, 'developer.md', 'G-DEVELOPER')
+  // 项目共享：all + developer
   writeSharedFragment(root, 'all.md', 'P-ALL')
-  writeSharedFragment(root, 'implement.md', 'P-IMPLEMENT')
-  // 项目本机：all + implement
+  writeSharedFragment(root, 'developer.md', 'P-DEVELOPER')
+  // 项目本机：all + developer
   writeLocalFragment(root, 'all.md', 'L-ALL')
-  writeLocalFragment(root, 'implement.md', 'L-IMPLEMENT')
+  writeLocalFragment(root, 'developer.md', 'L-DEVELOPER')
   try {
-    const [err, text] = composeLocalDirectivesText(root, 'implement', home)
+    const [err, text] = composeLocalDirectivesText(root, 'developer', home)
     assert.equal(err, null)
-    assert.equal(text, 'G-ALL\n\nG-IMPLEMENT\n\nP-ALL\n\nP-IMPLEMENT\n\nL-ALL\n\nL-IMPLEMENT')
+    assert.equal(text, 'G-ALL\n\nG-DEVELOPER\n\nP-ALL\n\nP-DEVELOPER\n\nL-ALL\n\nL-DEVELOPER')
   } finally {
     cleanup(root, home)
   }
@@ -178,7 +179,7 @@ test('composeLocalDirectivesText：target=all 时只注入各层 all 片段', ()
   writeGlobalFragment(home, 'all.md', 'G-ALL')
   writeSharedFragment(root, 'all.md', 'P-ALL')
   writeLocalFragment(root, 'all.md', 'L-ALL')
-  writeLocalFragment(root, 'implement.md', 'L-IMPLEMENT')
+  writeLocalFragment(root, 'developer.md', 'L-DEVELOPER')
   try {
     const [err, text] = composeLocalDirectivesText(root, 'all', home)
     assert.equal(err, null)
@@ -188,18 +189,44 @@ test('composeLocalDirectivesText：target=all 时只注入各层 all 片段', ()
   }
 })
 
-test('review 片段目标：filterAndOrderLocal 接受 review，未知 target 报错文案列出 review', () => {
+test('judger 片段目标：filterAndOrderLocal 接受 judger，未知 target 报错文案列新 target 清单', () => {
   const fragments = [
     { target: 'all', text: 'ALL' },
-    { target: 'review', text: 'REVIEW' },
-    { target: 'check', text: 'CHECK' },
+    { target: 'judger', text: 'JUDGER' },
+    { target: 'checker', text: 'CHECK' },
   ]
-  assert.deepEqual(filterAndOrderLocal(fragments, 'review'), [
+  assert.deepEqual(filterAndOrderLocal(fragments, 'judger'), [
     { target: 'all', text: 'ALL' },
-    { target: 'review', text: 'REVIEW' },
+    { target: 'judger', text: 'JUDGER' },
   ])
   assert.throws(
     () => filterAndOrderLocal(fragments, 'bogus'),
-    /unknown target "bogus" \(must be one of main\/research\/implement\/check\/frontend\/review\/all\)/,
+    /unknown target "bogus" \(must be one of main\/researcher\/developer\/frontend-developer\/checker\/judger\/all\)/,
   )
+})
+
+test('旧文件名兼容：research.md 等旧 kind 文件名映射到新角色 target（决定 4）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  // 旧文件名片段与新文件名片段映射同一 target，注入时一并命中。
+  writeGlobalFragment(home, 'research.md', 'LEGACY-RESEARCH')
+  writeSharedFragment(root, 'researcher.md', 'NEW-RESEARCHER')
+  writeLocalFragment(root, 'implement.md', 'LEGACY-IMPLEMENT')
+  try {
+    const [err, text] = composeLocalDirectivesText(root, 'researcher', home)
+    assert.equal(err, null)
+    assert.equal(text, 'LEGACY-RESEARCH\n\nNEW-RESEARCHER')
+    // 旧 implement.md 命中 developer target，不泄漏进 researcher 注入。
+    const [devErr, devText] = composeLocalDirectivesText(root, 'developer', home)
+    assert.equal(devErr, null)
+    assert.equal(devText, 'LEGACY-IMPLEMENT')
+    // 文件名映射函数直接断言：五个旧名全部映射到新 target。
+    assert.equal(targetFromFileName('research.md'), 'researcher')
+    assert.equal(targetFromFileName('implement.md'), 'developer')
+    assert.equal(targetFromFileName('check.md'), 'checker')
+    assert.equal(targetFromFileName('frontend.md'), 'frontend-developer')
+    assert.equal(targetFromFileName('review.md'), 'judger')
+  } finally {
+    cleanup(root, home)
+  }
 })

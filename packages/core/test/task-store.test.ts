@@ -25,7 +25,7 @@ import {
   createTask,
   listTasks,
   runTaskHooks,
-} from '../src/task/task-storage.ts'
+} from '../src/task/storage/index.ts'
 import {
   recordExecutorDispatch,
   recordGateOverride,
@@ -39,9 +39,8 @@ import {
   readTaskView,
   recordCasePhase,
   recordPlanReview,
-} from '../src/task/state-machine.ts'
-import { EXECUTOR_KINDS } from '../src/dispatch/executor-kinds.ts'
-import { resolveActiveTask, setActiveTask } from '../src/task/state-machine.ts'
+} from '../src/task/state/index.ts'
+import { resolveActiveTask, setActiveTask } from '../src/task/state/index.ts'
 
 // 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir 注入
 // 缝时吃 os.homedir 实时值）；本机真实全局配置会泄漏进单测。重定向 HOME 到临时目录
@@ -1381,21 +1380,33 @@ test('recordExecutorDispatch 追加派发记录（kind/at/title），保留已�
   const root = makeRoot()
   try {
     const [, created] = await createTask(root, { title: 'Dispatch Record' })
+    // 新值主用例：写侧收新角色值，落盘原值不改写。
     const [err1] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'research',
+      kind: 'researcher',
       title: 'r1',
     })
     assert.equal(err1, null)
     const [err2] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'frontend',
+      kind: 'frontend-developer',
       title: 'ui impl',
     })
     assert.equal(err2, null)
+    // 写侧已收严：旧 kind 值写入报可判定错误（文案列新值域），不落记录。
+    const [err3] = recordExecutorDispatch(root, created.taskRelPath, {
+      kind: 'implement',
+      title: 'legacy rejected',
+    })
+    assert.ok(err3)
+    assert.match(err3.message, /invalid dispatch kind/)
+    assert.match(
+      err3.message,
+      /must be one of researcher\/developer\/frontend-developer\/checker\/judger/,
+    )
     const task = readTaskJson(root, created.taskRelPath)
     assert.equal(task.dispatches.length, 2)
-    assert.equal(task.dispatches[0].kind, 'research')
+    assert.equal(task.dispatches[0].kind, 'researcher')
     assert.equal(task.dispatches[0].title, 'r1')
-    assert.equal(task.dispatches[1].kind, 'frontend')
+    assert.equal(task.dispatches[1].kind, 'frontend-developer')
     assert.equal(task.dispatches[1].title, 'ui impl')
     for (const entry of task.dispatches) {
       assert.ok(!Number.isNaN(Date.parse(entry.at)))
@@ -1415,8 +1426,13 @@ test('recordExecutorDispatch 校验 kind/title，非法值返回 err（fail loud
     })
     assert.ok(err1)
     assert.match(err1.message, /invalid dispatch kind/)
+    // 报错文案列新值域（写侧收严的判定依据）。
+    assert.match(
+      err1.message,
+      /must be one of researcher\/developer\/frontend-developer\/checker\/judger/,
+    )
     const [err2] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'frontend',
+      kind: 'frontend-developer',
       title: '   ',
     })
     assert.ok(err2)
@@ -1463,13 +1479,13 @@ test('recordExecutorDispatch 不动主线阶段；CASE 轨道由派发与结算�
     const rel = created.taskRelPath
     // 主线阶段随 start 进入 implementing；派发不再改写主线 stage（旧 computeTaskStage 退役）。
     assert.equal(readTaskJson(root, rel).stage, 'implementing')
-    recordExecutorDispatch(root, rel, { kind: EXECUTOR_KINDS.implement, title: 'i1' })
-    recordExecutorDispatch(root, rel, { kind: EXECUTOR_KINDS.frontend, title: 'f1' })
-    recordExecutorDispatch(root, rel, { kind: EXECUTOR_KINDS.research, title: 'r1' })
+    recordExecutorDispatch(root, rel, { kind: 'developer', title: 'i1' })
+    recordExecutorDispatch(root, rel, { kind: 'frontend-developer', title: 'f1' })
+    recordExecutorDispatch(root, rel, { kind: 'researcher', title: 'r1' })
     assert.equal(readTaskJson(root, rel).stage, 'implementing')
     // case-design 派发置 designing（轨道单点在 dispatch-records）。
     recordExecutorDispatch(root, rel, {
-      kind: EXECUTOR_KINDS.check,
+      kind: 'checker',
       title: 'design',
       purpose: 'case-design',
       childId: 'child-design',
@@ -1480,14 +1496,14 @@ test('recordExecutorDispatch 不动主线阶段；CASE 轨道由派发与结算�
     assert.equal(readTaskJson(root, rel).case.phase, 'reviewing')
     // 执行派发经合法边推进 approved 与 executing（单点、dsh 无感知）。
     recordExecutorDispatch(root, rel, {
-      kind: EXECUTOR_KINDS.check,
+      kind: 'checker',
       title: 'exec',
       childId: 'child-exec',
     })
     assert.equal(readTaskJson(root, rel).case.phase, 'executing')
     // 轨道不回退：执行中再次派发仍为 executing。
     recordExecutorDispatch(root, rel, {
-      kind: EXECUTOR_KINDS.check,
+      kind: 'checker',
       title: 'exec retry',
       childId: 'child-exec-2',
       fallbackOf: 'child-exec',
@@ -1501,7 +1517,7 @@ test('recordExecutorDispatch 不动主线阶段；CASE 轨道由派发与结算�
   }
 })
 
-test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend 派发被拒绝，补派发后放行', async () => {
+test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend-developer 派发被拒绝，补派发后放行', async () => {
   const root = makeRoot()
   try {
     const [, created] = await createTask(root, { title: 'UI Gate' })
@@ -1520,11 +1536,12 @@ test('checkTask 前端派发门禁：prd 含 UI Design 且无 frontend 派发被
       summary: 'no ui dispatch',
     })
     assert.ok(err1)
-    assert.match(err1.message, /no frontend dispatch recorded for a task with UI requirements/)
+    assert.match(err1.message, /no frontend-developer dispatch recorded for a task with UI requirements/)
     assert.equal(readTaskJson(root, created.taskRelPath).check, null)
-    // 补 frontend 派发后放行
+    // 补派发后放行：写侧只收新值 frontend-developer；旧 frontend 历史记录的
+    // 兼容读门禁计入门禁在 state-machine.test 的直写夹具用例覆盖（AC7）。
     const [recErr] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'frontend',
+      kind: 'frontend-developer',
       title: 'ui impl',
     })
     assert.equal(recErr, null)
@@ -2124,7 +2141,7 @@ test('recordExecutorDispatch 初写：派发记录含 status running，主线 st
   try {
     const [, created] = await createTask(root, { title: 'Dispatch Running' })
     const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'frontend',
+      kind: 'frontend-developer',
       title: 'ui impl',
       childId: 'child-1',
     })
@@ -2145,7 +2162,7 @@ test('recordExecutorDispatch 失败留痕：显式 status=failed + error 直接�
   try {
     const [, created] = await createTask(root, { title: 'Dispatch Failed' })
     const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'failed dispatch',
       status: 'failed',
       error: 'spawn ENOENT: binary not found',
@@ -2167,7 +2184,7 @@ test('recordExecutorDispatch 链式留痕：fallbackOf / fallbackAttempt 可选�
     const [, created] = await createTask(root, { title: 'Dispatch Chain' })
     // 首跳（主模型）失败记录：无 fallbackOf / fallbackAttempt 字段。
     const [firstErr] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'primary hop',
       childId: 'child-0',
       status: 'failed',
@@ -2176,7 +2193,7 @@ test('recordExecutorDispatch 链式留痕：fallbackOf / fallbackAttempt 可选�
     assert.equal(firstErr, null)
     // 第二跳：fallbackOf 指向前一跳 childId，fallbackAttempt 记本跳序号。
     const [secondErr] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'fallback hop',
       childId: 'child-1',
       model: 'provider-b/m2',
@@ -2214,7 +2231,7 @@ test('recordExecutorDispatch 链式字段形状非法：返回 err（fail loud�
     ]
     for (const extra of cases) {
       const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-        kind: 'implement',
+        kind: 'developer',
         title: 'invalid chain field',
         ...extra,
       })
@@ -2231,7 +2248,7 @@ test('appendDispatchErrorSuffix：向该 childId 最近一条 failed 记录 erro
   try {
     const [, created] = await createTask(root, { title: 'Dispatch Suffix' })
     recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'hop 1',
       childId: 'child-1',
       status: 'failed',
@@ -2239,7 +2256,7 @@ test('appendDispatchErrorSuffix：向该 childId 最近一条 failed 记录 erro
     })
     // 同 childId 的后续 running 记录不应被误改（只追加 failed 记录）。
     recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'hop 2',
       childId: 'child-1',
       fallbackOf: 'child-0',
@@ -2277,7 +2294,7 @@ test('settleExecutorDispatch 回填 completed/failed：只改 status/error，不
   try {
     const [, created] = await createTask(root, { title: 'Settle Record' })
     recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'check',
+      kind: 'checker',
       title: 'c1',
       childId: 'child-1',
     })
@@ -2294,7 +2311,7 @@ test('settleExecutorDispatch 回填 completed/failed：只改 status/error，不
     assert.equal(saved.stage, 'aligning', 'backfill must not change stage')
     // 再初写一条 running 后回填 failed + 一行错误摘要
     recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'check',
+      kind: 'checker',
       title: 'c2',
       childId: 'child-2',
     })
@@ -2319,12 +2336,12 @@ test('settleExecutorDispatch 按 childId 关联最近一条 running；无匹配/
   try {
     const [, created] = await createTask(root, { title: 'Settle Match' })
     recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'i1',
       childId: 'child-1',
     })
     recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'i2',
       childId: 'child-1',
     })
@@ -2384,7 +2401,7 @@ test('失败派发（初写后未结算）留痕可见：running 记录在 task.
     const [, created] = await createTask(root, { title: 'Dispatch Trace' })
     // 初写后不结算（派发后未回填）：记录仍留在 task.json，缺口 A 场景可见。
     const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'check',
+      kind: 'checker',
       title: 'c1',
       childId: 'child-7',
     })
@@ -2406,7 +2423,7 @@ test('recordExecutorDispatch 新派落绑定：model/effort/modelSource 写入 d
     const [, created] = await createTask(root, { title: 'Dispatch Binding' })
     // 新派轮：写入解析后实际生效的 model/effort 与来源（legacy 配置命中）。
     const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'binding new',
       childId: 'child-1',
       model: 'deepseek-official/deepseek-v4-flash',
@@ -2429,7 +2446,7 @@ test('recordExecutorDispatch 续派轮：modelSource 记 spawn、绑定沿用首
     const [, created] = await createTask(root, { title: 'Dispatch Spawn Copy' })
     // 首次派发：绑定值来自配置（modelSource: legacy）。
     recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'spawn',
       childId: 'child-1',
       model: 'deepseek-official/deepseek-v4-flash',
@@ -2438,7 +2455,7 @@ test('recordExecutorDispatch 续派轮：modelSource 记 spawn、绑定沿用首
     })
     // 续派轮：复制首次派发记录的 model/effort，modelSource 记 spawn。
     const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'followup',
       childId: 'child-1',
       model: 'deepseek-official/deepseek-v4-flash',
@@ -2462,7 +2479,7 @@ test('recordExecutorDispatch 绑定字段非法值 fail loud（不落盘）', as
     const [, created] = await createTask(root, { title: 'Dispatch Bad Binding' })
     // modelSource 越出枚举值域：记录被拒，不产生 dispatches 条目。
     const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'bad source',
       childId: 'child-1',
       model: 'deepseek-official/deepseek-v4-flash',
@@ -2486,7 +2503,7 @@ test('recordExecutorDispatch 轮换起步：modelSource rotate 放行并落盘�
     const [, created] = await createTask(root, { title: 'Dispatch Rotate Binding' })
     // 轮换选中链条目起步：绑定值写实际选定 model/effort，来源记 rotate。
     const [err] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'rotated start',
       childId: 'child-1',
       model: 'provider-b/qwen',
@@ -2500,7 +2517,7 @@ test('recordExecutorDispatch 轮换起步：modelSource rotate 放行并落盘�
     assert.equal(saved.dispatches[0].modelSource, 'rotate')
     // 非法值仍拒：rotate 已入值域，其余越界值不变。
     const [badErr] = recordExecutorDispatch(root, created.taskRelPath, {
-      kind: 'implement',
+      kind: 'developer',
       title: 'still bad',
       childId: 'child-2',
       modelSource: 'rotated',

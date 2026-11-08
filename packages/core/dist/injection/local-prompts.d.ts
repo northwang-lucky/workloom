@@ -12,20 +12,21 @@
  * - 三层叠加顺序：全局 → 项目共享 → 项目本机；各层内 all.md 在前、<target>.md 在后
  *   （排序职责在 readLocalFragments，filterAndOrderLocal 只按目标过滤、保持输入顺序）；
  * - 本模块 runtime 无关（core 承载），注入落地由两 adapter 负责；主 agent 目标为
- *   main，executor 子代理目标为各自 kind（research/implement/check/frontend/review），
- *   all 对两者通用。
+ *   main，executor 子代理目标为各自角色（researcher/developer/frontend-developer/
+ *   checker/judger），all 对两者通用；旧角色文件名（research.md 等）兼容映射到
+ *   同一目标（与派发记录兼容读同一哲学，存量本机片段不失效）。
  */
 /** 项目共享片段目录相对 .workloom 的路径（可入库，doctor 侧复用同一约定）。 */
 export declare const SHARED_PROMPTS_REL = "prompts";
 /** 项目本机片段目录相对 .workloom 的路径（gitignore，doctor 侧复用同一约定）。 */
 export declare const LOCAL_PROMPTS_REL = "prompts.local";
-/** 片段目标枚举：文件名 → 目标（main 为主 agent，research/implement/check/frontend/review 为 executor kind，all 通用）。 */
-export declare const LOCAL_FRAGMENT_TARGETS: readonly ["main", "research", "implement", "check", "frontend", "review", "all"];
+/** 片段目标枚举：文件名 → 目标（main 为主 agent，五角色为 executor 派发值域，all 通用）。 */
+export declare const LOCAL_FRAGMENT_TARGETS: readonly ["main", "researcher", "developer", "frontend-developer", "checker", "judger", "all"];
 /** LocalFragmentTarget 类型（合法片段目标）。 */
 export type LocalFragmentTarget = (typeof LOCAL_FRAGMENT_TARGETS)[number];
 /** 解析后的本机片段（target 来自文件名映射；正文为全文）。 */
 export interface LocalFragment {
-    /** 片段目标（main 为主 agent，research/implement/check/frontend/review 为 executor kind，all 通用）。 */
+    /** 片段目标（main 为主 agent，五角色为 executor 派发值域，all 通用）。 */
     target: LocalFragmentTarget;
     /** Markdown 正文（trim 保留原文）。 */
     text: string;
@@ -59,7 +60,7 @@ export declare function parseLocalFragment(target: string, body: string): LocalF
  * 按注入目标过滤（纯函数）：all 片段通用、专属片段仅命中自身目标；保持输入
  * 顺序（层内 all 在前、层间 全局→项目→本机 的排序由 readLocalFragments 保证）。
  * @param fragments 全部已解析片段（已按层序排列）
- * @param target 注入目标（main 或 executor kind）
+ * @param target 注入目标（main 或 executor 角色）
  * @returns 注入顺序的片段列表（可能为空）
  */
 export declare function filterAndOrderLocal(fragments: readonly LocalFragment[], target: string): LocalFragment[];
@@ -78,7 +79,7 @@ export declare function readLocalFragments(root: string, homeDir?: string): [Err
  * 组合提示词片段注入文本（IO 组合）：readLocalFragments + filterAndOrderLocal，
  * 输出以 '\n\n' 拼接的最终文本（空串 = 无注入）。解析/目标错误 fail loud 返回 err。
  * @param root 项目根
- * @param target 注入目标（main 或 executor kind）
+ * @param target 注入目标（main 或 executor 角色）
  * @param homeDir 全局层基准目录（测试/沙箱用，缺省取 os.homedir()）
  * @returns [err, text]：失败时 err 为片段错误，text 为空串
  */

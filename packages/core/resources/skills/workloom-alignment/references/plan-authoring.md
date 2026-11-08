@@ -2,7 +2,7 @@
 
 Read this reference before authoring plan.md — every full implementation task authors one after the PRD content confirmation, or an approved plan is being revised. Workflow 1.4's Authoring bar summarizes this standard; this file is the full version.
 
-Why prescriptive: the implement executor treats the plan as its script. Every degree of freedom the plan leaves open becomes a silent, unreviewed decision made during implementation — the exact drift the alignment and the 1.4 review exist to prevent. Prescriptive does not mean pre-written code: steps describe behavior boundaries as structured pseudocode, and the executor writes the actual code from them.
+Why prescriptive: the Developer treats the plan as its script. Every degree of freedom the plan leaves open becomes a silent, unreviewed decision made during implementation — the exact drift the alignment and the 1.4 review exist to prevent. Prescriptive does not mean pre-written code: steps describe behavior boundaries as structured pseudocode, and the executor writes the actual code from them.
 
 ## Document shape
 

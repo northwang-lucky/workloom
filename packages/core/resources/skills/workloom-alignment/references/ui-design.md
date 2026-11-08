@@ -20,7 +20,7 @@ Follow the workflow questioning rules: ask in the user's language, keep options 
 
 Record the converged, decidable UI requirements in a `## UI Design` section of the task's `prd.md`. The section is added on demand and does not count against the prd skeleton placeholder gate. For a complex task — multiple pages, many states, or a design-system requirement — note in the alignment that the plan's design-decisions part needs a UI design chapter.
 
-The `## UI Design` section also drives the frontend dispatch gate later: such a task must route its frontend file implementation through a `kind: frontend` executor dispatch (workflow 2.1/2.2).
+The `## UI Design` section also drives the frontend dispatch gate later: such a task must route its frontend file implementation through a `role: frontend-developer` executor dispatch (workflow 2.1/2.2).
 
 ## Completion criteria
 

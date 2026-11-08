@@ -23,7 +23,7 @@ export interface MainModelSource {
  * 读取主会话当前模型（"provider/model" 字符串）：取自会话日志最新
  * request/header 快照（反映运行中切模型）；provider/model 任一缺失或为空串时
  * 返回 undefined（视为取不到：subagent_profiles 的全部 whenMain 条目跳过，走
- * 兜底/旧 subagents，不 fail loud）。
+ * 无 whenMain 的兜底条目或宿主默认，不 fail loud）。
  * @param source 发起 agent 的会话（session.requestHeader 可选，旧宿主缺失时 undefined）
  * @returns 主模型标识或 undefined
  */

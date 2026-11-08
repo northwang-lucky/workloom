@@ -11,7 +11,8 @@
  *   返回 err（结构性故障不静默）；全部同步 I/O，供同步 text provider 直接调用；
  * - root 约定为项目根（由 adapter 传 findWorkloomRoot 的结果），内部只拼路径不再向上查找。
  */
-import type { TaskRecordWithPath } from '../task/task-storage.ts';
+import type { WorkloomConfig } from '../workspace/config.d.ts';
+import type { TaskRecordWithPath } from '../task/storage/index.ts';
 /** 注入回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物；null = 无活跃任务）。 */
 export interface SessionContextTaskHint {
     turnTask?: TaskRecordWithPath | null;
@@ -20,11 +21,10 @@ export interface SessionContextTaskHint {
 export interface SessionContextParams {
     /** 项目根（必须已是 findWorkloomRoot 的结果，不再向上查找）。 */
     root: string;
-    /** runtime 会话标识（adapter 组装，如 dsh_<session-id>）。 */
-    contextKey: string;
     /**
      * 本回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物；单一解析，
-     * 提供后本入口零次额外读盘）；null = 无活跃任务；缺省时内部回退解析（兼容直连调用方）。
+     * 本入口零次额外读盘）；null/缺省 = 无活跃任务（回退直读通道已退役，解析职责
+     * 在调用方的回合缓存通道，本入口不再自解析指针）。
      */
     turnTask?: TaskRecordWithPath | null;
     /** 工作流步骤概览（契约 steps 的投影：id + title）。 */
@@ -43,6 +43,17 @@ export interface SessionContextParams {
      * 避免 all.md 重复注入）；空串/未传 = 不注入。
      */
     localDirectives?: string | null;
+    /**
+     * 已加载的配置对象（adapter 注入，画像节与 guidelines 节共用；显式传 null =
+     * 加载失败，画像节整节降级）。缺省时内部经 loadConfigSafely 自加载（直连
+     * 调用方零感知）。
+     */
+    config?: WorkloomConfig | null;
+    /**
+     * 主会话模型（provider/model 字符串；画像节 whenMain 匹配与节头展示用）。
+     * 缺省/null/空白 = 未知：whenMain 条目全部跳过，节头标注 unknown。
+     */
+    mainModel?: string | null;
 }
 /**
  * 组装当前会话的上下文快照文本（同步）。

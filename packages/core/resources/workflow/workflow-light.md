@@ -28,7 +28,7 @@ Completion criteria: changes are done and lint/typecheck/tests pass.
 
 #### 2.2 Self-check and record
 
-Self-check the change against prd.md and the usual verification commands, then record the pass with `workloom_task_check` and a summary of what you verified. Light tasks need no check.jsonl entries and no check executor; the recorded summary is the audit trail. Fix every finding before recording, and re-run the self-check (with a fresh record) after any change that lands post-pass.
+Self-check the change against prd.md and the usual verification commands, then record the pass with `workloom_task_check` and a summary of what you verified. Light tasks need no check.jsonl entries and no Checker; the recorded summary is the audit trail. Fix every finding before recording, and re-run the self-check (with a fresh record) after any change that lands post-pass.
 Completion criteria: `workloom_task_check` recorded the pass with a non-empty summary.
 
 #### 2.3 Commit

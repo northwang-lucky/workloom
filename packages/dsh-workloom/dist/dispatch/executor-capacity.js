@@ -1,5 +1,4 @@
-import { evaluateExecutorCapacity, formatAtCapacityReceipt, readTaskView } from '@workloom-ai/core';
-import { KIND_LABELS } from "./executor-injection.js";
+import { evaluateExecutorCapacity, formatAtCapacityReceipt, readTaskView, ROLE_LABELS, tryNormalizeExecutorRole, } from '@workloom-ai/core';
 /** 派发序号 → in-flight 条目（进程内同步，本会话计数语义不变）。 */
 const inFlightDispatches = new Map();
 /** 派发序号计数器（进程内单调递增，同毫秒内区分多笔派发）。 */
@@ -17,10 +16,10 @@ export function generateDispatchSeq() {
 /**
  * 登记 in-flight 派发（同步：闸判定通过后立即调用，再 await startActivation）。
  * @param seq 派发序号（generateDispatchSeq 生成）
- * @param kind 本次派发的 executor 类型
+ * @param role 本次派发的 executor 角色
  */
-export function registerInFlightDispatch(seq, kind) {
-    inFlightDispatches.set(seq, { kind });
+export function registerInFlightDispatch(seq, role) {
+    inFlightDispatches.set(seq, { role });
 }
 /**
  * 释放 in-flight 派发（startActivation 成功返回后 child 已进 native 视野，
@@ -39,7 +38,8 @@ export function getInFlightDispatches() {
     for (const [seq, entry] of inFlightDispatches) {
         records.push({
             childId: `${IN_FLIGHT_PREFIX}${seq}`,
-            kind: entry.kind,
+            // 登记值经兼容读归一（调用方传新角色值；归一落空的脏值置空，仅占全局槽）。
+            role: tryNormalizeExecutorRole(entry.role) ?? '',
         });
     }
     return records;
@@ -51,12 +51,13 @@ export function clearInFlightDispatches() {
     inFlightDispatches.clear();
 }
 /**
- * label 显示标签 → executor kind 反向映射（回退解析用，枚举禁 Magic String）：
- * 由 buildChildLabel 使用的 KIND_LABELS 单一来源反转派生，两侧永不失配。
+ * label 显示标签 → executor 角色反向映射（回退解析用，枚举禁 Magic String）：
+ * 由 buildChildLabel 使用的 core ROLE_LABELS 单一来源反转派生，两侧永不失配
+ * （'Frontend Developer' 含空格标签由 [^\]]+ 括号解析整段捕获）。
  */
-const LABEL_TO_KIND = Object.fromEntries(Object.entries(KIND_LABELS).map(([kind, label]) => [label, kind]));
-/** 从 listDescendants label（[<KindLabel>] <title>）回退解析 kind。 */
-function kindFromLabel(label) {
+const LABEL_TO_ROLE = Object.fromEntries(Object.entries(ROLE_LABELS).map(([role, label]) => [label, role]));
+/** 从 listDescendants label（[<RoleLabel>] <title>）回退解析角色。 */
+function roleFromLabel(label) {
     if (!label)
         return undefined;
     const match = label.match(/^\[([^\]]+)\]/);
@@ -65,27 +66,28 @@ function kindFromLabel(label) {
     const labelText = match[1];
     if (labelText === undefined)
         return undefined;
-    return LABEL_TO_KIND[labelText];
+    return LABEL_TO_ROLE[labelText];
 }
 /**
- * 收集本主会话 running executor 集合（DSH native 会话级 + dispatches 补 kind）。
+ * 收集本主会话 running executor 集合（DSH native 会话级 + dispatches 补 role）。
  * @param service 子代理服务（listDescendants 枚举）
  * @param parent 发起 agent（取 id 作为 listDescendants 的根会话 id）
  * @param signal 取消信号
  * @param root 项目根
- * @param taskRelPath 任务目录相对 .workloom 的路径（读 dispatches 补 kind）
+ * @param taskRelPath 任务目录相对 .workloom 的路径（读 dispatches 补 role）
  * @param excludeChildId 排除的 childId（续用路径：目标 child 不重复占槽）
  * @returns running executor 记录集合
  */
 export async function collectRunningExecutors(service, parent, signal, root, taskRelPath, excludeChildId) {
     const entries = await service.listDescendants(parent.id, signal);
-    // childId → kind：优先本任务 dispatches 记录（workloom 派发留痕，权威来源）。
+    // childId → role：优先本任务 dispatches 记录（workloom 派发留痕，权威来源；
+    // 视图层已归一为新角色值）。
     const [taskErr, task] = readTaskView(root, taskRelPath);
-    const kindByChildId = new Map();
+    const roleByChildId = new Map();
     if (taskErr === null && task !== null) {
         for (const d of task.dispatches ?? []) {
             if (d.childId && d.kind)
-                kindByChildId.set(d.childId, d.kind);
+                roleByChildId.set(d.childId, d.kind);
         }
     }
     const records = [];
@@ -95,10 +97,21 @@ export async function collectRunningExecutors(service, parent, signal, root, tas
             continue;
         if (entry.id === excludeChildId)
             continue;
-        const kind = kindByChildId.get(entry.id) ?? kindFromLabel(entry.label) ?? '';
+        const rawRole = roleByChildId.get(entry.id) ?? roleFromLabel(entry.label) ?? '';
+        // 收集面归一失败的语义分面（R3-4）：保留该记录并计入全局闸（与现状 kind 解析
+        // 落空的在飞子会话仍占全局槽位一致，避免全局容量漏计），仅角色闸计数将其
+        // 排除（role 置空）并加 WARNING。
+        const role = tryNormalizeExecutorRole(rawRole);
+        if (role === null) {
+            if (rawRole !== '') {
+                console.warn(`workloom executor: WARNING: unknown executor role in running record, counted in the global gate only: ${rawRole}`);
+            }
+            records.push({ childId: entry.id, role: '' });
+            continue;
+        }
         records.push({
             childId: entry.id,
-            kind,
+            role,
         });
     }
     // 合并进程内同步 in-flight 集：关闭闸判定→startActivation 的异步窗口竞态。
@@ -108,15 +121,15 @@ export async function collectRunningExecutors(service, parent, signal, root, tas
 /**
  * 判定并发闸（纯同步，无副作用）：放行返回 null，拒绝返回 at capacity 回执文案。
  * @param running 本主会话 running executor 集合
- * @param kind 本次派发的 executor 类型
+ * @param role 本次派发的 executor 角色
  * @param globalLimit 全局并发上限（0 = 不限）
- * @param kindLimit 本次 kind 上限（undefined = 该层不限，0 = 不限，> 0 = 上限）
+ * @param roleLimit 本次角色上限（undefined = 该层不限，0 = 不限，> 0 = 上限）
  * @returns null = 放行；非 null = 拒绝，值为英文 at capacity 回执文案
  */
-export function evaluateCapacityGate(running, kind, globalLimit, kindLimit) {
-    const result = evaluateExecutorCapacity({ running, kind, globalLimit, kindLimit });
+export function evaluateCapacityGate(running, role, globalLimit, roleLimit) {
+    const result = evaluateExecutorCapacity({ running, role, globalLimit, roleLimit });
     if (result.allow)
         return null;
-    return formatAtCapacityReceipt(kind, result);
+    return formatAtCapacityReceipt(role, result);
 }
 //# sourceMappingURL=executor-capacity.js.map

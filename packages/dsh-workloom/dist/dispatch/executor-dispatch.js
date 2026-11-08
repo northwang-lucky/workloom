@@ -4,8 +4,8 @@
  * 设计意图：
  * - 与 executor.ts（工具注册与执行编排）、executor-continuation.ts（continuable 会话
  *   生命周期）、executor-toolface.ts（子代理工具面收窄）分离：本模块只负责「白名单
- *   内容」——allow 清单在 core 组装（buildAllowList，单一事实源），这里只做 DSH
- *   runtime 的投影（runtime='dsh' + 可见集）；
+ *   内容」——组装机制在 core（buildAllowList，runtime 无关），DSH 原生候选名单
+ *   （NATIVE_TOOLS）与可见集投影在本模块（runtime 专属清单归 runtime 侧单源）；
  * - 默认白名单 = 原生候选 ∩ 可见集，编排/交互/任务工具与 lsp_* 一律不入，经
  *   subagent_profiles 的 tools.includes 补回；未知名字在 core 静默忽略（restrict
  *   传未知名会 fail，必须求交）；
@@ -15,6 +15,28 @@
 import { ERR_PREFIX, buildAllowList } from '@workloom-ai/core';
 /** spawn provider 名（DSH in-process 子代理提供方，continuable 能力齐备）。 */
 export const SPAWN_PROVIDER = 'spawn';
+/**
+ * DSH 原生工具候选名单（显式枚举，非模式；顺序即基集保序基准）。原生工具全集
+ * 减去全部 LSP 前缀模式；交互/编排/任务工具不入默认（机制层断根，经
+ * subagent_profiles 的 tools.includes 补回）。
+ */
+export const NATIVE_TOOLS = Object.freeze([
+    'read',
+    'write',
+    'edit',
+    'bash',
+    'glob',
+    'grep',
+    'read_image',
+    'view_image',
+    'todo_write',
+    'job_output',
+    'job_list',
+    'job_kill',
+    'web_search',
+    'web_fetch',
+    'skill',
+]);
 /** LSP 工具名前缀（DSH 宿主 LSP 工具统一 lsp_ 前缀命名，如 lsp_diagnostics/lsp_symbols）。 */
 const LSP_TOOL_PREFIX = 'lsp_';
 /**
@@ -27,16 +49,16 @@ export function hasLspTooling(allowNames) {
     return allowNames.some((name) => name.startsWith(LSP_TOOL_PREFIX));
 }
 /**
- * 组装工具白名单：core 按 runtime='dsh' 组装（原生候选 ± tools 配置，与可见集
+ * 组装工具白名单：core 机制（NATIVE_TOOLS 原生候选 ± tools 配置，与可见集
  * 求交），本模块投影为 `{ allow }`。
  * @param visibleNames 运行时可见工具名集合（父代理作用域视图投影——原生工具
  *   挂在 agent-plane，无参全局视图枚举不到，不得作为求交源）
- * @param toolsConfig 该 kind 的 tools 配置（includes/excludes；缺省零行为）
+ * @param toolsConfig 该角色的 tools 配置（includes/excludes；缺省零行为）
  * @returns `{ allow }` 形状（allow 为空数组时派发前拒绝，不派发无工具面的子代理）
  */
 export function buildAllowFilter(visibleNames, toolsConfig) {
     return {
-        allow: buildAllowList({ toolsConfig, visibleNames: [...visibleNames] }),
+        allow: buildAllowList({ toolsConfig, visibleNames: [...visibleNames], nativeTools: NATIVE_TOOLS }),
     };
 }
 /**

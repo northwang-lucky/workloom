@@ -9,10 +9,11 @@
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { AUTONOMY, ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executeSetAutonomy, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { AUTONOMY, ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executePlanReviewMark, executeSetAutonomy, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from "../constants.js";
 /**
- * 注册九个任务管理工具（create/start/check/align/case/finish/archive/list/autonomy）。
+ * 注册十个任务管理工具（create/start/check/align/case/planreview/finish/archive/
+ * list/autonomy）。
  * @param ctx 插件作用域上下文
  */
 export function registerTaskTools(ctx) {
@@ -115,6 +116,26 @@ export function registerTaskTools(ctx) {
         output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
         isConcurrencySafe: () => true,
         execute: (args, exec) => caseTaskTool(args, exec),
+    });
+    tools.register({
+        name: TOOL_NAMES.taskPlanReview,
+        description: TOOL_DESCRIPTIONS.taskPlanReview,
+        parameters: {
+            type: 'object',
+            properties: {
+                phase: {
+                    type: 'string',
+                    enum: ['revising', 'clean'],
+                    description: PARAM_DESCRIPTIONS.planReviewPhase,
+                },
+                taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+            },
+            required: ['phase'],
+            additionalProperties: false,
+        },
+        output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+        isConcurrencySafe: () => true,
+        execute: (args, exec) => planReviewMarkTool(args, exec),
     });
     tools.register({
         name: TOOL_NAMES.taskFinish,
@@ -309,6 +330,33 @@ async function caseTaskTool(args, exec) {
     });
     if (err !== null || result === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: case returned no result`);
+    }
+    return result;
+}
+/**
+ * planreview 工具：Owner 标记 planReview 轨道 revising/clean（只允许主会话调用
+ * ——评审轨道标记是 Owner 决定，executor 等子代理按 delegation depth 硬拒绝；
+ * reviewing 相位由 judger plan-review 派发自动置位，不在本工具值域）。
+ */
+async function planReviewMarkTool(args, exec) {
+    const typed = args;
+    const agent = exec.agent;
+    if (agent !== undefined && delegationDepthOf(agent) > 0) {
+        throw new Error(`${ERR_PREFIX.taskTool}: workloom_task_planreview can only be called from the main session ` +
+            '(the plan review track marks are owner decisions)');
+    }
+    const cwd = cwdOf(exec);
+    const phase = typed.phase;
+    if (phase !== 'revising' && phase !== 'clean') {
+        throw new Error(`${ERR_PREFIX.taskTool}: invalid plan review phase: ${String(phase)} ` +
+            '(must be one of revising/clean)');
+    }
+    const [err, result] = executePlanReviewMark(cwd, contextKeyOf(exec), {
+        phase,
+        taskPath: taskPathOf(typed),
+    });
+    if (err !== null || result === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: planreview returned no result`);
     }
     return result;
 }

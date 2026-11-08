@@ -11,11 +11,11 @@
  * - CASE 设计轮的 designSession 与 fallbackOf 链校验在初写口执行（防无链漂移）；
  * - CASE 轨道推进单点在本模块：case-design 派发置 designing、case-design 结算置
  *   reviewing、执行派发经合法边推进 approved 与 executing、执行结算且 RESULT
- *   passed 置 done（合法边表在 state-machine，dsh 侧无感知）；
+ *   passed 置 done（合法边表在 task/state，dsh 侧无感知）；
  * - 模型 effort/model 绑定字段在记录时校验（审计不可留空、modelSource 值域封闭）；
- * - 任务读写经 task-storage 物理口，值域解释归 state-machine。
+ * - 任务读写经 task/storage 物理口，值域解释归 task/state。
  */
-import type { DispatchModelSource, DispatchRecord, DispatchStatus, GateValue } from './task-storage.ts';
+import type { DispatchModelSource, DispatchRecord, DispatchStatus, GateValue } from './storage/index.ts';
 /**
  * 派发记录 model 绑定来源枚举值（dispatches[].modelSource 合法值域）。
  * 新派轮：param/whenMain/fallback/legacy/inherit/rotate（rotate = 同类并发轮换

@@ -29,9 +29,9 @@ export interface ToolfaceIndex {
 export declare function createToolfaceIndex(): ToolfaceIndex;
 /**
  * 从项目任务记录重建子代理允许清单。
- * 遍历 `<root>/.workloom/tasks/` 下各任务目录（排除 archive），读取 dispatches
- * 中带 childId 与 toolsAllow 的记录。旧记录缺 toolsAllow 时跳过：那批会话在
- * 0.2.0 的 toolFilter 通道下创建，无法从记录反推白名单。
+ * 扫描经 dispatch-scan 共享实现（非归档任务全量派发记录，archive 排除与坏
+ * JSON 防御内置），读取带 childId 与 toolsAllow 的记录。旧记录缺 toolsAllow
+ * 时跳过：那批会话在 0.2.0 的 toolFilter 通道下创建，无法从记录反推白名单。
  * @param root 项目根
  * @returns 子代理 id → 允许清单
  */

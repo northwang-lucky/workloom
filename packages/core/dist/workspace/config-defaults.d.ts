@@ -11,8 +11,8 @@
  */
 /** 内置默认配置（与规格一致）。 */
 export declare const DEFAULT_CONFIG: import('./config.d.ts').WorkloomConfig;
-/** resolveSubagentDefaults 的 kind 层并发上限兜底缺省（未配置时 3）。 */
-export declare const DEFAULT_KIND_MAX_CONCURRENT = 3;
+/** resolveSubagentDefaults 的角色层并发上限兜底缺省（未配置时 3）。 */
+export declare const DEFAULT_ROLE_MAX_CONCURRENT = 3;
 /** 分支名模板占位符白名单。 */
 export declare const BRANCH_TEMPLATE_PLACEHOLDERS: Set<string>;
 /**

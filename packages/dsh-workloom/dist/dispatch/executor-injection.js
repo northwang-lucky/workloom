@@ -1,4 +1,4 @@
-import { buildExecutorPrompt, ERR_PREFIX, loadCaseResultTemplateText, loadCaseTemplateText, readTaskView, TEMPLATE_CASE_ENTRY, TEMPLATE_CASE_RESULT_ENTRY, } from '@workloom-ai/core';
+import { buildExecutorPrompt, ERR_PREFIX, EXECUTOR_ROLES, loadCaseResultTemplateText, loadCaseTemplateText, readTaskView, ROLE_LABELS, TEMPLATE_CASE_ENTRY, TEMPLATE_CASE_RESULT_ENTRY, } from '@workloom-ai/core';
 import { buildExecutorContractSection } from "./discipline-text.js";
 /** resources 条目在仓内的展示路径前缀（注入头与缺失报错用）。 */
 const RESOURCES_REPO_PREFIX = 'packages/core/resources/';
@@ -19,38 +19,30 @@ function caseTemplates() {
         return { path, content };
     });
 }
-/** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
-export const KIND_LABELS = {
-    research: 'Research',
-    implement: 'Implement',
-    check: 'Check',
-    frontend: 'Frontend',
-    review: 'Review',
-};
 /**
  * 组装全量注入 prompt（新派发/reinject 续接共用）：本机片段已由调用方探测，此处
  * 调用 core buildExecutorPrompt；组装失败 fail loud。hasLsp 由调用方按可见工具集
  * 探测（交付时过滤纪律段 LSP 句）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型
+ * @param role executor 角色
  * @param userPrompt 用户任务正文
  * @param localDirectives 本机片段合成文本（已探测可用工具集）
  * @param hasLsp 目标环境是否具备 LSP 工具面
  * @returns 组装结果（text + stats）
  */
-export function buildFullInjection(root, taskRelPath, kind, userPrompt, localDirectives, hasLsp, purpose = 'execution') {
+export function buildFullInjection(root, taskRelPath, role, userPrompt, localDirectives, hasLsp, purpose = 'execution') {
     const [promptErr, built] = buildExecutorPrompt({
         root,
         taskRelPath,
-        kind,
+        role,
         userPrompt,
         // runtime 纪律文本（dsh 侧组装）：契约节整段注入（组装机制在 core）。
-        contractSection: buildExecutorContractSection(kind, hasLsp, userPrompt),
+        contractSection: buildExecutorContractSection(role, hasLsp, userPrompt),
         localDirectives,
         hasLsp,
         purpose,
-        caseTemplates: kind === 'check' ? caseTemplates() : [],
+        caseTemplates: role === EXECUTOR_ROLES.CHECKER ? caseTemplates() : [],
     });
     if (promptErr !== null || built === null) {
         throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`);
@@ -77,29 +69,30 @@ export function injectionStats(built, toolsAllowed) {
     };
 }
 /**
- * 组装子会话标题：`[<KindLabel>] <title>`（title 为语义部分、不含前缀；缺省回退
- * task title，仍缺失/空白时整体回退 `workloom-<kind>`；标题仅供展示，不因任务
- * 元数据异常阻塞派发）。
+ * 组装子会话标题：`[<RoleLabel>] <title>`（title 为语义部分、不含前缀；缺省回退
+ * task title，仍缺失/空白时整体回退 `workloom-<role>`；标题仅供展示，不因任务
+ * 元数据异常阻塞派发）。显示名单源在 core 的 ROLE_LABELS（assertRole 已保证
+ * role 合法，此处仅防御缺键）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型（research/implement/check/frontend/review）
+ * @param role executor 角色（researcher/developer/frontend-developer/checker/judger）
  * @param title 模型传入的语义标题（schema 必填非空；可选类型仅作纯函数防御回退）
  * @returns 子会话标题
  */
-export function buildChildLabel(root, taskRelPath, kind, title) {
-    const kindLabel = KIND_LABELS[kind];
+export function buildChildLabel(root, taskRelPath, role, title) {
+    const roleLabel = ROLE_LABELS[role];
     const semantic = title?.trim();
-    if (kindLabel === undefined) {
-        return `workloom-${kind}`;
+    if (roleLabel === undefined) {
+        return `workloom-${role}`;
     }
     if (semantic !== undefined && semantic !== '') {
-        return `[${kindLabel}] ${semantic}`;
+        return `[${roleLabel}] ${semantic}`;
     }
     const [taskErr, task] = readTaskView(root, taskRelPath);
     const taskTitle = task?.title;
     if (taskErr !== null || taskTitle === undefined || taskTitle.trim() === '') {
-        return `workloom-${kind}`;
+        return `workloom-${role}`;
     }
-    return `[${kindLabel}] ${taskTitle}`;
+    return `[${roleLabel}] ${taskTitle}`;
 }
 //# sourceMappingURL=executor-injection.js.map

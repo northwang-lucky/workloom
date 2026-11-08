@@ -1,5 +1,6 @@
 /**
- * dsh-workloom 共享常量（plugin.ts / commands.ts / executor 链路共用，消除同义字符串重复）。
+ * dsh-workloom 共享常量（plugin.ts / tooling/commands.ts / tooling/tasks.ts /
+ * executor 链路（executor.ts、executor-settle.ts）共用，消除同义字符串重复）。
  */
 import { ERR_PREFIX } from '@workloom-ai/core'
 

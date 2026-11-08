@@ -12,6 +12,14 @@ import { join } from 'node:path'
 import { createTask, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import { registerTaskTools } from '../src/tooling/tasks.ts'
 
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir
+// 注入缝）；本机真实全局配置会泄漏进单测（历史遗留字段即抛解析错误）。重定向
+// HOME 与 TMPDIR 到隔离目录使全局层恒为空（与 executor.test.ts / core
+// task-store.test.ts 同口径）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-dsh-tasks-home-'))
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
+
 /** 构造模拟 tools 注册环境，捕获所有注册的工具定义。 */
 function makeCtx() {
   const registered = []
@@ -117,6 +125,39 @@ test('align 工具主会话限制：子代理（delegationDepth>0）调用被拒
   }
   await assert.rejects(
     () => def.execute({ action: 'review' }, exec),
+    /only be called from the main session/,
+  )
+})
+
+test('planreview 工具 schema：phase 必填枚举 revising/clean；taskPath 可选；additionalProperties false', () => {
+  const { ctx, registered } = makeCtx()
+  registerTaskTools(ctx)
+  const def = registered.find((entry) => entry.name === 'workloom_task_planreview')
+  assert.ok(def, 'planreview tool must be registered')
+  const props = def.parameters.properties
+  assert.deepEqual(props.phase.enum, ['revising', 'clean'])
+  assert.ok(def.parameters.required.includes('phase'), 'phase must be required')
+  assert.equal(props.phase.description, PARAM_DESCRIPTIONS.planReviewPhase)
+  assert.equal(props.taskPath.description, PARAM_DESCRIPTIONS.taskPath)
+  assert.ok(!def.parameters.required.includes('taskPath'), 'taskPath must be optional')
+  assert.equal(def.parameters.additionalProperties, false)
+})
+
+test('planreview 工具主会话限制：子代理（delegationDepth>0）调用被拒绝', async () => {
+  const { ctx, registered } = makeCtx()
+  registerTaskTools(ctx)
+  const def = registered.find((entry) => entry.name === 'workloom_task_planreview')
+  assert.ok(def, 'planreview tool must be registered')
+  const exec = {
+    agent: {
+      id: 'child-1',
+      options: { subagentDepth: 1 },
+      session: { header: { cwd: '/tmp', delegationDepth: 1 } },
+    },
+    signal: new AbortController().signal,
+  }
+  await assert.rejects(
+    () => def.execute({ phase: 'clean' }, exec),
     /only be called from the main session/,
   )
 })

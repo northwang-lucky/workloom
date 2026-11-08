@@ -10,6 +10,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 
+import { EXECUTOR_ROLES, tryNormalizeExecutorRole } from '../dispatch/executor-roles.ts'
 import { sectionMap, splitHeadings } from './prd-structure.ts'
 import {
   CASE_FILES,
@@ -27,13 +28,13 @@ import {
 } from './case-structure.ts'
 import { listCaseChangedFiles, taskDirectory, worktreeDirectory } from './case-scope.ts'
 import type { CaseStructureIssue, CaseStructureOptions } from './case-structure.ts'
-import type { TaskRecord } from './task-storage.ts'
+import type { TaskRecord } from './storage/index.ts'
 
 /** RESULT 缺失文案。 */
 const RESULT_MISSING = 'case-result.md is missing'
 
-/** 执行会话链回溯的 kind（check 派发记录）。 */
-const CHECK_KIND = 'check'
+/** 执行会话链回溯的角色（checker 派发记录；值域单源在 executor-roles）。 */
+const CHECK_ROLE = EXECUTOR_ROLES.CHECKER
 
 const REQUIRED_RESULT_SECTIONS = CASE_STRUCTURE.resultSections
 const SR_FIELDS = CASE_STRUCTURE.srFields
@@ -113,7 +114,8 @@ function sessionChainReaches(task: TaskRecord, from: unknown, target: unknown): 
   while (typeof current === 'string' && current !== '' && !seen.has(current)) {
     seen.add(current)
     const link = task.dispatches.find(
-      (entry) => entry.kind === CHECK_KIND && entry.childId === current && typeof entry.fallbackOf === 'string',
+      // 记录值经兼容读归一后比较（历史旧值记录同样识别为 checker；脏值跳过）。
+      (entry) => tryNormalizeExecutorRole(entry.kind) === CHECK_ROLE && entry.childId === current && typeof entry.fallbackOf === 'string',
     )
     if (link === undefined) return false
     if (link.fallbackOf === target) return true

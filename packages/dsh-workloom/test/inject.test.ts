@@ -8,7 +8,16 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { resolveTurnTask } from '@workloom-ai/core'
 import { assembleSessionContextText, renderSessionContext } from '../src/plugin.ts'
+
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir
+// 注入缝）；本机真实全局配置会泄漏进单测（历史遗留字段即抛解析错误）。重定向
+// HOME 与 TMPDIR 到隔离目录使全局层恒为空（与 executor.test.ts / core
+// task-store.test.ts 同口径）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-dsh-inject-home-'))
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
 
 /** 构造 .workloom 项目根（目录存在即命中自激活判定）。 */
 function makeRoot() {
@@ -75,6 +84,16 @@ test('含 norms 块契约：快照末尾追加 Always-on norms 小节（原文�
       text.includes('Implementation changes come from workloom_execute subagents.'),
       'dispatch norm keeps original text',
     )
+    // 画像节集成（plugin 接线恢复后）：depth=0 快照恒渲染 Executor profiles 节；
+    // makeTarget 的 agent 无 requestHeader 快照 → 节头为 unknown 形态。
+    assert.ok(
+      text.includes('Executor profiles (main model unknown; whenMain entries skipped):'),
+      'executor profiles section must render for depth 0',
+    )
+    assert.ok(
+      text.includes('  researcher: not configured (inherits parent session model)'),
+      'unconfigured roles render the info line',
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -89,6 +108,7 @@ test('委派深度>0：快照按白名单裁剪（无 Workflow 概览行），no
     assert.ok(normsIdx >= 0, 'executor norms section must render for depth > 0')
     // depth>0 白名单：Developer / Last dispatch / Executor profiles / Git / Workflow 概览行全删
     assert.ok(!text.includes('Workflow: '), 'workflow overview must be dropped at depth > 0')
+    assert.ok(!text.includes('Executor profiles'), 'profiles section must be dropped at depth > 0')
     assert.ok(!text.includes('Developer: '), 'developer line must be dropped at depth > 0')
     assert.ok(
       !text.includes('Implementation changes come from workloom_execute subagents.'),
@@ -225,8 +245,11 @@ test('assembleSessionContextText：light 任务概览行取轻量契约步骤，
       join(sessionsDir, 'dsh_agent-1.json'),
       `${JSON.stringify({ current_task: 'tasks/08-25-light-demo' })}\n`,
     )
+    // 回退直读通道已退役：直连单测按正规通道（resolveTurnTask，与 plugin 的
+    // getTurnTask 同源）显式传 turnTask。
     const text = assembleSessionContextText(makeTarget(root), MAIN_CONTRACT, {
       lightContractText: LIGHT_CONTRACT,
+      turnTask: resolveTurnTask(root, 'dsh_agent-1'),
     })
     assert.ok(
       text.includes('\nWorkflow: 1.0 Start task | 2.1 Implement | 2.2 Self-check and record\n'),

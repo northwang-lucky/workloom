@@ -8,7 +8,7 @@
  *   确认记录（零写盘）；不完整的草稿照样可读，就绪与否由 readyToConfirm 表达；
  * - align confirm 同步全链路：内容 blocker（prd-structure 单一解析器）聚合拒绝
  *   → summary（人工确认必填；semi/auto 的 PLAN 与 auto 的 PRD 自动记录）→
- *   只经 state-machine 的确认迁移窄写口原子落盘（confirmPrd / confirmPlan）；
+ *   只经 task/state 的确认迁移窄写口原子落盘（confirmPrd / confirmPlan）；
  *   确认记录含 passedAt/summary/source/autonomy，无哈希，每次确认刷新为最近一次；
  * - PLAN 确认要求 PRD 已有确认记录且 planReview 轨道 clean（守卫在状态机硬校验，
  *   与 autonomy 无关）；
@@ -26,8 +26,8 @@ import { listCaseChangedFiles } from './case-scope.ts'
 import { PRD_MISSING, inspectPlanDoc, inspectPrdStructure } from './prd-structure.ts'
 import type { CaseStructureIssue } from './case-structure.ts'
 import { findWorkloomRoot, insideWorkloom } from '../workspace/locate.js'
-import { findArchivedTaskPath } from './task-storage.ts'
-import { AUTONOMY, confirmPlan, confirmPrd, readTaskView } from './state-machine.ts'
+import { findArchivedTaskPath } from './storage/index.ts'
+import { AUTONOMY, confirmPlan, confirmPrd, readTaskView, recordPlanReview } from './state/index.ts'
 import { ERR_PREFIX } from '../injection/surface.ts'
 import { requireWorkloomCwd, resolveTaskRelPath } from './task-ops.ts'
 
@@ -35,8 +35,8 @@ import type {
   TaskAlignmentRecord,
   TaskPlanConfirmationRecord,
   TaskStatusValue,
-} from './task-storage.ts'
-import type { TaskView } from './state-machine.ts'
+} from './storage/index.ts'
+import type { TaskView } from './state/index.ts'
 
 /** task 目录内 prd/plan 文件名（与 task-storage 数据布局一致）。 */
 const PRD_FILE = 'prd.md'
@@ -136,6 +136,66 @@ export interface ExecuteTaskCaseParams {
 
 /** case 工具成功结果（review 单态）。 */
 export type ExecuteTaskCaseResult = CaseReviewResult
+
+/** planReview 标记目标相位（Owner 手动标记的两个相位；reviewing 由评审派发自动置）。 */
+export type PlanReviewMarkPhase = 'revising' | 'clean'
+
+/** executePlanReviewMark 入参（taskPath 缺省取活跃任务）。 */
+export interface ExecutePlanReviewMarkParams {
+  /** 目标相位：revising（进入修订）或 clean（评审零意见落定）。 */
+  phase: PlanReviewMarkPhase
+  taskPath?: string
+}
+
+/** executePlanReviewMark 成功结果（planReview 轨道视图投影）。 */
+export interface ExecutePlanReviewMarkResult {
+  taskRelPath: string
+  /** 标记后的轨道相位。 */
+  planReview: PlanReviewMarkPhase | 'none' | 'reviewing'
+  /** revising 累计轮数（只记录不判定）。 */
+  planReviewRevisions: number
+}
+
+/**
+ * 执行 workloom_task_planreview 编排（全程同步）：Owner 标记 planReview 轨道
+ * revising 与 clean（写口复用 recordPlanReview，非法边给可判定错误透传）；
+ * reviewing 相位不在本入口（由 judger plan-review 派发成功自动置位）。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话标识（taskPath 缺省时取活跃任务）
+ * @param params 工具参数
+ * @returns [err, result]：err 为任一失败（消息含前缀；失败零写入）
+ */
+export function executePlanReviewMark(
+  cwd: string,
+  contextKey: string,
+  params: ExecutePlanReviewMarkParams,
+): [Error | null, ExecutePlanReviewMarkResult | null] {
+  try {
+    requireWorkloomCwd(cwd)
+    if (params.phase !== 'revising' && params.phase !== 'clean') {
+      throw new Error(
+        `${ERR_PREFIX.taskTool}: invalid plan review phase: ${String(params.phase)} ` +
+          '(must be one of revising/clean)',
+      )
+    }
+    const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
+    const root = requireProjectRoot(cwd)
+    const [markErr, view] = recordPlanReview(root, taskRelPath, params.phase)
+    if (markErr !== null || view === null) {
+      throw markErr ?? new Error(`${ERR_PREFIX.taskTool}: plan review mark returned no view`)
+    }
+    return [
+      null,
+      {
+        taskRelPath: view.taskRelPath,
+        planReview: view.planReview,
+        planReviewRevisions: view.planReviewRevisions,
+      },
+    ]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
 
 /**
  * 执行 workloom_task_align 编排（全程同步）。

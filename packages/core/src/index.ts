@@ -3,9 +3,10 @@
  *
  * 分层约定：
  * - src 按 task / dispatch / injection / workspace 四个功能子包划分，全部 TypeScript；
- * - task 子包内部分层：task-storage（task.json 物理读写）、state-machine（值域、
- *   兼容读、迁移表与守卫）、dispatch-records（派发记录与 override 留痕），
- *   task-ops / doc-review 承载生命周期与文档复核编排；
+ * - task 子包内部分层：storage/ 子目录（task.json 物理读写，index.ts 唯一入口）、
+ *   state/ 子目录（值域、兼容读、迁移表与守卫，index.ts 唯一入口）、
+ *   dispatch-records（派发记录与 override 留痕），task-ops / doc-review 承载
+ *   生命周期与文档复核编排；
  * - 少数过渡期纯 JS 行为模块（locate/file-atomic/git 等）以 .js + 手写 .d.ts 锚点
  *   形态存在，随后续子任务陆续 TS 化。
  * 本包整体经 tsc 构建发布，不得 import 任何 runtime 包。
@@ -31,36 +32,26 @@ export {
 
 export { loadConfig } from './workspace/config-load.ts'
 
+// executor 角色值域（派发值域唯一名词；旧 kind 值的兼容读映射单点同模块）。
 export {
-  MODEL_INACCESSIBLE_CODES,
-  isModelInaccessibleCode,
-  extractFailureCode,
-  buildFailoverNote,
-  buildFailoverNotice,
-} from './dispatch/failover.js'
-
-export {
-  PARENT_MODEL_LABEL,
-  buildNewDispatchBinding,
-  resolveDispatchModelSource,
-} from './dispatch/dispatch-binding.js'
-
-// executor kind 值域（子任务四成组切换前的过渡栖身地）。
-export { EXECUTOR_KINDS } from './dispatch/executor-kinds.ts'
-export type { ExecutorKind } from './dispatch/executor-kinds.ts'
+  EXECUTOR_ROLES,
+  LEGACY_KIND_TO_ROLE,
+  ROLE_LABELS,
+  isExecutorRole,
+  normalizeExecutorRole,
+  tryNormalizeExecutorRole,
+} from './dispatch/executor-roles.ts'
+export type { ExecutorRole, LegacyExecutorKind } from './dispatch/executor-roles.ts'
 
 export {
   EFFORT_LEVELS,
   assertEffort,
-  assertKind,
+  assertRole,
   buildExecutorIncrementalPrompt,
   buildExecutorPrompt,
 } from './injection/prompt-compose.ts'
 
-export {
-  NATIVE_TOOLS_DSH,
-  buildAllowList,
-} from './dispatch/executor-tools.ts'
+export { buildAllowList } from './dispatch/executor-tools.ts'
 
 export {
   evaluateExecutorCapacity,
@@ -105,7 +96,7 @@ export {
   recordPlanReview,
   confirmPrd,
   confirmPlan,
-} from './task/state-machine.ts'
+} from './task/state/index.ts'
 
 export type {
   TaskView,
@@ -125,7 +116,7 @@ export type {
   CasePhaseValue,
   PlanReviewPhaseValue,
   AutonomyValue,
-} from './task/state-machine.ts'
+} from './task/state/index.ts'
 
 // CASE 领域导出（生命周期、结构校验、门禁与文件范围）。
 export {
@@ -164,6 +155,7 @@ export { mergeOverlay, buildBreadcrumb, shouldSkipBreadcrumb } from './injection
 
 // 任务存储层（task.json 物理读写、创建、列表、hooks 与确认凭据窄写口）。
 export {
+  PLAN_REVIEW_PURPOSE,
   TaskStatus,
   TaskPriority,
   slugify,
@@ -171,7 +163,7 @@ export {
   listTasks,
   runTaskHooks,
   findArchivedTaskPath,
-} from './task/task-storage.ts'
+} from './task/storage/index.ts'
 
 // 派发记录层（dispatches 初写/结算/失败链后缀与 overrides 留痕）。
 export {
@@ -198,7 +190,7 @@ export {
   resolveActiveTask,
   listPointers,
   clearPointersToTask,
-} from './task/state-machine.ts'
+} from './task/state/index.ts'
 
 // git 查询面与集成操作面（拆分后各自导出）。
 export {
@@ -294,10 +286,13 @@ export {
 export { parseInitArgs, executeInitCommand } from './workspace/command-ops.ts'
 
 // 任务文档复核服务（align review/confirm 与 case review-only 同一编排模块）。
-export { executeAlignTask, executeTaskCase } from './task/doc-review.ts'
+export { executeAlignTask, executePlanReviewMark, executeTaskCase } from './task/doc-review.ts'
 export type {
+  ExecutePlanReviewMarkParams,
+  ExecutePlanReviewMarkResult,
   ExecuteTaskCaseParams,
   ExecuteTaskCaseResult,
+  PlanReviewMarkPhase,
 } from './task/doc-review.ts'
 
 export {
@@ -332,7 +327,7 @@ export {
   CONTINUE_EXECUTOR_LATEST,
   buildContinueNoDispatchText,
   buildContinueNoChildIdText,
-  buildCrossKindReuseRejectText,
+  buildCrossRoleReuseRejectText,
   PURGE_FLAG,
   COMMAND_FAILURE_ACK,
   buildErrorRelayText,
@@ -411,7 +406,7 @@ export type {
   DispatchRecord,
   DispatchStatus,
   DispatchModelSource,
-} from './task/task-storage.ts'
+} from './task/storage/index.ts'
 
 export type {
   DispatchRecordInput,
@@ -447,7 +442,7 @@ export type {
   CaseReviewResult,
 } from './task/doc-review.ts'
 
-export type { SessionPointer, SessionPointerWithContext } from './task/state-machine.ts'
+export type { SessionPointer, SessionPointerWithContext } from './task/state/index.ts'
 
 export type { SessionContextParams } from './injection/session-context.ts'
 

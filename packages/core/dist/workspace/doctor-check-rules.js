@@ -24,10 +24,10 @@ import { loadConfig } from "./config-load.js";
 import { insideWorkloom, WORKLOOM_DIR } from './locate.js';
 import { scanWorktreeConsistencySync } from "./worktree-integrate.js";
 import { makeIssue } from "./doctor-tasks.js";
-import { readTaskRecord } from "../task/task-storage.js";
-import { CASE_PHASES, MODES, PLAN_REVIEW_PHASES, STAGES, TRANSITIONS, statusOfStage, toTaskView, } from "../task/state-machine.js";
+import { readTaskRecord } from "../task/storage/index.js";
+import { CASE_PHASES, MODES, PLAN_REVIEW_PHASES, STAGES, TRANSITIONS, statusOfStage, toTaskView, } from "../task/state/index.js";
 import { CASE_FILES, CASE_PURPOSES } from "../task/case-structure.js";
-import { EXECUTOR_KINDS } from "../dispatch/executor-kinds.js";
+import { EXECUTOR_ROLES } from "../dispatch/executor-roles.js";
 import { ARCHIVE_DIR, TASK_DIR } from "./doctor-types.js";
 /* ---------------- 任务扫描（三类任务级检查共享） ---------------- */
 /** task.json 相对路径（issue 的 path 字段用）。 */
@@ -286,7 +286,7 @@ export function checkCaseConsistency(root, nodes) {
         }
         const caseRecord = view.case;
         if (caseRecord !== null && typeof caseRecord.designSession === 'string' && caseRecord.designSession !== '') {
-            const hasDesignDispatch = view.dispatches.some((entry) => entry.kind === EXECUTOR_KINDS.check &&
+            const hasDesignDispatch = view.dispatches.some((entry) => entry.kind === EXECUTOR_ROLES.CHECKER &&
                 (entry.purpose ?? CASE_PURPOSES.EXECUTION) === CASE_PURPOSES.DESIGN &&
                 entry.childId === caseRecord.designSession);
             if (!hasDesignDispatch) {
@@ -304,7 +304,7 @@ export function checkCaseConsistency(root, nodes) {
         }
         const approvedOrLater = [CASE_PHASES.APPROVED, CASE_PHASES.EXECUTING, CASE_PHASES.DONE];
         if (approvedOrLater.includes(view.casePhase)) {
-            const hasExecutionDispatch = view.dispatches.some((entry) => entry.kind === EXECUTOR_KINDS.check &&
+            const hasExecutionDispatch = view.dispatches.some((entry) => entry.kind === EXECUTOR_ROLES.CHECKER &&
                 (entry.purpose ?? CASE_PURPOSES.EXECUTION) === CASE_PURPOSES.EXECUTION);
             if (!hasExecutionDispatch) {
                 issues.push(makeIssue({
@@ -433,7 +433,7 @@ export function checkConfig(root) {
             message: 'No .workloom/config.json or config.js; using built-in defaults.',
             path: join(WORKLOOM_DIR, 'config.json'),
             fixable: false,
-            hint: 'Create .workloom/config.json to customize hooks, packages and subagents.',
+            hint: 'Create .workloom/config.json to customize hooks, packages and subagent_profiles.',
         }));
     }
     else {

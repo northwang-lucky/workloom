@@ -11,8 +11,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { assembleBreadcrumbSync, assembleWorkflowProjection } from '../src/injection/workflow-service.ts'
-import { createTask } from '../src/task/task-storage.ts'
-import { setActiveTask } from '../src/task/state-machine.ts'
+import { createTask } from '../src/task/storage/index.ts'
+import { readTaskView, setActiveTask } from '../src/task/state/index.ts'
+import { resolveTurnTask } from '../src/injection/session-assemble.ts'
 
 // 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir 注入
 // 缝时吃 os.homedir 实时值）；本机真实全局配置会泄漏进单测。重定向 HOME 到临时目录
@@ -74,12 +75,21 @@ function addTask(root, contextKey, status) {
   )
 }
 
+/**
+ * 按正规通道构造 turnTask 夹具（resolveTurnTask 产物形状：readTaskView 视图；
+ * 回退直读通道已退役，直连单测显式传记录）。
+ */
+function turnTaskOf(root, rel = 'tasks/08-24-demo') {
+  const [err, view] = readTaskView(root, rel)
+  assert.equal(err, null, err?.message)
+  return view
+}
+
 test('无任务时返回 no_task 指引块', async () => {
   const root = makeProject()
   try {
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_1',
       contractText: CONTRACT_TEXT,
     })
     assert.equal(err, null)
@@ -95,8 +105,8 @@ test('任务 planning 时返回 planning 指引块', async () => {
     addTask(root, 'dsh_wf_2', 'planning')
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_2',
       contractText: CONTRACT_TEXT,
+      turnTask: turnTaskOf(root),
     })
     assert.equal(err, null)
     assert.equal(text, 'Align requirements before writing code.')
@@ -120,8 +130,8 @@ test('overlay 覆盖 planning 块正文后生效', async () => {
     )
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_3',
       contractText: CONTRACT_TEXT,
+      turnTask: turnTaskOf(root),
     })
     assert.equal(err, null)
     assert.equal(text, 'Overlay: align first, then plan.')
@@ -139,7 +149,6 @@ test('用户消息命中 skip 关键词时返回 null', async () => {
     )
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_4',
       contractText: CONTRACT_TEXT,
       userPrompt: 'please stop-workloom this round',
     })
@@ -155,7 +164,6 @@ test('根目录无 .workloom 时返回 err', async () => {
   try {
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_5',
       contractText: CONTRACT_TEXT,
     })
     assert.notEqual(err, null)
@@ -173,7 +181,6 @@ test('overlay 引入未声明状态时返回 err', async () => {
     writeFileSync(join(root, '.workloom', 'workflow.override.md'), overlayText)
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_6',
       contractText: CONTRACT_TEXT,
     })
     assert.notEqual(err, null)
@@ -184,7 +191,7 @@ test('overlay 引入未声明状态时返回 err', async () => {
   }
 })
 
-test('task.json 状态损坏时返回 err', async () => {
+test('task.json 状态损坏：解析失败前移 resolveTurnTask 抛错；breadcrumb 缺省视同无任务', async () => {
   const root = makeProject()
   try {
     const [, created] = await createTask(root, { title: 'Broken Status' })
@@ -194,15 +201,16 @@ test('task.json 状态损坏时返回 err', async () => {
     json.status = 'banana'
     writeFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), JSON.stringify(json))
     setActiveTask(root, 'dsh_wf_7', created.taskRelPath)
+    // 正规通道（adapter 回合缓存）：损坏记录在 resolveTurnTask 报可判定错误
+    // （兼容读单点：未映射的 status 值不再静默映射）。
+    assert.throws(() => resolveTurnTask(root, 'dsh_wf_7'), /unmapped status value/)
+    // 回退直读通道已退役：turnTask 缺省时本入口不再自解析，视同无活跃任务。
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_7',
       contractText: CONTRACT_TEXT,
     })
-    assert.notEqual(err, null)
-    // 兼容读单点：未映射的 status 值报可判定错误（不再静默映射）。
-    assert.match(err.message, /unmapped status value/)
-    assert.equal(text, null)
+    assert.equal(err, null)
+    assert.equal(text, 'No active task: propose the next step.')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -215,7 +223,6 @@ test('delegationDepth>0 时完全不注入 breadcrumb（返回 null）', async (
     addTask(root, 'dsh_wf_8', 'in_progress')
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_8',
       contractText: CONTRACT_TEXT,
       delegationDepth: 1,
     })
@@ -232,8 +239,8 @@ test('delegationDepth 缺省为 0：行为与现状一致（规划任务返回�
     addTask(root, 'dsh_wf_9', 'planning')
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_wf_9',
       contractText: CONTRACT_TEXT,
+      turnTask: turnTaskOf(root),
     })
     assert.equal(err, null)
     assert.equal(text, 'Align requirements before writing code.')
@@ -298,9 +305,9 @@ test('light 任务 breadcrumb 取自轻量契约', async () => {
     addTaskWithMode(root, 'dsh_light_1', 'planning', 'light')
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_light_1',
       contractText: CONTRACT_TEXT,
       lightContractText: LIGHT_CONTRACT_TEXT,
+      turnTask: turnTaskOf(root, 'tasks/08-25-light-demo'),
     })
     assert.equal(err, null)
     assert.equal(text, 'Light planning: fill the light prd and start.')
@@ -315,9 +322,9 @@ test('full 任务 breadcrumb 不受 lightContractText 影响（逐字不变护�
     addTaskWithMode(root, 'dsh_light_2', 'planning', 'full')
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_light_2',
       contractText: CONTRACT_TEXT,
       lightContractText: LIGHT_CONTRACT_TEXT,
+      turnTask: turnTaskOf(root, 'tasks/08-25-light-demo'),
     })
     assert.equal(err, null)
     assert.equal(text, 'Align requirements before writing code.')
@@ -336,9 +343,9 @@ test('light 轨不叠加项目 overlay（overlay 仅作用于 full 轨）', asyn
     )
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_light_3',
       contractText: CONTRACT_TEXT,
       lightContractText: LIGHT_CONTRACT_TEXT,
+      turnTask: turnTaskOf(root, 'tasks/08-25-light-demo'),
     })
     assert.equal(err, null)
     assert.equal(text, 'Light planning: fill the light prd and start.')
@@ -353,8 +360,8 @@ test('light 任务缺轻量契约文本时 breadcrumb 返回 err（fail loud）'
     addTaskWithMode(root, 'dsh_light_4', 'in_progress', 'light')
     const [err, text] = assembleBreadcrumbSync({
       root,
-      contextKey: 'dsh_light_4',
       contractText: CONTRACT_TEXT,
+      turnTask: turnTaskOf(root, 'tasks/08-25-light-demo'),
     })
     assert.ok(err)
     assert.match(err.message, /light workflow contract/)
@@ -400,7 +407,6 @@ test('assembleWorkflowProjection：无任务/ full 任务取主契约 steps 与 
   try {
     const [noTaskErr, noTask] = await assembleWorkflowProjection(
       root,
-      'dsh_proj_1',
       MAIN_STEPS_CONTRACT,
       LIGHT_CONTRACT_TEXT,
     )
@@ -413,9 +419,9 @@ test('assembleWorkflowProjection：无任务/ full 任务取主契约 steps 与 
     addTaskWithMode(root, 'dsh_proj_2', 'in_progress', 'full')
     const [fullErr, full] = await assembleWorkflowProjection(
       root,
-      'dsh_proj_2',
       MAIN_STEPS_CONTRACT,
       LIGHT_CONTRACT_TEXT,
+      turnTaskOf(root, 'tasks/08-25-light-demo'),
     )
     assert.equal(fullErr, null)
     assert.deepEqual(
@@ -433,9 +439,9 @@ test('assembleWorkflowProjection：light 任务 steps 取轻量契约，norms �
     addTaskWithMode(root, 'dsh_proj_3', 'in_progress', 'light')
     const [err, projection] = await assembleWorkflowProjection(
       root,
-      'dsh_proj_3',
       MAIN_STEPS_CONTRACT,
       LIGHT_CONTRACT_TEXT,
+      turnTaskOf(root, 'tasks/08-25-light-demo'),
     )
     assert.equal(err, null)
     assert.deepEqual(

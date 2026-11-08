@@ -4,7 +4,7 @@
  * 设计意图：
  * - 把「校验项目根 → 加载配置 → 解析主契约 → 解析当前任务（mode/status）→
  *   light 时切换轻量契约 → 读 overlay（仅 full 轨）→ 组装指引」编排成单次调用，
- *   adapter 只需提供 root/contextKey/契约全文；
+ *   adapter 只需提供 root/契约全文（活跃任务经 turnTask 携带）；
  * - 轻量任务（task.json mode=light）使用独立的 workflow-light.md，状态文案与步骤
  *   整体切换；norms 恒出自主契约（单源，轻量契约不含 norms 块）；项目 overlay
  *   是 full 轨的项目定制通道，light 轨不叠加；
@@ -13,15 +13,13 @@
  *   供 systemPrompt 的同步 text provider 直接调用，避免编排逻辑重复。
  */
 import type { WorkflowStep } from './workflow-contract-types.ts';
-import type { TaskRecordWithPath } from '../task/task-storage.ts';
+import type { TaskRecordWithPath } from '../task/storage/index.ts';
 /** overlay 文件相对 .workloom 的路径（doctor overlay 检查等共享）。 */
 export declare const OVERLAY_REL_PATH = "workflow.override.md";
 /** assembleBreadcrumb 入参。 */
 export interface AssembleBreadcrumbParams {
     /** 项目根（或根下任意目录；需位于 .workloom 资产树内）。 */
     root: string;
-    /** runtime 会话标识（adapter 组装，如 dsh_<session-id>）。 */
-    contextKey: string;
     /** 工作流契约全文（来自 assets 包）。 */
     contractText: string;
     /**
@@ -46,14 +44,14 @@ export interface WorkflowProjection {
  */
 export interface AssembleBreadcrumbParams {
     root: string;
-    contextKey: string;
     contractText: string;
     lightContractText?: string | null;
     userPrompt?: string;
     delegationDepth?: number;
     /**
      * 本回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物）。
-     * 提供后本入口零次额外读盘；缺省时内部回退解析（兼容直连调用方）。
+     * 提供后本入口零次额外读盘；缺省/null 视同无活跃任务（回退直读通道已退役，
+     * 解析职责在调用方的回合缓存通道，本入口不再自解析指针）。
      */
     turnTask?: TaskRecordWithPath | null;
 }
@@ -73,9 +71,8 @@ export declare function assembleBreadcrumbSync(params: AssembleBreadcrumbParams)
  * 恒自主契约。full 轨的 overlay 只改状态/步骤正文，不改 id/title，概览投影
  * 无需合并 overlay（也避免 overlay 错误拖垮上下文注入）。
  * @param root 项目根（或根下任意目录）
- * @param contextKey runtime 会话标识
  * @param contractText 主契约全文
  * @param lightContractText 轻量契约全文（活跃任务为 light 时必须提供）
  * @returns [err, projection]：失败时 err 非空
  */
-export declare function assembleWorkflowProjection(root: string, contextKey: string, contractText: string, lightContractText: string | null | undefined, turnTask?: TaskRecordWithPath | null): [Error | null, WorkflowProjection | null];
+export declare function assembleWorkflowProjection(root: string, contractText: string, lightContractText: string | null | undefined, turnTask?: TaskRecordWithPath | null): [Error | null, WorkflowProjection | null];

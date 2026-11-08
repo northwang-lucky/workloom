@@ -8,6 +8,13 @@ import { join } from 'node:path'
 import { createTask, PARAM_DESCRIPTIONS } from '@workloom-ai/core'
 import { registerTaskTools } from '../src/tooling/tasks.ts'
 
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（createTask 链无
+// homeDir 注入缝）；本机真实全局配置会泄漏进单测。重定向 HOME 与 TMPDIR 到隔离
+// 目录使全局层恒为空（与 executor.test.ts / core task-store.test.ts 同口径）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-dsh-case-home-'))
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
+
 function setup() {
   const registered = []
   const ctx = { tools: { register(def) { registered.push(def); return () => {} } } }

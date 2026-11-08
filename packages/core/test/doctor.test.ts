@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process'
 import { buildDoctorRelayText, runDoctor } from '../src/index.ts'
 import { initWorkloom } from '../src/workspace/init.ts'
 import { WORKLOOM_DIR } from '../src/workspace/locate.js'
-import { createTask } from '../src/task/task-storage.ts'
+import { createTask } from '../src/task/storage/index.ts'
 import { archiveTask, checkTask, startTask } from '../src/task/task-ops.ts'
 
 /** 初始化 git 仓并落首个提交（worktree 一致性比对需要注册集）。 */
@@ -403,7 +403,7 @@ test('CASE 一致性：light 携带轨道值、designSession 无派发、done �
         planConfirmation: { passedAt: 'y', summary: 'p' },
         case: { required: true, designSession: null, phase: 'done' },
         dispatches: [
-          { kind: 'check', at: '2026-11-01T00:00:00Z', title: 'exec', purpose: 'execution', status: 'completed' },
+          { kind: 'checker', at: '2026-11-01T00:00:00Z', title: 'exec', purpose: 'execution', status: 'completed' },
         ],
       }),
     )

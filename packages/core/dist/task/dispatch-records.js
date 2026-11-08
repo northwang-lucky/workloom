@@ -11,16 +11,17 @@
  * - CASE 设计轮的 designSession 与 fallbackOf 链校验在初写口执行（防无链漂移）；
  * - CASE 轨道推进单点在本模块：case-design 派发置 designing、case-design 结算置
  *   reviewing、执行派发经合法边推进 approved 与 executing、执行结算且 RESULT
- *   passed 置 done（合法边表在 state-machine，dsh 侧无感知）；
+ *   passed 置 done（合法边表在 task/state，dsh 侧无感知）；
  * - 模型 effort/model 绑定字段在记录时校验（审计不可留空、modelSource 值域封闭）；
- * - 任务读写经 task-storage 物理口，值域解释归 state-machine。
+ * - 任务读写经 task/storage 物理口，值域解释归 task/state。
  */
 import { join } from 'node:path';
-import { EXECUTOR_KINDS, isExecutorKind } from "../dispatch/executor-kinds.js";
+import { EXECUTOR_ROLES, isExecutorRole, normalizeExecutorRole } from "../dispatch/executor-roles.js";
 import { insideWorkloom } from '../workspace/locate.js';
 import { CASE_FILES, CASE_PURPOSES, createCaseRecord, parseDocument, readIfExists, } from "./case-structure.js";
-import { CASE_PHASES, GATE_TOOL_NAMES, OVERRIDE_GATES, isLegalCasePhaseEdge } from "./state-machine.js";
-import { requireProjectRoot, requireTaskRecord, writeTaskRecord, } from "./task-storage.js";
+import { CASE_PHASES, GATE_TOOL_NAMES, OVERRIDE_GATES, isLegalCasePhaseEdge } from "./state/index.js";
+import { PLAN_REVIEW_PURPOSE } from "./storage/index.js";
+import { requireProjectRoot, requireTaskRecord, writeTaskRecord, } from "./storage/index.js";
 /** 错误消息前缀。 */
 const ERR_PREFIX = 'workloom task';
 /**
@@ -72,9 +73,12 @@ function recordExecutorDispatchInternal(root, taskRelPath, entry) {
     const projectRoot = requireProjectRoot(root);
     const task = requireTaskRecord(projectRoot, taskRelPath);
     task.dispatches.push(buildDispatchRecord(entry));
+    // 判定用角色经兼容读归一（入参已在 buildDispatchRecord 校验，新旧值域均可归一；
+    // 落盘值保持调用方原值不改写——过渡期旧值仍写旧值）。
+    const role = normalizeExecutorRole(entry.kind);
     // CASE 设计轮：首次派发创建 required=false 的记录并落 designSession；换新会话
     // 必须经 fallbackOf 链关联旧会话（防无链漂移），同 child 续用只覆盖为同值。
-    if (entry.kind === EXECUTOR_KINDS.check && entry.purpose === CASE_PURPOSES.DESIGN) {
+    if (role === EXECUTOR_ROLES.CHECKER && entry.purpose === CASE_PURPOSES.DESIGN) {
         task.case = createCaseRecord(task.case?.required === true, task.case);
         if (entry.childId !== undefined) {
             const previous = task.case.designSession;
@@ -86,7 +90,7 @@ function recordExecutorDispatchInternal(root, taskRelPath, entry) {
         // 轨道单点推进：首次设计派发 none→designing；返工重派保持原阶段（非合法边不动）。
         advanceCasePhase(task, CASE_PHASES.DESIGNING);
     }
-    else if (entry.kind === EXECUTOR_KINDS.check) {
+    else if (role === EXECUTOR_ROLES.CHECKER) {
         // 执行派发（purpose 缺省 execution）单点推进：reviewing 经 approved 到 executing
         // （两条合法边一次跨过），approved 直达 executing；executing/done 保持不动
         // （失败转移与复跑不回退轨道）；none/designing 不推进（轨道须先经设计与复核，
@@ -162,7 +166,8 @@ function settleExecutorDispatchInternal(root, taskRelPath, entry) {
         // 结算推进 CASE 轨道（单点，dsh 无感知）：case-design 结算（completed）置
         // reviewing（设计产出交主会话复核）；执行轮结算且 RESULT 已 passed 置 done
         // （非合法边不动，RESULT 未成立时轨道停在 executing，由结果门禁拦截后续迁移）。
-        if (settle.status === 'completed' && record.kind === EXECUTOR_KINDS.check) {
+        // 记录值经兼容读归一后比较（历史旧值记录同样识别为 checker）。
+        if (settle.status === 'completed' && normalizeExecutorRole(record.kind) === EXECUTOR_ROLES.CHECKER) {
             const purpose = record.purpose ?? CASE_PURPOSES.EXECUTION;
             if (purpose === CASE_PURPOSES.DESIGN) {
                 advanceCasePhase(task, CASE_PHASES.REVIEWING);
@@ -267,17 +272,29 @@ function buildDispatchRecord(entry) {
     if (typeof entry.title !== 'string' || entry.title.trim() === '') {
         throw new Error(`${ERR_PREFIX}: dispatch entry title must be a non-empty string`);
     }
-    if (!isExecutorKind(entry.kind)) {
-        throw new Error(`${ERR_PREFIX}: invalid dispatch kind: ${String(entry.kind)} (must be one of ${Object.values(EXECUTOR_KINDS).join('/')})`);
+    // 写侧校验（只收新五值）：旧 kind 值与未知值一律 fail loud，报错文案列新值域；
+    // 历史记录读取仍经 normalizeExecutorRole 兼容映射（读侧永久保留，写侧已收严）。
+    // 写入值即调用方传入的新角色值（写侧不再产生旧值记录）。
+    if (!isExecutorRole(entry.kind)) {
+        throw new Error(`${ERR_PREFIX}: invalid dispatch kind: ${String(entry.kind)} (must be one of ${Object.values(EXECUTOR_ROLES).join('/')})`);
     }
-    // purpose 可选（仅 check）：CASE 设计轮记录设计会话，最终执行轮运行已确认 CASE；
-    // 其他 kind 携带 purpose 视为脏入参，fail loud。
+    // purpose 可选，按角色分支校验：checker 收 case-design/execution（CASE 设计轮
+    // 记录设计会话，最终执行轮运行已确认 CASE），judger 收 plan-review（PLAN 评审
+    // 派发）；其余角色携带 purpose 视为脏入参，fail loud（判定值经兼容读归一）。
     if (entry.purpose !== undefined) {
-        if (entry.kind !== EXECUTOR_KINDS.check) {
-            throw new Error(`${ERR_PREFIX}: dispatch purpose is only valid for check`);
+        const purposeRole = normalizeExecutorRole(entry.kind);
+        if (purposeRole === EXECUTOR_ROLES.CHECKER) {
+            if (!Object.values(CASE_PURPOSES).includes(entry.purpose)) {
+                throw new Error(`${ERR_PREFIX}: invalid checker purpose: ${String(entry.purpose)}`);
+            }
         }
-        if (!Object.values(CASE_PURPOSES).includes(entry.purpose)) {
-            throw new Error(`${ERR_PREFIX}: invalid check purpose: ${String(entry.purpose)}`);
+        else if (purposeRole === EXECUTOR_ROLES.JUDGER) {
+            if (entry.purpose !== PLAN_REVIEW_PURPOSE) {
+                throw new Error(`${ERR_PREFIX}: invalid judger purpose: ${String(entry.purpose)} (must be ${PLAN_REVIEW_PURPOSE})`);
+            }
+        }
+        else {
+            throw new Error(`${ERR_PREFIX}: dispatch purpose is only valid for checker or judger`);
         }
     }
     // childId 可选：提供时必须是可用的 session id 形状（非空 string），否则 fail loud
@@ -337,10 +354,14 @@ function buildDispatchRecord(entry) {
         title: entry.title,
         // status 默认 running；失败派发留痕时显式传 'failed' + error。
         status: entry.status ?? 'running',
-        // purpose 仅 check 记录（缺省 execution，兼容旧调用方）。
-        ...(entry.kind === EXECUTOR_KINDS.check
+        // purpose 写入分支：checker 缺省 execution（兼容旧调用方）；judger 仅在显式
+        // 传入时落值（无缺省——追溯评审等无 purpose 派发不落字段）；其余角色不落。
+        ...(normalizeExecutorRole(entry.kind) === EXECUTOR_ROLES.CHECKER
             ? { purpose: entry.purpose ?? CASE_PURPOSES.EXECUTION }
-            : {}),
+            : normalizeExecutorRole(entry.kind) === EXECUTOR_ROLES.JUDGER &&
+                entry.purpose !== undefined
+                ? { purpose: entry.purpose }
+                : {}),
         ...(entry.childId !== undefined ? { childId: entry.childId } : {}),
         ...(entry.model !== undefined ? { model: entry.model } : {}),
         ...(entry.effort !== undefined ? { effort: entry.effort } : {}),
@@ -391,7 +412,7 @@ export function recordGateOverride(root, taskRelPath, gate, reason) {
 }
 /**
  * 组装一条 force 豁免记录（gate/tool/at/reason?，reason 空串不记；模块内函数
- * 不再导出，审计字面量单源在 state-machine 的 OVERRIDE_GATES 与 GATE_TOOL_NAMES）。
+ * 不再导出，审计字面量单源在 task/state 的 OVERRIDE_GATES 与 GATE_TOOL_NAMES）。
  * @param gate 卡点
  * @param reason 豁免原因（审计用）
  * @returns 豁免留痕条目

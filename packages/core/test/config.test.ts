@@ -112,17 +112,17 @@ test('config.js 导出函数：工厂入参为低层合并结果，返回值即�
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    subagents: { implement: { model: 'm-base' } },
+    prompt_injection: { skip_keyword: 'base' },
     session_auto_commit: false,
   })
   writeProjectFile(
     root,
     'config.local.js',
-    'module.exports = (base) => ({ ...base, subagents: { implement: { model: "m-factory", effort: "max" } } })\n',
+    'module.exports = (base) => ({ ...base, prompt_injection: { skip_keyword: "factory" } })\n',
   )
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config.subagents, { implement: { model: 'm-factory', effort: 'max' } })
+    assert.deepEqual(config.promptInjection, { skipKeyword: 'factory' })
     // 工厂返回值即本层最终形态：session_auto_commit 保留（来自 ...base 展开）
     assert.equal(config.sessionAutoCommit, false)
   } finally {
@@ -130,22 +130,22 @@ test('config.js 导出函数：工厂入参为低层合并结果，返回值即�
   }
 })
 
-test('对象层顶层 key 覆盖（非深合并）：local 的 subagents 整体替换 project', () => {
+test('对象层顶层 key 覆盖（非深合并）：local 的 subagent_profiles 整体替换 project', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    subagents: {
-      implement: { model: 'm1', effort: 'high' },
-      research: { model: 'm-r' },
-    },
+    subagent_profiles: [
+      { roles: { developer: { model: 'm1', effort: 'high' } } },
+      { whenMain: 'p/m', roles: { researcher: { model: 'm-r' } } },
+    ],
   })
   writeProjectFile(root, 'config.local.json', {
-    subagents: { implement: { model: 'm2' } },
+    subagent_profiles: [{ roles: { developer: { model: 'm2' } } }],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    // 顶层 key 覆盖：local 的 subagents 整体替换，不按 kind 深合并
-    assert.deepEqual(config.subagents, { implement: { model: 'm2' } })
+    // 顶层 key 覆盖：local 的 subagent_profiles 整体替换，不逐条目深合并
+    assert.deepEqual(config.subagentProfiles, [{ roles: { developer: { model: 'm2' } } }])
   } finally {
     cleanup(root, home)
   }
@@ -334,7 +334,7 @@ test('全局白名单：项目无关字段放行', () => {
   const root = makeRoot()
   const home = makeHome()
   writeHomeFile(home, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'm' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'm' } } }],
     session_auto_commit: false,
     prompt_injection: { skip_keyword: 'skip' },
     context_injection: { max_file_bytes: 100 },
@@ -345,7 +345,7 @@ test('全局白名单：项目无关字段放行', () => {
     assert.equal(config.promptInjection.skipKeyword, 'skip')
     assert.equal(config.contextInjection.maxFileBytes, 100)
     assert.deepEqual(config.subagentProfiles, [
-      { subagents: { implement: { model: 'm' } } },
+      { roles: { developer: { model: 'm' } } },
     ])
   } finally {
     cleanup(root, home)
@@ -394,35 +394,68 @@ test('全局白名单：白名单外顶层字段报错', () => {
   }
 })
 
-test('全局遗留 subagents：加载期 WARNING + 照常解析（项目层同口径）', () => {
-  const warnings = []
-  const original = console.warn
-  console.warn = (message) => warnings.push(String(message))
+test('全局根层级 subagents：出现即抛 WorkloomConfigError（文案含 subagent_profiles 迁移指引）', () => {
   const root = makeRoot()
   const home = makeHome()
   try {
-    writeHomeFile(home, 'config.json', { subagents: { implement: { model: 'm-g' } } })
-    const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config.subagents, { implement: { model: 'm-g' } })
-    assert.equal(warnings.length, 1)
-    assert.match(warnings[0], /subagents/i)
+    writeHomeFile(home, 'config.json', { subagents: { developer: { model: 'm-g' } } })
+    assert.throws(
+      () => loadConfig(root, { homeDir: home }),
+      (error) => {
+        assert.ok(error instanceof WorkloomConfigError)
+        assert.equal(error.field, 'subagents')
+        assert.match(error.message, /no longer supported/)
+        assert.match(error.message, /migrate to subagent_profiles/)
+        return true
+      },
+    )
   } finally {
-    console.warn = original
     cleanup(root, home)
   }
 })
 
-test('项目层遗留 subagents：加载期 WARNING + 照常解析', () => {
+test('项目层根层级 subagents：同口径抛错（与 subagent_profiles 并存时先报退役错误）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  try {
+    // 同时写根层级 subagents 与 subagent_profiles：加载期先报根层级退役错误，不进入解析链。
+    writeProjectFile(root, 'config.json', {
+      subagents: { researcher: { effort: 'high' } },
+      subagent_profiles: [{ roles: { researcher: { model: 'm' } } }],
+    })
+    assert.throws(
+      () => loadConfig(root, { homeDir: home }),
+      (error) => {
+        assert.ok(error instanceof WorkloomConfigError)
+        assert.equal(error.field, 'subagents')
+        assert.match(error.message, /migrate to subagent_profiles/)
+        return true
+      },
+    )
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('subagent_profiles 条目内旧角色键：加载期一次性 WARNING（不抛错，文案指向新 role 键名）', () => {
   const warnings = []
   const original = console.warn
   console.warn = (message) => warnings.push(String(message))
   const root = makeRoot()
   const home = makeHome()
   try {
-    writeProjectFile(root, 'config.json', { subagents: { research: { effort: 'high' } } })
+    // 'review' 键为旧 kind 值：WARNING 指向新键 judger；解析照常成功（不破坏存量环境）。
+    writeProjectFile(root, 'config.json', {
+      subagent_profiles: [{ roles: { review: { model: 'm-legacy-key' } } }],
+    })
     const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config.subagents, { research: { effort: 'high' } })
-    assert.equal(warnings.length, 1)
+    assert.deepEqual(config.subagentProfiles[0].roles.review, { model: 'm-legacy-key' })
+    const legacyWarns = warnings.filter((w) => /legacy executor kind key/.test(w))
+    assert.equal(legacyWarns.length, 1)
+    assert.match(legacyWarns[0], /rename it to "judger"/)
+    // 同一进程内同键只告警一次（loadConfig 高频调用不刷屏）。
+    loadConfig(root, { homeDir: home })
+    assert.equal(warnings.filter((w) => /legacy executor kind key/.test(w)).length, 1)
   } finally {
     console.warn = original
     cleanup(root, home)
@@ -437,26 +470,26 @@ test('subagent_profiles 内 tools 解析：includes/excludes、去重、空数�
   writeProjectFile(root, 'config.json', {
     subagent_profiles: [
       {
-        subagents: {
-          implement: {
+        roles: {
+          developer: {
             model: 'm',
             tools: {
               includes: ['lsp_diagnostics', 'lsp_diagnostics', 'lsp_*'],
               excludes: ['web_fetch'],
             },
           },
-          research: { tools: { includes: [], excludes: [] } },
+          researcher: { tools: { includes: [], excludes: [] } },
         },
       },
     ],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config.subagentProfiles[0].subagents.implement, {
+    assert.deepEqual(config.subagentProfiles[0].roles.developer, {
       model: 'm',
       tools: { includes: ['lsp_diagnostics', 'lsp_*'], excludes: ['web_fetch'] },
     })
-    assert.deepEqual(config.subagentProfiles[0].subagents.research, {
+    assert.deepEqual(config.subagentProfiles[0].roles.researcher, {
       tools: { includes: [], excludes: [] },
     })
   } finally {
@@ -467,24 +500,24 @@ test('subagent_profiles 内 tools 解析：includes/excludes、去重、空数�
 test('tools 类型错误报错（带字段路径，含数组元素下标）', () => {
   const cases = [
     {
-      doc: { subagent_profiles: [{ subagents: { implement: { tools: 5 } } }] },
-      field: 'subagent_profiles[0].subagents.implement.tools',
+      doc: { subagent_profiles: [{ roles: { developer: { tools: 5 } } }] },
+      field: 'subagent_profiles[0].roles.developer.tools',
     },
     {
-      doc: { subagent_profiles: [{ subagents: { implement: { tools: { includes: 5 } } } }] },
-      field: 'subagent_profiles[0].subagents.implement.tools.includes',
-    },
-    {
-      doc: {
-        subagent_profiles: [{ subagents: { implement: { tools: { includes: ['a', 5] } } } }],
-      },
-      field: 'subagent_profiles[0].subagents.implement.tools.includes[1]',
+      doc: { subagent_profiles: [{ roles: { developer: { tools: { includes: 5 } } } }] },
+      field: 'subagent_profiles[0].roles.developer.tools.includes',
     },
     {
       doc: {
-        subagent_profiles: [{ subagents: { implement: { tools: { includes: [''] } } } }],
+        subagent_profiles: [{ roles: { developer: { tools: { includes: ['a', 5] } } } }],
       },
-      field: 'subagent_profiles[0].subagents.implement.tools.includes[0]',
+      field: 'subagent_profiles[0].roles.developer.tools.includes[1]',
+    },
+    {
+      doc: {
+        subagent_profiles: [{ roles: { developer: { tools: { includes: [''] } } } }],
+      },
+      field: 'subagent_profiles[0].roles.developer.tools.includes[0]',
     },
   ]
   for (const { doc, field } of cases) {
@@ -506,36 +539,11 @@ test('tools 类型错误报错（带字段路径，含数组元素下标）', ()
   }
 })
 
-test('顶层 subagents 出现 tools 报错（仅支持于 subagent_profiles）', () => {
-  const root = makeRoot()
-  const home = makeHome()
-  writeProjectFile(root, 'config.json', {
-    subagents: { implement: { tools: { includes: ['x'] } } },
-  })
-  try {
-    assert.throws(
-      () => loadConfig(root, { homeDir: home }),
-      (error) => {
-        assert.ok(error instanceof WorkloomConfigError)
-        assert.equal(error.field, 'subagents.implement.tools')
-        assert.match(error.message, /subagent_profiles/)
-        return true
-      },
-    )
-  } finally {
-    cleanup(root, home)
-  }
-})
-
-test('条目内未知字段报错（subagents 层与 profiles 层一致）', () => {
+test('条目内未知字段报错（profiles 层，allowed 清单全量）', () => {
   const cases = [
     {
-      doc: { subagents: { implement: { bogus: 1 } } },
-      field: 'subagents.implement.bogus',
-    },
-    {
-      doc: { subagent_profiles: [{ subagents: { implement: { bogus: 1 } } }] },
-      field: 'subagent_profiles[0].subagents.implement.bogus',
+      doc: { subagent_profiles: [{ roles: { developer: { bogus: 1 } } }] },
+      field: 'subagent_profiles[0].roles.developer.bogus',
     },
   ]
   for (const { doc, field } of cases) {
@@ -576,40 +584,53 @@ test('default_package 不再解析：旧字段按未知字段静默忽略（不�
   }
 })
 
-// ---------- L4：subagents / subagent_profiles 解析（JSON 形态） ----------
+// ---------- L4：subagent_profiles 解析（JSON 形态） ----------
 
-test('subagents 合法解析：完整字段、仅 model、仅 effort、空 map、未知 kind key 保留', () => {
+test('profile 条目合法解析：完整字段、仅 model、仅 effort、空 map、未知角色 key 保留', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    subagents: {
-      research: { model: 'deepseek-v4-flash', effort: 'high' },
-      implement: { model: 'deepseek-v4-pro' },
-      check: { effort: 'medium' },
-      empty: {},
-      future_kind: { effort: 'high' },
-      typo_kind: { model: 'x' },
-    },
+    subagent_profiles: [
+      {
+        roles: {
+          researcher: { model: 'deepseek-v4-flash', effort: 'high' },
+          developer: { model: 'deepseek-v4-pro' },
+          checker: { effort: 'medium' },
+          empty: {},
+          future_role: { effort: 'high' },
+          typo_role: { model: 'x' },
+        },
+      },
+    ],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config.subagents.research, { model: 'deepseek-v4-flash', effort: 'high' })
-    assert.deepEqual(config.subagents.implement, { model: 'deepseek-v4-pro' })
-    assert.deepEqual(config.subagents.check, { effort: 'medium' })
-    assert.deepEqual(config.subagents.empty, {})
-    assert.deepEqual(config.subagents.future_kind, { effort: 'high' })
-    assert.deepEqual(config.subagents.typo_kind, { model: 'x' })
+    const entries = config.subagentProfiles[0].roles
+    assert.deepEqual(entries.researcher, { model: 'deepseek-v4-flash', effort: 'high' })
+    assert.deepEqual(entries.developer, { model: 'deepseek-v4-pro' })
+    assert.deepEqual(entries.checker, { effort: 'medium' })
+    assert.deepEqual(entries.empty, {})
+    assert.deepEqual(entries.future_role, { effort: 'high' })
+    assert.deepEqual(entries.typo_role, { model: 'x' })
   } finally {
     cleanup(root, home)
   }
 })
 
-test('subagents 结构非法抛 WorkloomConfigError（带字段路径）', () => {
+test('profile 条目结构非法抛 WorkloomConfigError（带字段路径）', () => {
   const cases = [
-    { doc: { subagents: 5 }, field: 'subagents' },
-    { doc: { subagents: { research: 5 } }, field: 'subagents.research' },
-    { doc: { subagents: { research: { model: 5 } } }, field: 'subagents.research.model' },
-    { doc: { subagents: { research: { effort: 5 } } }, field: 'subagents.research.effort' },
+    {
+      doc: { subagent_profiles: [{ roles: { researcher: 5 } }] },
+      field: 'subagent_profiles[0].roles.researcher',
+    },
+    {
+      doc: { subagent_profiles: [{ roles: { researcher: { model: 5 } } }] },
+      field: 'subagent_profiles[0].roles.researcher.model',
+    },
+    {
+      doc: { subagent_profiles: [{ roles: { researcher: { effort: 5 } } }] },
+      field: 'subagent_profiles[0].roles.researcher.effort',
+    },
   ]
   for (const { doc, field } of cases) {
     const root = makeRoot()
@@ -637,26 +658,47 @@ test('subagent_profiles 合法解析：string whenMain 与兜底条目（tools �
     subagent_profiles: [
       {
         whenMain: 'kimi-coding/k3',
-        subagents: { implement: { model: 'deepseek-v4-flash', effort: 'max' } },
+        roles: { developer: { model: 'deepseek-v4-flash', effort: 'max' } },
       },
       {
         whenMain: 'ark-coding-plan/glm-5.3-flash',
-        subagents: { research: { model: 'deepseek-v4-pro' } },
+        roles: { researcher: { model: 'deepseek-v4-pro' } },
       },
-      { subagents: { check: { effort: 'medium' } } },
+      { roles: { checker: { effort: 'medium' } } },
     ],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.deepEqual(config.subagentProfiles, [
-      { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'deepseek-v4-flash', effort: 'max' } } },
+      { whenMain: 'kimi-coding/k3', roles: { developer: { model: 'deepseek-v4-flash', effort: 'max' } } },
       {
         whenMain: 'ark-coding-plan/glm-5.3-flash',
-        subagents: { research: { model: 'deepseek-v4-pro' } },
+        roles: { researcher: { model: 'deepseek-v4-pro' } },
       },
-      { subagents: { check: { effort: 'medium' } } },
+      { roles: { checker: { effort: 'medium' } } },
     ])
-    assert.deepEqual(config.subagents, {})
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('subagent_profiles 条目内旧字段名 subagents：抛错含 roles 迁移指引（决定 15，不做兼容读）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [{ subagents: { developer: { model: 'm' } } }],
+  })
+  try {
+    assert.throws(
+      () => loadConfig(root, { homeDir: home }),
+      (error) => {
+        assert.ok(error instanceof WorkloomConfigError)
+        assert.equal(error.field, 'subagent_profiles[0].subagents')
+        assert.match(error.message, /rename the field to roles/)
+        assert.match(error.message, /subagent_profiles\[i\]\.roles\.<role>/)
+        return true
+      },
+    )
   } finally {
     cleanup(root, home)
   }
@@ -667,8 +709,8 @@ test('subagent_profiles 顶层非数组 / 条目非 map / whenMain 非法报错'
     { doc: { subagent_profiles: 5 }, field: 'subagent_profiles' },
     { doc: { subagent_profiles: [5] }, field: 'subagent_profiles[0]' },
     {
-      doc: { subagent_profiles: [{ subagents: 5 }] },
-      field: 'subagent_profiles[0].subagents',
+      doc: { subagent_profiles: [{ roles: 5 }] },
+      field: 'subagent_profiles[0].roles',
     },
     { doc: { subagent_profiles: [{ whenMain: 'k3' }] }, field: 'subagent_profiles[0].whenMain' },
   ]
@@ -696,8 +738,8 @@ test('多条无 whenMain 条目抛错（fail loud）', () => {
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
     subagent_profiles: [
-      { subagents: { research: { model: 'a' } } },
-      { subagents: { implement: { model: 'b' } } },
+      { roles: { researcher: { model: 'a' } } },
+      { roles: { developer: { model: 'b' } } },
     ],
   })
   try {
@@ -770,38 +812,38 @@ test('非法值显式抛错（fail loud）', () => {
 // ---------- L5：resolveSubagentDefaults 合并层 ----------
 
 test('resolveSubagentDefaults：参数覆盖配置（字段独立合并）', () => {
-  const config = { subagents: { research: { model: 'm-config', effort: 'high' } } }
-  const byModel = resolveSubagentDefaults(config, 'research', { model: 'm-tool' })
+  const config = { subagentProfiles: [{ roles: { researcher: { model: 'm-config', effort: 'high' } } }] }
+  const byModel = resolveSubagentDefaults(config, 'researcher', { model: 'm-tool' })
   assert.deepEqual(byModel, {
     model: 'm-tool',
     effort: 'high',
     sources: { model: 'param', effort: 'config' },
-    configSources: { model: undefined, effort: 'legacy' },
+    configSources: { model: undefined, effort: 'fallback' },
     tools: undefined,
     maxConcurrent: 3,
   })
-  const byEffort = resolveSubagentDefaults(config, 'research', { effort: 'max' })
+  const byEffort = resolveSubagentDefaults(config, 'researcher', { effort: 'max' })
   assert.deepEqual(byEffort, {
     model: 'm-config',
     effort: 'max',
     sources: { model: 'config', effort: 'param' },
-    configSources: { model: 'legacy', effort: undefined },
+    configSources: { model: 'fallback', effort: undefined },
     tools: undefined,
     maxConcurrent: 3,
   })
 })
 
 test('resolveSubagentDefaults：无参数回退配置；model/effort 均无配置返回 undefined（maxConcurrent 兜底 3）', () => {
-  const config = { subagents: { research: { model: 'm-config', effort: 'high' } } }
-  assert.deepEqual(resolveSubagentDefaults(config, 'research', {}), {
+  const config = { subagentProfiles: [{ roles: { researcher: { model: 'm-config', effort: 'high' } } }] }
+  assert.deepEqual(resolveSubagentDefaults(config, 'researcher', {}), {
     model: 'm-config',
     effort: 'high',
     sources: { model: 'config', effort: 'config' },
-    configSources: { model: 'legacy', effort: 'legacy' },
+    configSources: { model: 'fallback', effort: 'fallback' },
     tools: undefined,
     maxConcurrent: 3,
   })
-  assert.deepEqual(resolveSubagentDefaults({ subagents: {} }, 'research', {}), {
+  assert.deepEqual(resolveSubagentDefaults({ subagentProfiles: [] }, 'researcher', {}), {
     model: undefined,
     effort: undefined,
     sources: { model: undefined, effort: undefined },
@@ -812,20 +854,19 @@ test('resolveSubagentDefaults：无参数回退配置；model/effort 均无配�
 })
 
 test('resolveSubagentDefaults：不修改入参', () => {
-  const config = { subagents: { research: { model: 'm', effort: 'high' } } }
+  const config = { subagentProfiles: [{ roles: { researcher: { model: 'm', effort: 'high' } } }] }
   const before = structuredClone(config)
-  resolveSubagentDefaults(config, 'research', { model: 'm-tool', effort: 'max' })
+  resolveSubagentDefaults(config, 'researcher', { model: 'm-tool', effort: 'max' })
   assert.deepEqual(config, before)
 })
 
 test('resolveSubagentDefaults：whenMain string 两段归一化命中、裸 id 不命中', () => {
   const config = {
-    subagents: { implement: { model: 'legacy-m', effort: 'high' } },
     subagentProfiles: [
-      { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'profile-m', effort: 'max' } } },
+      { whenMain: 'kimi-coding/k3', roles: { developer: { model: 'profile-m', effort: 'max' } } },
     ],
   }
-  const hit = resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3')
+  const hit = resolveSubagentDefaults(config, 'developer', {}, 'kimi-coding/k3')
   assert.deepEqual(hit, {
     model: 'profile-m',
     effort: 'max',
@@ -835,64 +876,64 @@ test('resolveSubagentDefaults：whenMain string 两段归一化命中、裸 id �
     tools: undefined,
     maxConcurrent: 3,
   })
-  const miss = resolveSubagentDefaults(config, 'implement', {}, 'k3')
-  assert.equal(miss.model, 'legacy-m')
+  // 裸 id 不命中 whenMain：无兜底条目时字段继承宿主默认（undefined）。
+  const miss = resolveSubagentDefaults(config, 'developer', {}, 'k3')
+  assert.equal(miss.model, undefined)
 })
 
-test('resolveSubagentDefaults：兜底条目优先、kind 级联、字段独立合并', () => {
+test('resolveSubagentDefaults：兜底条目优先、角色级联、字段独立合并', () => {
   const config = {
-    subagents: { research: { model: 'legacy-r' }, implement: { effort: 'high' } },
     subagentProfiles: [
-      { subagents: { implement: { model: 'fallback-m' } } },
-      { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'whenmain-m' } } },
+      { roles: { developer: { model: 'fallback-m', effort: 'high' }, researcher: { model: 'fallback-r' } } },
+      { whenMain: 'kimi-coding/k3', roles: { developer: { model: 'whenmain-m' } } },
     ],
   }
+  // 兜底条目在匹配顺序上优先：whenMain 条目在其后不再命中。
   assert.equal(
-    resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3').model,
+    resolveSubagentDefaults(config, 'developer', {}, 'kimi-coding/k3').model,
     'fallback-m',
   )
-  assert.equal(resolveSubagentDefaults(config, 'research', {}, 'kimi-coding/k3').model, 'legacy-r')
-  assert.deepEqual(resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3'), {
+  // 角色级联：同一命中条目内各角色键独立取值。
+  assert.equal(resolveSubagentDefaults(config, 'researcher', {}, 'kimi-coding/k3').model, 'fallback-r')
+  assert.deepEqual(resolveSubagentDefaults(config, 'developer', {}, 'kimi-coding/k3'), {
     model: 'fallback-m',
     effort: 'high',
     sources: { model: 'config', effort: 'config' },
-    configSources: { model: 'fallback', effort: 'legacy' },
+    configSources: { model: 'fallback', effort: 'fallback' },
     tools: undefined,
     maxConcurrent: 3,
   })
 })
 
-test('resolveSubagentDefaults：tools 随命中 profile 条目该 kind 透出（legacy 层无 tools）', () => {
+test('resolveSubagentDefaults：tools 随命中 profile 条目该角色透出', () => {
   const config = {
-    subagents: { implement: { model: 'legacy-m' } },
     subagentProfiles: [
       {
         whenMain: 'kimi-coding/k3',
-        subagents: {
-          implement: { model: 'profile-m', tools: { includes: ['lsp_*'], excludes: ['bash'] } },
+        roles: {
+          developer: { model: 'profile-m', tools: { includes: ['lsp_*'], excludes: ['bash'] } },
         },
       },
     ],
   }
-  const hit = resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3')
+  const hit = resolveSubagentDefaults(config, 'developer', {}, 'kimi-coding/k3')
   assert.deepEqual(hit.tools, { includes: ['lsp_*'], excludes: ['bash'] })
-  // 未命中 profile 条目（mainModel 不匹配）→ tools 为 undefined（legacy 层不支持 tools）。
-  assert.equal(resolveSubagentDefaults(config, 'implement', {}, 'other/x').tools, undefined)
-  // 命中条目但该 kind 未配 tools → undefined。
-  const noTools = { subagents: {}, subagentProfiles: [{ subagents: { research: { model: 'm' } } }] }
-  assert.equal(resolveSubagentDefaults(noTools, 'research', {}, 'kimi-coding/k3').tools, undefined)
+  // 未命中 profile 条目（mainModel 不匹配）→ tools 为 undefined。
+  assert.equal(resolveSubagentDefaults(config, 'developer', {}, 'other/x').tools, undefined)
+  // 命中条目但该角色未配 tools → undefined。
+  const noTools = { subagentProfiles: [{ roles: { researcher: { model: 'm' } } }] }
+  assert.equal(resolveSubagentDefaults(noTools, 'researcher', {}, 'kimi-coding/k3').tools, undefined)
 })
 
-test('resolveSubagentDefaults：显式参数覆盖 profile/legacy 配置', () => {
+test('resolveSubagentDefaults：显式参数覆盖 profile 配置', () => {
   const config = {
-    subagents: { implement: { model: 'legacy-m' } },
     subagentProfiles: [
-      { whenMain: 'kimi-coding/k3', subagents: { implement: { model: 'profile-m' } } },
+      { whenMain: 'kimi-coding/k3', roles: { developer: { model: 'profile-m' } } },
     ],
   }
   const effective = resolveSubagentDefaults(
     config,
-    'implement',
+    'developer',
     { model: 'm-tool' },
     'kimi-coding/k3',
   )
@@ -908,33 +949,35 @@ test('resolveSubagentDefaults：显式参数覆盖 profile/legacy 配置', () =>
 
 // ---------- L5b：fallback_models 失败转移链解析 ----------
 
-test('fallback_models 合法解析：旧 subagents 与 profiles 内层同一入口，空数组等价缺省', () => {
+test('fallback_models 合法解析（profiles 内层）：链保序、空数组等价缺省', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    subagents: {
-      implement: {
-        model: 'm-primary',
-        fallback_models: [{ model: 'provider-a/m2', effort: 'high' }, { model: 'm3' }],
-      },
-      research: { fallback_models: [] },
-    },
     subagent_profiles: [
       {
         whenMain: 'kimi-coding/k3',
-        subagents: { check: { fallback_models: [{ model: 'profile-m2' }] } },
+        roles: { checker: { fallback_models: [{ model: 'profile-m2' }] } },
+      },
+      {
+        roles: {
+          developer: {
+            model: 'm-primary',
+            fallback_models: [{ model: 'provider-a/m2', effort: 'high' }, { model: 'm3' }],
+          },
+          researcher: { fallback_models: [] },
+        },
       },
     ],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.deepEqual(config.subagents.implement, {
+    assert.deepEqual(config.subagentProfiles[1].roles.developer, {
       model: 'm-primary',
       fallbackModels: [{ model: 'provider-a/m2', effort: 'high' }, { model: 'm3' }],
     })
-    // 空数组等价缺省：字段不出现（分层合并时可回退到另一层）。
-    assert.equal(config.subagents.research.fallbackModels, undefined)
-    assert.deepEqual(config.subagentProfiles[0].subagents.check.fallbackModels, [
+    // 空数组等价缺省：字段不出现（解析期归一）。
+    assert.equal(config.subagentProfiles[1].roles.researcher.fallbackModels, undefined)
+    assert.deepEqual(config.subagentProfiles[0].roles.checker.fallbackModels, [
       { model: 'profile-m2' },
     ])
   } finally {
@@ -943,51 +986,20 @@ test('fallback_models 合法解析：旧 subagents 与 profiles 内层同一入�
 })
 
 test('fallback_models 非法形状按字段路径 fail loud', () => {
+  const bad = (fallback) => ({
+    subagent_profiles: [{ roles: { developer: { fallback_models: fallback } } }],
+  })
+  const prefix = 'subagent_profiles[0].roles.developer.fallback_models'
   const cases = [
-    {
-      doc: { subagents: { implement: { fallback_models: 'm2' } } },
-      field: 'subagents.implement.fallback_models',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [5] } } },
-      field: 'subagents.implement.fallback_models[0]',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [{ effort: 'high' }] } } },
-      field: 'subagents.implement.fallback_models[0].model',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [{ model: 5 }] } } },
-      field: 'subagents.implement.fallback_models[0].model',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [{ model: { dsh: 'm2' } }] } } },
-      field: 'subagents.implement.fallback_models[0].model',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [{ model: '' }] } } },
-      field: 'subagents.implement.fallback_models[0].model',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [{ model: 'm2', effort: 5 }] } } },
-      field: 'subagents.implement.fallback_models[0].effort',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [{ model: 'm2', bogus: 1 }] } } },
-      field: 'subagents.implement.fallback_models[0].bogus',
-    },
-    {
-      doc: { subagents: { implement: { fallback_models: [{ model: 'm2' }, { model: 'm2' }] } } },
-      field: 'subagents.implement.fallback_models',
-    },
-    {
-      doc: {
-        subagent_profiles: [
-          { subagents: { implement: { fallback_models: [{ model: 'm2', effort: 5 }] } } },
-        ],
-      },
-      field: 'subagent_profiles[0].subagents.implement.fallback_models[0].effort',
-    },
+    { doc: bad('m2'), field: prefix },
+    { doc: bad([5]), field: `${prefix}[0]` },
+    { doc: bad([{ effort: 'high' }]), field: `${prefix}[0].model` },
+    { doc: bad([{ model: 5 }]), field: `${prefix}[0].model` },
+    { doc: bad([{ model: { pi: 'm2' } }]), field: `${prefix}[0].model` },
+    { doc: bad([{ model: '' }]), field: `${prefix}[0].model` },
+    { doc: bad([{ model: 'm2', effort: 5 }]), field: `${prefix}[0].effort` },
+    { doc: bad([{ model: 'm2', bogus: 1 }]), field: `${prefix}[0].bogus` },
+    { doc: bad([{ model: 'm2' }, { model: 'm2' }]), field: prefix },
   ]
   for (const { doc, field } of cases) {
     const root = makeRoot()
@@ -1008,23 +1020,22 @@ test('fallback_models 非法形状按字段路径 fail loud', () => {
   }
 })
 
-test('resolveSubagentDefaults：fallbackModels 分层合并（profile 优先、legacy 回退、未配置不出现字段）', () => {
+test('resolveSubagentDefaults：fallbackModels 命中条目透出（未配置不出现字段）', () => {
   const config = {
-    subagents: { implement: { model: 'legacy-m', fallbackModels: [{ model: 'legacy-fb' }] } },
     subagentProfiles: [
       {
         whenMain: 'kimi-coding/k3',
-        subagents: {
-          implement: {
+        roles: {
+          developer: {
             model: 'profile-m',
             fallbackModels: [{ model: 'profile-fb-1' }, { model: 'profile-fb-2', effort: 'high' }],
           },
         },
       },
-      { subagents: { implement: { model: 'fallback-m' } } },
+      { roles: { developer: { model: 'fallback-m' } } },
     ],
   }
-  const hit = resolveSubagentDefaults(config, 'implement', {}, 'kimi-coding/k3')
+  const hit = resolveSubagentDefaults(config, 'developer', {}, 'kimi-coding/k3')
   assert.deepEqual(hit, {
     model: 'profile-m',
     effort: undefined,
@@ -1035,12 +1046,12 @@ test('resolveSubagentDefaults：fallbackModels 分层合并（profile 优先、l
     maxConcurrent: 3,
     fallbackModels: [{ model: 'profile-fb-1' }, { model: 'profile-fb-2', effort: 'high' }],
   })
-  // 命中兜底条目但该 kind 未配链 → 回退旧 subagents 的链（字段级合并）。
-  const legacy = resolveSubagentDefaults(config, 'implement', {}, 'other/x')
-  assert.deepEqual(legacy.fallbackModels, [{ model: 'legacy-fb' }])
-  assert.equal(legacy.configSources.fallbackModels, 'legacy')
+  // 命中兜底条目但该条目未配链：字段不出现（两层链已随根层级退役收敛为单点）。
+  const miss = resolveSubagentDefaults(config, 'developer', {}, 'other/x')
+  assert.equal(miss.fallbackModels, undefined)
+  assert.equal('fallbackModels' in miss.configSources, false)
   // 全程未配置：字段不出现（与现状逐字一致，避免污染既有 deepEqual 断言）。
-  const none = resolveSubagentDefaults({ subagents: {} }, 'implement', {})
+  const none = resolveSubagentDefaults({ subagentProfiles: [] }, 'developer', {})
   assert.equal(none.fallbackModels, undefined)
   assert.equal('fallbackModels' in none.configSources, false)
 })
@@ -1060,24 +1071,25 @@ test('splitProviderModel：provider 前缀拆分与裸 id、非法输入抛错',
 })
 
 test('detectExecutorConflicts：配置限定字段与显式参数不一致时报冲突，一致不报', () => {
-  const config = { subagents: { implement: { model: 'deepseek-official/x', effort: 'high' } } }
-  const conflicting = detectExecutorConflicts(config, 'implement', { model: 'other/y' })
+  const config = {
+    subagentProfiles: [{ roles: { developer: { model: 'deepseek-official/x', effort: 'high' } } }],
+  }
+  const conflicting = detectExecutorConflicts(config, 'developer', { model: 'other/y' })
   assert.equal(conflicting.length, 1)
   assert.equal(conflicting[0].field, 'model')
-  const consistent = detectExecutorConflicts(config, 'implement', { model: 'deepseek-official/x' })
+  const consistent = detectExecutorConflicts(config, 'developer', { model: 'deepseek-official/x' })
   assert.equal(consistent.length, 0)
 })
 
-// ---------- L7：来源层 provenance（subagentProfilesSource / subagentsSource） ----------
+// ---------- L7：来源层 provenance（subagentProfilesSource） ----------
 
-test('provenance：全程无 subagent_profiles/subagents 时来源字段为 undefined（不定义属性）', () => {
+test('provenance：全程无 subagent_profiles 时来源字段为 undefined（不定义属性）', () => {
   // 项目/全局均无任何配置文件：来源字段不定义（读取为 undefined），且与默认配置完全相等
   const root = makeRoot()
   const home = makeHome()
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.subagentProfilesSource, undefined)
-    assert.equal(config.subagentsSource, undefined)
     assert.deepEqual(config, DEFAULT_CONFIG)
   } finally {
     cleanup(root, home)
@@ -1089,7 +1101,6 @@ test('provenance：全程无 subagent_profiles/subagents 时来源字段为 unde
   try {
     const config = loadConfig(withDoc, { homeDir: withDocHome })
     assert.equal(config.subagentProfilesSource, undefined)
-    assert.equal(config.subagentsSource, undefined)
     assert.equal(config.sessionAutoCommit, false)
   } finally {
     cleanup(withDoc, withDocHome)
@@ -1100,19 +1111,18 @@ test('provenance：subagent_profiles 写在单层时记录该层来源', () => {
   const root = makeRoot()
   const home = makeHome()
   writeHomeFile(home, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'm' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'm' } } }],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.subagentProfilesSource, 'global')
-    assert.equal(config.subagentsSource, undefined)
   } finally {
     cleanup(root, home)
   }
   const proj = makeRoot()
   const projHome = makeHome()
   writeProjectFile(proj, 'config.json', {
-    subagent_profiles: [{ subagents: { research: { model: 'm' } } }],
+    subagent_profiles: [{ roles: { researcher: { model: 'm' } } }],
   })
   try {
     const config = loadConfig(proj, { homeDir: projHome })
@@ -1126,13 +1136,13 @@ test('provenance：三层逐级写入 subagent_profiles，只记最后写入层�
   const root = makeRoot()
   const home = makeHome()
   writeHomeFile(home, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'g' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'g' } } }],
   })
   writeProjectFile(root, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'p' } } }],
   })
   writeProjectFile(root, 'config.local.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'l' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'l' } } }],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
@@ -1146,7 +1156,7 @@ test('provenance：对象层不含该 key 时沿用低层来源（顶层 key 覆
   const root = makeRoot()
   const home = makeHome()
   writeHomeFile(home, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'g' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'g' } } }],
   })
   // 项目/local 对象层只写了别的字段：不覆盖来源层
   writeProjectFile(root, 'config.json', { prompt_injection: { skip_keyword: 'p' } })
@@ -1159,35 +1169,17 @@ test('provenance：对象层不含该 key 时沿用低层来源（顶层 key 覆
   }
 })
 
-test('provenance：subagents 与 subagent_profiles 独立记录各自来源层', () => {
-  const root = makeRoot()
-  const home = makeHome()
-  writeHomeFile(home, 'config.json', {
-    subagent_profiles: [{ subagents: { research: { model: 'm' } } }],
-  })
-  writeProjectFile(root, 'config.json', { subagents: { research: { effort: 'high' } } })
-  // local 只覆盖 subagents：profiles 来源仍为 global，subagents 来源为 local
-  writeProjectFile(root, 'config.local.json', { subagents: { check: { model: 'x/y' } } })
-  try {
-    const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.subagentProfilesSource, 'global')
-    assert.equal(config.subagentsSource, 'local')
-  } finally {
-    cleanup(root, home)
-  }
-})
-
 test('provenance：工厂层返回文档含 subagent_profiles 时归工厂层', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'p' } } }],
   })
   // local 工厂返回含 subagent_profiles 的文档（无论重写还是 ...base 透传）：归工厂层
   writeProjectFile(
     root,
     'config.local.js',
-    'module.exports = (base) => ({ ...base, subagent_profiles: [{ subagents: { research: { model: "l" } } }] })\n',
+    'module.exports = (base) => ({ ...base, subagent_profiles: [{ roles: { researcher: { model: "l" } } }] })\n',
   )
   try {
     const config = loadConfig(root, { homeDir: home })
@@ -1201,7 +1193,7 @@ test('provenance：工厂层返回文档不含 subagent_profiles 时沿用低层
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'p' } } }],
   })
   // local 工厂丢弃 subagent_profiles（未透传 base）：最终配置不再含 profiles，
   // 来源沿用低层（project），不因丢弃而抹掉追溯信息
@@ -1220,23 +1212,9 @@ test('provenance：工厂层返回文档不含 subagent_profiles 时沿用低层
   }
 })
 
-test('provenance：legacy subagents 单独跟踪来源（global 层放行 + 独立字段）', () => {
-  const root = makeRoot()
-  const home = makeHome()
-  writeHomeFile(home, 'config.json', { subagents: { research: { model: 'g-r' } } })
-  try {
-    const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.subagentsSource, 'global')
-    assert.equal(config.subagentProfilesSource, undefined)
-    assert.deepEqual(config.subagents, { research: { model: 'g-r' } })
-  } finally {
-    cleanup(root, home)
-  }
-})
-
 // ---------- executor 并发闸配置解析（R1） ----------
 
-test('executor 缺省 max_concurrent = 0（不限，分闸重心在按 kind 缺省 3）', () => {
+test('executor 缺省 max_concurrent = 0（不限，分闸重心在按角色缺省 3）', () => {
   const root = makeRoot()
   const home = makeHome()
   try {
@@ -1340,14 +1318,14 @@ test('subagent_profiles 条目含 max_concurrent（显式值覆盖缺省 3）', 
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
     subagent_profiles: [
-      { subagents: { implement: { model: 'p', max_concurrent: 5 } } },
+      { roles: { developer: { model: 'p', max_concurrent: 5 } } },
     ],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.subagentProfiles[0].subagents.implement.maxConcurrent, 5)
+    assert.equal(config.subagentProfiles[0].roles.developer.maxConcurrent, 5)
     // resolveSubagentDefaults 透出 maxConcurrent（显式值优先于缺省 3）
-    const resolved = resolveSubagentDefaults(config, 'implement', {})
+    const resolved = resolveSubagentDefaults(config, 'developer', {})
     assert.equal(resolved.maxConcurrent, 5)
   } finally {
     cleanup(root, home)
@@ -1359,12 +1337,12 @@ test('subagent_profiles 条目 max_concurrent = 0 = 不限', () => {
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
     subagent_profiles: [
-      { subagents: { research: { max_concurrent: 0 } } },
+      { roles: { researcher: { max_concurrent: 0 } } },
     ],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    const resolved = resolveSubagentDefaults(config, 'research', {})
+    const resolved = resolveSubagentDefaults(config, 'researcher', {})
     assert.equal(resolved.maxConcurrent, 0)
   } finally {
     cleanup(root, home)
@@ -1376,14 +1354,14 @@ test('subagent_profiles 条目 max_concurrent 负数 → WorkloomConfigError', (
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
     subagent_profiles: [
-      { subagents: { implement: { max_concurrent: -2 } } },
+      { roles: { developer: { max_concurrent: -2 } } },
     ],
   })
   try {
     assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
       return (
         err instanceof WorkloomConfigError &&
-        err.field === 'subagent_profiles[0].subagents.implement.max_concurrent'
+        err.field === 'subagent_profiles[0].roles.developer.max_concurrent'
       )
     })
   } finally {
@@ -1396,14 +1374,14 @@ test('subagent_profiles 条目 max_concurrent 非整数 → WorkloomConfigError'
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
     subagent_profiles: [
-      { subagents: { check: { max_concurrent: 2.7 } } },
+      { roles: { checker: { max_concurrent: 2.7 } } },
     ],
   })
   try {
     assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
       return (
         err instanceof WorkloomConfigError &&
-        err.field === 'subagent_profiles[0].subagents.check.max_concurrent'
+        err.field === 'subagent_profiles[0].roles.checker.max_concurrent'
       )
     })
   } finally {
@@ -1415,30 +1393,12 @@ test('resolveSubagentDefaults：未配置 max_concurrent 时兜底缺省 3', () 
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    subagent_profiles: [{ subagents: { implement: { model: 'p' } } }],
+    subagent_profiles: [{ roles: { developer: { model: 'p' } } }],
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    const resolved = resolveSubagentDefaults(config, 'implement', {})
+    const resolved = resolveSubagentDefaults(config, 'developer', {})
     assert.equal(resolved.maxConcurrent, 3)
-  } finally {
-    cleanup(root, home)
-  }
-})
-
-test('legacy subagents 层 max_concurrent → WorkloomConfigError（仅 profiles 层支持）', () => {
-  const root = makeRoot()
-  const home = makeHome()
-  writeProjectFile(root, 'config.json', {
-    subagents: { implement: { max_concurrent: 2 } },
-  })
-  try {
-    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
-      return (
-        err instanceof WorkloomConfigError &&
-        err.field === 'subagents.implement.max_concurrent'
-      )
-    })
   } finally {
     cleanup(root, home)
   }

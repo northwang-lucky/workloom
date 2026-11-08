@@ -1,14 +1,14 @@
-import { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
-import { randomUUID } from 'node:crypto';
 import { SessionId } from '@deepseek-ai/dsh-session';
-import { assertEffort, assertForceReason, buildConflictNotice, buildNewDispatchBinding, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, ERR_PREFIX, evaluateGuard, findWorkloomRoot, OVERRIDE_GATES, buildExecutorIncrementalPrompt, loadConfig, PARAM_DESCRIPTIONS, readTaskView, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, renderOutput, resolveSubagentDefaults, resolveTaskRelPath, splitProviderModel, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { assertEffort, assertForceReason, buildConflictNotice, composeLocalDirectivesText, CONTINUE_REBIND_REJECT_TEXT, detectExecutorConflicts, ERR_PREFIX, evaluateGuard, EXECUTOR_ROLES, findWorkloomRoot, OVERRIDE_GATES, buildExecutorIncrementalPrompt, loadConfig, PARAM_DESCRIPTIONS, PLAN_REVIEW_PHASES, PLAN_REVIEW_PURPOSE, readTaskView, recordExecutorDispatch, recordExecutorOverride, recordGateOverride, recordPlanReview, renderOutput, resolveSubagentDefaults, resolveTaskRelPath, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX, DISPATCH_WARN_PREFIX } from "../constants.js";
-import { assertAllowListNonEmpty, buildAllowFilter, hasLspTooling, SPAWN_PROVIDER, } from "./executor-dispatch.js";
+import { assertAllowListNonEmpty, buildAllowFilter, hasLspTooling, } from "./executor-dispatch.js";
 import { collectRunningExecutors, evaluateCapacityGate, generateDispatchSeq, registerInFlightDispatch, releaseInFlightDispatch, } from "./executor-capacity.js";
-import { registerWriteGuard, registerWriteGuardChildId, WRITE_GUARDED_KINDS } from "./executor-guard.js";
+import { registerWriteGuard, registerWriteGuardChildId, WRITE_GUARDED_ROLES } from "./executor-guard.js";
 import { buildTurnReceiptText, locateContinueChildId, readSpawnBinding, } from "./executor-continuation.js";
 import { registerDispatchSettlement, trackDispatchSettle } from "./executor-settle.js";
-import { registerExecutorToolface, registerExecutorToolfaceChild, releaseExecutorToolfaceChild } from "./executor-toolface.js";
+import { registerExecutorToolface } from "./executor-toolface.js";
+import { buildNewDispatchBinding } from "./dispatch-binding.js";
+import { spawnExecutorChild } from "./executor-spawn.js";
 import { readMainModel } from "./main-model.js";
 import { buildExecutorSchema } from "./executor-schema.js";
 import { buildChildLabel, buildFullInjection, injectionStats, } from "./executor-injection.js";
@@ -65,7 +65,7 @@ async function executeTool(ctx, args, exec) {
     // 续派治理（design §8.1）：continue_executor 与 model/effort 同传一律 fail loud
     // （含传相同值）——子会话绑定在派发时刻烤死，续派轮传 model/effort 只会被静默
     // 丢弃、回执谎报生效；拒绝发生在任何登记/结算副作用（recordExecutorDispatch/
-    // trackDispatchSettle/sendMessage/startContinuable）之前。
+    // trackDispatchSettle/sendMessage/startActivation）之前。
     if (params.continue_executor !== undefined &&
         (params.model !== undefined || params.effort !== undefined)) {
         throw new Error(`${ERR_PREFIX.executor}: ${CONTINUE_REBIND_REJECT_TEXT}`);
@@ -76,16 +76,16 @@ async function executeTool(ctx, args, exec) {
     // assertEffort 校验合法档位（非法值 fail loud，不静默丢弃）。
     const config = loadConfig(root);
     const mainModel = readMainModel(parent);
-    const effective = resolveSubagentDefaults(config, params.kind, { model: params.model, effort: params.effort }, mainModel);
+    const effective = resolveSubagentDefaults(config, params.role, { model: params.model, effort: params.effort }, mainModel);
     // effort 非法档位 fail loud（core 校验，与 adapter-pi 语义一致）；冲突检测：
     // 显式 model/effort 与配置（按主模型合并后的生效值）不一致时，无 force 返回
     // 提示（不派发）；force 放行须带非空 reason 留痕，覆盖审计写入 task.json。
     assertEffort(effective.effort);
-    const conflicts = detectExecutorConflicts(config, params.kind, { model: params.model, effort: params.effort }, mainModel);
+    const conflicts = detectExecutorConflicts(config, params.role, { model: params.model, effort: params.effort }, mainModel);
     if (conflicts.length > 0 && params.force !== true) {
         return {
             kind: 'notice',
-            output: [{ type: 'text', text: buildConflictNotice(params.kind, conflicts) }],
+            output: [{ type: 'text', text: buildConflictNotice(params.role, conflicts) }],
         };
     }
     const forced = conflicts.length > 0;
@@ -102,7 +102,7 @@ async function executeTool(ctx, args, exec) {
     }
     // 派发门禁语义改查状态机守卫（light-dispatch，共用同一次 readTaskView；阻断返回
     // 提示文本而非抛错，模型可见可 force 重试）：light 任务由主会话包办实现/自查/
-    // 提交，任何 kind 都不派发（含续用）；force 放行经 dispatch-records 记
+    // 提交，任何角色都不派发（含续用）；force 放行经 dispatch-records 记
     // light_dispatch override 留痕。
     const [taskErr, task] = readTaskView(root, taskRelPath);
     if (taskErr !== null || task === null) {
@@ -142,28 +142,17 @@ async function executeTool(ctx, args, exec) {
     assertAllowListNonEmpty(allowFilter.allow);
     // LSP 工具面探测：交付时过滤纪律段 LSP 句——allow 清单含 lsp_ 工具才注入。
     const hasLsp = hasLspTooling(allowFilter.allow);
-    // model/effort 独立组装：model 字符串支持 "provider/model" 前缀（拆分后 provider
-    // 一并传入，跨 provider 派发才不报 UNKNOWN_MODEL；裸 id 无 provider 按父 provider
-    // 解析）；effort 原样 brand 进 reasoningEffort（同名直通），model 缺省时也能
-    // 单独携带 effort；两者均未生效时保持 undefined（不覆盖父会话的模型选择）。
-    const splitModel = effective.model === undefined ? undefined : splitProviderModel(effective.model);
-    const agentOptions = splitModel === undefined && effective.effort === undefined
-        ? undefined
-        : {
-            ...(splitModel ?? {}),
-            ...(effective.effort !== undefined
-                ? { reasoningEffort: ReasoningEffortId(effective.effort) }
-                : {}),
-        };
-    // 定位本轮 childId：续用（continue_executor）按 dispatches 记录做同 kind 校验后
-    // sendMessage 投递下一指令；新派发走 startContinuable（continuable 会话，客户端
+    // model/effort 的 agentOptions 组装在 executor-spawn 共享模块（model 拆
+    // provider 前缀、effort brand 直通；两者均未生效时不覆盖父会话模型选择）。
+    // 定位本轮 childId：续用（continue_executor）按 dispatches 记录做同角色校验后
+    // sendMessage 投递下一指令；新派发走 startActivation（continuable 会话，客户端
     // composer 可写）。maxDepth 是子代理自身深度的绝对上限：顶层派发的子代理深度为 1，
     // 设 1 恰好放行本次派发；executor（深度 1）再派发时深度 2 > 1 被拒，
     // 即「executor 子代理禁止再派发 workloom_execute」。
     let childId;
     let reused = false;
     // 本机片段合成文本：新派发与 reinject 续接两条路径共用同一组装（单次解析，R7）。
-    const [localErr, localDirectives] = composeLocalDirectivesText(root, params.kind);
+    const [localErr, localDirectives] = composeLocalDirectivesText(root, params.role);
     if (localErr !== null)
         throw localErr;
     // 续派轮的 spawn 绑定（design §8.3）：从 childId 首次派发记录读取的 model/effort，
@@ -183,12 +172,12 @@ async function executeTool(ctx, args, exec) {
      */
     async function runCapacityGate(excludeChildId) {
         const running = await collectRunningExecutors(ctx.subagents, parent, exec.signal, root, taskRelPath, excludeChildId);
-        return evaluateCapacityGate(running, params.kind, config.executor.maxConcurrent, effective.maxConcurrent);
+        return evaluateCapacityGate(running, params.role, config.executor.maxConcurrent, effective.maxConcurrent);
     }
     if (params.continue_executor !== undefined) {
-        // 定位失败返回明确提示（不报错）：旧记录缺 childId / 无同 kind 记录 / 跨 kind /
+        // 定位失败返回明确提示（不报错）：旧记录缺 childId / 无同角色记录 / 跨角色 /
         // 记录不存在，均不派发（fail loud 的「提示面」变体，避免静默续用错会话）。
-        const [locateErr, located] = locateContinueChildId(root, taskRelPath, params.kind, params.continue_executor);
+        const [locateErr, located] = locateContinueChildId(root, taskRelPath, params.role, params.continue_executor);
         if (locateErr !== null) {
             return {
                 kind: 'notice',
@@ -211,20 +200,20 @@ async function executeTool(ctx, args, exec) {
         // 续用闸放行后同步登记 in-flight 条目（占槽），关闭并行工具调用的异步窗口竞态；
         // sendMessage 投递成功后移除本地项（child 已在 native 视野）。
         const continueSeq = generateDispatchSeq();
-        registerInFlightDispatch(continueSeq, params.kind);
+        registerInFlightDispatch(continueSeq, params.role);
         if (params.reinject === true) {
             // 显式 reinject：恢复全量上下文注入（压缩丢失的兜底），与现状行为一致。
-            const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives, hasLsp, params.purpose);
+            const built = buildFullInjection(root, taskRelPath, params.role, params.prompt, localDirectives, hasLsp, params.purpose);
             sendText = built.text;
             injection = injectionStats(built, allowFilter.allow.length);
         }
         else {
-            // 增量续接：只发主会话增量指令（params.prompt）；check + execution 轮由 core
+            // 增量续接：只发主会话增量指令（params.prompt）；checker + execution 轮由 core
             // 先校验确认有效，再追加确认摘要值行（不重复 CASE 全文）。
             sendText = buildExecutorIncrementalPrompt({
                 root,
                 taskRelPath,
-                kind: params.kind,
+                role: params.role,
                 userPrompt: params.prompt,
                 purpose: params.purpose,
             });
@@ -254,7 +243,7 @@ async function executeTool(ctx, args, exec) {
         }
     }
     else {
-        const built = buildFullInjection(root, taskRelPath, params.kind, params.prompt, localDirectives, hasLsp, params.purpose);
+        const built = buildFullInjection(root, taskRelPath, params.role, params.prompt, localDirectives, hasLsp, params.purpose);
         sendText = built.text;
         injection = injectionStats(built, allowFilter.allow.length);
         // 并发容量闸（新派发）：拒绝时返回 at capacity 文本，不 spawn、不写 dispatches。
@@ -265,34 +254,28 @@ async function executeTool(ctx, args, exec) {
                 output: [{ type: 'text', text: dispatchGate }],
             };
         }
-        const childLabel = buildChildLabel(root, taskRelPath, params.kind, params.title);
+        const childLabel = buildChildLabel(root, taskRelPath, params.role, params.title);
         // 闸放行后同步登记 in-flight 条目（占槽），关闭并行工具调用的异步窗口竞态；
         // startActivation 成功返回后 child 已进 native 视野→移除本地项；失败路径同样移除。
         const dispatchSeq = generateDispatchSeq();
-        registerInFlightDispatch(dispatchSeq, params.kind);
-        // 预分配 childId 并在创建前登记工具白名单（agent/created 早于 startActivation
-        // 返回）；启动失败撤销登记，避免 id 泄漏进索引。
-        const reservedChildId = SessionId(randomUUID());
-        registerExecutorToolfaceChild(reservedChildId, allowFilter.allow);
+        registerInFlightDispatch(dispatchSeq, params.role);
+        // 启动新子会话经 executor-spawn 共享模块（预分配 childId + 白名单登记 +
+        // startActivation + 失败撤销；结算重试钩子同款复用，executor↔settle 不成环）。
         try {
-            const started = await ctx.subagents.startActivation({
-                provider: SPAWN_PROVIDER,
+            childId = await spawnExecutorChild({
+                ctx,
+                parent,
                 label: childLabel,
-                childId: reservedChildId,
-                request: {
-                    prompt: [{ type: 'text', text: sendText }],
-                    parent,
-                    agentOptions,
-                    maxDepth: 1,
-                },
+                promptText: sendText,
+                ...(effective.model !== undefined ? { model: effective.model } : {}),
+                ...(effective.effort !== undefined ? { effort: effective.effort } : {}),
+                toolsAllow: allowFilter.allow,
                 signal: exec.signal,
-                delivery: 'parent',
             });
-            childId = started.childId;
         }
         catch (error) {
-            // 启动失败：撤销白名单登记、释放 in-flight 槽位，不留永久占位（错误原样抛出）。
-            releaseExecutorToolfaceChild(reservedChildId);
+            // 启动失败：释放 in-flight 槽位，不留永久占位（白名单撤销在 spawn 模块内，
+            // 错误原样抛出）。
             releaseInFlightDispatch(dispatchSeq);
             throw error;
         }
@@ -305,7 +288,8 @@ async function executeTool(ctx, args, exec) {
     // model/effort 与来源层（param/whenMain/fallback/legacy/inherit），续派轮沿用
     // childId 首次派发记录的绑定、modelSource 记 spawn（审计可查，回执据此展示）。
     const [dispatchErr] = recordExecutorDispatch(root, taskRelPath, {
-        kind: params.kind,
+        // 字段名保留 kind（task.json 数据布局不改名），写入值为新角色值域。
+        kind: params.role,
         purpose: params.purpose,
         title: params.title,
         childId,
@@ -319,10 +303,43 @@ async function executeTool(ctx, args, exec) {
     if (dispatchErr !== null) {
         console.warn(`${DISPATCH_WARN_PREFIX} ${dispatchErr}`);
     }
-    // 登记终态回填定位（subagent/end 按 childId 关联 dispatches 记录）。
-    trackDispatchSettle(childId, root, taskRelPath);
-    // 受限写 kind 派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
-    if (WRITE_GUARDED_KINDS.includes(params.kind)) {
+    // 登记终态回填定位与重派上下文（subagent/end 按 childId 关联 dispatches 记录；
+    // 重派上下文 = 结算失败终态一跳重试的组装来源：parent 引用、本次 send 的原始
+    // prompt 全文、role/title/toolsAllow 与生效模型绑定——DispatchRecord 不存 prompt）。
+    trackDispatchSettle(childId, root, taskRelPath, {
+        parent,
+        prompt: sendText,
+        role: params.role,
+        title: params.title,
+        toolsAllow: allowFilter.allow,
+        wasContinuation: reused,
+        binding: {
+            ...(effective.model !== undefined ? { model: effective.model } : {}),
+            ...(effective.effort !== undefined ? { effort: effective.effort } : {}),
+        },
+    });
+    // plan 评审派发自动置位（R7）：judger + purpose=plan-review 派发成功后把
+    // planReview 轨道置 reviewing（派发是可观测事实，少一次人为遗漏）。
+    // 已 reviewing 幂等跳过；clean 时不动轨道只 WARNING（clean→reviewing 非合法边）；
+    // 写失败仅 WARNING 不回滚派发（同 recordExecutorOverride 既有模式）。
+    if (params.role === EXECUTOR_ROLES.JUDGER && params.purpose === PLAN_REVIEW_PURPOSE) {
+        const phase = task?.planReview ?? PLAN_REVIEW_PHASES.NONE;
+        if (phase === PLAN_REVIEW_PHASES.REVIEWING) {
+            // 幂等：已在评审中，不重复写。
+        }
+        else if (phase === PLAN_REVIEW_PHASES.CLEAN) {
+            console.warn(`${DISPATCH_WARN_PREFIX} plan review track is clean; a new plan-review dispatch ` +
+                `does not move it back to reviewing (clean -> reviewing is not a legal edge)`);
+        }
+        else {
+            const [reviewErr] = recordPlanReview(root, taskRelPath, PLAN_REVIEW_PHASES.REVIEWING);
+            if (reviewErr !== null) {
+                console.warn(`${DISPATCH_WARN_PREFIX} failed to set planReview=reviewing: ${reviewErr}`);
+            }
+        }
+    }
+    // 受限写角色派发登记守卫身份（按项目；不移除；重启后由守卫按任务记录懒重建）。
+    if (WRITE_GUARDED_ROLES.includes(params.role)) {
         registerWriteGuardChildId(root, childId);
     }
     // 派发只有后台语义：返回子代理标识 + 完整 receipt（注入统计派发前已就绪），

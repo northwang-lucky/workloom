@@ -91,13 +91,13 @@ test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一�
   }
   // 派发硬约束与 2.1 正文逐字一致（stage 限定：仅 implement 阶段禁直写）
   const dispatchRule =
-    'Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched implement subagent.'
+    'Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched Developer subagent.'
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(contract.norms.includes(dispatchRule), 'norms 缺派发硬约束')
   assert.ok(implementBody.includes(dispatchRule), '2.1 正文缺派发硬约束')
   // norms Dispatch 例外句（stage 限定 + including implementation code + 免派发）
   const dispatchException =
-    'Exception (stage `check`): while the task stage is `check`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the check executor for a full re-review afterwards.'
+    'Exception (stage `check`): while the task stage is `check`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the Checker for a full re-review afterwards.'
   assert.ok(contract.norms.includes(dispatchException), 'norms 缺派发例外句')
 })
 
@@ -122,12 +122,12 @@ test('契约 v17 锁定 frontend 派发强制（2.1）与 check UI 门禁（2.2�
   assert.equal(err, null)
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
-    implementBody.includes('must go through a `workloom_execute` dispatch with `kind: frontend`'),
-    '2.1 正文缺 frontend 派发强制措辞',
+    implementBody.includes('must go through a `workloom_execute` dispatch with `role: frontend-developer`'),
+    '2.1 正文缺 frontend-developer 派发强制措辞',
   )
   const checkBody = contract.steps.find((step) => step.id === '2.3').body
   assert.ok(
-    checkBody.includes('it additionally refuses unless a `frontend` dispatch has been recorded'),
+    checkBody.includes('it additionally refuses unless a `frontend-developer` dispatch has been recorded'),
     '2.3 正文缺 UI 门禁措辞',
   )
 })
@@ -463,7 +463,7 @@ test('契约 v17 §2.2 含主会话派发指引（禁只读审查、禁引导分
   )
   // 不得在 prompt 中引导分级——分级是 check 标准职责
   assert.ok(
-    checkBody.includes("classification is the check executor's standard duty"),
+    checkBody.includes("classification is the Checker's standard duty"),
     '2.3 正文缺禁止引导分级措辞',
   )
   // 冲突中性告知句：派发指令与执行器纪律相抵时，执行器按纪律执行并在报告首行声明
@@ -493,7 +493,7 @@ test('契约 v17 §2.2 含 P0 处理权属（只能修或用户确认后调基�
   // 基线调整闭环：用户确认 → 改 prd → 重派 check 按新基线复核
   assert.ok(
     checkBody.includes(
-      'only after the user confirms may it amend prd.md and re-dispatch the check executor against the new baseline',
+      'only after the user confirms may it amend prd.md and re-dispatch the Checker against the new baseline',
     ),
     '2.3 正文缺「用户确认后改 prd 并重派 check」措辞',
   )
@@ -540,7 +540,7 @@ test('契约 v17 §2.2 含主会话修复窗口与重派 check 复核闭环', ()
     '2.3 正文缺主会话修复窗口措辞',
   )
   assert.ok(
-    checkBody.includes('re-dispatch the check executor for a full re-review'),
+    checkBody.includes('re-dispatch the Checker for a full re-review'),
     '2.3 正文缺修复后重派 check 全量复核措辞',
   )
   assert.ok(checkBody.includes('fix it or record why not'), '2.3 正文缺仅存问题逐条处理措辞')
@@ -582,7 +582,7 @@ test('契约 v17 norms Dispatch 含 check 阶段主会话直接修复例外句',
     'norms 缺 check 阶段主会话直接修复例外句',
   )
   assert.ok(
-    contract.norms.includes('re-dispatch the check executor for a full re-review'),
+    contract.norms.includes('re-dispatch the Checker for a full re-review'),
     'norms 缺修复后重派 check 复核句',
   )
 })
@@ -597,11 +597,11 @@ test('契约 v17 不再提及 DSH 运行时写门禁（executor.gate / 文件拦
     implementBody.includes(
       'Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly',
     ),
-    '2.1 正文必须保留 implement executor 分工硬提示（stage 限定）',
+    '2.1 正文必须保留 Developer 分工硬提示（stage 限定）',
   )
   assert.ok(
     implementBody.includes(
-      'every implementation file change comes from the dispatched implement subagent',
+      'every implementation file change comes from the dispatched Developer subagent',
     ),
     '2.1 正文必须保留「实现文件一律来自派发的 implement 子代理」',
   )
@@ -611,7 +611,7 @@ test('契约 v17 不再提及 DSH 运行时写门禁（executor.gate / 文件拦
     'norms 必须保留 check 阶段主会话直接修复例外',
   )
   assert.ok(
-    contract.norms.includes('re-dispatch the check executor for a full re-review'),
+    contract.norms.includes('re-dispatch the Checker for a full re-review'),
     'norms 必须保留修复后重派 check 复核',
   )
   // 全文不再提及 executor.gate 或 DSH 运行时文件写入拦截。
@@ -870,7 +870,7 @@ test('契约 CASE 无用户确认：2.2/2.3/norms 一致改为主会话复核后
     '2.2 缺「复核满意后直接续接设计会话执行」明文',
   )
   assert.ok(
-    checkBody.includes("continue `case.designSession` with `kind: check` and `purpose: execution`"),
+    checkBody.includes("continue `case.designSession` with `role: checker` and `purpose: execution`"),
     '2.3 缺主会话复核后续接执行的派发描述',
   )
   for (const body of [designBody, checkBody]) {
@@ -1016,13 +1016,21 @@ test('契约 1.4 含 review 派发指引段（关键句逐字）', () => {
   const reviewBody = contract.steps.find((step) => step.id === '1.4').body
   assert.ok(reviewBody.includes('Plan review dispatch (default on)'), '1.4 缺 review 派发段首句')
   assert.ok(
-    reviewBody.includes('dispatch the review executor with `workloom_execute` (kind: review)'),
-    '1.4 缺 review 派发指令',
+    reviewBody.includes('dispatch the Judger with `workloom_execute` (`role: judger`, `purpose: plan-review`)'),
+    '1.4 缺 Judger 评审派发指令',
+  )
+  assert.ok(
+    reviewBody.includes('automatically sets the task\'s planReview phase to `reviewing`'),
+    '1.4 缺 plan-review 自动置 reviewing 说明',
+  )
+  assert.ok(
+    reviewBody.includes('workloom_task_planreview'),
+    '1.4 缺 planReview 轨道标记工具说明',
   )
   assert.ok(reviewBody.includes('plan-review.md'), '1.4 缺审查报告文件约定')
   assert.ok(reviewBody.includes('may explicitly skip the review'), '1.4 缺对齐轮显式跳过语义')
   assert.ok(
-    reviewBody.includes('continuing the same review child session'),
+    reviewBody.includes('continuing the same Judger child session'),
     '1.4 缺同子会话续接复审要求',
   )
   assert.ok(reviewBody.includes('three rounds are reached'), '1.4 缺三轮上限')

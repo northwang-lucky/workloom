@@ -3,7 +3,7 @@
  * 与 worktree.js 的 JSDoc 保持同步；service 层（task-ops / doctor）经此引用类型。
  */
 import type { WorkloomConfig } from './config.d.ts'
-import type { TaskRecord } from '../task/task-storage.ts'
+import type { TaskRecord } from '../task/storage/index.ts'
 
 /** 任务所属仓解析结果（resolveTaskRepo 返回值）。 */
 export interface TaskRepoResolution {

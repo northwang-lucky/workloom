@@ -2,33 +2,28 @@
  * dsh-workloom 的受限写执行器 write/edit 范围守卫（机制强制面）。
  *
  * 设计意图：
- * - 受限写 kind（WRITE_GUARDED_KINDS：research/review）只允许写 `<cwd>/.workloom/`
+ * - 受限写角色（WRITE_GUARDED_ROLES：researcher/judger）只允许写 `<cwd>/.workloom/`
  *   内路径：插件激活时经 ctx.tools.guard 注册一次守卫，按派发登记的子会话身份
  *   识别（executor.ts 派发成功时加入，不移除）；
  * - dsh 重启后内存身份集为空：任一触发点（守卫判定或派发登记）按项目懒
- *   重建——遍历非归档任务全部受守卫 kind 的 dispatches，不区分活跃/已结算；
+ *   重建——遍历非归档任务全部受守卫角色的 dispatches（记录值经兼容读归一，
+ *   历史旧 research/review 记录同样识别），不区分活跃/已结算；
  *   登记路径缺失集合时先重建再加入新 id，防止新派发先到以空集占位导致
  *   旧子会话失守（等价「插件激活时重建」的持久化语义）；
  * - write/edit 均判 execution.arguments.file_path（DSH 文件工具参数名）；
  *   越界返回英文拒绝串（含路径与允许域，ERR_PREFIX.executor 前缀），其余
  *   调用返回 undefined（放行）；bash 路径绕过记为已知边界，不根治。
  */
-import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { ERR_PREFIX, EXECUTOR_KINDS, findWorkloomRoot } from '@workloom-ai/core';
+import { ERR_PREFIX, EXECUTOR_ROLES, findWorkloomRoot, tryNormalizeExecutorRole, WORKLOOM_DIR, } from '@workloom-ai/core';
+import { scanDispatchRecords } from "./dispatch-scan.js";
 /** 受守卫约束的工具名（DSH 文件工具；其余工具一律放行）。 */
 const WRITE_TOOL = 'write';
 const EDIT_TOOL = 'edit';
-/** 项目资产目录名（守卫允许域：<cwd>/.workloom/）。 */
-const WORKLOOM_DIR = '.workloom';
-/** 任务目录名（重建时扫描项目 tasks 目录下各任务目录的 task.json）。 */
-const TASKS_DIR = 'tasks';
-/** 归档目录名（重建时排除 archive 目录下的任务）。 */
-const ARCHIVE_DIR = 'archive';
-/** 受写守卫的 kind 集合（research 写调研产物、review 写审查报告，均限 .workloom/ 内）。 */
-export const WRITE_GUARDED_KINDS = Object.freeze([
-    EXECUTOR_KINDS.research,
-    EXECUTOR_KINDS.review,
+/** 受写守卫的角色集合（researcher 写调研产物、judger 写审查报告，均限 .workloom/ 内）。 */
+export const WRITE_GUARDED_ROLES = Object.freeze([
+    EXECUTOR_ROLES.RESEARCHER,
+    EXECUTOR_ROLES.JUDGER,
 ]);
 /** 创建空的守卫状态（每插件激活一份；重启后按项目懒重建）。 */
 export function createWriteGuardState() {
@@ -36,54 +31,33 @@ export function createWriteGuardState() {
 }
 /**
  * 从项目 task.json dispatches 重建受限写子代理 id 集（纯函数，可单测）。
- * 扫描项目 `<root>/.workloom/tasks/` 下各任务目录的 task.json（archive 目录
- * 排除），收集 dispatches 中 kind ∈ WRITE_GUARDED_KINDS 且 childId 非空的 childId。
+ * 扫描经 dispatch-scan 共享实现（非归档任务全量派发记录，坏 JSON 与缺字段
+ * 防御内置），收集角色（经兼容读归一，历史旧 research/review 记录同样识别）
+ * ∈ WRITE_GUARDED_ROLES 且 childId 非空的 childId；归一落空的脏值不入结果集
+ * （过滤重建面语义分面 R3-4：跳过并加 WARNING，单条脏记录不中断全项目重建）。
  * @param root 项目根
  * @returns 重建的受限写子代理 id 集（可能为空集）
  */
 export function rebuildWriteGuardChildIds(root) {
     const ids = new Set();
-    const tasksDir = join(root, WORKLOOM_DIR, TASKS_DIR);
-    let entries;
-    try {
-        entries = readdirSync(tasksDir, { withFileTypes: true });
-    }
-    catch {
-        return ids;
-    }
-    for (const entry of entries) {
-        if (!entry.isDirectory() || entry.name === ARCHIVE_DIR)
-            continue;
-        const taskJson = join(tasksDir, entry.name, 'task.json');
-        let raw;
-        try {
-            raw = readFileSync(taskJson, 'utf8');
-        }
-        catch {
-            continue;
-        }
-        let task;
-        try {
-            task = JSON.parse(raw);
-        }
-        catch {
-            continue;
-        }
-        const dispatches = task?.dispatches;
-        if (!Array.isArray(dispatches))
-            continue;
-        for (const dispatch of dispatches) {
-            if (WRITE_GUARDED_KINDS.includes(dispatch?.kind) &&
-                typeof dispatch.childId === 'string' &&
-                dispatch.childId !== '') {
-                ids.add(dispatch.childId);
+    for (const { dispatch } of scanDispatchRecords(root)) {
+        const role = tryNormalizeExecutorRole(dispatch.kind);
+        if (role === null) {
+            if ('kind' in dispatch) {
+                console.warn(`${ERR_PREFIX.executor}: WARNING: write-guard rebuild skipped a dispatch record ` +
+                    `with an unknown executor role: ${String(dispatch.kind)}`);
             }
+            continue;
+        }
+        const childId = dispatch.childId;
+        if (WRITE_GUARDED_ROLES.includes(role) && typeof childId === 'string' && childId !== '') {
+            ids.add(childId);
         }
     }
     return ids;
 }
 /**
- * 登记一次受限写 kind 派发成功的子代理 id（不移除）。
+ * 登记一次受限写角色派发成功的子代理 id（不移除）。
  * 集合缺失时先按任务记录重建再加入新 id——防止重启后新派发先到、
  * 以仅含新 id 的空集占位导致懒重建永不触发（旧子会话失守）。
  */
@@ -146,7 +120,7 @@ const pluginGuardState = createWriteGuardState();
 export function registerWriteGuard(ctx) {
     ctx.tools.guard(confinedWriteGuard(pluginGuardState));
 }
-/** 受限写 kind 派发成功时登记子会话 id（executor.ts 派发路径；不移除）。 */
+/** 受限写角色派发成功时登记子会话 id（executor.ts 派发路径；不移除）。 */
 export function registerWriteGuardChildId(root, childId) {
     registerWriteGuardChild(pluginGuardState, root, childId);
 }

@@ -1,5 +1,5 @@
 /**
- * dsh-workloom executor 的 continuable 会话辅助：续用定位（dispatches 同 kind 校验）
+ * dsh-workloom executor 的 continuable 会话辅助：续用定位（dispatches 同角色校验）
  * 与后台 receipt 渲染。
  *
  * 设计意图：
@@ -11,12 +11,13 @@
 import {
   buildContinueNoChildIdText,
   buildContinueNoDispatchText,
-  buildCrossKindReuseRejectText,
+  buildCrossRoleReuseRejectText,
   buildExecutorReceipt,
   buildSpawnBindingReceipt,
   CONTINUE_EXECUTOR_LATEST,
   ERR_PREFIX,
   readTaskView,
+  tryNormalizeExecutorRole,
 } from '@workloom-ai/core'
 import type {
   DispatchRecord,
@@ -109,19 +110,19 @@ export function readSpawnBinding(
 }
 
 /**
- * 定位续用 childId（dispatches 记录，同 kind 边界）：'latest' 取同 kind 最近一条的
- * childId；显式 id 必须在 dispatches 中存在且 kind 一致，否则拒绝（跨 kind / 无记录
+ * 定位续用 childId（dispatches 记录，同角色边界）：'latest' 取同角色最近一条的
+ * childId；显式 id 必须在 dispatches 中存在且角色一致，否则拒绝（跨角色 / 无记录
  * 均返回提示）。定位失败不抛错——续用是主会话显式请求，提示面返回更利于模型修正。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind 本次调用的 executor kind（同 kind 校验基准）
+ * @param role 本次调用的 executor 角色（同角色校验基准）
  * @param input continue_executor 参数值（'latest' 或记录的 childId）
  * @returns [失败提示, childId]（失败时 childId 为空串）
  */
 export function locateContinueChildId(
   root: string,
   taskRelPath: string,
-  kind: string,
+  role: string,
   input: string,
 ): [string | null, string] {
   const [taskErr, task] = readTaskView(root, taskRelPath)
@@ -133,22 +134,29 @@ export function locateContinueChildId(
     ]
   }
   const dispatches: readonly DispatchRecord[] = task.dispatches ?? []
+  // 同角色校验两侧经兼容读归一（过渡期入参可能仍是旧值，dispatches 经
+  // toTaskView 已归一为新值；归一后比较，旧在飞记录同样可续）。入参脏值归一
+  // 落空：加 WARNING 且不匹配任何记录（防 null===null 误配）。
+  const targetRole = tryNormalizeExecutorRole(role)
+  if (targetRole === null) {
+    console.warn(`${ERR_PREFIX.executor}: WARNING: unknown executor role in continue request: ${role}`)
+  }
   if (input === CONTINUE_EXECUTOR_LATEST) {
     for (let i = dispatches.length - 1; i >= 0; i--) {
       const entry = dispatches[i]
       if (entry === undefined) continue
-      if (entry.kind !== kind) continue
+      if (targetRole === null || tryNormalizeExecutorRole(entry.kind) !== targetRole) continue
       if (entry.childId !== undefined && entry.childId !== '') return [null, entry.childId]
     }
-    return [`${ERR_PREFIX.executor}: ${buildContinueNoDispatchText(kind)}`, '']
+    return [`${ERR_PREFIX.executor}: ${buildContinueNoDispatchText(role)}`, '']
   }
   const match = dispatches.find((entry) => entry.childId === input)
   if (match === undefined) {
-    return [`${ERR_PREFIX.executor}: ${buildContinueNoChildIdText(input, kind)}`, '']
+    return [`${ERR_PREFIX.executor}: ${buildContinueNoChildIdText(input, role)}`, '']
   }
-  if (match.kind !== kind) {
+  if (targetRole === null || tryNormalizeExecutorRole(match.kind) !== targetRole) {
     return [
-      `${ERR_PREFIX.executor}: ${buildCrossKindReuseRejectText(input, match.kind, kind)}`,
+      `${ERR_PREFIX.executor}: ${buildCrossRoleReuseRejectText(input, match.kind, role)}`,
       '',
     ]
   }

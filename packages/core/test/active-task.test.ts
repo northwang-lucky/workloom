@@ -1,5 +1,5 @@
 /**
- * 会话指针单测（state-machine 指针段，原 active-task 收编）：指针写入、解析、
+ * 会话指针单测（task/state/pointers 段，原 active-task 收编）：指针写入、解析、
  * 幂等清理与悬挂清理；指针文件机制不变。
  */
 import { test } from 'node:test'
@@ -13,7 +13,7 @@ import {
   clearActiveTask,
   resolveActiveTask,
   clearPointersToTask,
-} from '../src/task/state-machine.ts'
+} from '../src/task/state/index.ts'
 
 /** 创建临时项目根（含 .workloom）。 */
 function makeRoot() {

@@ -13,7 +13,7 @@
  * - 任务解析失败（结构性故障）向上抛错由入口的元组契约表达；指针缺失按
  *   无活跃任务处理（正常态）。
  */
-import { readTaskView, resolveActiveTask } from "../task/state-machine.js";
+import { readTaskView, resolveActiveTask } from "../task/state/index.js";
 import { ERR_PREFIX } from "./surface.js";
 export { composeLocalDirectivesText } from "./local-prompts.js";
 /**

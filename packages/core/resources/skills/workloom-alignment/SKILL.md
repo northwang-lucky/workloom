@@ -44,9 +44,9 @@ Present every question with the same visual template so a long batch stays skimm
 
 The title line numbers the question as `❓ **Q<n>**` followed by a bold title; `❓` and `➡️` are fixed markers, the same on every question. Titles stay plain bold text — no `#` heading, no per-topic emoji. Labels and content follow the user's language.
 
-**Fact nodes** are investigated by you — file, LSP, and web retrieval — only when a decision is blocked on a fact. Deep implementation research is not Phase 1.1 work: it belongs to Phase 1.2's research executor after the PRD converges.
+**Fact nodes** are investigated by you — file, LSP, and web retrieval — only when a decision is blocked on a fact. Deep implementation research is not Phase 1.1 work: it belongs to Phase 1.2's Researcher after the PRD converges.
 
-**Technical decision boundary**: only decisions that affect scope, acceptance, risk, external interfaces, or irreversible cost enter the alignment. Purely internal implementation choices are deferred to the implement executor.
+**Technical decision boundary**: only decisions that affect scope, acceptance, risk, external interfaces, or irreversible cost enter the alignment. Purely internal implementation choices are deferred to the Developer.
 
 For implementation work, plan authoring follows convergence at Phase 1.3/1.4 (the plan is required for every full implementation task); read `references/plan-authoring.md` before writing: the plan meets the prescriptive bar — every step anchored to a concrete file and symbol, with its Edit carrying the five protocol fields in order (Input, Output, Preconditions, Procedure, Failure) as structured pseudocode — before 1.4 presents it.
 

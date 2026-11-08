@@ -1,24 +1,24 @@
 /**
  * executor-context 单测：上下文注入组装的段落白名单/分层协议/统计/报错行为（临时项目目录）。
  *
- * 覆盖：五种 kind 段落白名单与顺序（Task prompt 在 Local directives 之后、contract 末段）；
- * check/research/review 物化 prd 块、implement/frontend 物化 prd 软指针（无全文、无 H2 目录预览）；
- * `## Involved files` 段全 kind 删除；指针行无「read before acting」后缀；
- * 分层按需加载协议句（回声句后半逐字保留、禁 upfront 通读）；research 只含 prd；
- * 末尾终极权威段（kind 纪律段 + leaf 规则 + 权威声明）的注入位置/去重/分级语义；
- * implement/check 纪律段按需查材料/禁止全局 recon 指令；implement contract 词数上限；
- * kind/effort 非法报错；jsonl 坏行报错。
+ * 覆盖：五角色段落白名单与顺序（Task prompt 在 Local directives 之后、contract 末段）；
+ * checker/researcher/judger 物化 prd 块、developer/frontend-developer 物化 prd 软指针
+ * （无全文、无 H2 目录预览）；`## Involved files` 段全角色删除；指针行无
+ * 「read before acting」后缀；分层按需加载协议句（回声句后半逐字保留、禁 upfront
+ * 通读）；researcher 只含 prd；末尾终极权威段（角色纪律段 + leaf 规则 + 权威声明）
+ * 的注入位置/去重/分级语义；developer/checker 纪律段按需查材料/禁止全局 recon 指令；
+ * developer contract 词数上限；role/effort 非法报错（过渡期旧 kind 值容忍放行）；
+ * jsonl 坏行报错。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { EXECUTOR_KINDS } from '../src/dispatch/executor-kinds.ts'
 import {
   EFFORT_LEVELS,
   assertEffort,
-  assertKind,
+  assertRole,
   buildExecutorIncrementalPrompt,
   buildExecutorPrompt,
 } from '../src/injection/prompt-compose.ts'
@@ -117,7 +117,7 @@ const RESEARCH_MATERIALS_HEADING = '## Research materials'
 const PRD_SOFT_POINTER_LINE =
   'If the task prompt or the plan is ambiguous, consult .workloom/tasks/08-24-demo/prd.md before deciding.'
 
-/** files 清单注入段标题（全 kind 已删除，测试用于负向断言）。 */
+/** files 清单注入段标题（全角色已删除，测试用于负向断言）。 */
 const FILES_LIST_HEADING = '## Involved files'
 
 /** jsonl 指针清单段标题（与实现一致，测试自给自足）。 */
@@ -152,29 +152,22 @@ function writeConfig(root, doc) {
   writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify(doc))
 }
 
-/** 组装入参（kind 之外字段固定）。 */
-function baseParams(root, kind) {
+/** 组装入参（role 之外字段固定）。 */
+function baseParams(root, role) {
   return {
     root,
     taskRelPath: TASK_REL_PATH,
-    kind,
+    role,
     userPrompt: 'Do the thing',
     contractSection: CONTRACT_SECTION_STUB,
   }
 }
 
-test('常量导出：effort 档位与 executor kind 枚举', () => {
+test('常量导出：effort 档位', () => {
   assert.deepEqual([...EFFORT_LEVELS], ['low', 'medium', 'high', 'xhigh', 'max'])
-  assert.deepEqual(EXECUTOR_KINDS, {
-    research: 'research',
-    implement: 'implement',
-    check: 'check',
-    frontend: 'frontend',
-    review: 'review',
-  })
 })
 
-test('S1 jsonl 纯指针：implement/check 注入只含「路径 + reason」指针行，无文件全文、无后缀', () => {
+test('S1 jsonl 纯指针：developer/checker 注入只含「路径 + reason」指针行，无文件全文、无后缀', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
@@ -189,13 +182,13 @@ test('S1 jsonl 纯指针：implement/check 注入只含「路径 + reason」指�
     writeRootFile(root, 'packages/a.js', 'const a = 1\nFULL_CONTENT_A_MARKER\n')
     writeRootFile(root, 'packages/b.md', '# B\nFULL_CONTENT_B_MARKER\n')
     const expected = {
-      // implement：不内联任何 artifact（prd 走软指针），指针 = prd 软指针 + plan + jsonl×2
-      implement: { filesInlined: 0, filesPointed: 4, truncated: 0 },
-      // check：内联 prd 块，指针 = plan + jsonl×2
-      check: { filesInlined: 1, filesPointed: 3, truncated: 0 },
+      // developer：不内联任何 artifact（prd 走软指针），指针 = prd 软指针 + plan + jsonl×2
+      developer: { filesInlined: 0, filesPointed: 4, truncated: 0 },
+      // checker：内联 prd 块，指针 = plan + jsonl×2
+      checker: { filesInlined: 1, filesPointed: 3, truncated: 0 },
     }
-    for (const kind of ['implement', 'check']) {
-      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+    for (const value of ['developer', 'checker']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, value))
       assert.equal(err, null)
       const text = result.text
       // 指针清单段带标题（首行固定为 plan.md 纯指针行，后接 jsonl 条目）
@@ -211,7 +204,7 @@ test('S1 jsonl 纯指针：implement/check 注入只含「路径 + reason」指�
       assert.ok(!text.includes('--- packages/a.js ---'))
       // seed _example 行被跳过，不产生指针行
       assert.ok(!text.includes('seed line'))
-      assert.deepEqual(result.stats, expected[kind])
+      assert.deepEqual(result.stats, expected[value])
     }
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -256,7 +249,7 @@ test('S2 artifacts 提取：check/research 物化 prd 全文节块；plan.md 仅
       ].join('\n'),
     )
     // check：Requirements/Acceptance 两节全文保留，其余节标题指针（prd 块职责必需）
-    const [checkErr, checkResult] = buildExecutorPrompt(baseParams(root, 'check'))
+    const [checkErr, checkResult] = buildExecutorPrompt(baseParams(root, 'checker'))
     assert.equal(checkErr, null)
     const checkText = checkResult.text
     assert.ok(checkText.includes('## Requirements'))
@@ -273,7 +266,7 @@ test('S2 artifacts 提取：check/research 物化 prd 全文节块；plan.md 仅
     assert.ok(!checkText.includes('Read the full document in the file.'))
     assert.ok(checkText.endsWith('STUB-AUTHORITY'))
     // implement：prd 不再全文内联（软指针独立一行），plan.md 同为纯指针行
-    const [implErr, implResult] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [implErr, implResult] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(implErr, null)
     const implText = implResult.text
     assert.ok(!implText.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
@@ -304,7 +297,7 @@ test('jsonl 纯指针：指针行不受文件/总量预算影响（无截断、�
     )
     writeRootFile(root, 'a.txt', 'x'.repeat(500))
     writeRootFile(root, 'b.txt', 'y'.repeat(500))
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(err, null)
     const text = result.text
     // 全部转指针行：无全文、无截断提示、无 [indexed] 降级、无逐行读后判后缀
@@ -326,7 +319,7 @@ test('research 只内联 prd，无 jsonl 引用行', () => {
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     // 不建 plan.md 与 jsonl，验证 research 不读 jsonl、缺失 artifact 跳过
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'researcher'))
     assert.equal(err, null)
     const text = result.text
     assert.ok(text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
@@ -344,18 +337,24 @@ test('research 只内联 prd，无 jsonl 引用行', () => {
   }
 })
 
-test('kind/effort 非法报错，undefined 放行', () => {
+test('role/effort 非法报错，undefined 放行，旧 kind 值拒绝（写侧已收严）', () => {
   assert.throws(() => assertEffort('ultra'), /invalid effort/)
-  assert.throws(() => assertKind('bogus'), /invalid kind/)
+  assert.throws(() => assertRole('bogus'), /invalid role/)
   assert.doesNotThrow(() => assertEffort(undefined))
   assert.doesNotThrow(() => assertEffort('xhigh'))
-  assert.doesNotThrow(() => assertKind('check'))
+  assert.doesNotThrow(() => assertRole('checker'))
+  // 收严后旧 kind 值一律拒绝（五值逐一断言，报错文案列新值域）。
+  for (const legacy of ['research', 'implement', 'check', 'frontend', 'review']) {
+    assert.throws(() => assertRole(legacy), /invalid role/, `legacy ${legacy} must be rejected`)
+  }
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     const [err, result] = buildExecutorPrompt(baseParams(root, 'bogus'))
     assert.ok(err instanceof Error)
-    assert.match(err.message, /invalid kind/)
+    assert.match(err.message, /invalid role/)
+    // 报错文案列新值域（researcher/developer/frontend-developer/checker/judger）。
+    assert.match(err.message, /researcher\/developer\/frontend-developer\/checker\/judger/)
     assert.equal(result, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -368,7 +367,7 @@ test('jsonl 坏行报错（fail loud，带文件名与行号）', () => {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     writeTaskFile(root, 'implement.jsonl', '{"file": "ok.txt"}\n{not json\n')
     writeRootFile(root, 'ok.txt', 'ok')
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.ok(err instanceof Error)
     assert.match(err.message, /failed to parse implement\.jsonl line 2/)
     assert.equal(result, null)
@@ -381,7 +380,7 @@ test('越界路径条目被跳过且防逃逸', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'implement.jsonl', '{"file": "../secret.txt", "reason": "escape"}\n')
-    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(err, null)
     assert.doesNotMatch(built.text, /secret/)
     assert.equal(built.stats.filesPointed, 0)
@@ -394,7 +393,7 @@ test('引用文件缺失时跳过指针行（不指向空）', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'implement.jsonl', '{"file": "missing.txt", "reason": "gone"}\n')
-    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(err, null)
     assert.ok(!built.text.includes('missing.txt'))
     assert.equal(built.stats.filesPointed, 0)
@@ -412,7 +411,7 @@ test('目录条目转指针行（与文件同口径，无逐行读后判后缀�
       '{"file": "sub", "type": "directory", "reason": "dir"}\n',
     )
     mkdirSync(join(root, 'sub'), { recursive: true })
-    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(err, null)
     assert.ok(built.text.includes('- sub (dir)\n'))
     assert.ok(!built.text.includes('read before acting'))
@@ -427,7 +426,7 @@ test('无 file 且非 _example 的行报错', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'implement.jsonl', '{"foo": 1}\n')
-    const [err, built] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, built] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.ok(err)
     assert.match(err.message, /no file field/)
     assert.equal(built, null)
@@ -443,7 +442,7 @@ test('localDirectives 传入：文本注入于 Task prompt 之前、终极权威
     const [err, result] = buildExecutorPrompt({
       root,
       taskRelPath: TASK_REL_PATH,
-      kind: 'implement',
+      role: 'developer',
       userPrompt: 'Do the thing',
       contractSection: CONTRACT_SECTION_STUB,
       localDirectives: 'Always use the LSP tools.\nRun lsp_diagnostics at the end.',
@@ -476,7 +475,7 @@ test('localDirectives 未传/空串：不插入且输出（除 marker 行外）�
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    const base = baseParams(root, 'check')
+    const base = baseParams(root, 'checker')
     const [plainErr, plain] = buildExecutorPrompt(base)
     const [emptyErr, empty] = buildExecutorPrompt({ ...base, localDirectives: '' })
     assert.equal(plainErr, null)
@@ -498,7 +497,7 @@ test('userPrompt 已含 ## Local directives 时不重复注入', () => {
     const [err, result] = buildExecutorPrompt({
       root,
       taskRelPath: TASK_REL_PATH,
-      kind: 'implement',
+      role: 'developer',
       userPrompt: '## Local directives\nUse my own local rules.',
       localDirectives: 'extra rules',
     })
@@ -529,7 +528,7 @@ test('research 产物指针化：research/*.md 只给路径不内联正文，位
       'research/b.md',
       '# B 材料\n\n## 节二\n\n- `b.go:2` 锚点\nRESEARCH_BODY_B\n',
     )
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(err, null)
     const text = result.text
     assert.ok(text.includes(RESEARCH_MATERIALS_HEADING))
@@ -566,7 +565,7 @@ test('research 多文件按文件名排序输出指针行（无截断/无预算�
       'research/b.md',
       '# B 大文件\n\nRESEARCH_BODY_B\n' + 'y'.repeat(30000) + '\n',
     )
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(err, null)
     const text = result.text
     // 指针行按文件名排序，正文/截断标注/读后判后缀均不出现
@@ -583,12 +582,12 @@ test('research 多文件按文件名排序输出指针行（无截断/无预算�
   }
 })
 
-test('research kind 注入 research 材料段与 prd 块，且全 kind 无 Involved files 段', () => {
+test('researcher 注入 research 材料段与 prd 块，且全角色无 Involved files 段', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
     writeTaskFile(root, 'research/facts.md', '# 材料\n\n## 节\n\n- `pkg/a.js:1` 锚点\n')
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'research'))
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'researcher'))
     assert.equal(err, null)
     const text = result.text
     // 材料段在 prd 块之后、Task prompt 之前；锚点上下文包不再产生 Involved files 段
@@ -610,7 +609,7 @@ test('无 research 产物：不注入 research 段与 Involved files 段，统�
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    const [err, result] = buildExecutorPrompt(baseParams(root, 'implement'))
+    const [err, result] = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(err, null)
     const text = result.text
     assert.ok(!text.includes(RESEARCH_MATERIALS_HEADING))
@@ -634,7 +633,7 @@ test('无 research 产物：不注入 research 段与 Involved files 段，统�
   }
 })
 
-test('Involved files 段全 kind 删除：research 锚点上下文包不再注入清单段（userPrompt 关键词无关）', () => {
+test('Involved files 段全角色删除：researcher 锚点上下文包不再注入清单段（userPrompt 关键词无关）', () => {
   const root = makeProject()
   try {
     writeTaskFile(
@@ -650,7 +649,7 @@ test('Involved files 段全 kind 删除：research 锚点上下文包不再注�
         '',
       ].join('\n'),
     )
-    for (const kind of ['research', 'implement', 'check', 'frontend']) {
+    for (const role of ['researcher', 'developer', 'checker', 'frontend-developer']) {
       for (const userPrompt of [
         'Do the thing',
         '涉及文件：a.js、b.js',
@@ -660,17 +659,17 @@ test('Involved files 段全 kind 删除：research 锚点上下文包不再注�
         const [err, result] = buildExecutorPrompt({
           root,
           taskRelPath: TASK_REL_PATH,
-          kind,
+          role,
           userPrompt,
         })
         assert.equal(err, null)
         assert.ok(
           !result.text.includes(FILES_LIST_HEADING),
-          `${kind} must not inject the Involved files section`,
+          `${role} must not inject the Involved files section`,
         )
         assert.ok(
           !result.text.includes('packages/core/src/domain/executor-context.js'),
-          `${kind} must not leak the anchor file list`,
+          `${role} must not leak the anchor file list`,
         )
       }
     }
@@ -686,18 +685,18 @@ test('S5 护栏：注入含唯一 marker token（两次派发不同）', () => {
     writeTaskFile(root, 'plan.md', '# Plan\n')
     writeTaskFile(root, 'implement.jsonl', '{"file": "packages/a.js", "reason": "spec"}\n')
     writeRootFile(root, 'packages/a.js', 'const a = 1\n')
-    for (const kind of ['research', 'implement', 'check', 'frontend', 'review']) {
-      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+    for (const role of ['researcher', 'developer', 'checker', 'frontend-developer', 'judger']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, role))
       assert.equal(err, null)
             // 注入含唯一 marker token（随派发注入，证明注入到达）
       assert.ok(
         extractMarkerToken(result.text) !== null,
-        `${kind} injection must carry the unique marker token`,
+        `${role} injection must carry the unique marker token`,
       )
     }
     // 同任务两次派发 token 不同（单次注入标记回声机制）
-    const first = buildExecutorPrompt(baseParams(root, 'implement'))
-    const second = buildExecutorPrompt(baseParams(root, 'implement'))
+    const first = buildExecutorPrompt(baseParams(root, 'developer'))
+    const second = buildExecutorPrompt(baseParams(root, 'developer'))
     assert.equal(first[0], null)
     assert.equal(second[0], null)
     assert.notEqual(
@@ -709,7 +708,7 @@ test('S5 护栏：注入含唯一 marker token（两次派发不同）', () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
-test('段落白名单与顺序：五种 kind 按 prd Requirements 1 组装，Task prompt 在 Local directives 之后、contract 恒末段', () => {
+test('段落白名单与顺序：五角色按 prd Requirements 1 组装，Task prompt 在 Local directives 之后、contract 恒末段', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
@@ -718,59 +717,59 @@ test('段落白名单与顺序：五种 kind 按 prd Requirements 1 组装，Tas
       assert.ok(at !== -1, `missing section: ${needle}`)
       return at
     }
-    for (const kind of ['research', 'implement', 'check', 'frontend', 'review']) {
+    for (const role of ['researcher', 'developer', 'checker', 'frontend-developer', 'judger']) {
       const [err, result] = buildExecutorPrompt({
-        ...baseParams(root, kind),
+        ...baseParams(root, role),
         localDirectives: 'LOCAL_FRAGMENT',
       })
       assert.equal(err, null)
       const text = result.text
       // 公共段：任务标注 + 注入 marker 首行
-      assert.ok(text.startsWith(`Active task: ${TASK_REL_PATH}\nInjection marker: `), kind)
+      assert.ok(text.startsWith(`Active task: ${TASK_REL_PATH}\nInjection marker: `), role)
       const materialsAt = marker(text, RESEARCH_MATERIALS_HEADING)
       const localAt = marker(text, LOCAL_DIRECTIVES_HEADING)
       const taskAt = marker(text, '## Task prompt')
       const contractAt = marker(text, '## Executor contract')
       // 顺序：materials < Local directives < Task prompt < Executor contract（contract 恒末段）
-      assert.ok(materialsAt < localAt && localAt < taskAt && taskAt < contractAt, kind)
-      assert.ok(text.endsWith('STUB-AUTHORITY'), kind)
-      // 全 kind 无 Involved files 段
-      assert.ok(!text.includes(FILES_LIST_HEADING), kind)
+      assert.ok(materialsAt < localAt && localAt < taskAt && taskAt < contractAt, role)
+      assert.ok(text.endsWith('STUB-AUTHORITY'), role)
+      // 全角色无 Involved files 段
+      assert.ok(!text.includes(FILES_LIST_HEADING), role)
       // 指针行无逐行「read before acting」后缀
-      assert.ok(!text.includes('read before acting'), kind)
+      assert.ok(!text.includes('read before acting'), role)
       // 分层加载协议断言随纪律文本迁 dsh discipline-text.test.ts；组装侧只要求
       // contract 节由调用方注入并整段收尾（stub 节恒末段已由上方断言覆盖）
       const prdBlockAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
       const pointerAt = text.indexOf(POINTER_LIST_HEADING)
       const softAt = text.indexOf(PRD_SOFT_POINTER_LINE)
-      if (kind === 'check' || kind === 'research' || kind === 'review') {
+      if (role === 'checker' || role === 'researcher' || role === 'judger') {
         // prd 块物化（check/research/review），位于 pointer list（research 无此段）之前
-        assert.ok(prdBlockAt !== -1 && prdBlockAt < materialsAt, kind)
-        assert.ok(text.includes('REQ_BODY_MARKER'), kind)
+        assert.ok(prdBlockAt !== -1 && prdBlockAt < materialsAt, role)
+        assert.ok(text.includes('REQ_BODY_MARKER'), role)
       } else {
-        assert.equal(prdBlockAt, -1, `${kind} must not inline the prd block`)
-        assert.ok(!text.includes('REQ_BODY_MARKER'), kind)
+        assert.equal(prdBlockAt, -1, `${role} must not inline the prd block`)
+        assert.ok(!text.includes('REQ_BODY_MARKER'), role)
         // prd 软指针独立一行无标题，位于 Research materials 之后、Local directives 之前
-        assert.ok(softAt !== -1 && materialsAt < softAt && softAt < localAt, kind)
+        assert.ok(softAt !== -1 && materialsAt < softAt && softAt < localAt, role)
       }
-      if (kind === 'research') {
+      if (role === 'researcher') {
         assert.equal(pointerAt, -1, 'research has no pointer list section')
         assert.equal(softAt, -1, 'research has no prd soft pointer')
       } else {
         // Pointer list：首行固定 plan.md 纯指针行，后接 jsonl 条目
-        assert.ok(pointerAt !== -1 && pointerAt > prdBlockAt && pointerAt < materialsAt, kind)
+        assert.ok(pointerAt !== -1 && pointerAt > prdBlockAt && pointerAt < materialsAt, role)
         const pointerBlock = text.slice(pointerAt, materialsAt)
         const lines = pointerBlock.split('\n').filter((line) => line.startsWith('- '))
         assert.deepEqual(
           lines.slice(0, 2),
           ['- .workloom/tasks/08-24-demo/plan.md', '- packages/a.js (spec)'],
-          `${kind} pointer list must lead with plan.md then jsonl entries`,
+          `${role} pointer list must lead with plan.md then jsonl entries`,
         )
       }
       // H2 目录预览全灭：plan.md 正文与标题均不进注入
-      assert.ok(!text.includes('## 决策') && !text.includes('DESIGN_BODY_MARKER'), kind)
-      assert.ok(!text.includes('## 步骤') && !text.includes('IMPL_BODY_MARKER'), kind)
-      assert.ok(!text.includes('NOTES_BODY_MARKER'), kind)
+      assert.ok(!text.includes('## 决策') && !text.includes('DESIGN_BODY_MARKER'), role)
+      assert.ok(!text.includes('## 步骤') && !text.includes('IMPL_BODY_MARKER'), role)
+      assert.ok(!text.includes('NOTES_BODY_MARKER'), role)
     }
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -781,10 +780,10 @@ test('prd 软指针行缺失保护：prd.md 不存在时 implement/frontend 不�
   const root = makeProject()
   try {
     writeTaskFile(root, 'plan.md', '# Plan\n')
-    for (const kind of ['implement', 'frontend']) {
-      const [err, result] = buildExecutorPrompt(baseParams(root, kind))
+    for (const role of ['developer', 'frontend-developer']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, role))
       assert.equal(err, null)
-      assert.ok(!result.text.includes('consult .workloom/'), `${kind} must omit the soft pointer`)
+      assert.ok(!result.text.includes('consult .workloom/'), `${role} must omit the soft pointer`)
       assert.deepEqual(result.stats, { filesInlined: 0, filesPointed: 1, truncated: 0 })
     }
   } finally {
@@ -804,7 +803,7 @@ test('S2 worktree 注入：worktree_path 非空 → ## Worktree 段（绝对路�
       base_branch: 'main',
     })
     const [err, result] = buildExecutorPrompt({
-      ...baseParams(root, 'implement'),
+      ...baseParams(root, 'developer'),
       localDirectives: 'LOCAL_FRAGMENT',
     })
     assert.equal(err, null)
@@ -860,19 +859,19 @@ test('S2 worktree 零 diff：worktree_path 空串 / task.json 损坏（readTask 
       base_branch: 'main',
     })
     writeTaskFile(roots.broken, 'task.json', '{ this is not valid json')
-    for (const kind of ['research', 'implement', 'check', 'frontend']) {
-      const [baseErr, baseResult] = buildExecutorPrompt(baseParams(roots.baseline, kind))
+    for (const role of ['researcher', 'developer', 'checker', 'frontend-developer']) {
+      const [baseErr, baseResult] = buildExecutorPrompt(baseParams(roots.baseline, role))
       assert.equal(baseErr, null)
       for (const name of ['empty', 'broken']) {
-        const [err, result] = buildExecutorPrompt(baseParams(roots[name], kind))
-        assert.equal(err, null, `${name}/${kind} must not fail (silent degrade)`)
-        assert.ok(!result.text.includes('## Worktree'), `${name}/${kind} must not inject worktree`)
+        const [err, result] = buildExecutorPrompt(baseParams(roots[name], role))
+        assert.equal(err, null, `${name}/${role} must not fail (silent degrade)`)
+        assert.ok(!result.text.includes('## Worktree'), `${name}/${role} must not inject worktree`)
         assert.equal(
           normalizeMarker(result.text),
           normalizeMarker(baseResult.text),
-          `${name}/${kind} must be byte-identical to the baseline`,
+          `${name}/${role} must be byte-identical to the baseline`,
         )
-        assert.deepEqual(result.stats, baseResult.stats, `${name}/${kind} stats unchanged`)
+        assert.deepEqual(result.stats, baseResult.stats, `${name}/${role} stats unchanged`)
       }
     }
   } finally {
@@ -889,7 +888,7 @@ test('CASE 注入顺序与 purpose：CASE 位于 prd 之后、模板之前，模
     writeTaskFile(root, 'case.md', 'CASE_BODY_MARKER\n')
     writeCaseTask(root, 'CASE_BODY_MARKER\n')
     const [err, result] = buildExecutorPrompt({
-      ...baseParams(root, 'check'),
+      ...baseParams(root, 'checker'),
       purpose: 'case-design',
       caseTemplates: [
         { path: 'packages/core/resources/templates/case.md', content: 'TEMPLATE_CASE_MARKER' },
@@ -909,9 +908,9 @@ test('CASE 注入顺序与 purpose：CASE 位于 prd 之后、模板之前，模
     assert.ok(caseAt < templateCaseAt && templateCaseAt < templateResultAt, '模板必须位于 CASE 之后且按序')
     assert.ok(templateResultAt < pointerAt, '模板必须位于 Pointer list 之前')
     assert.ok(text.includes('CASE_BODY_MARKER') && text.includes('TEMPLATE_CASE_MARKER'), '全文注入')
-    // 非 check kind 不注入 CASE 与模板
+    // 非 checker 角色不注入 CASE 与模板
     const [, implement] = buildExecutorPrompt({
-      ...baseParams(root, 'implement'),
+      ...baseParams(root, 'developer'),
       purpose: 'case-design',
       caseTemplates: [{ path: 't.md', content: 'TEMPLATE_CASE_MARKER' }],
     })
@@ -929,7 +928,7 @@ test('CASE 超预算直接抛错，不做静默截断', () => {
     writeCaseTask(root, 'X'.repeat(64))
     writeConfig(root, { context_injection: { max_artifact_bytes: 8 } })
     // core 层预算失败走元组 err（DSH/Pi 的 buildFullInjection 包装层再抛错）。
-    const [err] = buildExecutorPrompt({ ...baseParams(root, 'check'), purpose: 'case-design' })
+    const [err] = buildExecutorPrompt({ ...baseParams(root, 'checker'), purpose: 'case-design' })
     assert.ok(err)
     assert.match(err.message, /exceeding maxArtifactBytes=8/)
   } finally {
@@ -958,12 +957,12 @@ test('增量续用只追加本轮执行指令，execution 缺设计会话先拒�
     }))
     // execution 前置：required=true 且 designSession 缺失 → 拒绝且不发增量
     assert.throws(
-      () => buildExecutorIncrementalPrompt({ ...baseParams(root, 'check'), purpose: 'execution' }),
+      () => buildExecutorIncrementalPrompt({ ...baseParams(root, 'checker'), purpose: 'execution' }),
       /CASE execution rejected: case\.designSession is missing/,
     )
     // 设计轮无执行前置，增量原文返回
     assert.equal(
-      buildExecutorIncrementalPrompt({ ...baseParams(root, 'check'), purpose: 'case-design' }),
+      buildExecutorIncrementalPrompt({ ...baseParams(root, 'checker'), purpose: 'case-design' }),
       'Do the thing',
     )
     // 记录 designSession 后 execution 放行：增量只含本轮指令，不追加哈希文本
@@ -981,14 +980,14 @@ test('增量续用只追加本轮执行指令，execution 缺设计会话先拒�
       hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
     }))
     const incremental = buildExecutorIncrementalPrompt({
-      ...baseParams(root, 'check'),
+      ...baseParams(root, 'checker'),
       purpose: 'execution',
     })
     assert.equal(incremental, 'Do the thing')
     assert.ok(!incremental.includes('Confirmed CASE hash'), '增量不得再追加确认哈希行')
-    // 非 check kind：增量原文返回，不做 CASE 校验
+    // 非 checker 角色：增量原文返回，不做 CASE 校验
     assert.equal(
-      buildExecutorIncrementalPrompt({ ...baseParams(root, 'implement'), purpose: 'execution' }),
+      buildExecutorIncrementalPrompt({ ...baseParams(root, 'developer'), purpose: 'execution' }),
       'Do the thing',
     )
   } finally {

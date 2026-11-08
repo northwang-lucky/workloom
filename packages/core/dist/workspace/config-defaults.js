@@ -27,7 +27,6 @@ export const DEFAULT_CONFIG = {
         afterArchive: [],
     },
     packages: {},
-    subagents: {},
     executor: { maxConcurrent: 0 },
     worktree: {
         enabled: true,
@@ -36,8 +35,8 @@ export const DEFAULT_CONFIG = {
     },
     subagentProfiles: [],
 };
-/** resolveSubagentDefaults 的 kind 层并发上限兜底缺省（未配置时 3）。 */
-export const DEFAULT_KIND_MAX_CONCURRENT = 3;
+/** resolveSubagentDefaults 的角色层并发上限兜底缺省（未配置时 3）。 */
+export const DEFAULT_ROLE_MAX_CONCURRENT = 3;
 /** worktree 清理模式全集（cleanup 字段白名单）。 */
 const WORKTREE_CLEANUP_MODES = Object.freeze([
     'merge-keep-branch',

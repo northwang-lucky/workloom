@@ -16,7 +16,7 @@ import {
 } from '../src/task/case-gates.ts'
 import { inspectPlanDoc } from '../src/task/prd-structure.ts'
 import { archiveTask, checkTask } from '../src/task/task-ops.ts'
-import { evaluateGuard, readTaskView, toTaskView } from '../src/task/state-machine.ts'
+import { evaluateGuard, readTaskView, toTaskView } from '../src/task/state/index.ts'
 import { executeTaskCase } from '../src/task/doc-review.ts'
 
 const REL = 'tasks/demo'
@@ -256,7 +256,7 @@ function makeTask() {
     mode: 'full',
     case: caseRecord,
     children: [],
-    dispatches: [{ kind: 'check', childId: 'child-design', purpose: 'case-design' }],
+    dispatches: [{ kind: 'checker', childId: 'child-design', purpose: 'case-design' }],
     worktree_path: '',
     overrides: [],
     hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
@@ -395,7 +395,7 @@ test('RESULT 会话链校验保留，结果哈希关联与结果状态记录删�
     const options = { changedFiles: ['src/a.js', 'docs/guide.md'] }
     // 会话链校验保留：checkSession 必须等于 designSession 或经 fallbackOf 可达
     assert.ok(evaluateCaseOutcomeGate(root, REL, task, options).some((item) => item.code === 'result_session'))
-    task.dispatches.push({ kind: 'check', childId: 'child-exec', fallbackOf: 'child-design', purpose: 'execution' })
+    task.dispatches.push({ kind: 'checker', childId: 'child-exec', fallbackOf: 'child-design', purpose: 'execution' })
     assert.deepEqual(evaluateCaseOutcomeGate(root, REL, task, options), [])
     // RESULT 与 CASE 文档在执行后被修改：不再有哈希关联校验，仍按结构校验判定
     writeFileSync(join(taskDir, CASE_FILES.result), `${resultContent}\n`)

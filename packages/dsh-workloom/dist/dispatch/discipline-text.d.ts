@@ -1,5 +1,5 @@
 /**
- * dsh-workloom executor 的 runtime 纪律文本（TypeScript）：五种 kind 的纪律段正文、
+ * dsh-workloom executor 的 runtime 纪律文本（TypeScript）：五角色的纪律段正文、
  * 共用纪律句与终极权威段组装。
  *
  * 设计意图：
@@ -10,22 +10,21 @@
  *   交付时过滤（hasLsp=false 剔除 LSP 基线句）在本模块完成；
  * - 纯文本组装，无副作用、无 IO。
  */
-/** 注入标记行前缀（行内 token 唯一标识一次派发注入，随指针清单注入）。 */
 /**
- * 按 kind 的执行器纪律段正文（硬指令，单一来源；并入注入文本末尾的终极权威段
- * `### <Kind> executor directives` 子段）。去重只看 leaf 关键词且仅豁免 leaf
- * 规则行——纪律段与权威声明始终注入。键为 kind 字符串。
+ * 按角色的执行器纪律段正文（硬指令，单一来源；并入注入文本末尾的终极权威段
+ * `### <RoleLabel> executor directives` 子段）。去重只看 leaf 关键词且仅豁免 leaf
+ * 规则行——纪律段与权威声明始终注入。键为角色字符串（新五值值域）。
  */
-export declare const EXECUTOR_CONTRACT_BY_KIND: Record<string, string>;
+export declare const EXECUTOR_CONTRACT_BY_ROLE: Record<string, string>;
 /**
- * 组装终极权威段（注入文本末尾，所有 kind 一致生效）：`## Executor contract` 标题 +
- * kind 纪律段（`### <Kind> executor directives` 子标题 + 正文）+ 无用户通道纪律句 +
+ * 组装终极权威段（注入文本末尾，所有角色一致生效）：`## Executor contract` 标题 +
+ * 角色纪律段（`### <RoleLabel> executor directives` 子标题 + 正文）+ 无用户通道纪律句 +
  * leaf 规则 + 权威声明；去重仅豁免 leaf 规则行（userPrompt 已含 leaf 关键词时
- * 不重复追加该行）——kind 纪律段与权威声明始终注入：即使主会话用户指令自带
+ * 不重复追加该行）——角色纪律段与权威声明始终注入：即使主会话用户指令自带
  * 旧版契约/只读审查约束，权威兜底也不因去重分支丢失。
- * @param kind executor 类型
+ * @param role executor 角色
  * @param hasLsp 目标环境是否具备 LSP 工具面（undefined 视为有）
  * @param userPrompt 用户任务正文（leaf 关键词去重判定用）
  * @returns 契约节整段文本
  */
-export declare function buildExecutorContractSection(kind: string, hasLsp: boolean | undefined, userPrompt: string): string;
+export declare function buildExecutorContractSection(role: string, hasLsp: boolean | undefined, userPrompt: string): string;

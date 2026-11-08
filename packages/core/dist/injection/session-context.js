@@ -13,8 +13,10 @@
  */
 import { join } from 'node:path';
 import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from "../workspace/git-query.js";
-import { listTasks, TaskStatus } from "../task/task-storage.js";
-import { MODES, readTaskView, resolveActiveTask, toTaskView } from "../task/state-machine.js";
+import { EXECUTOR_ROLES, tryNormalizeExecutorRole } from "../dispatch/executor-roles.js";
+import { resolveSubagentDefaults } from "../workspace/config-subagent.js";
+import { listTasks, TaskStatus } from "../task/storage/index.js";
+import { MODES, toTaskView } from "../task/state/index.js";
 import { loadConfig } from "../workspace/config-load.js";
 import { collectSpecIndexes } from './spec-index.js';
 /** 错误消息前缀（运行时文案英文）。 */
@@ -98,15 +100,21 @@ export function assembleSessionContext(params) {
  * @returns 快照文本
  */
 function assembleInternal(params) {
-    const config = loadConfigSafely(params.root);
+    // 配置单点：adapter 已注入时直接消费（含显式 null = 加载失败降级），
+    // 缺省时内部尽力加载（直连调用方兼容）。
+    const config = params.config !== undefined ? params.config : loadConfigSafely(params.root);
     const depth = params.delegationDepth ?? 0;
+    // 活跃任务只走单一解析链（调用方回合缓存的 resolveTurnTask 产物）；
+    // 缺省/null 视同无活跃任务，本入口不再自解析指针（回退直读通道已退役）。
     const active = params.turnTask != null
         ? activeTaskContextFromRecord(params.turnTask)
-        : activeTaskContext(params);
+        : { line: NO_ACTIVE_TASK_LINE, task: null };
     const lines = [];
     lines.push(active.line);
     if (depth === 0) {
-        lines.push(...candidateTaskLines(params.root, active.task), ...lastDispatchLines(active.task), gitLine(params.root), ...worktreeLines(params.root, active.task));
+        lines.push(...candidateTaskLines(params.root, active.task), ...lastDispatchLines(active.task), 
+        // 执行器画像节：Last dispatch 行后、Git 节前（历史形态实际线序）。
+        ...executorProfilesLines(config, params.mainModel), gitLine(params.root), ...worktreeLines(params.root, active.task));
         if (params.workflowSteps.length > 0) {
             const overview = params.workflowSteps
                 .map((step) => `${step.id} ${step.title}`)
@@ -174,24 +182,6 @@ function guidelinesLines(root, config) {
         lines.push(`${GUIDELINES_INDENT}(… ${spec.truncated} ${TRUNCATED_NOTICE})`);
     }
     return lines;
-}
-/**
- * 解析活跃任务（内部）：一次 readTask、同时产出 Active task 行与任务记录（供
- * Last dispatch 行消费）。无任务返回固定文案 + null；任务解析失败抛错（结构性故障）。
- * @param params 入参
- * @returns 活跃任务行与任务记录
- */
-function activeTaskContext(params) {
-    const [ptrErr, taskRelPath] = resolveActiveTask(params.root, params.contextKey);
-    if (ptrErr)
-        throw ptrErr;
-    if (taskRelPath === null)
-        return { line: NO_ACTIVE_TASK_LINE, task: null };
-    const [taskErr, task] = readTaskView(params.root, taskRelPath);
-    if (taskErr || task === null) {
-        throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`);
-    }
-    return activeTaskContextFromRecord(task);
 }
 /**
  * 从已解析的任务记录组装活跃任务行（单一解析链下游；零额外读盘）。
@@ -270,8 +260,9 @@ function candidateRank(status) {
 }
 /**
  * 组装 Last dispatch 行（内部）：活跃任务 dispatches 非空时取最新一条（append-only，
- * 末位即最新）展示 kind/status/时间（task.json 存储的 ISO 原文，确定性）/childId/
- * 错误；无任务、无记录或记录缺 kind/status 时输出空（不输出该行）。
+ * 末位即最新）展示角色（经兼容读归一，历史旧值显示为新角色）/status/时间
+ * （task.json 存储的 ISO 原文，确定性）/childId/错误；无任务、无记录、记录缺
+ * kind/status 或 kind 为畸形值时输出空（不输出该行，防御分支保留）。
  * @param task 活跃任务记录（无任务为 null）
  * @returns 派发行列表（空数组 = 不输出）
  */
@@ -288,7 +279,11 @@ function lastDispatchLines(task) {
         return [];
     if (typeof latest.status !== 'string' || latest.status.trim() === '')
         return [];
-    let line = `${LAST_DISPATCH_PREFIX}${latest.kind} ${latest.status} at ${latest.at}`;
+    // 显示前经兼容读归一（非抛错变体）：新旧值域均显示为新角色，畸形值防御跳过。
+    const role = tryNormalizeExecutorRole(latest.kind);
+    if (role === null)
+        return [];
+    let line = `${LAST_DISPATCH_PREFIX}${role} ${latest.status} at ${latest.at}`;
     if (typeof latest.childId === 'string' && latest.childId !== '') {
         line += ` (child ${latest.childId})`;
     }
@@ -297,6 +292,65 @@ function lastDispatchLines(task) {
         line += ` — ${latest.error}`;
     }
     return [line];
+}
+/** 画像节标题前缀（节头文案逐字沿历史实现）。 */
+const PROFILES_HEADER_PREFIX = 'Executor profiles (';
+/** 画像行缩进（与 guidelines 条目同宽）。 */
+const PROFILES_ROW_INDENT = '  ';
+/** 未配置角色行的固定文案（继承父会话模型语义；逐字沿历史实现）。 */
+const PROFILES_NOT_CONFIGURED_TEXT = 'not configured (inherits parent session model)';
+/**
+ * 组装执行器画像节（内部）：首行节头 + 五角色各一行（顺序 = EXECUTOR_ROLES
+ * 定义序）。每角色经 resolveSubagentDefaults 取生效 model/effort 与来源：
+ * 有配置行输出 model 与 effort 及来源标注（whenMain=<匹配值> 或 fallback），
+ * 无配置行输出 not configured（inherits parent session model）。
+ * 节头文案逐字沿历史实现：mainModel 在位时 `Executor profiles (main model
+ * <mainModel>):`，缺失时 `Executor profiles (main model unknown; whenMain
+ * entries skipped):`。config 为 null（加载失败）时整节降级不渲染（会话上下文
+ * 不因配置错误中断，WARNING 归加载侧）。
+ * @param config 配置对象（加载失败为 null）
+ * @param mainModel 主会话模型（缺省/null/空白 = 未知）
+ * @returns 画像节行列表（空数组 = 不渲染）
+ */
+function executorProfilesLines(config, mainModel) {
+    if (config === null)
+        return [];
+    const normalizedMain = typeof mainModel === 'string' && mainModel.trim() !== '' ? mainModel.trim() : null;
+    const header = normalizedMain === null
+        ? `${PROFILES_HEADER_PREFIX}main model unknown; whenMain entries skipped):`
+        : `${PROFILES_HEADER_PREFIX}main model ${normalizedMain}):`;
+    const lines = [header];
+    for (const role of Object.values(EXECUTOR_ROLES)) {
+        // overrides 恒为空对象：画像只展示配置层生效结果，不含工具调用参数覆盖。
+        const resolved = resolveSubagentDefaults(config, role, {}, normalizedMain ?? undefined);
+        lines.push(`${PROFILES_ROW_INDENT}${role}: ${profileRowValue(resolved)}`);
+    }
+    return lines;
+}
+/**
+ * 组装单个角色的画像行值段（内部）：model/effort 均未配置时输出继承文案；
+ * 有配置时按 model、effort、来源标注三段以 ' | ' 拼接（来源取字段级 config
+ * 来源，model 优先；whenMain 带匹配值）。
+ * @param resolved resolveSubagentDefaults 产物
+ * @returns 行值段文本
+ */
+function profileRowValue(resolved) {
+    if (resolved.model === undefined && resolved.effort === undefined) {
+        return PROFILES_NOT_CONFIGURED_TEXT;
+    }
+    const parts = [];
+    if (resolved.model !== undefined)
+        parts.push(resolved.model);
+    if (resolved.effort !== undefined)
+        parts.push(`effort ${resolved.effort}`);
+    const mode = resolved.configSources.model ?? resolved.configSources.effort;
+    if (mode === 'whenMain') {
+        parts.push(`whenMain=${resolved.whenMainValue ?? resolved.model ?? resolved.effort}`);
+    }
+    else if (mode === 'fallback') {
+        parts.push('fallback');
+    }
+    return parts.join(' | ');
 }
 /**
  * 组装 git 行：分支读取失败或为空降级为 unknown；脏文件数读取失败按 0 处理（忽略）。

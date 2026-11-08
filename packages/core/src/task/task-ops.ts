@@ -7,7 +7,7 @@
  *   生命周期调用 → null 结果兜底报错），adapter 只负责从执行上下文提取
  *   cwd/contextKey 并投影返回值；② start/check/finish/archive 四个生命周期
  *   编排（守卫判断 + task-storage 物理写 + 指针联动 + hooks），状态迁移判断
- *   经 state-machine 的 migrateTask/evaluateTransition 单一入口；
+ *   经 task/state 的 migrateTask/evaluateTransition 单一入口；
  * - create 的入参过滤（空串 slug/priority/description 不传）照 DSH 现状；
  *   mode 三值（light/standard/parent，缺省 standard），会话指针绑定在本层
  *   （存储层不消费 contextKey）；
@@ -39,7 +39,7 @@ import {
   resolveActiveTask,
   setActiveTask,
   toTaskView,
-} from './state-machine.ts'
+} from './state/index.ts'
 import {
   TaskStatus,
   archiveRelPathOf,
@@ -53,16 +53,16 @@ import {
   writeTaskRecord,
   writeTaskRecordToDir,
   FILE_NAMES,
-} from './task-storage.ts'
+} from './storage/index.ts'
 import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_LIGHT_NOTE, TASK_CREATE_NOTE } from '../injection/surface.ts'
 
-import type { AutonomyValue, TaskModeValue, TaskView } from './state-machine.ts'
+import type { AutonomyValue, TaskModeValue, TaskView } from './state/index.ts'
 import type {
   TaskPriorityValue,
   TaskRecord,
   TaskStatusValue,
   TaskSummary,
-} from './task-storage.ts'
+} from './storage/index.ts'
 import type { CleanupTaskWorktreeResult } from '../workspace/worktree.d.ts'
 
 /** 生命周期错误消息前缀（旧 task-store 字面量，测试钉住）。 */

@@ -4,7 +4,7 @@
  * 设计意图：
  * - 把「校验项目根 → 加载配置 → 解析主契约 → 解析当前任务（mode/status）→
  *   light 时切换轻量契约 → 读 overlay（仅 full 轨）→ 组装指引」编排成单次调用，
- *   adapter 只需提供 root/contextKey/契约全文；
+ *   adapter 只需提供 root/契约全文（活跃任务经 turnTask 携带）；
  * - 轻量任务（task.json mode=light）使用独立的 workflow-light.md，状态文案与步骤
  *   整体切换；norms 恒出自主契约（单源，轻量契约不含 norms 块）；项目 overlay
  *   是 full 轨的项目定制通道，light 轨不叠加；
@@ -19,11 +19,11 @@ import { findWorkloomRoot, insideWorkloom } from '../workspace/locate.js'
 import { loadConfig } from '../workspace/config-load.ts'
 import { parseContract } from './workflow-contract.js'
 import { buildBreadcrumb, mergeOverlay, shouldSkipBreadcrumb } from './breadcrumb.js'
-import { MODES, readTaskView, resolveActiveTask, toTaskView } from '../task/state-machine.ts'
+import { MODES, toTaskView } from '../task/state/index.ts'
 
 import type { WorkflowContract, WorkflowStep } from './workflow-contract-types.ts'
-import type { TaskRecordWithPath, TaskStatusValue } from '../task/task-storage.ts'
-import type { TaskModeValue } from '../task/state-machine.ts'
+import type { TaskRecordWithPath, TaskStatusValue } from '../task/storage/index.ts'
+import type { TaskModeValue } from '../task/state/index.ts'
 
 /** 错误消息前缀（运行时文案英文）。 */
 const ERR_PREFIX = 'workloom workflow'
@@ -50,8 +50,6 @@ const TASK_STATUS_MAP: Readonly<Record<TaskStatusValue, string>> = Object.freeze
 export interface AssembleBreadcrumbParams {
   /** 项目根（或根下任意目录；需位于 .workloom 资产树内）。 */
   root: string
-  /** runtime 会话标识（adapter 组装，如 dsh_<session-id>）。 */
-  contextKey: string
   /** 工作流契约全文（来自 assets 包）。 */
   contractText: string
   /**
@@ -86,14 +84,14 @@ interface ActiveTaskState {
  */
 export interface AssembleBreadcrumbParams {
   root: string
-  contextKey: string
   contractText: string
   lightContractText?: string | null
   userPrompt?: string
   delegationDepth?: number
   /**
    * 本回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物）。
-   * 提供后本入口零次额外读盘；缺省时内部回退解析（兼容直连调用方）。
+   * 提供后本入口零次额外读盘；缺省/null 视同无活跃任务（回退直读通道已退役，
+   * 解析职责在调用方的回合缓存通道，本入口不再自解析指针）。
    */
   turnTask?: TaskRecordWithPath | null
 }
@@ -125,24 +123,22 @@ export function assembleBreadcrumbSync(
  * 恒自主契约。full 轨的 overlay 只改状态/步骤正文，不改 id/title，概览投影
  * 无需合并 overlay（也避免 overlay 错误拖垮上下文注入）。
  * @param root 项目根（或根下任意目录）
- * @param contextKey runtime 会话标识
  * @param contractText 主契约全文
  * @param lightContractText 轻量契约全文（活跃任务为 light 时必须提供）
  * @returns [err, projection]：失败时 err 非空
  */
 export function assembleWorkflowProjection(
   root: string,
-  contextKey: string,
   contractText: string,
   lightContractText: string | null | undefined,
   turnTask?: TaskRecordWithPath | null,
 ): [Error | null, WorkflowProjection | null] {
   try {
-    const projectRoot = requireWorkloomRoot(root)
+    // 根校验保留（无 .workloom 报 err）；回退直读退役后不再消费解析结果。
+    requireWorkloomRoot(root)
     const main = parseContractOrThrow(contractText, 'contract')
-    const active = turnTask != null
-      ? resolveActiveTaskStateFromRecord(turnTask)
-      : resolveActiveTaskState(projectRoot, contextKey)
+    // 活跃任务只走单一解析链；缺省/null 视同无活跃任务（回退直读通道已退役）。
+    const active = turnTask != null ? resolveActiveTaskStateFromRecord(turnTask) : null
     const effective =
       active?.mode === MODES.LIGHT ? parseLightContract(lightContractText) : main
     return [null, { steps: effective.steps, norms: main.norms }]
@@ -162,10 +158,9 @@ function assembleBreadcrumbInternal(params: AssembleBreadcrumbParams): string | 
   const projectRoot = requireWorkloomRoot(params.root)
   const config = loadConfig(projectRoot)
   const main = parseContractOrThrow(params.contractText, 'contract')
+  // 活跃任务只走单一解析链；缺省/null 视同无活跃任务（回退直读通道已退役）。
   const active =
-    params.turnTask != null
-      ? resolveActiveTaskStateFromRecord(params.turnTask)
-      : resolveActiveTaskState(projectRoot, params.contextKey)
+    params.turnTask != null ? resolveActiveTaskStateFromRecord(params.turnTask) : null
   const contractStatus = active?.contractStatus ?? CONTRACT_STATUS.NO_TASK
   let contract: WorkflowContract
   if (active?.mode === MODES.LIGHT) {
@@ -250,23 +245,6 @@ function mergeOverlayOrThrow(contract: WorkflowContract, overlayText: string): W
     throw err ?? new Error(`${ERR_PREFIX}: overlay merge returned no contract`)
   }
   return merged
-}
-
-/**
- * 解析当前会话任务的模式与契约状态；无任务返回 null（调用方映射 no_task）。
- * @param root 项目根
- * @param contextKey 会话标识
- * @returns 任务模式与契约状态；无活跃任务时为 null
- */
-function resolveActiveTaskState(root: string, contextKey: string): ActiveTaskState | null {
-  const [ptrErr, taskRelPath] = resolveActiveTask(root, contextKey)
-  if (ptrErr) throw ptrErr
-  if (taskRelPath === null) return null
-  const [taskErr, task] = readTaskView(root, taskRelPath)
-  if (taskErr || task === null) {
-    throw taskErr ?? new Error(`${ERR_PREFIX}: empty task record: ${taskRelPath}`)
-  }
-  return resolveActiveTaskStateFromRecord(task)
 }
 
 /**

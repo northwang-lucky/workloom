@@ -14,8 +14,8 @@
  *   无活跃任务处理（正常态）。
  */
 
-import { readTaskView, resolveActiveTask } from '../task/state-machine.ts'
-import type { TaskView } from '../task/state-machine.ts'
+import { readTaskView, resolveActiveTask } from '../task/state/index.ts'
+import type { TaskView } from '../task/state/index.ts'
 import { ERR_PREFIX } from './surface.ts'
 
 export { composeLocalDirectivesText } from './local-prompts.ts'

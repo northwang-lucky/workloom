@@ -11,7 +11,7 @@
  * - 注入失败只 console.warn，绝不阻塞会话（注入是增强，不是门禁）；
  * - 服务面全部使用宿主官方类型（Context 增强）：systemPrompt/agents/commands/
  *   tools/subagents/skills 由 inject 声明硬依赖，缺任一插件不激活；
- * - effort 经 startContinuable 的 agentOptions.reasoningEffort 原生通道透传
+ * - effort 经 startActivation 的 agentOptions.reasoningEffort 原生通道透传
  *   （0.1.7 起 DSH 原生消费并持久化），不再需要 agent/created 监听补丁。
  */
 
@@ -35,11 +35,14 @@ import {
   assertWorkflowProtocolVersion,
   composeLocalDirectivesText,
   findWorkloomRoot,
+  loadConfig,
   loadWorkflowContractText,
   loadWorkflowLightContractText,
   parseContract,
   WorkflowContractError,
 } from '@workloom-ai/core'
+import type { WorkloomConfig } from '@workloom-ai/core'
+import { readMainModel } from './dispatch/main-model.ts'
 
 import { registerCommands } from './tooling/commands.ts'
 import { registerExecutor } from './dispatch/executor.ts'
@@ -173,7 +176,6 @@ function renderBreadcrumb(target: InjectionTarget): string {
   const contextKey = `${CONTEXT_KEY_PREFIX}_${target.agent.id}`
   const [err, text] = assembleBreadcrumbSync({
     root: target.root,
-    contextKey,
     turnTask: getTurnTask(target, contextKey),
     contractText,
     lightContractText: loadWorkflowLightContractText(),
@@ -240,10 +242,8 @@ export function assembleSessionContextText(
   contractText: string,
   options: SessionContextBuildOptions = {},
 ): string {
-  const contextKey = `${CONTEXT_KEY_PREFIX}_${target.agent.id}`
   const [projectionErr, projection] = assembleWorkflowProjection(
     target.root,
-    contextKey,
     contractText,
     options.lightContractText ?? null,
     options.turnTask,
@@ -256,14 +256,28 @@ export function assembleSessionContextText(
     )
     return ''
   }
+  // 画像节数据源注入：config 加载失败只告警并传 null（画像节整节降级，
+  // 不阻塞会话快照）；mainModel 读会话 requestHeader 快照（whenMain 匹配用）。
+  let config: WorkloomConfig | null
+  try {
+    config = loadConfig(target.root)
+  } catch (error) {
+    console.warn(
+      `${CONTEXT_WARN_PREFIX} config load failed, executor profiles section skipped: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    )
+    config = null
+  }
   const [err, text] = assembleSessionContext({
     root: target.root,
-    contextKey,
     turnTask: options.turnTask,
     workflowSteps: projection.steps,
     norms: projection.norms,
     delegationDepth: options.delegationDepth ?? 0,
     localDirectives: options.localDirectives ?? '',
+    config,
+    mainModel: readMainModel(target.agent) ?? null,
   })
   if (err) {
     console.warn(`${CONTEXT_WARN_PREFIX} ${err.message}`)

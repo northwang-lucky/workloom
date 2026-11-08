@@ -1,5 +1,5 @@
 import type { CaseStructureIssue, CaseStructureOptions } from './case-structure.ts';
-import type { TaskRecord } from './task-storage.ts';
+import type { TaskRecord } from './storage/index.ts';
 /**
  * 最终执行前置：仅 required=true 的新流程任务受约束。
  * @param {string} root 项目根

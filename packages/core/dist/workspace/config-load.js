@@ -8,9 +8,10 @@
  * - 全局层仅消费项目无关字段（白名单校验）：subagent_profiles / session_auto_commit /
  *   prompt_injection / context_injection；packages / hooks 报"项目字段"专属错误，
  *   其余白名单外顶层字段报"全局配置不支持"；
- * - 遗留 subagents：接受 + 加载期一次性 deprecation WARNING（项目层同口径）；
+ * - 根层级 subagents 已退役（R5）：任一层出现即抛迁移指引错误（fail loud，
+ *   替代旧 deprecation WARNING 放行）；
  * - 解析失败显式抛错（fail loud），不静默回退，符合"无灰区"哲学；
- * - 结果挂载只读来源层字段 subagentProfilesSource / subagentsSource。
+ * - 结果挂载只读来源层字段 subagentProfilesSource。
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -18,7 +19,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BRANCH_TEMPLATE_PLACEHOLDERS, DEFAULT_CONFIG, WorkloomConfigError, assertPlaceholders, parsePackages, requireBoolean, requireMap, requireNonNegativeInt, requireString, requireStringList, requireWorktreeCleanup, } from "./config-defaults.js";
-import { parseSubagentProfiles, parseSubagents } from "./config-subagent.js";
+import { parseSubagentProfiles } from "./config-subagent.js";
 /** 项目层主配置文件名候选（按序探测，命中即唯一）。 */
 const MAIN_CONFIG_NAMES = Object.freeze(['config.json', 'config.js']);
 /** 本地配置文件名候选（同层与主配置并存 fail loud）。 */
@@ -38,16 +39,16 @@ const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree']);
 /**
  * 从项目根加载配置（三层流水线）：
  * 全局 $HOME/.workloom/config → 项目 .workloom/config → 本地 .workloom/config.local；
- * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；遗留 subagents WARNING。
- * 结果挂载只读来源层字段 subagentProfilesSource / subagentsSource（记录该 key 最后
- * 写入层；全程未出现时字段不定义、读取为 undefined）。
+ * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；根层级 subagents
+ * 已退役（出现即抛迁移指引错误）。结果挂载只读来源层字段 subagentProfilesSource
+ * （记录该 key 最后写入层；全程未出现时字段不定义、读取为 undefined）。
  * @param root 项目根目录
  * @param options 可选项：homeDir 覆盖全局层基准目录（测试/沙箱用，缺省取 os.homedir()）
  * @returns 合并默认后的配置对象（含来源层字段）
  */
 export function loadConfig(root, options = {}) {
     const homeDir = options.homeDir ?? homedir();
-    // 来源层跟踪器：subagent_profiles / subagents 顶层 key 各自「最后写入层」。
+    // 来源层跟踪器：subagent_profiles 顶层 key 的「最后写入层」。
     const provenance = {};
     // 全局层：缺失 = 零行为（base 保持 undefined）；白名单校验在层求值后执行。
     const globalFile = discoverConfigLayer(join(homeDir, '.workloom'), 'main');
@@ -174,10 +175,9 @@ function evaluateLayerDoc(file, base, provenance, layer) {
 /** 来源层跟踪的目标字段（配置顶层 key → WorkloomConfig 字段名）。 */
 const PROVENANCE_FIELDS = Object.freeze({
     subagent_profiles: 'subagentProfilesSource',
-    subagents: 'subagentsSource',
 });
 /**
- * 按层文档更新来源层跟踪（内部）：文档含 subagent_profiles/subagents 顶层 key 时
+ * 按层文档更新来源层跟踪（内部）：文档含 subagent_profiles 顶层 key 时
  * 记录该层为最后写入层（对象层传原始导出文档、工厂层传返回文档，与 design §1 一致，
  * 不逐条目打标）。纯同步、无副作用。
  * @param provenance 来源层跟踪器
@@ -198,7 +198,7 @@ function trackLayerProvenance(provenance, layer, doc) {
  * @param provenance 来源层跟踪器
  */
 function attachConfigProvenance(config, provenance) {
-    for (const field of ['subagentProfilesSource', 'subagentsSource']) {
+    for (const field of ['subagentProfilesSource']) {
         const layer = provenance[field];
         if (layer !== undefined) {
             Object.defineProperty(config, field, {
@@ -211,9 +211,16 @@ function attachConfigProvenance(config, provenance) {
     }
 }
 /**
+ * 根层级 subagents 退役错误（R5 单点构造：全局层与项目层同口径，文案给出
+ * 迁移目标 subagent_profiles）。
+ */
+function legacySubagentsError() {
+    return new WorkloomConfigError('subagents', 'is no longer supported; migrate to subagent_profiles');
+}
+/**
  * 全局层白名单校验（fail loud）：仅允许项目无关字段；packages/hooks 报项目专属
- * 错误；其余白名单外顶层字段报"全局配置不支持"。遗留 subagents 在此放行
- * （加载期 deprecation WARNING 在 mergeWithDefaults 统一处理）。
+ * 错误；根层级 subagents 报退役迁移错误（与 mergeWithDefaults 的项目层同口径）；
+ * 其余白名单外顶层字段报"全局配置不支持"。
  * @param doc 全局层文档
  */
 function applyGlobalWhitelist(doc) {
@@ -221,11 +228,12 @@ function applyGlobalWhitelist(doc) {
         if (GLOBAL_PROJECT_ONLY_FIELDS.has(key)) {
             throw new WorkloomConfigError('global config', `${key} is a project-level field; keep it in the project config, not in $HOME/.workloom`);
         }
-        if (!GLOBAL_ALLOWED_TOP_FIELDS.has(key) && key !== 'subagents') {
-            throw new WorkloomConfigError('global config', `unsupported global field "${key}" (allowed: ${[
-                ...GLOBAL_ALLOWED_TOP_FIELDS,
-                'subagents (deprecated)',
-            ].join(', ')})`);
+        // 根层级 subagents 已退役（R5）：全局层与项目层同口径，出现即抛迁移指引错误。
+        if (key === 'subagents') {
+            throw legacySubagentsError();
+        }
+        if (!GLOBAL_ALLOWED_TOP_FIELDS.has(key)) {
+            throw new WorkloomConfigError('global config', `unsupported global field "${key}" (allowed: ${[...GLOBAL_ALLOWED_TOP_FIELDS].join(', ')})`);
         }
     }
 }
@@ -236,9 +244,10 @@ function applyGlobalWhitelist(doc) {
  */
 function mergeWithDefaults(doc) {
     const config = structuredClone(DEFAULT_CONFIG);
-    // 遗留 subagents：接受 + 加载期一次性 deprecation WARNING（项目层同口径）。
+    // 根层级 subagents 已退役（R5）：出现即 fail loud 给迁移指引，不进入解析链
+    // （配置同时写根层级 subagents 与 subagent_profiles 时也先报本错误）。
     if (doc.subagents !== undefined) {
-        console.warn('workloom config: "subagents" is deprecated; use "subagent_profiles" instead');
+        throw legacySubagentsError();
     }
     if (doc.session_auto_commit !== undefined) {
         config.sessionAutoCommit = requireBoolean('session_auto_commit', doc.session_auto_commit);
@@ -270,9 +279,6 @@ function mergeWithDefaults(doc) {
     }
     if (doc.packages !== undefined) {
         config.packages = parsePackages(doc.packages);
-    }
-    if (doc.subagents !== undefined) {
-        config.subagents = parseSubagents(doc.subagents);
     }
     if (doc.subagent_profiles !== undefined) {
         config.subagentProfiles = parseSubagentProfiles(doc.subagent_profiles);

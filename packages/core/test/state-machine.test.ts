@@ -1,6 +1,6 @@
 /**
- * state-machine 模块单测（步骤 1）：五个冻结枚举、readTaskView 兼容读
- * （含归档样本与 parent 参数/兜底两路）与 TRANSITIONS 迁移表骨架。
+ * task/state 状态机单测：五个冻结枚举、readTaskView 兼容读（含归档样本与
+ * parent 参数/兜底两路）与 TRANSITIONS 迁移表骨架。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -17,7 +17,7 @@ import {
   STAGES,
   TRANSITIONS,
   readTaskView,
-} from '../src/task/state-machine.ts'
+} from '../src/task/state/index.ts'
 
 // 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config；重定向 HOME 与 TMPDIR
 // 到隔离目录，防止本机真实配置泄漏进单测（与 task-store.test.ts 同口径）。
@@ -442,8 +442,8 @@ import {
   migrateTask,
   recordCasePhase,
   recordPlanReview,
-} from '../src/task/state-machine.ts'
-import { createTask, writeTaskRecord, requireTaskRecord } from '../src/task/task-storage.ts'
+} from '../src/task/state/index.ts'
+import { createTask, writeTaskRecord, requireTaskRecord } from '../src/task/storage/index.ts'
 
 /** 创建任务并把 task.json 手改为指定状态/阶段（守卫序列夹具）。 */
 async function makeTaskAt(root, overrides, title = 'Guard Probe') {
@@ -777,7 +777,7 @@ test('守卫单查口：evaluateGuard 的 light-dispatch 拒绝文案与旧审�
 
 /* ---------------- 步骤 4：旧门禁求值用例改写为守卫用例 ---------------- */
 
-import { toTaskView } from '../src/task/state-machine.ts'
+import { toTaskView } from '../src/task/state/index.ts'
 
 /** 一份已收敛的最小 prd（H1 + 十一小节，R/AC 追踪合法；原 task-gates.test 夹具）。 */
 const FILLED_PRD = `# Ship the gate
@@ -887,21 +887,31 @@ function guardReason(key, root, rel, view) {
   return reason
 }
 
-test('ui-dispatch-ready 守卫：prd 含 UI Design 小节且无 frontend 派发 → 拒绝', () => {
+test('ui-dispatch-ready 守卫：prd 含 UI Design 小节且无 frontend-developer 派发 → 拒绝', () => {
   const root = makeRoot()
   try {
     const prd = '# Task\n\n## UI Design\n\n- pages and IA\n'
     const view = makeGuardView(root, 'tasks/ui-1', {
       status: 'in_progress',
       stage: 'implementing',
-      dispatches: [{ kind: 'implement', at: '2026-08-29T00:00:00Z', title: 'impl' }],
+      dispatches: [{ kind: 'developer', at: '2026-08-29T00:00:00Z', title: 'impl' }],
     }, { 'prd.md': prd })
     assert.equal(
       guardReason('ui-dispatch-ready', root, 'tasks/ui-1', view),
-      'no frontend dispatch recorded for a task with UI requirements',
+      'no frontend-developer dispatch recorded for a task with UI requirements',
     )
-    // 已有 frontend 派发 → 通过。
+    // 已有 frontend-developer 派发（新值主用例）→ 通过。
     const dispatched = makeGuardView(root, 'tasks/ui-2', {
+      status: 'in_progress',
+      stage: 'implementing',
+      dispatches: [
+        { kind: 'developer', at: '2026-08-29T00:00:00Z', title: 'impl' },
+        { kind: 'frontend-developer', at: '2026-08-29T01:00:00Z', title: 'ui' },
+      ],
+    }, { 'prd.md': prd })
+    assert.equal(guardReason('ui-dispatch-ready', root, 'tasks/ui-2', dispatched), null)
+    // 旧 frontend 历史记录经兼容读归一后同样满足门禁（旧值兼容用例，AC7）。
+    const legacyDispatched = makeGuardView(root, 'tasks/ui-2-legacy', {
       status: 'in_progress',
       stage: 'implementing',
       dispatches: [
@@ -909,7 +919,7 @@ test('ui-dispatch-ready 守卫：prd 含 UI Design 小节且无 frontend 派发 
         { kind: 'frontend', at: '2026-08-29T01:00:00Z', title: 'ui' },
       ],
     }, { 'prd.md': prd })
-    assert.equal(guardReason('ui-dispatch-ready', root, 'tasks/ui-2', dispatched), null)
+    assert.equal(guardReason('ui-dispatch-ready', root, 'tasks/ui-2-legacy', legacyDispatched), null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -955,13 +965,13 @@ test('ui-dispatch-ready 守卫：小节缺失/prd 缺失/不适用声明/空正�
     })
     assert.equal(
       guardReason('ui-dispatch-ready', root, 'tasks/ui-6', midText),
-      'no frontend dispatch recorded for a task with UI requirements',
+      'no frontend-developer dispatch recorded for a task with UI requirements',
     )
     // 小节正文为空 → 维持现状拦截（空正文不是声明）。
     const emptyBody = makeGuardView(root, 'tasks/ui-7', {}, { 'prd.md': '# Task\n\n## UI Design\n\n## Notes\n\n- x\n' })
     assert.equal(
       guardReason('ui-dispatch-ready', root, 'tasks/ui-7', emptyBody),
-      'no frontend dispatch recorded for a task with UI requirements',
+      'no frontend-developer dispatch recorded for a task with UI requirements',
     )
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -1172,7 +1182,7 @@ test('toTaskView 纯函数口径：部分记录（回合缓存夹具形态）兼
 
 /* ---------------- 步骤 8：三模式合法链与 parent 写路径探针 ---------------- */
 
-import { requireTaskRecord as requireRecord, writeTaskRecord as writeRecord } from '../src/task/task-storage.ts'
+import { requireTaskRecord as requireRecord, writeTaskRecord as writeRecord } from '../src/task/storage/index.ts'
 
 /** 写 start-ready 守卫所需的最小文档集（prd/plan/双 jsonl）。 */
 function satisfyStartDocs(root, rel) {

@@ -11,7 +11,7 @@ Legacy tasks authored before the plan.md contract carry `design.md` + `implement
 ## Boundaries
 
 - Scope: `planning` and `in_progress` tasks only. Archived tasks (under `tasks/archive/`) are historical records — never scan, never migrate them.
-- The main session performs the migration (plan-authoring authority stays with the main session). The only executor involvement is an optional `research` dispatch to gather anchor facts for a large plan.
+- The main session performs the migration (plan-authoring authority stays with the main session). The only executor involvement is an optional `researcher` dispatch to gather anchor facts for a large plan.
 - Semantics are frozen: the prd rewrite is a format upgrade plus verification-method completion; every original requirement survives as exactly one R/AC item.
 
 ## Step 1: Scan

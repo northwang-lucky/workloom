@@ -14,21 +14,12 @@
  *   根，从 task.json 的 dispatches 读回 toolsAllow 重建索引（每个项目只扫一次）。
  */
 
-import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-tools'
 
 import { ERR_PREFIX, findWorkloomRoot } from '@workloom-ai/core'
-
-/** 项目资产目录名（与 research 写守卫同一约定）。 */
-const WORKLOOM_DIR = '.workloom'
-/** 任务目录名。 */
-const TASKS_DIR = 'tasks'
-/** 归档目录名（重建时排除）。 */
-const ARCHIVE_DIR = 'archive'
+import { scanDispatchRecords } from './dispatch-scan.ts'
 
 /**
  * 工具面索引：按子代理 id 查允许清单，并记录已经扫描过的项目根，
@@ -48,46 +39,22 @@ export function createToolfaceIndex(): ToolfaceIndex {
 
 /**
  * 从项目任务记录重建子代理允许清单。
- * 遍历 `<root>/.workloom/tasks/` 下各任务目录（排除 archive），读取 dispatches
- * 中带 childId 与 toolsAllow 的记录。旧记录缺 toolsAllow 时跳过：那批会话在
- * 0.2.0 的 toolFilter 通道下创建，无法从记录反推白名单。
+ * 扫描经 dispatch-scan 共享实现（非归档任务全量派发记录，archive 排除与坏
+ * JSON 防御内置），读取带 childId 与 toolsAllow 的记录。旧记录缺 toolsAllow
+ * 时跳过：那批会话在 0.2.0 的 toolFilter 通道下创建，无法从记录反推白名单。
  * @param root 项目根
  * @returns 子代理 id → 允许清单
  */
 export function rebuildToolfaceIndex(root: string): Map<string, readonly string[]> {
   const rebuilt: Map<string, readonly string[]> = new Map()
-  const tasksDir = join(root, WORKLOOM_DIR, TASKS_DIR)
-  let entries
-  try {
-    entries = readdirSync(tasksDir, { withFileTypes: true })
-  } catch {
-    return rebuilt
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name === ARCHIVE_DIR) continue
-    let raw
-    try {
-      raw = readFileSync(join(tasksDir, entry.name, 'task.json'), 'utf8')
-    } catch {
-      continue
-    }
-    let task
-    try {
-      task = JSON.parse(raw)
-    } catch {
-      continue
-    }
-    const dispatches = task?.dispatches
-    if (!Array.isArray(dispatches)) continue
-    for (const dispatch of dispatches) {
-      const childId = dispatch?.childId
-      const toolsAllow = dispatch?.toolsAllow
-      if (typeof childId !== 'string' || childId === '') continue
-      if (!Array.isArray(toolsAllow) || toolsAllow.length === 0) continue
-      const names = toolsAllow.filter((name: unknown): name is string =>
-        typeof name === 'string' && name !== '')
-      if (names.length > 0) rebuilt.set(childId, names)
-    }
+  for (const { dispatch } of scanDispatchRecords(root)) {
+    const childId = dispatch.childId
+    const toolsAllow = dispatch.toolsAllow
+    if (typeof childId !== 'string' || childId === '') continue
+    if (!Array.isArray(toolsAllow) || toolsAllow.length === 0) continue
+    const names = toolsAllow.filter((name: unknown): name is string =>
+      typeof name === 'string' && name !== '')
+    if (names.length > 0) rebuilt.set(childId, names)
   }
   return rebuilt
 }

@@ -16,25 +16,22 @@ export interface WorkloomConfig {
     afterArchive: string[]
   }
   packages: Record<string, { path: string; type?: string; git?: boolean; setup: string[] }>
-  subagents: Record<string, SubagentConfigEntry>
-  /** 全局 executor 并发闸：max_concurrent 为全局上限（0 = 不限，缺省 = 0；按 kind 分闸缺省 3，全局闸保留作可选总量保险）。 */
+  /** 全局 executor 并发闸：max_concurrent 为全局上限（0 = 不限，缺省 = 0；按角色分闸缺省 3，全局闸保留作可选总量保险）。 */
   executor: {
     maxConcurrent: number
   }
   /** worktree 生命周期（仅项目层）：start 建独立 worktree，archive 按 cleanup 模式清理。 */
   worktree: WorktreeConfig
-  /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，仅旧 subagents 生效）。 */
+  /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，角色键缺失继承宿主默认）。 */
   subagentProfiles: SubagentProfile[]
   /**
    * subagent_profiles 顶层 key 最后写入层（对象层看本层原始导出文档、工厂层看返回
    * 文档）；全程未出现时属性不定义、读取为 undefined（只读字段，loadConfig 挂载）。
    */
   readonly subagentProfilesSource?: ConfigSourceLayer
-  /** 遗留 subagents 顶层 key 最后写入层（口径同上）；全程未出现时属性不定义。 */
-  readonly subagentsSource?: ConfigSourceLayer
 }
 
-/** 配置来源层（subagent_profiles / subagents 顶层 key 最后写入层）。 */
+/** 配置来源层（subagent_profiles 顶层 key 最后写入层）。 */
 export type ConfigSourceLayer = 'global' | 'project' | 'local'
 
 /**
@@ -65,11 +62,13 @@ export interface WorktreeConfig {
 /**
  * subagent_profiles 条目：whenMain 为命中条件（完整 provider/model 字符串，
  * 归一化比较），缺省 = 兜底条目（无条件命中，最多一条）；
- * subagents 沿用 SubagentConfigEntry 的 per-kind 形态。
+ * roles 为 角色键 → SubagentConfigEntry 的条目映射（用户 2026-11-08 裁定改名，
+ * 原内层字段名 subagents 出现即抛错给 roles 迁移指引，不做兼容读；条目键命中
+ * 旧 kind 五值时加载期一次性 WARNING）。
  */
 export interface SubagentProfile {
   whenMain?: string
-  subagents: Record<string, SubagentConfigEntry>
+  roles: Record<string, SubagentConfigEntry>
 }
 
 /**
@@ -96,21 +95,19 @@ export interface SubagentFallbackModel {
 }
 
 /**
- * subagents 配置条目：model 为 model 字符串（provider/model 或裸 id）。
- * tools 仅 subagent_profiles 内层条目携带（顶层 subagents 出现 tools 报错）。
+ * subagent 配置条目（subagent_profiles 内层）：model 为 model 字符串
+ * （provider/model 或裸 id）。
  */
 export interface SubagentConfigEntry {
   model?: string
   effort?: string
   tools?: SubagentTools
   /**
-   * 该 kind 的并发上限（0 = 不限；条目未配置时由 resolveSubagentDefaults 兜底缺省 3）。
-   * 仅 subagent_profiles 内层条目携带。
+   * 该角色的并发上限（0 = 不限；条目未配置时由 resolveSubagentDefaults 兜底缺省 3）。
    */
   maxConcurrent?: number
   /**
-   * 失败转移链（配置字段 `fallback_models`）：旧顶层 subagents 与
-   * subagent_profiles 内层同一语法；空数组等价缺省（不落字段）。
+   * 失败转移链（配置字段 `fallback_models`）：空数组等价缺省（不落字段）。
    */
   fallbackModels?: SubagentFallbackModel[]
 }
@@ -118,8 +115,8 @@ export interface SubagentConfigEntry {
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
 export type SubagentDefaultSource = 'param' | 'config'
 
-/** 配置侧字段来源细分：命中 subagent_profiles 的 whenMain 条目 / 兜底条目 / 旧 subagents。 */
-export type SubagentConfigSource = 'whenMain' | 'fallback' | 'legacy'
+/** 配置侧字段来源细分：命中 subagent_profiles 的 whenMain 条目 / 兜底条目。 */
+export type SubagentConfigSource = 'whenMain' | 'fallback'
 
 /** resolveSubagentDefaults 的返回形状：合并后的 effective 值与各字段来源。 */
 export interface ResolveSubagentDefaultsResult {
@@ -138,17 +135,16 @@ export interface ResolveSubagentDefaultsResult {
   }
   /** configSources 为 whenMain 时的匹配值（receipt 展示用，如 kimi-coding/k3）。 */
   whenMainValue?: string
-  /** 命中 subagent_profiles 条目该 kind 的 tools 字段（includes/excludes；仅
-   *  profiles 层支持，legacy 层无 tools，未命中时 undefined）。 */
+  /** 命中 subagent_profiles 条目该角色的 tools 字段（includes/excludes；未命中时 undefined）。 */
   tools?: SubagentTools
   /**
-   * 该 kind 的并发上限：命中 subagent_profiles 条目时为该条目值（0 = 不限；
-   * 未配置时兜底缺省 3），> 0 = 该 kind 上限。仅全局闸生效的场景不再出现。
+   * 该角色的并发上限：命中 subagent_profiles 条目时为该条目值（0 = 不限；
+   * 未配置时兜底缺省 3），> 0 = 该角色上限。仅全局闸生效的场景不再出现。
    */
   maxConcurrent?: number
   /**
-   * 生效的失败转移链（解析后的模型字符串 + 可选 effort）：profile 命中条目优先，
-   * 未配置时回退旧 subagents 同 kind 条目；两处均未配置时属性不定义。
+   * 生效的失败转移链（解析后的模型字符串 + 可选 effort）：subagent_profiles
+   * 命中条目的 fallback_models；未配置时属性不定义。
    */
   fallbackModels?: SubagentFallbackModel[]
 }
@@ -165,21 +161,21 @@ export class WorkloomConfigError extends Error {
 /**
  * 从项目根加载配置（三层流水线：全局 $HOME/.workloom/config → 项目
  * .workloom/config → 本地 .workloom/config.local）：对象层顶层 key 覆盖、
- * 函数工厂逐层传递、全局层白名单校验、遗留 subagents WARNING。options.homeDir
- * 可覆盖全局层基准目录（缺省 os.homedir()）。
+ * 函数工厂逐层传递、全局层白名单校验；根层级 subagents 已退役（任一层出现
+ * 即抛 WorkloomConfigError 迁移指引）。options.homeDir 可覆盖全局层基准目录
+ * （缺省 os.homedir()）。
  */
 export function loadConfig(root: string, options?: { homeDir?: string }): WorkloomConfig
 
 /**
- * 合并 executor 子代理默认 model/effort：参数优先，未出现回退 subagent_profiles
- * 命中条目（按主会话模型匹配），再回退旧 subagents 配置；model 的 map 形式按
- * runtime 取值，缺当前 runtime 的 key 抛 WorkloomConfigError。
+ * 合并 executor 子代理默认 model/effort：显式参数优先，未出现回退
+ * subagent_profiles 命中条目（按主会话模型匹配），全部缺失时 undefined
+ * （继承宿主默认）。
  */
 export function resolveSubagentDefaults(
   config: WorkloomConfig,
-  kind: string,
+  role: string,
   overrides: { model?: string; effort?: string },
-  runtime?: string,
   mainModel?: string,
 ): ResolveSubagentDefaultsResult
 
@@ -189,35 +185,34 @@ export function resolveSubagentDefaults(
  */
 export function splitProviderModel(model: string): { provider?: string; model: string }
 
-/** executor 参数与 subagents 配置的冲突条目（detectExecutorConflicts 返回元素）。 */
+/** executor 参数与 subagent_profiles 配置的冲突条目（detectExecutorConflicts 返回元素）。 */
 export interface ExecutorConflict {
   /** 冲突字段（model/effort，独立判定）。 */
   field: 'model' | 'effort'
-  /** 配置侧生效值（map 形式已按 runtime 解析）。 */
+  /** 配置侧生效值。 */
   configured: string
   /** 工具显式传入值。 */
   passed: string
-  /** 配置侧来源细分（whenMain 命中 / 兜底条目 / 旧 subagents）。 */
+  /** 配置侧来源细分（whenMain 命中 / 兜底条目）。 */
   configuredSource?: SubagentConfigSource
   /** configuredSource 为 whenMain 时的匹配值（提示文案展示用）。 */
   whenMainValue?: string
 }
 
 /**
- * 检测显式 executor 参数与 subagents 配置的冲突：配置侧生效值按合并链解析
- * （profile 命中条目 > 旧 subagents）；model 归一化（provider/model 各自相等）
+ * 检测显式 executor 参数与 subagent_profiles 配置的冲突：配置侧生效值按合并链
+ * 解析（subagent_profiles 命中条目）；model 归一化（provider/model 各自相等）
  * 比较；无冲突返回空数组。
  */
 export function detectExecutorConflicts(
   config: WorkloomConfig,
-  kind: string,
+  role: string,
   overrides: { model?: string; effort?: string },
-  runtime?: string,
   mainModel?: string,
 ): ExecutorConflict[]
 
 /** 组装冲突中断提示（英文运行时文案，含配置值/传入值与 force+reason 引导）。 */
-export function buildConflictNotice(kind: string, conflicts: ExecutorConflict[]): string
+export function buildConflictNotice(role: string, conflicts: ExecutorConflict[]): string
 
 /** 校验 force 覆盖参数：force 为 true 时 reason 必须是非空字符串，否则抛错。 */
 export function assertForceReason(force: unknown, reason: unknown): void

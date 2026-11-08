@@ -15,7 +15,7 @@ import { join } from 'node:path'
 
 import { assembleSessionContext } from '../src/injection/session-context.ts'
 import { assembleWorkflowProjection } from '../src/injection/workflow-service.ts'
-import { setActiveTask } from '../src/task/state-machine.ts'
+import { readTaskView, setActiveTask } from '../src/task/state/index.ts'
 
 /** git 提交所需的最小身份环境变量（不依赖全局 git config）。 */
 const GIT_IDENTITY_ENV = {
@@ -49,6 +49,16 @@ function addTaskWithDispatches(root, contextKey, title, status, dispatches) {
     `${JSON.stringify({ title, status, dispatches })}\n`,
   )
   setActiveTask(root, contextKey, 'tasks/08-24-demo')
+}
+
+/**
+ * 按正规通道构造 turnTask 夹具（resolveTurnTask 产物形状：readTaskView 视图；
+ * 回退直读通道已退役，直连单测显式传记录）。
+ */
+function turnTaskOf(root, rel = 'tasks/08-24-demo') {
+  const [err, view] = readTaskView(root, rel)
+  assert.equal(err, null, err?.message)
+  return view
 }
 
 /** 在项目内落一个裸任务（仅 task.json，不写会话指针；候选任务节测试用）。 */
@@ -89,7 +99,6 @@ test('无活跃任务时输出 No active task.', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_3',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -105,7 +114,7 @@ test('活跃任务行包含标题/状态/路径', () => {
     addTask(root, 'dsh_sess_4', 'Implement X', 'planning')
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_4',
+      turnTask: turnTaskOf(root),
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -128,7 +137,6 @@ test('git 行包含分支与脏文件数', () => {
     writeFileSync(join(root, 'dirty.txt'), 'dirty')
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_5',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -143,7 +151,6 @@ test('非 git 目录时 git 行降级为 unknown/0', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_6',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -162,7 +169,6 @@ test('workflow 概览按 id+title 拼接', () => {
     ]
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_7',
       workflowSteps: steps,
     })
     assert.equal(err, null)
@@ -177,7 +183,6 @@ test('workflowSteps 为空时省略 Workflow 行', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_8',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -192,7 +197,6 @@ test('整体包在块标记内', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_9',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -211,7 +215,6 @@ test('spec 存在时快照渲染 guidelines 段', () => {
     writeFileSync(join(indexDir, 'index.md'), '# cli backend\n')
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_10',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -229,7 +232,6 @@ test('无 spec 目录时不输出 guidelines 段', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_11',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -257,7 +259,6 @@ test('spec 索引超预算时渲染截断提示行', () => {
     }
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_12',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -279,7 +280,6 @@ test('norms 非空时快照在 guidelines 之后追加原文小节', () => {
     const norms = 'Always answer in the user language.\nNever include options in questions.'
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_13',
       workflowSteps: [{ id: '1.1', title: 'Align requirements' }],
       norms,
     })
@@ -304,7 +304,6 @@ test('norms 非空且无 guidelines 时小节在 Workflow 行之后', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_14',
       workflowSteps: [{ id: '2.1', title: 'Implement' }],
       norms: 'Only dispatch implementations.',
     })
@@ -320,7 +319,7 @@ test('norms 非空且无 guidelines 时小节在 Workflow 行之后', () => {
 test('norms 为 null 时不追加小节且输出逐字不变', () => {
   const root = makeProject()
   try {
-    const baseParams = { root, contextKey: 'dsh_sess_15', workflowSteps: [] }
+    const baseParams = { root, workflowSteps: [] }
     const [, baseText] = assembleSessionContext(baseParams)
     const [err, text] = assembleSessionContext({ ...baseParams, norms: null })
     assert.equal(err, null)
@@ -336,7 +335,6 @@ test('norms 为空白字符串时不追加小节', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_16',
       workflowSteps: [],
       norms: '   ',
     })
@@ -367,7 +365,7 @@ test('delegationDepth>0：快照仅含块标记 + Active task 行 + Guidelines �
       'Dispatch (always-on):\n- Implementation changes come from workloom_execute subagents.'
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_17',
+      turnTask: turnTaskOf(root),
       workflowSteps: [{ id: '2.1', title: 'Implement' }],
       norms: contractNorms,
       delegationDepth: 1,
@@ -407,7 +405,6 @@ test('delegationDepth>0 且契约无 norms 时仍输出 executor norms 段', () 
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_18',
       workflowSteps: [],
       delegationDepth: 2,
     })
@@ -426,7 +423,6 @@ test('depth=0 且 localDirectives 非空：norms 之后追加 Local directives �
     const directives = 'When LSP tooling is available, use it.\nRun a final LSP check.'
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_19',
       workflowSteps: [],
       norms,
       localDirectives: directives,
@@ -449,7 +445,6 @@ test('norms 缺失时 localDirectives 小节仍在快照尾部', () => {
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_22',
       workflowSteps: [],
       localDirectives: 'Local rule.',
     })
@@ -465,7 +460,6 @@ test('depth>0 时忽略 localDirectives（executor 首条 prompt 已注入，防
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_20',
       workflowSteps: [],
       delegationDepth: 1,
       localDirectives: 'should not appear',
@@ -481,7 +475,7 @@ test('depth>0 时忽略 localDirectives（executor 首条 prompt 已注入，防
 test('localDirectives 空串/空白/null/未传：无小节且输出逐字一致', () => {
   const root = makeProject()
   try {
-    const baseParams = { root, contextKey: 'dsh_sess_21', workflowSteps: [], norms: 'N' }
+    const baseParams = { root, workflowSteps: [], norms: 'N' }
     const [, baseText] = assembleSessionContext(baseParams)
     assert.ok(!baseText.includes('Local directives:'))
     for (const localDirectives of ['', '   ', null, undefined]) {
@@ -508,7 +502,6 @@ test('S3 主会话注入：norms 段逐字未动（防瘦身误伤纪律），�
     ].join('\n')
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_s3',
       workflowSteps: [
         { id: '1.0', title: 'Create task' },
         { id: '2.1', title: 'Implement' },
@@ -556,14 +549,15 @@ test('Last dispatch 节：最新一条紧跟 Active task，格式含时间/child
     const [err, text] = withEmptyHome(() =>
       assembleSessionContext({
         root,
-        contextKey: 'dsh_sess_p2',
+        turnTask: turnTaskOf(root),
         workflowSteps: [],
       }),
     )
     assert.equal(err, null)
     const activeIdx = text.indexOf('\nActive task:')
+    // 夹具为旧值 implement：显示前经兼容读归一为新角色 developer。
     const dispatchIdx = text.indexOf(
-      '\nLast dispatch: implement failed at 2026-09-03T10:00:00.000Z (child child-2) — the executor failed before it finished\n',
+      '\nLast dispatch: developer failed at 2026-09-03T10:00:00.000Z (child child-2) — the executor failed before it finished\n',
     )
     const gitIdx = text.indexOf('\nGit: ')
     assert.ok(dispatchIdx > activeIdx, 'dispatch line after active task line')
@@ -586,14 +580,130 @@ test('Last dispatch 无 error 变体：completed 不接破折号段', () => {
       },
     ])
     const [err, text] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_p3', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) }),
     )
     assert.equal(err, null)
+    // 夹具为旧值 frontend：显示前经兼容读归一为新角色 frontend-developer。
     assert.ok(
-      text.includes('\nLast dispatch: frontend completed at 2026-09-03T08:00:00.000Z (child child-3)\n'),
+      text.includes('\nLast dispatch: frontend-developer completed at 2026-09-03T08:00:00.000Z (child child-3)\n'),
       'completed row renders without dash segment',
     )
     assert.ok(!text.includes('—'), 'no em-dash when error is absent')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Last dispatch 新值主用例：新角色值原样显示（developer/checker）', () => {
+  const root = makeProject()
+  try {
+    addTaskWithDispatches(root, 'dsh_sess_p3n', 'Impl Y', 'in_progress', [
+      {
+        kind: 'developer',
+        at: '2026-09-03T11:00:00.000Z',
+        title: 'd1',
+        childId: 'child-9',
+        status: 'completed',
+      },
+    ])
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) }),
+    )
+    assert.equal(err, null)
+    assert.ok(
+      text.includes('\nLast dispatch: developer completed at 2026-09-03T11:00:00.000Z (child child-9)\n'),
+      'new role value renders as-is',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Executor profiles 节：五角色全缺省输出 info 行，unknown 节头逐字，节位置在 Last dispatch 后 Git 前', () => {
+  const root = makeProject()
+  try {
+    addTaskWithDispatches(root, 'dsh_sess_prof1', 'Prof', 'in_progress', [
+      {
+        kind: 'developer',
+        at: '2026-09-03T10:00:00.000Z',
+        title: 'd',
+        childId: 'child-p1',
+        status: 'completed',
+      },
+    ])
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) }),
+    )
+    assert.equal(err, null)
+    // 节头文案逐字（mainModel 缺失 → unknown 形态）。
+    assert.ok(
+      text.includes('\nExecutor profiles (main model unknown; whenMain entries skipped):\n'),
+      'unknown header must render verbatim',
+    )
+    for (const role of ['researcher', 'developer', 'frontend-developer', 'checker', 'judger']) {
+      assert.ok(
+        text.includes(`  ${role}: not configured (inherits parent session model)`),
+        `${role} info line must render verbatim`,
+      )
+    }
+    // 节位置：Last dispatch 行后、Git 节前（历史形态实际线序）。
+    const dispatchIdx = text.indexOf('\nLast dispatch:')
+    const profilesIdx = text.indexOf('Executor profiles (')
+    const gitIdx = text.indexOf('\nGit: ')
+    assert.ok(dispatchIdx !== -1 && dispatchIdx < profilesIdx, 'profiles after last dispatch')
+    assert.ok(profilesIdx < gitIdx, 'profiles before git line')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Executor profiles 节：whenMain 命中行带匹配值；未命中走兜底条目；mainModel 在位节头逐字', () => {
+  const root = makeProject()
+  try {
+    writeFileSync(
+      join(root, '.workloom', 'config.json'),
+      JSON.stringify({
+        subagent_profiles: [
+          {
+            whenMain: 'kimi-coding/k3',
+            roles: { developer: { model: 'profile-m', effort: 'high' } },
+          },
+          { roles: { checker: { model: 'fallback-m' } } },
+        ],
+      }),
+    )
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({
+        root,
+        workflowSteps: [],
+        mainModel: 'kimi-coding/k3',
+      }),
+    )
+    assert.equal(err, null)
+    assert.ok(text.includes('\nExecutor profiles (main model kimi-coding/k3):\n'))
+    assert.ok(text.includes('\n  developer: profile-m | effort high | whenMain=kimi-coding/k3\n'))
+    // whenMain 条目命中即止：checker 不在该条目 → info 行。
+    assert.ok(text.includes('\n  checker: not configured (inherits parent session model)'))
+    // 主模型取不到：whenMain 条目全部跳过，兜底条目命中（fallback 标注）。
+    const [missErr, missText] = withEmptyHome(() =>
+      assembleSessionContext({ root, workflowSteps: [] }),
+    )
+    assert.equal(missErr, null)
+    assert.ok(missText.includes('\n  checker: fallback-m | fallback\n'))
+    assert.ok(missText.includes('\n  developer: not configured (inherits parent session model)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('Executor profiles 节：config 加载失败（显式 null）整节降级不渲染', () => {
+  const root = makeProject()
+  try {
+    const [err, text] = withEmptyHome(() =>
+      assembleSessionContext({ root, workflowSteps: [], config: null }),
+    )
+    assert.equal(err, null)
+    assert.ok(!text.includes('Executor profiles'), 'profiles section must degrade silently')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -604,14 +714,14 @@ test('Last dispatch 无活跃任务/无派发记录：不输出该行', () => {
   try {
     // 无活跃任务：无派发行（画像节照常可渲染）
     const [noTaskErr, noTaskText] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_p4', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [] }),
     )
     assert.equal(noTaskErr, null)
     assert.ok(!noTaskText.includes('Last dispatch:'), 'no task → no dispatch line')
     // 活跃任务但 dispatches 为空：同样无派发行
     addTask(root, 'dsh_sess_p4', 'No dispatch', 'in_progress')
     const [emptyErr, emptyText] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_p4', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [] }),
     )
     assert.equal(emptyErr, null)
     assert.ok(!emptyText.includes('Last dispatch:'), 'empty dispatches → no dispatch line')
@@ -638,7 +748,7 @@ test('Worktree 行：活跃任务带 worktree → 输出于 Git 行之后（绝�
       base_branch: 'main',
     })
     const [err, text] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_w1', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) }),
     )
     assert.equal(err, null)
     const abs = join(root, '.workloom/worktree/task-wt-1')
@@ -661,7 +771,7 @@ test('Worktree 行缺失面：worktree_path 空串 / 字段缺失 → 行不出�
     // 字段缺失（旧任务归一化）→ 行不出现
     addTask(root, 'dsh_sess_w2', 'No worktree field', 'in_progress')
     const [firstErr, firstText] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_w2', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [] }),
     )
     assert.equal(firstErr, null)
     assert.ok(!firstText.includes('Worktree: '), 'missing worktree_path → no line')
@@ -673,7 +783,7 @@ test('Worktree 行缺失面：worktree_path 空串 / 字段缺失 → 行不出�
       base_branch: 'main',
     })
     const [secondErr, secondText] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_w2', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [] }),
     )
     assert.equal(secondErr, null)
     assert.ok(!secondText.includes('Worktree: '), 'empty worktree_path → no line')
@@ -693,7 +803,7 @@ test('Worktree 行降级：branch/base 空串 → 省略对应括注段', () => 
       base_branch: '',
     })
     const [firstErr, firstText] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_w3', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) }),
     )
     assert.equal(firstErr, null)
     assert.ok(
@@ -707,7 +817,7 @@ test('Worktree 行降级：branch/base 空串 → 省略对应括注段', () => 
       base_branch: 'main',
     })
     const [secondErr, secondText] = withEmptyHome(() =>
-      assembleSessionContext({ root, contextKey: 'dsh_sess_w3', workflowSteps: [] }),
+      assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) }),
     )
     assert.equal(secondErr, null)
     assert.ok(
@@ -803,17 +913,17 @@ test('light 任务概览行来自轻量步骤集，norms 仍出自主契约', ()
     setActiveTask(root, 'dsh_sess_light', 'tasks/08-25-light-demo')
     const [projErr, projection] = assembleWorkflowProjection(
       root,
-      'dsh_sess_light',
       MAIN_CONTEXT_CONTRACT,
       LIGHT_CONTEXT_CONTRACT,
+      turnTaskOf(root, 'tasks/08-25-light-demo'),
     )
     assert.equal(projErr, null)
     const [err, text] = withEmptyHome(() =>
       assembleSessionContext({
         root,
-        contextKey: 'dsh_sess_light',
         workflowSteps: projection.steps,
         norms: projection.norms,
+        turnTask: turnTaskOf(root, 'tasks/08-25-light-demo'),
       }),
     )
     assert.equal(err, null)
@@ -838,7 +948,6 @@ test('无活跃任务且有既有任务：候选节紧跟 No active task.，按 
     addBareTask(root, '10-03-done', { title: 'Done One', status: 'completed' })
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_cand_1',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -861,7 +970,6 @@ test('无活跃任务且项目无任务：只输出 No active task.，无候选�
   try {
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_cand_2',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -879,7 +987,7 @@ test('有活跃任务：不输出候选节', () => {
     addBareTask(root, '10-04-other', { title: 'Other Plan', status: 'planning' })
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_cand_3',
+      turnTask: turnTaskOf(root),
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -896,7 +1004,6 @@ test('depth>0 且无活跃任务：候选节不进 executor 白名单', () => {
     addBareTask(root, '10-05-plan', { title: 'Plan One', status: 'planning' })
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_cand_4',
       workflowSteps: [],
       delegationDepth: 1,
     })
@@ -919,7 +1026,6 @@ test('候选超过上限：截断为 8 条并输出 more 提示行', () => {
     }
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_cand_5',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -939,7 +1045,6 @@ test('损坏任务目录跳过：不报错、不进候选节、不阻塞其余�
     mkdirSync(join(root, '.workloom', 'tasks', '10-07-broken'), { recursive: true })
     const [err, text] = assembleSessionContext({
       root,
-      contextKey: 'dsh_sess_cand_6',
       workflowSteps: [],
     })
     assert.equal(err, null)
@@ -961,13 +1066,13 @@ test('Active task 行旧任务 CASE 迁移提示：仅旧 full in_progress 显�
 
     // 旧 full in_progress（case 归一为 null）→ 显示迁移提示
     write({ title: 'Legacy Full', status: 'in_progress', mode: 'full' })
-    const [err1, text1] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    const [err1, text1] = assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) })
     assert.equal(err1, null)
     assert.match(text1, /CASE migration: use workloom-case-active to design and confirm case\.md before the final check\./)
 
     // planning full（无 case）→ 不显示
     write({ title: 'Planning Full', status: 'planning', mode: 'full' })
-    const [, text2] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    const [, text2] = assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) })
     assert.ok(!text2.includes('CASE migration'))
 
     // 新 full in_progress（有 case 记录）→ 不显示
@@ -980,12 +1085,12 @@ test('Active task 行旧任务 CASE 迁移提示：仅旧 full in_progress 显�
         designSession: 'child-design',
       },
     })
-    const [, text3] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    const [, text3] = assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) })
     assert.ok(!text3.includes('CASE migration'))
 
     // light in_progress（无 case）→ 不显示
     write({ title: 'Light Task', status: 'in_progress', mode: 'light' })
-    const [, text4] = assembleSessionContext({ root, contextKey, workflowSteps: [] })
+    const [, text4] = assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) })
     assert.ok(!text4.includes('CASE migration'))
   } finally {
     rmSync(root, { recursive: true, force: true })

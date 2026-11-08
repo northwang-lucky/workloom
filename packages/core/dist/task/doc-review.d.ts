@@ -8,7 +8,7 @@
  *   确认记录（零写盘）；不完整的草稿照样可读，就绪与否由 readyToConfirm 表达；
  * - align confirm 同步全链路：内容 blocker（prd-structure 单一解析器）聚合拒绝
  *   → summary（人工确认必填；semi/auto 的 PLAN 与 auto 的 PRD 自动记录）→
- *   只经 state-machine 的确认迁移窄写口原子落盘（confirmPrd / confirmPlan）；
+ *   只经 task/state 的确认迁移窄写口原子落盘（confirmPrd / confirmPlan）；
  *   确认记录含 passedAt/summary/source/autonomy，无哈希，每次确认刷新为最近一次；
  * - PLAN 确认要求 PRD 已有确认记录且 planReview 轨道 clean（守卫在状态机硬校验，
  *   与 autonomy 无关）；
@@ -18,7 +18,7 @@
  *   findWorkloomRoot），adapter 只负责投影返回与主会话限制。
  */
 import type { CaseStructureIssue } from './case-structure.ts';
-import type { TaskAlignmentRecord, TaskPlanConfirmationRecord, TaskStatusValue } from './task-storage.ts';
+import type { TaskAlignmentRecord, TaskPlanConfirmationRecord, TaskStatusValue } from './storage/index.ts';
 /** 确认对象：prd（缺省，兼容旧调用）或 plan。 */
 export type AlignTarget = 'prd' | 'plan';
 /** 结构诊断的公共形态（PRD 与 PLAN 结构分类器产物形状一致，section 字段可选）。 */
@@ -102,6 +102,32 @@ export interface ExecuteTaskCaseParams {
 }
 /** case 工具成功结果（review 单态）。 */
 export type ExecuteTaskCaseResult = CaseReviewResult;
+/** planReview 标记目标相位（Owner 手动标记的两个相位；reviewing 由评审派发自动置）。 */
+export type PlanReviewMarkPhase = 'revising' | 'clean';
+/** executePlanReviewMark 入参（taskPath 缺省取活跃任务）。 */
+export interface ExecutePlanReviewMarkParams {
+    /** 目标相位：revising（进入修订）或 clean（评审零意见落定）。 */
+    phase: PlanReviewMarkPhase;
+    taskPath?: string;
+}
+/** executePlanReviewMark 成功结果（planReview 轨道视图投影）。 */
+export interface ExecutePlanReviewMarkResult {
+    taskRelPath: string;
+    /** 标记后的轨道相位。 */
+    planReview: PlanReviewMarkPhase | 'none' | 'reviewing';
+    /** revising 累计轮数（只记录不判定）。 */
+    planReviewRevisions: number;
+}
+/**
+ * 执行 workloom_task_planreview 编排（全程同步）：Owner 标记 planReview 轨道
+ * revising 与 clean（写口复用 recordPlanReview，非法边给可判定错误透传）；
+ * reviewing 相位不在本入口（由 judger plan-review 派发成功自动置位）。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话标识（taskPath 缺省时取活跃任务）
+ * @param params 工具参数
+ * @returns [err, result]：err 为任一失败（消息含前缀；失败零写入）
+ */
+export declare function executePlanReviewMark(cwd: string, contextKey: string, params: ExecutePlanReviewMarkParams): [Error | null, ExecutePlanReviewMarkResult | null];
 /**
  * 执行 workloom_task_align 编排（全程同步）。
  * @param cwd 会话工作目录

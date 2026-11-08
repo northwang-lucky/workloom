@@ -7,28 +7,20 @@
  *   injectionStats 投影注入统计供 receipt 渲染，buildChildLabel 装配子会话标题；
  * - 均为纯函数或只读副作用（buildChildLabel 的 readTaskView 回退），便于单测。
  */
-import type { ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core';
-/** executor kind → 子会话标题展示标签（枚举，禁 Magic String）。 */
-export declare const KIND_LABELS: {
-    readonly research: "Research";
-    readonly implement: "Implement";
-    readonly check: "Check";
-    readonly frontend: "Frontend";
-    readonly review: "Review";
-};
+import type { DispatchPurpose, ExecutorInjectionStats, ExecutorPromptResult } from '@workloom-ai/core';
 /**
  * 组装全量注入 prompt（新派发/reinject 续接共用）：本机片段已由调用方探测，此处
  * 调用 core buildExecutorPrompt；组装失败 fail loud。hasLsp 由调用方按可见工具集
  * 探测（交付时过滤纪律段 LSP 句）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型
+ * @param role executor 角色
  * @param userPrompt 用户任务正文
  * @param localDirectives 本机片段合成文本（已探测可用工具集）
  * @param hasLsp 目标环境是否具备 LSP 工具面
  * @returns 组装结果（text + stats）
  */
-export declare function buildFullInjection(root: string, taskRelPath: string, kind: string, userPrompt: string, localDirectives: string, hasLsp: boolean, purpose?: 'case-design' | 'execution'): ExecutorPromptResult;
+export declare function buildFullInjection(root: string, taskRelPath: string, role: string, userPrompt: string, localDirectives: string, hasLsp: boolean, purpose?: DispatchPurpose): ExecutorPromptResult;
 /**
  * 从 buildExecutorPrompt 结果投影注入统计（receipt 渲染用）：总字节取注入文本长度
  * （KB 一位小数由 core 渲染），计数来自 stats——可见喂给子代理的上下文规模。
@@ -40,13 +32,14 @@ export declare function buildFullInjection(root: string, taskRelPath: string, ki
  */
 export declare function injectionStats(built: ExecutorPromptResult, toolsAllowed?: number): ExecutorInjectionStats;
 /**
- * 组装子会话标题：`[<KindLabel>] <title>`（title 为语义部分、不含前缀；缺省回退
- * task title，仍缺失/空白时整体回退 `workloom-<kind>`；标题仅供展示，不因任务
- * 元数据异常阻塞派发）。
+ * 组装子会话标题：`[<RoleLabel>] <title>`（title 为语义部分、不含前缀；缺省回退
+ * task title，仍缺失/空白时整体回退 `workloom-<role>`；标题仅供展示，不因任务
+ * 元数据异常阻塞派发）。显示名单源在 core 的 ROLE_LABELS（assertRole 已保证
+ * role 合法，此处仅防御缺键）。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind executor 类型（research/implement/check/frontend/review）
+ * @param role executor 角色（researcher/developer/frontend-developer/checker/judger）
  * @param title 模型传入的语义标题（schema 必填非空；可选类型仅作纯函数防御回退）
  * @returns 子会话标题
  */
-export declare function buildChildLabel(root: string, taskRelPath: string, kind: string, title?: string): string;
+export declare function buildChildLabel(root: string, taskRelPath: string, role: string, title?: string): string;

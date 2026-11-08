@@ -45,13 +45,13 @@ export declare function readSpawnBinding(root: string, taskRelPath: string, chil
     effort?: string;
 } | null;
 /**
- * 定位续用 childId（dispatches 记录，同 kind 边界）：'latest' 取同 kind 最近一条的
- * childId；显式 id 必须在 dispatches 中存在且 kind 一致，否则拒绝（跨 kind / 无记录
+ * 定位续用 childId（dispatches 记录，同角色边界）：'latest' 取同角色最近一条的
+ * childId；显式 id 必须在 dispatches 中存在且角色一致，否则拒绝（跨角色 / 无记录
  * 均返回提示）。定位失败不抛错——续用是主会话显式请求，提示面返回更利于模型修正。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
- * @param kind 本次调用的 executor kind（同 kind 校验基准）
+ * @param role 本次调用的 executor 角色（同角色校验基准）
  * @param input continue_executor 参数值（'latest' 或记录的 childId）
  * @returns [失败提示, childId]（失败时 childId 为空串）
  */
-export declare function locateContinueChildId(root: string, taskRelPath: string, kind: string, input: string): [string | null, string];
+export declare function locateContinueChildId(root: string, taskRelPath: string, role: string, input: string): [string | null, string];

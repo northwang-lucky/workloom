@@ -8,17 +8,18 @@
  * - 全局层仅消费项目无关字段（白名单校验）：subagent_profiles / session_auto_commit /
  *   prompt_injection / context_injection；packages / hooks 报"项目字段"专属错误，
  *   其余白名单外顶层字段报"全局配置不支持"；
- * - 遗留 subagents：接受 + 加载期一次性 deprecation WARNING（项目层同口径）；
+ * - 根层级 subagents 已退役（R5）：任一层出现即抛迁移指引错误（fail loud，
+ *   替代旧 deprecation WARNING 放行）；
  * - 解析失败显式抛错（fail loud），不静默回退，符合"无灰区"哲学；
- * - 结果挂载只读来源层字段 subagentProfilesSource / subagentsSource。
+ * - 结果挂载只读来源层字段 subagentProfilesSource。
  */
 import type { WorkloomConfig } from './config.d.ts';
 /**
  * 从项目根加载配置（三层流水线）：
  * 全局 $HOME/.workloom/config → 项目 .workloom/config → 本地 .workloom/config.local；
- * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；遗留 subagents WARNING。
- * 结果挂载只读来源层字段 subagentProfilesSource / subagentsSource（记录该 key 最后
- * 写入层；全程未出现时字段不定义、读取为 undefined）。
+ * 对象层顶层 key 覆盖、函数工厂逐层传递；全局层白名单校验；根层级 subagents
+ * 已退役（出现即抛迁移指引错误）。结果挂载只读来源层字段 subagentProfilesSource
+ * （记录该 key 最后写入层；全程未出现时字段不定义、读取为 undefined）。
  * @param root 项目根目录
  * @param options 可选项：homeDir 覆盖全局层基准目录（测试/沙箱用，缺省取 os.homedir()）
  * @returns 合并默认后的配置对象（含来源层字段）

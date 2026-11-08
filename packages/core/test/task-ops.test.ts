@@ -15,6 +15,7 @@ import { archiveTask } from '../src/task/task-ops.ts'
 import {
   executeAlignTask,
   executeArchiveTask,
+  executePlanReviewMark,
   executeCheckTask,
   executeCreateTask,
   executeFinishTask,
@@ -1004,6 +1005,55 @@ test('executeCreateTask package 校验：缺失/未知 fail loud，合法值落 
       readFileSync(join(root, '.workloom', ok.taskRelPath, 'task.json'), 'utf8'),
     )
     assert.equal(saved.package, 'repo')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- executePlanReviewMark（workloom_task_planreview 编排入口，宿主 doc-review.ts） ----------
+
+test('executePlanReviewMark：revising 轮数加一、clean 落定、非法边与非法相位报可判定错误', async () => {
+  const root = makeRoot()
+  const contextKey = 'dsh_sess_planreview'
+  try {
+    const [, created] = await executeCreateTask(root, contextKey, {
+      title: 'Plan Review Mark',
+      package: 'repo',
+    })
+    const rel = created.taskRelPath
+    // 非法边：none → clean 拒绝（合法边仅 none→reviewing、reviewing→revising、
+    // reviewing→clean、revising→reviewing）。
+    const [illegalErr, illegalResult] = executePlanReviewMark(root, contextKey, {
+      phase: 'clean',
+      taskPath: rel,
+    })
+    assert.ok(illegalErr)
+    assert.match(illegalErr.message, /illegal plan review transition/)
+    assert.equal(illegalResult, null)
+    // 夹具置 reviewing（评审派发自动置位的入口形态）。
+    recordPlanReview(root, rel, 'reviewing')
+    // reviewing → revising：轮数加一。
+    const [revErr, revResult] = executePlanReviewMark(root, contextKey, {
+      phase: 'revising',
+      taskPath: rel,
+    })
+    assert.equal(revErr, null)
+    assert.equal(revResult.planReview, 'revising')
+    assert.equal(revResult.planReviewRevisions, 1)
+    // revising → reviewing → clean：落定（轮数保留，只记录不判定）。
+    recordPlanReview(root, rel, 'reviewing')
+    const [cleanErr, cleanResult] = executePlanReviewMark(root, contextKey, {
+      phase: 'clean',
+      taskPath: rel,
+    })
+    assert.equal(cleanErr, null)
+    assert.equal(cleanResult.planReview, 'clean')
+    assert.equal(cleanResult.planReviewRevisions, 1)
+    assert.equal(cleanResult.taskRelPath, rel)
+    // 非法相位 fail loud（schema enum 之外的直调防御）。
+    const [badErr] = executePlanReviewMark(root, contextKey, { phase: 'bogus', taskPath: rel })
+    assert.ok(badErr)
+    assert.match(badErr.message, /invalid plan review phase/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
