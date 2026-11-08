@@ -1,0 +1,172 @@
+{
+ "overall": {
+  "covered": 17256,
+  "total": 18145
+ },
+ "files": {
+  "packages/core/src/dispatch/executor-roles.ts": {
+   "c": 99,
+   "t": 99,
+   "unc": []
+  },
+  "packages/core/src/dispatch/executor-tools.ts": {
+   "c": 81,
+   "t": 81,
+   "unc": []
+  },
+  "packages/core/src/task/state/index.ts": {
+   "c": 65,
+   "t": 65,
+   "unc": []
+  },
+  "packages/core/src/task/state/view.ts": {
+   "c": 251,
+   "t": 251,
+   "unc": []
+  },
+  "packages/core/src/task/state/guards.ts": {
+   "c": 282,
+   "t": 284,
+   "unc": [
+    281,
+    282
+   ]
+  },
+  "packages/core/src/task/doc-review.ts": {
+   "c": 461,
+   "t": 477,
+   "unc": [
+    244,
+    245,
+    266,
+    267,
+    324,
+    325,
+    339,
+    340,
+    362,
+    363,
+    413,
+    414,
+    452,
+    453,
+    465,
+    466
+   ]
+  },
+  "packages/core/src/workspace/config-load.ts": {
+   "c": 387,
+   "t": 394,
+   "unc": [
+    134,
+    135,
+    162,
+    163,
+    164,
+    165,
+    166
+   ]
+  },
+  "packages/core/src/injection/session-context.ts": {
+   "c": 469,
+   "t": 478,
+   "unc": [
+    154,
+    155,
+    224,
+    225,
+    274,
+    275,
+    475,
+    476,
+    477
+   ]
+  },
+  "packages/core/src/injection/session-assemble.ts": {
+   "c": 39,
+   "t": 39,
+   "unc": []
+  },
+  "packages/dsh-workloom/src/dispatch/executor-schema.ts": {
+   "c": 77,
+   "t": 77,
+   "unc": []
+  },
+  "packages/dsh-workloom/src/dispatch/dispatch-scan.ts": {
+   "c": 75,
+   "t": 75,
+   "unc": []
+  },
+  "packages/dsh-workloom/src/dispatch/executor.ts": {
+   "c": 535,
+   "t": 556,
+   "unc": [
+    213,
+    214,
+    217,
+    218,
+    219,
+    220,
+    223,
+    224,
+    225,
+    226,
+    264,
+    265,
+    297,
+    298,
+    473,
+    474,
+    475,
+    476,
+    477,
+    533,
+    534
+   ]
+  },
+  "packages/dsh-workloom/src/dispatch/executor-settle.ts": {
+   "c": 529,
+   "t": 562,
+   "unc": [
+    197,
+    198,
+    199,
+    207,
+    208,
+    211,
+    212,
+    213,
+    313,
+    317,
+    321,
+    381,
+    445,
+    446,
+    447,
+    448,
+    449,
+    450,
+    451,
+    452,
+    453,
+    454,
+    455,
+    456,
+    457,
+    458,
+    474,
+    475,
+    484,
+    485,
+    528,
+    529,
+    561
+   ]
+  },
+  "packages/dsh-workloom/src/constants.ts": {
+   "c": 17,
+   "t": 17,
+   "unc": []
+  }
+ }
+}

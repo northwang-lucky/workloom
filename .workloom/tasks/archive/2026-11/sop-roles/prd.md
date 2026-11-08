@@ -51,7 +51,7 @@ workloom-sop 重构容器任务的需求点 4：SOP 定义五角色（Owner、Re
 - R2: 旧 kind 值的全部消费点在本任务一次成组切换，清单至少含值域模块、local-prompts 派发 target 与错误文案、session-context Last dispatch 行、workloom_execute 参数校验、状态机 ui-dispatch-ready 判定、case-gates 与 executor-injection 的硬编码字面量、surface 注册面文案、executor-guard 受守卫集合、workflow.md 与 skill 文档中派发指令处的机械 kind 字样、ui-design.md 门禁字样；切换后 src 与 resources 中旧值在派发消费点零残留（兼容读映射与历史夹具数据除外）。
 - R3: workloom_execute 的 kind 参数改名 role，取值新值域，不留 kind 别名；传旧参数名或旧值显式报错（fail loud）。
 - R4: 历史派发记录（task.json dispatches、journal、归档）读取时把旧值映射为新角色（research→researcher、implement→developer、check→checker、review→judger、frontend→frontend-developer）；历史文件不改写；无法识别的值显式报错。
-- R5: 根层级 subagents 字段不再解析；配置中仍存在该字段时 loadConfig 抛 WorkloomConfigError 并给出迁移到 subagent_profiles 的指引；resolveSubagentDefaults 删除 legacy 层，解析链变为显式参数 > subagent_profiles 命中条目 > 宿主默认。
+- R5: 根层级 subagents 字段不再解析；配置中仍存在该字段时 loadConfig 抛 WorkloomConfigError 并给出迁移到 subagent_profiles 的指引；resolveSubagentDefaults 删除 legacy 层，解析链变为显式参数 > subagent_profiles 命中条目 > 宿主默认；subagent_profiles 条目的内层字段 subagents 改名 roles（用户裁定 2026-11-08），条目出现旧字段名同样抛 WorkloomConfigError 并给出改名 roles 的迁移指引（与根层级退役同一 fail loud 口径）。
 - R6: subagent_profiles 命中条目缺某角色键时，model 与 effort 继承父会话默认；session-context 重建执行器画像节（原渲染模块已随子任务二清理删除），按五角色值域渲染各角色生效配置，缺配置角色输出 not configured（inherits parent session model）风格的 info 行；渲染内嵌 session-context，不立独立模块。
 - R7: 为 plan 评审目的派发的 Judger 子会话自动把任务 planReview.phase 置为 reviewing；新工具 workloom_task_planreview 仅主会话可用，标记 revising 与 clean 并写记录；非 plan 评审目的的 Judger 派发（如追溯代码评审）不触碰 planReview 轨道；目的区分沿用既有 purpose 参数模式（同 check 派发的 case-design 与 execution）。
 - R8: ui-dispatch-ready 守卫语义不变——UI Design 章节有实质内容且无 frontend-developer 派发记录时，拒绝 implementing 迁入 checking；light 任务豁免与 force 越权留痕保持；判定经兼容读对历史记录同样成立（旧 frontend 记录计入）。
@@ -67,7 +67,7 @@ workloom-sop 重构容器任务的需求点 4：SOP 定义五角色（Owner、Re
 - AC2: 覆盖 R4、R7、R8、R9、R10、R12：两包单测全绿。验证方法：cd packages/core && pnpm test 与 cd packages/dsh-workloom && pnpm test 通过；新增测试至少含 resolveTurnTask 三态直测、兼容读映射、planReview 联动、UI 门禁、写守卫身份重建、单次重试一跳（fallback_models 下一模型重派与无链结算 failed）；dist 镜像守卫测试同场通过。
 - AC3: 覆盖 R1、R2：旧值零残留。验证方法：对 src 与 resources 按词边界检索旧 kind 五值，派发值域消费点零命中，输出命中清单人工复核（仅兼容读映射模块与历史夹具数据允许出现）。
 - AC4: 覆盖 R3：工具面 role 参数就位。验证方法：单元测试校验 workloom_execute schema 参数为 role 且无 kind，传 kind 参数或旧值的调用返回显式报错；会话上下文工具说明可见 role 参数。
-- AC5: 覆盖 R5、R6：配置退役与默认继承。验证方法：单元测试构造带根层级 subagents 的配置，观察 loadConfig 抛 WorkloomConfigError 且文案含 subagent_profiles 迁移指引；构造角色键缺失配置，观察 session-context 画像节为该角色输出 info 行且解析结果继承宿主默认。
+- AC5: 覆盖 R5、R6：配置退役与默认继承。验证方法：单元测试构造带根层级 subagents 的配置，观察 loadConfig 抛 WorkloomConfigError 且文案含 subagent_profiles 迁移指引；构造 profile 条目内层用旧字段名 subagents 的配置，观察抛错且文案含 roles 迁移指引，roles 字段正常条目解析通过；构造角色键缺失配置，观察 session-context 画像节为该角色输出 info 行且解析结果继承宿主默认。
 - AC6: 覆盖 R7：planReview 联动可判定。验证方法：单元测试驱动派发与工具调用，观察 plan 评审目的的 Judger 派发后 task.json 的 planReview.phase 为 reviewing，workloom_task_planreview 仅主会话可调用且标 revising 与 clean 均写记录，非 plan 评审目的的 Judger 派发不改变轨道。
 - AC7: 覆盖 R8：UI 门禁可判定。验证方法：单元测试驱动状态机迁移，观察 UI Design 有实质内容的任务无 frontend-developer 派发时迁入 checking 被拒、补派发后可迁移、携带旧 frontend 历史记录的任务经兼容读同样满足门禁、light 豁免与 force 留痕行为不变。
 - AC8: 覆盖 R9：只读角色写限制可判定。验证方法：单元测试驱动守卫判定与重建流程，观察 Researcher 与 Judger 子会话写 .workloom/ 外路径被拒、写 .workloom/ 内路径放行、dsh 重启后从历史派发记录（含旧 kind 值）重建受守卫身份集成功。
@@ -101,6 +101,7 @@ workloom-sop 重构容器任务的需求点 4：SOP 定义五角色（Owner、Re
 7. 大文件拆分采子目录收敛（Q6=B，修订后推荐获用户采纳）：task/state/ 与 task/storage/ 各以 index.ts 为唯一对外入口。拒绝项：平铺兄弟文件（违反目录根只留对外入口的编码原则，评审单元边界不清）。
 8. 单次重试语义（Q8=A，事实盘点后补裁）：模型不可达错误码分类命中时，按该角色 fallback_models 链的下一模型一跳重派；重试再失败或无链则结算 failed 并报错；fallback_models 配置面随之恢复消费，'rotate' 模型来源值保持惰性历史值（值域只增不减）。拒绝项：同模型重试（对不可达类错误无意义，配置面沦为死配置）、不重建重试（与子任务二"单次重试落子任务四接线"的在档裁定相悖）。
 9. R6 info 行载体（Q9=A，事实盘点后补裁）：重建 session-context 执行器画像节，按五角色值域渲染清单，缺配置角色输出 not configured（inherits parent session model）风格 info 行；渲染内嵌 session-context 不立独立模块（兼顾子任务二"不值得单列模块"裁定），派发 receipt 的模型来源显示照旧。拒绝项：以 receipt 来源显示替代并收窄验收基线、info 行挪 doctor 输出（失去常显可见性）。
+10. subagent_profiles 条目内层字段 subagents 改名 roles（用户 2026-11-08 提议，即变更确认）：名实一致——条目按角色承载配置，键词汇即五角色值；条目出现旧字段名 fail loud 给 roles 迁移指引，与根层级 subagents 退役同口径。拒绝项：内层字段保留原名（字段名与角色词汇脱节，pin 切换时配置迁移再背一处补丁）。
 
 ## References
 
