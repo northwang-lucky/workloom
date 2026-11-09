@@ -101,3 +101,16 @@ Judger 与其他四角色同为一等公民，功能明确落地：子任务三�
 2. 实施现场裁定三条（主会话认可、CASE 按新落位核验通过）：轮换判定段抽为 executor-rotation.ts 的组合纯函数 decideRotationStart（600 行预案落点，executor.ts 终态 599 行）；RespawnContext.failoverChain 复用 core 既有 SubagentFallbackModel[] 类型；configSources 未加 rotateOnBusy 来源细分（无消费方，最小实现）。
 3. 执行轮 P2 自修一条：补 AC2 要求的 dispatches 旧 kind 值归一编排用例（fixture kind:'implement' 归一后计入占用）。
 4. pin 切换前置清单（本任务归档后更新）：rotate_on_busy 解析与轮换行为已恢复合法，前置仅剩全局配置迁移两项——内层字段 subagents→roles、角色键改新五值；迁移完成即可切换（容器决定 10）。
+
+## 子任务五实现观察（2026-11-09，implement 回报）
+
+1. task-ops.ts 超 600 行拆分接受现状：本任务收尾时该文件 1129 行（S6 增补 complete 段 75 行、S7 增补级联 helper 与归档改造约 80 行后必破千）。接受理由沿袭子任务三对 state-machine.ts/task-storage.ts 的同款裁定——生命周期编排各口（create/start/check/complete/finish/archive/list）需同单元评审，拆分成独立任务成本高；拆分归子任务七输入，建议按「生命周期段（start/check/complete/finish/archive）与工具编排壳（execute*）」两段切分，级联 helper 随 archive 段走。
+2. 嵌套落位实现观察：plan S4 初稿公式（dirname(parentRelPath)）会把子任务建到 tasks/subtasks/<child> 丢失父目录段，CASE 设计探针发现后按 prd R1 修正为 join(parentRelPath, DIR_NAMES.subtasks, dirName)（子任务目录建于父任务目录之内）。该修正使「父目录只读拦 children 写回但子任务已创建」的旧注入夹具在结构上不可达（mkdir 先被拦），对应测试已改写为零部分状态断言。
+3. 归档目录名口径：archiveRelPathOf 用 task.name（无日期前缀 slug），嵌套子任务单独归档后落在 tasks/archive/<YYYY-MM>/<slug>，与目录名（含日期前缀）不同名；按名回退（findArchivedTaskPath）不受影响，消费方拼归档路径时勿用 basename。
+
+## 子任务五检查观察（2026-11-09，check 回报）
+
+1. CASE 设计探针捕获 plan 级 P0：嵌套落位公式笔误（dirname 丢父目录段）经 Judger 三轮评审未捕、被 C1/C4 探针设计阶段发现——「探针设计先核对需求语义」的纪律（子任务四确立）再次证值。子任务七输入：plan 评审 checklist 可增一条「Procedure 内路径拼接公式需对照 prd 逐字核形态」。
+2. CASE 执行轮结果：SR 27/27、C 7/7 全过；C4 全链路探针（子 completed→父 integrating→双轮门禁→脏 worktree 阻断→整树搬迁）真实 git 夹具实跑通过；主会话独立以 evaluateCaseOutcomeGate 复验 ISSUES=[]，13 个非豁免变更文件与 Exclusions 逐条一致。
+3. 混合运行时事实：生产装件 core 经 pnpm override 浮动到中间版本（有 plan 结构检查、无 plan-review-clean 门禁、无 planreview 工具），评审轨道由实际 Judger 轮次承载，planReview 字段保持 null——与本容器全部已归档子任务一致；pin 切换后新任务才有 planreview 工具面，无碍本容器收尾。
+4. pin 切换前置清单（本任务归档后无变化）：仍仅剩全局配置迁移两项——内层字段 subagents→roles、角色键改新五值；迁移完成即可切换（容器决定 10）。
