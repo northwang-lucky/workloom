@@ -59,7 +59,6 @@ function addTask(root, options) {
     completedAt: options.status === 'completed' ? options.createdAt : null,
     parent: null,
     children: [],
-    subtasks: [],
     scope: '',
     commit: '',
     pr_url: '',

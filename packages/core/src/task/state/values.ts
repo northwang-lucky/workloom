@@ -32,6 +32,7 @@ export const STAGES = Object.freeze({
   PLANNING: 'planning',
   IMPLEMENTING: 'implementing',
   CHECKING: 'checking',
+  COMPLETED: 'completed',
   ORCHESTRATING: 'orchestrating',
   INTEGRATING: 'integrating',
   ARCHIVED: 'archived',

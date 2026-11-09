@@ -31,9 +31,13 @@ function guards(...keys) {
 }
 /**
  * 三模式主线迁移表：
- * - standard：aligning→planning→implementing→checking→archived；
- * - light：无 CASE 轨道，implementing 直达 archived（无 checking 边）；
- * - parent：aligning→planning→orchestrating→integrating→archived。
+ * - standard：aligning→planning→implementing→checking→completed→archived，
+ *   completed→implementing 回边无守卫（集成期打回返工）；
+ * - light：无 CASE 轨道，implementing→completed→archived（无 checking 边），
+ *   completed→implementing 回边无守卫；
+ * - parent：aligning→planning→orchestrating→integrating→archived（无 completed 边）。
+ * completed-not-archived：completed 是"完成未归档"主线阶段，子任务在此停留等待
+ * 父任务级联归档（standard/light 通用）；completed→archived 守卫与归档边一致。
  * 归档出口边（每模式归档前各阶段直达 archived）：保留旧 archiveTask 的逃生
  * 语义——任意在档阶段可归档（archive-ready 拦截无 check 凭据，force 豁免留痕；
  * case-outcome-ready 硬拦 RESULT 不成立），任务做大的出口是做完或归档重建。
@@ -43,13 +47,19 @@ export const TRANSITIONS = Object.freeze([
     { mode: MODES.STANDARD, from: STAGES.ALIGNING, to: STAGES.PLANNING, guards: guards('prd-confirmed') },
     { mode: MODES.STANDARD, from: STAGES.PLANNING, to: STAGES.IMPLEMENTING, guards: guards('prd-confirmed', 'plan-confirmed', 'start-ready') },
     { mode: MODES.STANDARD, from: STAGES.IMPLEMENTING, to: STAGES.CHECKING, guards: guards('case-approved', 'check-ready', 'ui-dispatch-ready', 'case-outcome-ready') },
+    { mode: MODES.STANDARD, from: STAGES.CHECKING, to: STAGES.COMPLETED, guards: guards('archive-ready', 'case-outcome-ready') },
     { mode: MODES.STANDARD, from: STAGES.CHECKING, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
+    { mode: MODES.STANDARD, from: STAGES.COMPLETED, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
+    { mode: MODES.STANDARD, from: STAGES.COMPLETED, to: STAGES.IMPLEMENTING, guards: guards() },
     { mode: MODES.STANDARD, from: STAGES.ALIGNING, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
     { mode: MODES.STANDARD, from: STAGES.PLANNING, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
     { mode: MODES.STANDARD, from: STAGES.IMPLEMENTING, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
     { mode: MODES.LIGHT, from: STAGES.ALIGNING, to: STAGES.PLANNING, guards: guards('prd-confirmed') },
     { mode: MODES.LIGHT, from: STAGES.PLANNING, to: STAGES.IMPLEMENTING, guards: guards('prd-confirmed', 'plan-confirmed', 'start-ready') },
+    { mode: MODES.LIGHT, from: STAGES.IMPLEMENTING, to: STAGES.COMPLETED, guards: guards('archive-ready', 'case-outcome-ready') },
     { mode: MODES.LIGHT, from: STAGES.IMPLEMENTING, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
+    { mode: MODES.LIGHT, from: STAGES.COMPLETED, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
+    { mode: MODES.LIGHT, from: STAGES.COMPLETED, to: STAGES.IMPLEMENTING, guards: guards() },
     { mode: MODES.LIGHT, from: STAGES.ALIGNING, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
     { mode: MODES.LIGHT, from: STAGES.PLANNING, to: STAGES.ARCHIVED, guards: guards('archive-ready', 'case-outcome-ready') },
     { mode: MODES.PARENT, from: STAGES.ALIGNING, to: STAGES.PLANNING, guards: guards('prd-confirmed') },

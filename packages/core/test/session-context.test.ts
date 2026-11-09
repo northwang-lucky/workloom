@@ -1096,3 +1096,90 @@ test('Active task 行旧任务 CASE 迁移提示：仅旧 full in_progress 显�
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+/* ---------------- S13：parent 活跃任务行附 children 清单 ---------------- */
+
+/** 落一个 parent 任务与其嵌套子任务（children 指规范嵌套路径）。 */
+function addParentWithChildren(root, childCount, options = {}) {
+  const fatherDir = join(root, '.workloom', 'tasks', '08-24-demo')
+  const children = []
+  for (let i = 1; i <= childCount; i++) {
+    const name = `11-09-c${i}`
+    mkdirSync(join(fatherDir, 'subtasks', name), { recursive: true })
+    const fields = { title: `Child ${i}`, status: i % 2 === 0 ? 'in_progress' : 'completed' }
+    if (options.corruptNames?.includes(name)) {
+      writeFileSync(join(fatherDir, 'subtasks', name, 'task.json'), 'not-json{{\n')
+    } else {
+      writeFileSync(join(fatherDir, 'subtasks', name, 'task.json'), `${JSON.stringify(fields)}\n`)
+    }
+    children.push(`tasks/08-24-demo/subtasks/${name}`)
+  }
+  if (options.ghostChildren?.length) children.push(...options.ghostChildren)
+  mkdirSync(fatherDir, { recursive: true })
+  writeFileSync(
+    join(fatherDir, 'task.json'),
+    `${JSON.stringify({ title: 'Container', status: 'in_progress', mode: 'parent', children })}\n`,
+  )
+  setActiveTask(root, 'dsh_sess_parent', 'tasks/08-24-demo')
+}
+
+test('parent 活跃任务行附 children 清单：标题/状态/路径逐子渲染', () => {
+  const root = makeProject()
+  try {
+    addParentWithChildren(root, 2)
+    const [err, text] = assembleSessionContext({
+      root,
+      turnTask: turnTaskOf(root),
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.match(text, /Active task: "Container" \(in_progress, autonomy: manual\) at tasks\/08-24-demo\./)
+    assert.match(text, /\n {2}- "Child 1" \(completed\) at tasks\/08-24-demo\/subtasks\/11-09-c1\n/)
+    assert.match(text, /\n {2}- "Child 2" \(in_progress\) at tasks\/08-24-demo\/subtasks\/11-09-c2\n/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('parent children 清单：8 条截断加 more 提示行', () => {
+  const root = makeProject()
+  try {
+    addParentWithChildren(root, 10)
+    const [err, text] = assembleSessionContext({
+      root,
+      turnTask: turnTaskOf(root),
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    for (let i = 1; i <= 8; i++) {
+      assert.ok(text.includes(`- "Child ${i}"`), `child ${i} line must render`)
+    }
+    assert.ok(!text.includes('- "Child 9"'), 'child 9 must be truncated')
+    assert.match(text, /\n {2}\(… 2 more; run workloom_task_list\)\n/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('parent children 清单：损坏与缺失子记录跳过不阻塞快照', () => {
+  const root = makeProject()
+  try {
+    addParentWithChildren(root, 2, {
+      corruptNames: ['11-09-c1'],
+      ghostChildren: ['tasks/08-24-demo/subtasks/11-09-ghost'],
+    })
+    const [err, text] = assembleSessionContext({
+      root,
+      turnTask: turnTaskOf(root),
+      workflowSteps: [],
+    })
+    assert.equal(err, null)
+    assert.ok(!text.includes('"Child 1"'), 'corrupt child must be skipped')
+    assert.ok(!text.includes('11-09-ghost'), 'missing child must be skipped')
+    assert.match(text, /\n {2}- "Child 2" \(in_progress\) at tasks\/08-24-demo\/subtasks\/11-09-c2\n/)
+    // 活跃任务行主流程不受影响。
+    assert.match(text, /Active task: "Container"/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

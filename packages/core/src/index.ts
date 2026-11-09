@@ -301,6 +301,7 @@ export {
   executeCreateTask,
   executeStartTask,
   executeCheckTask,
+  executeCompleteTask,
   executeFinishTask,
   executeArchiveTask,
   executeListTasks,

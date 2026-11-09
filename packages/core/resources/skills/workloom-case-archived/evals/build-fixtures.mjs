@@ -64,7 +64,6 @@ function addArchive(root, slug, material, completedAt) {
     completedAt,
     parent: null,
     children: [],
-    subtasks: [],
     scope: '',
     commit: '',
     pr_url: '',

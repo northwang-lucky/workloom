@@ -232,7 +232,12 @@ function isChildArchived(root: string, childRelPath: string): boolean {
   return false
 }
 
-/** 集成 CASE 通过（parent 归档守卫；当前求值 parent 自身 RESULT 门禁，多子任务集成机制待父子编排细化）。 */
+/**
+ * 集成 CASE 通过（parent 归档守卫）：集成 CASE 即父任务自身 CASE——case-design
+ * 轮写 case.md、主会话复核后续同会话 execution 轮执行，RESULT passed 即通过。
+ * 子任务凭据由 children-archived 传递保证（各子任务自身 check 与 CASE 凭据已在
+ * 进入集成前落盘），不在此重复校验。
+ */
 function guardIntegrationCasePassed(view: TaskView, ctx: GuardContext): GuardResult {
   return guardCaseOutcomeReady(view, ctx)
 }

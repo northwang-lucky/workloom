@@ -125,10 +125,14 @@ function normalizeTaskRecord(
     hooks[key] = Array.isArray(value) ? (value as string[]) : []
   }
   const rawCase = parsed.case
+  // 旧 grilling 等历史字段经展开原样透传（惰性历史数据，不参与新语义、不迁移）；
+  // 旧凭据里的 prdHash 在下一次 confirm 覆盖时自然丢弃（读时容忍，不迁移）。
+  // subtasks 死字段运行时剔除：存量 task.json 的该键随展开透传，显式 delete 后
+  // 在下一次写回时自然消失（读时容忍，零消费方）。
+  const record = { ...(parsed as unknown as TaskRecord) }
+  delete (record as Record<string, unknown>)['subtasks']
   return {
-    // 旧 grilling 等历史字段经展开原样透传（惰性历史数据，不参与新语义、不迁移）；
-    // 旧凭据里的 prdHash 在下一次 confirm 覆盖时自然丢弃（读时容忍，不迁移）。
-    ...(parsed as unknown as TaskRecord),
+    ...record,
     status: typeof parsed.status === 'string' ? parsed.status : '',
     priority: typeof parsed.priority === 'string' ? parsed.priority : '',
     ...(typeof parsed.mode === 'string' ? { mode: parsed.mode } : {}),

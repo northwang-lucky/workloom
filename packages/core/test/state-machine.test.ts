@@ -50,7 +50,6 @@ function baseRecord(overrides = {}) {
     completedAt: null,
     parent: null,
     children: [],
-    subtasks: [],
     scope: '',
     commit: '',
     pr_url: '',
@@ -99,6 +98,7 @@ test('五个枚举冻结且值域符合 SOP（禁用 TS enum，as const + Object
       PLANNING: 'planning',
       IMPLEMENTING: 'implementing',
       CHECKING: 'checking',
+      COMPLETED: 'completed',
       ORCHESTRATING: 'orchestrating',
       INTEGRATING: 'integrating',
       ARCHIVED: 'archived',
@@ -134,13 +134,19 @@ test('TRANSITIONS 冻结且三模式条目齐（主线链 + 归档出口边）',
     'standard:aligning->planning',
     'standard:planning->implementing',
     'standard:implementing->checking',
+    'standard:checking->completed',
     'standard:checking->archived',
+    'standard:completed->archived',
+    'standard:completed->implementing',
     'standard:aligning->archived',
     'standard:planning->archived',
     'standard:implementing->archived',
     'light:aligning->planning',
     'light:planning->implementing',
+    'light:implementing->completed',
     'light:implementing->archived',
+    'light:completed->archived',
+    'light:completed->implementing',
     'light:aligning->archived',
     'light:planning->archived',
     'parent:aligning->planning',
@@ -1324,6 +1330,137 @@ test('非法迁移抽样：归档后不可再迁移，parent 不得进 checking�
     const [stdErr] = migrateTask(root, { taskRelPath: std.taskRelPath, to: 'orchestrating' })
     assert.ok(stdErr)
     assert.match(stdErr.message, /no transition path in the table/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/* ---------------- S13：completed-not-archived 新阶段 ---------------- */
+
+test('completed 六边可达：standard checking→completed→archived 与 light implementing→completed→archived', async () => {
+  const root = makeRoot()
+  try {
+    // standard：checking→completed 与归档边同守卫（archive-ready + case-outcome-ready）。
+    const [, std] = await createTask(root, { title: 'Std Completed' })
+    const stdRel = std.taskRelPath
+    satisfyStartDocs(root, stdRel)
+    const [prdErr] = confirmPrd(root, stdRel, { summary: 'converged' })
+    assert.equal(prdErr, null)
+    recordPlanReview(root, stdRel, 'reviewing')
+    recordPlanReview(root, stdRel, 'clean')
+    const [planErr] = confirmPlan(root, stdRel, { summary: 'plan ok' })
+    assert.equal(planErr, null)
+    const [startErr] = migrateTask(root, { taskRelPath: stdRel, to: 'implementing' })
+    assert.equal(startErr, null)
+    // 旧任务形态（case=null）补轨道：本探针聚焦主线迁移，CASE 结构链在 case.test。
+    const record = requireRecord(root, stdRel)
+    record.case = null
+    writeRecord(root, stdRel, record)
+    advanceCaseTrackTo(root, stdRel, 'approved')
+    const [checkErr] = migrateTask(root, { taskRelPath: stdRel, to: 'checking' })
+    assert.equal(checkErr, null)
+    seedCheckCredential(root, stdRel)
+    const [compErr, completed] = migrateTask(root, { taskRelPath: stdRel, to: 'completed' })
+    assert.equal(compErr, null)
+    assert.equal(completed.view.stage, 'completed')
+    assert.equal(completed.view.status, 'completed')
+    // completedAt 随 completed 迁移落盘（完成未归档即有完成时刻）。
+    const completedAt = completed.view.completedAt
+    assert.ok(completedAt !== null)
+    // completed→archived 放行，归档不覆盖完成时刻。
+    const [archErr, archived] = migrateTask(root, { taskRelPath: stdRel, to: 'archived' })
+    assert.equal(archErr, null)
+    assert.equal(archived.view.stage, 'archived')
+    assert.equal(archived.view.completedAt, completedAt)
+    // light：implementing→completed→archived（守卫集对称，case-outcome 对 light 恒真）。
+    const [, light] = await createTask(root, { title: 'Light Completed', mode: 'light' })
+    const lightRel = light.taskRelPath
+    writeFileSync(join(root, '.workloom', lightRel, 'prd.md'), LIGHT_MIN_PRD)
+    const [lPlanErr] = migrateTask(root, { taskRelPath: lightRel, to: 'planning' })
+    assert.equal(lPlanErr, null)
+    const [lStartErr] = migrateTask(root, { taskRelPath: lightRel, to: 'implementing' })
+    assert.equal(lStartErr, null)
+    seedCheckCredential(root, lightRel)
+    const [lCompErr, lCompleted] = migrateTask(root, { taskRelPath: lightRel, to: 'completed' })
+    assert.equal(lCompErr, null)
+    assert.equal(lCompleted.view.stage, 'completed')
+    assert.ok(lCompleted.view.completedAt !== null)
+    const [lArchErr] = migrateTask(root, { taskRelPath: lightRel, to: 'archived' })
+    assert.equal(lArchErr, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('completed→implementing 回边无守卫（集成期打回返工，完成后可再完成）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Reopen Loop', mode: 'light' })
+    const rel = created.taskRelPath
+    writeFileSync(join(root, '.workloom', rel, 'prd.md'), LIGHT_MIN_PRD)
+    const [planErr] = migrateTask(root, { taskRelPath: rel, to: 'planning' })
+    assert.equal(planErr, null)
+    const [startErr] = migrateTask(root, { taskRelPath: rel, to: 'implementing' })
+    assert.equal(startErr, null)
+    seedCheckCredential(root, rel)
+    const [compErr, completed] = migrateTask(root, { taskRelPath: rel, to: 'completed' })
+    assert.equal(compErr, null)
+    const firstCompletedAt = completed.view.completedAt
+    // 回边无守卫：无 force、无 reason 也放行，status 同步回 in_progress。
+    const [backErr, back] = migrateTask(root, { taskRelPath: rel, to: 'implementing' })
+    assert.equal(backErr, null)
+    assert.equal(back.view.stage, 'implementing')
+    assert.equal(back.view.status, 'in_progress')
+    // 返工后再次完成；completedAt 空值守卫保住首次完成时刻。
+    const [againErr, again] = migrateTask(root, { taskRelPath: rel, to: 'completed' })
+    assert.equal(againErr, null)
+    assert.equal(again.view.stage, 'completed')
+    assert.equal(again.view.completedAt, firstCompletedAt)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('deriveStage 新枚举优先：落盘 stage 命中即直读，completed 不被 status 兜底误读为 archived', () => {
+  const root = makeRoot()
+  try {
+    // 新代码 stage/status 恒成对落盘：stage=completed 直读 completed（not archived）。
+    const newDone = baseRecord({ status: 'completed', stage: 'completed' })
+    const doneView = readViewOf(root, 'tasks/10-30-pair-completed', newDone)
+    assert.equal(doneView.stage, 'completed')
+    assert.equal(doneView.status, 'completed')
+    // 其余新枚举 stage 直读抽查（orchestrating）。
+    const orch = baseRecord({ status: 'in_progress', stage: 'orchestrating', children: ['tasks/10-30-c'] })
+    const orchView = readViewOf(root, 'tasks/10-30-pair-orch', orch)
+    assert.equal(orchView.stage, 'orchestrating')
+    // 旧数据兜底回归：status=completed 且无 stage 字段仍读 archived。
+    const legacy = baseRecord({ status: 'completed' })
+    delete legacy.stage
+    const legacyView = readViewOf(root, 'tasks/10-30-legacy-completed', legacy)
+    assert.equal(legacyView.stage, 'archived')
+    assert.equal(legacyView.status, 'completed')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('parent 模式无 completed 边：查表拒绝，消息含 from/to/mode', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Parent No Complete', mode: 'parent' })
+    const rel = created.taskRelPath
+    satisfyStartDocs(root, rel)
+    const [prdErr] = confirmPrd(root, rel, { summary: 'converged' })
+    assert.equal(prdErr, null)
+    // 容器任务豁免 PLAN 确认（children 非空才豁免，挂一个子任务）。
+    await createTask(root, { title: 'No Complete Child', parent: rel })
+    const [orchErr] = migrateTask(root, { taskRelPath: rel, to: 'orchestrating' })
+    assert.equal(orchErr, null)
+    const [compErr] = migrateTask(root, { taskRelPath: rel, to: 'completed' })
+    assert.ok(compErr)
+    assert.match(compErr.message, /no transition path in the table/)
+    assert.match(compErr.message, /"orchestrating" to "completed"/)
+    assert.match(compErr.message, /mode parent/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

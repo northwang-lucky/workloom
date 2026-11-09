@@ -23,11 +23,12 @@ export const COMMAND_DESCRIPTIONS = {
     'Run a structured workflow health check (results are handed to the model as JSON)',
 } as const
 
-/** 十二个工具名（十个任务工具 + executor + 步骤详情，模型可见）。 */
+/** 十三个工具名（十一个任务工具 + executor + 步骤详情，模型可见）。 */
 export const TOOL_NAMES = {
   taskCreate: 'workloom_task_create',
   taskStart: 'workloom_task_start',
   taskCheck: 'workloom_task_check',
+  taskComplete: 'workloom_task_complete',
   taskFinish: 'workloom_task_finish',
   taskArchive: 'workloom_task_archive',
   taskList: 'workloom_task_list',
@@ -46,6 +47,8 @@ export const TOOL_DESCRIPTIONS = {
     'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)',
   taskCheck:
     'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
+  taskComplete:
+    'Mark the task completed without archiving (completed-not-archived: the task stays in place awaiting the parent cascade archive; force bypasses and is recorded)',
   taskAlign:
     'Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)',
   taskCase:
@@ -74,6 +77,8 @@ export const TOOL_SNIPPETS = {
   taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
   taskCheck:
     'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
+  taskComplete:
+    'workloom_task_complete(taskPath?, force?, reason?) — mark the task completed without archiving',
   taskAlign:
     'workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content',
   taskCase:
@@ -93,7 +98,7 @@ export const TOOL_SNIPPETS = {
 
 /** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有三处变体）。 */
 export const PARAM_DESCRIPTIONS = {
-  /** 支持活跃任务回退的任务工具（start/check/finish/align）的 taskPath 参数。 */
+  /** 支持活跃任务回退的任务工具（start/check/complete/finish/align）的 taskPath 参数。 */
   taskPath: 'Task directory relative to .workloom; defaults to the active task',
   /** 必填 taskPath 变体（archive）：缺参即报错，不回退活跃任务。 */
   taskPathRequired:

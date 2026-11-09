@@ -1,6 +1,7 @@
 /**
  * worktree 生命周期编排模块的类型面（domain 纯 JS + JSDoc 模块的声明补充）。
- * 与 worktree.js 的 JSDoc 保持同步；service 层（task-ops / doctor）经此引用类型。
+ * 与 worktree-lifecycle.ts / worktree-integrate.ts 的 JSDoc 保持同步；
+ * service 层（task-ops / doctor）经此引用类型。
  */
 import type { WorkloomConfig } from './config.d.ts'
 import type { TaskRecord } from '../task/storage/index.ts'

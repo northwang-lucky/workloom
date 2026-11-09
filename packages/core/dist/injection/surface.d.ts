@@ -18,11 +18,12 @@ export declare const COMMAND_DESCRIPTIONS: {
     readonly init: "Initialize the .workloom skeleton (idempotent; --purge applies to legacy .trellis projects only: it force-fills missing pieces and fails when no legacy .trellis project exists)";
     readonly doctor: "Run a structured workflow health check (results are handed to the model as JSON)";
 };
-/** 十二个工具名（十个任务工具 + executor + 步骤详情，模型可见）。 */
+/** 十三个工具名（十一个任务工具 + executor + 步骤详情，模型可见）。 */
 export declare const TOOL_NAMES: {
     readonly taskCreate: "workloom_task_create";
     readonly taskStart: "workloom_task_start";
     readonly taskCheck: "workloom_task_check";
+    readonly taskComplete: "workloom_task_complete";
     readonly taskFinish: "workloom_task_finish";
     readonly taskArchive: "workloom_task_archive";
     readonly taskList: "workloom_task_list";
@@ -38,6 +39,7 @@ export declare const TOOL_DESCRIPTIONS: {
     readonly taskCreate: "Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)";
     readonly taskStart: "Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)";
     readonly taskCheck: "Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)";
+    readonly taskComplete: "Mark the task completed without archiving (completed-not-archived: the task stays in place awaiting the parent cascade archive; force bypasses and is recorded)";
     readonly taskAlign: "Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)";
     readonly taskCase: "CASE review: action=review returns the current case.md snapshot, structural issues, blockers, the readyForExecution flag and the current designSession without writing; the main session reviews the CASE against the PRD, the PLAN and the actual code, then continues the same design session for execution (main-session only, no user approval and no confirmation record)";
     readonly taskPlanReview: "Mark the plan review track phase (main-session only): revising enters a revision round after Judger findings (the round counter is recorded); clean records the review as converged with zero findings (required before the PLAN confirmation). The reviewing phase is not marked here — a judger dispatch with purpose plan-review sets it automatically";
@@ -57,6 +59,7 @@ export declare const TOOL_SNIPPETS: {
     readonly taskCreate: "workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?, autonomy?) — create a task";
     readonly taskStart: "workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress";
     readonly taskCheck: "workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass";
+    readonly taskComplete: "workloom_task_complete(taskPath?, force?, reason?) — mark the task completed without archiving";
     readonly taskAlign: "workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content";
     readonly taskCase: "workloom_task_case(action, taskPath?) — review the task CASE before continuing the design session";
     readonly taskPlanReview: "workloom_task_planreview(phase, taskPath?) — mark the plan review track revising/clean";
@@ -69,7 +72,7 @@ export declare const TOOL_SNIPPETS: {
 };
 /** 工具参数描述文案（两 adapter 现状逐字相同；taskPath 有三处变体）。 */
 export declare const PARAM_DESCRIPTIONS: {
-    /** 支持活跃任务回退的任务工具（start/check/finish/align）的 taskPath 参数。 */
+    /** 支持活跃任务回退的任务工具（start/check/complete/finish/align）的 taskPath 参数。 */
     readonly taskPath: "Task directory relative to .workloom; defaults to the active task";
     /** 必填 taskPath 变体（archive）：缺参即报错，不回退活跃任务。 */
     readonly taskPathRequired: "Task directory relative to .workloom; required (no session-task fallback)";

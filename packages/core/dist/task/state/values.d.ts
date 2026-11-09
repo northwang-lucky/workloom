@@ -26,6 +26,7 @@ export declare const STAGES: Readonly<{
     readonly PLANNING: "planning";
     readonly IMPLEMENTING: "implementing";
     readonly CHECKING: "checking";
+    readonly COMPLETED: "completed";
     readonly ORCHESTRATING: "orchestrating";
     readonly INTEGRATING: "integrating";
     readonly ARCHIVED: "archived";

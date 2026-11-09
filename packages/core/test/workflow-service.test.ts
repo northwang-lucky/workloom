@@ -199,6 +199,9 @@ test('task.json 状态损坏：解析失败前移 resolveTurnTask 抛错；bread
       readFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), 'utf8'),
     )
     json.status = 'banana'
+    // 新代码 stage/status 恒成对落盘且 stage 命中即直读（deriveStage 新枚举优先）：
+    // 损坏探针需 stage 同坏才能落到未映射 status 报错分支。
+    json.stage = 'banana'
     writeFileSync(join(root, '.workloom', created.taskRelPath, 'task.json'), JSON.stringify(json))
     setActiveTask(root, 'dsh_wf_7', created.taskRelPath)
     // 正规通道（adapter 回合缓存）：损坏记录在 resolveTurnTask 报可判定错误

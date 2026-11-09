@@ -2,15 +2,15 @@
  * task-ops：任务生命周期编排（TypeScript）。
  *
  * 设计意图：
- * - 两层职责：① 六个任务管理工具（create/start/check/finish/archive/list）的
+ * - 两层职责：① 七个任务管理工具（create/start/check/complete/finish/archive/list）的
  *   runtime 无关编排（cwd 校验 → 显式 taskPath 优先 → 活跃任务 fallback →
  *   生命周期调用 → null 结果兜底报错），adapter 只负责从执行上下文提取
- *   cwd/contextKey 并投影返回值；② start/check/finish/archive 四个生命周期
+ *   cwd/contextKey 并投影返回值；② start/check/complete/finish/archive 五个生命周期
  *   编排（守卫判断 + task-storage 物理写 + 指针联动 + hooks），状态迁移判断
  *   经 task/state 的 migrateTask/evaluateTransition 单一入口；
  * - create 的入参过滤（空串 slug/priority/description 不传）照 DSH 现状；
  *   mode 三值（light/standard/parent，缺省 standard），会话指针绑定在本层
- *   （存储层不消费 contextKey）；
+ *   （存储层不消费 contextKey）；带 parent 创建不抢会话指针（指针分流）；
  * - archive 的 taskPath 必填（requireTaskRelPath，缺参即报错不回退活跃任务），
  *   归档必须显式绑定目标任务；start/check/finish/align 保持活跃任务回退；
  * - 生命周期错误消息沿用旧 task-store 的 `workloom task` 前缀（行为移植，
@@ -35,6 +35,7 @@ import {
   clearPointersToTask,
   evaluateGuard,
   evaluateTransition,
+  isArchivePath,
   migrateTask,
   resolveActiveTask,
   setActiveTask,
@@ -44,9 +45,11 @@ import {
   TaskStatus,
   archiveRelPathOf,
   createTask,
+  findArchivedTaskPath,
   listTasks,
   logWarnings,
   moveTaskToArchive,
+  readTaskRecord,
   requireProjectRoot,
   requireTaskRecord,
   runTaskHooks,
@@ -64,6 +67,7 @@ import type {
   TaskSummary,
 } from './storage/index.ts'
 import type { CleanupTaskWorktreeResult } from '../workspace/worktree.d.ts'
+import type { WorkloomConfig } from '../workspace/config.d.ts'
 
 /** 生命周期错误消息前缀（旧 task-store 字面量，测试钉住）。 */
 const TASK_ERR_PREFIX = 'workloom task'
@@ -219,13 +223,17 @@ async function executeCreateInternal(
   if (err || result === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: create returned no result`)
   }
-  // 会话指针绑定在编排层（存储层不消费 contextKey）：创建成功后激活会话任务。
+  // 会话指针绑定在编排层（存储层不消费 contextKey）：创建成功后激活会话任务；
+  // 带 parent 的子任务创建不抢指针（编排现场保持在父任务上，主会话自行切换）。
   const found = findWorkloomRoot(cwd)
   if (found === null) {
     throw new Error(`${ERR_PREFIX.taskTool}: no .workloom directory found from cwd: ${cwd}`)
   }
-  const [ptrErr] = setActiveTask(found.root, contextKey, result.taskRelPath)
-  if (ptrErr) throw ptrErr
+  const hasParent = typeof params.parent === 'string' && params.parent !== ''
+  if (!hasParent) {
+    const [ptrErr] = setActiveTask(found.root, contextKey, result.taskRelPath)
+    if (ptrErr) throw ptrErr
+  }
   // 附下一步行动指引：light 任务走轻量轨（免对齐/免 jsonl），其余引导 Phase 1.1。
   return {
     ...result,
@@ -555,6 +563,59 @@ function assertTaskForceReason(reason: string | undefined): void {
   }
 }
 
+/* ---------------- complete ---------------- */
+
+/** complete 工具编排入参（taskPath/force/reason 可选，取样同 check）。 */
+export interface ExecuteCompleteTaskParams {
+  taskPath?: string
+  /** 豁免迁移守卫（留痕 overrides；仅在实际绕过 gate 时记录）。 */
+  force?: boolean
+  /** force 豁免原因（force=true 时必填非空，审计用）。 */
+  reason?: string
+}
+
+/**
+ * complete 工具编排：标记任务 completed（完成未归档）。目录与 worktree 不动，
+ * 子任务在此等待父任务级联归档；顶层任务可再走 completed→archived 单独归档。
+ * 迁移守卫复用迁移表 completed 边（archive-ready + case-outcome-ready），
+ * parent 模式无 completed 边，查表自动拒绝。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话标识（adapter 组装）
+ * @param params 工具参数（taskPath 缺省取活跃任务）
+ * @returns [err, task]：err 为任一失败（消息含前缀）
+ */
+export function executeCompleteTask(
+  cwd: string,
+  contextKey: string,
+  params: ExecuteCompleteTaskParams,
+): [Error | null, TaskView | null] {
+  try {
+    requireWorkloomCwd(cwd)
+    const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
+    const projectRoot = requireProjectRoot(cwd)
+    // force 契约（与旧门禁口一致）：force=true 恒要求非空 reason。
+    if (params.force === true) assertTaskForceReason(params.reason)
+    const forceOpts = {
+      ...(params.force !== undefined ? { force: params.force } : {}),
+      ...(params.reason !== undefined ? { reason: params.reason } : {}),
+    }
+    // 守卫干跑（查表 + force 判定）：失败即中止——任务记录未触碰（零部分状态）。
+    const [gateErr] = evaluateTransition(projectRoot, taskRelPath, STAGES.COMPLETED, forceOpts)
+    if (gateErr !== null) throw gateErr
+    const [migErr, migrated] = migrateTask(projectRoot, {
+      taskRelPath,
+      to: STAGES.COMPLETED,
+      ...forceOpts,
+    })
+    if (migErr !== null || migrated === null) {
+      throw migErr ?? new Error(`${ERR_PREFIX.taskTool}: complete returned no result`)
+    }
+    return [null, migrated.view]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
+
 /* ---------------- finish ---------------- */
 
 /** finishTask 参数（生命周期口）。 */
@@ -603,38 +664,93 @@ export interface ArchiveTaskParams {
 }
 
 /**
- * 归档任务结果（三元组）：成功时第三元素为 worktree 清理摘要（cleanup 内的
+ * 归档任务结果（四元组）：第三元素为 worktree 清理摘要（cleanup 内的
  * rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped，供
- * archive 回执展示）；失败时第三元素缺省。
+ * archive 回执展示）；第四元素为级联清理的子任务计数（父任务归档随树级联，
+ * 供回执展示）；失败时后两元素缺省。
  */
-export type ArchiveTaskResult = [Error | null, TaskView | null, CleanupTaskWorktreeResult?]
+export type ArchiveTaskResult = [
+  Error | null,
+  TaskView | null,
+  CleanupTaskWorktreeResult?,
+  number?,
+]
 
 /**
- * 归档任务：清理任务 worktree（失败即阻断）、置 completed、移动目录、清理会话指针、
+ * 归档任务：父任务归档时先级联清理各子任务 worktree（子先于父，任一失败即阻断）、
+ * 清理自身 worktree（失败即阻断）、置 completed、整树移动目录、清理会话指针、
  * 执行 after_archive hooks，可选 git 自动提交。
  * @param root 项目根
  * @param params 归档参数
- * @returns 三元组 [err, 归档后视图, worktree 清理摘要]
+ * @returns 四元组 [err, 归档后视图, worktree 清理摘要, 级联清理子任务计数]
  */
 export async function archiveTask(root: string, params: ArchiveTaskParams): Promise<ArchiveTaskResult> {
   try {
-    const { view, worktreeCleanup } = await archiveTaskInternal(root, params)
-    return [null, view, worktreeCleanup]
+    const { view, worktreeCleanup, cascadedCleanups } = await archiveTaskInternal(root, params)
+    return [null, view, worktreeCleanup, cascadedCleanups]
   } catch (error) {
     return [toError(error), null]
   }
 }
 
 /**
+ * 级联清理子任务（内部，深度优先）：归档父任务时逐子清理 worktree——先递归
+ * 处理各子的 children（嵌套孙任务），再清理该子任务自身（子先于父）。子任务
+ * 记录当前路径不可读时按名回退归档区：命中即子任务已单独归档，跳过；两路皆
+ * 不可读抛错阻断（fail loud，提示清理父 children 后重试）。失败时父目录未动，
+ * 已清理的子 worktree 幂等可重跑。
+ * @param root 项目根
+ * @param view 父任务视图（children 为子任务相对路径）
+ * @param config workloom 配置（worktree 开关透传 cleanup）
+ * @returns 已处理的子任务相对路径列表（深度优先序；不含已归档跳过项）
+ */
+async function cascadeChildrenCleanup(
+  root: string,
+  view: TaskView,
+  config: WorkloomConfig,
+): Promise<string[]> {
+  const processed: string[] = []
+  const walk = async (childRelPath: string): Promise<void> => {
+    const [readErr, childRecord] = readTaskRecord(root, childRelPath)
+    if (readErr !== null || childRecord === null) {
+      // 当前路径不可读：按名回退归档区（子任务已单独归档则跳过，随树入档由
+      // 自身归档完成）；两路皆不可读属数据不一致，fail loud 阻断归档。
+      const archivedRel = findArchivedTaskPath(root, childRelPath)
+      if (archivedRel === null || !isArchivePath(archivedRel)) {
+        throw new Error(
+          `${TASK_ERR_PREFIX}: child task unreadable: ${childRelPath} ` +
+            '(clean up the parent children and retry)',
+        )
+      }
+      return
+    }
+    const childView = toTaskView(childRecord, childRelPath)
+    // 深度优先：先处理孙任务，再清理该子任务自身。
+    for (const grand of childView.children) await walk(grand)
+    const [cleanupErr, cleanup] = await cleanupTaskWorktree(root, childView, config)
+    if (cleanup === null) {
+      throw cleanupErr ?? new Error(
+        `${TASK_ERR_PREFIX}: child worktree cleanup returned no result: ${childRelPath}`,
+      )
+    }
+    processed.push(childRelPath)
+  }
+  for (const child of view.children) await walk(child)
+  return processed
+}
+
+/**
  * 归档任务（内部实现；过渡期消费旧门禁，步骤 3 收编为状态机迁移入口）。
+ * 级联语义：父任务归档先深度优先递归清理子任务 worktree（子先于父、任一失败
+ * 阻断），再清理父自身；目录整树搬迁（子任务随父入档、状态原样保持）。
  * @param root 项目根
  * @param params 归档参数
- * @returns 归档后视图与 worktree 清理摘要
+ * @returns 归档后视图、worktree 清理摘要与级联清理子任务计数
  */
 async function archiveTaskInternal(
   root: string,
   params: ArchiveTaskParams,
-): Promise<{ view: TaskView; worktreeCleanup: CleanupTaskWorktreeResult }> {
+): Promise<{ view: TaskView; worktreeCleanup: CleanupTaskWorktreeResult; cascadedCleanups: number }> {
   const projectRoot = requireProjectRoot(root)
   const record = requireTaskRecord(projectRoot, params.taskRelPath)
   const view = toTaskView(record, params.taskRelPath)
@@ -656,11 +772,14 @@ async function archiveTaskInternal(
   if (existsSync(insideWorkloom(projectRoot, archiveRel))) {
     throw new Error(`${TASK_ERR_PREFIX}: archive target already exists: ${archiveRel}`)
   }
+  const worktreeConfig = loadConfig(projectRoot)
+  // 级联清理子任务（插在冲突检查后、父清理前）：失败即阻断——父目录未动、
+  // 已清理的子 worktree 幂等可重跑。
+  const cascadedChildren = await cascadeChildrenCleanup(projectRoot, view, worktreeConfig)
   // worktree 清理（插在冲突检查后、rename 不可逆点前）：清理失败即阻断 archive
   // ——不改 status、不移动目录、不 autoCommit；gitlink 提交已在 cleanup 内独立
   // 完成（fail loud）。清理成功但后续 rename 失败 → 接受「worktree 已删、任务
   // 未归档」中间态（重跑时 cleanup 步骤幂等）。
-  const worktreeConfig = loadConfig(projectRoot)
   const [wtErr, worktreeCleanup] = await cleanupTaskWorktree(projectRoot, view, worktreeConfig)
   if (worktreeCleanup === null) {
     throw wtErr ?? new Error(`${TASK_ERR_PREFIX}: worktree cleanup returned no result`)
@@ -671,9 +790,10 @@ async function archiveTaskInternal(
     throw moveErr ?? new Error(`${TASK_ERR_PREFIX}: archive move returned no directory`)
   }
   // 归档态落盘：status/stage/completedAt 与兼容读归一的 casePhase 同一次写入；
+  // completedAt 空值守卫：完成时刻已在 completed 迁移落盘，归档不覆盖；
   // force 豁免的 override 留痕经 dispatch-records 追加写（审计口单一）。
   record.status = TaskStatus.COMPLETED
-  record.completedAt = now.toISOString()
+  if (record.completedAt === null) record.completedAt = now.toISOString()
   record.stage = STAGES.ARCHIVED
   if (record.case !== null) {
     record.case = { ...record.case, phase: view.casePhase }
@@ -685,6 +805,11 @@ async function archiveTaskInternal(
   }
   const [ptrErr] = clearPointersToTask(projectRoot, params.taskRelPath)
   if (ptrErr) throw ptrErr
+  // 级联清理过的子任务指针一并清（失效指针；已归档跳过的子任务在自身归档时已清）。
+  for (const childRelPath of cascadedChildren) {
+    const [childPtrErr] = clearPointersToTask(projectRoot, childRelPath)
+    if (childPtrErr) throw childPtrErr
+  }
   const warnings = await runTaskHooks(
     projectRoot,
     join(archiveDir, FILE_NAMES.taskJson),
@@ -702,7 +827,7 @@ async function archiveTaskInternal(
   // 返回归档后的新路径视图（重读落盘结果，override 留痕经 dispatch-records
   // 追加写，内存副本不含），避免调用方拿着旧路径或过期字段继续操作。
   const saved = requireTaskRecord(projectRoot, archiveRel)
-  return { view: toTaskView(saved, archiveRel), worktreeCleanup }
+  return { view: toTaskView(saved, archiveRel), worktreeCleanup, cascadedCleanups: cascadedChildren.length }
 }
 
 /**
@@ -841,6 +966,8 @@ export interface ExecuteArchiveTaskResult {
   note: string
   /** 本次归档的 worktree 清理摘要（rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。 */
   worktreeCleanup?: CleanupTaskWorktreeResult
+  /** 父任务归档级联清理的子任务计数（0 表示无子任务或无级联动作）。 */
+  cascadedCleanups?: number
 }
 
 /** archive 工具编排入参（taskPath 必填；force 豁免 archive 门禁并留痕）。 */
@@ -866,7 +993,7 @@ export async function executeArchiveTask(
   try {
     requireWorkloomCwd(cwd)
     const taskRelPath = requireTaskRelPath(params.taskPath, ERR_PREFIX.taskTool)
-    const [err, task, worktreeCleanup] = await archiveTask(cwd, {
+    const [err, task, worktreeCleanup, cascadedCleanups] = await archiveTask(cwd, {
       taskRelPath,
       ...(params.autoCommit !== undefined ? { autoCommit: params.autoCommit } : {}),
       ...forceOverride(params),
@@ -881,6 +1008,7 @@ export async function executeArchiveTask(
         task,
         note: TASK_ARCHIVE_NOTE,
         ...(worktreeCleanup !== undefined ? { worktreeCleanup } : {}),
+        ...(cascadedCleanups !== undefined ? { cascadedCleanups } : {}),
       },
     ]
   } catch (error) {

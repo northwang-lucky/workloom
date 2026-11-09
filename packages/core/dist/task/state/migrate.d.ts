@@ -70,7 +70,8 @@ export declare function evaluateTransition(root: string, taskRelPath: string, to
 }): [Error | null, TransitionEvaluation | null];
 /**
  * 主线迁移单一写入口：查表、跑守卫、经 task/storage 写 status 与 stage 与
- * casePhase（patch 随同一次落盘）；force 豁免逐项留痕 overrides（原子同写）。
+ * casePhase（patch 随同一次落盘）；completed/归档迁移落 completedAt（仅 null 时写，
+ * 归档不覆盖完成时刻）；force 豁免逐项留痕 overrides（原子同写）。
  * @param root 项目根
  * @param params 迁移入参
  * @returns [err, result]

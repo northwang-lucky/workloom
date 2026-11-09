@@ -56,7 +56,7 @@ export declare function isTaskView(value: TaskRecordWithPath): value is TaskView
  */
 export declare function toTaskView(record: TaskRecordWithPath, taskRelPath: string): TaskView;
 /**
- * 由主线阶段反推呈现状态（归档态双字段一致：archived ⇔ completed）。
+ * 由主线阶段反推呈现状态（completed 与 archived 双字段一致：⇒ completed）。
  * @param stage 主线阶段
  * @returns 呈现状态
  */

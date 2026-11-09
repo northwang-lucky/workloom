@@ -20,11 +20,18 @@ import type { AutonomyValue, TaskModeValue } from '../state/index.ts'
 /** 错误消息前缀（storage 子包共享）。 */
 export const ERR_PREFIX = 'workloom task'
 
-/** 目录名常量。 */
+/** 目录名常量（subtasks 为子任务嵌套层：tasks/<father>/subtasks/<child>）。 */
 export const DIR_NAMES = Object.freeze({
   tasks: 'tasks',
+  subtasks: 'subtasks',
   archive: 'archive',
 })
+
+/**
+ * 活动任务目录名的日期前缀（MM-DD-，月 01-12、日 01-31）；create 查重与
+ * list-archive 的 slug 回退共用单源，归档目录名只保留其后的 slug（task.name）。
+ */
+export const TASK_DIR_DATE_PREFIX = /^(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])-/
 
 /** 文件名常量。 */
 export const FILE_NAMES = Object.freeze({
@@ -218,7 +225,6 @@ export interface TaskRecord {
   completedAt: string | null
   parent: string | null
   children: string[]
-  subtasks: string[]
   scope: string
   commit: string
   pr_url: string

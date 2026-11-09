@@ -62,7 +62,6 @@ function baseRecord(overrides = {}) {
     completedAt: null,
     parent: null,
     children: [],
-    subtasks: [],
     scope: '',
     commit: '',
     pr_url: '',

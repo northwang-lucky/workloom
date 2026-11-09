@@ -73,7 +73,6 @@ function writeCompletedTask(root, name) {
         completedAt: new Date().toISOString(),
         parent: null,
         children: [],
-        subtasks: [],
         scope: '',
         commit: '',
         pr_url: '',

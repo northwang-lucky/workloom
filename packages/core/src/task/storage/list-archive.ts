@@ -15,7 +15,7 @@ import { execFile } from 'node:child_process'
 import { insideWorkloom } from '../../workspace/locate.js'
 import { formatYearMonth } from './create.ts'
 import { readTaskRecord, requireProjectRoot, TASK_JSON_ENV } from './read-write.ts'
-import { DIR_NAMES, ERR_PREFIX, isEnoent, toError } from './records.ts'
+import { DIR_NAMES, ERR_PREFIX, isEnoent, TASK_DIR_DATE_PREFIX, toError } from './records.ts'
 
 import type {
   ListTasksParams,
@@ -34,9 +34,6 @@ export const HOOK_KEYS = Object.freeze([
   'after_finish',
   'after_archive',
 ] as const)
-
-/** 活动任务目录名的日期前缀（MM-DD-）；归档目录名只保留其后的 slug（task.name）。 */
-const TASK_DIR_DATE_PREFIX = /^(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])-/
 
 /**
  * 执行 hooks：注入 TASK_JSON_PATH 环境变量；单个失败收集为 WARNING，不抛错。

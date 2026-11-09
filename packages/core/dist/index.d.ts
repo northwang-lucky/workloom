@@ -50,7 +50,7 @@ export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, f
 export { parseInitArgs, executeInitCommand } from './workspace/command-ops.ts';
 export { executeAlignTask, executePlanReviewMark, executeTaskCase } from './task/doc-review.ts';
 export type { ExecutePlanReviewMarkParams, ExecutePlanReviewMarkResult, ExecuteTaskCaseParams, ExecuteTaskCaseResult, PlanReviewMarkPhase, } from './task/doc-review.ts';
-export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from './task/task-ops.ts';
+export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from './task/task-ops.ts';
 export { lookupWorkflowStep } from './injection/step-lookup.ts';
 export { runDoctor, buildDoctorRelayText } from './workspace/doctor.ts';
 export { ensureSpecTemplates } from './workspace/spec-templates.ts';

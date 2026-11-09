@@ -298,3 +298,19 @@ test('createTaskTool 透传 mode：light 任务落 task.json，缺省 standard',
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+/* ---------------- S13：complete 工具注册 ---------------- */
+
+test('complete 工具注册存在：name/description 引 surface 常量，taskPath/force/reason 可选', () => {
+  const { ctx, registered } = makeCtx()
+  registerTaskTools(ctx)
+  const def = registered.find((entry) => entry.name === 'workloom_task_complete')
+  assert.ok(def, 'complete tool must be registered')
+  const props = def.parameters.properties
+  assert.equal(props.taskPath.type, 'string')
+  assert.equal(props.taskPath.description, PARAM_DESCRIPTIONS.taskPath)
+  assert.equal(props.force.type, 'boolean')
+  assert.equal(props.reason.type, 'string')
+  assert.deepEqual(def.parameters.required, [])
+  assert.equal(def.parameters.additionalProperties, false)
+})

@@ -20,6 +20,7 @@ import { join } from 'node:path'
 import { markTaskLegacy } from './fixtures/task-artifacts.js'
 
 import {
+  DIR_NAMES,
   TaskStatus,
   slugify,
   createTask,
@@ -110,7 +111,6 @@ test('createTask 创建完整布局与默认字段', async () => {
     assert.equal(task.completedAt, null)
     assert.equal(task.parent, null)
     assert.deepEqual(task.children, [])
-    assert.deepEqual(task.subtasks, [])
     assert.equal(task.scope, '')
     assert.equal(task.commit, '')
     assert.equal(task.pr_url, '')
@@ -1589,10 +1589,12 @@ test('checkTask 前端派发门禁：force 放行并留痕 overrides', async () 
 })
 
 /** 计算今天生成的 child taskRelPath（用于断言未产生写入/预测去重路径）。 */
-function childRelFor(slug) {
+function childRelFor(slug, parentRelPath) {
   const now = new Date()
   const mmdd = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  return join('tasks', `${mmdd}-${slug}`)
+  if (parentRelPath === undefined) return join('tasks', `${mmdd}-${slug}`)
+  // 带 parent 创建的嵌套落位：tasks/<father>/subtasks/<MM-DD-slug>（父任务目录之内）
+  return join(parentRelPath, DIR_NAMES.subtasks, `${mmdd}-${slug}`)
 }
 
 test('createTask 校验：parent 两种形式归一（tasks/ 前缀补全）且存储一致', async () => {
@@ -1630,15 +1632,15 @@ test('createTask 校验：parent 不存在拒绝且不产生写入', async () =>
   }
 })
 
-test('createTask 校验：parent 自引用拒绝', async () => {
+test('createTask 校验：同 slug 与父任务冲突（活跃树唯一）拒绝', async () => {
   const root = makeRoot()
   try {
     const [, parent] = await createTask(root, { title: 'Self' })
-    // 用相同 slug 使新任务路径与 parent 相同 → 触发自引用（校验先于目录冲突检查）
+    // 同 slug 命中活跃树唯一校验（父任务目录去前缀后同为 self），写盘前拒绝
     const [err] = await createTask(root, { title: 'Self', parent: parent.taskRelPath })
     assert.ok(err)
-    assert.match(err.message, /cannot be its own parent/)
-    // 仍只有原父任务一个
+    assert.match(err.message, /slug already exists in active tree/)
+    // 仍只有原父任务一个（嵌套子任务不落顶层列表）
     const [, list] = listTasks(root)
     assert.equal(list.length, 1)
   } finally {
@@ -1707,7 +1709,7 @@ test('createTask 校验：children 去重追加（同路径不重复记录）', 
   const root = makeRoot()
   try {
     const [, parent] = await createTask(root, { title: 'Parent Dedup' })
-    const childRel = childRelFor('dup-child')
+    const childRel = childRelFor('dup-child', parent.taskRelPath)
     // 预置父任务 children 已包含该子任务路径（模拟历史记录），创建同路径子任务时应去重
     const parentRecord = readTaskJson(root, parent.taskRelPath)
     parentRecord.children = [childRel]
@@ -1722,21 +1724,20 @@ test('createTask 校验：children 去重追加（同路径不重复记录）', 
   }
 })
 
-test('createTask 校验：父 children 写回失败抛错（子任务已创建、父 children 未更新）', async () => {
+test('createTask 校验：父目录只读时子任务创建失败零部分状态（嵌套落位先于 children 写回被拦）', async () => {
   const root = makeRoot()
   try {
     const [, parent] = await createTask(root, { title: 'Parent RO' })
-    const parentDir = join(root, '.workloom', parent.taskRelPath)
-    // 原子写经「同目录临时文件 + rename」落盘：目录只读才能拦住写回（文件只读拦不住 rename）。
-    chmodSync(parentDir, 0o555)
+    const fatherTaskDir = join(root, '.workloom', parent.taskRelPath)
+    // 嵌套落位后子任务目录建于父任务目录之内（subtasks 层）：父目录只读时
+    // mkdir 先被拦，创建整体失败（零部分状态：无子目录、父 children 未动）。
+    chmodSync(fatherTaskDir, 0o555)
     const [err, result] = await createTask(root, { title: 'Child RO', parent: parent.taskRelPath })
     assert.ok(err)
     assert.equal(result, null)
-    assert.match(err.message, /child task created but parent children not updated/)
-    // 子任务已创建（目录与 task.json 存在）
-    assert.equal(existsSync(join(root, '.workloom', childRelFor('child-ro'))), true)
-    // 父 children 未更新（仍为空；恢复权限便于读取断言）
-    chmodSync(parentDir, 0o755)
+    assert.equal(existsSync(childRelFor('child-ro', parent.taskRelPath)), false)
+    // 父 children 未更新（恢复权限便于读取断言）
+    chmodSync(fatherTaskDir, 0o755)
     assert.deepEqual(readTaskJson(root, parent.taskRelPath).children, [])
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -2121,16 +2122,23 @@ test('recordGateOverride：按指定 gate 留痕（light_dispatch 审计），�
   }
 })
 
-test('listTasks 摘要包含 parent 字段', async () => {
+test('listTasks 摘要包含 parent 字段，嵌套子任务不落顶层列表', async () => {
   const root = makeRoot()
   try {
     const [, parent] = await createTask(root, { title: 'Summary Parent' })
-    await createTask(root, { title: 'Summary Child', parent: parent.taskRelPath })
+    const [err, child] = await createTask(root, { title: 'Summary Child', parent: parent.taskRelPath })
+    assert.equal(err, null)
     const [, list] = listTasks(root)
-    const childSummary = list.find((t) => t.title === 'Summary Child')
-    assert.equal(childSummary.parent, parent.taskRelPath)
+    // 顶层列表只列顶层任务：子任务隐藏（AC2），父任务 parent 为 null
+    assert.equal(list.find((t) => t.title === 'Summary Child'), undefined)
     const parentSummary = list.find((t) => t.title === 'Summary Parent')
     assert.equal(parentSummary.parent, null)
+    assert.equal(child.taskRelPath, childRelFor('summary-child', parent.taskRelPath))
+    // 正向断言：子任务目录位于父任务目录之内（tasks/<father>/subtasks/<child>）
+    const childDir = join(root, '.workloom', child.taskRelPath)
+    const fatherDir = join(root, '.workloom', parent.taskRelPath)
+    assert.equal(existsSync(childDir), true)
+    assert.ok(childDir.startsWith(`${fatherDir}/`))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -2603,6 +2611,41 @@ test('archiveTask force 缺 reason 拒绝（R14：不移动目录、不留痕）
     assert.match(err.message, /non-empty reason/)
     assert.equal(existsSync(join(root, '.workloom', rel)), true)
     assert.equal(readTaskJson(root, rel).overrides.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/* ---------------- S13：嵌套落位与活跃树 slug 唯一 ---------------- */
+
+test('createTask 校验：跨层同 slug 拒绝（另一父的 subtasks 层已存在同名，写盘前拒绝）', async () => {
+  const root = makeRoot()
+  try {
+    const [, fatherA] = await createTask(root, { title: 'Father A' })
+    const [, fatherB] = await createTask(root, { title: 'Father B' })
+    const [firstErr, first] = await createTask(root, {
+      title: 'Shared Slug',
+      slug: 'shared-slug',
+      parent: fatherA.taskRelPath,
+    })
+    assert.equal(firstErr, null)
+    assert.equal(first.taskRelPath, childRelFor('shared-slug', fatherA.taskRelPath))
+    // 另一父的 subtasks 层同名 slug：活跃树唯一校验在写盘前拒绝。
+    const [dupErr, dupResult] = await createTask(root, {
+      title: 'Shared Slug Again',
+      slug: 'shared-slug',
+      parent: fatherB.taskRelPath,
+    })
+    assert.ok(dupErr)
+    assert.match(dupErr.message, /slug already exists in active tree: shared-slug/)
+    assert.equal(dupResult, null)
+    // 顶层同名同样拒绝。
+    const [topErr] = await createTask(root, { title: 'Shared Slug Top', slug: 'shared-slug' })
+    assert.ok(topErr)
+    assert.match(topErr.message, /slug already exists in active tree: shared-slug/)
+    // B 父下无任何写入（失败零部分状态）。
+    const fatherBChildren = readTaskJson(root, fatherB.taskRelPath).children
+    assert.deepEqual(fatherBChildren, [])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

@@ -8,7 +8,7 @@
  * - 会话指针绑定归编排层（executeCreateTask），存储层不消费 contextKey；
  * - 公开函数返回 [err, value] 命名元组，内部错误统一转换为 Error。
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { loadConfig } from "../../workspace/config-load.js";
@@ -16,7 +16,7 @@ import { insideWorkloom } from '../../workspace/locate.js';
 import { PRD_SECTIONS } from "../prd-structure.js";
 import { logWarnings, runTaskHooks } from "./list-archive.js";
 import { readTaskRecord, requireProjectRoot, writeTaskRecord, writeTaskRecordToDir, } from "./read-write.js";
-import { DEFAULT_PRIORITY, DIR_NAMES, ERR_PREFIX, FILE_NAMES, PRIORITY_SET, TaskStatus, toError, } from "./records.js";
+import { DEFAULT_PRIORITY, DIR_NAMES, ERR_PREFIX, FILE_NAMES, isEnoent, PRIORITY_SET, TASK_DIR_DATE_PREFIX, TaskStatus, toError, } from "./records.js";
 /** slug 最大长度（目录名的一部分）。 */
 const SLUG_MAX_LENGTH = 40;
 /** 显式 slug 的合法形态：小写字母数字段以单连字符相连，首尾不带连字符。 */
@@ -121,7 +121,6 @@ function buildTaskRecord(input) {
         completedAt: null,
         parent: input.params.parent ?? null,
         children: [],
-        subtasks: [],
         scope: '',
         commit: '',
         pr_url: '',
@@ -212,6 +211,38 @@ function validateParent(root, parentRelPath, childRelPath) {
     }
     return parent;
 }
+/**
+ * slug 活跃树全库唯一校验（内部）：递归扫描 tasks/ 活跃区（跳过 archive），
+ * 目录名去日期前缀后与 slug 相等即冲突。分支名撞车（task.name=slug）在 start
+ * 才暴露，把拒绝提前到创建期。tasks/ 尚不存在（全新项目）按无冲突处理；
+ * 其余读目录失败按原错误透传（调用方统一转元组）。
+ * @param root 项目根
+ * @param slug 归一后的 slug
+ */
+function assertSlugUniqueActiveTree(root, slug) {
+    const walk = (dir) => {
+        let entries;
+        try {
+            entries = readdirSync(dir, { withFileTypes: true });
+        }
+        catch (error) {
+            if (isEnoent(error))
+                return;
+            throw error;
+        }
+        for (const entry of entries) {
+            if (!entry.isDirectory() || entry.name === DIR_NAMES.archive)
+                continue;
+            if (TASK_DIR_DATE_PREFIX.test(entry.name)) {
+                if (entry.name.replace(TASK_DIR_DATE_PREFIX, '') === slug) {
+                    throw new Error(`${ERR_PREFIX}: slug already exists in active tree: ${slug}`);
+                }
+            }
+            walk(join(dir, entry.name));
+        }
+    };
+    walk(insideWorkloom(root, DIR_NAMES.tasks));
+}
 /** 被指向父任务归一后的 mode 值（值域单源在 task/state 的 MODES.PARENT）。 */
 const PARENT_MODE_VALUE = 'parent';
 /**
@@ -273,19 +304,26 @@ async function createTaskInternal(root, params) {
             : `${ERR_PREFIX}: title cannot produce a valid slug: ${JSON.stringify(params.title)}`);
     }
     assertValidSlug(slug, hasExplicitSlug);
+    // parent 归一先于路径计算：带 parent 的子任务落位嵌套目录 tasks/<father>/subtasks/<dir>。
+    // 自引用（parent 与新任务路径一致）由校验 ② 拦截，故校验先于 existsSync 目录冲突检查。
+    const parentRelPath = normalizeParentRelPath(params.parent);
     // 单次取 now：目录前缀与 createdAt 时间戳共用同一时刻，避免跨日/跨月不一致。
     const now = new Date();
-    const taskRelPath = join(DIR_NAMES.tasks, `${formatMonthDay(now)}-${slug}`);
+    const dirName = `${formatMonthDay(now)}-${slug}`;
+    // 带 parent 落位父任务目录内的 subtasks 层：tasks/<father>/subtasks/<MM-DD-slug>；
+    // 无 parent 落顶层 tasks/<MM-DD-slug>。
+    const taskRelPath = parentRelPath !== null
+        ? join(parentRelPath, DIR_NAMES.subtasks, dirName)
+        : join(DIR_NAMES.tasks, dirName);
     const taskDir = insideWorkloom(projectRoot, taskRelPath);
     assertPriority(params.priority);
     assertTaskMode(params.mode);
     assertAutonomy(params.autonomy);
-    // parent 归一与校验：任一失败在写入前抛错（不产生任何目录/文件写入）。
-    // 自引用（parent 与新任务路径一致）由校验 ② 拦截，故校验先于 existsSync 目录冲突检查。
-    const parentRelPath = normalizeParentRelPath(params.parent);
     if (parentRelPath !== null) {
         validateParent(projectRoot, parentRelPath, taskRelPath);
     }
+    // slug 活跃树全库唯一：顶层与各 subtasks 层递归查重，写盘前拒绝。
+    assertSlugUniqueActiveTree(projectRoot, slug);
     // 目录冲突检查：置于 parent 校验之后，避免自引用被误报为「目录已存在」。
     if (existsSync(taskDir)) {
         throw new Error(`${ERR_PREFIX}: task directory already exists: ${taskRelPath}`);

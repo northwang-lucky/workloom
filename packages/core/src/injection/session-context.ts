@@ -17,12 +17,13 @@ import { join } from 'node:path'
 import { countDirtyLines, gitCurrentBranchSync, gitStatusSync } from '../workspace/git-query.ts'
 import { EXECUTOR_ROLES, tryNormalizeExecutorRole } from '../dispatch/executor-roles.ts'
 import { resolveSubagentDefaults } from '../workspace/config-subagent.ts'
-import { listTasks, TaskStatus } from '../task/storage/index.ts'
-import { MODES, toTaskView } from '../task/state/index.ts'
+import { findArchivedTaskPath, listTasks, TaskStatus } from '../task/storage/index.ts'
+import { MODES, readTaskView, toTaskView } from '../task/state/index.ts'
 import { loadConfig } from '../workspace/config-load.ts'
 import { collectSpecIndexes } from './spec-index.js'
 import type { WorkloomConfig } from '../workspace/config.d.ts'
 import type { TaskRecordWithPath, TaskSummary, TaskStatusValue } from '../task/storage/index.ts'
+import type { TaskView } from '../task/state/index.ts'
 
 /** 注入回合已解析的活跃任务记录（session-assemble.resolveTurnTask 产物；null = 无活跃任务）。 */
 export interface SessionContextTaskHint {
@@ -50,6 +51,12 @@ const CANDIDATE_INDENT = '  '
 
 /** 候选任务节条目上限（注入预算；超出截断并输出提示行）。 */
 const CANDIDATE_TASK_LIMIT = 8
+
+/** 活跃任务 children 条目缩进（与候选节同格）。 */
+const CHILDREN_INDENT = CANDIDATE_INDENT
+
+/** 活跃任务 children 清单条目上限（注入预算防膨胀；超出截断并输出提示行）。 */
+const CHILDREN_TASK_LIMIT = 8
 
 /** 候选状态排序权重：接续优先 in_progress，其次 completed 待收尾，planning 待推进。 */
 const CANDIDATE_STATUS_RANK: ReadonlyMap<TaskStatusValue, number> = new Map([
@@ -172,12 +179,13 @@ function assembleInternal(params: SessionContextParams): string {
   const depth = params.delegationDepth ?? 0
   // 活跃任务只走单一解析链（调用方回合缓存的 resolveTurnTask 产物）；
   // 缺省/null 视同无活跃任务，本入口不再自解析指针（回退直读通道已退役）。
+  // children 清单行紧随活跃任务行展开（parent 模式编排现场可见子任务现状）。
   const active =
     params.turnTask != null
-      ? activeTaskContextFromRecord(params.turnTask)
-      : { line: NO_ACTIVE_TASK_LINE, task: null }
+      ? activeTaskContextFromRecord(params.turnTask, params.root)
+      : { line: NO_ACTIVE_TASK_LINE, task: null, childrenLines: [] as string[] }
   const lines: string[] = []
-  lines.push(active.line)
+  lines.push(active.line, ...active.childrenLines)
   if (depth === 0) {
     lines.push(
       ...candidateTaskLines(params.root, active.task),
@@ -255,20 +263,24 @@ function guidelinesLines(root: string, config: WorkloomConfig | null): string[] 
   return lines
 }
 
-/** 活跃任务解析结果（内部）：行文本 + 任务记录（一次读取、两行消费）。 */
+/** 活跃任务解析结果（内部）：行文本 + 任务记录 + children 清单行（parent 模式）。 */
 interface ActiveTaskContext {
   /** 活跃任务行文本（无任务时为固定文案）。 */
   line: string
   /** 任务记录（无活跃任务时为 null）。 */
   task: TaskRecordWithPath | null
+  /** children 清单行（parent 模式且 children 非空时非空；其余为空数组）。 */
+  childrenLines: string[]
 }
 
 /**
- * 从已解析的任务记录组装活跃任务行（单一解析链下游；零额外读盘）。
+ * 从已解析的任务记录组装活跃任务行（单一解析链下游；活跃任务本身零额外读盘——
+ * 解析不走第二次解析链，children 清单的子记录读取是本函数新增的行为）。
  * @param task 活跃任务记录
- * @returns 活跃任务行与任务记录
+ * @param root 项目根（children 清单的子记录读取用）
+ * @returns 活跃任务行、任务记录与 children 清单行
  */
-function activeTaskContextFromRecord(task: TaskRecordWithPath): ActiveTaskContext {
+function activeTaskContextFromRecord(task: TaskRecordWithPath, root: string): ActiveTaskContext {
   // 数据布局被破坏（缺 title/status）属结构性故障：显式抛错而非渲染 undefined。
   if (typeof task.title !== 'string' || typeof task.status !== 'string') {
     throw new Error(`${ERR_PREFIX}: task record missing title or status: ${task.taskRelPath}`)
@@ -284,6 +296,55 @@ function activeTaskContextFromRecord(task: TaskRecordWithPath): ActiveTaskContex
     // 快照展示当前自治度（autonomy 三值；确认迁移行为的会话可见面）。
     line: `${LINE_LABELS.activeTask}${task.title}" (${view.status}, autonomy: ${view.autonomy}) at ${task.taskRelPath}.${legacyCase}`,
     task,
+    childrenLines: childrenListLines(root, view),
+  }
+}
+
+/**
+ * 组装活跃任务的 children 清单行（内部）：仅 parent 模式且 children 非空时输出。
+ * 逐子读取视图（当前路径 → 按名回退归档区），损坏/缺失的子记录跳过不阻塞快照
+ * （与候选节容忍策略一致）；超上限截断并输出提示行，编排现场凭此看到子任务现状。
+ * @param root 项目根
+ * @param view 活跃任务视图
+ * @returns children 清单行（空数组 = 不输出）
+ */
+function childrenListLines(root: string, view: TaskView): string[] {
+  if (view.mode !== MODES.PARENT || view.children.length === 0) return []
+  const lines: string[] = []
+  let valid = 0
+  for (const childRel of view.children) {
+    const child = readChildViewOrNull(root, childRel)
+    if (child === null) continue
+    valid += 1
+    if (valid <= CHILDREN_TASK_LIMIT) {
+      lines.push(`${CHILDREN_INDENT}- "${child.title}" (${child.status}) at ${child.taskRelPath}`)
+    }
+  }
+  const rest = valid - CHILDREN_TASK_LIMIT
+  if (rest > 0) {
+    lines.push(`${CHILDREN_INDENT}(… ${rest} more; run workloom_task_list)`)
+  }
+  return lines
+}
+
+/**
+ * 读取子任务视图（内部）：当前路径不可读时按名回退归档区（子任务已单独归档）；
+ * 两路皆不可读返回 null（调用方跳过该条）。
+ * @param root 项目根
+ * @param childRelPath 子任务相对路径
+ * @returns 子任务视图或 null
+ */
+function readChildViewOrNull(root: string, childRelPath: string): TaskView | null {
+  try {
+    const [err, direct] = readTaskView(root, childRelPath)
+    if (err === null && direct !== null) return direct
+    const archivedRel = findArchivedTaskPath(root, childRelPath)
+    if (archivedRel === null) return null
+    const [archivedErr, archived] = readTaskView(root, archivedRel)
+    if (archivedErr === null && archived !== null) return archived
+    return null
+  } catch {
+    return null
   }
 }
 

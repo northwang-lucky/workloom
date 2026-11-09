@@ -3,17 +3,17 @@
  * 暴露为模型可调工具；参数一律标准 JSON Schema（宿主原样转发 API）。
  *
  * 设计意图：
- * - 八个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
+ * - 十一个工具的编排（cwd 校验、taskPath 解析、core 调用、兜底报错）已下沉
  *   core task-ops，本文件只做宿主投影：从执行上下文提取 cwd/agentId 组装
  *   contextKey，把工具返回投影为 plain object；
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { AUTONOMY, ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCreateTask, executeFinishTask, executeListTasks, executePlanReviewMark, executeSetAutonomy, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { AUTONOMY, ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCompleteTask, executeCreateTask, executeFinishTask, executeListTasks, executePlanReviewMark, executeSetAutonomy, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from "../constants.js";
 /**
- * 注册十个任务管理工具（create/start/check/align/case/planreview/finish/archive/
- * list/autonomy）。
+ * 注册十一个任务管理工具（create/start/check/complete/align/case/planreview/
+ * finish/archive/list/autonomy）。
  * @param ctx 插件作用域上下文
  */
 export function registerTaskTools(ctx) {
@@ -82,6 +82,23 @@ export function registerTaskTools(ctx) {
         output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
         isConcurrencySafe: () => true,
         execute: (args, exec) => checkTaskTool(args, exec),
+    });
+    tools.register({
+        name: TOOL_NAMES.taskComplete,
+        description: TOOL_DESCRIPTIONS.taskComplete,
+        parameters: {
+            type: 'object',
+            properties: {
+                taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+                force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
+                reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
+            },
+            required: [],
+            additionalProperties: false,
+        },
+        output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+        isConcurrencySafe: () => true,
+        execute: (args, exec) => completeTaskTool(args, exec),
     });
     tools.register({
         name: TOOL_NAMES.taskAlign,
@@ -279,6 +296,20 @@ async function checkTaskTool(args, exec) {
     });
     if (err !== null || task === null) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: check returned no result`);
+    }
+    return { taskRelPath: task.taskRelPath, task };
+}
+/** complete 工具：标记任务 completed（完成未归档，等待父任务级联归档）。 */
+async function completeTaskTool(args, exec) {
+    const typed = args;
+    const cwd = cwdOf(exec);
+    const [err, task] = executeCompleteTask(cwd, contextKeyOf(exec), {
+        taskPath: taskPathOf(typed),
+        force: boolOf(typed, 'force'),
+        reason: stringOf(typed, 'reason'),
+    });
+    if (err !== null || task === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: complete returned no result`);
     }
     return { taskRelPath: task.taskRelPath, task };
 }

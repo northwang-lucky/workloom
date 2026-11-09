@@ -55,7 +55,7 @@ export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, f
 export { parseInitArgs, executeInitCommand } from "./workspace/command-ops.js";
 // 任务文档复核服务（align review/confirm 与 case review-only 同一编排模块）。
 export { executeAlignTask, executePlanReviewMark, executeTaskCase } from "./task/doc-review.js";
-export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from "./task/task-ops.js";
+export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from "./task/task-ops.js";
 export { lookupWorkflowStep } from "./injection/step-lookup.js";
 export { runDoctor, buildDoctorRelayText } from "./workspace/doctor.js";
 export { ensureSpecTemplates } from "./workspace/spec-templates.js";

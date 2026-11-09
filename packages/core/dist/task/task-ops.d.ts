@@ -2,15 +2,15 @@
  * task-ops：任务生命周期编排（TypeScript）。
  *
  * 设计意图：
- * - 两层职责：① 六个任务管理工具（create/start/check/finish/archive/list）的
+ * - 两层职责：① 七个任务管理工具（create/start/check/complete/finish/archive/list）的
  *   runtime 无关编排（cwd 校验 → 显式 taskPath 优先 → 活跃任务 fallback →
  *   生命周期调用 → null 结果兜底报错），adapter 只负责从执行上下文提取
- *   cwd/contextKey 并投影返回值；② start/check/finish/archive 四个生命周期
+ *   cwd/contextKey 并投影返回值；② start/check/complete/finish/archive 五个生命周期
  *   编排（守卫判断 + task-storage 物理写 + 指针联动 + hooks），状态迁移判断
  *   经 task/state 的 migrateTask/evaluateTransition 单一入口；
  * - create 的入参过滤（空串 slug/priority/description 不传）照 DSH 现状；
  *   mode 三值（light/standard/parent，缺省 standard），会话指针绑定在本层
- *   （存储层不消费 contextKey）；
+ *   （存储层不消费 contextKey）；带 parent 创建不抢会话指针（指针分流）；
  * - archive 的 taskPath 必填（requireTaskRelPath，缺参即报错不回退活跃任务），
  *   归档必须显式绑定目标任务；start/check/finish/align 保持活跃任务回退；
  * - 生命周期错误消息沿用旧 task-store 的 `workloom task` 前缀（行为移植，
@@ -144,6 +144,25 @@ export interface CheckTaskParams {
  * @returns [err, view]
  */
 export declare function checkTask(root: string, params: CheckTaskParams): [Error | null, TaskView | null];
+/** complete 工具编排入参（taskPath/force/reason 可选，取样同 check）。 */
+export interface ExecuteCompleteTaskParams {
+    taskPath?: string;
+    /** 豁免迁移守卫（留痕 overrides；仅在实际绕过 gate 时记录）。 */
+    force?: boolean;
+    /** force 豁免原因（force=true 时必填非空，审计用）。 */
+    reason?: string;
+}
+/**
+ * complete 工具编排：标记任务 completed（完成未归档）。目录与 worktree 不动，
+ * 子任务在此等待父任务级联归档；顶层任务可再走 completed→archived 单独归档。
+ * 迁移守卫复用迁移表 completed 边（archive-ready + case-outcome-ready），
+ * parent 模式无 completed 边，查表自动拒绝。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话标识（adapter 组装）
+ * @param params 工具参数（taskPath 缺省取活跃任务）
+ * @returns [err, task]：err 为任一失败（消息含前缀）
+ */
+export declare function executeCompleteTask(cwd: string, contextKey: string, params: ExecuteCompleteTaskParams): [Error | null, TaskView | null];
 /** finishTask 参数（生命周期口）。 */
 export interface FinishTaskParams {
     taskRelPath: string;
@@ -166,17 +185,24 @@ export interface ArchiveTaskParams {
     reason?: string;
 }
 /**
- * 归档任务结果（三元组）：成功时第三元素为 worktree 清理摘要（cleanup 内的
+ * 归档任务结果（四元组）：第三元素为 worktree 清理摘要（cleanup 内的
  * rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped，供
- * archive 回执展示）；失败时第三元素缺省。
+ * archive 回执展示）；第四元素为级联清理的子任务计数（父任务归档随树级联，
+ * 供回执展示）；失败时后两元素缺省。
  */
-export type ArchiveTaskResult = [Error | null, TaskView | null, CleanupTaskWorktreeResult?];
+export type ArchiveTaskResult = [
+    Error | null,
+    TaskView | null,
+    CleanupTaskWorktreeResult?,
+    number?
+];
 /**
- * 归档任务：清理任务 worktree（失败即阻断）、置 completed、移动目录、清理会话指针、
+ * 归档任务：父任务归档时先级联清理各子任务 worktree（子先于父，任一失败即阻断）、
+ * 清理自身 worktree（失败即阻断）、置 completed、整树移动目录、清理会话指针、
  * 执行 after_archive hooks，可选 git 自动提交。
  * @param root 项目根
  * @param params 归档参数
- * @returns 三元组 [err, 归档后视图, worktree 清理摘要]
+ * @returns 四元组 [err, 归档后视图, worktree 清理摘要, 级联清理子任务计数]
  */
 export declare function archiveTask(root: string, params: ArchiveTaskParams): Promise<ArchiveTaskResult>;
 /** start 工具编排入参（force 豁免 start 门禁并留痕）。 */
@@ -231,6 +257,8 @@ export interface ExecuteArchiveTaskResult {
     note: string;
     /** 本次归档的 worktree 清理摘要（rebased/merged/gitlinkCommitted/worktreeRemoved/branchDeleted/skipped）。 */
     worktreeCleanup?: CleanupTaskWorktreeResult;
+    /** 父任务归档级联清理的子任务计数（0 表示无子任务或无级联动作）。 */
+    cascadedCleanups?: number;
 }
 /** archive 工具编排入参（taskPath 必填；force 豁免 archive 门禁并留痕）。 */
 export interface ExecuteArchiveTaskParams {

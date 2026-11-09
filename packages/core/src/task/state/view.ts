@@ -134,12 +134,13 @@ function normalizeDispatches(dispatches: DispatchRecord[]): DispatchRecord[] {
 }
 
 /**
- * 由主线阶段反推呈现状态（归档态双字段一致：archived ⇔ completed）。
+ * 由主线阶段反推呈现状态（completed 与 archived 双字段一致：⇒ completed）。
  * @param stage 主线阶段
  * @returns 呈现状态
  */
 export function statusOfStage(stage: TaskStageValue): TaskStatusValue {
   if (stage === STAGES.ARCHIVED) return 'completed'
+  if (stage === STAGES.COMPLETED) return 'completed'
   if (stage === STAGES.ALIGNING || stage === STAGES.PLANNING) return 'planning'
   return 'in_progress'
 }
@@ -161,8 +162,9 @@ function mapMode(record: TaskRecordWithPath, taskRelPath: string): TaskModeValue
 
 /**
  * 阶段兼容推导：
- * - completed 或归档路径记录读作 archived；
- * - 落盘为新枚举值时原样采用；
+ * - 落盘 stage 命中新枚举时优先采用（新代码 stage/status 恒成对落盘，
+ *   completed-not-archived 据此不再被误读为 archived）；
+ * - status=completed 或归档路径仅作存量兜底（旧记录无 stage 字段），读作 archived；
  * - status=planning 按确认记录推导 aligning（无 PRD 确认）或 planning（已确认），
  *   旧 stage 落盘值对 planning 任务无意义（旧数据创建即默认 implement）；
  * - status=in_progress 的旧值按模式映射：implement/缺省 → implementing
@@ -174,14 +176,14 @@ function deriveStage(
   taskRelPath: string,
   mode: TaskModeValue,
 ): TaskStageValue {
+  const raw = record.stage
+  if (raw !== undefined && STAGE_VALUES.has(raw)) return raw as TaskStageValue
   if (record.status === 'completed' || isArchivePath(taskRelPath)) return STAGES.ARCHIVED
   if (record.status !== 'planning' && record.status !== 'in_progress') {
     throw new Error(
       `${ERR_PREFIX}: unmapped status value: ${taskRelPath}: ${JSON.stringify(record.status)}`,
     )
   }
-  const raw = record.stage
-  if (raw !== undefined && STAGE_VALUES.has(raw)) return raw as TaskStageValue
   if (record.status === 'planning') {
     return record.alignment === null ? STAGES.ALIGNING : STAGES.PLANNING
   }

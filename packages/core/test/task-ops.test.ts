@@ -5,16 +5,25 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { markTaskLegacy } from './fixtures/task-artifacts.js'
 
 import { archiveTask } from '../src/task/task-ops.ts'
+import { resolveActiveTask, setActiveTask } from '../src/task/state/index.ts'
 import {
   executeAlignTask,
   executeArchiveTask,
+  executeCompleteTask,
   executePlanReviewMark,
   executeCheckTask,
   executeCreateTask,
@@ -22,6 +31,7 @@ import {
   executeListTasks,
   executeSetAutonomy,
   executeStartTask,
+  findArchivedTaskPath,
   readTaskView,
   confirmPrd,
   confirmPlan,
@@ -1054,6 +1064,276 @@ test('executePlanReviewMark：revising 轮数加一、clean 落定、非法边�
     const [badErr] = executePlanReviewMark(root, contextKey, { phase: 'bogus', taskPath: rel })
     assert.ok(badErr)
     assert.match(badErr.message, /invalid plan review phase/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/* ---------------- S13：带 parent 指针分流与 complete 编排 ---------------- */
+
+/** 直接落 check 凭据（聚焦 complete/归档主线，凭据物理写不经编排层）。 */
+function seedCheckCredential(root, taskRelPath) {
+  const path = join(root, '.workloom', taskRelPath, 'task.json')
+  const record = JSON.parse(readFileSync(path, 'utf8'))
+  record.check = { passedAt: new Date().toISOString(), summary: 'probe check' }
+  writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`)
+}
+
+test('executeCreateTask 指针分流：无 parent 抢指针，带 parent 会话指针不动', async () => {
+  const root = makeRoot()
+  try {
+    // 无 parent：创建后指针切换到新任务。
+    const [, created] = await executeCreateTask(root, 'dsh_ptr_main', { title: 'Ptr Main', package: 'repo' })
+    const [mainErr, mainActive] = resolveActiveTask(root, 'dsh_ptr_main')
+    assert.equal(mainErr, null)
+    assert.equal(mainActive, created.taskRelPath)
+    // 带 parent：另一会话键创建子任务，指针不动（该键无指针，父键仍指父任务）。
+    const [childErr, child] = await executeCreateTask(root, 'dsh_ptr_child', {
+      title: 'Ptr Child',
+      package: 'repo',
+      parent: created.taskRelPath,
+    })
+    assert.equal(childErr, null)
+    assert.ok(child.taskRelPath.startsWith(`${created.taskRelPath}/`))
+    const [childActiveErr, childActive] = resolveActiveTask(root, 'dsh_ptr_child')
+    assert.equal(childActiveErr, null)
+    assert.equal(childActive, null)
+    const [mainAgainErr, mainAgain] = resolveActiveTask(root, 'dsh_ptr_main')
+    assert.equal(mainAgainErr, null)
+    assert.equal(mainAgain, created.taskRelPath)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeCompleteTask：light 任务完成视图 completed 且目录未动', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_complete'
+    const [, created] = await executeCreateTask(root, contextKey, {
+      title: 'Complete Light',
+      package: 'repo',
+      mode: 'light',
+    })
+    const rel = created.taskRelPath
+    // light start：H1 + Goal 即放行（免确认记录、双 jsonl 与 PLAN）。
+    writeFileSync(
+      join(root, '.workloom', rel, 'prd.md'),
+      '# Light complete\n\n## Goal\n\nFinish in place.\n',
+    )
+    const [startErr, started] = await executeStartTask(root, contextKey, {})
+    assert.equal(startErr, null)
+    assert.equal(started.stage, 'implementing')
+    seedCheckCredential(root, rel)
+    const [err, completed] = executeCompleteTask(root, contextKey, {})
+    assert.equal(err, null)
+    assert.equal(completed.stage, 'completed')
+    assert.equal(completed.status, 'completed')
+    assert.ok(completed.completedAt !== null)
+    // 目录未动（completed-not-archived：不搬迁、worktree 不清）。
+    const { existsSync } = await import('node:fs')
+    assert.equal(existsSync(join(root, '.workloom', rel, 'task.json')), true)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('executeCompleteTask：parent 模式查表拒绝；guard 拦截时 force 缺 reason 在壳层拦截', async () => {
+  const root = makeRoot()
+  try {
+    const contextKey = 'dsh_complete_parent'
+    const [, parent] = await executeCreateTask(root, contextKey, {
+      title: 'Complete Parent',
+      package: 'repo',
+      mode: 'parent',
+    })
+    const rel = parent.taskRelPath
+    satisfyStartGate(root, rel)
+    alignTask(root, rel)
+    await executeCreateTask(root, contextKey, {
+      title: 'Complete Parent Child',
+      package: 'repo',
+      parent: rel,
+    })
+    const [orchErr] = await executeStartTask(root, contextKey, {})
+    assert.equal(orchErr, null)
+    // parent 无 completed 边：no transition path 透传（消息含 from/to/mode）。
+    const [compErr] = executeCompleteTask(root, contextKey, {})
+    assert.ok(compErr)
+    assert.match(compErr.message, /no transition path in the table/)
+    assert.match(compErr.message, /"orchestrating" to "completed"/)
+    // guard 拦截形态：standard implementing 无 check 凭据，force 缺 reason 拦截。
+    const [, std] = await executeCreateTask(root, contextKey, { title: 'Complete Std', package: 'repo' })
+    satisfyStartGate(root, std.taskRelPath)
+    alignTask(root, std.taskRelPath)
+    recordPlanReview(root, std.taskRelPath, 'reviewing')
+    recordPlanReview(root, std.taskRelPath, 'clean')
+    confirmPlan(root, std.taskRelPath, { summary: 'plan ok' })
+    const [stdStartErr] = await executeStartTask(root, contextKey, { taskPath: std.taskRelPath })
+    assert.equal(stdStartErr, null)
+    const [forceErr] = executeCompleteTask(root, contextKey, { taskPath: std.taskRelPath, force: true })
+    assert.ok(forceErr)
+    assert.match(forceErr.message, /requires a non-empty reason/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/* ---------------- S13：父任务归档级联清理子任务 ---------------- */
+
+/** git 可用性探测：git 不可用时级联真实 worktree 用例 skip（与 worktree-lifecycle 同口径）。 */
+let gitAvailable = true
+try {
+  execFileSync('git', ['--version'], { stdio: 'pipe' })
+} catch {
+  gitAvailable = false
+}
+const gitSkip = gitAvailable ? {} : { skip: 'git unavailable: git --version failed' }
+
+/** 提交用固定身份（-c 逐命令注入，不依赖全局 gitconfig）。 */
+const CASCADE_GIT_ID = ['-c', 'user.name=workloom-test', '-c', 'user.email=workloom-test@example.com']
+
+/** git 子命令封装（身份注入 + LC_ALL=C 英文文案）。 */
+function runGitC(cwd, args) {
+  return execFileSync('git', [...CASCADE_GIT_ID, ...args], {
+    cwd,
+    encoding: 'utf8',
+    stdio: 'pipe',
+    env: { ...process.env, LC_ALL: 'C' },
+  }).trim()
+}
+
+/** 建真实 git 项目根（worktree 启用 + repo 包声明），级联用例专用。 */
+function makeGitRoot() {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-taskops-git-'))
+  initWorkloom(root)
+  writeFileSync(
+    join(root, '.workloom', 'config.json'),
+    JSON.stringify({ packages: { repo: { path: '.' } }, worktree: { enabled: true } }, null, 2),
+  )
+  runGitC(root, ['init', '-b', 'main'])
+  writeFileSync(join(root, 'c.txt'), 'line1\n')
+  runGitC(root, ['add', '--', '.workloom', 'c.txt'])
+  runGitC(root, ['commit', '-m', 'chore: init'])
+  return root
+}
+
+/** light 子任务的最低 prd（H1 + Goal，start 免确认与 PLAN）。 */
+function writeLightPrd(root, taskRelPath) {
+  writeFileSync(join(root, '.workloom', taskRelPath, 'prd.md'), '# Light child\n\n## Goal\n\nFinish the piece.\n')
+}
+
+test('父任务归档级联：子 worktree 先清理、整树入档、子保持 completed、子指针清理、已归档子跳过', { skip: gitSkip.skip }, async () => {
+  const root = makeGitRoot()
+  try {
+    const fatherKey = 'dsh_cascade_father'
+    const [, father] = await executeCreateTask(root, fatherKey, { title: 'Cascade Father', package: 'repo' })
+    const fatherRel = father.taskRelPath
+    // 两个子任务：childA 带真实 worktree 走 completed；childB 完成后单独归档（级联跳过）。
+    satisfyStartGate(root, fatherRel)
+    alignTask(root, fatherRel)
+    const [, childA] = await executeCreateTask(root, 'dsh_cascade_a', {
+      title: 'Cascade Child A',
+      package: 'repo',
+      mode: 'light',
+      parent: fatherRel,
+    })
+    const childARel = childA.taskRelPath
+    const childADir = childARel.split('/').pop()
+    writeLightPrd(root, childARel)
+    const [aStartErr] = await executeStartTask(root, 'dsh_cascade_a', { taskPath: childARel })
+    assert.equal(aStartErr, null, aStartErr?.message)
+    const childAWt = join(root, '.workloom', '.runtime', 'worktrees', childADir)
+    assert.equal(existsSync(childAWt), true, 'child worktree must exist after start')
+    seedCheckCredential(root, childARel)
+    const [aCompErr, childACompleted] = executeCompleteTask(root, 'dsh_cascade_a', { taskPath: childARel })
+    assert.equal(aCompErr, null, aCompErr?.message)
+    const childACompletedAt = childACompleted.completedAt
+    assert.ok(childACompletedAt !== null)
+
+    const [, childB] = await executeCreateTask(root, 'dsh_cascade_b', {
+      title: 'Cascade Child B',
+      package: 'repo',
+      mode: 'light',
+      parent: fatherRel,
+    })
+    const childBRel = childB.taskRelPath
+    seedCheckCredential(root, childBRel)
+    const [bArchErr] = await archiveTask(root, { taskRelPath: childBRel, autoCommit: false })
+    assert.equal(bArchErr, null, bArchErr?.message)
+
+    // 子任务指针就位（级联后应被清理）；father 遗留指针同样应被清理。
+    setActiveTask(root, 'dsh_cascade_a_ptr', childARel)
+    setActiveTask(root, 'dsh_cascade_father_ptr', fatherRel)
+
+    // father：start 进 orchestrating（旧任务形态 case=null，case-outcome 平凡），
+    // 落 check 凭据后走 orchestrating→archived 逃生边触发级联。
+    const [fatherStartErr] = await executeStartTask(root, fatherKey, { taskPath: fatherRel })
+    assert.equal(fatherStartErr, null, fatherStartErr?.message)
+    markTaskLegacy(root, fatherRel)
+    seedCheckCredential(root, fatherRel)
+    const [archErr, archived, , cascadedCleanups] = await archiveTask(root, {
+      taskRelPath: fatherRel,
+      autoCommit: false,
+    })
+    assert.equal(archErr, null, archErr?.message)
+    assert.equal(archived.stage, 'archived')
+    // 级联计数：仅 childA 被处理（childB 已归档跳过）。
+    assert.equal(cascadedCleanups, 1)
+    // 整树入档：archive/<YYYY-MM>/<father>/subtasks/<childA>，childA 保持 completed。
+    const childAArchiveRel = join(archived.taskRelPath, 'subtasks', childADir)
+    assert.equal(existsSync(join(root, '.workloom', childAArchiveRel, 'task.json')), true)
+    const childASaved = JSON.parse(readFileSync(join(root, '.workloom', childAArchiveRel, 'task.json'), 'utf8'))
+    assert.equal(childASaved.stage, 'completed')
+    assert.equal(childASaved.status, 'completed')
+    // completedAt 空值守卫：归档不覆盖子任务完成时刻。
+    assert.equal(childASaved.completedAt, childACompletedAt)
+    // 子 worktree 已级联清理（目录消失）。
+    assert.equal(existsSync(childAWt), false, 'child worktree must be removed by the cascade')
+    // 已归档子任务原位不动（father 级联未触碰；按名回退解析其归档路径，
+    // 归档目录名是 task.name——无日期前缀的 slug）。
+    const childBArchivedRel = findArchivedTaskPath(root, childBRel)
+    assert.ok(childBArchivedRel !== null, 'archived child must be resolvable by name')
+    assert.equal(existsSync(join(root, '.workloom', childBArchivedRel, 'task.json')), true)
+    // 指针清理：子指针与父指针均被清空。
+    const [aPtrErr, aPtr] = resolveActiveTask(root, 'dsh_cascade_a_ptr')
+    assert.equal(aPtrErr, null)
+    assert.equal(aPtr, null)
+    const [fPtrErr, fPtr] = resolveActiveTask(root, 'dsh_cascade_father_ptr')
+    assert.equal(fPtrErr, null)
+    assert.equal(fPtr, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('父任务归档级联：子记录两路不可读时 fail loud 阻断，父目录未动', async () => {
+  const root = makeRoot()
+  try {
+    const [, father] = await executeCreateTask(root, 'dsh_cascade_bad', { title: 'Cascade Bad Father', package: 'repo' })
+    const fatherRel = father.taskRelPath
+    await executeCreateTask(root, 'dsh_cascade_bad_c', {
+      title: 'Cascade Bad Child',
+      package: 'repo',
+      parent: fatherRel,
+    })
+    // 父 children 塞入不存在的子路径（数据不一致夹具）。
+    const fatherJsonPath = join(root, '.workloom', fatherRel, 'task.json')
+    const fatherRecord = JSON.parse(readFileSync(fatherJsonPath, 'utf8'))
+    fatherRecord.children = ['tasks/99-99-ghost-child']
+    writeFileSync(fatherJsonPath, `${JSON.stringify(fatherRecord, null, 2)}\n`)
+    const [err, archived] = await archiveTask(root, {
+      taskRelPath: fatherRel,
+      force: true,
+      reason: 'test cascade',
+      autoCommit: false,
+    })
+    assert.ok(err)
+    assert.match(err.message, /child task unreadable: tasks\/99-99-ghost-child/)
+    assert.equal(archived, null)
+    // 父目录未动（未归档、状态保持 aligning）。
+    assert.equal(existsSync(join(root, '.workloom', fatherRel, 'task.json')), true)
+    assert.equal(readTaskJson(root, fatherRel).stage, 'aligning')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
