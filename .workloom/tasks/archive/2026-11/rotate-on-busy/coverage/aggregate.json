@@ -1,0 +1,65 @@
+{
+  "overall": {
+    "covered": 2711,
+    "total": 2807,
+    "percent": "96.6"
+  },
+  "files": [
+    {
+      "path": "packages/core/src/workspace/config-subagent.ts",
+      "covered": 535,
+      "total": 536,
+      "percent": "99.8",
+      "uncovered": "239"
+    },
+    {
+      "path": "packages/core/src/injection/surface.ts",
+      "covered": 463,
+      "total": 485,
+      "percent": "95.5",
+      "uncovered": "407-408,449-460,470-474,483-485"
+    },
+    {
+      "path": "packages/dsh-workloom/src/dispatch/dispatch-binding.ts",
+      "covered": 74,
+      "total": 74,
+      "percent": "100.0",
+      "uncovered": "-"
+    },
+    {
+      "path": "packages/dsh-workloom/src/dispatch/executor-capacity.ts",
+      "covered": 230,
+      "total": 238,
+      "percent": "96.6",
+      "uncovered": "176-183"
+    },
+    {
+      "path": "packages/dsh-workloom/src/dispatch/executor-continuation.ts",
+      "covered": 163,
+      "total": 172,
+      "percent": "94.8",
+      "uncovered": "117,138-143,150-151"
+    },
+    {
+      "path": "packages/dsh-workloom/src/dispatch/executor-rotation.ts",
+      "covered": 128,
+      "total": 130,
+      "percent": "98.5",
+      "uncovered": "122-123"
+    },
+    {
+      "path": "packages/dsh-workloom/src/dispatch/executor-settle.ts",
+      "covered": 540,
+      "total": 573,
+      "percent": "94.2",
+      "uncovered": "203-205,213-214,217-219,319,323,327,387,456-469,485-486,495-496,539-540,572"
+    },
+    {
+      "path": "packages/dsh-workloom/src/dispatch/executor.ts",
+      "covered": 578,
+      "total": 599,
+      "percent": "96.5",
+      "uncovered": "226-227,230-233,236-239,277-278,310-311,510-514,575-576"
+    }
+  ]
+}
