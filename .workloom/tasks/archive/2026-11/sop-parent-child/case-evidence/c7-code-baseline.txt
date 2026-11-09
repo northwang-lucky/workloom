@@ -1,0 +1,2 @@
+HEAD=5112cc72446c1f9eccb6b7de6e2f65dcc8e1d150 branch=workloom/11-06-sop-parent-child
+codeFingerprint=ed69df581df377f65b2e6175497130c3217df27d40d79bc4487c439c3954f8b6
