@@ -94,3 +94,10 @@ Judger 与其他四角色同为一等公民，功能明确落地：子任务三�
 5. evals.json:15 旧角色名词归子任务七（notes-stale-comments.md 第六节）。
 6. 子任务八输入确认：旧 executor-rotation.js 与 executor.ts 轮换段可从 git 历史 62332be^ 取；'rotate' 模型来源值与 fallback_models 解析面已在子任务四保留且恢复消费（单次重试一跳），轮换恢复只需接派发层选模逻辑与配置字段解析（roles 条目内 rotate_on_busy）。
 7. 生产 pin 切换前置（现行有效清单）：全局配置内层字段 subagents→roles、角色键改新五值；rotate_on_busy 待子任务八落地后恢复合法。见"全局配置事故记录"节④。
+
+## 子任务八实现与检查观察（2026-11-09，implement/check 回报）
+
+1. CASE 结果格式门禁连续两任务被打回（子任务四：Standard Verification 退出码单元格带括号注释；子任务八：Exclusions 表 Reason 列缺反引号）——两次的纪律都写在 case.md 里但执行轮未逐字落实，且生产 pin 的门禁正则严格（退出码单元格 /\|\s*`?0`?\s*\|/、排除表两列均须反引号包裹）。子任务七输入：case-result.md 模板改写时把两列反引号与裸 0 退出码的样例表格直接做进模板正文，让格式纪律以模板形态前置。
+2. 实施现场裁定三条（主会话认可、CASE 按新落位核验通过）：轮换判定段抽为 executor-rotation.ts 的组合纯函数 decideRotationStart（600 行预案落点，executor.ts 终态 599 行）；RespawnContext.failoverChain 复用 core 既有 SubagentFallbackModel[] 类型；configSources 未加 rotateOnBusy 来源细分（无消费方，最小实现）。
+3. 执行轮 P2 自修一条：补 AC2 要求的 dispatches 旧 kind 值归一编排用例（fixture kind:'implement' 归一后计入占用）。
+4. pin 切换前置清单（本任务归档后更新）：rotate_on_busy 解析与轮换行为已恢复合法，前置仅剩全局配置迁移两项——内层字段 subagents→roles、角色键改新五值；迁移完成即可切换（容器决定 10）。
