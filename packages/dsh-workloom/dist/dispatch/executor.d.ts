@@ -58,14 +58,20 @@
  *   evaluateExecutorCapacity 判定；
  *   续用路径先把目标 childId 从 running 集合排除（其槽不重复计）；拒绝时返回英文
  *   at capacity 回执文案（注明撞限层级与计数），不写 dispatches、不 spawn，主会话稍后
- *   自行重试；不引入队列与 pending 态。
+ *   自行重试；不引入队列与 pending 态；
+ * - 同类并发轮换（executor-rotation.ts 纯函数 + 本文件编排）：新派发闸放行后的
+ *   同步段，`rotateOnBusy 且未显式传 model 且 fallback 链非空` 时把
+ *   [主模型位条目, ...fallbackModels] 视为环形池，按同角色已占用模型顺延取首个
+ *   未占用条目起步并物化环序链供结算重试消费；判定→选取→in-flight 登记之间不得
+ *   有 await 间隙（并行两笔同角色派发互见选择）；startIndex = 0（含回绕）零留痕；
+ *   轮换起步绑定留痕 modelSource='rotate'、回执追加 (rotated: <model>) 标注。
  *
  * 模块边界：本文件负责工具注册（registerExecutor）与执行编排（executeTool）；
  * 参数 schema 装配在 executor-schema.ts，prompt 组装在 executor-injection.ts，
- * receipt 渲染在 executor-receipt.ts，continuable 会话操作在 executor-continuation.ts，
- * 终态回填在 executor-settle.ts，工具面白名单在
- * executor-dispatch.ts，researcher 守卫在 executor-guard.ts，并发容量闸在
- * executor-capacity.ts。
+ * receipt 渲染（buildTurnReceiptText）与续用定位在 executor-continuation.ts，
+ * spawn 绑定组装在 executor-receipt.ts，终态回填在 executor-settle.ts，工具面
+ * 白名单在 executor-dispatch.ts，守卫在 executor-guard.ts，容量闸与占用取数在
+ * executor-capacity.ts，同类并发轮换纯函数在 executor-rotation.ts。
  */
 import type { Context } from '@deepseek-ai/cordis';
 /**

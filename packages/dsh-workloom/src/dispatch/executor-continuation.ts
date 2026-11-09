@@ -37,6 +37,11 @@ export interface TurnMeta {
    * 回执渲染 (unrecorded spawn binding)。新派轮不设（undefined），走现状渲染。
    */
   spawnBinding?: { model?: string; effort?: string }
+  /**
+   * 同类并发轮换选中条目的模型（新派轮轮换起步时由 executor.ts 填入；回执在
+   * 标注尾部追加 (rotated: <model>)。非轮换轮不设，零行为变化。
+   */
+  rotation?: { model: string }
 }
 
 /** buildTurnReceiptText 消费的生效默认值形状（core ResolveSubagentDefaultsResult）。 */
@@ -49,7 +54,7 @@ export type ResolvedDefaultsLike = ResolveSubagentDefaultsResult
  * 在派发时已绑定，回执须如实展示 spawn 绑定值，不再回显续派时刻重新解析的
  * 当前配置来源（否则主会话换模型后续派会谎报生效）；spawn 记录无绑定值时显示
  * (unrecorded spawn binding)。
- * @param meta 本轮元数据（forced/reused/injection/spawnBinding）
+ * @param meta 本轮元数据（forced/reused/injection/spawnBinding/rotation）
  * @param effective 生效的 model/effort（仅新派轮 receipt 渲染；续派轮不消费）
  * @returns receipt 文本行
  */
@@ -75,8 +80,11 @@ export function buildTurnReceiptText(
         effortWhenMainValue: effective.whenMainValue,
         injection: meta.injection,
       })
-  // 标注顺序：forced → reused（各自独立，回执尾部追加，便于审计扫读）。
-  return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}`
+  // 标注顺序：forced → reused → rotated（各自独立，回执尾部追加，便于审计扫读）。
+  return (
+    `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}` +
+    `${meta.rotation !== undefined ? ` (rotated: ${meta.rotation.model})` : ''}`
+  )
 }
 
 /**

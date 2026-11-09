@@ -23,11 +23,17 @@ import type { DispatchModelSource, ResolveSubagentDefaultsResult } from '@worklo
  * @param params 工具调用参数（显式 model 判定）
  * @param effective resolveSubagentDefaults 结果（消费 model/effort/configSources.model）
  * @param mainModel 主会话模型（inherit 时的绑定快照来源）
+ * @param rotation 同类并发轮换选中条目（可选；传入时绑定取选中条目并标
+ *   modelSource: 'rotate'——审计须可辨「模型来自轮换顺延而非配置/参数」；
+ *   不传时现行为逐字不变）
  * @returns dispatch entry 绑定字段（modelSource 恒有值）
  */
 export declare function buildNewDispatchBinding(params: {
     model?: string;
-}, effective: ResolveSubagentDefaultsResult, mainModel?: string): {
+}, effective: ResolveSubagentDefaultsResult, mainModel?: string, rotation?: {
+    model: string;
+    effort?: string;
+}): {
     model?: string;
     effort?: string;
     modelSource: DispatchModelSource;

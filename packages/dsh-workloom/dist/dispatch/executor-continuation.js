@@ -16,7 +16,7 @@ import { buildContinueNoChildIdText, buildContinueNoDispatchText, buildCrossRole
  * 在派发时已绑定，回执须如实展示 spawn 绑定值，不再回显续派时刻重新解析的
  * 当前配置来源（否则主会话换模型后续派会谎报生效）；spawn 记录无绑定值时显示
  * (unrecorded spawn binding)。
- * @param meta 本轮元数据（forced/reused/injection/spawnBinding）
+ * @param meta 本轮元数据（forced/reused/injection/spawnBinding/rotation）
  * @param effective 生效的 model/effort（仅新派轮 receipt 渲染；续派轮不消费）
  * @returns receipt 文本行
  */
@@ -39,8 +39,9 @@ export function buildTurnReceiptText(meta, effective) {
             effortWhenMainValue: effective.whenMainValue,
             injection: meta.injection,
         });
-    // 标注顺序：forced → reused（各自独立，回执尾部追加，便于审计扫读）。
-    return `${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}`;
+    // 标注顺序：forced → reused → rotated（各自独立，回执尾部追加，便于审计扫读）。
+    return (`${meta.forced ? `${receiptBase} (forced)` : receiptBase}${meta.reused ? ' (reused)' : ''}` +
+        `${meta.rotation !== undefined ? ` (rotated: ${meta.rotation.model})` : ''}`);
 }
 /**
  * 读取子会话首次派发记录的绑定（design §8.3，纯读取，无副作用）：dispatches 中

@@ -110,6 +110,11 @@ export interface SubagentConfigEntry {
    * 失败转移链（配置字段 `fallback_models`）：空数组等价缺省（不落字段）。
    */
   fallbackModels?: SubagentFallbackModel[]
+  /**
+   * 同类并发轮换开关（配置字段 `rotate_on_busy`）：仅显式 true 落内存字段
+   * （false/缺省不落，同 fallbackModels 空数组等价缺省模式）。
+   */
+  rotateOnBusy?: boolean
 }
 
 /** resolveSubagentDefaults 返回值中字段来源的标记。 */
@@ -147,6 +152,11 @@ export interface ResolveSubagentDefaultsResult {
    * 命中条目的 fallback_models；未配置时属性不定义。
    */
   fallbackModels?: SubagentFallbackModel[]
+  /**
+   * 同类并发轮换开关：subagent_profiles 命中条目的 rotate_on_busy
+   * （仅显式 true 透出；未配置时属性不定义）。
+   */
+  rotateOnBusy?: boolean
 }
 
 /** 内置默认配置。 */

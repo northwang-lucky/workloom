@@ -2607,16 +2607,18 @@ function makeRunningChild(childId, roleLabel) {
 
 /**
  * 在 task.json 预写 running dispatches（供 collectRunningExecutors 读取 childId→role
- * 映射），并返回各 childId 对应的 roleLabel 文案（构造 listDescendants mock 用）。
+ * 映射与 model），并返回各 childId 对应的 roleLabel 文案（构造 listDescendants mock 用）。
+ * entries 可带 model（轮换占用统计的二级来源夹具）。
  */
 function seedRunningDispatches(root, entries) {
   const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
-  task.dispatches = entries.map(({ childId, kind }) => ({
+  task.dispatches = entries.map(({ childId, kind, model }) => ({
     kind,
     childId,
     title: 'seed',
     status: 'running',
     at: new Date().toISOString(),
+    ...(model !== undefined ? { model } : {}),
   }))
   writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task))
 }
@@ -2861,6 +2863,86 @@ test('capacity: 并发闸异步窗口——mock listDescendants 恒空 + 延迟�
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+// ---------- 占用取数（轮换统计面：in-flight 与记录携带模型 + collectUsedModels） ----------
+
+test('capacity: in-flight 登记携带模型（getInFlightDispatches 产出携带，release 后消失）', async () => {
+  const capacity = await import('../src/dispatch/executor-capacity.ts')
+  capacity.clearInFlightDispatches()
+  try {
+    // 不带 model 登记时不落字段（可选参数向后兼容）；带 model 时直取。
+    capacity.registerInFlightDispatch('dispatch-1', 'developer')
+    capacity.registerInFlightDispatch('dispatch-2', 'developer', 'fallback-model-a')
+    const records = capacity.getInFlightDispatches()
+    assert.equal(records.length, 2)
+    assert.equal('model' in records[0], false, '缺省登记不落 model 字段')
+    assert.equal(records[1].model, 'fallback-model-a')
+    capacity.releaseInFlightDispatch('dispatch-2')
+    assert.equal(capacity.getInFlightDispatches().length, 1, '释放后 in-flight 记录消失')
+  } finally {
+    capacity.clearInFlightDispatches()
+  }
+})
+
+test('capacity: 占用取数三级来源（in-flight 直取、dispatches 记录、native 无记录留空）', async () => {
+  const capacity = await import('../src/dispatch/executor-capacity.ts')
+  capacity.clearInFlightDispatches()
+  const root = makeProject()
+  try {
+    // native 视野两个 child：child-a 有 dispatches 记录带 model，child-b 无记录（留空）。
+    const task = JSON.parse(readFileSync(join(root, '.workloom/tasks/test-task/task.json'), 'utf8'))
+    task.dispatches = [
+      { kind: 'developer', childId: 'child-a', title: 'seed', status: 'running', at: new Date().toISOString(), model: 'dispatch-model-a' },
+    ]
+    writeFileSync(join(root, '.workloom/tasks/test-task/task.json'), JSON.stringify(task))
+    // in-flight 一笔：登记携带 model。
+    capacity.registerInFlightDispatch('dispatch-x', 'developer', 'inflight-model-x')
+    const parent = makeAgent(root)
+    const service = {
+      listDescendants: async () => [
+        makeRunningChild('child-a', 'Developer'),
+        makeRunningChild('child-b', 'Developer'),
+      ],
+    }
+    const records = await capacity.collectRunningExecutors(
+      service,
+      parent,
+      new AbortController().signal,
+      root,
+      'tasks/test-task',
+    )
+    const byId = new Map(records.map((r) => [r.childId, r]))
+    // 二级来源：dispatches 记录取 record.model。
+    assert.equal(byId.get('child-a').model, 'dispatch-model-a')
+    // 三级口径：native 视野无记录项留空（model 字段不出现）。
+    assert.equal('model' in byId.get('child-b'), false)
+    // 一级来源：in-flight 条目直取登记值。
+    const inflight = records.find((r) => r.childId.startsWith('__inflight_'))
+    assert.ok(inflight, 'in-flight 记录必须并入 running 集合')
+    assert.equal(inflight.model, 'inflight-model-x')
+  } finally {
+    capacity.clearInFlightDispatches()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('capacity: collectUsedModels 同角色过滤、模型缺失保守归一主模型位', async () => {
+  const { collectUsedModels } = await import('../src/dispatch/executor-capacity.ts')
+  const running = [
+    { childId: 'a', role: 'developer', model: 'model-x' },
+    { childId: 'b', role: 'developer' },
+    { childId: 'c', role: 'researcher', model: 'model-y' },
+    { childId: 'd', role: '' },
+  ]
+  const used = collectUsedModels(running, 'developer', '<parent session>')
+  assert.deepEqual(
+    [...used].sort(),
+    ['<parent session>', 'model-x'],
+    '同角色缺模型按主模型位保守计入；异角色与空角色不算同类',
+  )
+  assert.equal(collectUsedModels(running, 'researcher', '<parent session>').has('model-y'), true)
+  assert.equal(collectUsedModels([], 'developer', '<parent session>').size, 0)
 })
 
 test('工具面收窄：未登记的 agent 不施加限制（主会话与其他插件的子代理零影响）', async () => {
@@ -3231,6 +3313,423 @@ test('模型失败转移：非白名单错误码不触发（业务失败宁可�
     assert.equal(records[0].status, 'failed')
     assert.ok(!records[0].error.includes('failover'), 'no failover wording for business failures')
     assert.equal(notices.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover: respawn.failoverChain 优先（物化环序链一跳取起点后继，不读配置链）', async () => {
+  // 轮换起步派发的结算重试走派发时刻物化链：经 trackDispatchSettle 手工登记
+  // 携带 failoverChain 的 respawn 上下文夹具（runModelFailoverRetry 为模块私有，
+  // 全链路 respawn 由 executor.ts 组装无注入点）。夹具链故意异于配置链：
+  // 若实现仍走配置重算，重派模型会是 config-only-wrong 而非 f3，用例即红。
+  const root = makeProject({
+    subagent_profiles: [
+      {
+        roles: {
+          developer: {
+            model: 'provider-a/f2',
+            fallback_models: [{ model: 'provider-z/config-only-wrong' }],
+          },
+        },
+      },
+    ],
+  })
+  try {
+    const { trackDispatchSettle } = await import('../src/dispatch/executor-settle.ts')
+    const setup = setupExecutor()
+    const { parent } = makeNotifiableAgent(root)
+    await setup.execute(execArgs({ prompt: 'ROTATED START BODY', title: 'rotated failover' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(setup.startCalls.length, 1)
+    // 起点记 F2 的物化环序链：起点后继 = F3 → main → F1（环回到起点前停止）。
+    trackDispatchSettle('child-1', root, 'tasks/test-task', {
+      parent,
+      prompt: 'ROTATED START BODY',
+      role: 'developer',
+      title: 'rotated failover',
+      toolsAllow: ['write'],
+      wasContinuation: false,
+      binding: { model: 'provider-a/f2' },
+      failoverChain: [
+        { model: 'provider-c/f3' },
+        { model: 'main-label' },
+        { model: 'provider-a/f1', effort: 'high' },
+      ],
+    })
+    emitModelFailure(setup, 'child-1')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 2, 'materialized chain must retry once')
+    const retrySpec = setup.startCalls[1]
+    // 链中首个不同于 deadModel(F2) 的条目 = F3（provider 拆分传入）。
+    assert.equal(retrySpec.request.agentOptions.provider, 'provider-c')
+    assert.equal(retrySpec.request.agentOptions.model, 'f3')
+    const records = readDispatches(root)
+    assert.equal(records[1].modelSource, 'fallback')
+    assert.equal(records[1].model, 'provider-c/f3')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('failover: respawn.failoverChain 链耗尽（全部同 deadModel）不重派，附穷尽文案', async () => {
+  const root = makeProject(failoverConfig())
+  try {
+    const { trackDispatchSettle } = await import('../src/dispatch/executor-settle.ts')
+    const setup = setupExecutor()
+    const { parent, notices } = makeNotifiableAgent(root)
+    await setup.execute(execArgs({ prompt: 'exhausted chain body', title: 'chain exhausted' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    trackDispatchSettle('child-1', root, 'tasks/test-task', {
+      parent,
+      prompt: 'exhausted chain body',
+      role: 'developer',
+      title: 'chain exhausted',
+      toolsAllow: ['write'],
+      wasContinuation: false,
+      binding: { model: 'provider-a/m1' },
+      failoverChain: [{ model: 'provider-a/m1' }],
+    })
+    emitModelFailure(setup, 'child-1')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 1, 'chain exhausted: no retry spawn')
+    const records = readDispatches(root)
+    assert.ok(
+      records[0].error.includes('the fallback chain is exhausted after 1 attempt(s)'),
+      `exhausted notice must be appended, got: ${records[0].error}`,
+    )
+    assert.ok(notices.some((text) => text.includes('re-dispatch manually with a healthy model')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('receipt: rotation 标注逐字追加尾部（forced→reused→rotated 顺序；非轮换零变化）', async () => {
+  const { buildTurnReceiptText } = await import('../src/dispatch/executor-continuation.ts')
+  const injection = { bytes: 2048, inlined: 1, truncated: 0, indexed: 0 }
+  const effective = {
+    model: 'provider-a/f2',
+    effort: undefined,
+    sources: { model: 'config', effort: undefined },
+    configSources: { model: 'fallback', effort: undefined },
+  }
+  // 非轮换：现状文案逐字不变（无 rotated 段）。
+  const plain = buildTurnReceiptText(
+    { forced: false, reused: false, injection },
+    effective,
+  )
+  assert.ok(!plain.includes('rotated'), 'no rotation annotation without rotation')
+  // 轮换起步：(rotated: <model>) 追加在回执尾部。
+  const rotated = buildTurnReceiptText(
+    { forced: false, reused: false, injection, rotation: { model: 'provider-a/f2' } },
+    effective,
+  )
+  assert.ok(
+    rotated.endsWith(' (rotated: provider-a/f2)'),
+    `rotation annotation must sit at the tail, got: ${rotated}`,
+  )
+  // 三标注共存：forced → reused → rotated 顺序固定。
+  const all = buildTurnReceiptText(
+    {
+      forced: true,
+      reused: true,
+      injection,
+      rotation: { model: 'provider-a/f2' },
+      spawnBinding: { model: 'provider-a/f2' },
+    },
+    effective,
+  )
+  const forcedAt = all.indexOf('(forced)')
+  const reusedAt = all.indexOf('(reused)')
+  const rotatedAt = all.indexOf('(rotated:')
+  assert.ok(forcedAt !== -1 && reusedAt !== -1 && rotatedAt !== -1, 'all three annotations present')
+  assert.ok(forcedAt < reusedAt && reusedAt < rotatedAt, 'annotation order: forced → reused → rotated')
+})
+
+// ---------- 同类并发轮换编排（rotate_on_busy 派发接线） ----------
+
+/** 轮换夹具配置：developer 主模型 + fallback 链（可开关 rotate_on_busy）。 */
+function rotationConfig(rotate = true) {
+  return {
+    subagent_profiles: [
+      {
+        roles: {
+          developer: {
+            model: 'provider-a/main',
+            fallback_models: [{ model: 'provider-a/f1' }, { model: 'provider-a/f2', effort: 'high' }],
+            ...(rotate ? { rotate_on_busy: true } : {}),
+          },
+        },
+      },
+    ],
+  }
+}
+
+test('轮换编排：主模型位与 F1 被占用时起步 F2——记录 modelSource=rotate、receipt 标注、结算重试走物化环序链', async () => {
+  const root = makeProject(rotationConfig())
+  try {
+    // 占用夹具：child-a 跑主模型位、child-b 跑 F1（dispatches 记录二级来源）。
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'developer', model: 'provider-a/main' },
+      { childId: 'child-b', kind: 'developer', model: 'provider-a/f1' },
+    ])
+    const setup = setupExecutor({
+      listDescendants: async () => [
+        makeRunningChild('child-a', 'Developer'),
+        makeRunningChild('child-b', 'Developer'),
+      ],
+    })
+    const { parent } = makeNotifiableAgent(root)
+    const result = await setup.execute(execArgs({ prompt: 'rotated body', title: 'rotated start' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 起步 = 池内首个未占用条目 F2（provider 拆分传入）。
+    assert.equal(setup.startCalls.length, 1)
+    assert.equal(setup.startCalls[0].request.agentOptions.provider, 'provider-a')
+    assert.equal(setup.startCalls[0].request.agentOptions.model, 'f2')
+    // 绑定留痕：选中链条目 + modelSource='rotate'（effort 随链条目独立档位）。
+    const records = readDispatches(root)
+    assert.equal(records[2].model, 'provider-a/f2')
+    assert.equal(records[2].effort, 'high')
+    assert.equal(records[2].modelSource, 'rotate')
+    // 回执尾部追加 (rotated: <model>) 标注。
+    assert.ok(
+      result.receipt.endsWith(' (rotated: provider-a/f2)'),
+      `receipt must carry rotation annotation, got: ${result.receipt}`,
+    )
+    // 结算重试消费派发时刻物化的环序链 [main, f1]：deadModel=f2 → 一跳重派回主
+    // 模型位。若实现误用配置链 [f1, f2]，首个非 dead 条目会是 f1，断言即红。
+    emitModelFailure(setup, 'child-1')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 2, 'materialized chain must retry once')
+    assert.equal(setup.startCalls[1].request.agentOptions.model, 'main')
+    const retry = readDispatches(root)[3]
+    assert.equal(retry.model, 'provider-a/main')
+    assert.equal(retry.modelSource, 'fallback')
+    assert.equal(retry.fallbackOf, 'child-1')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('轮换编排：全占用回绕主模型位零痕迹——spawn 现状绑定、记录无 rotate、receipt 无标注、结算回落配置链', async () => {
+  // 角色上限显式 4：三笔占用不撞闸（闸放行是轮换段的前置），占用集 = 全池。
+  const root = makeProject({
+    executor: { max_concurrent: 0 },
+    subagent_profiles: [
+      {
+        roles: {
+          developer: {
+            model: 'provider-a/main',
+            max_concurrent: 4,
+            fallback_models: [{ model: 'provider-a/f1' }, { model: 'provider-a/f2' }],
+            rotate_on_busy: true,
+          },
+        },
+      },
+    ],
+  })
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'developer', model: 'provider-a/main' },
+      { childId: 'child-b', kind: 'developer', model: 'provider-a/f1' },
+      { childId: 'child-c', kind: 'developer', model: 'provider-a/f2' },
+    ])
+    const setup = setupExecutor({
+      listDescendants: async () => [
+        makeRunningChild('child-a', 'Developer'),
+        makeRunningChild('child-b', 'Developer'),
+        makeRunningChild('child-c', 'Developer'),
+      ],
+    })
+    const { parent } = makeNotifiableAgent(root)
+    const result = await setup.execute(execArgs({ prompt: 'wrap body', title: 'wrap around' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    // 回绕主模型位：现状绑定零行为变化（spawn 用 effective.model）。
+    assert.equal(setup.startCalls.length, 1)
+    assert.equal(setup.startCalls[0].request.agentOptions.model, 'main')
+    const records = readDispatches(root)
+    assert.equal(records[3].modelSource, 'fallback', 'wrap-around keeps the config source')
+    assert.ok(!result.receipt.includes('rotated'), 'wrap-around receipt must not be annotated')
+    // 结算重试无物化链 → 回落现行配置重算（现状语义）：deadModel=main → f1。
+    emitModelFailure(setup, 'child-1')
+    await settleHooks()
+    assert.equal(setup.startCalls.length, 2)
+    assert.equal(setup.startCalls[1].request.agentOptions.model, 'f1')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('轮换编排：四路径零变化（开关关/显式 model/续用轮/容量拒绝均无轮换痕迹）', async () => {
+  // a) 开关关：同款占用下不轮换（spawn 主模型位，记录 config 来源，回执无标注）。
+  {
+    const root = makeProject(rotationConfig(false))
+    try {
+      seedRunningDispatches(root, [
+        { childId: 'child-a', kind: 'developer', model: 'provider-a/main' },
+      ])
+      const { execute, startCalls } = setupExecutor({
+        listDescendants: async () => [makeRunningChild('child-a', 'Developer')],
+      })
+      const parent = makeAgent(root)
+      const result = await execute(execArgs({ title: 'switch off' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      })
+      assert.equal(startCalls[0].request.agentOptions.model, 'main')
+      assert.equal(readDispatches(root)[1].modelSource, 'fallback')
+      assert.ok(!result.receipt.includes('rotated'))
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+  // b) 显式 model：轮换开关开着也不轮换（显式参数优先，记录 param 来源）。
+  {
+    const root = makeProject(rotationConfig(true))
+    try {
+      seedRunningDispatches(root, [
+        { childId: 'child-a', kind: 'developer', model: 'provider-a/main' },
+      ])
+      const { execute, startCalls } = setupExecutor({
+        listDescendants: async () => [makeRunningChild('child-a', 'Developer')],
+      })
+      const parent = makeAgent(root)
+      const result = await execute(
+        execArgs({ model: 'provider-b/x', force: true, reason: 'test override', title: 'explicit model' }),
+        { agent: parent, signal: new AbortController().signal },
+      )
+      assert.equal(startCalls[0].request.agentOptions.provider, 'provider-b')
+      assert.equal(startCalls[0].request.agentOptions.model, 'x')
+      const record = readDispatches(root)[1]
+      assert.equal(record.model, 'provider-b/x')
+      assert.equal(record.modelSource, 'param')
+      assert.ok(!result.receipt.includes('rotated'))
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+  // c) 续用轮：不进轮换段（sendMessage 沿用 spawn 绑定，modelSource=spawn）。
+  {
+    const root = makeProject(rotationConfig(true))
+    try {
+      const { execute, sendMessageCalls } = setupExecutor()
+      const parent = makeAgent(root)
+      await execute(execArgs({ title: 'continue base' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      })
+      const result = await execute(
+        execArgs({ title: 'continue round', continue_executor: 'child-1' }),
+        { agent: parent, signal: new AbortController().signal },
+      )
+      assert.equal(sendMessageCalls.length, 1)
+      assert.ok(result.receipt.includes('(reused)'))
+      assert.ok(!result.receipt.includes('rotated'))
+      assert.equal(readDispatches(root)[1].modelSource, 'spawn')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+  // d) 容量拒绝：不派发、不写记录、回执无轮换痕迹。
+  {
+    const root = makeProject({
+      executor: { max_concurrent: 0 },
+      ...rotationConfig(true),
+    })
+    try {
+      seedRunningDispatches(root, [
+        { childId: 'child-a', kind: 'developer' },
+        { childId: 'child-b', kind: 'developer' },
+        { childId: 'child-c', kind: 'developer' },
+      ])
+      const { execute, startCalls } = setupExecutor({
+        listDescendants: async () => [
+          makeRunningChild('child-a', 'Developer'),
+          makeRunningChild('child-b', 'Developer'),
+          makeRunningChild('child-c', 'Developer'),
+        ],
+      })
+      const parent = makeAgent(root)
+      const result = await execute(execArgs({ title: 'capacity reject' }), {
+        agent: parent,
+        signal: new AbortController().signal,
+      })
+      assert.equal(startCalls.length, 0, 'rejected dispatch must not spawn')
+      assert.match(result.output[0].text, /at capacity \(3\/3\)/)
+      assert.ok(!result.output[0].text.includes('rotated'))
+      assert.equal(readDispatches(root).length, 3, 'rejected dispatch must not append a record')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('轮换编排：dispatches 记录旧 kind 值经归一后计入占用（顺延到首个 fallback）', async () => {
+  // AC2 三级取数的二级来源含「历史旧值归一」：旧 kind 'implement' 的 running 记录
+  // 经视图归一为 developer，主模型位算作占用 → 起步顺延到 F1。
+  const root = makeProject(rotationConfig())
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'implement', model: 'provider-a/main' },
+    ])
+    const setup = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Implement')],
+    })
+    const parent = makeAgent(root)
+    const result = await setup.execute(execArgs({ title: 'legacy kind occupancy' }), {
+      agent: parent,
+      signal: new AbortController().signal,
+    })
+    assert.equal(setup.startCalls.length, 1)
+    assert.equal(setup.startCalls[0].request.agentOptions.model, 'f1')
+    const record = readDispatches(root)[1]
+    assert.equal(record.model, 'provider-a/f1')
+    assert.equal(record.modelSource, 'rotate')
+    assert.ok(result.receipt.endsWith(' (rotated: provider-a/f1)'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('轮换编排：并行同角色两笔同步段互见不撞同一模型（in-flight 登记携模型，第二笔顺延）', async () => {
+  // 第一笔闸放行后同步登记 in-flight（模型 f1）→ 第二笔取数并入 f1 占用 → 选 f2。
+  const root = makeProject(rotationConfig(true))
+  try {
+    seedRunningDispatches(root, [
+      { childId: 'child-a', kind: 'developer', model: 'provider-a/main' },
+    ])
+    let releaseFirst
+    const firstDelay = new Promise((resolve) => {
+      releaseFirst = resolve
+    })
+    const { execute, startCalls } = setupExecutor({
+      listDescendants: async () => [makeRunningChild('child-a', 'Developer')],
+      startContinuableDelay: firstDelay,
+    })
+    const parent = makeAgent(root)
+    const signal = new AbortController().signal
+    const firstPromise = execute(execArgs({ title: 'parallel first' }), { agent: parent, signal })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    // 第二笔不 await 直接起（delay 与第一笔共享），先让两笔都过闸后一并放行。
+    const secondPromise = execute(execArgs({ title: 'parallel second' }), { agent: parent, signal })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    releaseFirst()
+    const firstResult = await firstPromise
+    const secondResult = await secondPromise
+    assert.equal(firstResult.kind, 'background')
+    assert.equal(secondResult.kind, 'background', '第二笔角色闸 2/3 应放行')
+    assert.equal(startCalls.length, 2)
+    assert.equal(startCalls[0].request.agentOptions.model, 'f1')
+    assert.equal(startCalls[1].request.agentOptions.model, 'f2', 'second dispatch must skip f1 via in-flight model')
+    assert.equal(readDispatches(root)[2].modelSource, 'rotate')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

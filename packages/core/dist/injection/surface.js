@@ -130,10 +130,10 @@ export const ERR_PREFIX = {
     stepTool: 'workloom step tool',
 };
 /**
- * 模型继承父会话时的展示标签（receipt 主模型位口径；原 dispatch-binding 跨模块
- * 常量，唯一消费方在本模块，收为模块内单源不再对外导出）。
+ * 模型继承父会话时的展示标签（receipt 主模型位口径唯一单源）：核心导出，
+ * adapter 侧轮换池构建等消费方直接复用本常量，禁止自造同值字符串。
  */
-const PARENT_MODEL_LABEL = '<parent session>';
+export const PARENT_MODEL_LABEL = '<parent session>';
 /** executor 子代理无文本输出时的返回提示（运行时文案英文）。 */
 export const EMPTY_OUTPUT_TEXT = 'The executor subagent produced no text output.';
 /**

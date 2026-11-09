@@ -21,9 +21,20 @@ function resolveDispatchModelSource(params, effective) {
  * @param params 工具调用参数（显式 model 判定）
  * @param effective resolveSubagentDefaults 结果（消费 model/effort/configSources.model）
  * @param mainModel 主会话模型（inherit 时的绑定快照来源）
+ * @param rotation 同类并发轮换选中条目（可选；传入时绑定取选中条目并标
+ *   modelSource: 'rotate'——审计须可辨「模型来自轮换顺延而非配置/参数」；
+ *   不传时现行为逐字不变）
  * @returns dispatch entry 绑定字段（modelSource 恒有值）
  */
-export function buildNewDispatchBinding(params, effective, mainModel) {
+export function buildNewDispatchBinding(params, effective, mainModel, rotation) {
+    // 轮换选中条目优先：绑定即选中条目（单点构造，调用方不再自行拼 'rotate'）。
+    if (rotation !== undefined) {
+        return {
+            model: rotation.model,
+            ...(rotation.effort !== undefined ? { effort: rotation.effort } : {}),
+            modelSource: 'rotate',
+        };
+    }
     const modelSource = resolveDispatchModelSource(params, effective);
     // inherit：无配置命中，子会话继承主会话模型——绑定值取主模型快照（可读时）；
     // 其余来源：解析后的 model 即绑定值。

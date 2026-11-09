@@ -35,6 +35,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
+import type { SubagentFallbackModel } from '@workloom-ai/core';
 /**
  * 一跳重派上下文（派发成功点随 trackDispatchSettle 登记；结算重试钩子消费）。
  * DispatchRecord 不存原始 prompt，本登记是重派组装的唯一来源（transport-failover
@@ -58,6 +59,12 @@ export interface RespawnContext {
         model?: string;
         effort?: string;
     };
+    /**
+     * 派发时刻物化的失败转移链（同类并发轮换起步时由 executor.ts 传入，链序为
+     * 环形物化的起点后继；结算重试优先消费本链，缺省回落按现行配置重算——
+     * 旧登记路径不传，行为零变化）。
+     */
+    failoverChain?: SubagentFallbackModel[];
 }
 /** turn/end 结构化错误：单行渲染（dispatches.error）+ 原始 code。 */
 export interface CapturedTurnError {

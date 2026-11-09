@@ -341,6 +341,8 @@ export {
   renderOutput,
   renderBackground,
   renderTask,
+  // 模型继承父会话时的展示标签唯一单源（轮换池主模型位等 adapter 消费）。
+  PARENT_MODEL_LABEL,
 } from './injection/surface.ts'
 
 export type { ExecutorInjectionStats, TextBlockLike } from './injection/surface.ts'

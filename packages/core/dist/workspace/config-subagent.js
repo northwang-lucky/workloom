@@ -40,8 +40,9 @@ function parseProfileEntries(prefix, map) {
                 key !== 'effort' &&
                 key !== 'tools' &&
                 key !== 'max_concurrent' &&
-                key !== 'fallback_models') {
-                throw new WorkloomConfigError(`${prefix}.${name}.${key}`, 'unknown field (allowed: model, effort, fallback_models, max_concurrent, tools)');
+                key !== 'fallback_models' &&
+                key !== 'rotate_on_busy') {
+                throw new WorkloomConfigError(`${prefix}.${name}.${key}`, 'unknown field (allowed: model, effort, fallback_models, rotate_on_busy, max_concurrent, tools)');
             }
         }
         const parsed = {};
@@ -62,6 +63,16 @@ function parseProfileEntries(prefix, map) {
         }
         if (spec.max_concurrent !== undefined) {
             parsed.maxConcurrent = requireNonNegativeInt(`${prefix}.${name}.max_concurrent`, spec.max_concurrent);
+        }
+        if (spec.rotate_on_busy !== undefined) {
+            // 严格 boolean（宽化写法不收）：开关语义只有开/关两态，宽容隐式转换会掩盖
+            // 配置笔误（如 "true" 字符串）。
+            if (typeof spec.rotate_on_busy !== 'boolean') {
+                throw new WorkloomConfigError(`${prefix}.${name}.rotate_on_busy`, 'must be a boolean');
+            }
+            // 仅 true 落内存字段（false/缺省不落，同 fallbackModels 空数组等价缺省模式）。
+            if (spec.rotate_on_busy)
+                parsed.rotateOnBusy = true;
         }
         result[name] = parsed;
     }
@@ -283,6 +294,10 @@ export function resolveSubagentDefaults(config, role, overrides, mainModel) {
         fallbackModels = profileLayer.fallbackModels;
         fallbackModelsSource = matched.source;
     }
+    // 同类并发轮换开关：命中 profile 条目字段直取（解析期仅 true 落字段，未配置
+    // 时字段不出现，零行为变化）；当层缺省回落下一层的语义与其他字段一致，
+    // 现仅剩 profiles 单层加宿主默认，实际为命中条目直取。
+    const rotateOnBusy = matched !== null && profileLayer.rotateOnBusy !== undefined ? profileLayer.rotateOnBusy : undefined;
     // 角色层并发上限：仅 subagent_profiles 命中条目携带，未命中 / 未配置时兜底
     // 硬编码缺省 3（显式 0 = 该角色不限，?? 不吞 0）。
     const maxConcurrent = profileLayer.maxConcurrent ?? DEFAULT_ROLE_MAX_CONCURRENT;
@@ -308,6 +323,8 @@ export function resolveSubagentDefaults(config, role, overrides, mainModel) {
         // 失败转移链：解析后的模型字符串 + 可选 effort（adapter 按序消费）；
         // 未配置时字段不出现（零行为变化）。
         ...(fallbackModels !== undefined ? { fallbackModels } : {}),
+        // 轮换开关：仅显式 true 透出（未配置时字段不出现，零行为变化）。
+        ...(rotateOnBusy !== undefined ? { rotateOnBusy } : {}),
         // whenMainValue 仅在字段实际来自 whenMain 条目时返回（receipt 展示用）。
         ...(matched?.whenMainValue !== undefined &&
             (modelConfigSource === 'whenMain' || effortConfigSource === 'whenMain')

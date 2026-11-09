@@ -61,5 +61,7 @@ export { runDoctor, buildDoctorRelayText } from "./workspace/doctor.js";
 export { ensureSpecTemplates } from "./workspace/spec-templates.js";
 export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossRoleReuseRejectText, PURGE_FLAG, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, 
 // 投影统一：TextBlockLike 与 render 族唯一实现在 surface（dsh 四站点消费）。
-renderOutput, renderBackground, renderTask, } from "./injection/surface.js";
+renderOutput, renderBackground, renderTask, 
+// 模型继承父会话时的展示标签唯一单源（轮换池主模型位等 adapter 消费）。
+PARENT_MODEL_LABEL, } from "./injection/surface.js";
 //# sourceMappingURL=index.js.map

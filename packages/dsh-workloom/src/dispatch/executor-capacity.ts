@@ -38,6 +38,11 @@ import type { RunningExecutorRecord } from '@workloom-ai/core'
 interface InFlightEntry {
   /** 本次派发的 executor 角色。 */
   role: string
+  /**
+   * 本次派发实际选定的模型 label（同类并发轮换的占用统计用；读不到时缺省
+   * undefined，由 collectUsedModels 按主模型位保守归一）。
+   */
+  model?: string
 }
 
 /** 派发序号 → in-flight 条目（进程内同步，本会话计数语义不变）。 */
@@ -62,9 +67,11 @@ export function generateDispatchSeq(): string {
  * 登记 in-flight 派发（同步：闸判定通过后立即调用，再 await startActivation）。
  * @param seq 派发序号（generateDispatchSeq 生成）
  * @param role 本次派发的 executor 角色
+ * @param model 本次派发实际选定的模型 label（缺省 undefined：读不到时由
+ *   collectUsedModels 按主模型位保守归一）
  */
-export function registerInFlightDispatch(seq: string, role: string): void {
-  inFlightDispatches.set(seq, { role })
+export function registerInFlightDispatch(seq: string, role: string, model?: string): void {
+  inFlightDispatches.set(seq, { role, ...(model !== undefined ? { model } : {}) })
 }
 
 /**
@@ -87,6 +94,8 @@ export function getInFlightDispatches(): RunningExecutorRecord[] {
       childId: `${IN_FLIGHT_PREFIX}${seq}`,
       // 登记值经兼容读归一（调用方传新角色值；归一落空的脏值置空，仅占全局槽）。
       role: tryNormalizeExecutorRole(entry.role) ?? '',
+      // model 直取登记值（轮换占用统计用；缺省不落字段，语义同 native 记录）。
+      ...(entry.model !== undefined ? { model: entry.model } : {}),
     })
   }
   return records
@@ -145,9 +154,12 @@ export async function collectRunningExecutors(
   // 视图层已归一为新角色值）。
   const [taskErr, task] = readTaskView(root, taskRelPath)
   const roleByChildId = new Map<string, string>()
+  const modelByChildId = new Map<string, string>()
   if (taskErr === null && task !== null) {
     for (const d of task.dispatches ?? []) {
       if (d.childId && d.kind) roleByChildId.set(d.childId, d.kind)
+      // 旧记录无 model 字段时不落映射，视为读不到（由 collectUsedModels 保守归一）。
+      if (d.childId && d.model !== undefined) modelByChildId.set(d.childId, d.model)
     }
   }
   const records: RunningExecutorRecord[] = []
@@ -169,14 +181,41 @@ export async function collectRunningExecutors(
       records.push({ childId: entry.id, role: '' })
       continue
     }
+    // model 二级来源：本任务 dispatches 记录（一级 in-flight 直取见下方合并）；
+    // native 视野无记录项留空（读不到时由 collectUsedModels 按主模型位保守归一）。
+    const model = modelByChildId.get(entry.id)
     records.push({
       childId: entry.id,
       role,
+      ...(model !== undefined ? { model } : {}),
     })
   }
   // 合并进程内同步 in-flight 集：关闭闸判定→startActivation 的异步窗口竞态。
   records.push(...getInFlightDispatches())
   return records
+}
+
+/**
+ * 归一统计同角色占用模型集合（轮换选取的取数面，纯函数）：同角色条目取登记的
+ * model，读不到按主模型位 label 计入（保守，宁多占主模型位也不误判空闲）；
+ * role 为空的未知 child 不算同类（不占任何角色槽的口径一致）。角色值已经
+ * collectRunningExecutors 归一，此处直取直比。
+ * @param running 本主会话 running executor 集合
+ * @param role 本次派发的 executor 角色
+ * @param primaryModelLabel 主模型位 label（读不到时的归一目标）
+ * @returns 同角色已占用的模型 label 集合
+ */
+export function collectUsedModels(
+  running: readonly RunningExecutorRecord[],
+  role: string,
+  primaryModelLabel: string,
+): Set<string> {
+  const used = new Set<string>()
+  for (const record of running) {
+    if (record.role !== role) continue
+    used.add(record.model ?? primaryModelLabel)
+  }
+  return used
 }
 
 /**

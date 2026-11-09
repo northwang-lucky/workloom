@@ -88,3 +88,22 @@ test('buildNewDispatchBinding: effort 未解析出时不带字段', () => {
   )
   assert.equal('effort' in got, false)
 })
+
+test('buildNewDispatchBinding: rotation 入参落选中条目并标 rotate（不传时现行为不变）', () => {
+  // 传入轮换选中条目：绑定即选中条目（覆盖 params/effective 的 model/effort）。
+  const rotated = buildNewDispatchBinding(
+    { model: 'p/m' },
+    effectiveOf({ model: 'p/m', effort: 'high', configModel: 'whenMain' }),
+    'main/model',
+    { model: 'fb1', effort: 'low' },
+  )
+  assert.deepEqual(rotated, { model: 'fb1', effort: 'low', modelSource: 'rotate' })
+  // 链条目 effort 缺省（独立档位口径）：不带 effort 字段。
+  const rotatedNoEffort = buildNewDispatchBinding(
+    {},
+    effectiveOf({}),
+    'main/model',
+    { model: 'fb2' },
+  )
+  assert.deepEqual(rotatedNoEffort, { model: 'fb2', modelSource: 'rotate' })
+})

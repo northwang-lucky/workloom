@@ -285,11 +285,15 @@ async function runModelFailoverRetry(ctx, childId, pending, respawn, code) {
         finishWithoutRetry(root, taskRelPath, childId, respawn, code, deadModel, ONE_HOP_LIMIT_REASON);
         return;
     }
-    // 该角色生效的失败转移链（解析链在 subagent_profiles 命中条目单点；链序即尝试序）。
-    const config = loadConfig(root);
-    const mainModel = readMainModel(respawn.parent);
-    const resolved = resolveSubagentDefaults(config, respawn.role, {}, mainModel);
-    const next = (resolved.fallbackModels ?? []).find((entry) => entry.model !== deadModel);
+    // 该角色生效的失败转移链：派发时刻物化链优先（轮换起步的环序后继）；缺省
+    // 回落按现行配置重算（旧登记路径零行为变化）。链序即尝试序。
+    const fallbackChain = respawn.failoverChain ??
+        (() => {
+            const config = loadConfig(root);
+            const mainModel = readMainModel(respawn.parent);
+            return resolveSubagentDefaults(config, respawn.role, {}, mainModel).fallbackModels ?? [];
+        })();
+    const next = fallbackChain.find((entry) => entry.model !== deadModel);
     if (next === undefined) {
         // 无链或链耗尽：结算 failed 附穷尽文案（完整尝试链留在 dispatches.error）。
         finishWithoutRetry(root, taskRelPath, childId, respawn, code, deadModel, undefined);

@@ -33,8 +33,10 @@ export declare function generateDispatchSeq(): string;
  * 登记 in-flight 派发（同步：闸判定通过后立即调用，再 await startActivation）。
  * @param seq 派发序号（generateDispatchSeq 生成）
  * @param role 本次派发的 executor 角色
+ * @param model 本次派发实际选定的模型 label（缺省 undefined：读不到时由
+ *   collectUsedModels 按主模型位保守归一）
  */
-export declare function registerInFlightDispatch(seq: string, role: string): void;
+export declare function registerInFlightDispatch(seq: string, role: string, model?: string): void;
 /**
  * 释放 in-flight 派发（startActivation 成功返回后 child 已进 native 视野，
  * 或失败/异常路径）。
@@ -65,6 +67,17 @@ export interface RunningCollectionService {
  * @returns running executor 记录集合
  */
 export declare function collectRunningExecutors(service: RunningCollectionService, parent: Agent, signal: AbortSignal, root: string, taskRelPath: string, excludeChildId?: string): Promise<RunningExecutorRecord[]>;
+/**
+ * 归一统计同角色占用模型集合（轮换选取的取数面，纯函数）：同角色条目取登记的
+ * model，读不到按主模型位 label 计入（保守，宁多占主模型位也不误判空闲）；
+ * role 为空的未知 child 不算同类（不占任何角色槽的口径一致）。角色值已经
+ * collectRunningExecutors 归一，此处直取直比。
+ * @param running 本主会话 running executor 集合
+ * @param role 本次派发的 executor 角色
+ * @param primaryModelLabel 主模型位 label（读不到时的归一目标）
+ * @returns 同角色已占用的模型 label 集合
+ */
+export declare function collectUsedModels(running: readonly RunningExecutorRecord[], role: string, primaryModelLabel: string): Set<string>;
 /**
  * 判定并发闸（纯同步，无副作用）：放行返回 null，拒绝返回 at capacity 回执文案。
  * @param running 本主会话 running executor 集合

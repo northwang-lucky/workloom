@@ -1056,6 +1056,86 @@ test('resolveSubagentDefaults：fallbackModels 命中条目透出（未配置不
   assert.equal('fallbackModels' in none.configSources, false)
 })
 
+// ---------- L5b：rotate_on_busy 解析与透出 ----------
+
+test('rotate_on_busy 解析五形态：true 落字段、false/缺省不落、字符串与数字抛错含字段路径', () => {
+  const assertParsed = (roleValue, expectField) => {
+    const root = makeRoot()
+    const home = makeHome()
+    writeProjectFile(root, 'config.json', {
+      subagent_profiles: [{ roles: { developer: { rotate_on_busy: roleValue } } }],
+    })
+    try {
+      const config = loadConfig(root, { homeDir: home })
+      const entry = config.subagentProfiles[0].roles.developer
+      assert.equal('rotateOnBusy' in entry, expectField)
+      if (expectField) assert.equal(entry.rotateOnBusy, true)
+    } finally {
+      cleanup(root, home)
+    }
+  }
+  // 仅显式 true 落内存字段；false 与缺省等价不落（同 fallbackModels 空数组等价缺省）。
+  assertParsed(true, true)
+  assertParsed(false, false)
+  assertParsed(undefined, false)
+  // 宽化写法不收：字符串/数字布尔 fail loud（错误含字段路径与 boolean 语义）。
+  for (const bad of ['true', 1]) {
+    const root = makeRoot()
+    const home = makeHome()
+    writeProjectFile(root, 'config.json', {
+      subagent_profiles: [{ roles: { developer: { rotate_on_busy: bad } } }],
+    })
+    try {
+      assert.throws(
+        () => loadConfig(root, { homeDir: home }),
+        (error) => {
+          assert.ok(error instanceof WorkloomConfigError)
+          assert.equal(error.field, 'subagent_profiles[0].roles.developer.rotate_on_busy')
+          assert.match(error.message, /must be a boolean/)
+          return true
+        },
+      )
+    } finally {
+      cleanup(root, home)
+    }
+  }
+})
+
+test('rotate_on_busy 不再触发未知字段报错（allowed 清单已收录）', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    subagent_profiles: [{ roles: { developer: { rotate_on_busy: true } } }],
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(config.subagentProfiles[0].roles.developer.rotateOnBusy, true)
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('resolveSubagentDefaults：rotateOnBusy 命中条目透出（未配置不出现字段）', () => {
+  const config = {
+    subagentProfiles: [
+      {
+        roles: {
+          developer: { rotateOnBusy: true },
+          researcher: { model: 'plain-m' },
+        },
+      },
+    ],
+  }
+  const hit = resolveSubagentDefaults(config, 'developer', {})
+  assert.equal(hit.rotateOnBusy, true)
+  // 命中条目未配置轮换开关：字段不出现（零行为变化，不污染既有 deepEqual 断言）。
+  const miss = resolveSubagentDefaults(config, 'researcher', {})
+  assert.equal('rotateOnBusy' in miss, false)
+  // 全程未配置：字段不出现。
+  const none = resolveSubagentDefaults({ subagentProfiles: [] }, 'developer', {})
+  assert.equal('rotateOnBusy' in none, false)
+})
+
 // ---------- L6：model 拆分与冲突检测 ----------
 
 test('splitProviderModel：provider 前缀拆分与裸 id、非法输入抛错', () => {

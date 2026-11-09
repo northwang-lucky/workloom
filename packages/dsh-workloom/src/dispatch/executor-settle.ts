@@ -46,7 +46,7 @@ import {
   resolveSubagentDefaults,
   settleExecutorDispatch,
 } from '@workloom-ai/core'
-import type { DispatchPurpose, DispatchRecord, DispatchStatus } from '@workloom-ai/core'
+import type { DispatchPurpose, DispatchRecord, DispatchStatus, SubagentFallbackModel } from '@workloom-ai/core'
 
 import { SOURCE_PLUGIN } from '../constants.ts'
 import { buildChildLabel } from './executor-injection.ts'
@@ -105,6 +105,12 @@ export interface RespawnContext {
   wasContinuation: boolean
   /** 生效模型绑定（deadModel 展示的回退来源；权威值以落盘记录为准）。 */
   binding: { model?: string; effort?: string }
+  /**
+   * 派发时刻物化的失败转移链（同类并发轮换起步时由 executor.ts 传入，链序为
+   * 环形物化的起点后继；结算重试优先消费本链，缺省回落按现行配置重算——
+   * 旧登记路径不传，行为零变化）。
+   */
+  failoverChain?: SubagentFallbackModel[]
 }
 
 /** 真实错误写入 dispatches 的单行上限（超长截断并追加 …，行展示可读）。 */
@@ -408,11 +414,16 @@ async function runModelFailoverRetry(
     finishWithoutRetry(root, taskRelPath, childId, respawn, code, deadModel, ONE_HOP_LIMIT_REASON)
     return
   }
-  // 该角色生效的失败转移链（解析链在 subagent_profiles 命中条目单点；链序即尝试序）。
-  const config = loadConfig(root)
-  const mainModel = readMainModel(respawn.parent)
-  const resolved = resolveSubagentDefaults(config, respawn.role, {}, mainModel)
-  const next = (resolved.fallbackModels ?? []).find((entry) => entry.model !== deadModel)
+  // 该角色生效的失败转移链：派发时刻物化链优先（轮换起步的环序后继）；缺省
+  // 回落按现行配置重算（旧登记路径零行为变化）。链序即尝试序。
+  const fallbackChain =
+    respawn.failoverChain ??
+    (() => {
+      const config = loadConfig(root)
+      const mainModel = readMainModel(respawn.parent)
+      return resolveSubagentDefaults(config, respawn.role, {}, mainModel).fallbackModels ?? []
+    })()
+  const next = fallbackChain.find((entry) => entry.model !== deadModel)
   if (next === undefined) {
     // 无链或链耗尽：结算 failed 附穷尽文案（完整尝试链留在 dispatches.error）。
     finishWithoutRetry(root, taskRelPath, childId, respawn, code, deadModel, undefined)

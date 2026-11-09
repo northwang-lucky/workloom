@@ -14,6 +14,13 @@ export interface TurnMeta {
         model?: string;
         effort?: string;
     };
+    /**
+     * 同类并发轮换选中条目的模型（新派轮轮换起步时由 executor.ts 填入；回执在
+     * 标注尾部追加 (rotated: <model>)。非轮换轮不设，零行为变化。
+     */
+    rotation?: {
+        model: string;
+    };
 }
 /** buildTurnReceiptText 消费的生效默认值形状（core ResolveSubagentDefaultsResult）。 */
 export type ResolvedDefaultsLike = ResolveSubagentDefaultsResult;
@@ -24,7 +31,7 @@ export type ResolvedDefaultsLike = ResolveSubagentDefaultsResult;
  * 在派发时已绑定，回执须如实展示 spawn 绑定值，不再回显续派时刻重新解析的
  * 当前配置来源（否则主会话换模型后续派会谎报生效）；spawn 记录无绑定值时显示
  * (unrecorded spawn binding)。
- * @param meta 本轮元数据（forced/reused/injection/spawnBinding）
+ * @param meta 本轮元数据（forced/reused/injection/spawnBinding/rotation）
  * @param effective 生效的 model/effort（仅新派轮 receipt 渲染；续派轮不消费）
  * @returns receipt 文本行
  */
