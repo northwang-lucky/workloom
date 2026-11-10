@@ -122,3 +122,11 @@ Judger 与其他四角色同为一等公民，功能明确落地：子任务三�
 3. Judger 评审价值再证：三轮 25→16→8 条，其中 2 条 P0 是主会话重写引入的新缺陷（构建时序、暂存口径不一致）——每轮修订后复审是必要的，不能因「只改了文本」跳过。
 4. 环境经验：隔离 HOME 下跑 worktree/git 全量测试需 GIT_AUTHOR_*/GIT_COMMITTER_* 环境变量，否则提交身份缺失必红；后续 CASE 执行轮沿用该组合。
 5. 子任务七输入：migrate-plan 删除执行时同步摘 SKILL_ENTRIES 登记与磁盘目录（登记在 resources-manifest.ts L61 一带）；workflow.md 与既有 skill 文档改写照旧；新 skill 的 SKILL.md 已是新流程口径的参照样本之一。
+
+## 子任务七实现与检查观察（2026-11-10，implement/check 回报）
+
+1. 评审循环新纪录：Judger 九轮 69 条（30→18→13→9→5→5→1→1→0），全部 P2 清零后开工。教训双向：主会话重写文档会引入新缺陷必须逐轮复审；评审者也存在对新增验证命令的边际挑错（收敛后期每轮 1-5 条纳米级），流程上"三轮后附处置说明"的上限条款值得在 workflow.md 明示。
+2. 钉住面清单制生效：contract-asset 46 用例、protocol 版本相等、session-context 指路句四处、subtask-contract 13 短语——S1 一次盘点全量，后续九步零意外变红；2.2/2.3 步骤号注释 8 处与 terminology L9 按登记项入本记录待未来任务。
+3. 执行轮 P2 自修范式：checker 发现 workflow.md 多一个 "that"，按 plan 逐字口径去词后全量复跑 SR/C/覆盖率/标准验证并更新指纹——"修后全量复跑"纪律首次由执行器自证。
+4. AC1 计数陷阱归档：`grep -c "skills/"` 在含 third-party 的清单下不等于自有 skill 数，双探针（SKILL.md 行数 + 数组长度）已写入 CASE 经验。
+5. pin 切换前置（全部子任务归档后）：仅剩用户自执行全局配置迁移（subagents→roles、角色键新五值，workloom-migrate-to-sop skill 就绪），迁移后即可重钉生产 pin 并重启（容器决定 10，需用户授权）。
