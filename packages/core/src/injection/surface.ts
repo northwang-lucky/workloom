@@ -5,6 +5,7 @@
  * - 命令/工具名、注册描述、参数描述、错误前缀等「宿主注册面文案」在两个
  *   adapter 中逐字重复，统一收敛到这里，随 core 版本走；
  * - 全部文案英文、逐字提取自下沉前 adapter 现状（不得改写措辞），键名小驼峰；
+ *   例外：init 描述以真实行为为准（幂等表述），其余文案保持逐字；
  * - 全部 `as const`：类型即字面量，注册面与 adapter 消费处共享同一文本。
  */
 
@@ -18,7 +19,7 @@ export const COMMAND_NAMES = {
 
 /** 两个命令的 register 描述文案（两 adapter 现状逐字相同）。 */
 export const COMMAND_DESCRIPTIONS = {
-  init: 'Initialize the .workloom skeleton (idempotent; --purge applies to legacy .trellis projects only: it force-fills missing pieces and fails when no legacy .trellis project exists)',
+  init: 'Initialize the .workloom skeleton (idempotent; missing pieces are filled, existing content is never overwritten)',
   doctor:
     'Run a structured workflow health check (results are handed to the model as JSON)',
 } as const
@@ -230,13 +231,6 @@ export function buildCrossRoleReuseRejectText(input: string, matchRole: string, 
     `but this call is role ${role}; reuse is limited to the same role`
   )
 }
-
-/**
- * purge 模式标志：仅适用于旧 .trellis 项目——rawInput 以该前缀开头时，init 以
- * force 语义补齐骨架缺件；无旧 .trellis 项目时报 nothing to purge。不删除任何
- * 目录（整条 trellis 检测链的去留裁定归子任务六）。
- */
-export const PURGE_FLAG = '--purge'
 
 /**
  * 命令失败的宿主回执文案（两 adapter 共享）：细节已由 followup/sendUserMessage

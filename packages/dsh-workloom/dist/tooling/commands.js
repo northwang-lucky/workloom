@@ -24,7 +24,6 @@ export function registerCommands(ctx) {
     ctx.commands.register({
         name: COMMAND_NAMES.init,
         description: COMMAND_DESCRIPTIONS.init,
-        input: { hint: '--purge' },
         handler: handleInit,
     });
     ctx.commands.register({
@@ -57,16 +56,15 @@ function relayFailure(invocation, command, errorText) {
     return { kind: 'success', text: COMMAND_FAILURE_ACK };
 }
 /**
- * init 命令：初始化 .workloom 骨架（幂等；--purge 仅限旧 .trellis 项目，force 补齐
- * 缺件，无旧项目时报 nothing to purge，不删除任何目录；编排下沉 core），
- * 成功后补落 spec 模板并注入转述。
+ * init 命令：初始化 .workloom 骨架（幂等；缺件补齐、已有内容一律不覆盖；
+ * 编排下沉 core），成功后补落 spec 模板并注入转述。
  */
 function handleInit(invocation) {
     const cwd = cwdOf(invocation);
     if (cwd === null) {
         return relayFailure(invocation, COMMAND_NAMES.init, `${ERR_PREFIX.command}: cannot determine the working directory of this session`);
     }
-    const [err, text] = executeInitCommand(cwd, invocation.rawInput);
+    const [err, text] = executeInitCommand(cwd);
     if (err !== null || text === null) {
         return relayFailure(invocation, COMMAND_NAMES.init, err?.message ?? `${ERR_PREFIX.command}: init returned no result`);
     }

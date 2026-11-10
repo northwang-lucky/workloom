@@ -139,7 +139,7 @@ function setupSkills() {
   return registered.map((def) => def.name)
 }
 
-test('skill 清单契约：注册 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
+test('skill 清单契约：注册 case-active/case-archived/continue/finish/alignment/update-spec/packages-scan/migrate-to-sop/migrate-plan + generic tdd/grilling/writing-for-agents，不含旧两个 workloom skill', () => {
   const names = setupSkills()
   assert.deepEqual(names.sort(), [
     'grilling',
@@ -150,6 +150,7 @@ test('skill 清单契约：注册 case-active/case-archived/continue/finish/alig
     'workloom-continue',
     'workloom-finish',
     'workloom-migrate-plan',
+    'workloom-migrate-to-sop',
     'workloom-packages-scan',
     'workloom-update-spec',
     'writing-for-agents',

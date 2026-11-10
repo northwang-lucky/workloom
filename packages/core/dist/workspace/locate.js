@@ -3,7 +3,6 @@
  *
  * 设计意图：
  * - 从任意起始目录向上查找 .workloom/，与 runtime 无关；
- * - 保留对旧 .trellis/ 目录的检测能力，供 init 迁移提示使用（点 12 消费）；
  * - 一切 I/O 走 node:fs，不引入任何 runtime 包。
  */
 import { existsSync, realpathSync } from 'node:fs';
@@ -11,8 +10,6 @@ import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 /** 资产目录名（本项目的唯一项目内目录）。 */
 export const WORKLOOM_DIR = '.workloom';
-/** 旧 Trellis 的目录名，仅用于迁移检测，不作正常数据目录。 */
-export const LEGACY_TRELLIS_DIR = '.trellis';
 /**
  * 向上查找资产目录根。
  * @param {string} [startDir] 起始目录（默认取当前工作目录）
@@ -21,15 +18,6 @@ export const LEGACY_TRELLIS_DIR = '.trellis';
  */
 export function findWorkloomRoot(startDir = process.cwd(), options) {
     return findUpDir(startDir, WORKLOOM_DIR, resolveHomeDir(options));
-}
-/**
- * 向上查找旧 Trellis 目录（迁移检测用）。
- * @param {string} [startDir] 起始目录
- * @param {{ homeDir?: string }} [options] 可选配置
- * @returns {{ root: string } | null}
- */
-export function detectLegacyTrellis(startDir = process.cwd(), options) {
-    return findUpDir(startDir, LEGACY_TRELLIS_DIR, resolveHomeDir(options));
 }
 /**
  * 解析归一的家目录边界：优先取 options.homeDir，缺省取 os.homedir()；

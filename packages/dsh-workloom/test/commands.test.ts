@@ -19,11 +19,10 @@ function makeCtx() {
   return { ctx, handlers }
 }
 
-/** 构造命令调用（cwd/rawInput 可控；followup 记录注入消息）。 */
-function makeInvocation(cwd, rawInput = '') {
+/** 构造命令调用（cwd 可控；followup 记录注入消息）。 */
+function makeInvocation(cwd) {
   const followups = []
   const invocation = {
-    rawInput,
     agent: {
       id: 'agent-1',
       session: { header: { cwd } },
@@ -113,19 +112,21 @@ test('continue/finish 不再注册为命令（改造为同名 skill）', () => {
   assert.ok(handlers.has(COMMAND_NAMES.doctor))
 })
 
-test('init 失败：followup 注入错误转述且返回 success 回执', async () => {
+test('init 二次执行：relay already complete（幂等，命令成功）', async () => {
   const { ctx, handlers } = makeCtx()
   registerCommands(ctx)
   const root = makeRoot()
   try {
-    const { invocation, followups } = makeInvocation(root, '--purge')
+    const first = makeInvocation(root)
+    await handlers.get(COMMAND_NAMES.init)(first.invocation)
+    const { invocation, followups } = makeInvocation(root)
     const result = await handlers.get(COMMAND_NAMES.init)(invocation)
     assert.equal(result.kind, 'success')
-    assert.equal(result.text, COMMAND_FAILURE_ACK)
+    assert.ok(result.text.includes('The skeleton is already complete'), 'second init stays idempotent')
     assert.equal(followups.length, 1)
     const text = followupText(followups[0])
     assert.ok(text.includes(COMMAND_NAMES.init), 'relay text must name the command')
-    assert.ok(text.includes('nothing to purge'), 'relay text must keep the raw error')
+    assert.ok(text.includes('already complete'), 'relay text keeps the idempotent result')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

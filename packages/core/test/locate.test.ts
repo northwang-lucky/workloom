@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { findWorkloomRoot, detectLegacyTrellis, insideWorkloom } from '../src/workspace/locate.js'
+import { findWorkloomRoot, insideWorkloom } from '../src/workspace/locate.js'
 
 function makeTree() {
   const base = mkdtempSync(join(tmpdir(), 'workloom-locate-'))
@@ -31,18 +31,6 @@ test('无 .workloom 时返回 null', () => {
   const base = makeTree()
   try {
     assert.equal(findWorkloomRoot(join(base, 'a', 'b', 'c')), null)
-  } finally {
-    rmSync(base, { recursive: true, force: true })
-  }
-})
-
-test('检测旧 .trellis 目录', () => {
-  const base = makeTree()
-  try {
-    mkdirSync(join(base, '.trellis'))
-    const hit = detectLegacyTrellis(join(base, 'a', 'b'))
-    assert.ok(hit)
-    assert.equal(hit.root, base)
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
@@ -128,18 +116,6 @@ test('findWorkloomRoot 家目录之下有项目 .workloom 仍正常命中', () =
     const result = findWorkloomRoot(join(base, 'a', 'b', 'c'), { homeDir: base })
     assert.ok(result)
     assert.equal(result.root, join(base, 'a'))
-  } finally {
-    rmSync(base, { recursive: true, force: true })
-  }
-})
-
-// AC5：detectLegacyTrellis 同样在家目录边界停止
-test('detectLegacyTrellis 到家目录边界停止（home 有 .trellis 也不命中）', () => {
-  const base = makeTree()
-  try {
-    mkdirSync(join(base, '.trellis'))
-    const result = detectLegacyTrellis(join(base, 'a', 'b', 'c'), { homeDir: base })
-    assert.equal(result, null)
   } finally {
     rmSync(base, { recursive: true, force: true })
   }

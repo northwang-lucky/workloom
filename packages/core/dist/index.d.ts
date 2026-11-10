@@ -11,7 +11,7 @@
  *   形态存在，随后续子任务陆续 TS 化。
  * 本包整体经 tsc 构建发布，不得 import 任何 runtime 包。
  */
-export { WORKLOOM_DIR, LEGACY_TRELLIS_DIR, findWorkloomRoot, detectLegacyTrellis, insideWorkloom, } from './workspace/locate.js';
+export { WORKLOOM_DIR, findWorkloomRoot, insideWorkloom, } from './workspace/locate.js';
 export { DEFAULT_CONFIG, WorkloomConfigError, renderSetupCommand } from './workspace/config-defaults.ts';
 export { resolveSubagentDefaults, splitProviderModel, detectExecutorConflicts, buildConflictNotice, assertForceReason, } from './workspace/config-subagent.ts';
 export { loadConfig } from './workspace/config-load.ts';
@@ -47,14 +47,14 @@ export { assembleBreadcrumbSync, assembleWorkflowProjection, } from './injection
 export { resolveTurnTask } from './injection/session-assemble.ts';
 export { assembleSessionContext } from './injection/session-context.ts';
 export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, filterAndOrderLocal, readLocalFragments, composeLocalDirectivesText, } from './injection/local-prompts.ts';
-export { parseInitArgs, executeInitCommand } from './workspace/command-ops.ts';
+export { executeInitCommand } from './workspace/command-ops.ts';
 export { executeAlignTask, executePlanReviewMark, executeTaskCase } from './task/doc-review.ts';
 export type { ExecutePlanReviewMarkParams, ExecutePlanReviewMarkResult, ExecuteTaskCaseParams, ExecuteTaskCaseResult, PlanReviewMarkPhase, } from './task/doc-review.ts';
 export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from './task/task-ops.ts';
 export { lookupWorkflowStep } from './injection/step-lookup.ts';
 export { runDoctor, buildDoctorRelayText } from './workspace/doctor.ts';
 export { ensureSpecTemplates } from './workspace/spec-templates.ts';
-export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossRoleReuseRejectText, PURGE_FLAG, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, renderOutput, renderBackground, renderTask, PARENT_MODEL_LABEL, } from './injection/surface.ts';
+export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossRoleReuseRejectText, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, renderOutput, renderBackground, renderTask, PARENT_MODEL_LABEL, } from './injection/surface.ts';
 export type { ExecutorInjectionStats, TextBlockLike } from './injection/surface.ts';
 export type { WorkloomConfig, WorktreeConfig, WorktreeCleanupMode, SubagentConfigEntry, SubagentFallbackModel, SubagentProfile, SubagentTools, SubagentDefaultSource, SubagentConfigSource, ResolveSubagentDefaultsResult, ExecutorConflict, } from './workspace/config.d.ts';
 export type { TaskRepoResolution, BranchNameContext, CreateTaskWorktreeResult, CleanupTaskWorktreeResult, } from './workspace/worktree.d.ts';

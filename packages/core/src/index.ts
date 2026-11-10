@@ -14,9 +14,7 @@
 
 export {
   WORKLOOM_DIR,
-  LEGACY_TRELLIS_DIR,
   findWorkloomRoot,
-  detectLegacyTrellis,
   insideWorkloom,
 } from './workspace/locate.js'
 
@@ -283,7 +281,7 @@ export {
   composeLocalDirectivesText,
 } from './injection/local-prompts.ts'
 
-export { parseInitArgs, executeInitCommand } from './workspace/command-ops.ts'
+export { executeInitCommand } from './workspace/command-ops.ts'
 
 // 任务文档复核服务（align review/confirm 与 case review-only 同一编排模块）。
 export { executeAlignTask, executePlanReviewMark, executeTaskCase } from './task/doc-review.ts'
@@ -329,7 +327,6 @@ export {
   buildContinueNoDispatchText,
   buildContinueNoChildIdText,
   buildCrossRoleReuseRejectText,
-  PURGE_FLAG,
   COMMAND_FAILURE_ACK,
   buildErrorRelayText,
   buildSuccessRelayText,

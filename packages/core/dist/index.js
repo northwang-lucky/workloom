@@ -11,7 +11,7 @@
  *   形态存在，随后续子任务陆续 TS 化。
  * 本包整体经 tsc 构建发布，不得 import 任何 runtime 包。
  */
-export { WORKLOOM_DIR, LEGACY_TRELLIS_DIR, findWorkloomRoot, detectLegacyTrellis, insideWorkloom, } from './workspace/locate.js';
+export { WORKLOOM_DIR, findWorkloomRoot, insideWorkloom, } from './workspace/locate.js';
 export { DEFAULT_CONFIG, WorkloomConfigError, renderSetupCommand } from "./workspace/config-defaults.js";
 export { resolveSubagentDefaults, splitProviderModel, detectExecutorConflicts, buildConflictNotice, assertForceReason, } from "./workspace/config-subagent.js";
 export { loadConfig } from "./workspace/config-load.js";
@@ -52,14 +52,14 @@ export { assembleBreadcrumbSync, assembleWorkflowProjection, } from "./injection
 export { resolveTurnTask } from "./injection/session-assemble.js";
 export { assembleSessionContext } from "./injection/session-context.js";
 export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, filterAndOrderLocal, readLocalFragments, composeLocalDirectivesText, } from "./injection/local-prompts.js";
-export { parseInitArgs, executeInitCommand } from "./workspace/command-ops.js";
+export { executeInitCommand } from "./workspace/command-ops.js";
 // 任务文档复核服务（align review/confirm 与 case review-only 同一编排模块）。
 export { executeAlignTask, executePlanReviewMark, executeTaskCase } from "./task/doc-review.js";
 export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from "./task/task-ops.js";
 export { lookupWorkflowStep } from "./injection/step-lookup.js";
 export { runDoctor, buildDoctorRelayText } from "./workspace/doctor.js";
 export { ensureSpecTemplates } from "./workspace/spec-templates.js";
-export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossRoleReuseRejectText, PURGE_FLAG, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, 
+export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossRoleReuseRejectText, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, 
 // 投影统一：TextBlockLike 与 render 族唯一实现在 surface（dsh 四站点消费）。
 renderOutput, renderBackground, renderTask, 
 // 模型继承父会话时的展示标签唯一单源（轮换池主模型位等 adapter 消费）。

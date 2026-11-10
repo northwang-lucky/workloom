@@ -73,6 +73,7 @@ export function initWorkloom(
  */
 function initWorkloomInternal(root: string, params: InitWorkloomParams): InitWorkloomResult {
   const existing = findWorkloomRoot(root)
+  // 命令面恒定 force（幂等补缺件），本报错路径仅 initWorkloom 直调 force=false 时可达（公开 API 保留）。
   if (existing !== null && params.force !== true) {
     throw new Error(
       `${ERR_PREFIX}: .workloom already exists at ${existing.root} (run with force to fill in missing pieces)`,
@@ -108,8 +109,7 @@ function initWorkloomInternal(root: string, params: InitWorkloomParams): InitWor
     writeFileSync(gitignoreFile, loadSkeletonText(SKELETON_GITIGNORE_ENTRY))
     created.push(join(WORKLOOM_DIR, FILE_NAMES.gitignore))
   }
-  // 旧 .trellis 检测链保留在 locate（command-ops 的 purge 校验消费）；
-  // init 结果不再输出 legacyTrellisRoot（死输出：无消费方，去留裁定归子任务六）。
+  // legacy .trellis 检测链已随 workloom-migrate-to-sop 任务整体删除（init 结果不再输出 legacyTrellisRoot）。
   return {
     root: target,
     created,
