@@ -1,0 +1,5 @@
+{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md"}
+{"file": ".workloom/spec/repo/commits/index.md"}
+{"file": ".workloom/spec/repo/deployment/index.md"}
+{"file": ".workloom/spec/repo/language/index.md"}
