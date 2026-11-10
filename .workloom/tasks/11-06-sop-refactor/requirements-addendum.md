@@ -114,3 +114,11 @@ Judger 与其他四角色同为一等公民，功能明确落地：子任务三�
 2. CASE 执行轮结果：SR 27/27、C 7/7 全过；C4 全链路探针（子 completed→父 integrating→双轮门禁→脏 worktree 阻断→整树搬迁）真实 git 夹具实跑通过；主会话独立以 evaluateCaseOutcomeGate 复验 ISSUES=[]，13 个非豁免变更文件与 Exclusions 逐条一致。
 3. 混合运行时事实：生产装件 core 经 pnpm override 浮动到中间版本（有 plan 结构检查、无 plan-review-clean 门禁、无 planreview 工具），评审轨道由实际 Judger 轮次承载，planReview 字段保持 null——与本容器全部已归档子任务一致；pin 切换后新任务才有 planreview 工具面，无碍本容器收尾。
 4. pin 切换前置清单（本任务归档后无变化）：仍仅剩全局配置迁移两项——内层字段 subagents→roles、角色键改新五值；迁移完成即可切换（容器决定 10）。
+
+## 子任务六实现与检查观察（2026-11-10，implement/check 回报）
+
+1. CASE 设计轮补抓 plan 漏列涟漪：dsh skills.test.ts 的清单契约 deepEqual 钉住 11 个 skill，新 skill 登记必红——CASE 设计轮主动补 SR16 并 relay 实现轮。纪律沉淀：新增 manifest 登记时必查「精确名单断言」类测试（grep deepEqual 名单）。
+2. 用户硬约束落地样例：「完成前不动全局配置」写进 prd 约束条 + CASE Scope + Result Discipline 复核项三层；执行轮验证全场零接触成立。该三层写法可作后续类似约束的模板。
+3. Judger 评审价值再证：三轮 25→16→8 条，其中 2 条 P0 是主会话重写引入的新缺陷（构建时序、暂存口径不一致）——每轮修订后复审是必要的，不能因「只改了文本」跳过。
+4. 环境经验：隔离 HOME 下跑 worktree/git 全量测试需 GIT_AUTHOR_*/GIT_COMMITTER_* 环境变量，否则提交身份缺失必红；后续 CASE 执行轮沿用该组合。
+5. 子任务七输入：migrate-plan 删除执行时同步摘 SKILL_ENTRIES 登记与磁盘目录（登记在 resources-manifest.ts L61 一带）；workflow.md 与既有 skill 文档改写照旧；新 skill 的 SKILL.md 已是新流程口径的参照样本之一。
