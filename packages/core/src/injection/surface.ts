@@ -10,7 +10,7 @@
  */
 
 
-/** 两个 slash 命令名（连字符；DSH 命令名不支持冒号，Pi 与 DSH 对齐）。
+/** 两个 slash 命令名（连字符；DeepSeek Harness 命令名不支持冒号）。
  * continue/finish 已改造为同名 skill（skills/workloom-*），不再注册为命令。 */
 export const COMMAND_NAMES = {
   init: 'workloom-init',
@@ -68,9 +68,9 @@ export const TOOL_DESCRIPTIONS = {
 } as const
 
 /**
- * 全部工具的一行速览（Pi 的 ToolDefinition.promptSnippet：进入 Pi system prompt
- * 的 Available tools 区；缺省时自定义工具不出现，模型「看不到」会拒绝调用，
- * 2026-08-26 真机验证教训）。DSH 侧无该概念，常量仅供 Pi adapter 消费。
+ * 全部工具的一行速览（宿主注册自定义工具时的 promptSnippet 文案面：缺省时
+ * 自定义工具不进入 system prompt 的 Available tools 区，模型「看不到」会拒绝
+ * 调用，2026-08-26 真机验证教训）；键集与 TOOL_NAMES 对齐由 surface.test 钉住。
  */
 export const TOOL_SNIPPETS = {
   taskCreate:
@@ -273,9 +273,9 @@ export function buildSuccessRelayText(command: string, resultText: string): stri
   ].join('\n')
 }
 
-/** archive 工具收尾提示（引导加载 workloom-finish skill 记录会话日志）。 */
+/** archive 工具收尾提示（引导加载 workloom-finish skill 做归档与会话簿记收尾）。 */
 export const TASK_ARCHIVE_NOTE =
-  'Task archived. When the session ends, load the workloom-finish skill to record the session journal.'
+  'Task archived. When the session ends, load the workloom-finish skill to wrap up (archive plus bookkeeping commit).'
 
 /**
  * create 工具返回的下一步行动指引（Phase 1.1 alignment 入口）：任务创建后自动
@@ -320,7 +320,7 @@ export interface ExecutorInjectionStats {
  * 调用方未传细分时保持 `(config)`（向后兼容）。
  * effort 段条件渲染：effort/effortSource 均未传时整段省略（调用方未传该维度
  * 时保持 receipt 精简）；任一存在则按原格式渲染（缺失字段仍显示
- * `<unset>`/`(default)`，兼容浅传参），Pi/DSH 传参行为不变。
+ * `<unset>`/`(default)`，兼容浅传参），回执渲染与传参方行为不变。
  * 注入统计段条件渲染：injection 传入时同行追加
  * `; injection: <KB>KB, N inlined, T truncated, I indexed`（KB 一位小数）；指针
  * 引用条数 >0 时再追加 `, P pointed`（纯 artifact 注入保持原 4 元组，向后兼容）；
@@ -367,7 +367,7 @@ export function buildExecutorReceipt(params: {
  * 杜绝「续派换模型谎报生效」）；旧记录无绑定值时整段显示 `(unrecorded spawn
  * binding)`。effort 仅在绑定记录到值时渲染（与 buildExecutorReceipt 的 effort
  * 条件段同一口径）；injection 段复用同一渲染。供 dsh-workloom 续派轮调用
- * （Pi 无 continuation，不消费）。
+ * （首派轮无 continuation，不消费）。
  * @param params 绑定数据与注入统计
  * @returns 续派轮回执文本行
  */

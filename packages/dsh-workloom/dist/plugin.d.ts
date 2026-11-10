@@ -38,7 +38,7 @@ export declare function apply(ctx: Context): void;
  * 契约缺失静默返回空串；解析/组装出错只告警，不阻塞会话。
  * 本机片段（主 agent 目标 main）：三层（全局 → 项目共享 → 项目本机）叠加组装
  * （all + main），经快照尾部 Local directives 小节注入；组装失败只告警，以空
- * directives 继续组装快照（小节级降级，与 Pi 侧 injectSessionContext 对齐）。
+ * directives 继续组装快照（小节级降级，与 core session-context 组装口径一致）。
  * @param target 注入目标（agent + 项目根）
  * @returns 注入文本（可能为空串）
  */

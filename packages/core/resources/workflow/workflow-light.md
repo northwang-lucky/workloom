@@ -52,5 +52,5 @@ The light task is in progress. The main session implements directly (no executor
 [/workflow-state:in_progress]
 
 [workflow-state:completed]
-The light task is archived. When the user asks for more, recommend whether a new task is warranted and create it only after the user confirms (follow 1.0 of the main contract); do not modify tasks under the archive directory. If this session is wrapping up and no journal entry has been recorded yet, load the `workloom-finish` skill to record it.
+The light task is archived. When the user asks for more, recommend whether a new task is warranted and create it only after the user confirms (follow 1.0 of the main contract); do not modify tasks under the archive directory. When this session wraps up, load the `workloom-finish` skill to close it out — it checks dirty files and separates work commits from the bookkeeping commit.
 [/workflow-state:completed]

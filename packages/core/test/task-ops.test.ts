@@ -310,7 +310,7 @@ test('create→start→check→finish→list→archive 全链（活跃任务 fal
       taskPath: created.taskRelPath,
     })
     assert.equal(archived.task.status, 'completed')
-    assert.match(archived.note, /load the workloom-finish skill to record the session journal/)
+    assert.match(archived.note, /load the workloom-finish skill to wrap up \(archive plus bookkeeping commit\)/)
     assert.notEqual(archived.taskRelPath, created.taskRelPath)
   } finally {
     rmSync(root, { recursive: true, force: true })

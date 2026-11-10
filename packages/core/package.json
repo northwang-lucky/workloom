@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/copy-domain-dts.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test 'test/*.test.ts' 'resources/skills/workloom-packages-scan/scripts/*.test.ts'"
+    "test": "node --test 'test/*.test.ts' 'resources/skills/workloom-packages-scan/scripts/*.test.ts' 'resources/scripts/*.test.mjs'"
   },
   "dependencies": {
     "yaml": "^2.0.0"

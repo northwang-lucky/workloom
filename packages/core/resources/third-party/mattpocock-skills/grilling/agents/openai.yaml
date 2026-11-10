@@ -1,5 +1,0 @@
-# workloom: agent metadata for Claude Code/Codex; DSH/Pi adapters do not consume it, kept as-is for upstream diff sync
-# source: https://github.com/mattpocock/skills (MIT, Copyright 2026 Matt Pocock)
-interface:
-  display_name: "Grilling"
-  short_description: "Stress-test thinking a round of questions at a time"

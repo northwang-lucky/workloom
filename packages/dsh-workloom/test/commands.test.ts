@@ -12,6 +12,15 @@ import { join } from 'node:path'
 import { COMMAND_FAILURE_ACK, COMMAND_NAMES } from '@workloom-ai/core'
 import { registerCommands } from '../src/tooling/commands.ts'
 
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir
+// 注入缝）；本机真实全局配置会泄漏进单测（历史遗留字段即抛解析错误）。重定向
+// HOME 与 TMPDIR 到隔离目录使全局层恒为空（与 case-executor.test.ts / core
+// command-ops.test.ts 同口径）。doctor 用例天然耐受（配置错误按 issue 报告），
+// 隔离后输出形态不变。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-dsh-commands-home-'))
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
+
 /** 捕获 register 注册的命令 handler（name → handler）。 */
 function makeCtx() {
   const handlers = new Map()

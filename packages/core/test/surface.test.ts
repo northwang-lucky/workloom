@@ -47,7 +47,7 @@ test('描述与错误前缀文案非空', () => {
   }
 })
 
-test('TOOL_SNIPPETS 与 TOOL_NAMES 键对齐且文案非空（Pi promptSnippet 契约）', () => {
+test('TOOL_SNIPPETS 与 TOOL_NAMES 键对齐且文案非空（promptSnippet 契约）', () => {
   const keys = Object.keys(TOOL_NAMES).sort()
   assert.deepEqual(Object.keys(TOOL_SNIPPETS).sort(), keys)
   for (const key of keys) {
@@ -200,7 +200,7 @@ test('TOOL_SNIPPETS.taskCreate 签名含 parent?（模型可见的父任务相�
   )
 })
 
-test('PARAM_DESCRIPTIONS.parent 存在且非空（DSH/Pi 共用契约面文案）', () => {
+test('PARAM_DESCRIPTIONS.parent 存在且非空（工具参数契约面文案）', () => {
   const parent = PARAM_DESCRIPTIONS.parent
   assert.ok(typeof parent === 'string' && parent !== '', 'parent description must be non-empty')
 })

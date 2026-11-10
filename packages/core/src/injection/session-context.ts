@@ -287,10 +287,10 @@ function activeTaskContextFromRecord(task: TaskRecordWithPath, root: string): Ac
   }
   // 兼容读单点：模式/阶段/轨道值经 toTaskView 映射（full→standard 等），未映射值抛错。
   const view = toTaskView(task, task.taskRelPath)
-  // 旧任务迁移提示：本功能前开始的非轻量任务（case=null）指路 workloom-case-active。
+  // 旧任务迁移提示：本功能前开始的非轻量任务（case=null）指路 Checker CASE track（workflow 2.2）。
   const legacyCase =
     view.status === 'in_progress' && view.mode !== MODES.LIGHT && view.case === null
-      ? ' CASE migration: use workloom-case-active to design and confirm case.md before the final check.'
+      ? ' CASE migration: design and confirm case.md via the Checker CASE track (see 2.2) before the final check.'
       : ''
   return {
     // 快照展示当前自治度（autonomy 三值；确认迁移行为的会话可见面）。

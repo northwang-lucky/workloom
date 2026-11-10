@@ -1,6 +1,6 @@
 # workloom 项目指南
 
-workloom：把 AI 编码工作流抽象为 runtime 无关的核心逻辑层（core）与资源层（assets），经 adapter 插件分发到 DeepSeek Harness 与 Pi。
+workloom：把 AI 编码工作流抽象为 runtime 无关的核心逻辑层（core，资源在 `packages/core/resources/`），以 dsh-workloom 插件分发到 DeepSeek Harness。
 
 ## 仓库结构
 

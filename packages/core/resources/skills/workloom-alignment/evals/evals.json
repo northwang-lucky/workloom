@@ -6,12 +6,12 @@
       "id": "align-auto-entry",
       "name": "new-task-auto-enters-alignment",
       "prompt": "I just ran workloom_task_create for 'add offline caching to the mobile client'. The task is in planning and the prd.md is still the skeleton. Take the alignment from here.",
-      "expected_output": "The skill starts the Phase 1.1 design tree from the Goal/value node, keeps each round to the full current frontier as one numbered batch with a recommendation per decision node, writes settled conclusions into prd.md incrementally, and never asks a 'do you need grilling?' question.",
+      "expected_output": "The skill starts the Phase 1.1 design tree from the Goal/value node, keeps each round to the full current frontier as one numbered batch with a recommendation per decision node, writes settled conclusions into prd.md incrementally, and never asks whether a deep questioning round is wanted.",
       "assertions": [
-        "opens from Goal and value without asking whether grilling is needed",
+        "opens from Goal and value without asking whether a deep questioning round is needed",
         "lists the whole frontier in one round instead of one question at a time",
         "gives a recommendation with reasoning for each decision node",
-        "never loads brainstorm/ui-design/grilling fixed questions"
+        "never loads brainstorm/ui-design fixed question sets"
       ]
     },
     {
@@ -116,10 +116,10 @@
       "id": "align-grill-routing",
       "name": "grill-request-inside-workloom-routes-here",
       "prompt": "While in an active workloom planning task the user says: 'grill this requirement set before we write plan.md'.",
-      "expected_output": "The request routes to workloom-alignment: design-tree rounds with recommendations inside the Phase 1.1 alignment, not to the generic grilling skill.",
+      "expected_output": "The request routes to workloom-alignment: the questioning runs as design-tree rounds with recommendations inside the Phase 1.1 alignment itself.",
       "assertions": [
         "treats the request as a design-tree round inside Phase 1.1",
-        "does not hand off to a separate generic grilling session",
+        "keeps the questioning inside the same design-tree alignment instead of opening a separate session",
         "keeps the pressure test inside the same prd.md / Alignment Decisions record"
       ]
     }
@@ -133,7 +133,7 @@
     { "query": "we need tests first on this workloom task; confirm which seams are under test", "should_trigger": true, "rationale": "test-first applicability node in workloom alignment" },
     { "query": "finish Phase 1.1: frontier looks empty, run review and confirm after I approve", "should_trigger": true, "rationale": "convergence protocol on workloom planning task" },
     { "query": "pressure-test the acceptance criteria of this planning task before plan.md", "should_trigger": true, "rationale": "design-tree pressure test in workloom planning" },
-    { "query": "standalone discussion: should I rename the product to X? play devil's advocate", "should_trigger": false, "rationale": "no workloom task; generic grilling territory" },
+    { "query": "standalone discussion: should I rename the product to X? play devil's advocate", "should_trigger": false, "rationale": "no workloom task; standalone discussion outside alignment" },
     { "query": "grill my startup idea before I pitch it to investors", "should_trigger": false, "rationale": "non-workloom idea stress test" },
     { "query": "review this pull request for correctness and naming", "should_trigger": false, "rationale": "code review, not requirement alignment" },
     { "query": "write the mobile settings screen UI now", "should_trigger": false, "rationale": "implementation request outside alignment; no workloom planning task context" },
@@ -142,8 +142,8 @@
     { "query": "implement this with tests: red-green loop for the api client", "should_trigger": false, "rationale": "execution request (tdd/implement), not requirement alignment" },
     { "query": "triage this meego task list and estimate effort", "should_trigger": false, "rationale": "task-board triage outside workloom lifecycle" },
     { "query": "write acceptance criteria for the login flow in our notion doc", "should_trigger": false, "rationale": "doc editing outside a workloom planning task" },
-    { "query": "can you explain what grilling skills do in general?", "should_trigger": false, "rationale": "meta question about skills, no task" },
-    { "query": "archive the finished workloom task and journal the session", "should_trigger": false, "rationale": "wrap-up lifecycle, alignment already done" },
+    { "query": "can you explain what the alignment skill does in general?", "should_trigger": false, "rationale": "meta question about skills, no task" },
+    { "query": "archive the finished workloom task and record the bookkeeping commit", "should_trigger": false, "rationale": "wrap-up lifecycle, alignment already done" },
     { "query": "I'm in the middle of implementing and hit an ambiguous requirement: go ask the product owner directly", "should_trigger": true, "rationale": "ambiguity inside an active workloom task that must not be papered over during implementation — alignment boundary re-entry"}
   ]
 }

@@ -315,8 +315,7 @@ async function completeTaskTool(args, exec) {
 }
 /**
  * align 工具：PRD/PLAN 内容确认 review/confirm（只允许主会话调用——内容确认是
- * 用户决定，executor 等子代理按 delegation depth 硬拒绝；Pi 子进程以
- * --no-extensions spawn 天然无此工具）。
+ * 用户决定，executor 等子代理按 delegation depth 硬拒绝）。
  */
 async function alignTaskTool(args, exec) {
     const typed = args;

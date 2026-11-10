@@ -482,7 +482,7 @@ test('localDirectives 未传/空串：不插入且输出（除 marker 行外）�
     assert.equal(emptyErr, null)
     // 缺省与空串输出（剔除随派发生成的唯一 marker 行后）逐字一致：marker 为
     // 单次注入标记，两次派发 token 不同属预期，其余内容不因 localDirectives 差异
-    // 而改变（Pi 不传参 = 不注入，向后兼容）。
+    // 而改变（宿主不传参 = 不注入，向后兼容）。
     assert.equal(stripMarkerLine(plain.text), stripMarkerLine(empty.text))
     assert.ok(!plain.text.includes(LOCAL_DIRECTIVES_HEADING))
   } finally {
@@ -927,7 +927,7 @@ test('CASE 超预算直接抛错，不做静默截断', () => {
     writeTaskFile(root, 'case.md', 'X'.repeat(64))
     writeCaseTask(root, 'X'.repeat(64))
     writeConfig(root, { context_injection: { max_artifact_bytes: 8 } })
-    // core 层预算失败走元组 err（DSH/Pi 的 buildFullInjection 包装层再抛错）。
+    // core 层预算失败走元组 err（buildFullInjection 包装层再抛错）。
     const [err] = buildExecutorPrompt({ ...baseParams(root, 'checker'), purpose: 'case-design' })
     assert.ok(err)
     assert.match(err.message, /exceeding maxArtifactBytes=8/)

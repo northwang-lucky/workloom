@@ -112,8 +112,9 @@ export declare function buildExecutorIncrementalPrompt(params: BuildExecutorProm
 /**
  * checker 派发入口的状态机守卫查询（execution 轮专用）：case-execution-ready
  * （CASE 文档与设计会话链可用，拒绝文案保持 CASE execution rejected 前缀）与
- * ui-dispatch-ready（涉及前端展示的任务须先有前端专项派发；查询点即本派发
- * 入口与 checking 迁移边）。prompt-sections 的 inlineCurrentCase 共用本查询。
+ * ui-dispatch-ready（涉及前端展示的任务须先有 frontend-developer 角色派发，
+ * 逻辑与后端部分仍走 developer；查询点即本派发入口与 checking 迁移边）。
+ * prompt-sections 的 inlineCurrentCase 共用本查询。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param task 任务视图

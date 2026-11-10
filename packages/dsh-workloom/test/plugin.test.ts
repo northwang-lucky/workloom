@@ -5,7 +5,19 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { apply } from '../src/plugin.ts'
+
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir
+// 注入缝）；本机真实全局配置会泄漏进单测（历史遗留字段即抛解析错误）。重定向
+// HOME 与 TMPDIR 到隔离目录使全局层恒为空（与 case-executor.test.ts / core
+// command-ops.test.ts 同口径）。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-dsh-plugin-home-'))
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
 
 /**
  * 构造满足 apply 全部服务面的 mock ctx，并记录 ctx.on 注册的事件名。

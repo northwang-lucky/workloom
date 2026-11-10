@@ -1,6 +1,6 @@
 ---
 name: workloom-alignment
-description: Drive a workloom task through Phase 1.1 requirement alignment as one continuous design tree (fixed root nodes → full-frontier rounds → recommended answers → fact checks → convergence confirmation). Use whenever an active workloom planning task needs requirements aligned — including grill-style or design-tree pressure-testing requests inside a workloom task, UI/test-first applicability decisions, or confirming alignment after prd.md changed. Not for generic standalone grilling of non-workloom ideas, which stays with the generic grilling skill.
+description: Drive a workloom task through Phase 1.1 requirement alignment as one continuous design tree (fixed root nodes → full-frontier rounds → recommended answers → fact checks → convergence confirmation). Use whenever an active workloom planning task needs requirements aligned — including design-tree pressure-testing or stress-testing requests inside a workloom task, UI/test-first applicability decisions, or confirming alignment after prd.md changed. Not for generic standalone idea stress-testing outside any workloom task.
 whenToUse: Use on any workloom task in Phase 1.1 (auto-entered at creation) or when the user asks to align requirements, review the design tree, pressure-test requirements, or grill a plan inside an active workloom planning task.
 ---
 
@@ -78,6 +78,8 @@ The order is fixed:
 `readyToConfirm` covers prd content only: the missing `summary` is a confirm call parameter, and task status is a separate gate — neither belongs to the review's content diagnostics.
 
 `workloom_task_align` runs only in the main session — the PRD/PLAN content confirmations are user decisions, never a subagent one. If prd.md changes after the confirm, the record is not invalidated automatically: when the user proposes the change themselves, that message is the change confirmation — update the affected documents and re-run `action=confirm` to refresh the record, then continue without asking again; when you discover a blocker, a scope change, or an acceptance-baseline change yourself, re-enter alignment focused on the changed area, recompute the full frontier, and batch the questions to the user before touching the documents.
+
+**Autonomy** changes who records the confirmations: `workloom_task_autonomy` switches the level (`manual`, `semi`, `auto`; task creation accepts the same values). `manual` (default) keeps both content confirmations human. `semi` keeps the PRD confirmation human and lets the PLAN confirmation be auto-recorded once the plan review track is clean. `auto` records both content confirmations automatically: drive the design tree to full recommendation convergence — every decision node's recommendation and reasoning is the recorded outcome — then run `action=confirm`; the tool writes the credential with `source: auto` and the autonomy snapshot, so the confirmation origin stays auditable and distinguishable from a human confirmation. The review gates stay: `readyToConfirm` true still precedes any confirmation, and the plan-review-clean guard applies at every autonomy level.
 
 ## Boundaries
 

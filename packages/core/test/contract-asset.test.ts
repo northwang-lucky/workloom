@@ -91,13 +91,13 @@ test('契约 v17 含 norms 块（两组规范）且措辞与 1.1/2.1 正文一�
   }
   // 派发硬约束与 2.1 正文逐字一致（stage 限定：仅 implement 阶段禁直写）
   const dispatchRule =
-    'Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched Developer subagent.'
+    'Hard constraint (stage `implementing`): while the task stage is `implementing`, the main session must not write implementation code directly — including test-first test seeds — and every implementation file change comes from the dispatched Developer subagent.'
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(contract.norms.includes(dispatchRule), 'norms 缺派发硬约束')
   assert.ok(implementBody.includes(dispatchRule), '2.1 正文缺派发硬约束')
   // norms Dispatch 例外句（stage 限定 + including implementation code + 免派发）
   const dispatchException =
-    'Exception (stage `check`): while the task stage is `check`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the Checker for a full re-review afterwards.'
+    'Exception (stage `checking`): while the task stage is `checking`, the main session may fix issues directly — including implementation code — without a fix dispatch; re-dispatch the Checker for a full re-review afterwards.'
   assert.ok(contract.norms.includes(dispatchException), 'norms 缺派发例外句')
 })
 
@@ -106,10 +106,13 @@ test('契约 v20 Phase 1.1 只加载 workloom-alignment：无 brainstorm/UI/gril
   assert.equal(err, null)
   const alignBody = contract.steps.find((step) => step.id === '1.1').body
   assert.ok(alignBody.includes('workloom-alignment'), '1.1 正文缺 workloom-alignment 加载')
-  assert.ok(alignBody.includes('no "do you need grilling?" question'), '缺「不再问是否需要 grilling」明文')
   assert.ok(
-    alignBody.includes('no brainstorm/UI/grilling substages'),
-    '缺「无 brainstorm/UI/grilling 子阶段」明文',
+    alignBody.includes('nothing asks whether a deep questioning round is wanted'),
+    '缺「不再问是否需要深度提问轮」明文',
+  )
+  assert.ok(
+    alignBody.includes('no separate questioning, brainstorm, or UI substages'),
+    '缺「无独立提问/brainstorm/UI 子阶段」明文',
   )
   assert.ok(!alignBody.includes('workloom-brainstorm'), '1.1 不得加载 brainstorm')
   assert.ok(!alignBody.includes('Phase 1.1b'), '1.1 不得含 1.1b 子阶段引用')
@@ -536,7 +539,7 @@ test('契约 v17 §2.2 含主会话修复窗口与重派 check 复核闭环', ()
   assert.equal(err, null)
   const checkBody = contract.steps.find((step) => step.id === '2.3').body
   assert.ok(
-    checkBody.includes('the task stage is `check`, the main session may fix issues directly'),
+    checkBody.includes('the task stage is `checking`, the main session may fix issues directly'),
     '2.3 正文缺主会话修复窗口措辞',
   )
   assert.ok(
@@ -555,7 +558,7 @@ test('契约 v17 in_progress 面包屑含 check 阶段修复放行（含实现�
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   const crumb = contract.breadcrumbs.get('in_progress')
-  assert.ok(crumb.includes('the task stage is `check`'), 'in_progress 缺 stage=check 判定措辞')
+  assert.ok(crumb.includes('the task stage is `checking`'), 'in_progress 缺 stage=checking 判定措辞')
   assert.ok(
     crumb.includes('the main session may fix issues directly'),
     'in_progress 缺主会话修复放行措辞',
@@ -568,7 +571,7 @@ test('契约 v17 in_progress 面包屑含 check 阶段修复放行（含实现�
   // implement 阶段派发指引带 stage 限定
   assert.ok(
     crumb.includes(
-      'While the task stage is `implement`, route implementation through `workloom_execute`',
+      'While the task stage is `implementing`, route implementation through `workloom_execute`',
     ),
     'in_progress 缺 implement 阶段派发指引（stage 限定）',
   )
@@ -578,7 +581,7 @@ test('契约 v17 norms Dispatch 含 check 阶段主会话直接修复例外句',
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)
   assert.ok(
-    contract.norms.includes('the task stage is `check`, the main session may fix issues directly'),
+    contract.norms.includes('the task stage is `checking`, the main session may fix issues directly'),
     'norms 缺 check 阶段主会话直接修复例外句',
   )
   assert.ok(
@@ -595,7 +598,7 @@ test('契约 v17 不再提及 DSH 运行时写门禁（executor.gate / 文件拦
   const implementBody = contract.steps.find((step) => step.id === '2.1').body
   assert.ok(
     implementBody.includes(
-      'Hard constraint (stage `implement`): while the task stage is `implement`, the main session must not write implementation code directly',
+      'Hard constraint (stage `implementing`): while the task stage is `implementing`, the main session must not write implementation code directly',
     ),
     '2.1 正文必须保留 Developer 分工硬提示（stage 限定）',
   )
@@ -607,7 +610,7 @@ test('契约 v17 不再提及 DSH 运行时写门禁（executor.gate / 文件拦
   )
   // check 阶段主会话修复例外仍然存在（2.2 正文 + norms）。
   assert.ok(
-    contract.norms.includes('the task stage is `check`, the main session may fix issues directly'),
+    contract.norms.includes('the task stage is `checking`, the main session may fix issues directly'),
     'norms 必须保留 check 阶段主会话直接修复例外',
   )
   assert.ok(
@@ -758,7 +761,7 @@ test('主契约 norms 派发硬约束含轻量任务豁免句', () => {
   )
   // 派发硬约束本身仍在（full 轨零变化）。
   assert.ok(
-    contract.norms.includes('Hard constraint (stage `implement`)'),
+    contract.norms.includes('Hard constraint (stage `implementing`)'),
     '完整任务的派发硬约束不得删除',
   )
 })

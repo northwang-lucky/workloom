@@ -375,7 +375,7 @@ test('delegationDepth>0：快照仅含块标记 + Active task 行 + Guidelines �
     assert.ok(text.startsWith('<workloom-session-context>\n'))
     assert.ok(text.endsWith('\n</workloom-session-context>'))
     // 白名单三件套齐全且按序：Active task → Guidelines → Executor norms
-    const activeAt = text.indexOf('\nActive task: "Implement X" (in_progress, autonomy: manual) at tasks/08-24-demo. CASE migration: use workloom-case-active to design and confirm case.md before the final check.\n')
+    const activeAt = text.indexOf('\nActive task: "Implement X" (in_progress, autonomy: manual) at tasks/08-24-demo. CASE migration: design and confirm case.md via the Checker CASE track (see 2.2) before the final check.\n')
     const guidelinesAt = text.indexOf('\nGuidelines (spec index — read files as needed):\n')
     const normsStart = text.indexOf('\nAlways-on norms:\n')
     assert.ok(activeAt > 0, 'active task line must render for depth > 0')
@@ -759,7 +759,7 @@ test('Worktree 行：活跃任务带 worktree → 输出于 Git 行之后（绝�
       ),
       `worktree line must follow the git line, got:\n${text}`,
     )
-    assert.ok(text.includes('\nActive task: "WT task" (in_progress, autonomy: manual) at tasks/08-24-demo. CASE migration: use workloom-case-active to design and confirm case.md before the final check.\n'))
+    assert.ok(text.includes('\nActive task: "WT task" (in_progress, autonomy: manual) at tasks/08-24-demo. CASE migration: design and confirm case.md via the Checker CASE track (see 2.2) before the final check.\n'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -991,7 +991,7 @@ test('有活跃任务：不输出候选节', () => {
       workflowSteps: [],
     })
     assert.equal(err, null)
-    assert.match(text, /\nActive task: "Active One" \(in_progress, autonomy: manual\) at tasks\/08-24-demo\. CASE migration: use workloom-case-active to design and confirm case\.md before the final check\.\n/)
+    assert.match(text, /\nActive task: "Active One" \(in_progress, autonomy: manual\) at tasks\/08-24-demo\. CASE migration: design and confirm case\.md via the Checker CASE track \(see 2\.2\) before the final check\.\n/)
     assert.ok(!text.includes('Candidate tasks'), '有活跃任务时不得输出候选节')
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -1068,7 +1068,7 @@ test('Active task 行旧任务 CASE 迁移提示：仅旧 full in_progress 显�
     write({ title: 'Legacy Full', status: 'in_progress', mode: 'full' })
     const [err1, text1] = assembleSessionContext({ root, workflowSteps: [], turnTask: turnTaskOf(root) })
     assert.equal(err1, null)
-    assert.match(text1, /CASE migration: use workloom-case-active to design and confirm case\.md before the final check\./)
+    assert.match(text1, /CASE migration: design and confirm case\.md via the Checker CASE track \(see 2\.2\) before the final check\./)
 
     // planning full（无 case）→ 不显示
     write({ title: 'Planning Full', status: 'planning', mode: 'full' })

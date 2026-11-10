@@ -284,7 +284,7 @@ function buildInternal(params: BuildExecutorPromptParams): ExecutorPromptResult 
   // 本机片段段（adapter 探测后传入的合成文本，core 不做 IO）：prd 软指针之后、
   // Task prompt 之前、终极权威段之前（内容段收尾吃近因效应，正文在最后）；
   // userPrompt 已含标题时不重复注入（与权威段同规则）；空串/未传不插入
-  // （Pi 不传参 = 不注入，向后兼容）。
+  // （宿主不传参 = 不注入，向后兼容）。
   const localDirectives = params.localDirectives
   if (
     localDirectives !== undefined &&
@@ -327,8 +327,9 @@ export function buildExecutorIncrementalPrompt(params: BuildExecutorPromptParams
 /**
  * checker 派发入口的状态机守卫查询（execution 轮专用）：case-execution-ready
  * （CASE 文档与设计会话链可用，拒绝文案保持 CASE execution rejected 前缀）与
- * ui-dispatch-ready（涉及前端展示的任务须先有前端专项派发；查询点即本派发
- * 入口与 checking 迁移边）。prompt-sections 的 inlineCurrentCase 共用本查询。
+ * ui-dispatch-ready（涉及前端展示的任务须先有 frontend-developer 角色派发，
+ * 逻辑与后端部分仍走 developer；查询点即本派发入口与 checking 迁移边）。
+ * prompt-sections 的 inlineCurrentCase 共用本查询。
  * @param root 项目根
  * @param taskRelPath 任务目录相对 .workloom 的路径
  * @param task 任务视图

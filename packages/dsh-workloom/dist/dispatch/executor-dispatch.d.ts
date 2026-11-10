@@ -9,7 +9,7 @@ export declare const SPAWN_PROVIDER = "spawn";
 export declare const NATIVE_TOOLS: readonly string[];
 /**
  * 判定目标环境是否具备 LSP 工具面：allow 清单中任一名以 `lsp_` 开头即命中
- * （与 Pi 侧 hasLspTools 语义等价；用于交付时过滤纪律段 LSP 句）。
+ * （沿用 hasLspTools 语义；用于交付时过滤纪律段 LSP 句）。
  * @param allowNames 实际下发的 allow 工具名清单（白名单 ∩ 可见集的结果）
  * @returns 是否具备 LSP 工具
  */

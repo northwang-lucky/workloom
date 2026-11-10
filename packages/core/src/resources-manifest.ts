@@ -45,24 +45,18 @@ export const SKELETON_GITIGNORE_ENTRY = 'skeleton/gitignore'
 export const SKELETON_SPEC_README_ENTRY = 'skeleton/spec-README.md'
 
 /** 注册的 skill 资源条目（相对 resources 根；resourceBase 取其所在目录）。
- * 自有 workloom 侧注册 continue/finish（原 slash 命令改造的路由与收尾指引）、
- * alignment（统一 Phase 1.1）、case-active（未归档任务 CASE 补写与整批确认）、
- * case-archived（归档任务只读重建与独立验证）、
- * update-spec、packages-scan（包结构扫描）、workloom-migrate-to-sop（migrate legacy
- * .workloom layout to the SOP structure）与 migrate-plan（存量计划迁移）；旧
- * brainstorm/ui-design 不再注册，generic tdd/grilling/writing-for-agents 独立分发。 */
+ * 保留名单：自有 workloom 侧注册 finish（会话收尾：归档 + 簿记提交分离）、
+ * alignment（统一 Phase 1.1）、update-spec、packages-scan（包结构扫描）与
+ * workloom-migrate-to-sop（migrate legacy .workloom layout to the SOP structure）；
+ * generic tdd/writing-for-agents 属 third-party 保留件独立分发。CASE 设计与执行、
+ * 任务续接、计划迁移改由 workflow 契约（2.2/2.3 CASE 轨）承载，不再注册独立 skill。 */
 export const SKILL_ENTRIES = [
-  'skills/workloom-continue/SKILL.md',
   'skills/workloom-finish/SKILL.md',
   'skills/workloom-alignment/SKILL.md',
-  'skills/workloom-case-active/SKILL.md',
-  'skills/workloom-case-archived/SKILL.md',
   'skills/workloom-update-spec/SKILL.md',
   'skills/workloom-packages-scan/SKILL.md',
   'skills/workloom-migrate-to-sop/SKILL.md',
-  'skills/workloom-migrate-plan/SKILL.md',
   'third-party/mattpocock-skills/tdd/SKILL.md',
-  'third-party/mattpocock-skills/grilling/SKILL.md',
   'third-party/mattpocock-skills/writing-for-agents/SKILL.md',
 ] as const
 

@@ -5,7 +5,7 @@
  * - workflow frontmatter `version` 同时作为 protocol version（R21）；
  * - 期望值以构建期常量落 core（不可 import assets——分层约束），assets 的
  *   workflow.md 每次内容升级必须同步 bump 本常量，由资产契约测试强制一致；
- * - DSH apply / Pi 工厂在任何注册副作用前比对资产版本与期望值，不匹配
+ * - 插件 apply 在任何注册副作用前比对资产版本与期望值，不匹配
  *   fail loud（版本不一致的混合发布会在激活时就暴露，而不是运行到一半）。
  */
 /** 期望的 workflow contract（protocol）版本。 */

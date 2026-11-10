@@ -7,9 +7,18 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync } from 'node:fs'
+import { mkdtempSync, readdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// 测试隔离：core 三层配置的全局层读 $HOME/.workloom/config（调用链无 homeDir
+// 注入缝）；本机真实全局配置会泄漏进单测（历史遗留字段即抛解析错误）。重定向
+// HOME 与 TMPDIR 到隔离目录使全局层恒为空（与 case-executor.test.ts / core
+// command-ops.test.ts 同口径）。本文件只读 src/dist 目录树，隔离属统一防线。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-dsh-dist-mirror-home-'))
+process.env.HOME = isolatedHome
+process.env.TMPDIR = isolatedHome
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 

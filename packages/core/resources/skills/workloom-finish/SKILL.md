@@ -1,6 +1,6 @@
 ---
 name: workloom-finish
-description: Wrap up the session — check dirty files, archive the task, record the session journal, and separate work commits from bookkeeping commits — use when the session ends, the user says "finish", "wrap up", "archive and record", or asks to close out the current workloom task (replaces the old /workloom-finish command).
+description: Wrap up the session — check dirty files, archive the task, and separate work commits from bookkeeping commits — use when the session ends, the user says "finish", "wrap up", "archive and record", or asks to close out the current workloom task (replaces the old /workloom-finish command).
 ---
 
 # Workloom Finish

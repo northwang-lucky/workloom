@@ -481,7 +481,7 @@ export function checkTask(
  * 记录 2.2 check 凭据（内部实现）：
  * - in_progress + summary 非空为硬前置；
  * - 门禁面：CASE 结果门禁（硬拦，不可 force）+ check.jsonl 有效记录 +
- *   frontend 派发门禁（非 force 求值并拦截）；force 放行须按实际绕过的 gate 留痕。
+ *   frontend-developer 派发门禁（非 force 求值并拦截）；force 放行须按实际绕过的 gate 留痕。
  * @param root 项目根
  * @param params check 参数
  * @returns 写入凭据后的任务视图
