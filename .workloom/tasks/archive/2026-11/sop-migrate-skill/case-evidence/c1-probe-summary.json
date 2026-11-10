@@ -1,0 +1,89 @@
+{
+  "probe": "c1-migrate-config-probe.mjs",
+  "worktree": "/data00/home/wangyubo.1219/workbench/code-src/github/workloom/.workloom/worktree/11-06-sop-migrate-skill",
+  "ok": true,
+  "failures": [],
+  "outcomes": {
+    "dual-layout": {
+      "name": "dual-layout",
+      "repo": 0,
+      "noDist": 1,
+      "withDist": 0
+    },
+    "real-migration": {
+      "name": "real-migration",
+      "exit": 0,
+      "stdout": "Done: migrated 2 profile(s), 11 key(s).",
+      "keyOrder": [
+        "researcher",
+        "developer",
+        "checker",
+        "frontend-developer",
+        "judger"
+      ]
+    },
+    "load-after": {
+      "name": "load-after",
+      "inProcessWarnings": 0,
+      "childClean": true
+    },
+    "noop": {
+      "name": "noop",
+      "stdout": "NOOP: config already migrated"
+    },
+    "dry-run": {
+      "name": "dry-run",
+      "planLines": 12,
+      "noopOnMigrated": true
+    },
+    "fail-loud": {
+      "name": "fail-loud",
+      "branches": [
+        {
+          "name": "F1 entry-not-object",
+          "exit": 1
+        },
+        {
+          "name": "F2 both-inner-keys",
+          "exit": 1
+        },
+        {
+          "name": "F3-subagents-array",
+          "exit": 1
+        },
+        {
+          "name": "F3-subagents-null",
+          "exit": 1
+        },
+        {
+          "name": "F3-subagents-number",
+          "exit": 1
+        },
+        {
+          "name": "F4-unknown-role-key",
+          "exit": 1
+        },
+        {
+          "name": "F4-unknown-under-subagents",
+          "exit": 1
+        },
+        {
+          "name": "F5-rename-conflict",
+          "exit": 1
+        }
+      ]
+    },
+    "base-errors": {
+      "name": "base-errors",
+      "missing": 1,
+      "invalid": 1,
+      "rootArray": 1,
+      "profilesObject": 1
+    }
+  },
+  "isolation": {
+    "HOME": "mkdtemp <iso>/home",
+    "TMPDIR": "mkdtemp <iso>/tmp",
+    "realGlobalConfig": "not touched"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "overall": "17727/18582 (95.40%)",
+  "files": [
+    {
+      "file": "packages/core/src/injection/surface.ts",
+      "covered": 462,
+      "total": 484,
+      "pct": "95.45%",
+      "uncovered": "406-407, 448-459, 469-473, 482-484"
+    },
+    {
+      "file": "packages/core/src/resources-manifest.ts",
+      "covered": 107,
+      "total": 123,
+      "pct": "86.99%",
+      "uncovered": "78-80, 85-86, 90-91, 95-96, 100-101, 117-118, 121-123"
+    },
+    {
+      "file": "packages/core/src/workspace/command-ops.ts",
+      "covered": 52,
+      "total": 63,
+      "pct": "82.54%",
+      "uncovered": "26-27, 39-40, 42-43, 56-57, 61-63"
+    },
+    {
+      "file": "packages/core/src/workspace/init.ts",
+      "covered": 122,
+      "total": 122,
+      "pct": "100.00%",
+      "uncovered": "-"
+    },
+    {
+      "file": "packages/core/src/workspace/locate.js",
+      "covered": 88,
+      "total": 88,
+      "pct": "100.00%",
+      "uncovered": "-"
+    },
+    {
+      "file": "packages/dsh-workloom/src/tooling/commands.ts",
+      "covered": 159,
+      "total": 184,
+      "pct": "86.41%",
+      "uncovered": "99-104, 121-123, 126-127, 129-130, 141-146, 149-154"
+    }
+  ]
+}
