@@ -130,3 +130,10 @@ Judger 与其他四角色同为一等公民，功能明确落地：子任务三�
 3. 执行轮 P2 自修范式：checker 发现 workflow.md 多一个 "that"，按 plan 逐字口径去词后全量复跑 SR/C/覆盖率/标准验证并更新指纹——"修后全量复跑"纪律首次由执行器自证。
 4. AC1 计数陷阱归档：`grep -c "skills/"` 在含 third-party 的清单下不等于自有 skill 数，双探针（SKILL.md 行数 + 数组长度）已写入 CASE 经验。
 5. pin 切换前置（全部子任务归档后）：仅剩用户自执行全局配置迁移（subagents→roles、角色键新五值，workloom-migrate-to-sop skill 就绪），迁移后即可重钉生产 pin 并重启（容器决定 10，需用户授权）。
+
+## 容器最终验收记录（2026-11-11，主会话）
+
+1. 八个子任务全部归档（一至八，含子任务八 rotate_on_busy）；容器无自有实现，纯编排。
+2. 生产 pin 切换落地（容器决定 10）：main 推送 origin（1dc46f7→6ba5397，38 提交）；生产 profile 重钉 `@workloom-ai/dsh-workloom` 新路径（lock 钉 6ba5397 tarball，adapter-dsh 与 assets 死 override 清除）；用户执行全局配置迁移（roles 内层键加五角色新键）与实例重启。
+3. 活体验收（重启后）：画像五角色 fallback 全命中（新代码与迁移后配置咬合正常）；skill 目录呈新五件（alignment/finish/migrate-to-sop/packages-scan/update-spec）；会话快照与 norms 全为新口径；GUI 健康。
+4. 容器归档凭据：无自有代码改动与 CASE，以 force 留痕归档（archive-ready 豁免，理由记 task.json overrides）。

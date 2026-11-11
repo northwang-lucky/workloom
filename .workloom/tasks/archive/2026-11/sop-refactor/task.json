@@ -3,7 +3,7 @@
   "name": "sop-refactor",
   "title": "workloom-sop 重构",
   "description": "容器任务：把 workloom 彻底重构为 workloom-sop，只支持 DeepSeek Harness。下设七个子任务：结构重组、去留清理、状态机、角色派发、父子编排、迁移 skill、文档与 skill 改写。基线文档为任务目录内 rewrite-reuse-eval.md。容器只做编排与最终验收，不写实现。",
-  "status": "planning",
+  "status": "completed",
   "priority": "P1",
   "mode": "full",
   "creator": "northwang-lucky",
@@ -12,7 +12,7 @@
   "branch": "",
   "base_branch": "",
   "createdAt": "2026-11-06T11:02:17.263Z",
-  "completedAt": null,
+  "completedAt": "2026-11-11T06:07:46.752Z",
   "parent": null,
   "children": [
     "tasks/11-06-sop-structure",
@@ -24,7 +24,6 @@
     "tasks/11-06-sop-docs-skills",
     "tasks/11-08-rotate-on-busy"
   ],
-  "subtasks": [],
   "scope": "",
   "commit": "",
   "pr_url": "",
@@ -36,13 +35,21 @@
   "case": null,
   "alignment": null,
   "planConfirmation": null,
-  "overrides": [],
-  "stage": "implement",
+  "overrides": [
+    {
+      "gate": "archive",
+      "tool": "workloom_task_archive",
+      "at": "2026-11-11T06:07:46.755Z",
+      "reason": "容器纯编排无自有实现与 CASE：八个子任务全部归档验收；生产 pin 已切 6ba5397 新路径并重启，活体验证绿（五角色画像命中、新 skill 集合在线）；验收凭据记于容器增补记录「容器最终验收记录」节。"
+    }
+  ],
+  "stage": "archived",
   "dispatches": [],
   "hooks": {
     "after_create": [],
     "after_start": [],
     "after_finish": [],
     "after_archive": []
-  }
+  },
+  "autonomyLog": []
 }
