@@ -53,6 +53,11 @@ function main() {
   }
 
   const doc = readConfigDoc(configPath)
+  if (doc === null) {
+    // 缺 subagent_profiles 字段：无 profile 可迁移，视同 NOOP（不写文件、不改形状）。
+    console.log('NOOP: config already migrated')
+    return
+  }
   // 逐条目映射并收集计划行（全部成功才进入写文件阶段，fail loud 天然零写入）。
   const plans = []
   const profiles = doc.subagent_profiles.map((entry, index) =>
@@ -92,6 +97,9 @@ function readConfigDoc(configPath) {
   }
   if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) {
     fail(`invalid config: ${configPath}: root must be a JSON object`)
+  }
+  if (doc.subagent_profiles === undefined) {
+    return null
   }
   if (!Array.isArray(doc.subagent_profiles)) {
     fail(`invalid config: ${configPath}: subagent_profiles must be an array`)

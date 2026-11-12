@@ -291,3 +291,23 @@ test('⑦全局层夹具：重定向 HOME 下旧形态迁移后子进程 loadCon
     rmSync(project, { recursive: true, force: true })
   }
 })
+
+test('⑧缺 subagent_profiles 字段：NOOP 且零写入（无 profile 可迁移）', () => {
+  const root = makeProject()
+  try {
+    const configPath = configOf(root)
+    const doc = legacyConfigDoc()
+    delete doc.subagent_profiles
+    writeFileSync(configPath, `${JSON.stringify(doc, null, 2)}\n`)
+    const before = readFileSync(configPath)
+    const dry = spawnSync(process.execPath, [SCRIPT, configPath, '--dry-run'], { encoding: 'utf8' })
+    assert.equal(dry.status, 0, dry.stderr)
+    assert.equal(dry.stdout.trim(), 'NOOP: config already migrated')
+    const run = spawnSync(process.execPath, [SCRIPT, configPath], { encoding: 'utf8' })
+    assert.equal(run.status, 0, run.stderr)
+    assert.equal(run.stdout.trim(), 'NOOP: config already migrated')
+    assert.deepEqual(readFileSync(configPath), before, 'missing profiles must not be written back')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
