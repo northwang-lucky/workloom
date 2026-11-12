@@ -5,4 +5,4 @@
 2026-11-12T13:05:00+08:00 | subtask-move | .workloom/tasks/ | noop: 无顶层带子任务的活跃任务
 2026-11-12T13:05:00+08:00 | doc-rewrite | .workloom/tasks/ | noop: 无活跃 prd.md（归档任务不改写）
 2026-11-12T13:05:00+08:00 | workspace-review | .workloom/workspace/ | skipped: 现行 journal 存储（journal-1.md 在写），非 legacy 目录，不落 INERT.md
-2026-11-12T13:05:00+08:00 | developer-disposition | .workloom/.developer/ | pending: 待用户裁定删除或保留
+2026-11-12T13:20:00+08:00 | developer-disposition | .workloom/.developer/ | done: 用户裁定删除（旧 pin 身份产物，实为单文件）；.gitignore 注释行与忽略行同步移除；归档区 eval 运行残留同名件（未跟踪）一并清理
