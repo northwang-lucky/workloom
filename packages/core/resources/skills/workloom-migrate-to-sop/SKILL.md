@@ -28,7 +28,7 @@ All moves happen in place under `.workloom/tasks/`. Work through the directories
 
 1. **Date prefix.** Every active task directory name starts with `MM-DD-` (local month and day). Read `createdAt` from `task.json`, convert it to the local date, and rename the directory when the prefix is missing (for example `setup-ci` → `11-10-setup-ci`). When `createdAt` is missing, use the migration day instead and note the fallback in the migration log.
 2. **Nested subtasks.** A top-level task directory whose `task.json` has a non-null `parent` field belongs under its parent: move it into `<parent>/subtasks/`, and update the parent's `task.json` `children` array so every recorded child path matches the new location. Nested directories keep their own date prefix.
-3. **Legacy `workspace/` directory.** Keep it and its historical content untouched. Add an `INERT.md` file inside it noting: `legacy workspace kept for reference; not read by workloom-sop`.
+3. **Legacy `workspace/` directory.** First confirm nothing in the current product still writes into it (the journal capability was removed in workloom-sop, so a workspace holding only old journal files is legacy; any live writer means it is not). When the content is already committed in git, delete the directory outright; when it holds uncommitted content, keep the directory and add an `INERT.md` inside it noting: `legacy workspace kept for reference; not read by workloom-sop`. Record the disposition in the migration ledger.
 4. **Legacy `.developer` directory.** Never delete it on your own; removal requires explicit user confirmation. Leave it in place until the user decides.
 5. **`.gitignore`.** Lines in `.workloom/.gitignore` that only described the legacy layout may be removed; keep what the current skeleton generates.
 
@@ -84,7 +84,7 @@ The migration is idempotent and resumable. Already-migrated parts are recognized
 - [ ] the config script real run completed; the config loads without legacy-key warnings
 - [ ] every active task directory name carries the `MM-DD-` prefix
 - [ ] every top-level task with a `parent` moved under `<parent>/subtasks/`, and the parent `children` paths were updated
-- [ ] the legacy `workspace/` directory is kept with `INERT.md` inside
+- [ ] the legacy `workspace/` directory is deleted (content committed) or kept with `INERT.md` inside (uncommitted content)
 - [ ] the legacy `.developer` directory disposition was confirmed by the user
 - [ ] every active `prd.md` follows the eleven-section skeleton
 - [ ] archived tasks are untouched

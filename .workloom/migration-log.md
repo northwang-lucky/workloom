@@ -4,5 +4,5 @@
 2026-11-12T13:05:00+08:00 | dir-rename | .workloom/tasks/ | noop: 无活跃任务目录（全部已归档，归档不动）
 2026-11-12T13:05:00+08:00 | subtask-move | .workloom/tasks/ | noop: 无顶层带子任务的活跃任务
 2026-11-12T13:05:00+08:00 | doc-rewrite | .workloom/tasks/ | noop: 无活跃 prd.md（归档任务不改写）
-2026-11-12T13:05:00+08:00 | workspace-review | .workloom/workspace/ | skipped: 现行 journal 存储（journal-1.md 在写），非 legacy 目录，不落 INERT.md
+2026-11-12T13:35:00+08:00 | workspace-review | .workloom/workspace/ | done: 初判 skipped（误认现行 journal 存储）；用户发现后复核确认 journal 能力已随重构删除、workspace 系 legacy——用户裁定删除（内容已全量入库 git 历史）；skill 的 workspace 步骤同步完善（先验活消费方，已入库删目录、未入库留 INERT）
 2026-11-12T13:20:00+08:00 | developer-disposition | .workloom/.developer/ | done: 用户裁定删除（旧 pin 身份产物，实为单文件）；.gitignore 注释行与忽略行同步移除；归档区 eval 运行残留同名件（未跟踪）一并清理
