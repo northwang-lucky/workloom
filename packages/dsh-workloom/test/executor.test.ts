@@ -282,7 +282,7 @@ test('agentOptions 携带 provider+model（带前缀时）', async () => {
     const parent = makeAgent(root)
     await execute(execArgs(), { agent: parent, signal: new AbortController().signal })
     assert.equal(startCalls.length, 1)
-    const opts = startCalls[0].request.agentOptions
+    const opts = startCalls[0].agentOptions
     assert.equal(opts.provider, 'deepseek-official')
     assert.equal(opts.model, 'deepseek-v4-flash')
   } finally {
@@ -300,7 +300,7 @@ test('agentOptions 仅 model（裸 id，无 provider）', async () => {
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    const opts = startCalls[0].request.agentOptions
+    const opts = startCalls[0].agentOptions
     assert.equal(opts.provider, undefined)
     assert.equal(opts.model, 'deepseek-v4-flash')
   } finally {
@@ -318,7 +318,7 @@ test('agentOptions 为 undefined（无 model 配置）', async () => {
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    assert.equal(startCalls[0].request.agentOptions, undefined)
+    assert.equal(startCalls[0].agentOptions, undefined)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -339,13 +339,13 @@ test('s1: 派发走 startActivation（delivery: parent），返回 durable child
     const spec = startCalls[0]
     assert.equal(spec.provider, 'spawn')
     assert.equal(spec.label, '[Developer] continuable dispatch test')
-    assert.equal(spec.request.maxDepth, 1)
+    assert.equal(spec.maxDepth, 1)
     assert.equal(spec.signal, signal)
-    assert.equal(spec.request.parent, parent)
-    assert.equal(spec.request.prompt.length, 1)
-    assert.equal(spec.request.prompt[0].type, 'text')
-    assert.ok(spec.request.prompt[0].text.includes('Active task:'), 'prompt must inline the task')
-    assert.deepEqual(spec.request.agentOptions, {
+    assert.equal(spec.parent, parent)
+    assert.equal(spec.prompt.length, 1)
+    assert.equal(spec.prompt[0].type, 'text')
+    assert.ok(spec.prompt[0].text.includes('Active task:'), 'prompt must inline the task')
+    assert.deepEqual(spec.agentOptions, {
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash',
     })
@@ -577,7 +577,7 @@ test('receipt 行：新派发含注入统计四元组（KB 一位小数；计数
     })
     const text = result.receipt
     // 注入字节口径 = 派发给子代理的 prompt 文本长度（KB = bytes / 1024 一位小数）。
-    const built = startCalls[0].request.prompt[0].text
+    const built = startCalls[0].prompt[0].text
     assert.equal(startCalls.length, 1)
     assert.equal(typeof built, 'string')
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
@@ -737,7 +737,7 @@ test('主模型 provider/model 为空串：whenMain 按取不到跳过，回退�
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    const opts = startCalls[0].request.agentOptions
+    const opts = startCalls[0].agentOptions
     assert.equal(opts.provider, 'fallback-provider')
     assert.equal(opts.model, 'fallback-model')
     const text = result.receipt
@@ -952,7 +952,7 @@ test('effort 配置生效：profile roles 条目 effort 进入 reasoningEffort�
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    const opts = startCalls[0].request.agentOptions
+    const opts = startCalls[0].agentOptions
     assert.equal(opts.provider, 'deepseek-official')
     assert.equal(opts.model, 'deepseek-v4-flash')
     assert.equal(opts.reasoningEffort, 'max')
@@ -973,7 +973,7 @@ test('effort 单独生效：无 model 配置时 agentOptions 仅含 reasoningEff
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    const opts = startCalls[0].request.agentOptions
+    const opts = startCalls[0].agentOptions
     assert.equal(opts.provider, undefined)
     assert.equal(opts.model, undefined)
     assert.equal(opts.reasoningEffort, 'max')
@@ -992,7 +992,7 @@ test('effort 参数优先：显式 effort 生效并标 (param)（与配置一致
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    const opts = startCalls[0].request.agentOptions
+    const opts = startCalls[0].agentOptions
     assert.equal(opts.provider, 'deepseek-official')
     assert.equal(opts.model, 'deepseek-v4-flash')
     assert.equal(opts.reasoningEffort, 'high')
@@ -1215,7 +1215,7 @@ test('工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 al
     assert.ok(toolfaceSchemaScopes[0] !== undefined, 'scoped view must name the agent, never global')
     assert.deepEqual(restrictCalls[0].filter, { allow: expectedAllow })
     // 请求体不再携带 toolFilter：DSH 0.2.1 取消该通道。
-    assert.equal(startCalls[0].request.toolFilter, undefined)
+    assert.equal(startCalls[0].toolFilter, undefined)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -1483,7 +1483,7 @@ test('本机片段：首条 prompt 注入 Local directives 段（all 前、专�
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    const text = startCalls[0].request.prompt[0].text
+    const text = startCalls[0].prompt[0].text
     const taskPromptAt = text.indexOf('## Task prompt')
     const localAt = text.indexOf('## Local directives')
     const contractAt = text.indexOf('## Executor contract')
@@ -1537,7 +1537,7 @@ test('本机片段：项目共享层（prompts/）与本机层（prompts.local/�
       signal: new AbortController().signal,
     })
     assert.equal(startCalls.length, 1)
-    const text = startCalls[0].request.prompt[0].text
+    const text = startCalls[0].prompt[0].text
     const localAt = text.indexOf('## Local directives')
     const contractAt = text.indexOf('## Executor contract')
     const section = text.slice(localAt, contractAt)
@@ -1575,7 +1575,7 @@ test('S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律�
       agent: parent,
       signal: new AbortController().signal,
     })
-    const noLspText = startCalls[0].request.prompt[0].text
+    const noLspText = startCalls[0].prompt[0].text
     assert.ok(
       !noLspText.includes(LSP_BASELINE_SENTENCE),
       'dispatch without LSP tooling must drop the LSP discipline sentence',
@@ -1599,7 +1599,7 @@ test('S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律�
       assert.deepEqual(lspRestrictCalls[0].filter, {
         allow: ['write', 'edit', 'lsp_diagnostics'],
       })
-      const lspText = lspCalls[0].request.prompt[0].text
+      const lspText = lspCalls[0].prompt[0].text
       assert.ok(
         lspText.includes(LSP_BASELINE_SENTENCE),
         'dispatch with LSP tooling in the allow list must keep the LSP discipline sentence',
@@ -1626,7 +1626,7 @@ test('s1-bg: 后台派发立即返回（不等 turn 结算），返回 {kind, ch
     assert.equal(result.kind, 'background')
     assert.equal(result.childId, 'child-1', 'background must return the child session id')
     // receipt 完整：model/effort + 注入四元组（注入统计派发前已就绪）。
-    const built = startCalls[0].request.prompt[0].text
+    const built = startCalls[0].prompt[0].text
     const kb = (Buffer.byteLength(built, 'utf8') / 1024).toFixed(1)
     assert.ok(result.receipt.includes('deepseek-official/deepseek-v4-flash'))
     assert.ok(
@@ -3194,12 +3194,12 @@ test('模型失败转移：有链一跳重派——记录 fallbackOf/fallbackAtt
     assert.equal(setup.startCalls.length, 2, 'one-hop retry must spawn a new child session')
     const retrySpec = setup.startCalls[1]
     // 重派绑定 = 链中下一模型（provider 拆分传入）+ 链条目 effort。
-    assert.equal(retrySpec.request.agentOptions.provider, 'provider-b')
-    assert.equal(retrySpec.request.agentOptions.model, 'm2')
+    assert.equal(retrySpec.agentOptions.provider, 'provider-b')
+    assert.equal(retrySpec.agentOptions.model, 'm2')
     assert.equal(retrySpec.label, '[Developer] failover retry')
     // 重派 prompt 保留原 prompt 全文，尾部追加 failover note 段（keeping the
     // original prompt + appending a failover note）。
-    const retryText = retrySpec.request.prompt[0].text
+    const retryText = retrySpec.prompt[0].text
     assert.ok(retryText.includes('ORIGINAL PROMPT BODY'), 'original prompt must be kept in full')
     assert.ok(
       retryText.includes(
@@ -3364,8 +3364,8 @@ test('failover: respawn.failoverChain 优先（物化环序链一跳取起点后
     assert.equal(setup.startCalls.length, 2, 'materialized chain must retry once')
     const retrySpec = setup.startCalls[1]
     // 链中首个不同于 deadModel(F2) 的条目 = F3（provider 拆分传入）。
-    assert.equal(retrySpec.request.agentOptions.provider, 'provider-c')
-    assert.equal(retrySpec.request.agentOptions.model, 'f3')
+    assert.equal(retrySpec.agentOptions.provider, 'provider-c')
+    assert.equal(retrySpec.agentOptions.model, 'f3')
     const records = readDispatches(root)
     assert.equal(records[1].modelSource, 'fallback')
     assert.equal(records[1].model, 'provider-c/f3')
@@ -3490,8 +3490,8 @@ test('轮换编排：主模型位与 F1 被占用时起步 F2——记录 modelS
     })
     // 起步 = 池内首个未占用条目 F2（provider 拆分传入）。
     assert.equal(setup.startCalls.length, 1)
-    assert.equal(setup.startCalls[0].request.agentOptions.provider, 'provider-a')
-    assert.equal(setup.startCalls[0].request.agentOptions.model, 'f2')
+    assert.equal(setup.startCalls[0].agentOptions.provider, 'provider-a')
+    assert.equal(setup.startCalls[0].agentOptions.model, 'f2')
     // 绑定留痕：选中链条目 + modelSource='rotate'（effort 随链条目独立档位）。
     const records = readDispatches(root)
     assert.equal(records[2].model, 'provider-a/f2')
@@ -3507,7 +3507,7 @@ test('轮换编排：主模型位与 F1 被占用时起步 F2——记录 modelS
     emitModelFailure(setup, 'child-1')
     await settleHooks()
     assert.equal(setup.startCalls.length, 2, 'materialized chain must retry once')
-    assert.equal(setup.startCalls[1].request.agentOptions.model, 'main')
+    assert.equal(setup.startCalls[1].agentOptions.model, 'main')
     const retry = readDispatches(root)[3]
     assert.equal(retry.model, 'provider-a/main')
     assert.equal(retry.modelSource, 'fallback')
@@ -3554,7 +3554,7 @@ test('轮换编排：全占用回绕主模型位零痕迹——spawn 现状绑�
     })
     // 回绕主模型位：现状绑定零行为变化（spawn 用 effective.model）。
     assert.equal(setup.startCalls.length, 1)
-    assert.equal(setup.startCalls[0].request.agentOptions.model, 'main')
+    assert.equal(setup.startCalls[0].agentOptions.model, 'main')
     const records = readDispatches(root)
     assert.equal(records[3].modelSource, 'fallback', 'wrap-around keeps the config source')
     assert.ok(!result.receipt.includes('rotated'), 'wrap-around receipt must not be annotated')
@@ -3562,7 +3562,7 @@ test('轮换编排：全占用回绕主模型位零痕迹——spawn 现状绑�
     emitModelFailure(setup, 'child-1')
     await settleHooks()
     assert.equal(setup.startCalls.length, 2)
-    assert.equal(setup.startCalls[1].request.agentOptions.model, 'f1')
+    assert.equal(setup.startCalls[1].agentOptions.model, 'f1')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -3584,7 +3584,7 @@ test('轮换编排：四路径零变化（开关关/显式 model/续用轮/容�
         agent: parent,
         signal: new AbortController().signal,
       })
-      assert.equal(startCalls[0].request.agentOptions.model, 'main')
+      assert.equal(startCalls[0].agentOptions.model, 'main')
       assert.equal(readDispatches(root)[1].modelSource, 'fallback')
       assert.ok(!result.receipt.includes('rotated'))
     } finally {
@@ -3606,8 +3606,8 @@ test('轮换编排：四路径零变化（开关关/显式 model/续用轮/容�
         execArgs({ model: 'provider-b/x', force: true, reason: 'test override', title: 'explicit model' }),
         { agent: parent, signal: new AbortController().signal },
       )
-      assert.equal(startCalls[0].request.agentOptions.provider, 'provider-b')
-      assert.equal(startCalls[0].request.agentOptions.model, 'x')
+      assert.equal(startCalls[0].agentOptions.provider, 'provider-b')
+      assert.equal(startCalls[0].agentOptions.model, 'x')
       const record = readDispatches(root)[1]
       assert.equal(record.model, 'provider-b/x')
       assert.equal(record.modelSource, 'param')
@@ -3689,7 +3689,7 @@ test('轮换编排：dispatches 记录旧 kind 值经归一后计入占用（顺
       signal: new AbortController().signal,
     })
     assert.equal(setup.startCalls.length, 1)
-    assert.equal(setup.startCalls[0].request.agentOptions.model, 'f1')
+    assert.equal(setup.startCalls[0].agentOptions.model, 'f1')
     const record = readDispatches(root)[1]
     assert.equal(record.model, 'provider-a/f1')
     assert.equal(record.modelSource, 'rotate')
@@ -3727,8 +3727,8 @@ test('轮换编排：并行同角色两笔同步段互见不撞同一模型（in
     assert.equal(firstResult.kind, 'background')
     assert.equal(secondResult.kind, 'background', '第二笔角色闸 2/3 应放行')
     assert.equal(startCalls.length, 2)
-    assert.equal(startCalls[0].request.agentOptions.model, 'f1')
-    assert.equal(startCalls[1].request.agentOptions.model, 'f2', 'second dispatch must skip f1 via in-flight model')
+    assert.equal(startCalls[0].agentOptions.model, 'f1')
+    assert.equal(startCalls[1].agentOptions.model, 'f2', 'second dispatch must skip f1 via in-flight model')
     assert.equal(readDispatches(root)[2].modelSource, 'rotate')
   } finally {
     rmSync(root, { recursive: true, force: true })

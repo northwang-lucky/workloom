@@ -73,12 +73,12 @@ export async function spawnExecutorChild(params: SpawnExecutorChildParams): Prom
       provider: SPAWN_PROVIDER,
       label: params.label,
       childId: reservedChildId,
-      request: {
-        prompt: [{ type: 'text', text: params.promptText }],
-        parent: params.parent,
-        agentOptions,
-        maxDepth: 1,
-      },
+      // rc.2 起 SubagentActivationSpec 直接继承 SubagentStartRequest，
+      // 子代理启动参数展开到顶层，不再嵌在 request 里
+      prompt: [{ type: 'text', text: params.promptText }],
+      parent: params.parent,
+      agentOptions,
+      maxDepth: 1,
       signal: params.signal,
       delivery: 'parent',
     })
