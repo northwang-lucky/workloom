@@ -19,12 +19,13 @@ export const COMMAND_DESCRIPTIONS = {
     init: 'Initialize the .workloom skeleton (idempotent; missing pieces are filled, existing content is never overwritten)',
     doctor: 'Run a structured workflow health check (results are handed to the model as JSON)',
 };
-/** 十三个工具名（十一个任务工具 + executor + 步骤详情，模型可见）。 */
+/** 十四个工具名（十二个任务工具 + executor + 步骤详情，模型可见）。 */
 export const TOOL_NAMES = {
     taskCreate: 'workloom_task_create',
     taskStart: 'workloom_task_start',
     taskCheck: 'workloom_task_check',
     taskComplete: 'workloom_task_complete',
+    taskMerge: 'workloom_task_merge',
     taskFinish: 'workloom_task_finish',
     taskArchive: 'workloom_task_archive',
     taskList: 'workloom_task_list',
@@ -41,6 +42,7 @@ export const TOOL_DESCRIPTIONS = {
     taskStart: 'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)',
     taskCheck: 'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
     taskComplete: 'Mark the task completed without archiving (completed-not-archived: the task stays in place awaiting the parent cascade archive; force bypasses and is recorded)',
+    taskMerge: 'Merge the task branch into the base branch in the main checkout per the worktree.cleanup config mode (merge-* true merge, rebase-* rebase + fast-forward; 2.4 step, main session only, requires a recorded check; refuses keep-branch/manual modes and when the branch content is already merged)',
     taskAlign: 'Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)',
     taskCase: 'CASE review: action=review returns the current case.md snapshot, structural issues, blockers, the readyForExecution flag and the current designSession without writing; the main session reviews the CASE against the PRD, the PLAN and the actual code, then continues the same design session for execution (main-session only, no user approval and no confirmation record)',
     taskPlanReview: 'Mark the plan review track phase (main-session only): revising enters a revision round after Judger findings (the round counter is recorded); clean records the review as converged with zero findings (required before the PLAN confirmation). The reviewing phase is not marked here — a judger dispatch with purpose plan-review sets it automatically',
@@ -61,6 +63,7 @@ export const TOOL_SNIPPETS = {
     taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
     taskCheck: 'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
     taskComplete: 'workloom_task_complete(taskPath?, force?, reason?) — mark the task completed without archiving',
+    taskMerge: 'workloom_task_merge(taskPath?) — merge the task branch into the base branch (2.4, per worktree.cleanup mode)',
     taskAlign: 'workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content',
     taskCase: 'workloom_task_case(action, taskPath?) — review the task CASE before continuing the design session',
     taskPlanReview: 'workloom_task_planreview(phase, taskPath?) — mark the plan review track revising/clean',

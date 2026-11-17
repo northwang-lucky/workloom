@@ -1406,3 +1406,154 @@ test('⑪g 非 git 项目：start 拒绝且 setup 不执行', async (t) => {
   assert.equal(readTaskJson(root, taskRelPath).status, 'planning')
   assert.equal(existsSync(join(root, 'setup-should-not-run')), false)
 })
+
+/* ============ 2.4 合入工具、归档合入核验与 parent 免 worktree（2026-11-17 zephyra 修复） ============ */
+
+test('gitBranchContentMerged：squash 合入判 true，未合入判 false', { ...gitSkip }, async () => {
+  const base = makeBase()
+  try {
+    const root = makeGitProject(base)
+    runGit(root, ['checkout', '-b', 'feature-x'])
+    writeFileSync(join(root, 'feat.txt'), 'feat\n')
+    runGit(root, ['add', 'feat.txt'])
+    runGit(root, ['commit', '-m', 'feat: add'])
+    let [err, merged] = await workloom.gitBranchContentMerged(root, 'feature-x', 'main')
+    assert.equal(err, null, err?.message)
+    assert.equal(merged, false)
+    // squash 合入：main 上生成全新提交，与任务分支互非祖先（ancestry 判据必误报）。
+    runGit(root, ['checkout', 'main'])
+    runGit(root, ['merge', '--squash', 'feature-x'])
+    runGit(root, ['commit', '-m', 'feat: squash in'])
+    ;[err, merged] = await workloom.gitBranchContentMerged(root, 'feature-x', 'main')
+    assert.equal(err, null, err?.message)
+    assert.equal(merged, true)
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('executeMergeTask：rebase 模式（缺省 cleanup）合入任务分支并记录 commit', { ...gitSkip }, async () => {
+  const base = makeBase()
+  const contextKey = 'sess-merge-rebase'
+  try {
+    const root = makeGitProject(base)
+    const { taskRelPath } = await createGated(root, contextKey, 'merge-rebase-task')
+    const [startErr] = await executeStartTask(root, contextKey, { taskPath: taskRelPath })
+    assert.equal(startErr, null, startErr?.message)
+    const rec = readTaskJson(root, taskRelPath)
+    const wtRoot = join(root, rec.worktree_path)
+    writeFileSync(join(wtRoot, 'impl.txt'), 'impl\n')
+    runGit(wtRoot, ['add', 'impl.txt'])
+    runGit(wtRoot, ['commit', '-m', 'feat: impl work'])
+    // 直写 2.3 凭据（executeCheckTask 有 CASE 硬门禁，非本用例关注点）。
+    const recWithCheck = readTaskJson(root, taskRelPath)
+    recWithCheck.check = { passedAt: '2026-11-17T00:00:00.000Z', summary: 'checked' }
+    writeFileSync(
+      join(root, '.workloom', taskRelPath, 'task.json'),
+      `${JSON.stringify(recWithCheck, null, 2)}\n`,
+    )
+    const [mergeErr, result] = await workloom.executeMergeTask(root, contextKey, {
+      taskPath: taskRelPath,
+    })
+    assert.equal(mergeErr, null, mergeErr?.message)
+    assert.ok(result)
+    assert.equal(readFileSync(join(root, 'impl.txt'), 'utf8'), 'impl\n')
+    // rebase-ff 后线性：基线顶端即实现提交。
+    assert.equal(runGit(root, ['log', '--pretty=%s', '-1']), 'feat: impl work')
+    const after = readTaskJson(root, taskRelPath)
+    assert.equal(after.commit, runGit(root, ['rev-parse', 'HEAD']))
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('executeMergeTask：keep-branch 模式拒绝自动合入', { ...gitSkip }, async () => {
+  const base = makeBase()
+  const contextKey = 'sess-merge-keep'
+  try {
+    const root = makeGitProject(base, 'project', {
+      packages: { repo: { path: '.', setup: [] } },
+      worktree: { enabled: true, cleanup: 'keep-branch' },
+    })
+    const { taskRelPath } = await createGated(root, contextKey, 'merge-keep-task')
+    const [startErr] = await executeStartTask(root, contextKey, { taskPath: taskRelPath })
+    assert.equal(startErr, null, startErr?.message)
+    const rec = readTaskJson(root, taskRelPath)
+    rec.check = { passedAt: '2026-11-17T00:00:00.000Z', summary: 'checked' }
+    writeFileSync(
+      join(root, '.workloom', taskRelPath, 'task.json'),
+      `${JSON.stringify(rec, null, 2)}\n`,
+    )
+    const [mergeErr] = await workloom.executeMergeTask(root, contextKey, {
+      taskPath: taskRelPath,
+    })
+    assert.ok(mergeErr !== null)
+    assert.ok(mergeErr.message.includes('keep-branch'), mergeErr?.message)
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('archive：任务分支未合入基线时拦截，合入后放行', { ...gitSkip }, async () => {
+  const base = makeBase()
+  try {
+    const root = makeGitProject(base)
+    runGit(root, ['checkout', '-b', 'feature-x'])
+    writeFileSync(join(root, 'feat.txt'), 'feat\n')
+    runGit(root, ['add', 'feat.txt'])
+    runGit(root, ['commit', '-m', 'feat: add'])
+    runGit(root, ['checkout', 'main'])
+    // light 任务直写分支字段，复刻 2.4 漏合现场（实现已提交、簿记齐全、唯独没合入）。
+    const [createErr, created] = await executeCreateTask(root, 'sess-arc-block', {
+      title: 'unmerged-task',
+      package: 'repo',
+      mode: 'light',
+    })
+    assert.equal(createErr, null, createErr?.message)
+    const rel = created.taskRelPath
+    const rec = readTaskJson(root, rel)
+    rec.status = 'completed'
+    rec.stage = 'completed'
+    rec.check = { passedAt: '2026-11-17T00:00:00.000Z', summary: 'checked' }
+    rec.branch = 'feature-x'
+    rec.base_branch = 'main'
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      `${JSON.stringify(rec, null, 2)}\n`,
+    )
+    const [arcErr] = await workloom.executeArchiveTask(root, { taskPath: rel })
+    assert.ok(arcErr !== null)
+    assert.ok(arcErr.message.includes('尚未合入基线'))
+    runGit(root, ['merge', '--squash', 'feature-x'])
+    runGit(root, ['commit', '-m', 'feat: squash in'])
+    const [arcErr2] = await workloom.executeArchiveTask(root, { taskPath: rel })
+    assert.equal(arcErr2, null, arcErr2?.message)
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+test('executeStartTask：parent 模式不配发 worktree 与任务分支', { ...gitSkip }, async () => {
+  const base = makeBase()
+  const contextKey = 'sess-parent-start'
+  try {
+    const root = makeGitProject(base)
+    const [createErr, created] = await executeCreateTask(root, contextKey, {
+      title: 'root-container',
+      package: 'repo',
+      mode: 'parent',
+    })
+    assert.equal(createErr, null, createErr?.message)
+    const rel = created.taskRelPath
+    satisfyStartGate(root, rel)
+    alignTask(root, rel)
+    const [startErr] = await executeStartTask(root, contextKey, { taskPath: rel })
+    assert.equal(startErr, null, startErr?.message)
+    const rec = readTaskJson(root, rel)
+    assert.equal(rec.worktree_path, '')
+    assert.equal(rec.branch, '')
+    assert.equal(rec.stage, 'orchestrating')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})

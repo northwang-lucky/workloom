@@ -79,3 +79,11 @@ export declare function gitWorktreePrune(root: string): Promise<[GitCommandError
  * remove 再删分支）。
  */
 export declare function gitBranchDelete(root: string, branch: string): Promise<[GitCommandError | null, string | null]>;
+/**
+ * 分支变更已整体进入基线（按内容比对，squash/rebase/merge 三种合入全兼容）：merge-base..branch 触及的
+ * 每个路径（-M 重命名探测），在 base 与 branch 两侧 blob 一致才算合入——
+ * squash 合入后分支与基线互非祖先，ancestry 判据必然误报，故按内容判。
+ * 文件在任一侧不存在（新增后又被删等）即不一致。无共同祖先或 ref 缺失 → err。
+ * @returns 全部一致→true、存在差异→false
+ */
+export declare function gitBranchContentMerged(root: string, branch: string, base: string): Promise<[GitCommandError | null, boolean | null]>;

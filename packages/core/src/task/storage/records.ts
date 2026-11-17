@@ -63,6 +63,7 @@ export type GateValue =
   | 'archive'
   | 'executor_model_effort'
   | 'light_dispatch'
+  | 'branch-merged'
 
 /**
  * 任务状态枚举（task.json.status 取值）。

@@ -41,7 +41,7 @@ export { startTask, checkTask, finishTask, archiveTask, } from "./task/task-ops.
 export { setActiveTask, clearActiveTask, resolveActiveTask, listPointers, clearPointersToTask, } from "./task/state/index.js";
 // git 查询面与集成操作面（拆分后各自导出）。
 export { countDirtyLines, gitChangedFilesSync, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitHasRebaseHead, gitWorktreeList, gitBranchExists, gitCheckRefFormat, } from "./workspace/git-query.js";
-export { gitAddCommit, gitMerge, gitMergeAbort, gitRebase, gitRebaseAbort, gitMergeFfOnly, gitWorktreeAdd, gitWorktreeRemove, gitWorktreePrune, gitBranchDelete, } from "./workspace/git-ops.js";
+export { gitAddCommit, gitMerge, gitMergeAbort, gitRebase, gitRebaseAbort, gitMergeFfOnly, gitBranchContentMerged, gitWorktreeAdd, gitWorktreeRemove, gitWorktreePrune, gitBranchDelete, } from "./workspace/git-ops.js";
 export { cleanupTaskWorktree, createTaskWorktree, renderBranchName, resolveTaskRepo, } from "./workspace/worktree-lifecycle.js";
 // prd 结构解析的单一实现（骨架常量/结构诊断/AC 编号/追溯行）。
 export { PRD_SECTIONS, PRD_STRUCTURE_CODES, PRD_MISSING, PLAN_DOC_MISSING, findMissingPrdTitle, findUnfilledPrdSections, inspectPrdStructure, inspectPlanDoc, } from "./task/prd-structure.js";
@@ -55,7 +55,7 @@ export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, f
 export { executeInitCommand } from "./workspace/command-ops.js";
 // 任务文档复核服务（align review/confirm 与 case review-only 同一编排模块）。
 export { executeAlignTask, executePlanReviewMark, executeTaskCase } from "./task/doc-review.js";
-export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from "./task/task-ops.js";
+export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeMergeTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from "./task/task-ops.js";
 export { lookupWorkflowStep } from "./injection/step-lookup.js";
 export { runDoctor, buildDoctorRelayText } from "./workspace/doctor.js";
 export { ensureSpecTemplates } from "./workspace/spec-templates.js";

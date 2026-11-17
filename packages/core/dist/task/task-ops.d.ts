@@ -276,6 +276,38 @@ export interface ExecuteArchiveTaskParams {
  * @returns [err, result]：err 为任一失败（消息含前缀）
  */
 export declare function executeArchiveTask(cwd: string, params: ExecuteArchiveTaskParams): Promise<[Error | null, ExecuteArchiveTaskResult | null]>;
+/** merge 工具成功结果（2.4：任务分支按 cleanup 模式合入基线）。 */
+export interface ExecuteMergeTaskResult {
+    taskRelPath: string;
+    /** 合入提交（merge 模式为合并提交；rebase 模式为 ff 后的分支顶端提交）。 */
+    commit: string;
+    baseBranch: string;
+    branch: string;
+    /** 本次合入带入基线的文件清单。 */
+    changedFiles: string[];
+    /** 实际使用的合入形态（worktree.cleanup 配置值）。 */
+    cleanupMode: string;
+}
+/** merge 工具编排入参（taskPath 可回退活跃任务）。 */
+export interface ExecuteMergeTaskParams {
+    /** 任务目录相对 .workloom 的路径（缺省回退会话活跃任务）。 */
+    taskPath?: string;
+}
+/**
+ * merge 工具编排：2.4 合入——按 worktree.cleanup 模式把任务分支合入仓主检出的
+ * 基线分支。merge-* 走 `merge --no-edit`（真合并提交）；rebase-* 先把任务分支在
+ * 任务 worktree 内 rebase 到基线之上、再在主检出 ff 合入（线性历史）；
+ * keep-branch/manual 本就约定不合入，直接拒绝。合入提交 sha 写入 task.json
+ * commit 字段，作为归档核验的凭据之一。
+ * 前置（fail loud）：任务 in_progress、已过 2.3 check、有任务分支；任务 worktree
+ * 须干净；主检出上与合入路径重叠的未提交修改须先处理。merge 冲突时
+ * `git merge --abort` 回滚后报错；rebase 冲突留在任务 worktree 内由人工解决。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话指针 key（活跃任务回退用）
+ * @param params 工具参数
+ * @returns [err, result]：err 为任一失败（消息含前缀）
+ */
+export declare function executeMergeTask(cwd: string, contextKey: string, params: ExecuteMergeTaskParams): Promise<[Error | null, ExecuteMergeTaskResult | null]>;
 /** list 工具成功结果（tasks 为摘要数组）。 */
 export interface ExecuteListTasksResult {
     tasks: TaskSummary[];

@@ -22,7 +22,15 @@ import { join } from 'node:path'
 
 import { findWorkloomRoot, insideWorkloom, WORKLOOM_DIR } from '../workspace/locate.js'
 import { loadConfig } from '../workspace/config-load.ts'
-import { gitAddCommit } from '../workspace/git-ops.ts'
+import { gitAddCommit, gitBranchContentMerged, gitMerge, gitMergeAbort, gitMergeFfOnly, gitRebase } from '../workspace/git-ops.ts'
+import {
+  gitBranchExists,
+  gitHasMergeHead,
+  gitRevParse,
+  gitStatusSync,
+  gitWorktreeList,
+  runGit,
+} from '../workspace/git-query.ts'
 import { cleanupTaskWorktree, createTaskWorktree } from '../workspace/worktree-lifecycle.ts'
 import { createCaseRecord } from './case-structure.ts'
 import { recordGateOverride } from './dispatch-records.ts'
@@ -61,6 +69,7 @@ import { ERR_PREFIX, TASK_ARCHIVE_NOTE, TASK_CREATE_LIGHT_NOTE, TASK_CREATE_NOTE
 
 import type { AutonomyValue, TaskModeValue, TaskView } from './state/index.ts'
 import type {
+  GateValue,
   TaskPriorityValue,
   TaskRecord,
   TaskStatusValue,
@@ -410,9 +419,11 @@ async function startTaskInternal(root: string, params: StartTaskParams): Promise
   if (gateErr !== null) throw gateErr
   // worktree 创建（插在守卫合流后、状态写盘前）：任一失败抛错即中止，
   // branch/base_branch/worktree_path 与迁移同一次落盘（经 migrateTask 的 patch）。
+  // parent 容器只编排不实现，不配发 worktree 与任务分支——配了即死目录
+  // （2026-11-17 zephyra 现场实证：容器 worktree 从未被使用）。
   const config = loadConfig(projectRoot)
   const patch: Partial<TaskRecord> = {}
-  if (config.worktree.enabled) {
+  if (config.worktree.enabled && view.mode !== MODES.PARENT) {
     if (!record.package) {
       throw new Error(
         `${TASK_ERR_PREFIX}: task has no package; edit .workloom/${params.taskRelPath}/task.json ` +
@@ -766,13 +777,15 @@ async function archiveTaskInternal(
   if (evalErr !== null || evaluation === null) {
     throw evalErr ?? new Error(`${TASK_ERR_PREFIX}: archive transition returned no evaluation`)
   }
+  const worktreeConfig = loadConfig(projectRoot)
+  // force 豁免的 branch-merged 留痕在此收集（核验块位于 worktree 清理后）。
+  const extraBypassed: GateValue[] = []
   // 先查冲突再动手：避免改完状态后因冲突失败留下半完成态。
   const now = new Date()
   const archiveRel = archiveRelPathOf(record.name, now)
   if (existsSync(insideWorkloom(projectRoot, archiveRel))) {
     throw new Error(`${TASK_ERR_PREFIX}: archive target already exists: ${archiveRel}`)
   }
-  const worktreeConfig = loadConfig(projectRoot)
   // 级联清理子任务（插在冲突检查后、父清理前）：失败即阻断——父目录未动、
   // 已清理的子 worktree 幂等可重跑。
   const cascadedChildren = await cascadeChildrenCleanup(projectRoot, view, worktreeConfig)
@@ -783,6 +796,33 @@ async function archiveTaskInternal(
   const [wtErr, worktreeCleanup] = await cleanupTaskWorktree(projectRoot, view, worktreeConfig)
   if (worktreeCleanup === null) {
     throw wtErr ?? new Error(`${TASK_ERR_PREFIX}: worktree cleanup returned no result`)
+  }
+  // 分支合入核验（2026-11-17 zephyra 漏合教训：2.4 被跳过，归档一路绿灯到「完成」）——
+  // 任务分支仍存在且其变更未全部进入基线则拦截；按内容比对，兼容 rebase/merge/
+  // squash 各合入形态（合入提交与任务分支可能互非祖先，ancestry 判据必误报）；
+  // cleanup 为 keep-branch/manual（合入本就不自动化，由人工负责）跳过；分支已删
+  // 或无分支（容器/轻量）跳过。force 可豁免并留痕。
+  const integrationManual =
+    worktreeConfig.worktree.cleanup === 'keep-branch' || worktreeConfig.worktree.cleanup === 'manual'
+  // 旧格式 task.json 可能缺 branch/base_branch 字段（undefined）——非字符串即跳过核验。
+  const hasBranchRefs = typeof record.branch === 'string' && record.branch !== '' &&
+    typeof record.base_branch === 'string' && record.base_branch !== ''
+  if (!integrationManual && hasBranchRefs) {
+    const [beErr, branchExists] = await gitBranchExists(projectRoot, record.branch)
+    if (beErr !== null) throw beErr
+    if (branchExists === true) {
+      const [mErr, merged] = await gitBranchContentMerged(projectRoot, record.branch, record.base_branch)
+      if (mErr !== null) throw mErr
+      if (merged === false) {
+        if (!forced) {
+          throw new Error(
+            `${TASK_ERR_PREFIX}: 任务分支 ${record.branch} 的变更尚未合入基线 ${record.base_branch}——` +
+              '先运行 workloom_task_merge 完成 2.4 合入，或删除确认无用的任务分支；确属误报可 force 归档留痕',
+          )
+        }
+        extraBypassed.push('branch-merged')
+      }
+    }
   }
   // 先移动、再在归档位置改状态：任一写盘失败都不会把原目录改成 completed。
   const [moveErr, archiveDir] = moveTaskToArchive(projectRoot, params.taskRelPath, archiveRel)
@@ -799,7 +839,7 @@ async function archiveTaskInternal(
     record.case = { ...record.case, phase: view.casePhase }
   }
   writeTaskRecordToDir(archiveDir, record)
-  for (const gate of evaluation.bypassedGates) {
+  for (const gate of [...evaluation.bypassedGates, ...extraBypassed]) {
     const [ovErr] = recordGateOverride(projectRoot, archiveRel, gate, params.reason)
     if (ovErr !== null) throw ovErr
   }
@@ -1013,6 +1053,177 @@ export async function executeArchiveTask(
     ]
   } catch (error) {
     return [toError(error), null]
+  }
+}
+
+/* ---------------- merge（2.4 合入） ---------------- */
+
+/** merge 工具成功结果（2.4：任务分支按 cleanup 模式合入基线）。 */
+export interface ExecuteMergeTaskResult {
+  taskRelPath: string
+  /** 合入提交（merge 模式为合并提交；rebase 模式为 ff 后的分支顶端提交）。 */
+  commit: string
+  baseBranch: string
+  branch: string
+  /** 本次合入带入基线的文件清单。 */
+  changedFiles: string[]
+  /** 实际使用的合入形态（worktree.cleanup 配置值）。 */
+  cleanupMode: string
+}
+
+/** merge 工具编排入参（taskPath 可回退活跃任务）。 */
+export interface ExecuteMergeTaskParams {
+  /** 任务目录相对 .workloom 的路径（缺省回退会话活跃任务）。 */
+  taskPath?: string
+}
+
+/**
+ * merge 工具编排：2.4 合入——按 worktree.cleanup 模式把任务分支合入仓主检出的
+ * 基线分支。merge-* 走 `merge --no-edit`（真合并提交）；rebase-* 先把任务分支在
+ * 任务 worktree 内 rebase 到基线之上、再在主检出 ff 合入（线性历史）；
+ * keep-branch/manual 本就约定不合入，直接拒绝。合入提交 sha 写入 task.json
+ * commit 字段，作为归档核验的凭据之一。
+ * 前置（fail loud）：任务 in_progress、已过 2.3 check、有任务分支；任务 worktree
+ * 须干净；主检出上与合入路径重叠的未提交修改须先处理。merge 冲突时
+ * `git merge --abort` 回滚后报错；rebase 冲突留在任务 worktree 内由人工解决。
+ * @param cwd 会话工作目录
+ * @param contextKey 会话指针 key（活跃任务回退用）
+ * @param params 工具参数
+ * @returns [err, result]：err 为任一失败（消息含前缀）
+ */
+export async function executeMergeTask(
+  cwd: string,
+  contextKey: string,
+  params: ExecuteMergeTaskParams,
+): Promise<[Error | null, ExecuteMergeTaskResult | null]> {
+  try {
+    requireWorkloomCwd(cwd)
+    const taskRelPath = resolveTaskRelPath(cwd, contextKey, params.taskPath, ERR_PREFIX.taskTool)
+    const result = await mergeTaskInternal(cwd, taskRelPath)
+    return [null, result]
+  } catch (error) {
+    return [toError(error), null]
+  }
+}
+
+/** merge 内部实现：见 executeMergeTask 文档注释。 */
+async function mergeTaskInternal(root: string, taskRelPath: string): Promise<ExecuteMergeTaskResult> {
+  const projectRoot = requireProjectRoot(root)
+  const record = requireTaskRecord(projectRoot, taskRelPath)
+  const view = toTaskView(record, taskRelPath)
+  if (view.status !== TaskStatus.IN_PROGRESS) {
+    throw new Error(
+      `${TASK_ERR_PREFIX}: only tasks in in_progress can be merged (current: ${view.status})`,
+    )
+  }
+  if (record.check === null) {
+    throw new Error(`${TASK_ERR_PREFIX}: 先完成 2.3 check 再执行 2.4 合入`)
+  }
+  if (record.branch === '' || record.base_branch === '') {
+    throw new Error(`${TASK_ERR_PREFIX}: 任务无任务分支（容器/轻量任务无需合入）`)
+  }
+  const worktreeConfig = loadConfig(projectRoot)
+  const cleanupMode = worktreeConfig.worktree.cleanup
+  if (cleanupMode === 'keep-branch' || cleanupMode === 'manual') {
+    throw new Error(
+      `${TASK_ERR_PREFIX}: worktree.cleanup 为 ${cleanupMode}——该模式约定合入不自动化，由人工处理；或调整配置后再合入`,
+    )
+  }
+  // 任务 worktree 须干净：实现工作应已全部提交在任务分支上。
+  if (record.worktree_path !== '') {
+    const wtAbs = join(projectRoot, record.worktree_path)
+    const [wtStatusErr, wtStatus] = gitStatusSync(wtAbs)
+    if (wtStatusErr !== null) throw wtStatusErr
+    if ((wtStatus ?? '').trim() !== '') {
+      throw new Error(`${TASK_ERR_PREFIX}: 任务 worktree 有未提交变更，先提交或清理后再合入`)
+    }
+  }
+  // 主检出定位：git worktree list 首个条目恒为主检出。
+  const [wlErr, worktrees] = await gitWorktreeList(projectRoot)
+  if (wlErr !== null) throw wlErr
+  const mainEntry = (worktrees ?? []).find((entry) => !entry.prunable)
+  if (mainEntry === undefined) throw new Error(`${TASK_ERR_PREFIX}: 未找到仓主检出`)
+  const mainRoot = mainEntry.path
+  // 变更已在基线：无事可做（常见于重跑或人工已合入）。
+  const [preErr, alreadyMerged] = await gitBranchContentMerged(projectRoot, record.branch, record.base_branch)
+  if (preErr !== null) throw preErr
+  if (alreadyMerged === true) {
+    throw new Error(`${TASK_ERR_PREFIX}: 任务分支变更已在基线中，无需合入（可直接归档）`)
+  }
+  // 主检出脏路径与合入足迹重叠则先拒绝：防冲突污染无关簿记。
+  const [footErr, footOut] = await runGit(projectRoot, [
+    'diff',
+    '--name-only',
+    '-M',
+    `HEAD..${record.branch}`,
+  ])
+  if (footErr !== null) throw footErr
+  const footprint = new Set((footOut ?? '').split('\n').filter((line) => line !== ''))
+  const [mainStatusErr, mainStatus] = gitStatusSync(mainRoot)
+  if (mainStatusErr !== null) throw mainStatusErr
+  const dirtyOverlap = (mainStatus ?? '')
+    .split('\n')
+    .filter((line) => line.length > 3)
+    .map((line) => line.slice(3))
+    .filter((path) => footprint.has(path))
+  if (dirtyOverlap.length > 0) {
+    throw new Error(
+      `${TASK_ERR_PREFIX}: 主检出存在与合入冲突的未提交修改（${dirtyOverlap.slice(0, 3).join(', ')}${dirtyOverlap.length > 3 ? ' 等' : ''}），先提交或处理后再合入`,
+    )
+  }
+  const [preShaErr, preSha] = await gitRevParse(mainRoot, ['HEAD'])
+  if (preShaErr !== null || preSha === null) throw preShaErr ?? new Error('rev-parse HEAD returned no output')
+  // 按 cleanup 模式分派合入形态。
+  if (cleanupMode.startsWith('rebase-')) {
+    if (record.worktree_path === '') {
+      throw new Error(`${TASK_ERR_PREFIX}: rebase 合入需要任务 worktree（任务分支须检出于此）`)
+    }
+    const [rbErr] = await gitRebase(join(projectRoot, record.worktree_path), record.base_branch)
+    if (rbErr !== null) {
+      throw new Error(
+        `${TASK_ERR_PREFIX}: 任务分支 rebase 到 ${record.base_branch} 失败（冲突中断态留在任务 worktree，解决后重跑）：${rbErr.stderr ?? rbErr.message}`,
+      )
+    }
+    const [ffErr] = await gitMergeFfOnly(mainRoot, record.branch)
+    if (ffErr !== null) {
+      throw new Error(
+        `${TASK_ERR_PREFIX}: ff 合入失败（基线可能在合入期间前进，重跑即可）：${ffErr.stderr ?? ffErr.message}`,
+      )
+    }
+  } else {
+    const [mgErr] = await gitMerge(mainRoot, record.branch)
+    if (mgErr !== null) {
+      // 真合并冲突：abort 回滚（脏路径已预检，不会误伤），fail loud 交人工。
+      const [hasMergeErr, merging] = await gitHasMergeHead(mainRoot)
+      if (hasMergeErr === null && merging === true) await gitMergeAbort(mainRoot)
+      throw new Error(
+        `${TASK_ERR_PREFIX}: 合并冲突（已回滚，需人工处理任务分支）：${mgErr.stderr ?? mgErr.message}`,
+      )
+    }
+  }
+  // 合入结果核验：分支变更应已全部进入基线；并把合入提交 sha 记入 task.json。
+  const [postErr, mergedNow] = await gitBranchContentMerged(projectRoot, record.branch, record.base_branch)
+  if (postErr !== null) throw postErr
+  if (mergedNow === false) {
+    throw new Error(`${TASK_ERR_PREFIX}: 合入验证失败——任务分支变更仍未全部进入基线，请人工核查`)
+  }
+  const [shaErr, commitSha] = await gitRevParse(mainRoot, ['HEAD'])
+  if (shaErr !== null || commitSha === null) throw shaErr ?? new Error('rev-parse HEAD returned no output')
+  const [cfErr, cfOut] = await runGit(mainRoot, ['diff', '--name-only', `${preSha.trim()}..HEAD`])
+  if (cfErr !== null) throw cfErr
+  const changedFiles = (cfOut ?? '').split('\n').filter((line) => line !== '')
+  if (changedFiles.length === 0) {
+    throw new Error(`${TASK_ERR_PREFIX}: 合入无变更——请人工核查任务分支状态`)
+  }
+  record.commit = commitSha.trim()
+  writeTaskRecordToDir(insideWorkloom(projectRoot, taskRelPath), record)
+  return {
+    taskRelPath,
+    commit: commitSha.trim(),
+    baseBranch: record.base_branch,
+    branch: record.branch,
+    changedFiles,
+    cleanupMode,
   }
 }
 

@@ -24,12 +24,13 @@ export const COMMAND_DESCRIPTIONS = {
     'Run a structured workflow health check (results are handed to the model as JSON)',
 } as const
 
-/** 十三个工具名（十一个任务工具 + executor + 步骤详情，模型可见）。 */
+/** 十四个工具名（十二个任务工具 + executor + 步骤详情，模型可见）。 */
 export const TOOL_NAMES = {
   taskCreate: 'workloom_task_create',
   taskStart: 'workloom_task_start',
   taskCheck: 'workloom_task_check',
   taskComplete: 'workloom_task_complete',
+  taskMerge: 'workloom_task_merge',
   taskFinish: 'workloom_task_finish',
   taskArchive: 'workloom_task_archive',
   taskList: 'workloom_task_list',
@@ -50,6 +51,8 @@ export const TOOL_DESCRIPTIONS = {
     'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
   taskComplete:
     'Mark the task completed without archiving (completed-not-archived: the task stays in place awaiting the parent cascade archive; force bypasses and is recorded)',
+  taskMerge:
+    'Merge the task branch into the base branch in the main checkout per the worktree.cleanup config mode (merge-* true merge, rebase-* rebase + fast-forward; 2.4 step, main session only, requires a recorded check; refuses keep-branch/manual modes and when the branch content is already merged)',
   taskAlign:
     'Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)',
   taskCase:
@@ -80,6 +83,8 @@ export const TOOL_SNIPPETS = {
     'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
   taskComplete:
     'workloom_task_complete(taskPath?, force?, reason?) — mark the task completed without archiving',
+  taskMerge:
+    'workloom_task_merge(taskPath?) — merge the task branch into the base branch (2.4, per worktree.cleanup mode)',
   taskAlign:
     'workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content',
   taskCase:

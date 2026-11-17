@@ -9,7 +9,7 @@
  * - 工具名/描述/参数描述/错误前缀改引 core surface 常量，与 core 逐字一致。
  */
 import { delegationDepthOf } from '@deepseek-ai/dsh-subagent';
-import { AUTONOMY, ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCompleteTask, executeCreateTask, executeFinishTask, executeListTasks, executePlanReviewMark, executeSetAutonomy, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
+import { AUTONOMY, ERR_PREFIX, executeAlignTask, executeArchiveTask, executeCheckTask, executeCompleteTask, executeMergeTask, executeCreateTask, executeFinishTask, executeListTasks, executePlanReviewMark, executeSetAutonomy, executeStartTask, executeTaskCase, PARAM_DESCRIPTIONS, renderTask, requireWorkloomCwd, MODES, TOOL_DESCRIPTIONS, TOOL_NAMES, } from '@workloom-ai/core';
 import { CONTEXT_KEY_PREFIX } from "../constants.js";
 /**
  * 注册十一个任务管理工具（create/start/check/complete/align/case/planreview/
@@ -99,6 +99,21 @@ export function registerTaskTools(ctx) {
         output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
         isConcurrencySafe: () => true,
         execute: (args, exec) => completeTaskTool(args, exec),
+    });
+    tools.register({
+        name: TOOL_NAMES.taskMerge,
+        description: TOOL_DESCRIPTIONS.taskMerge,
+        parameters: {
+            type: 'object',
+            properties: {
+                taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+            },
+            required: [],
+            additionalProperties: false,
+        },
+        output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+        isConcurrencySafe: () => true,
+        execute: (args, exec) => mergeTaskTool(args, exec),
     });
     tools.register({
         name: TOOL_NAMES.taskAlign,
@@ -312,6 +327,26 @@ async function completeTaskTool(args, exec) {
         throw err ?? new Error(`${ERR_PREFIX.taskTool}: complete returned no result`);
     }
     return { taskRelPath: task.taskRelPath, task };
+}
+/**
+ * merge 工具：2.4 任务分支合入基线（只允许主会话调用——提交权限与 align 同口径，
+ * executor 等子代理按 delegation depth 硬拒绝）。合入形态由 worktree.cleanup 配置决定。
+ */
+async function mergeTaskTool(args, exec) {
+    const typed = args;
+    const agent = exec.agent;
+    if (agent !== undefined && delegationDepthOf(agent) > 0) {
+        throw new Error(`${ERR_PREFIX.taskTool}: workloom_task_merge can only be called from the main session ` +
+            '(commit authority stays in the main session; the 2.4 merge is not an executor action)');
+    }
+    const cwd = cwdOf(exec);
+    const [err, result] = await executeMergeTask(cwd, contextKeyOf(exec), {
+        taskPath: taskPathOf(typed),
+    });
+    if (err !== null || result === null) {
+        throw err ?? new Error(`${ERR_PREFIX.taskTool}: merge returned no result`);
+    }
+    return result;
 }
 /**
  * align 工具：PRD/PLAN 内容确认 review/confirm（只允许主会话调用——内容确认是

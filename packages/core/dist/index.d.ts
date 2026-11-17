@@ -38,7 +38,7 @@ export { DISPATCH_MODEL_SOURCES, recordExecutorDispatch, settleExecutorDispatch,
 export { startTask, checkTask, finishTask, archiveTask, } from './task/task-ops.ts';
 export { setActiveTask, clearActiveTask, resolveActiveTask, listPointers, clearPointersToTask, } from './task/state/index.ts';
 export { countDirtyLines, gitChangedFilesSync, gitStatusSync, gitCurrentBranchSync, gitRevParse, gitIsAncestor, gitHasMergeHead, gitHasRebaseHead, gitWorktreeList, gitBranchExists, gitCheckRefFormat, } from './workspace/git-query.ts';
-export { gitAddCommit, gitMerge, gitMergeAbort, gitRebase, gitRebaseAbort, gitMergeFfOnly, gitWorktreeAdd, gitWorktreeRemove, gitWorktreePrune, gitBranchDelete, } from './workspace/git-ops.ts';
+export { gitAddCommit, gitMerge, gitMergeAbort, gitRebase, gitRebaseAbort, gitMergeFfOnly, gitBranchContentMerged, gitWorktreeAdd, gitWorktreeRemove, gitWorktreePrune, gitBranchDelete, } from './workspace/git-ops.ts';
 export type { GitWorktreeEntry } from './workspace/git-query.ts';
 export { cleanupTaskWorktree, createTaskWorktree, renderBranchName, resolveTaskRepo, } from './workspace/worktree-lifecycle.ts';
 export { PRD_SECTIONS, PRD_STRUCTURE_CODES, PRD_MISSING, PLAN_DOC_MISSING, findMissingPrdTitle, findUnfilledPrdSections, inspectPrdStructure, inspectPlanDoc, } from './task/prd-structure.ts';
@@ -50,7 +50,7 @@ export { LOCAL_FRAGMENT_TARGETS, WorkloomLocalPromptError, parseLocalFragment, f
 export { executeInitCommand } from './workspace/command-ops.ts';
 export { executeAlignTask, executePlanReviewMark, executeTaskCase } from './task/doc-review.ts';
 export type { ExecutePlanReviewMarkParams, ExecutePlanReviewMarkResult, ExecuteTaskCaseParams, ExecuteTaskCaseResult, PlanReviewMarkPhase, } from './task/doc-review.ts';
-export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from './task/task-ops.ts';
+export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStartTask, executeCheckTask, executeCompleteTask, executeMergeTask, executeFinishTask, executeArchiveTask, executeListTasks, executeSetAutonomy, setAutonomy, } from './task/task-ops.ts';
 export { lookupWorkflowStep } from './injection/step-lookup.ts';
 export { runDoctor, buildDoctorRelayText } from './workspace/doctor.ts';
 export { ensureSpecTemplates } from './workspace/spec-templates.ts';

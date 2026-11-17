@@ -114,7 +114,7 @@ Completion criteria: no unresolved findings against spec, lint and typecheck all
 
 #### 2.4 Commit
 
-The main session commits in batches: one commit per logical change, message format `<type>(<scope>): <description>`. When the active task has a worktree, code commits are made on the task branch inside the worktree (`git -C <worktree>` or a worktree workdir); session bookkeeping and task-metadata commits stay in the main repository, and the two kinds are never mixed in one commit.
+After `workloom_task_check` has recorded the pass, merge the task branch into the base branch with `workloom_task_merge` (main session only): the tool picks the integration form from the `worktree.cleanup` config mode — `merge-*` runs a true merge in the main checkout, `rebase-*` rebases the task branch in the task worktree then fast-forwards the base; it refuses `keep-branch`/`manual` modes and no-ops when the branch content is already merged. The merge commit sha lands in task.json `commit`. Other commits are made by the main session in batches: one commit per logical change, message format `<type>(<scope>): <description>`. When the active task has a worktree, code commits are made on the task branch inside the worktree (`git -C <worktree>` or a worktree workdir); session bookkeeping and task-metadata commits stay in the main repository, and the two kinds are never mixed in one commit. Archiving verifies that the task branch's changes have reached the base (content comparison, force-bypass recorded) — an unmerged branch blocks `workloom_task_archive`.
 Completion criteria: `git status` shows no dirty files belonging to this task.
 
 ## Phase 3 Wrap up

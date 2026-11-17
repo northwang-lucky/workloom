@@ -43,7 +43,7 @@ export type TaskPriorityKey = 'P0' | 'P1' | 'P2' | 'P3';
 /** 优先级取值（task.json.priority）。 */
 export type TaskPriorityValue = 'P0' | 'P1' | 'P2' | 'P3';
 /** 卡点取值（task.json overrides[].gate；字面量与历史审计记录保持稳定）。 */
-export type GateValue = 'start' | 'check' | 'archive' | 'executor_model_effort' | 'light_dispatch';
+export type GateValue = 'start' | 'check' | 'archive' | 'executor_model_effort' | 'light_dispatch' | 'branch-merged';
 /**
  * 任务状态枚举（task.json.status 取值）。
  */

@@ -24,6 +24,8 @@ export const OVERRIDE_GATES = Object.freeze({
   EXECUTOR_MODEL_EFFORT: 'executor_model_effort',
   // 轻量任务派发拒绝的 force 覆盖（轻量任务由主会话包办，不需要执行器）。
   LIGHT_DISPATCH: 'light_dispatch',
+  // 归档时任务分支未合入基线的 force 豁免（2.4 漏合防线；见 task-ops archive 核验）。
+  BRANCH_MERGED: 'branch-merged',
 } as const)
 
 /** 卡点枚举键。 */
@@ -41,6 +43,8 @@ export const GATE_TOOL_NAMES: Readonly<Record<GateValue, string>> = Object.freez
   executor_model_effort: 'workloom_execute',
   // light_dispatch 同由 workloom_execute 触发（轻量任务拒绝派发的 force 豁免留痕）。
   light_dispatch: 'workloom_execute',
+  // branch-merged 在归档流程内核验，触发入口为归档工具。
+  'branch-merged': 'workloom_task_archive',
 })
 
 /** 轻量任务派发拒绝文案（主会话包办语义；原 LIGHT_DISPATCH_REJECT，字面不变）。 */

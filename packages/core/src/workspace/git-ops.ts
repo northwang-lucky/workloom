@@ -178,3 +178,45 @@ export async function gitBranchDelete(root: string, branch: string): Promise<[Gi
   if (err !== null) return [err, null]
   return [null, stdout]
 }
+
+/**
+ * 分支变更已整体进入基线（按内容比对，squash/rebase/merge 三种合入全兼容）：merge-base..branch 触及的
+ * 每个路径（-M 重命名探测），在 base 与 branch 两侧 blob 一致才算合入——
+ * squash 合入后分支与基线互非祖先，ancestry 判据必然误报，故按内容判。
+ * 文件在任一侧不存在（新增后又被删等）即不一致。无共同祖先或 ref 缺失 → err。
+ * @returns 全部一致→true、存在差异→false
+ */
+export async function gitBranchContentMerged(
+  root: string,
+  branch: string,
+  base: string,
+): Promise<[GitCommandError | null, boolean | null]> {
+  const [mbErr, mergeBase] = await runGit(root, ['merge-base', base, branch])
+  if (mbErr !== null || mergeBase === null) return [mbErr ?? new Error('merge-base returned no output'), null]
+  const mb = mergeBase.trim()
+  const [diffErr, diffOut] = await runGit(root, ['diff', '--name-only', '-M', `${mb}..${branch}`])
+  if (diffErr !== null) return [diffErr, null]
+  const files = (diffOut ?? '').split('\n').filter((line) => line !== '')
+  // 存在性用 ls-tree 判定（路径缺失 exit 0 且输出空，ref 无效才 128——
+  // 与 git show 的 128「exists on disk, but not in <ref>」变体区分开），
+  // 存在才取内容，缺失记 null。
+  const blobAt = async (
+    ref: string,
+    file: string,
+  ): Promise<[GitCommandError | null, string | null]> => {
+    const [lsErr, lsOut] = await runGit(root, ['ls-tree', ref, '--', file])
+    if (lsErr !== null) return [lsErr, null]
+    if ((lsOut ?? '').trim() === '') return [null, null]
+    const [showErr, content] = await runGit(root, ['show', `${ref}:${file}`])
+    if (showErr !== null) return [showErr, null]
+    return [null, content]
+  }
+  for (const file of files) {
+    const [bErr, baseBlob] = await blobAt(base, file)
+    if (bErr !== null) return [bErr, null]
+    const [fErr, branchBlob] = await blobAt(branch, file)
+    if (fErr !== null) return [fErr, null]
+    if (baseBlob !== branchBlob) return [null, false]
+  }
+  return [null, true]
+}

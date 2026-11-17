@@ -18,6 +18,7 @@ export declare const OVERRIDE_GATES: Readonly<{
     readonly ARCHIVE: "archive";
     readonly EXECUTOR_MODEL_EFFORT: "executor_model_effort";
     readonly LIGHT_DISPATCH: "light_dispatch";
+    readonly BRANCH_MERGED: "branch-merged";
 }>;
 /** 卡点枚举键。 */
 export type OverrideGateKey = keyof typeof OVERRIDE_GATES;

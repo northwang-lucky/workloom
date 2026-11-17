@@ -20,6 +20,7 @@ import {
   executeArchiveTask,
   executeCheckTask,
   executeCompleteTask,
+  executeMergeTask,
   executeCreateTask,
   executeFinishTask,
   executeListTasks,
@@ -129,6 +130,22 @@ export function registerTaskTools(ctx: Context): void {
     output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
     isConcurrencySafe: () => true,
     execute: (args, exec) => completeTaskTool(args, exec),
+  })
+
+  tools.register({
+    name: TOOL_NAMES.taskMerge,
+    description: TOOL_DESCRIPTIONS.taskMerge,
+    parameters: {
+      type: 'object',
+      properties: {
+        taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    output: { schema: { type: 'object', additionalProperties: true }, render: renderTask },
+    isConcurrencySafe: () => true,
+    execute: (args, exec) => mergeTaskTool(args, exec),
   })
 
   tools.register({
@@ -358,6 +375,29 @@ async function completeTaskTool(args: unknown, exec: ToolRunContext): Promise<un
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: complete returned no result`)
   }
   return { taskRelPath: task.taskRelPath, task }
+}
+
+/**
+ * merge 工具：2.4 任务分支合入基线（只允许主会话调用——提交权限与 align 同口径，
+ * executor 等子代理按 delegation depth 硬拒绝）。合入形态由 worktree.cleanup 配置决定。
+ */
+async function mergeTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
+  const typed = args as Record<string, unknown>
+  const agent = exec.agent
+  if (agent !== undefined && delegationDepthOf(agent) > 0) {
+    throw new Error(
+      `${ERR_PREFIX.taskTool}: workloom_task_merge can only be called from the main session ` +
+        '(commit authority stays in the main session; the 2.4 merge is not an executor action)',
+    )
+  }
+  const cwd = cwdOf(exec)
+  const [err, result] = await executeMergeTask(cwd, contextKeyOf(exec), {
+    taskPath: taskPathOf(typed),
+  })
+  if (err !== null || result === null) {
+    throw err ?? new Error(`${ERR_PREFIX.taskTool}: merge returned no result`)
+  }
+  return result
 }
 
 /**
