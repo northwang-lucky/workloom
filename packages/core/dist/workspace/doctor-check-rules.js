@@ -208,7 +208,6 @@ export function checkConfirmCompleteness(nodes) {
         }
         if (view.planConfirmation === null &&
             view.mode === MODES.STANDARD &&
-            view.children.length === 0 &&
             (view.stage === STAGES.IMPLEMENTING || view.stage === STAGES.CHECKING)) {
             issues.push(makeIssue({
                 code: 'confirm-completeness',

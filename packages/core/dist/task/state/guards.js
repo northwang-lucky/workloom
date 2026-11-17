@@ -31,11 +31,13 @@ function guardPrdConfirmed(view) {
         return GUARD_PASS;
     return view.alignment !== null ? GUARD_PASS : guardReject(ALIGNMENT_MISSING);
 }
-/** plan 已确认（PLAN 内容确认记录存在；light 与容器任务豁免）。 */
+/** plan 已确认（PLAN 内容确认记录存在；light 与 parent 模式豁免——parent 的计划即
+ * 子任务清单，children 建与不建均不强制容器级 PLAN；豁免跟模式走，只影响
+ * 「显式 parent 且无 children」窗口，其余状态与旧 children 判据等价）。 */
 function guardPlanConfirmed(view) {
     if (view.mode === MODES.LIGHT)
         return GUARD_PASS;
-    if (view.children.length > 0)
+    if (view.mode === MODES.PARENT)
         return GUARD_PASS;
     return view.planConfirmation !== null ? GUARD_PASS : guardReject(PLAN_CONFIRM_MISSING_TEXT);
 }
@@ -66,7 +68,7 @@ function guardStartReady(view, ctx) {
     else {
         // prd 内容门禁与 review/confirm 共用分类器：一次列出 H1/小节/R-AC 追踪的全部问题。
         missing.push(...inspectPrdStructure(prd).map((issue) => issue.message));
-        if (view.children.length === 0) {
+        if (view.mode !== MODES.PARENT) {
             const plan = readTaskFileOrNull(ctx.root, ctx.taskRelPath, FILE_NAMES.plan);
             missing.push(...inspectPlanDoc(plan, prd).map((issue) => issue.message));
         }

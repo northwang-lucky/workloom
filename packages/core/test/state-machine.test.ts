@@ -1088,16 +1088,23 @@ test('start-ready 与 plan-confirmed 守卫分工：PLAN 结构缺失与内容�
   }
 })
 
-test('plan-confirmed 守卫：容器任务（children 非空）豁免；light 豁免', () => {
+test('plan-confirmed 守卫：parent 模式豁免（含无 children 容器）；light 豁免', () => {
   const root = makeRoot()
   try {
+    // 显式 parent 且无 children：豁免——容器级 PLAN 不强制（豁免跟模式走）。
+    const emptyParent = makeGuardView(root, 'tasks/parent-empty', {
+      mode: 'parent',
+      alignment: { passedAt: 'x', summary: 's' },
+    }, { 'prd.md': FILLED_PRD, 'implement.jsonl': '{"file": "AGENTS.md"}\n', 'check.jsonl': '{"file": "AGENTS.md"}\n' })
+    assert.equal(guardReason('plan-confirmed', root, 'tasks/parent-empty', emptyParent), null)
+    // parent 模式同时豁免 PLAN 结构检查（children 的 PLAN 在 CASE 校验中消费）。
+    assert.equal(guardReason('start-ready', root, 'tasks/parent-empty', emptyParent), null)
     const container = makeGuardView(root, 'tasks/container-1', {
       mode: 'full',
       children: ['tasks/xx-01-child'],
       alignment: { passedAt: 'x', summary: 's' },
     }, { 'prd.md': FILLED_PRD, 'implement.jsonl': '{"file": "AGENTS.md"}\n', 'check.jsonl': '{"file": "AGENTS.md"}\n' })
     assert.equal(guardReason('plan-confirmed', root, 'tasks/container-1', container), null)
-    // 容器任务同时豁免 PLAN 结构检查（children 的 PLAN 在 CASE 校验中消费）。
     assert.equal(guardReason('start-ready', root, 'tasks/container-1', container), null)
     const light = makeGuardView(root, 'tasks/light-plan', { mode: 'light' }, { 'prd.md': LIGHT_MIN_PRD })
     assert.equal(guardReason('plan-confirmed', root, 'tasks/light-plan', light), null)
