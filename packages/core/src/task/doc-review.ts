@@ -11,7 +11,7 @@
  *   只经 task/state 的确认迁移窄写口原子落盘（confirmPrd / confirmPlan）；
  *   确认记录含 passedAt/summary/source/autonomy，无哈希，每次确认刷新为最近一次；
  * - PLAN 确认要求 PRD 已有确认记录且 planReview 轨道 clean（守卫在状态机硬校验，
- *   与 autonomy 无关）；
+ *   与 autonomy 无关；light 模式豁免——与 plan-confirmed 的 light 豁免对齐）；
  * - case review 只读：CASE 由主会话对照 PRD、PLAN 与实际代码复核；复核满意后
  *   直接续接同一 designSession 执行，不写任何复核凭证；
  * - cwd/root/task 解析与 task-ops 同款（requireWorkloomCwd + resolveTaskRelPath +

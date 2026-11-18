@@ -41,8 +41,12 @@ function guardPlanConfirmed(view) {
         return GUARD_PASS;
     return view.planConfirmation !== null ? GUARD_PASS : guardReject(PLAN_CONFIRM_MISSING_TEXT);
 }
-/** PLAN 评审轨道已 clean（Judger 评审零意见；与 autonomy 无关，任何自治度都要过）。 */
+/** PLAN 评审轨道已 clean（Judger 评审零意见；与 autonomy 无关，任何自治度都要过）。
+ * light 模式豁免——轻量任务由主会话包办，无派发亦无评审循环，与
+ * guardPlanConfirmed 的 light 豁免对齐（2026-11-18 zephyra A03 实证冲突）。 */
 function guardPlanReviewClean(view) {
+    if (view.mode === MODES.LIGHT)
+        return GUARD_PASS;
     if (view.planReview === PLAN_REVIEW_PHASES.CLEAN)
         return GUARD_PASS;
     return guardReject(`plan review is not clean (current phase: ${view.planReview}): dispatch the Judger review ` +

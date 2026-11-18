@@ -660,6 +660,25 @@ test('planReview 守卫：非 clean 时 confirmPlan 失败，clean 后通过', a
   }
 })
 
+test('planReview 守卫：light 模式豁免（与 plan-confirmed 豁免对齐，主会话包办无评审循环）', async () => {
+  const root = makeRoot()
+  try {
+    const [, created] = await createTask(root, { title: 'Light Plan Review', mode: 'light' })
+    const rel = created.taskRelPath
+    const [, record] = requireTaskRecordOrThrow(root, rel)
+    record.autonomy = 'semi'
+    writeTaskRecord(root, rel, record)
+    // semi 的 PRD 确认仍人工；PLAN 走自动记录——轨道 none（未评审）也应放行。
+    const [prdErr] = confirmPrd(root, rel, { summary: 'converged' })
+    assert.equal(prdErr, null)
+    const [err, view] = confirmPlan(root, rel, {})
+    assert.equal(err, null, err?.message)
+    assert.equal(view.planConfirmation?.source, 'auto')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('planReview 守卫：auto 与 semi 同样要求 clean（Judger 评审与 autonomy 无关）', async () => {
   const root = makeRoot()
   try {
