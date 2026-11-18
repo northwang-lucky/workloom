@@ -12,5 +12,6 @@ Dependency preparation for task worktrees, driven by `packages.<name>.setup`.
 - redirection: an input redirection followed by another redirection in the same command forms a non-whitelisted `<…>` span (`cmd < in > out` gives `< in >`, `cmd < in 2>&1` gives `< in 2>`) and fails config loading; put every `>` before the `<` (`cmd > out < in`, `cmd 2>&1 < in`) or keep only one redirection
 - go: nothing to prepare; the shared module cache serves every worktree
 - manual worktrees: worktrees created outside workloom get the same recipe by hand; the tool does not manage them
+- branch lifetime: never delete a task branch (especially a container/group branch) by hand — child tasks start with `base_branch` stacked on the parent branch, so deleting the parent orphans every descendant's base reference and the archive-time merged check blocks with a repair hint; branch cleanup belongs to `workloom_task_archive` per the `worktree.cleanup` mode, and manual worktree removal must likewise re-point descendants' `base_branch` in the same pass
 - failure: a failed command reports the command and exit code, keeps the worktree and branch in place, and a re-run start retries setup after the config is fixed
 - counter-example: a setup command waiting for interactive input, or a symlinked node_modules that breaks the bundler
