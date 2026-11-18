@@ -1557,3 +1557,53 @@ test('executeStartTask：parent 模式不配发 worktree 与任务分支', { ...
     rmSync(base, { recursive: true, force: true })
   }
 })
+
+test('archive：基线分支不存在时给修复指引（不吐 git 原始错误），force 可豁免', { ...gitSkip }, async () => {
+  const base = makeBase()
+  try {
+    const root = makeGitProject(base)
+    runGit(root, ['checkout', '-b', 'feature-x'])
+    writeFileSync(join(root, 'feat.txt'), 'feat\n')
+    runGit(root, ['add', 'feat.txt'])
+    runGit(root, ['commit', '-m', 'feat: add'])
+    runGit(root, ['checkout', 'main'])
+    const [createErr, created] = await executeCreateTask(root, 'sess-arc-missing-base', {
+      title: 'missing-base-task',
+      package: 'repo',
+      mode: 'light',
+    })
+    assert.equal(createErr, null, createErr?.message)
+    const rel = created.taskRelPath
+    const rec = readTaskJson(root, rel)
+    rec.status = 'completed'
+    rec.stage = 'completed'
+    rec.check = { passedAt: '2026-11-18T00:00:00.000Z', summary: 'checked' }
+    rec.branch = 'feature-x'
+    rec.base_branch = 'deleted-group-branch'
+    writeFileSync(
+      join(root, '.workloom', rel, 'task.json'),
+      `${JSON.stringify(rec, null, 2)}\n`,
+    )
+    // 非 force：可判定文案 + 修复指引，无 git 原始错误。
+    const [arcErr] = await workloom.executeArchiveTask(root, { taskPath: rel })
+    assert.ok(arcErr !== null)
+    assert.ok(arcErr.message.includes('deleted-group-branch 不存在'), arcErr.message)
+    assert.ok(arcErr.message.includes('base_branch'), arcErr.message)
+    assert.ok(!arcErr.message.includes('fatal:'), arcErr.message)
+    // force：豁免并留痕 branch-merged。
+    const [arcErr2, result] = await workloom.executeArchiveTask(root, {
+      taskPath: rel,
+      force: true,
+      reason: '基线分支已清理，确认内容已另行合入',
+    })
+    assert.equal(arcErr2, null, arcErr2?.message)
+    assert.ok(result)
+    const archived = readTaskJson(root, result.taskRelPath)
+    assert.ok(
+      archived.overrides.some((entry) => entry.gate === 'branch-merged'),
+      'force 豁免须留痕 branch-merged',
+    )
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})

@@ -587,10 +587,23 @@ async function archiveTaskInternal(root, params) {
         const [beErr, branchExists] = await gitBranchExists(projectRoot, record.branch);
         if (beErr !== null)
             throw beErr;
-        if (branchExists === true) {
+        // 基线 ref 缺失（容器分支被清理、改名等簿记漂移）给出可判定修复指引，
+        // 不吐 git 原始错误（2026-11-18 zephyra 实证：删容器分支后后代 base_branch 悬空）。
+        const [baseRefErr, baseRefExists] = await gitBranchExists(projectRoot, record.base_branch);
+        if (baseRefErr !== null)
+            throw baseRefErr;
+        if (baseRefExists === false) {
+            if (!forced) {
+                throw new Error(`${TASK_ERR_PREFIX}: 合入核验的基线分支 ${record.base_branch} 不存在（可能已被清理或改名）——` +
+                    '请把 task.json 的 base_branch 改为当前基线分支后重试归档；确属误报可 force 归档留痕');
+            }
+            extraBypassed.push('branch-merged');
+        }
+        else if (branchExists === true) {
             const [mErr, merged] = await gitBranchContentMerged(projectRoot, record.branch, record.base_branch);
-            if (mErr !== null)
-                throw mErr;
+            if (mErr !== null) {
+                throw new Error(`${TASK_ERR_PREFIX}: 任务分支 ${record.branch} 的合入核验失败：${mErr.stderr ?? mErr.message}`);
+            }
             if (merged === false) {
                 if (!forced) {
                     throw new Error(`${TASK_ERR_PREFIX}: 任务分支 ${record.branch} 的变更尚未合入基线 ${record.base_branch}——` +
