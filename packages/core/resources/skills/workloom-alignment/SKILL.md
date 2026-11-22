@@ -34,7 +34,7 @@ Present every question with the same visual template so a long batch stays skimm
 ```text
 ❓ **Q1** - **<question title>**
 
-**Source:** <where the question comes from — parent doc, code, or an earlier answer — with file links>.
+**Source:** <one or two sentences stating the concrete facts that force this question — the conflicting constraints, the gap, or the earlier answer — written so the user can decide without opening anything; file links may follow in parentheses as optional evidence>.
 
 - A. **<option label> (recommended)**: <content>.
 - B. **<option label>**: <content>.
@@ -43,6 +43,8 @@ Present every question with the same visual template so a long batch stays skimm
 ```
 
 The title line numbers the question as `❓ **Q<n>**` followed by a bold title; `❓` and `➡️` are fixed markers, the same on every question. Titles stay plain bold text — no `#` heading, no per-topic emoji. Labels and content follow the user's language.
+
+The Source line must be self-contained: it states the conflict or constraint in plain words, with the relevant numbers and names inline (field names, thresholds, task ids). Bare file links are never enough — a Source the user must click to understand is a failed Source; links are optional evidence, not the substance.
 
 **Fact nodes** are investigated by you — file, LSP, and web retrieval — only when a decision is blocked on a fact. Deep implementation research is not Phase 1.1 work: it belongs to Phase 1.2's Researcher after the PRD converges.
 
