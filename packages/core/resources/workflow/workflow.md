@@ -16,6 +16,7 @@ states:
 3. Persist artifacts: requirements, designs, research, and session records go into `.workloom/tasks/` and `.workloom/workspace/`. Conversations get compacted; files don't.
 4. Commit authority stays in the main session: subagents implement and check; the main session fixes check-stage findings per 2.3; git commits happen only in the main session's Phase 2.4 and Phase 3. The 2.4 branch merge runs through `workloom_task_merge` (never executor-side).
 5. Model recommends, user confirms subtasks: the model only recommends splitting a task and never creates subtask tasks before the user confirms the candidate list and the split itself. A container task stays in planning; its subtasks run their own full lifecycle; the container does the final acceptance and archives last. Subtask checks follow the same check discipline as main-task checks — they fix P2 findings themselves and escalate P0/P1 in their reports; "the container does the final acceptance" refers only to the timing and responsibility of the overall acceptance, not to a read-only role for the Checker, and "fixing is decided by the container" does not hold. This does not conflict with "one active task" — at any moment at most one task (the container or one of its subtasks) is the active task.
+6. Config edits go through the skill: `.workloom/config.json` and `.workloom/config.local.json` modifications go through the `workloom-config-edit` skill.
 
 ## Phase 1 Plan
 

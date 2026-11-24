@@ -1113,3 +1113,70 @@ test('增量覆盖率资产：三格式产物、below_threshold/Reason 载体与
   assert.ok(checkBody.includes('goes back to the Checker for additional cases'), '2.3 缺 case 缺口退回 checker 路由')
   assert.ok(checkBody.includes('full rerun of static review, every C item, and coverage'), '2.3 缺全量重跑句')
 })
+
+test('config-edit 资产 pin：SKILL.md、workflow Principles 指引句、spec 条目与收编引用（逐字固定）', () => {
+  const skill = readFileSync(
+    fileURLToPath(new URL('../resources/skills/workloom-config-edit/SKILL.md', import.meta.url)),
+    'utf8',
+  )
+  assert.match(skill, /^---\nname: workloom-config-edit\n/, 'config-edit SKILL.md frontmatter name 不符')
+  assert.match(skill, /^whenToUse: .+/m, 'config-edit SKILL.md 缺 whenToUse')
+  for (const field of [
+    'packages',
+    'worktree',
+    'hooks',
+    'subagent_profiles',
+    'context_injection',
+    'prompt_injection',
+    'executor',
+    'session_auto_commit',
+  ]) {
+    assert.ok(skill.includes('| `' + field + '` |'), `config-edit 字段清单缺 ${field}`)
+  }
+  assert.equal((skill.match(/\*Completion:\*/g) ?? []).length, 5, 'config-edit 五步完成判据数不符')
+  assert.ok(skill.includes('workloom-doctor'), 'config-edit 校验入口未钉 workloom-doctor')
+
+  const workflow = readFileSync(assetPath, 'utf8')
+  assert.ok(
+    workflow.includes(
+      '6. Config edits go through the skill: `.workloom/config.json` and `.workloom/config.local.json` modifications go through the `workloom-config-edit` skill.',
+    ),
+    'workflow Principles 缺 config-edit 指引句',
+  )
+
+  const specPath = fileURLToPath(
+    new URL('../../../.workloom/spec/repo/workflow/index.md', import.meta.url),
+  )
+  const spec = readFileSync(specPath, 'utf8')
+  const entry = spec.split('\n').find((line) => line.startsWith('- config-edit-skill:'))
+  assert.ok(entry !== undefined, 'spec/repo/workflow 缺 config-edit-skill 条目')
+  assert.ok(entry.includes('`workloom-config-edit` skill'), 'spec 条目缺 config-edit 指引')
+  assert.ok(entry.includes('`SKILL_ENTRIES`'), 'spec 条目缺注册说明')
+
+  const scan = readFileSync(
+    fileURLToPath(new URL('../resources/skills/workloom-packages-scan/SKILL.md', import.meta.url)),
+    'utf8',
+  )
+  assert.ok(
+    scan.includes(
+      "5. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline:",
+    ),
+    'packages-scan 步骤 5 缺 config-edit 修改纪律引用',
+  )
+  assert.ok(
+    scan.includes('- Edits to config fields outside this scan\'s `packages` candidates go through the `workloom-config-edit` skill.'),
+    'packages-scan Boundaries 缺 config-edit 限定引用',
+  )
+
+  const migrate = readFileSync(
+    fileURLToPath(new URL('../resources/skills/workloom-migrate-to-sop/SKILL.md', import.meta.url)),
+    'utf8',
+  )
+  assert.ok(
+    migrate.includes(
+      'Use the bundled script for legacy field migration only. Other general config field edits in the project and local layers go through the `workloom-config-edit` skill; the global layer (`~/.workloom/config.json`) stays with this script.',
+    ),
+    'migrate-to-sop 缺项目/本地层限定的 config-edit 引用',
+  )
+  assert.ok(migrate.includes('scripts/migrate-config.mjs'), 'migrate-to-sop 迁移脚本引用缺失')
+})

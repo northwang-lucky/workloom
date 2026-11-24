@@ -33,7 +33,8 @@ export const SKELETON_GITIGNORE_ENTRY = 'skeleton/gitignore';
 export const SKELETON_SPEC_README_ENTRY = 'skeleton/spec-README.md';
 /** 注册的 skill 资源条目（相对 resources 根；resourceBase 取其所在目录）。
  * 保留名单：自有 workloom 侧注册 finish（会话收尾：归档 + 簿记提交分离）、
- * alignment（统一 Phase 1.1）、update-spec、packages-scan（包结构扫描）与
+ * alignment（统一 Phase 1.1）、update-spec、packages-scan（包结构扫描）、
+ * config-edit（config 字段五步编辑）与
  * workloom-migrate-to-sop（migrate legacy .workloom layout to the SOP structure）；
  * generic tdd/writing-for-agents 属 third-party 保留件独立分发。CASE 设计与执行、
  * 任务续接、计划迁移改由 workflow 契约（2.2/2.3 CASE 轨）承载，不再注册独立 skill。 */
@@ -43,6 +44,7 @@ export const SKILL_ENTRIES = [
     'skills/workloom-update-spec/SKILL.md',
     'skills/workloom-packages-scan/SKILL.md',
     'skills/workloom-migrate-to-sop/SKILL.md',
+    'skills/workloom-config-edit/SKILL.md',
     'third-party/mattpocock-skills/tdd/SKILL.md',
     'third-party/mattpocock-skills/writing-for-agents/SKILL.md',
 ];

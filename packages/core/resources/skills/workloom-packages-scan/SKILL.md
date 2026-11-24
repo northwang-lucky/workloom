@@ -14,7 +14,7 @@ Scan the project's package structure and write the candidate list into `.workloo
 2. **Propose setup commands** — inspect the manifests, lockfiles, `packageManager` fields, existing dependency directories, and relevant project instructions. Add a `setup` string array to every new candidate, following [Setup configuration](#setup-configuration). Use `[]` when no preparation is needed.
 3. **Present the candidates** — show each entry's path, type (`workspace` / `submodule` / `nested-git`), `git` flag, and proposed `setup`. Briefly state the evidence for each non-empty recipe and flag any uncertain choice. The user may drop or rename entries and edit the commands.
 4. **User confirms** — apply the requested package and setup edits. Resolve uncertain recipes during this confirmation instead of writing guessed commands.
-5. **Write `.workloom/config.json`** — merge the confirmed candidates into the `packages` field:
+5. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field:
    - existing non-empty `packages` are merged incrementally; existing keys, including their `setup`, are **not** overwritten.
    - conflicting keys (same name, different path) are **reported, not silently replaced** — the user decides.
    - the `repo` root entry is appended by default; tell the user it can be removed.
@@ -61,4 +61,5 @@ The script reads workspace manifests directly (pnpm-workspace.yaml, package.json
 ## Boundaries
 
 - This skill modifies only `.workloom/config.json`; it leaves source files and git configuration unchanged.
+- Edits to config fields outside this scan's `packages` candidates go through the `workloom-config-edit` skill.
 - The `repo` root entry is a convenience default; remove it if the user prefers packages-only config.

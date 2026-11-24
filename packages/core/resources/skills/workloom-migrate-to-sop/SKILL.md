@@ -21,6 +21,7 @@ Stop at the first failing check and resolve it before any move.
 1. **Clean git workspace (project migration only).** Run `git status --porcelain` in the project root; it must be empty, or commit the pending changes first. This check does not apply to the global config migration — `~/.workloom/config.json` lives outside any repository — but the backup in the next item is mandatory there.
 2. **Back up the config file before the rewrite.** Copy the original config next to itself (for example `.workloom/config.json` → `.workloom/config.json.bak`). A project config may rely on git instead of a `.bak` copy only when the pre-migration state is committed; the global config has no git fallback and must get a `.bak` copy.
 3. **Dry run first.** Run the config script with `--dry-run` (see [Dry run](#dry-run)) and read the printed plan before any real write.
+4. **Plan config validation.** After the config rewrite, run `workloom-doctor` in the project. Doctor calls `loadConfig`, which fails loud on malformed known fields.
 
 ## Task directory migration
 
@@ -41,6 +42,8 @@ Rewrite documents in place; never move content to new files.
 3. Archived tasks are left untouched.
 
 ## Config field migration
+
+Use the bundled script for legacy field migration only. Other general config field edits in the project and local layers go through the `workloom-config-edit` skill; the global layer (`~/.workloom/config.json`) stays with this script.
 
 Run the bundled script against the target config (project or global):
 
@@ -81,7 +84,7 @@ The migration is idempotent and resumable. Already-migrated parts are recognized
 - [ ] `git status --porcelain` was empty (or the pending changes were committed) before the project migration
 - [ ] the config backup exists (`.bak` copy, or the pre-migration state is committed)
 - [ ] the `--dry-run` plan was reviewed before the real run
-- [ ] the config script real run completed; the config loads without legacy-key warnings
+- [ ] the config script real run completed; the config loads without legacy-key warnings and `workloom-doctor` reports no config issue
 - [ ] every active task directory name carries the `MM-DD-` prefix
 - [ ] every top-level task with a `parent` moved under `<parent>/subtasks/`, and the parent `children` paths were updated
 - [ ] the legacy `workspace/` directory is deleted (content committed) or kept with `INERT.md` inside (uncommitted content)

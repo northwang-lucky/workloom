@@ -149,11 +149,12 @@ function setupSkills() {
   return registered.map((def) => def.name)
 }
 
-test('skill 清单契约：注册 finish/alignment/update-spec/packages-scan/migrate-to-sop + generic tdd/writing-for-agents，不含已退役五个 skill', () => {
+test('skill 清单契约：注册 finish/alignment/update-spec/packages-scan/config-edit/migrate-to-sop + generic tdd/writing-for-agents，不含已退役五个 skill', () => {
   const names = setupSkills()
   assert.deepEqual(names.sort(), [
     'tdd',
     'workloom-alignment',
+    'workloom-config-edit',
     'workloom-finish',
     'workloom-migrate-to-sop',
     'workloom-packages-scan',
