@@ -107,6 +107,8 @@ export function gitChangedFilesSync(root) {
         return [toError(error), null];
     }
 }
+/** 变更行 diff 输出缓冲上限（容器级合并 diff 可达数 MB，远超 execFileSync 默认 1MB；32MB 安全余量）。 */
+const GIT_DIFF_MAX_BUFFER = 32 * 1024 * 1024;
 /**
  * 变更行提取专用同步 git 调用：门禁链路全程同步（guard 注册表为同步签名），
  * stderr 走管道保留在错误文案中（声明 ref 无效时供 fail loud 指引）。
@@ -120,6 +122,7 @@ function runGitDiffSync(root, args) {
                 encoding: 'utf8',
                 env: GIT_ENV,
                 stdio: ['ignore', 'pipe', 'pipe'],
+                maxBuffer: GIT_DIFF_MAX_BUFFER,
             }),
         ];
     }
