@@ -1,0 +1,44 @@
+=== 1.1 DEFAULT_THRESHOLD 单源 ===
+packages/core/src/task/case-gates.ts:28:import { DEFAULT_THRESHOLD } from '../workspace/config-defaults.ts'
+packages/core/src/task/case-gates.ts:364:  const threshold = coverageConfig?.coverage.threshold ?? DEFAULT_THRESHOLD
+packages/core/src/task/case-gates.ts:451:        issues.push(issue(ISSUE_CODES.COVERAGE_STATUS, `below_threshold requires incremental coverage <= configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%)`))
+packages/core/src/task/case-gates.ts:454:      issues.push(issue(ISSUE_CODES.COVERAGE_THRESHOLD, `incremental coverage must be > configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%) or below_threshold with a valid waiver`))
+packages/core/src/task/coverage-compute.ts:15:import { DEFAULT_THRESHOLD } from '../workspace/config-defaults.ts'
+packages/core/src/task/coverage-compute.ts:185:/** 严格大于配置阈值（缺省 DEFAULT_THRESHOLD=90；整数交叉乘，恰好等于不达标）。 */
+packages/core/src/task/coverage-compute.ts:189:  threshold: number = DEFAULT_THRESHOLD,
+packages/core/src/workspace/config.d.ts:50:  /** 增量覆盖率门槛（0–100 整数，严格大于；缺省 DEFAULT_THRESHOLD=90）。 */
+packages/core/src/workspace/config.d.ts:185:export const DEFAULT_THRESHOLD: number
+packages/core/src/workspace/config-defaults.ts:14:export const DEFAULT_THRESHOLD = 90
+packages/core/src/workspace/config-defaults.ts:49:  coverage: { threshold: DEFAULT_THRESHOLD, languages: {} },
+packages/core/src/workspace/config-defaults.ts:290:    threshold: DEFAULT_THRESHOLD,
+-- 字面量 90 散落检查（应为空）--
+(empty)
+=== 1.2 EXTENSION_LANGUAGE 单源 ===
+packages/core/src/task/coverage-compute.ts:28:export const EXTENSION_LANGUAGE = Object.freeze({
+packages/core/src/task/coverage-compute.ts:50:/** 可执行后缀封闭集合（由 EXTENSION_LANGUAGE 键派生，供缺席硬拒与一致性测试使用）。 */
+packages/core/src/task/coverage-compute.ts:52:  Object.keys(EXTENSION_LANGUAGE) as (keyof typeof EXTENSION_LANGUAGE)[],
+packages/core/src/task/coverage-compute.ts:61:  const extension = (Object.keys(EXTENSION_LANGUAGE) as (keyof typeof EXTENSION_LANGUAGE)[])
+packages/core/src/task/coverage-compute.ts:63:  return extension === undefined ? null : EXTENSION_LANGUAGE[extension]
+-- 平行映射检查（应仅 EXTENSION_LANGUAGE 表内命中）--
+packages/core/src/task/coverage-compute.ts:29:  '.go': 'go',
+=== 2. 90% 文案 ripple ===
+-- case-gates（应恰两处）--
+451:        issues.push(issue(ISSUE_CODES.COVERAGE_STATUS, `below_threshold requires incremental coverage <= configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%)`))
+454:      issues.push(issue(ISSUE_CODES.COVERAGE_THRESHOLD, `incremental coverage must be > configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%) or below_threshold with a valid waiver`))
+-- workflow.md（应恰两处）--
+97:After implementation is complete and the main session's CASE review is satisfied, continue `case.designSession` with `role: checker` and `purpose: execution`. Before acting, the Checker reads `case.md` through its task-directory pointer line and the two template copies through their `.workloom/templates/` pointer lines. The executor first completes every SR item, then runs C1 through Cn in order and records actual actions, observations, and evidence in `case-result.md`. It collects the task diff's changed executable lines, their intersection with the native coverage report, and the uncovered changed lines under `coverage/` (changed-lines.json, the native report, and diff-coverage.json); large evidence goes under `case-evidence/`. Incremental coverage must be strictly greater than the configured threshold (default 90%, `coverage.threshold`). When it is at or under 90%, the Checker attaches per-file reasons, the developer attaches an explanation, and the main session reviews: unrelated code goes back to the developer for removal, missing case coverage goes back to the Checker for additional cases, and any code or case change requires a full rerun of static review, every C item, and coverage. If the review confirms the shortfall, the main session approves a waiver; otherwise the task is sent back for rework. A blocked C item stops all later C items and prevents a pass. Any code fix requires a full rerun of static review, every C item, and coverage.
+113:Core CASE failures — a missing CASE document, a missing design session, an invalid RESULT, failed or pending items, failed standard verification, failed coverage, and an invalid session chain — cannot be bypassed with force. Run `workloom_task_check` only after RESULT has `status: passed`, every SR/C item is passed, standard verification is green, coverage is generated above the configured threshold (default 90%) or is `below_threshold` with per-file reasons plus a valid approved waiver bound to the current code fingerprint (or validly `not_applicable` with a standalone reason line), and Open issues is `- none`.
+-- spec workflow index（应恰两处）--
+9:- incremental-coverage: the coverage gate measures only new and modified executable lines from the task diff (`base_branch...HEAD` with merge-base semantics; two-dot `git diff HEAD` plus untracked files only when branch fields are empty). Deleted lines never enter the denominator. An invalid declared ref fails loudly instead of falling back. Go coverprofile (module-prefix strip via go.mod, otherwise suffix match), lcov (absolute SF paths stripped to repo-relative), JaCoCo XML (package + sourcefile suffix match, `ci>0` per line), and Cobertura XML (class filename suffix match, `hits>0` per line) are mechanically recomputed and merged per file with line coverage unioned. Threshold is configurable via `coverage.threshold` (default 90%, strictly greater than: `covered*100 > total*threshold`); a lower result requires a `below_threshold` RESULT with per-file reasons and an approved `coverageWaiver` bound to the RESULT `codeFingerprint`, recorded with the check credential. Zero measurable changed lines use `not_applicable` with a standalone `- Reason:` line. A changed file with an executable extension (the closed `EXECUTABLE_EXTENSIONS` set) that is absent from every report and has no reasoned exclusion is a hard `coverage_missing_file` failure; non-executable files do not trigger it. Unsupported report formats skip mechanical recomputation and missing-file detection but still check the self-reported Overall against the threshold
+=== 3. S2 残留（应为空）===
+(empty)
+(empty)
+=== 4. workflow version 稳定 + spec 条目 ===
+(version unchanged)
+1
+1
+1
+1
+9:- incremental-coverage: the coverage gate measures only new and modified execu
+10:- coverage-config: `coverage` is a project-level config field with `threshold
+2

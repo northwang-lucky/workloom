@@ -1,0 +1,28 @@
+=== config-edit SKILL.md 锚点 ===
+-- *Completion* 计数 --
+5
+-- 九字段表行 --
+25:| `packages` | map of name to `{ path, setup?, type?, git? }` |
+26:| `worktree` | `{ enabled?, branch_template?, cleanup? }` |
+27:| `hooks` | `{ after_create?, after_start?, after_finish?, after_archive? }`, each a string array |
+28:| `subagent_profiles` | array of `{ whenMain?, roles }` |
+29:| `context_injection` | `{ max_file_bytes?, max_artifact_bytes?, max_total_bytes? }` |
+30:| `prompt_injection` | `{ skip_keyword? }` |
+31:| `executor` | `{ max_concurrent? }` |
+32:| `session_auto_commit` | boolean |
+33:| `coverage` | `{ threshold?, languages? }` — see [Coverage configuration](#coverage-configuration) |
+-- 占位符白名单行 --
+41:The only accepted command placeholders are `<worktree>` (task worktree root), `<profile>` (coverage report output path), and `<base-ref>` (baseline branch). Any other token fails validation. For example:
+-- 全局层拒绝指引 --
+59:- Edit only the project layer (`.workloom/config.json` or `.workloom/config.js`) and the local layer (`.workloom/config.local.json` or `.workloom/config.local.js`). Global config under `$HOME/.workloom/` is out of scope; route it to `workloom-migrate-to-sop`.
+-- frontmatter 触发列表含 coverage --
+description: Edit workloom config fields in a user project — config.json, config.js, config.local.json, config.local.js — through a five-step discipline and the on-disk field whitelist. Triggers on config field edits (packages, worktree, hooks, subagent_profiles, context_injection, prompt_injection, executor, session_auto_commit, coverage); package-structure scanning stays with workloom-packages-scan.
+whenToUse: Use when the user asks to change, add, or remove a field in `.workloom/config.json`, `.workloom/config.js`, `.workloom/config.local.json`, or `.workloom/config.local.js` — e.g. "set the worktree cleanup mode", "raise executor concurrency", "change the prompt skip keyword", "配置 config.local.json".
+=== packages-scan SKILL.md 引用 ===
+15:3. **Propose coverage defaults** — for each detected language that has a built-in default in `LANGUAGE_DEFAULTS` (exported by `packages/core/dist/task/coverage-compute.js`), propose a `coverage.languages` entry with its default `format` and `command` skeleton. Route this proposal through the `workloom-config-edit` skill together with the `packages` candidates. Flag detected languages without a built-in default as requiring a manual `format` and `command`; never guess one.
+18:6. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field and the confirmed proposals into `coverage.languages`:
+66:- Edits to config fields outside this scan's `packages` and `coverage.languages` proposals go through the `workloom-config-edit` skill.
+=== migrate-to-sop SKILL.md 引用 ===
+46:Use the bundled script for legacy field migration only. Other general config field edits in the project and local layers go through the `workloom-config-edit` skill; the global layer (`~/.workloom/config.json`) stays with this script.
+=== resources-manifest 注册 ===
+60:  'skills/workloom-config-edit/SKILL.md',

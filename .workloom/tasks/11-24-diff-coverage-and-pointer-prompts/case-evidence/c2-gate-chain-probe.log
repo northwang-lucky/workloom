@@ -1,0 +1,19 @@
+PASS | three-dot changed lines | expected={"src/a.ts":["1-10"],"src/b.go":["5-5"],"src/C.java":["4-4"],"src/d.kt":["1-3"],"docs/readme.md":["1-1"]} | actual={"docs/readme.md":["1-1"],"src/C.java":["4-4"],"src/a.ts":["1-10"],"src/b.go":["5-5"],"src/d.kt":["1-3"]}
+PASS | S5 baseline 15/15 | expected=[] | actual=[]
+PASS | S6a default 90 reject 13/15 | expected=[coverage_threshold] | actual=[coverage_threshold]
+PASS | S6b default 90 pass 14/15 | expected=[] | actual=[]
+PASS | S7a threshold 80 exact-reject 12/15 | expected=[coverage_threshold] | actual=[coverage_threshold]
+PASS | S7b threshold 80 pass 13/15 | expected=[] | actual=[]
+PASS | S7c config removed fallback 90 | expected=[coverage_threshold] | actual=[coverage_threshold]
+PASS | S8a waiver match | expected=[] | actual=[]
+PASS | S8b waiver fingerprint mismatch | expected=[coverage_waiver] | actual=[coverage_waiver]
+PASS | S8c no waiver | expected=[coverage_waiver] | actual=[coverage_waiver]
+PASS | S8d above threshold below_threshold invalid | expected=[coverage_status] | actual=[coverage_status]
+PASS | S9a checkTask waiver persisted | err=null | waiver={"reason":"reviewed by main session","fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","at":"2026-11-24T12:47:26.734Z","source":"main"}
+PASS | S9b recheck inherits waiver | err=null | same=true
+PASS | S9c fingerprint flip + force rejected | err3=workloom task: CASE gate failed: below_threshold requires a waiver matching RESULT codeFingerprint (core CASE failures cannot be bypassed with force) | err4=workloom task: CASE gate failed: below_threshold requires a waiver matching RESULT codeFingerprint (core CASE failures cannot be bypassed with force) | task.json unchanged=true
+PASS | S9d fresh waiver rebinds to current fingerprint | err5=null | fingerprint=bbbbbbbb
+PASS | S10 missing executable file | expected=[coverage_missing_file] | actual=[coverage_missing_file]
+PASS | S11a fallback self-report pass | expected=[] | actual=[]
+PASS | S11b fallback threshold hard | expected=[coverage_threshold] | actual=[coverage_threshold]
+C2 RESULT: PASS (18/18 scenarios)

@@ -1,0 +1,2942 @@
+{
+  ".workloom/spec/repo/workflow/index.md": [
+    {
+      "start": 9,
+      "end": 10
+    },
+    {
+      "start": 12,
+      "end": 13
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/check.jsonl": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/implement.jsonl": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/prd.md": [
+    {
+      "start": 1,
+      "end": 84
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c1-manifest-probe.log": [
+    {
+      "start": 1,
+      "end": 3
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c1-skills-tests.log": [
+    {
+      "start": 1,
+      "end": 22
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c2-preserved-diff.log": [
+    {
+      "start": 1,
+      "end": 27
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c2-red-green.md": [
+    {
+      "start": 1,
+      "end": 15
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c2-references.md": [
+    {
+      "start": 1,
+      "end": 42
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c3-config-mechanism-probe.log": [
+    {
+      "start": 1,
+      "end": 13
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c3-migrate-dry-run.log": [
+    {
+      "start": 1,
+      "end": 6
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c4-build.log": [
+    {
+      "start": 1,
+      "end": 7
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c4-change-set.log": [
+    {
+      "start": 1,
+      "end": 20
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c4-core-tests.log": [
+    {
+      "start": 1,
+      "end": 809
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c4-dist-status.log": [
+    {
+      "start": 1,
+      "end": 20
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c4-dsh-tests.log": [
+    {
+      "start": 1,
+      "end": 234
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c4-lint.log": [
+    {
+      "start": 1,
+      "end": 2
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c4-typecheck.log": [
+    {
+      "start": 1,
+      "end": 6
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c5-core-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 966
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c5-cross-check.md": [
+    {
+      "start": 1,
+      "end": 32
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c5-diff-coverage-stdout.json": [
+    {
+      "start": 1,
+      "end": 26
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c5-dsh-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 335
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/c5-fingerprint.txt": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/probes/c3-config-mechanism-probe.mjs": [
+    {
+      "start": 1,
+      "end": 105
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-evidence/result-selfcheck.log": [
+    {
+      "start": 1,
+      "end": 16
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case-result.md": [
+    {
+      "start": 1,
+      "end": 218
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/case.md": [
+    {
+      "start": 1,
+      "end": 322
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/check.jsonl": [
+    {
+      "start": 1,
+      "end": 3
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/coverage/changed-lines.json": [
+    {
+      "start": 1,
+      "end": 96
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/coverage/diff-coverage.json": [
+    {
+      "start": 1,
+      "end": 26
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/coverage/lcov-core.info": [
+    {
+      "start": 1,
+      "end": 35528
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/coverage/lcov-dsh.info": [
+    {
+      "start": 1,
+      "end": 20433
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/implement.jsonl": [
+    {
+      "start": 1,
+      "end": 3
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/plan-review.md": [
+    {
+      "start": 1,
+      "end": 169
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/plan.md": [
+    {
+      "start": 1,
+      "end": 151
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/prd.md": [
+    {
+      "start": 1,
+      "end": 89
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill/task.json": [
+    {
+      "start": 1,
+      "end": 236
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c1-config-probe.log": [
+    {
+      "start": 1,
+      "end": 13
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c1-config-tests.log": [
+    {
+      "start": 1,
+      "end": 93
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c2-cobertura-hints-probe.log": [
+    {
+      "start": 1,
+      "end": 9
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c2-compute-tests.log": [
+    {
+      "start": 1,
+      "end": 28
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c3-case-test-checklist.md": [
+    {
+      "start": 1,
+      "end": 15
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c3-case-tests.log": [
+    {
+      "start": 1,
+      "end": 38
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c3-gate-config-probe.log": [
+    {
+      "start": 1,
+      "end": 8
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c4-packages-scan-probe.log": [
+    {
+      "start": 1,
+      "end": 4
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c4-script-config-probe.log": [
+    {
+      "start": 1,
+      "end": 25
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c4-script-tests.log": [
+    {
+      "start": 1,
+      "end": 55
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-asset-sync.log": [
+    {
+      "start": 1,
+      "end": 42
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-build.log": [
+    {
+      "start": 1,
+      "end": 6
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-change-set.log": [
+    {
+      "start": 1,
+      "end": 30
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-core-tests.log": [
+    {
+      "start": 1,
+      "end": 854
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-dist-status.log": [
+    {
+      "start": 1,
+      "end": 2
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-dsh-tests.log": [
+    {
+      "start": 1,
+      "end": 235
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-lint.log": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c5-typecheck.log": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c6-core-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 1014
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c6-cross-check.md": [
+    {
+      "start": 1,
+      "end": 39
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c6-diff-coverage-stdout.json": [
+    {
+      "start": 1,
+      "end": 279
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c6-dsh-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 338
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c6-fingerprint.txt": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/c6-old-gate-validation.log": [
+    {
+      "start": 1,
+      "end": 7
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/fixtures/c2/cobertura.xml": [
+    {
+      "start": 1,
+      "end": 17
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/probes/c1-config-coverage-probe.mjs": [
+    {
+      "start": 1,
+      "end": 107
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/probes/c2-cobertura-hints-probe.mjs": [
+    {
+      "start": 1,
+      "end": 122
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/probes/c3-gate-config-probe.mjs": [
+    {
+      "start": 1,
+      "end": 349
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/probes/c4-packages-scan-probe.mjs": [
+    {
+      "start": 1,
+      "end": 60
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/probes/c4-script-config-probe.mjs": [
+    {
+      "start": 1,
+      "end": 112
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-evidence/probes/c6-lcov-summary.mjs": [
+    {
+      "start": 1,
+      "end": 67
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case-result.md": [
+    {
+      "start": 1,
+      "end": 304
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/case.md": [
+    {
+      "start": 1,
+      "end": 493
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/check.jsonl": [
+    {
+      "start": 1,
+      "end": 4
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/coverage/changed-lines.json": [
+    {
+      "start": 1,
+      "end": 638
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/coverage/diff-coverage.json": [
+    {
+      "start": 1,
+      "end": 279
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/coverage/lcov-core.info": [
+    {
+      "start": 1,
+      "end": 36547
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/coverage/lcov-dsh.info": [
+    {
+      "start": 1,
+      "end": 20811
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/coverage/summary.json": [
+    {
+      "start": 1,
+      "end": 239
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/coverage/whole-file-summary.md": [
+    {
+      "start": 1,
+      "end": 14
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/implement.jsonl": [
+    {
+      "start": 1,
+      "end": 4
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/plan-review.md": [
+    {
+      "start": 1,
+      "end": 346
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/plan.md": [
+    {
+      "start": 1,
+      "end": 180
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/prd.md": [
+    {
+      "start": 1,
+      "end": 95
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config/task.json": [
+    {
+      "start": 1,
+      "end": 306
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c1-changed-lines.json": [
+    {
+      "start": 1,
+      "end": 38
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c1-probe.log": [
+    {
+      "start": 1,
+      "end": 27
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c1-three-dot-changed-lines.json": [
+    {
+      "start": 1,
+      "end": 38
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c1-three-dot.json": [
+    {
+      "start": 1,
+      "end": 65
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c1-unit-tests.log": [
+    {
+      "start": 1,
+      "end": 49
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c1-worktree-exclude.json": [
+    {
+      "start": 1,
+      "end": 63
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c1-worktree-no-exclude.json": [
+    {
+      "start": 1,
+      "end": 65
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c2-case-test-checklist.md": [
+    {
+      "start": 1,
+      "end": 17
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c2-case-tests.log": [
+    {
+      "start": 1,
+      "end": 33
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c2-gate-threshold-probe.log": [
+    {
+      "start": 1,
+      "end": 17
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c3-case-test-checklist.md": [
+    {
+      "start": 1,
+      "end": 13
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c3-not-applicable-probe.log": [
+    {
+      "start": 1,
+      "end": 19
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c4-core-tests.log": [
+    {
+      "start": 1,
+      "end": 113
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c4-dsh-tasks-tests.log": [
+    {
+      "start": 1,
+      "end": 23
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c4-schema-anchors.md": [
+    {
+      "start": 1,
+      "end": 19
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c4-test-checklist.md": [
+    {
+      "start": 1,
+      "end": 23
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c4-waiver-chain-probe.log": [
+    {
+      "start": 1,
+      "end": 19
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c5-core-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 965
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c5-cross-check.md": [
+    {
+      "start": 1,
+      "end": 34
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c5-diff-coverage-stdout.json": [
+    {
+      "start": 1,
+      "end": 423
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c5-dsh-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 335
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c5-verify-evidence.log": [
+    {
+      "start": 1,
+      "end": 44
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-asset-sync.log": [
+    {
+      "start": 1,
+      "end": 25
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-build.log": [
+    {
+      "start": 1,
+      "end": 6
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-change-set.log": [
+    {
+      "start": 1,
+      "end": 57
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-core-tests.log": [
+    {
+      "start": 1,
+      "end": 807
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-diff-check.log": [
+    {
+      "start": 1,
+      "end": 2
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-dist-status.log": [
+    {
+      "start": 1,
+      "end": 34
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-dsh-tests.log": [
+    {
+      "start": 1,
+      "end": 233
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-fingerprint.txt": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-lint.log": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/c6-typecheck.log": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/fixtures/c1/cover.out": [
+    {
+      "start": 1,
+      "end": 3
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/fixtures/c1/jacoco.xml": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/fixtures/c1/lcov.info": [
+    {
+      "start": 1,
+      "end": 19
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/probes/c1-diff-coverage-probe.mjs": [
+    {
+      "start": 1,
+      "end": 188
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/probes/c2-gate-threshold-probe.mjs": [
+    {
+      "start": 1,
+      "end": 260
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/probes/c3-not-applicable-probe.mjs": [
+    {
+      "start": 1,
+      "end": 269
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/probes/c4-waiver-chain-probe.mjs": [
+    {
+      "start": 1,
+      "end": 283
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/probes/c5-verify-evidence.mjs": [
+    {
+      "start": 1,
+      "end": 84
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-evidence/probes/c6-lcov-summary.mjs": [
+    {
+      "start": 1,
+      "end": 109
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case-result.md": [
+    {
+      "start": 1,
+      "end": 351
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/case.md": [
+    {
+      "start": 1,
+      "end": 578
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/check.jsonl": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/coverage/changed-lines.json": [
+    {
+      "start": 1,
+      "end": 868
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/coverage/diff-coverage.json": [
+    {
+      "start": 1,
+      "end": 423
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/coverage/lcov-core.info": [
+    {
+      "start": 1,
+      "end": 35525
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/coverage/lcov-dsh.info": [
+    {
+      "start": 1,
+      "end": 20431
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/coverage/whole-file-summary.md": [
+    {
+      "start": 1,
+      "end": 22
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/implement.jsonl": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/plan-review.md": [
+    {
+      "start": 1,
+      "end": 254
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/plan.md": [
+    {
+      "start": 1,
+      "end": 268
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/prd.md": [
+    {
+      "start": 1,
+      "end": 119
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate/task.json": [
+    {
+      "start": 1,
+      "end": 340
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c1-five-role-injection.log": [
+    {
+      "start": 1,
+      "end": 37
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c2-template-guard.log": [
+    {
+      "start": 1,
+      "end": 9
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c3-init-templates.log": [
+    {
+      "start": 1,
+      "end": 8
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c4-doctor-case-templates.log": [
+    {
+      "start": 1,
+      "end": 9
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c5-core-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 978
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c5-diff-coverage-stdout.json": [
+    {
+      "start": 1,
+      "end": 310
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c5-dsh-coverage-run.log": [
+    {
+      "start": 1,
+      "end": 338
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c5-fingerprint.txt": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c6-asset-checks.log": [
+    {
+      "start": 1,
+      "end": 58
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c6-build.log": [
+    {
+      "start": 1,
+      "end": 6
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c6-core-test.log": [
+    {
+      "start": 1,
+      "end": 818
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c6-dsh-test.log": [
+    {
+      "start": 1,
+      "end": 235
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c6-lint.log": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/c6-typecheck.log": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/probes/c1-five-role-injection-probe.mjs": [
+    {
+      "start": 1,
+      "end": 111
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/probes/c2-template-guard-probe.mjs": [
+    {
+      "start": 1,
+      "end": 96
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/probes/c3-init-templates-probe.mjs": [
+    {
+      "start": 1,
+      "end": 65
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-evidence/probes/c4-doctor-case-templates-probe.mjs": [
+    {
+      "start": 1,
+      "end": 86
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case-result.md": [
+    {
+      "start": 1,
+      "end": 289
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/case.md": [
+    {
+      "start": 1,
+      "end": 412
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/check.jsonl": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/coverage/changed-lines.json": [
+    {
+      "start": 1,
+      "end": 832
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/coverage/diff-coverage.json": [
+    {
+      "start": 1,
+      "end": 310
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/coverage/lcov-core.info": [
+    {
+      "start": 1,
+      "end": 35806
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/coverage/lcov-dsh.info": [
+    {
+      "start": 1,
+      "end": 20543
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/coverage/whole-file-summary.md": [
+    {
+      "start": 1,
+      "end": 23
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/implement.jsonl": [
+    {
+      "start": 1,
+      "end": 5
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/plan-review.md": [
+    {
+      "start": 1,
+      "end": 226
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/plan.md": [
+    {
+      "start": 1,
+      "end": 207
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/prd.md": [
+    {
+      "start": 1,
+      "end": 78
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init/task.json": [
+    {
+      "start": 1,
+      "end": 341
+    }
+  ],
+  ".workloom/tasks/11-24-diff-coverage-and-pointer-prompts/task.json": [
+    {
+      "start": 1,
+      "end": 54
+    }
+  ],
+  "packages/core/dist/index.d.ts": [
+    {
+      "start": 57,
+      "end": 58
+    }
+  ],
+  "packages/core/dist/index.js": [
+    {
+      "start": 62,
+      "end": 62
+    }
+  ],
+  "packages/core/dist/index.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/injection/prompt-compose.d.ts": [
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 6,
+      "end": 14
+    },
+    {
+      "start": 30,
+      "end": 30
+    },
+    {
+      "start": 73,
+      "end": 73
+    },
+    {
+      "start": 88,
+      "end": 89
+    }
+  ],
+  "packages/core/dist/injection/prompt-compose.js": [
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 6,
+      "end": 14
+    },
+    {
+      "start": 35,
+      "end": 35
+    },
+    {
+      "start": 40,
+      "end": 40
+    },
+    {
+      "start": 65,
+      "end": 67
+    },
+    {
+      "start": 111,
+      "end": 112
+    },
+    {
+      "start": 153,
+      "end": 156
+    },
+    {
+      "start": 158,
+      "end": 159
+    },
+    {
+      "start": 163,
+      "end": 165
+    },
+    {
+      "start": 177,
+      "end": 179
+    },
+    {
+      "start": 183,
+      "end": 185
+    }
+  ],
+  "packages/core/dist/injection/prompt-compose.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/injection/prompt-sections.d.ts": [
+    {
+      "start": 6,
+      "end": 11
+    },
+    {
+      "start": 15,
+      "end": 19
+    },
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 26,
+      "end": 28
+    },
+    {
+      "start": 32,
+      "end": 39
+    }
+  ],
+  "packages/core/dist/injection/prompt-sections.js": [
+    {
+      "start": 6,
+      "end": 11
+    },
+    {
+      "start": 19,
+      "end": 22
+    },
+    {
+      "start": 41,
+      "end": 45
+    },
+    {
+      "start": 50,
+      "end": 50
+    },
+    {
+      "start": 55,
+      "end": 56
+    },
+    {
+      "start": 63,
+      "end": 63
+    },
+    {
+      "start": 65,
+      "end": 66
+    },
+    {
+      "start": 69,
+      "end": 71
+    },
+    {
+      "start": 75,
+      "end": 75
+    },
+    {
+      "start": 79,
+      "end": 81
+    },
+    {
+      "start": 84,
+      "end": 105
+    }
+  ],
+  "packages/core/dist/injection/prompt-sections.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/injection/surface.d.ts": [
+    {
+      "start": 43,
+      "end": 43
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 102,
+      "end": 103
+    }
+  ],
+  "packages/core/dist/injection/surface.js": [
+    {
+      "start": 43,
+      "end": 43
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 102,
+      "end": 103
+    }
+  ],
+  "packages/core/dist/injection/surface.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/resources-manifest.d.ts": [
+    {
+      "start": 33,
+      "end": 34
+    },
+    {
+      "start": 38,
+      "end": 38
+    }
+  ],
+  "packages/core/dist/resources-manifest.js": [
+    {
+      "start": 36,
+      "end": 37
+    },
+    {
+      "start": 47,
+      "end": 47
+    }
+  ],
+  "packages/core/dist/resources-manifest.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/case-gates.js": [
+    {
+      "start": 14,
+      "end": 18
+    },
+    {
+      "start": 21,
+      "end": 60
+    },
+    {
+      "start": 124,
+      "end": 124
+    },
+    {
+      "start": 126,
+      "end": 126
+    },
+    {
+      "start": 197,
+      "end": 235
+    },
+    {
+      "start": 257,
+      "end": 257
+    },
+    {
+      "start": 269,
+      "end": 269
+    },
+    {
+      "start": 284,
+      "end": 284
+    },
+    {
+      "start": 286,
+      "end": 286
+    },
+    {
+      "start": 288,
+      "end": 288
+    },
+    {
+      "start": 290,
+      "end": 290
+    },
+    {
+      "start": 292,
+      "end": 292
+    },
+    {
+      "start": 294,
+      "end": 294
+    },
+    {
+      "start": 296,
+      "end": 296
+    },
+    {
+      "start": 304,
+      "end": 304
+    },
+    {
+      "start": 309,
+      "end": 309
+    },
+    {
+      "start": 312,
+      "end": 312
+    },
+    {
+      "start": 316,
+      "end": 316
+    },
+    {
+      "start": 322,
+      "end": 322
+    },
+    {
+      "start": 324,
+      "end": 324
+    },
+    {
+      "start": 328,
+      "end": 328
+    },
+    {
+      "start": 331,
+      "end": 390
+    },
+    {
+      "start": 393,
+      "end": 393
+    },
+    {
+      "start": 395,
+      "end": 395
+    },
+    {
+      "start": 397,
+      "end": 402
+    },
+    {
+      "start": 405,
+      "end": 407
+    },
+    {
+      "start": 409,
+      "end": 410
+    },
+    {
+      "start": 412,
+      "end": 437
+    },
+    {
+      "start": 439,
+      "end": 447
+    },
+    {
+      "start": 451,
+      "end": 451
+    },
+    {
+      "start": 456,
+      "end": 456
+    },
+    {
+      "start": 458,
+      "end": 458
+    },
+    {
+      "start": 462,
+      "end": 462
+    }
+  ],
+  "packages/core/dist/task/case-gates.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/case-scope.d.ts": [
+    {
+      "start": 1,
+      "end": 1
+    },
+    {
+      "start": 22,
+      "end": 29
+    }
+  ],
+  "packages/core/dist/task/case-scope.js": [
+    {
+      "start": 10,
+      "end": 10
+    },
+    {
+      "start": 39,
+      "end": 60
+    }
+  ],
+  "packages/core/dist/task/case-scope.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/case-structure.d.ts": [
+    {
+      "start": 1,
+      "end": 1
+    },
+    {
+      "start": 23,
+      "end": 27
+    },
+    {
+      "start": 32,
+      "end": 37
+    }
+  ],
+  "packages/core/dist/task/case-structure.js": [
+    {
+      "start": 33,
+      "end": 33
+    }
+  ],
+  "packages/core/dist/task/case-structure.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.d.ts": [
+    {
+      "start": 1,
+      "end": 168
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.js": [
+    {
+      "start": 1,
+      "end": 445
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/state/guards.d.ts": [
+    {
+      "start": 21,
+      "end": 25
+    }
+  ],
+  "packages/core/dist/task/state/guards.js": [
+    {
+      "start": 170,
+      "end": 172
+    }
+  ],
+  "packages/core/dist/task/state/guards.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/state/migrate.d.ts": [
+    {
+      "start": 70,
+      "end": 73
+    }
+  ],
+  "packages/core/dist/task/state/migrate.js": [
+    {
+      "start": 62,
+      "end": 66
+    },
+    {
+      "start": 149,
+      "end": 152
+    }
+  ],
+  "packages/core/dist/task/state/migrate.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/storage/records.d.ts": [
+    {
+      "start": 66,
+      "end": 75
+    },
+    {
+      "start": 80,
+      "end": 80
+    }
+  ],
+  "packages/core/dist/task/storage/records.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/task-ops.d.ts": [
+    {
+      "start": 138,
+      "end": 141
+    },
+    {
+      "start": 235,
+      "end": 238
+    }
+  ],
+  "packages/core/dist/task/task-ops.js": [
+    {
+      "start": 19,
+      "end": 19
+    },
+    {
+      "start": 27,
+      "end": 27
+    },
+    {
+      "start": 314,
+      "end": 327
+    },
+    {
+      "start": 367,
+      "end": 391
+    },
+    {
+      "start": 399,
+      "end": 403
+    },
+    {
+      "start": 761,
+      "end": 761
+    }
+  ],
+  "packages/core/dist/task/task-ops.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/case-templates.d.ts": [
+    {
+      "start": 1,
+      "end": 58
+    }
+  ],
+  "packages/core/dist/workspace/case-templates.js": [
+    {
+      "start": 1,
+      "end": 118
+    }
+  ],
+  "packages/core/dist/workspace/case-templates.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/config-defaults.d.ts": [
+    {
+      "start": 12,
+      "end": 13
+    },
+    {
+      "start": 30,
+      "end": 40
+    },
+    {
+      "start": 83,
+      "end": 89
+    }
+  ],
+  "packages/core/dist/workspace/config-defaults.js": [
+    {
+      "start": 12,
+      "end": 20
+    },
+    {
+      "start": 46,
+      "end": 46
+    },
+    {
+      "start": 80,
+      "end": 100
+    },
+    {
+      "start": 221,
+      "end": 287
+    }
+  ],
+  "packages/core/dist/workspace/config-defaults.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/config-load.js": [
+    {
+      "start": 21,
+      "end": 21
+    },
+    {
+      "start": 38,
+      "end": 38
+    },
+    {
+      "start": 315,
+      "end": 317
+    }
+  ],
+  "packages/core/dist/workspace/config-load.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/config.d.ts": [
+    {
+      "start": 27,
+      "end": 28
+    },
+    {
+      "start": 39,
+      "end": 55
+    },
+    {
+      "start": 184,
+      "end": 186
+    },
+    {
+      "start": 260,
+      "end": 272
+    }
+  ],
+  "packages/core/dist/workspace/doctor-check-rules.d.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 19,
+      "end": 20
+    },
+    {
+      "start": 79,
+      "end": 86
+    }
+  ],
+  "packages/core/dist/workspace/doctor-check-rules.js": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 19,
+      "end": 20
+    },
+    {
+      "start": 33,
+      "end": 34
+    },
+    {
+      "start": 474,
+      "end": 520
+    }
+  ],
+  "packages/core/dist/workspace/doctor-check-rules.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/doctor-checks.d.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 16,
+      "end": 16
+    }
+  ],
+  "packages/core/dist/workspace/doctor-checks.js": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 15,
+      "end": 15
+    },
+    {
+      "start": 53,
+      "end": 53
+    },
+    {
+      "start": 60,
+      "end": 60
+    }
+  ],
+  "packages/core/dist/workspace/doctor-checks.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/doctor-types.d.ts": [
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 8,
+      "end": 10
+    },
+    {
+      "start": 15,
+      "end": 16
+    },
+    {
+      "start": 55,
+      "end": 55
+    },
+    {
+      "start": 86,
+      "end": 86
+    }
+  ],
+  "packages/core/dist/workspace/doctor-types.js": [
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 8,
+      "end": 10
+    },
+    {
+      "start": 19,
+      "end": 19
+    },
+    {
+      "start": 27,
+      "end": 27
+    }
+  ],
+  "packages/core/dist/workspace/doctor-types.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/doctor.d.ts": [
+    {
+      "start": 8,
+      "end": 8
+    }
+  ],
+  "packages/core/dist/workspace/doctor.js": [
+    {
+      "start": 8,
+      "end": 8
+    }
+  ],
+  "packages/core/dist/workspace/git-query.d.ts": [
+    {
+      "start": 23,
+      "end": 35
+    },
+    {
+      "start": 71,
+      "end": 82
+    }
+  ],
+  "packages/core/dist/workspace/git-query.js": [
+    {
+      "start": 17,
+      "end": 18
+    },
+    {
+      "start": 30,
+      "end": 33
+    },
+    {
+      "start": 40,
+      "end": 41
+    },
+    {
+      "start": 45,
+      "end": 58
+    },
+    {
+      "start": 110,
+      "end": 241
+    }
+  ],
+  "packages/core/dist/workspace/git-query.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/resources/scripts/task-diff-coverage.mjs": [
+    {
+      "start": 1,
+      "end": 122
+    }
+  ],
+  "packages/core/resources/scripts/task-diff-coverage.test.mjs": [
+    {
+      "start": 1,
+      "end": 166
+    }
+  ],
+  "packages/core/resources/skills/workloom-config-edit/SKILL.md": [
+    {
+      "start": 1,
+      "end": 63
+    }
+  ],
+  "packages/core/resources/skills/workloom-migrate-to-sop/SKILL.md": [
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 46,
+      "end": 47
+    },
+    {
+      "start": 87,
+      "end": 87
+    }
+  ],
+  "packages/core/resources/skills/workloom-packages-scan/SKILL.md": [
+    {
+      "start": 3,
+      "end": 3
+    },
+    {
+      "start": 13,
+      "end": 13
+    },
+    {
+      "start": 15,
+      "end": 18
+    },
+    {
+      "start": 22,
+      "end": 22
+    },
+    {
+      "start": 61,
+      "end": 61
+    },
+    {
+      "start": 66,
+      "end": 67
+    }
+  ],
+  "packages/core/resources/skills/workloom-packages-scan/scripts/scan-packages.mjs": [
+    {
+      "start": 8,
+      "end": 8
+    },
+    {
+      "start": 11,
+      "end": 11
+    },
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 21,
+      "end": 21
+    },
+    {
+      "start": 39,
+      "end": 41
+    },
+    {
+      "start": 46,
+      "end": 76
+    },
+    {
+      "start": 131,
+      "end": 132
+    },
+    {
+      "start": 443,
+      "end": 444
+    }
+  ],
+  "packages/core/resources/skills/workloom-packages-scan/scripts/scan-packages.test.ts": [
+    {
+      "start": 63,
+      "end": 98
+    }
+  ],
+  "packages/core/resources/templates/case-result.md": [
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 43,
+      "end": 43
+    },
+    {
+      "start": 47,
+      "end": 47
+    },
+    {
+      "start": 53,
+      "end": 53
+    },
+    {
+      "start": 58,
+      "end": 69
+    }
+  ],
+  "packages/core/resources/templates/case.md": [
+    {
+      "start": 9,
+      "end": 10
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 69,
+      "end": 69
+    },
+    {
+      "start": 71,
+      "end": 71
+    }
+  ],
+  "packages/core/resources/workflow/workflow.md": [
+    {
+      "start": 19,
+      "end": 19
+    },
+    {
+      "start": 89,
+      "end": 89
+    },
+    {
+      "start": 97,
+      "end": 97
+    },
+    {
+      "start": 111,
+      "end": 111
+    },
+    {
+      "start": 113,
+      "end": 113
+    },
+    {
+      "start": 160,
+      "end": 160
+    }
+  ],
+  "packages/core/src/index.ts": [
+    {
+      "start": 318,
+      "end": 329
+    }
+  ],
+  "packages/core/src/injection/prompt-compose.ts": [
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 6,
+      "end": 14
+    },
+    {
+      "start": 40,
+      "end": 40
+    },
+    {
+      "start": 54,
+      "end": 54
+    },
+    {
+      "start": 87,
+      "end": 89
+    },
+    {
+      "start": 171,
+      "end": 171
+    },
+    {
+      "start": 188,
+      "end": 189
+    },
+    {
+      "start": 230,
+      "end": 233
+    },
+    {
+      "start": 235,
+      "end": 236
+    },
+    {
+      "start": 242,
+      "end": 244
+    },
+    {
+      "start": 256,
+      "end": 258
+    },
+    {
+      "start": 262,
+      "end": 264
+    }
+  ],
+  "packages/core/src/injection/prompt-sections.ts": [
+    {
+      "start": 6,
+      "end": 11
+    },
+    {
+      "start": 21,
+      "end": 28
+    },
+    {
+      "start": 55,
+      "end": 59
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 68,
+      "end": 69
+    },
+    {
+      "start": 75,
+      "end": 77
+    },
+    {
+      "start": 81,
+      "end": 83
+    },
+    {
+      "start": 87,
+      "end": 87
+    },
+    {
+      "start": 90,
+      "end": 92
+    },
+    {
+      "start": 96,
+      "end": 118
+    }
+  ],
+  "packages/core/src/injection/surface.ts": [
+    {
+      "start": 51,
+      "end": 51
+    },
+    {
+      "start": 83,
+      "end": 83
+    },
+    {
+      "start": 137,
+      "end": 139
+    }
+  ],
+  "packages/core/src/resources-manifest.ts": [
+    {
+      "start": 49,
+      "end": 50
+    },
+    {
+      "start": 60,
+      "end": 60
+    }
+  ],
+  "packages/core/src/task/case-gates.ts": [
+    {
+      "start": 28,
+      "end": 36
+    },
+    {
+      "start": 38,
+      "end": 39
+    },
+    {
+      "start": 45,
+      "end": 85
+    },
+    {
+      "start": 147,
+      "end": 148
+    },
+    {
+      "start": 222,
+      "end": 263
+    },
+    {
+      "start": 290,
+      "end": 290
+    },
+    {
+      "start": 301,
+      "end": 301
+    },
+    {
+      "start": 314,
+      "end": 319
+    },
+    {
+      "start": 321,
+      "end": 321
+    },
+    {
+      "start": 328,
+      "end": 328
+    },
+    {
+      "start": 333,
+      "end": 333
+    },
+    {
+      "start": 336,
+      "end": 336
+    },
+    {
+      "start": 339,
+      "end": 339
+    },
+    {
+      "start": 344,
+      "end": 345
+    },
+    {
+      "start": 351,
+      "end": 351
+    },
+    {
+      "start": 354,
+      "end": 412
+    },
+    {
+      "start": 414,
+      "end": 415
+    },
+    {
+      "start": 417,
+      "end": 422
+    },
+    {
+      "start": 424,
+      "end": 426
+    },
+    {
+      "start": 428,
+      "end": 428
+    },
+    {
+      "start": 430,
+      "end": 430
+    },
+    {
+      "start": 432,
+      "end": 461
+    },
+    {
+      "start": 464,
+      "end": 464
+    },
+    {
+      "start": 468,
+      "end": 468
+    },
+    {
+      "start": 470,
+      "end": 470
+    },
+    {
+      "start": 474,
+      "end": 474
+    }
+  ],
+  "packages/core/src/task/case-scope.ts": [
+    {
+      "start": 11,
+      "end": 11
+    },
+    {
+      "start": 13,
+      "end": 13
+    },
+    {
+      "start": 46,
+      "end": 70
+    }
+  ],
+  "packages/core/src/task/case-structure.ts": [
+    {
+      "start": 16,
+      "end": 16
+    },
+    {
+      "start": 43,
+      "end": 47
+    },
+    {
+      "start": 52,
+      "end": 54
+    },
+    {
+      "start": 84,
+      "end": 84
+    }
+  ],
+  "packages/core/src/task/coverage-compute.ts": [
+    {
+      "start": 1,
+      "end": 526
+    }
+  ],
+  "packages/core/src/task/state/guards.ts": [
+    {
+      "start": 47,
+      "end": 48
+    },
+    {
+      "start": 220,
+      "end": 222
+    }
+  ],
+  "packages/core/src/task/state/migrate.ts": [
+    {
+      "start": 113,
+      "end": 113
+    },
+    {
+      "start": 119,
+      "end": 123
+    },
+    {
+      "start": 216,
+      "end": 219
+    }
+  ],
+  "packages/core/src/task/storage/records.ts": [
+    {
+      "start": 101,
+      "end": 111
+    },
+    {
+      "start": 116,
+      "end": 116
+    }
+  ],
+  "packages/core/src/task/task-ops.ts": [
+    {
+      "start": 20,
+      "end": 20
+    },
+    {
+      "start": 36,
+      "end": 36
+    },
+    {
+      "start": 472,
+      "end": 487
+    },
+    {
+      "start": 533,
+      "end": 557
+    },
+    {
+      "start": 567,
+      "end": 571
+    },
+    {
+      "start": 1003,
+      "end": 1004
+    },
+    {
+      "start": 1025,
+      "end": 1025
+    }
+  ],
+  "packages/core/src/workspace/case-templates.ts": [
+    {
+      "start": 1,
+      "end": 165
+    }
+  ],
+  "packages/core/src/workspace/config-defaults.ts": [
+    {
+      "start": 13,
+      "end": 23
+    },
+    {
+      "start": 49,
+      "end": 49
+    },
+    {
+      "start": 92,
+      "end": 117
+    },
+    {
+      "start": 246,
+      "end": 318
+    }
+  ],
+  "packages/core/src/workspace/config-load.ts": [
+    {
+      "start": 28,
+      "end": 28
+    },
+    {
+      "start": 59,
+      "end": 59
+    },
+    {
+      "start": 394,
+      "end": 396
+    }
+  ],
+  "packages/core/src/workspace/config.d.ts": [
+    {
+      "start": 27,
+      "end": 28
+    },
+    {
+      "start": 39,
+      "end": 55
+    },
+    {
+      "start": 184,
+      "end": 186
+    },
+    {
+      "start": 260,
+      "end": 272
+    }
+  ],
+  "packages/core/src/workspace/doctor-check-rules.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 19,
+      "end": 20
+    },
+    {
+      "start": 43,
+      "end": 44
+    },
+    {
+      "start": 554,
+      "end": 603
+    }
+  ],
+  "packages/core/src/workspace/doctor-checks.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 69,
+      "end": 69
+    },
+    {
+      "start": 77,
+      "end": 77
+    }
+  ],
+  "packages/core/src/workspace/doctor-types.ts": [
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 8,
+      "end": 10
+    },
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 68,
+      "end": 68
+    },
+    {
+      "start": 102,
+      "end": 102
+    },
+    {
+      "start": 114,
+      "end": 114
+    }
+  ],
+  "packages/core/src/workspace/doctor.ts": [
+    {
+      "start": 8,
+      "end": 8
+    }
+  ],
+  "packages/core/src/workspace/git-query.ts": [
+    {
+      "start": 18,
+      "end": 19
+    },
+    {
+      "start": 36,
+      "end": 41
+    },
+    {
+      "start": 48,
+      "end": 49
+    },
+    {
+      "start": 55,
+      "end": 78
+    },
+    {
+      "start": 151,
+      "end": 287
+    }
+  ],
+  "packages/core/test/case-templates.test.ts": [
+    {
+      "start": 3,
+      "end": 12
+    },
+    {
+      "start": 52,
+      "end": 153
+    }
+  ],
+  "packages/core/test/case.test.ts": [
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 23,
+      "end": 26
+    },
+    {
+      "start": 28,
+      "end": 29
+    },
+    {
+      "start": 146,
+      "end": 146
+    },
+    {
+      "start": 205,
+      "end": 205
+    },
+    {
+      "start": 213,
+      "end": 213
+    },
+    {
+      "start": 252,
+      "end": 252
+    },
+    {
+      "start": 257,
+      "end": 273
+    },
+    {
+      "start": 308,
+      "end": 354
+    },
+    {
+      "start": 445,
+      "end": 445
+    },
+    {
+      "start": 466,
+      "end": 466
+    },
+    {
+      "start": 490,
+      "end": 490
+    },
+    {
+      "start": 492,
+      "end": 493
+    },
+    {
+      "start": 496,
+      "end": 499
+    },
+    {
+      "start": 501,
+      "end": 506
+    },
+    {
+      "start": 673,
+      "end": 1104
+    },
+    {
+      "start": 1118,
+      "end": 1118
+    },
+    {
+      "start": 1124,
+      "end": 1124
+    }
+  ],
+  "packages/core/test/config.test.ts": [
+    {
+      "start": 12,
+      "end": 12
+    },
+    {
+      "start": 1662,
+      "end": 1751
+    }
+  ],
+  "packages/core/test/contract-asset.test.ts": [
+    {
+      "start": 894,
+      "end": 932
+    },
+    {
+      "start": 1127,
+      "end": 1231
+    }
+  ],
+  "packages/core/test/coverage-compute.test.ts": [
+    {
+      "start": 1,
+      "end": 443
+    }
+  ],
+  "packages/core/test/doctor.test.ts": [
+    {
+      "start": 2,
+      "end": 2
+    },
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 20,
+      "end": 20
+    },
+    {
+      "start": 48,
+      "end": 58
+    },
+    {
+      "start": 103,
+      "end": 103
+    },
+    {
+      "start": 106,
+      "end": 106
+    },
+    {
+      "start": 111,
+      "end": 111
+    },
+    {
+      "start": 114,
+      "end": 121
+    },
+    {
+      "start": 128,
+      "end": 128
+    },
+    {
+      "start": 135,
+      "end": 135
+    },
+    {
+      "start": 138,
+      "end": 138
+    },
+    {
+      "start": 184,
+      "end": 190
+    },
+    {
+      "start": 567,
+      "end": 599
+    }
+  ],
+  "packages/core/test/git.test.ts": [
+    {
+      "start": 13,
+      "end": 18
+    },
+    {
+      "start": 341,
+      "end": 439
+    }
+  ],
+  "packages/core/test/prompt-compose.test.ts": [
+    {
+      "start": 5,
+      "end": 7
+    },
+    {
+      "start": 16,
+      "end": 16
+    },
+    {
+      "start": 130,
+      "end": 140
+    },
+    {
+      "start": 144,
+      "end": 144
+    },
+    {
+      "start": 199,
+      "end": 200
+    },
+    {
+      "start": 226,
+      "end": 226
+    },
+    {
+      "start": 263,
+      "end": 286
+    },
+    {
+      "start": 322,
+      "end": 322
+    },
+    {
+      "start": 326,
+      "end": 326
+    },
+    {
+      "start": 330,
+      "end": 332
+    },
+    {
+      "start": 336,
+      "end": 337
+    },
+    {
+      "start": 592,
+      "end": 592
+    },
+    {
+      "start": 600,
+      "end": 600
+    },
+    {
+      "start": 602,
+      "end": 602
+    },
+    {
+      "start": 604,
+      "end": 605
+    },
+    {
+      "start": 608,
+      "end": 609
+    },
+    {
+      "start": 718,
+      "end": 718
+    },
+    {
+      "start": 752,
+      "end": 755
+    },
+    {
+      "start": 759,
+      "end": 760
+    },
+    {
+      "start": 763,
+      "end": 771
+    },
+    {
+      "start": 888,
+      "end": 888
+    },
+    {
+      "start": 901,
+      "end": 914
+    },
+    {
+      "start": 919,
+      "end": 921
+    },
+    {
+      "start": 927,
+      "end": 927
+    },
+    {
+      "start": 934,
+      "end": 1003
+    }
+  ],
+  "packages/core/test/surface.test.ts": [
+    {
+      "start": 258,
+      "end": 260
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/discipline-text.js": [
+    {
+      "start": 88,
+      "end": 96
+    },
+    {
+      "start": 108,
+      "end": 108
+    },
+    {
+      "start": 133,
+      "end": 133
+    },
+    {
+      "start": 148,
+      "end": 148
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/discipline-text.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/executor-injection.js": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/executor-injection.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/commands.js": [
+    {
+      "start": 16,
+      "end": 16
+    },
+    {
+      "start": 76,
+      "end": 78
+    },
+    {
+      "start": 97,
+      "end": 113
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/commands.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/tasks.js": [
+    {
+      "start": 78,
+      "end": 84
+    },
+    {
+      "start": 271,
+      "end": 277
+    },
+    {
+      "start": 320,
+      "end": 320
+    },
+    {
+      "start": 326,
+      "end": 326
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/tasks.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/src/dispatch/discipline-text.ts": [
+    {
+      "start": 115,
+      "end": 127
+    },
+    {
+      "start": 139,
+      "end": 139
+    },
+    {
+      "start": 164,
+      "end": 164
+    },
+    {
+      "start": 179,
+      "end": 179
+    }
+  ],
+  "packages/dsh-workloom/src/tooling/commands.ts": [
+    {
+      "start": 28,
+      "end": 28
+    },
+    {
+      "start": 33,
+      "end": 34
+    },
+    {
+      "start": 114,
+      "end": 116
+    },
+    {
+      "start": 134,
+      "end": 148
+    }
+  ],
+  "packages/dsh-workloom/src/tooling/tasks.ts": [
+    {
+      "start": 108,
+      "end": 114
+    },
+    {
+      "start": 316,
+      "end": 322
+    },
+    {
+      "start": 367,
+      "end": 367
+    },
+    {
+      "start": 373,
+      "end": 373
+    }
+  ],
+  "packages/dsh-workloom/test/case-executor.test.ts": [
+    {
+      "start": 3,
+      "end": 3
+    },
+    {
+      "start": 10,
+      "end": 12
+    },
+    {
+      "start": 45,
+      "end": 50
+    },
+    {
+      "start": 61,
+      "end": 66
+    },
+    {
+      "start": 79,
+      "end": 80
+    },
+    {
+      "start": 82,
+      "end": 85
+    },
+    {
+      "start": 88,
+      "end": 88
+    }
+  ],
+  "packages/dsh-workloom/test/commands.test.ts": [
+    {
+      "start": 8,
+      "end": 8
+    },
+    {
+      "start": 162,
+      "end": 182
+    }
+  ],
+  "packages/dsh-workloom/test/discipline-text.test.ts": [
+    {
+      "start": 207,
+      "end": 227
+    }
+  ],
+  "packages/dsh-workloom/test/executor.test.ts": [
+    {
+      "start": 12,
+      "end": 18
+    },
+    {
+      "start": 77,
+      "end": 82
+    }
+  ],
+  "packages/dsh-workloom/test/skills.test.ts": [
+    {
+      "start": 152,
+      "end": 152
+    },
+    {
+      "start": 157,
+      "end": 157
+    }
+  ],
+  "packages/dsh-workloom/test/tasks.test.ts": [
+    {
+      "start": 84,
+      "end": 129
+    }
+  ]
+}

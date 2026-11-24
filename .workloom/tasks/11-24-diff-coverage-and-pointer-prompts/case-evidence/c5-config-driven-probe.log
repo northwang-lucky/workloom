@@ -1,0 +1,23 @@
+PASS | default threshold 90 + empty languages | threshold=90
+PASS | custom config parsed | threshold=80
+PASS | invalid: threshold 101 | err=workloom config: coverage.threshold: must be an integer between 0 and 100
+PASS | invalid: threshold string | err=workloom config: coverage.threshold: must be an integer between 0 and 100
+PASS | invalid: unknown subfield | err=workloom config: coverage.foo: unknown field (allowed: threshold, languages)
+PASS | invalid: bad format enum | err=workloom config: coverage.languages.python.format: must be one of: go-coverprofile, lcov, jacoco-xml, cobertura-xml
+PASS | invalid: unknown placeholder | err=workloom config: coverage.languages.python.command: unknown placeholder <tool>
+PASS | global layer rejects coverage | err=workloom config: global config: coverage is a project-level field; keep it in the project config, not in $HOME/.workloom
+PASS | single language broadcasts default lcov | hints=["lcov","lcov"]
+PASS | single language broadcasts config go | hints=["go","go"]
+PASS | multi-language pure inference (undefined)
+PASS | non-builtin only pure inference (undefined)
+PASS | unsupported content falls back to hint | format=lcov
+PASS | no hint stays unsupported | format=unsupported
+PASS | script --check threshold 80 passes 9/10 | lines=Threshold: 80% / Pass: yes
+PASS | script --check threshold 90 rejects 9/10 | lines=Threshold: 90% / Pass: no
+PASS | scan-packages detects go+typescript | languages=["go","typescript"]
+PASS | SKILL proposes coverage via config-edit | refs=3
+-- SKILL.md refs --
+15:3. **Propose coverage defaults** — for each detected language that has a built-in default in `LANGUAGE_DEFAULTS` (exported by `packages/core/dist/task/coverage-compute.js`), propose a `coverage.languages` entry with its default `format` and `command` skeleton. Route this proposal through the `workloom-config-edit` skill together with the `packages` candidates. Flag detected languages without a built-in default as requiring a manual `format` and `command`; never guess one.
+18:6. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field and the confirmed proposals into `coverage.languages`:
+66:- Edits to config fields outside this scan's `packages` and `coverage.languages` proposals go through the `workloom-config-edit` skill.
+C5 RESULT: PASS (18/18 checks)

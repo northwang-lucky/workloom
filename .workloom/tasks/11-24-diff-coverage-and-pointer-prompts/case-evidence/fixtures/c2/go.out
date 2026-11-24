@@ -1,0 +1,2 @@
+mode: set
+example.com/probe/src/b.go:5.5,5.10 1 1

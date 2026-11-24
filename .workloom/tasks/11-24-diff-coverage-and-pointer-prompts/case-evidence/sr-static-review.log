@@ -1,0 +1,151 @@
+=== SR1 case-gates.ts#evaluateCaseOutcomeGate ===
+50:  COVERAGE_CONFIG: 'coverage_config',
+225:  return [...new Set(matches.map((value) => value.slice(1, -1)))].filter((path) => !isDiffCoverageArtifact(path))
+360:    coverageConfig = loadConfig(worktree)
+364:  const threshold = coverageConfig?.coverage.threshold ?? DEFAULT_THRESHOLD
+390:    : buildFormatHints(lines.keys(), reportTexts.length, coverageConfig.coverage.languages)
+392:    ? computeDiffCoverage({ root: worktree, changedLines: lines, reports: reportTexts, exclusions, formatHints })
+404:  const thresholdBasis = supported ? computed.overall : reported ?? { covered: 0, total: 0 }
+406:  const waiver = options.coverageWaiver ?? task.check?.coverageWaiver ?? null
+451:        issues.push(issue(ISSUE_CODES.COVERAGE_STATUS, `below_threshold requires incremental coverage <= configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%)`))
+454:      issues.push(issue(ISSUE_CODES.COVERAGE_THRESHOLD, `incremental coverage must be > configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%) or below_threshold with a valid waiver`))
+--- fallback expected & missing guard ---
+  const recomputedFiles = computed?.files ?? []
+  const expected = supported
+    ? recomputedFiles.map((file) => file.file).sort()
+    : [...new Set([...lines.keys()].filter((file) => !file.startsWith('.workloom/') && !isExcluded(exclusions, file) && existsSync(join(worktree, file))))].sort()
+  const reported = resultOverallNumbers(coverage)
+  const thresholdBasis = supported ? computed.overall : reported ?? { covered: 0, total: 0 }
+  const fingerprint = resultFingerprint(meta)
+  const waiver = options.coverageWaiver ?? task.check?.coverageWaiver ?? null
+  // 缺席可执行文件对 generated/below_threshold/not_applicable 三态统一硬拒；
+  // unsupported 格式跳过（无机械复算依据）。
+  if (supported && computed.missingExecutableFiles.length > 0) {
+=== SR2 coverage-compute.ts ===
+15:import { DEFAULT_THRESHOLD } from '../workspace/config-defaults.ts'
+28:export const EXTENSION_LANGUAGE = Object.freeze({
+52:  Object.keys(EXTENSION_LANGUAGE) as (keyof typeof EXTENSION_LANGUAGE)[],
+59:export function detectLanguage(file: string): string | null {
+61:  const extension = (Object.keys(EXTENSION_LANGUAGE) as (keyof typeof EXTENSION_LANGUAGE)[])
+79:export const DIFF_COVERAGE_ARTIFACTS = Object.freeze({
+85:export function isDiffCoverageArtifact(path: string): boolean {
+90:export type CoverageFormat = 'go' | 'lcov' | 'jacoco-xml' | 'cobertura-xml' | 'mixed' | 'unsupported'
+96:export const LANGUAGE_DEFAULTS = {
+136:export const FORMAT_NORMALIZE = {
+182:  formatHints?: CoverageFormat[]
+186:export function meetsThreshold(
+195:export function buildWaiver(reason: string, fingerprint: string): CoverageWaiverRecord {
+203:export function inferFormat(text: string): CoverageFormat {
+385:export function parseCoberturaXml(
+  const formats = input.reports.map((text, index) => {
+    const inferred = inferFormat(text)
+    return inferred === 'unsupported' ? (input.formatHints?.[index] ?? inferred) : inferred
+  })
+function combineFormats(formats: CoverageFormat[]): CoverageFormat {
+  const first = formats[0]
+  if (first === undefined || formats.includes('unsupported')) return 'unsupported'
+  return formats.every((format) => format === first) ? first : 'mixed'
+}
+export function meetsThreshold(
+  covered: number,
+  total: number,
+  threshold: number = DEFAULT_THRESHOLD,
+): boolean {
+  return covered * 100 > total * threshold
+}
+
+/** 构造豁免记录（审核权在主会话，时间取当前时刻）。 */
+=== SR3 config-defaults.ts ===
+14:export const DEFAULT_THRESHOLD = 90
+49:  coverage: { threshold: DEFAULT_THRESHOLD, languages: {} },
+93:const COVERAGE_PLACEHOLDER_TOKENS = Object.freeze({
+106:export function renderCoverageCommand(
+282:export function parseCoverage(value: unknown): import('./config.d.ts').CoverageConfig {
+286:      throw new WorkloomConfigError(`coverage.${key}`, 'unknown field (allowed: threshold, languages)')
+=== SR4 config-load.ts ===
+28:  parseCoverage,
+59:const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree', 'coverage'])
+71:export function loadConfig(root: string, options: { homeDir?: string } = {}): WorkloomConfig {
+291:        `${key} is a project-level field; keep it in the project config, not in $HOME/.workloom`,
+394:  if (doc.coverage !== undefined) {
+395:    config.coverage = parseCoverage(doc.coverage)
+=== SR5 prompt-compose.ts#buildExecutorPrompt ===
+219:    filesInlined: 0,
+230:  const isChecker = role === EXECUTOR_ROLES.CHECKER
+233:    assertCaseTemplatesReady(params.root)
+237:  if (role !== EXECUTOR_ROLES.RESEARCHER) {
+255:  inlineResearchMaterials(parts, params.taskRelPath, taskDir, stats)
+259:    parts.push(prdSoftPointerLine(join(WORKLOOM_DIR, params.taskRelPath, PRD_ARTIFACT)))
+0
+caseTemplates hits: 0
+    filesInlined: 0,
+    filesPointed: 0,
+=== SR6 prompt-sections.ts ===
+64:export function inlineCurrentCase(lines: string[], params: BuildExecutorPromptParams, taskDir: string, stats: ExecutorPromptStats): void {
+87:export function inlineCaseTemplates(lines: string[], params: BuildExecutorPromptParams, stats: ExecutorPromptStats): void {
+102:export function assertCaseTemplatesReady(root: string): void {
+106:    throw new Error(`${ERR_PREFIX}: missing CASE template asset (incomplete deployment)`)
+115:    `${ERR_PREFIX}: CASE template copies missing or outdated: ${relPaths}; rerun workloom init to refresh them`,
+150:export function pointerLine(file: string, reason?: string): string {
+materialization residue: 0
+=== SR7 case-templates.ts#ensureCaseTemplates ===
+18:import { writeFileAtomic } from './file-atomic.js'
+73:export function ensureCaseTemplates(
+108:      writeFileAtomic(join(templatesDir, name), content)
+114:    created: status.missing.map(toRel),
+115:    updated: status.outdated.map(toRel),
+=== SR8 doctor-check-rules.ts#checkCaseTemplates ===
+563:export function checkCaseTemplates(root: string): DoctorIssue[] {
+569:        code: 'case_templates',
+588:        code: 'case_templates',
+packages/core/src/workspace/doctor-types.ts:24:  | 'case_templates'
+packages/core/src/workspace/doctor-types.ts:114:  { code: 'case_templates', title: 'CASE template copies', severity: 'warn' },
+packages/core/src/workspace/doctor-checks.ts:3: * confirm-completeness、case-consistency、worktree、config、case_templates 六类
+packages/core/src/workspace/doctor-checks.ts:69:  pushIssues(issueMap, 'case_templates', checkCaseTemplates(projectRoot))
+=== SR9 dsh commands.ts#ensureTemplates ===
+119:function ensureTemplates(cwd: string): void {
+141:      const [err] = ensureCaseTemplates({ root: cwd, caseTemplate, caseResultTemplate })
+      const [err] = ensureCaseTemplates({ root: cwd, caseTemplate, caseResultTemplate })
+      if (err !== null) {
+        console.warn(`${ERR_PREFIX.command}: CASE templates: ${err.message}`)
+      }
+    }
+  } catch (error) {
+=== SR10 config-edit SKILL.md ===
+3:description: Edit workloom config fields in a user project — config.json, config.js, config.local.json, config.local.js — through a five-step discipline and the on-disk field whitelist. Triggers on config field edits (packages, worktree, hooks, subagent_profiles, context_injection, prompt_injection, executor, session_auto_commit, coverage); package-structure scanning stays with workloom-packages-scan.
+9:Edit workloom configuration in the user's project through a fixed five-step discipline. On-disk keys are snake_case; `loadConfig` converts them to the camelCase runtime shape. The [disk field whitelist](#disk-field-whitelist) is the enforcement point for unknown top-level keys, because `loadConfig` ignores them silently.
+5
+25:| `packages` | map of name to `{ path, setup?, type?, git? }` |
+26:| `worktree` | `{ enabled?, branch_template?, cleanup? }` |
+27:| `hooks` | `{ after_create?, after_start?, after_finish?, after_archive? }`, each a string array |
+28:| `subagent_profiles` | array of `{ whenMain?, roles }` |
+29:| `context_injection` | `{ max_file_bytes?, max_artifact_bytes?, max_total_bytes? }` |
+30:| `prompt_injection` | `{ skip_keyword? }` |
+31:| `executor` | `{ max_concurrent? }` |
+32:| `session_auto_commit` | boolean |
+33:| `coverage` | `{ threshold?, languages? }` — see [Coverage configuration](#coverage-configuration) |
+41:The only accepted command placeholders are `<worktree>` (task worktree root), `<profile>` (coverage report output path), and `<base-ref>` (baseline branch). Any other token fails validation. For example:
+59:- Edit only the project layer (`.workloom/config.json` or `.workloom/config.js`) and the local layer (`.workloom/config.local.json` or `.workloom/config.local.js`). Global config under `$HOME/.workloom/` is out of scope; route it to `workloom-migrate-to-sop`.
+39:`coverage.threshold` is an integer from 0 to 100 (default 90). The gate requires incremental coverage to be strictly greater than it. `coverage.languages` maps a language name to `{ format, command? }`; `format` must be one of `go-coverprofile`, `lcov`, `jacoco-xml`, or `cobertura-xml`. Built-in languages need no entry — they fall back to `LANGUAGE_DEFAULTS`. An unknown subfield, an invalid format, or an unknown `<…>` placeholder in `command` is rejected by `loadConfig`.
+48:      "go": { "format": "go-coverprofile" },
+60:  'skills/workloom-config-edit/SKILL.md',
+=== SR11 scan-packages.mjs ===
+8: * 输出格式：{ name: { path, type?, git?, languages? } }
+11: *   - languages: 源码扩展名检测出的内置语言栈（供 coverage.languages 提议）
+19:import { pathToFileURL } from 'node:url'
+21:import { detectLanguage } from '../../../../dist/task/coverage-compute.js'
+47: * 按源码扩展名检测目录内的内置语言栈（复用 core detectLanguage 单源）。
+53:  const languages = new Set()
+69:      const lang = detectLanguage(entry.name)
+70:      if (lang !== null) languages.add(lang)
+74:  return [...languages].sort()
+131:    const languages = detectPackageLanguages(normalized)
+=== SR12 packages-scan SKILL.md ===
+15:3. **Propose coverage defaults** — for each detected language that has a built-in default in `LANGUAGE_DEFAULTS` (exported by `packages/core/dist/task/coverage-compute.js`), propose a `coverage.languages` entry with its default `format` and `command` skeleton. Route this proposal through the `workloom-config-edit` skill together with the `packages` candidates. Flag detected languages without a built-in default as requiring a manual `format` and `command`; never guess one.
+18:6. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field and the confirmed proposals into `coverage.languages`:
+66:- Edits to config fields outside this scan's `packages` and `coverage.languages` proposals go through the `workloom-config-edit` skill.
+=== SR13 migrate-to-sop SKILL.md ===
+46:Use the bundled script for legacy field migration only. Other general config field edits in the project and local layers go through the `workloom-config-edit` skill; the global layer (`~/.workloom/config.json`) stays with this script.
+## Config field migration
+
+Use the bundled script for legacy field migration only. Other general config field edits in the project and local layers go through the `workloom-config-edit` skill; the global layer (`~/.workloom/config.json`) stays with this script.

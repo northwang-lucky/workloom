@@ -1,0 +1,41 @@
+## Diff coverage
+
+| File | Covered / Total | Uncovered changed lines |
+| --- | --- | --- |
+| `packages/core/resources/scripts/task-diff-coverage.mjs` | 121/122 | `68` |
+| `packages/core/resources/skills/workloom-packages-scan/scripts/scan-packages.mjs` | 40/42 | `61-62` |
+| `packages/core/src/index.ts` | 12/12 | `-` |
+| `packages/core/src/injection/prompt-compose.ts` | 33/33 | `-` |
+| `packages/core/src/injection/prompt-sections.ts` | 53/55 | `106-107` |
+| `packages/core/src/injection/surface.ts` | 5/5 | `-` |
+| `packages/core/src/resources-manifest.ts` | 3/3 | `-` |
+| `packages/core/src/task/case-gates.ts` | 204/218 | `333, 336, 379-381, 385-386, 395-396, 417-418, 426, 470, 474` |
+| `packages/core/src/task/case-scope.ts` | 27/27 | `-` |
+| `packages/core/src/task/case-structure.ts` | 10/10 | `-` |
+| `packages/core/src/task/coverage-compute.ts` | 521/526 | `423, 472-475` |
+| `packages/core/src/task/state/guards.ts` | 5/5 | `-` |
+| `packages/core/src/task/state/migrate.ts` | 10/10 | `-` |
+| `packages/core/src/task/storage/records.ts` | 12/12 | `-` |
+| `packages/core/src/task/task-ops.ts` | 49/51 | `486-487` |
+| `packages/core/src/workspace/case-templates.ts` | 163/165 | `150-151` |
+| `packages/core/src/workspace/config-defaults.ts` | 111/111 | `-` |
+| `packages/core/src/workspace/config-load.ts` | 5/5 | `-` |
+| `packages/core/src/workspace/doctor-check-rules.ts` | 44/57 | `567-579` |
+| `packages/core/src/workspace/doctor-checks.ts` | 6/6 | `-` |
+| `packages/core/src/workspace/doctor-types.ts` | 9/9 | `-` |
+| `packages/core/src/workspace/doctor.ts` | 1/1 | `-` |
+| `packages/core/src/workspace/git-query.ts` | 161/171 | `233-239, 249-250, 278` |
+| `packages/dsh-workloom/src/dispatch/discipline-text.ts` | 16/16 | `-` |
+| `packages/dsh-workloom/src/tooling/commands.ts` | 16/21 | `139, 143-144, 147-148` |
+| `packages/dsh-workloom/src/tooling/tasks.ts` | 16/16 | `-` |
+
+Overall: 1653/1709 (96.7%)
+Format: lcov
+
+Threshold: 90%
+Pass: yes
+format: lcov
+overall: {'covered': 1653, 'total': 1709}
+files: 26
+missingExecutableFiles: []
+meetsThreshold: True
