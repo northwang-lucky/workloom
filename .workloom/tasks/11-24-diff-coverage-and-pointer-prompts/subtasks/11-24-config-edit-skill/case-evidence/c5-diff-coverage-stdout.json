@@ -1,0 +1,26 @@
+{
+  "files": [
+    {
+      "file": "packages/core/src/resources-manifest.ts",
+      "covered": 3,
+      "total": 3,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 49,
+          "end": 50
+        },
+        {
+          "start": 60,
+          "end": 60
+        }
+      ]
+    }
+  ],
+  "overall": {
+    "covered": 3,
+    "total": 3
+  },
+  "missingExecutableFiles": [],
+  "format": "lcov"
+}

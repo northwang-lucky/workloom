@@ -1,0 +1,27 @@
+== C2 step1: references ==
+packages/core/resources/skills/workloom-packages-scan/SKILL.md:17:5. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field:
+packages/core/resources/skills/workloom-packages-scan/SKILL.md:64:- Edits to config fields outside this scan's `packages` candidates go through the `workloom-config-edit` skill.
+packages/core/resources/skills/workloom-migrate-to-sop/SKILL.md:46:Use the bundled script for legacy field migration only. Other general config field edits in the project and local layers go through the `workloom-config-edit` skill; the global layer (`~/.workloom/config.json`) stays with this script.
+packages/core/resources/workflow/workflow.md:19:6. Config edits go through the skill: `.workloom/config.json` and `.workloom/config.local.json` modifications go through the `workloom-config-edit` skill.
+.workloom/spec/repo/workflow/index.md:11:- config-edit-skill: route project and local `.workloom/config.json`/`config.local.json` (and `.js` variants) field edits through the `workloom-config-edit` skill — five steps with completion criteria, whitelist rejection of unknown top-level fields, backup, atomic write, and `workloom-doctor` validation; global config stays with `workloom-migrate-to-sop`, and the skill is registered in `resources-manifest.ts` `SKILL_ENTRIES`
+
+== C2 step3.1 packages-scan deletions ==
+-5. **Write `.workloom/config.json`** — merge the confirmed candidates into the `packages` field:
+-- bullets --
+1
+1
+1
+hunks: 2
+
+== C2 step3.2 migrate deletions ==
+-- [ ] the config script real run completed; the config loads without legacy-key warnings
+-- commands preserved --
+1
+1
+
+== C2 step3.3 script ==
+script-diff-exit=0 (empty stat means untouched)
+7318 
+
+== C2 step4 workflow version guard ==
+version-guard-lines=0

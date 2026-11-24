@@ -1,0 +1,16 @@
+gate issues: [
+ {
+  "code": "coverage_files",
+  "message": "Changed Files must equal <empty>"
+ },
+ {
+  "code": "coverage_recompute",
+  "message": "Overall lines must be 0/0"
+ },
+ {
+  "code": "coverage_threshold",
+  "message": "incremental coverage must be >90% or below_threshold with a valid waiver"
+ }
+]
+exclusions identical: true (7 vs 7)
+overall form ok: true "103/119 (86.6%)"

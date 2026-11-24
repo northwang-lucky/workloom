@@ -1,0 +1,22 @@
+✔ 正常解析：name/description/body（正文 trim，whenToUse 缺省） (1.368856ms)
+✔ whenToUse 可选：存在时解析出来 (0.22761ms)
+✔ 缺少 description 报错 (0.319482ms)
+✔ 无 front-matter 报错 (0.152767ms)
+✔ 未知键忽略：兼容 vendored skills 的 license/source (0.220556ms)
+✔ 缺失 name 报错 (0.215045ms)
+✔ 缺失闭合分隔符报错 (0.149987ms)
+✔ workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文） (0.526212ms)
+✔ workloom_step 深度=0：返回契约原文（现状不变） (8.109596ms)
+✔ workloom_step exec 缺失时视为深度 0：返回契约原文 (1.496886ms)
+✔ skill 清单契约：注册 finish/alignment/update-spec/packages-scan/config-edit/migrate-to-sop + generic tdd/writing-for-agents，不含已退役五个 skill (1.702877ms)
+✔ workloom-finish 资产可解析：收尾五步 + taskPath 必填指引 (0.360958ms)
+✔ workloom-alignment 资产可解析：name/description/whenToUse + 固定小节叙述规则与 references 就位 (0.407477ms)
+✔ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.561826ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 357.919343

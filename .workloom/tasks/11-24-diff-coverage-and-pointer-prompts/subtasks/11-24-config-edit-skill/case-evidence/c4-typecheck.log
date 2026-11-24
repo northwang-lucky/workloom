@@ -1,0 +1,6 @@
+Scope: 2 of 3 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/dsh-workloom typecheck$ tsc -p tsconfig.json --noEmit
+packages/dsh-workloom typecheck: Done
+typecheck-exit=0
