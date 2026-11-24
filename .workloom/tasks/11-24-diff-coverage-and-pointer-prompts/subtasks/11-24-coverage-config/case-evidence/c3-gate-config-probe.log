@@ -1,0 +1,8 @@
+[A-80-reject] PASS codes=["coverage_threshold"]
+[B-801-pass] PASS codes=[]
+[C-default-90] PASS 90.0%=true 90.1% codes=[]
+[D-coverage-config] PASS codes=["coverage_config"]
+[E-elm-fallback] PASS 80%=拒:true 81%=过:true not_applicable codes=["coverage_not_applicable","coverage_files"]
+[F-hint-broadcast] PASS codes=["coverage_missing_file","coverage_threshold"]
+[G-multi-pure-inference] PASS codes=[]
+c3-gate-config-probe: ALL PASS

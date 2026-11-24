@@ -1,0 +1,638 @@
+{
+  ".workloom/spec/repo/workflow/index.md": [
+    {
+      "start": 9,
+      "end": 10
+    }
+  ],
+  "packages/core/dist/task/case-gates.js": [
+    {
+      "start": 15,
+      "end": 16
+    },
+    {
+      "start": 18,
+      "end": 18
+    },
+    {
+      "start": 26,
+      "end": 26
+    },
+    {
+      "start": 333,
+      "end": 341
+    },
+    {
+      "start": 367,
+      "end": 369
+    },
+    {
+      "start": 371,
+      "end": 371
+    },
+    {
+      "start": 431,
+      "end": 431
+    },
+    {
+      "start": 433,
+      "end": 433
+    },
+    {
+      "start": 437,
+      "end": 437
+    }
+  ],
+  "packages/core/dist/task/case-gates.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.d.ts": [
+    {
+      "start": 1,
+      "end": 1
+    },
+    {
+      "start": 6,
+      "end": 7
+    },
+    {
+      "start": 9,
+      "end": 33
+    },
+    {
+      "start": 36,
+      "end": 36
+    },
+    {
+      "start": 51,
+      "end": 100
+    },
+    {
+      "start": 138,
+      "end": 139
+    },
+    {
+      "start": 141,
+      "end": 142
+    },
+    {
+      "start": 145,
+      "end": 148
+    },
+    {
+      "start": 150,
+      "end": 155
+    },
+    {
+      "start": 162,
+      "end": 166
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.js": [
+    {
+      "start": 14,
+      "end": 14
+    },
+    {
+      "start": 18,
+      "end": 19
+    },
+    {
+      "start": 21,
+      "end": 43
+    },
+    {
+      "start": 46,
+      "end": 53
+    },
+    {
+      "start": 56,
+      "end": 56
+    },
+    {
+      "start": 59,
+      "end": 59
+    },
+    {
+      "start": 74,
+      "end": 125
+    },
+    {
+      "start": 131,
+      "end": 134
+    },
+    {
+      "start": 142,
+      "end": 143
+    },
+    {
+      "start": 146,
+      "end": 167
+    },
+    {
+      "start": 305,
+      "end": 328
+    },
+    {
+      "start": 338,
+      "end": 339
+    },
+    {
+      "start": 394,
+      "end": 398
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/config-defaults.d.ts": [
+    {
+      "start": 12,
+      "end": 13
+    },
+    {
+      "start": 30,
+      "end": 40
+    },
+    {
+      "start": 83,
+      "end": 89
+    }
+  ],
+  "packages/core/dist/workspace/config-defaults.js": [
+    {
+      "start": 12,
+      "end": 20
+    },
+    {
+      "start": 46,
+      "end": 46
+    },
+    {
+      "start": 80,
+      "end": 100
+    },
+    {
+      "start": 221,
+      "end": 287
+    }
+  ],
+  "packages/core/dist/workspace/config-defaults.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/config-load.js": [
+    {
+      "start": 21,
+      "end": 21
+    },
+    {
+      "start": 38,
+      "end": 38
+    },
+    {
+      "start": 315,
+      "end": 317
+    }
+  ],
+  "packages/core/dist/workspace/config-load.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/config.d.ts": [
+    {
+      "start": 27,
+      "end": 28
+    },
+    {
+      "start": 39,
+      "end": 55
+    },
+    {
+      "start": 184,
+      "end": 186
+    },
+    {
+      "start": 260,
+      "end": 272
+    }
+  ],
+  "packages/core/resources/scripts/task-diff-coverage.mjs": [
+    {
+      "start": 6,
+      "end": 6
+    },
+    {
+      "start": 9,
+      "end": 9
+    },
+    {
+      "start": 15,
+      "end": 21
+    },
+    {
+      "start": 25,
+      "end": 26
+    },
+    {
+      "start": 34,
+      "end": 34
+    },
+    {
+      "start": 41,
+      "end": 44
+    },
+    {
+      "start": 56,
+      "end": 56
+    },
+    {
+      "start": 64,
+      "end": 65
+    },
+    {
+      "start": 80,
+      "end": 82
+    },
+    {
+      "start": 95,
+      "end": 98
+    },
+    {
+      "start": 100,
+      "end": 100
+    },
+    {
+      "start": 102,
+      "end": 107
+    },
+    {
+      "start": 115,
+      "end": 116
+    }
+  ],
+  "packages/core/resources/scripts/task-diff-coverage.test.mjs": [
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 9,
+      "end": 12
+    },
+    {
+      "start": 113,
+      "end": 160
+    }
+  ],
+  "packages/core/resources/skills/workloom-config-edit/SKILL.md": [
+    {
+      "start": 3,
+      "end": 3
+    },
+    {
+      "start": 21,
+      "end": 21
+    },
+    {
+      "start": 33,
+      "end": 33
+    },
+    {
+      "start": 37,
+      "end": 56
+    },
+    {
+      "start": 63,
+      "end": 63
+    }
+  ],
+  "packages/core/resources/skills/workloom-packages-scan/SKILL.md": [
+    {
+      "start": 3,
+      "end": 3
+    },
+    {
+      "start": 13,
+      "end": 13
+    },
+    {
+      "start": 15,
+      "end": 18
+    },
+    {
+      "start": 22,
+      "end": 22
+    },
+    {
+      "start": 61,
+      "end": 61
+    },
+    {
+      "start": 66,
+      "end": 67
+    }
+  ],
+  "packages/core/resources/skills/workloom-packages-scan/scripts/scan-packages.mjs": [
+    {
+      "start": 8,
+      "end": 8
+    },
+    {
+      "start": 11,
+      "end": 11
+    },
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 21,
+      "end": 21
+    },
+    {
+      "start": 39,
+      "end": 41
+    },
+    {
+      "start": 46,
+      "end": 76
+    },
+    {
+      "start": 131,
+      "end": 132
+    },
+    {
+      "start": 443,
+      "end": 444
+    }
+  ],
+  "packages/core/resources/skills/workloom-packages-scan/scripts/scan-packages.test.ts": [
+    {
+      "start": 63,
+      "end": 98
+    }
+  ],
+  "packages/core/resources/workflow/workflow.md": [
+    {
+      "start": 97,
+      "end": 97
+    },
+    {
+      "start": 113,
+      "end": 113
+    }
+  ],
+  "packages/core/src/task/case-gates.ts": [
+    {
+      "start": 28,
+      "end": 29
+    },
+    {
+      "start": 31,
+      "end": 36
+    },
+    {
+      "start": 38,
+      "end": 38
+    },
+    {
+      "start": 50,
+      "end": 50
+    },
+    {
+      "start": 357,
+      "end": 364
+    },
+    {
+      "start": 388,
+      "end": 390
+    },
+    {
+      "start": 392,
+      "end": 392
+    },
+    {
+      "start": 449,
+      "end": 449
+    },
+    {
+      "start": 451,
+      "end": 451
+    },
+    {
+      "start": 454,
+      "end": 454
+    }
+  ],
+  "packages/core/src/task/coverage-compute.ts": [
+    {
+      "start": 15,
+      "end": 15
+    },
+    {
+      "start": 18,
+      "end": 18
+    },
+    {
+      "start": 25,
+      "end": 26
+    },
+    {
+      "start": 28,
+      "end": 53
+    },
+    {
+      "start": 58,
+      "end": 65
+    },
+    {
+      "start": 68,
+      "end": 68
+    },
+    {
+      "start": 71,
+      "end": 71
+    },
+    {
+      "start": 90,
+      "end": 141
+    },
+    {
+      "start": 181,
+      "end": 182
+    },
+    {
+      "start": 185,
+      "end": 191
+    },
+    {
+      "start": 199,
+      "end": 202
+    },
+    {
+      "start": 207,
+      "end": 207
+    },
+    {
+      "start": 211,
+      "end": 233
+    },
+    {
+      "start": 381,
+      "end": 405
+    },
+    {
+      "start": 420,
+      "end": 421
+    },
+    {
+      "start": 477,
+      "end": 481
+    }
+  ],
+  "packages/core/src/workspace/config-defaults.ts": [
+    {
+      "start": 13,
+      "end": 23
+    },
+    {
+      "start": 49,
+      "end": 49
+    },
+    {
+      "start": 92,
+      "end": 117
+    },
+    {
+      "start": 246,
+      "end": 318
+    }
+  ],
+  "packages/core/src/workspace/config-load.ts": [
+    {
+      "start": 28,
+      "end": 28
+    },
+    {
+      "start": 59,
+      "end": 59
+    },
+    {
+      "start": 394,
+      "end": 396
+    }
+  ],
+  "packages/core/src/workspace/config.d.ts": [
+    {
+      "start": 27,
+      "end": 28
+    },
+    {
+      "start": 39,
+      "end": 55
+    },
+    {
+      "start": 184,
+      "end": 186
+    },
+    {
+      "start": 260,
+      "end": 272
+    }
+  ],
+  "packages/core/test/case.test.ts": [
+    {
+      "start": 23,
+      "end": 26
+    },
+    {
+      "start": 712,
+      "end": 822
+    },
+    {
+      "start": 937,
+      "end": 937
+    },
+    {
+      "start": 939,
+      "end": 940
+    }
+  ],
+  "packages/core/test/config.test.ts": [
+    {
+      "start": 12,
+      "end": 12
+    },
+    {
+      "start": 1662,
+      "end": 1751
+    }
+  ],
+  "packages/core/test/contract-asset.test.ts": [
+    {
+      "start": 1148,
+      "end": 1149
+    },
+    {
+      "start": 1172,
+      "end": 1172
+    },
+    {
+      "start": 1176,
+      "end": 1177
+    },
+    {
+      "start": 1197,
+      "end": 1200
+    },
+    {
+      "start": 1208,
+      "end": 1208
+    },
+    {
+      "start": 1210,
+      "end": 1210
+    },
+    {
+      "start": 1213,
+      "end": 1213
+    },
+    {
+      "start": 1216,
+      "end": 1218
+    }
+  ],
+  "packages/core/test/coverage-compute.test.ts": [
+    {
+      "start": 11,
+      "end": 11
+    },
+    {
+      "start": 14,
+      "end": 17
+    },
+    {
+      "start": 20,
+      "end": 20
+    },
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 302,
+      "end": 443
+    }
+  ]
+}

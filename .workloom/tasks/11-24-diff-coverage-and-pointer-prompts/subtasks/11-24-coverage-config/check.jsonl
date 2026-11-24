@@ -1,1 +1,4 @@
-{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "verify 与 enums/absence-assertions：format/threshold 枚举、缺失断言完整结构形式、红绿清单覆盖消费方"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "核对 config schema/计算源/skill 分层与 dsh 薄投影"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "核对 skill/spec 英文资产"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "核对 dist 同 commit"}

@@ -1,0 +1,42 @@
+== 1. config-edit SKILL：coverage 表行 / eight 缺席 / nine 命中 ==
+33:| `coverage` | `{ threshold?, languages? }` — see [Coverage configuration](#coverage-configuration) |
+-- eight absence (expect none) --
+(no match)
+21:The nine snake_case top-level keys accepted on disk. Authoritative source: `packages/core/src/workspace/config-defaults.ts` (`DEFAULT_CONFIG`) and the field parsing in `packages/core/src/workspace/config-load.ts` (`mergeWithDefaults`).
+== 2. coverage 示例与 workflow 两句 ==
+45:  "coverage": {
+97:After implementation is complete and the main session's CASE review is satisfied, continue `case.designSession` with `role: checker` and `purpose: execution`. Before acting, the Checker reads `case.md` through its task-directory pointer line and the two template copies through their `.workloom/templates/` pointer lines. The executor first completes every SR item, then runs C1 through Cn in order and records actual actions, observations, and evidence in `case-result.md`. It collects the task diff's changed executable lines, their intersection with the native coverage report, and the uncovered changed lines under `coverage/` (changed-lines.json, the native report, and diff-coverage.json); large evidence goes under `case-evidence/`. Incremental coverage must be strictly greater than the configured threshold (default 90%, `coverage.threshold`). When it is at or under 90%, the Checker attaches per-file reasons, the developer attaches an explanation, and the main session reviews: unrelated code goes back to the developer for removal, missing case coverage goes back to the Checker for additional cases, and any code or case change requires a full rerun of static review, every C item, and coverage. If the review confirms the shortfall, the main session approves a waiver; otherwise the task is sent back for rework. A blocked C item stops all later C items and prevents a pass. Any code fix requires a full rerun of static review, every C item, and coverage.
+113:Core CASE failures — a missing CASE document, a missing design session, an invalid RESULT, failed or pending items, failed standard verification, failed coverage, and an invalid session chain — cannot be bypassed with force. Run `workloom_task_check` only after RESULT has `status: passed`, every SR/C item is passed, standard verification is green, coverage is generated above the configured threshold (default 90%) or is `below_threshold` with per-file reasons plus a valid approved waiver bound to the current code fingerprint (or validly `not_applicable` with a standalone reason line), and Open issues is `- none`.
+== 3. packages-scan SKILL：coverage / 旧 test.js 缺席 / 新 .ts 命中 ==
+3:description: Scan a project's package structure and produce a candidate packages list with worktree setup commands for `.workloom/config.json`. Detects pnpm/npm workspaces, lerna, nx, turbo, go.work, Cargo workspaces, git submodules, and nested git repos. Also surfaces the source-language stack and proposes `coverage.languages` defaults through the config-edit skill.
+15:3. **Propose coverage defaults** — for each detected language that has a built-in default in `LANGUAGE_DEFAULTS` (exported by `packages/core/dist/task/coverage-compute.js`), propose a `coverage.languages` entry with its default `format` and `command` skeleton. Route this proposal through the `workloom-config-edit` skill together with the `packages` candidates. Flag detected languages without a built-in default as requiring a manual `format` and `command`; never guess one.
+16:4. **Present the candidates** — show each entry's path, type (`workspace` / `submodule` / `nested-git`), `git` flag, `languages`, and proposed `setup`, together with the proposed `coverage.languages` entries. Briefly state the evidence for each non-empty recipe and flag any uncertain choice. The user may drop or rename entries and edit the commands.
+17:5. **User confirms** — apply the requested package, setup, and coverage edits. Resolve uncertain recipes during this confirmation instead of writing guessed commands.
+18:6. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field and the confirmed proposals into `coverage.languages`:
+22:   - existing `coverage.languages` entries are preserved; only newly confirmed languages are added.
+59:## Detection coverage
+66:- Edits to config fields outside this scan's `packages` and `coverage.languages` proposals go through the `workloom-config-edit` skill.
+-- scan-packages.test.js absence (expect none) --
+(no match)
+61:The script reads workspace manifests directly (pnpm-workspace.yaml, package.json workspaces, lerna, nx, turbo, go.work, Cargo.toml) and expands trailing-`*` (single-level) and `**` (recursive) globs — only directories containing `package.json` are kept as workspace candidates — then `.gitmodules` for submodules, then probes first-level subdirectories not already covered for nested `.git`. It excludes `node_modules`, `dist`, `vendor`, and hidden directories. go.work and Cargo members are trusted as explicit paths and bypass the `package.json` filter. See `scripts/scan-packages.mjs` for the full rule set and `scripts/scan-packages.test.ts` for fixture-backed examples.
+== 4. spec 条目 ==
+10:- coverage-config: `coverage` is a project-level config field with `threshold` (integer 0–100, default 90, strict `>`) and a `languages` map of `{ format, command? }`; format accepts exactly `go-coverprofile`, `lcov`, `jacoco-xml`, and `cobertura-xml`. Unknown subfields, invalid formats, and `<…>` placeholders outside the closed `<worktree>` / `<profile>` / `<base-ref>` whitelist fail loud. Built-in languages (go/typescript/javascript/python/rust/c/cpp/java/kotlin) fall back to `LANGUAGE_DEFAULTS` when unconfigured, with extension detection from the single `EXTENSION_LANGUAGE` map; a non-built-in language without a configured entry stays on the unsupported consistency fallback, where the configured threshold still applies to self-reported numbers. `workloom-packages-scan` proposes defaults for detected languages through the `workloom-config-edit` skill
+3
+== 5. case-gates coverage_config ==
+50:  COVERAGE_CONFIG: 'coverage_config',
+357:  // 覆盖率配置取任务 worktree 根（分支配置优先）；非法配置报 coverage_config，不抛裸异常。
+== 6. 文件行数（≤600） ==
+  318 packages/core/src/workspace/config-defaults.ts
+  398 packages/core/src/workspace/config-load.ts
+  526 packages/core/src/task/coverage-compute.ts
+  479 packages/core/src/task/case-gates.ts
+  122 packages/core/resources/scripts/task-diff-coverage.mjs
+  463 packages/core/resources/skills/workloom-packages-scan/scripts/scan-packages.mjs
+ 2306 总计
+== 5b. COVERAGE_CONFIG 使用处 ==
+50:  COVERAGE_CONFIG: 'coverage_config',
+362:    issues.push(issue(ISSUE_CODES.COVERAGE_CONFIG, `coverage config is invalid: ${String(error)}`))
+== 7. workflow version 不升（diff 中无 version: 行增删） ==
+(no version line changes)
+ packages/core/resources/workflow/workflow.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)

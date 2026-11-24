@@ -1,0 +1,17 @@
+<?xml version="1.0" ?>
+<coverage line-rate="0.75">
+<packages>
+<package name="main">
+<classes>
+<class name="App" filename="main/App.java">
+<lines>
+<line number="2" hits="1"/>
+<line number="3" hits="1"/>
+<line number="4" hits="0"/>
+<line number="5" hits="1"/>
+</lines>
+</class>
+</classes>
+</package>
+</packages>
+</coverage>

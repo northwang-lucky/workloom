@@ -1,0 +1,7 @@
+# 旧门禁（pre-S1，运行中插件口径）真跑验证
+
+方法：git worktree --detach 7997e50^（S1 合入前的最后门禁代码），node v24 直跑该提交的 src/task/case-gates.ts evaluateCaseOutcomeGate(root, rel, task)，对真实 task.json 与本 case-result.md 求值（root 为主检出、worktree 指向 S4 worktree）。
+
+issue count: 0
+
+RESULT 过旧门禁（Overall 形态 / Changed Files 集合 / Exclusions 两处一致 / Raw reports / 会话链 / 验证表 / Open issues 全过）

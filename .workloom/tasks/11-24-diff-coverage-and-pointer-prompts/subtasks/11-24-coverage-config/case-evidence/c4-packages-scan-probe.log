@@ -1,0 +1,4 @@
+[multi-languages] PASS languages=["go","java","typescript"] repo={"path":".","languages":["go","java","typescript"]}
+[docs-only-empty] PASS languages=[] repo={"path":"."}
+[repo-entry-regression] PASS repo={"path":".","languages":["go","java","typescript"]}
+c4-packages-scan-probe: ALL PASS
