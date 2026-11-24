@@ -1,10 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// 测试隔离：脚本 loadConfig 读全局层，重定向 HOME 避免本机 ~/.workloom/config 污染。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-script-home-'))
+process.env.HOME = isolatedHome
 
 import { main } from './task-diff-coverage.mjs'
 
@@ -102,6 +106,54 @@ test('main 具名导出可直接调用：stdout 与 --out-dir 产物同 CLI 子�
     assert.deepEqual(coverage.missingExecutableFiles, ['missing.go'])
   } finally {
     console.log = originalLog
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** 写 worktree 项目层 coverage 配置。 */
+function writeCoverageConfig(root, coverage) {
+  mkdirSync(join(root, '.workloom'), { recursive: true })
+  writeFileSync(join(root, '.workloom/config.json'), JSON.stringify({ coverage }, null, 2))
+}
+
+test('CLI --check 按 config.coverage.threshold 输出 pass/fail（JSON 与 markdown）', () => {
+  const { root, report } = makeFixture()
+  try {
+    // 全覆盖：1/1，阈值 90 通过，阈值 100 拒绝。
+    writeFileSync(report, [`SF:${join(root, 'a.ts')}`, 'DA:2,1', 'end_of_record', ''].join('\n'))
+    writeCoverageConfig(root, { threshold: 90 })
+    const passed = JSON.parse(run(root, report, '--json', '--check'))
+    assert.equal(passed.threshold, 90)
+    assert.equal(passed.pass, true)
+
+    writeCoverageConfig(root, { threshold: 100 })
+    const failed = JSON.parse(run(root, report, '--json', '--check'))
+    assert.equal(failed.pass, false)
+    assert.match(run(root, report, '--check'), /Threshold: 100%\nPass: no/)
+    assert.equal(JSON.parse(run(root, report, '--json')).pass, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('CLI 读 config languages：单语言内容 unsupported 时回退内置默认 format', () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-hint-coverage-'))
+  try {
+    git(root, ['init', '-q'])
+    writeFileSync(join(root, 'a.ts'), 'export const a = 1\n')
+    git(root, ['add', 'a.ts'])
+    git(root, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'init'])
+    git(root, ['branch', 'base'])
+    writeFileSync(join(root, 'a.ts'), 'export const a = 2\n')
+    git(root, ['add', 'a.ts'])
+    git(root, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'change'])
+    const plain = join(root, 'plain.txt')
+    writeFileSync(plain, 'checker reported numbers\n')
+    assert.equal(JSON.parse(run(root, plain, '--json')).format, 'lcov')
+    writeCoverageConfig(root, { languages: { typescript: { format: 'cobertura-xml' } } })
+    // 显式配置为 cobertura 后，unsupported 正文回退到该格式解析器并因根缺失 fail loud。
+    assert.throws(() => run(root, plain, '--json'), /cobertura <coverage> element not found/)
+  } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })

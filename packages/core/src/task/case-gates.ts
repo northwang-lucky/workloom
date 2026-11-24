@@ -25,9 +25,17 @@ import {
   parseExclusions,
   parseItems,
 } from './case-structure.ts'
+import { DEFAULT_THRESHOLD } from '../workspace/config-defaults.ts'
+import { loadConfig } from '../workspace/config-load.ts'
 import { listCaseChangedFiles, listCaseChangedLines, taskDirectory, worktreeDirectory } from './case-scope.ts'
-import { computeDiffCoverage, isDiffCoverageArtifact, meetsThreshold } from './coverage-compute.ts'
+import {
+  buildFormatHints,
+  computeDiffCoverage,
+  isDiffCoverageArtifact,
+  meetsThreshold,
+} from './coverage-compute.ts'
 import type { CaseStructureIssue, CaseStructureOptions } from './case-structure.ts'
+import type { WorkloomConfig } from '../workspace/config.d.ts'
 import type { ChangedLineRange } from '../workspace/git-query.ts'
 import type { TaskRecord } from './storage/index.ts'
 
@@ -39,6 +47,7 @@ const ISSUE_CODES = Object.freeze({
   ARTIFACT_MISSING: 'artifact_missing',
   ARTIFACT_PATH_INVALID: 'artifact_path_invalid',
   CASE_EXECUTION: 'case_execution',
+  COVERAGE_CONFIG: 'coverage_config',
   COVERAGE_BELOW_REASONS: 'coverage_below_reasons',
   COVERAGE_EXCLUSIONS: 'coverage_exclusions',
   COVERAGE_FILES: 'coverage_files',
@@ -345,6 +354,14 @@ export function evaluateCaseOutcomeGate(
 
   // 增量复算：变更行优先取入参，报告路径相对任务目录解析（与产物校验同口径）。
   const worktree = worktreeDirectory(root, task)
+  // 覆盖率配置取任务 worktree 根（分支配置优先）；非法配置报 coverage_config，不抛裸异常。
+  let coverageConfig: WorkloomConfig | null = null
+  try {
+    coverageConfig = loadConfig(worktree)
+  } catch (error) {
+    issues.push(issue(ISSUE_CODES.COVERAGE_CONFIG, `coverage config is invalid: ${String(error)}`))
+  }
+  const threshold = coverageConfig?.coverage.threshold ?? DEFAULT_THRESHOLD
   let changedLines = options.changedLines ?? null
   let linesErr: Error | null = null
   if (changedLines === null) {
@@ -368,8 +385,11 @@ export function evaluateCaseOutcomeGate(
       issues.push(issue(ISSUE_CODES.COVERAGE_REPORT_MISSING, `${path} is missing`))
     }
   }
+  const formatHints = coverageConfig === null
+    ? undefined
+    : buildFormatHints(lines.keys(), reportTexts.length, coverageConfig.coverage.languages)
   const recomputed = reportTexts.length > 0
-    ? computeDiffCoverage({ root: worktree, changedLines: lines, reports: reportTexts, exclusions })
+    ? computeDiffCoverage({ root: worktree, changedLines: lines, reports: reportTexts, exclusions, formatHints })
     : null
   if (recomputed?.[0] !== null && recomputed?.[0] !== undefined) {
     issues.push(issue(ISSUE_CODES.COVERAGE_PARSE, recomputed[0].message))
@@ -426,12 +446,12 @@ export function evaluateCaseOutcomeGate(
         issues.push(issue(ISSUE_CODES.COVERAGE_RECOMPUTE, `Overall lines must be ${computed.overall.covered}/${computed.overall.total}`))
       }
     }
-    if (meetsThreshold(thresholdBasis.covered, thresholdBasis.total)) {
+    if (meetsThreshold(thresholdBasis.covered, thresholdBasis.total, threshold)) {
       if (coverageStatus === 'below_threshold') {
-        issues.push(issue(ISSUE_CODES.COVERAGE_STATUS, 'below_threshold requires incremental coverage <= 90%'))
+        issues.push(issue(ISSUE_CODES.COVERAGE_STATUS, `below_threshold requires incremental coverage <= configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%)`))
       }
     } else if (coverageStatus !== 'below_threshold') {
-      issues.push(issue(ISSUE_CODES.COVERAGE_THRESHOLD, 'incremental coverage must be >90% or below_threshold with a valid waiver'))
+      issues.push(issue(ISSUE_CODES.COVERAGE_THRESHOLD, `incremental coverage must be > configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%) or below_threshold with a valid waiver`))
     } else {
       const valid = waiver !== null &&
         typeof waiver.reason === 'string' && waiver.reason.trim() !== '' &&

@@ -25,6 +25,7 @@ import {
   DEFAULT_CONFIG,
   WorkloomConfigError,
   assertPlaceholders,
+  parseCoverage,
   parsePackages,
   requireBoolean,
   requireMap,
@@ -55,7 +56,7 @@ const GLOBAL_ALLOWED_TOP_FIELDS = new Set([
 ])
 
 /** 全局层禁止出现的项目级字段（报专属错误）。 */
-const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree'])
+const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree', 'coverage'])
 
 /**
  * 从项目根加载配置（三层流水线）：
@@ -389,6 +390,9 @@ function mergeWithDefaults(doc: Record<string, unknown>): WorkloomConfig {
     if (wt.cleanup !== undefined) {
       config.worktree.cleanup = requireWorktreeCleanup('worktree.cleanup', wt.cleanup)
     }
+  }
+  if (doc.coverage !== undefined) {
+    config.coverage = parseCoverage(doc.coverage)
   }
   return config
 }

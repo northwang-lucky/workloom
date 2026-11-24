@@ -18,7 +18,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BRANCH_TEMPLATE_PLACEHOLDERS, DEFAULT_CONFIG, WorkloomConfigError, assertPlaceholders, parsePackages, requireBoolean, requireMap, requireNonNegativeInt, requireString, requireStringList, requireWorktreeCleanup, } from "./config-defaults.js";
+import { BRANCH_TEMPLATE_PLACEHOLDERS, DEFAULT_CONFIG, WorkloomConfigError, assertPlaceholders, parseCoverage, parsePackages, requireBoolean, requireMap, requireNonNegativeInt, requireString, requireStringList, requireWorktreeCleanup, } from "./config-defaults.js";
 import { parseSubagentProfiles } from "./config-subagent.js";
 /** 项目层主配置文件名候选（按序探测，命中即唯一）。 */
 const MAIN_CONFIG_NAMES = Object.freeze(['config.json', 'config.js']);
@@ -35,7 +35,7 @@ const GLOBAL_ALLOWED_TOP_FIELDS = new Set([
     'executor',
 ]);
 /** 全局层禁止出现的项目级字段（报专属错误）。 */
-const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree']);
+const GLOBAL_PROJECT_ONLY_FIELDS = new Set(['packages', 'hooks', 'worktree', 'coverage']);
 /**
  * 从项目根加载配置（三层流水线）：
  * 全局 $HOME/.workloom/config → 项目 .workloom/config → 本地 .workloom/config.local；
@@ -311,6 +311,9 @@ function mergeWithDefaults(doc) {
         if (wt.cleanup !== undefined) {
             config.worktree.cleanup = requireWorktreeCleanup('worktree.cleanup', wt.cleanup);
         }
+    }
+    if (doc.coverage !== undefined) {
+        config.coverage = parseCoverage(doc.coverage);
     }
     return config;
 }

@@ -1,6 +1,6 @@
 ---
 name: workloom-packages-scan
-description: Scan a project's package structure and produce a candidate packages list with worktree setup commands for `.workloom/config.json`. Detects pnpm/npm workspaces, lerna, nx, turbo, go.work, Cargo workspaces, git submodules, and nested git repos.
+description: Scan a project's package structure and produce a candidate packages list with worktree setup commands for `.workloom/config.json`. Detects pnpm/npm workspaces, lerna, nx, turbo, go.work, Cargo workspaces, git submodules, and nested git repos. Also surfaces the source-language stack and proposes `coverage.languages` defaults through the config-edit skill.
 whenToUse: Use when the user asks to scan packages, initialize or refresh the workloom packages config, or detect workspace layout, git submodules, or nested git repos — e.g. "scan packages", "探测 workspace 结构", "初始化 workloom packages 配置".
 ---
 
@@ -10,14 +10,16 @@ Scan the project's package structure and write the candidate list into `.workloo
 
 ## Workflow
 
-1. **Run the scan** — execute `scripts/scan-packages.mjs` against the project root. It returns `{ name: { path, type?, git? } }` and appends a `repo: { path: "." }` root entry (skipped when a scanned package already uses the `repo` name).
+1. **Run the scan** — execute `scripts/scan-packages.mjs` against the project root. It returns `{ name: { path, type?, git?, languages? } }`; `languages` is the source-language stack detected from file extensions. It appends a `repo: { path: "." }` root entry (skipped when a scanned package already uses the `repo` name).
 2. **Propose setup commands** — inspect the manifests, lockfiles, `packageManager` fields, existing dependency directories, and relevant project instructions. Add a `setup` string array to every new candidate, following [Setup configuration](#setup-configuration). Use `[]` when no preparation is needed.
-3. **Present the candidates** — show each entry's path, type (`workspace` / `submodule` / `nested-git`), `git` flag, and proposed `setup`. Briefly state the evidence for each non-empty recipe and flag any uncertain choice. The user may drop or rename entries and edit the commands.
-4. **User confirms** — apply the requested package and setup edits. Resolve uncertain recipes during this confirmation instead of writing guessed commands.
-5. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field:
+3. **Propose coverage defaults** — for each detected language that has a built-in default in `LANGUAGE_DEFAULTS` (exported by `packages/core/dist/task/coverage-compute.js`), propose a `coverage.languages` entry with its default `format` and `command` skeleton. Route this proposal through the `workloom-config-edit` skill together with the `packages` candidates. Flag detected languages without a built-in default as requiring a manual `format` and `command`; never guess one.
+4. **Present the candidates** — show each entry's path, type (`workspace` / `submodule` / `nested-git`), `git` flag, `languages`, and proposed `setup`, together with the proposed `coverage.languages` entries. Briefly state the evidence for each non-empty recipe and flag any uncertain choice. The user may drop or rename entries and edit the commands.
+5. **User confirms** — apply the requested package, setup, and coverage edits. Resolve uncertain recipes during this confirmation instead of writing guessed commands.
+6. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline: read the current file and merged config, show the diff, get confirmation, write atomically, and validate with `workloom-doctor`. Merge the confirmed candidates into the `packages` field and the confirmed proposals into `coverage.languages`:
    - existing non-empty `packages` are merged incrementally; existing keys, including their `setup`, are **not** overwritten.
    - conflicting keys (same name, different path) are **reported, not silently replaced** — the user decides.
    - the `repo` root entry is appended by default; tell the user it can be removed.
+   - existing `coverage.languages` entries are preserved; only newly confirmed languages are added.
 
 ## Setup configuration
 
@@ -56,10 +58,11 @@ Scan the project's package structure and write the candidate list into `.workloo
 
 ## Detection coverage
 
-The script reads workspace manifests directly (pnpm-workspace.yaml, package.json workspaces, lerna, nx, turbo, go.work, Cargo.toml) and expands trailing-`*` (single-level) and `**` (recursive) globs — only directories containing `package.json` are kept as workspace candidates — then `.gitmodules` for submodules, then probes first-level subdirectories not already covered for nested `.git`. It excludes `node_modules`, `dist`, `vendor`, and hidden directories. go.work and Cargo members are trusted as explicit paths and bypass the `package.json` filter. See `scripts/scan-packages.mjs` for the full rule set and `scripts/scan-packages.test.js` for fixture-backed examples.
+The script reads workspace manifests directly (pnpm-workspace.yaml, package.json workspaces, lerna, nx, turbo, go.work, Cargo.toml) and expands trailing-`*` (single-level) and `**` (recursive) globs — only directories containing `package.json` are kept as workspace candidates — then `.gitmodules` for submodules, then probes first-level subdirectories not already covered for nested `.git`. It excludes `node_modules`, `dist`, `vendor`, and hidden directories. go.work and Cargo members are trusted as explicit paths and bypass the `package.json` filter. See `scripts/scan-packages.mjs` for the full rule set and `scripts/scan-packages.test.ts` for fixture-backed examples.
 
 ## Boundaries
 
 - This skill modifies only `.workloom/config.json`; it leaves source files and git configuration unchanged.
-- Edits to config fields outside this scan's `packages` candidates go through the `workloom-config-edit` skill.
+- Edits to config fields outside this scan's `packages` and `coverage.languages` proposals go through the `workloom-config-edit` skill.
+- Only languages with a built-in `LANGUAGE_DEFAULTS` entry are proposed automatically; any other language needs a manual `format` and `command` from the user.
 - The `repo` root entry is a convenience default; remove it if the user prefers packages-only config.

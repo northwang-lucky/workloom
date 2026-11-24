@@ -8,13 +8,20 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { renderCoverageCommand } from '../src/workspace/config-defaults.ts'
 import {
   EXECUTABLE_EXTENSIONS,
+  EXTENSION_LANGUAGE,
+  FORMAT_NORMALIZE,
+  LANGUAGE_DEFAULTS,
+  buildFormatHints,
   buildWaiver,
   computeDiffCoverage,
+  detectLanguage,
   inferFormat,
   isExecutableFile,
   meetsThreshold,
+  parseCoberturaXml,
   parseGoCoverprofile,
   parseJacocoXml,
   parseLcov,
@@ -290,5 +297,147 @@ test('解析器直接调用：go 无 go.mod 时后缀匹配；lcov 非法 DA 返
     assert.equal(bad, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------- S4：cobertura、格式提示、内置语言与阈值参数化 ----------
+
+const COBERTURA = [
+  '<?xml version="1.0" ?>',
+  '<coverage line-rate="0.5">',
+  '<packages>',
+  '<package name="com.acme">',
+  '<classes>',
+  '<class filename="src/main/java/com/acme/Foo.java" name="Foo">',
+  '<lines>',
+  '<line number="5" hits="2"/>',
+  '<line number="6" hits="0"/>',
+  '<line number="7" hits="1"/>',
+  '</lines>',
+  '</class>',
+  '</classes>',
+  '</package>',
+  '</packages>',
+  '</coverage>',
+].join('\n')
+
+test('cobertura：class filename 后缀匹配 + hits>0，computeDiffCoverage 可复算', () => {
+  const [err, parsed] = parseCoberturaXml(COBERTURA, ['src/main/java/com/acme/Foo.java'])
+  assert.equal(err, null)
+  assert.deepEqual(parsed.map((file) => file.file), ['src/main/java/com/acme/Foo.java'])
+  const [computeErr, result] = computeDiffCoverage({
+    changedLines: changed([['src/main/java/com/acme/Foo.java', [{ start: 5, end: 7 }]]]),
+    reports: [COBERTURA],
+  })
+  assert.equal(computeErr, null)
+  assert.equal(result.format, 'cobertura-xml')
+  assert.deepEqual(result.files[0], {
+    file: 'src/main/java/com/acme/Foo.java',
+    covered: 2,
+    total: 3,
+    uncoveredRanges: [{ start: 6, end: 6 }],
+    changedRanges: [{ start: 5, end: 7 }],
+  })
+})
+
+test('cobertura 根缺失 → err；inferFormat 区分 jacoco 与 cobertura', () => {
+  const [err, parsed] = parseCoberturaXml('<report><package/></report>', ['a.java'])
+  assert.ok(err)
+  assert.match(err.message, /<coverage>/)
+  assert.equal(parsed, null)
+  assert.equal(inferFormat(COBERTURA), 'cobertura-xml')
+  assert.equal(inferFormat('<report name="x"><package/></report>'), 'jacoco-xml')
+})
+
+test('cobertura 与 lcov 混合多报告 → mixed，逐文件合并行覆盖取并', async () => {
+  const root = makeRoot(false)
+  try {
+    const lcov = [`SF:${join(root, 'b.ts')}`, 'DA:1,1', 'DA:2,0', 'end_of_record', ''].join('\n')
+    const [err, result] = await computeDiffCoverage({
+      root,
+      changedLines: changed([
+        ['src/main/java/com/acme/Foo.java', [{ start: 5, end: 7 }]],
+        ['b.ts', [{ start: 1, end: 2 }]],
+      ]),
+      reports: [COBERTURA, lcov],
+    })
+    assert.equal(err, null)
+    assert.equal(result.format, 'mixed')
+    assert.deepEqual(result.files.map((file) => [file.file, file.covered, file.total]), [
+      ['b.ts', 1, 2],
+      ['src/main/java/com/acme/Foo.java', 2, 3],
+    ])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('formatHints：内容优先，unsupported 才回退同序 hint', () => {
+  const root = makeRoot(false)
+  try {
+    const lcov = `SF:${join(root, 'a.ts')}\nDA:1,1\nend_of_record`
+    // 两份内容均为 lcov，即使 hint 都写 go 也不覆盖内容。
+    const [err, result] = computeDiffCoverage({
+      root,
+      changedLines: changed([['a.ts', [{ start: 1, end: 1 }]]]),
+      reports: [lcov, lcov],
+      formatHints: ['go', 'go'],
+    })
+    assert.equal(err, null)
+    assert.equal(result.format, 'lcov')
+    const [fallbackErr, fallback] = computeDiffCoverage({
+      root,
+      changedLines: changed([['a.ts', [{ start: 1, end: 1 }]]]),
+      reports: ['checker self-reported numbers'],
+      formatHints: ['lcov'],
+    })
+    assert.equal(fallbackErr, null)
+    assert.equal(fallback.format, 'lcov')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('meetsThreshold 参数化：80% 拒 / 80.1% 过，缺省仍 90', () => {
+  assert.equal(meetsThreshold(800, 1000, 80), false)
+  assert.equal(meetsThreshold(801, 1000, 80), true)
+  assert.equal(meetsThreshold(90, 100), false)
+  assert.equal(meetsThreshold(91, 100), true)
+})
+
+test('detectLanguage 未命中 null、.d.ts 排除；EXECUTABLE_EXTENSIONS 与 EXTENSION_LANGUAGE 同源', () => {
+  assert.equal(detectLanguage('internal/app.go'), 'go')
+  assert.equal(detectLanguage('src/a.ts'), 'typescript')
+  assert.equal(detectLanguage('src/a.jsx'), 'javascript')
+  assert.equal(detectLanguage('Main.kt'), 'kotlin')
+  assert.equal(detectLanguage('types.d.ts'), null)
+  assert.equal(detectLanguage('README.md'), null)
+  assert.deepEqual(EXECUTABLE_EXTENSIONS, Object.keys(EXTENSION_LANGUAGE))
+  assert.equal(isExecutableFile('types.d.ts'), false)
+})
+
+test('buildFormatHints：单语言广播 config ?? 内置默认，多语言/无命中返回 undefined', () => {
+  assert.deepEqual(buildFormatHints(['a.ts', 'b.tsx'], 2, {}), ['lcov', 'lcov'])
+  assert.deepEqual(buildFormatHints(['a.go'], 1, {}), ['go'])
+  assert.deepEqual(buildFormatHints(['a.ts'], 1, { typescript: { format: 'cobertura-xml' } }), ['cobertura-xml'])
+  assert.equal(buildFormatHints(['a.ts', 'b.go'], 1, {}), undefined)
+  assert.equal(buildFormatHints(['README.md'], 1, {}), undefined)
+  assert.equal(buildFormatHints(['a.ts'], 0, {}), undefined)
+})
+
+test('内置语言默认：format 四枚举归一、command 占位符全在白名单、ts/js 无 <tests>', () => {
+  assert.equal(Object.keys(LANGUAGE_DEFAULTS).length, 9)
+  assert.equal(FORMAT_NORMALIZE[LANGUAGE_DEFAULTS.go.format], 'go')
+  assert.equal(FORMAT_NORMALIZE[LANGUAGE_DEFAULTS.java.format], 'jacoco-xml')
+  assert.equal(FORMAT_NORMALIZE[LANGUAGE_DEFAULTS.python.format], 'lcov')
+  assert.equal(FORMAT_NORMALIZE['cobertura-xml'], 'cobertura-xml')
+  for (const [lang, entry] of Object.entries(LANGUAGE_DEFAULTS)) {
+    const rendered = renderCoverageCommand(entry.command, {
+      worktree: '/wt',
+      profile: `/wt/coverage/${lang}.info`,
+      baseRef: 'main',
+    })
+    assert.equal(typeof rendered, 'string')
+    assert.ok(!entry.command.includes('<tests>'), `${lang} 骨架不得含 <tests>`)
   }
 })

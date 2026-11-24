@@ -20,6 +20,10 @@ import { archiveTask, checkTask } from '../src/task/task-ops.ts'
 import { evaluateGuard, readTaskView, toTaskView } from '../src/task/state/index.ts'
 import { executeTaskCase } from '../src/task/doc-review.ts'
 
+// 测试隔离：门禁经 loadConfig 读全局层，重定向 HOME 避免本机 ~/.workloom/config 污染。
+const isolatedHome = mkdtempSync(join(tmpdir(), 'workloom-case-home-'))
+process.env.HOME = isolatedHome
+
 const REL = 'tasks/demo'
 /** 夹具代码指纹（64 hex），豁免比对源。 */
 const TEST_FP = 'b'.repeat(64)
@@ -705,6 +709,117 @@ test('增量阈值严格大于 90%：90.0 拒、90.1 过', () => {
   }
 })
 
+/** 写项目层 config.json（coverage 配置用）。 */
+function writeProjectConfig(root, doc) {
+  mkdirSync(join(root, '.workloom'), { recursive: true })
+  writeFileSync(join(root, '.workloom/config.json'), JSON.stringify(doc, null, 2))
+}
+
+test('配置阈值 80：80.0 拒、80.1 过（门禁随之变化）', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    writeProjectConfig(root, { coverage: { threshold: 80 } })
+    const task = makeTask()
+    const options = coverageOptions(1000)
+    writeLcovReport(root, taskDir, 1000, 800)
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '800/1000 (80%)', row: '| `src/a.js` | `800/1000` | `80%` | `1000` | `coverage/lcov.info` |' }))
+    const rejected = coverageIssues(evaluateCaseOutcomeGate(root, REL, task, options))
+    assert.ok(rejected.some((item) => item.code === 'coverage_threshold' && item.message.includes('80%')))
+
+    writeLcovReport(root, taskDir, 1000, 801)
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '801/1000 (80.1%)', row: '| `src/a.js` | `801/1000` | `80.1%` | `1000` | `coverage/lcov.info` |' }))
+    assert.deepEqual(coverageIssues(evaluateCaseOutcomeGate(root, REL, task, options)), [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('below_threshold 声明与实际覆盖矛盾（达标）→ coverage_status', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    writeProjectConfig(root, { coverage: { threshold: 80 } })
+    writeLcovReport(root, taskDir, 20, 20)
+    writeArtifacts(taskDir, validCase(), variedResult({ status: 'below_threshold', overall: '20/20 (100%)', row: '| `src/a.js` | `20/20` | `100%` | `-` | `coverage/lcov.info` |' }))
+    const issues = coverageIssues(evaluateCaseOutcomeGate(root, REL, makeTask(), coverageOptions()))
+    assert.ok(issues.some((item) => item.code === 'coverage_status' && item.message.includes('configured threshold 80%')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('coverage 配置非法 → coverage_config core failure（不抛裸异常）', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    writeProjectConfig(root, { coverage: { threshold: 150 } })
+    writeArtifacts(taskDir, validCase(), variedResult())
+    const issues = coverageIssues(evaluateCaseOutcomeGate(root, REL, makeTask(), coverageOptions()))
+    assert.ok(issues.some((item) => item.code === 'coverage_config' && /invalid/.test(item.message)))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('非内置未配置语言：unsupported 一致性回退，配置阈值仍硬作用自报数', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    writeProjectConfig(root, { coverage: { threshold: 95 } })
+    writeFileSync(join(root, 'notes.md'), '# notes\n')
+    writeFileSync(join(taskDir, 'coverage/lcov.info'), 'checker self-reported numbers\n')
+    const options = {
+      changedFiles: ['notes.md'],
+      changedLines: new Map([['notes.md', [{ start: 1, end: 10 }]]]),
+    }
+    // 自报 90% 不大于 95%：拒。
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '900/1000 (90%)', row: '| `notes.md` | `900/1000` | `90%` | `1000` | `coverage/lcov.info` |' }))
+    const rejected = coverageIssues(evaluateCaseOutcomeGate(root, REL, makeTask(), options))
+    assert.ok(rejected.some((item) => item.code === 'coverage_threshold' && item.message.includes('95%')))
+    // 自报 96% 大于 95%：回退路径放行（无机械复算依据时不静默抬数字）。
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '960/1000 (96%)', row: '| `notes.md` | `960/1000` | `96%` | `1000` | `coverage/lcov.info` |' }))
+    assert.deepEqual(coverageIssues(evaluateCaseOutcomeGate(root, REL, makeTask(), options)), [])
+    // 声明 not_applicable 不能绕过：可测变更文件仍在期望集 → coverage_not_applicable。
+    writeArtifacts(taskDir, validCase(), variedResult({ status: 'not_applicable', overall: 'N/A', row: '| `notes.md` | `-` | `-` | `-` | `coverage/lcov.info` |' }))
+    const naIssues = coverageIssues(evaluateCaseOutcomeGate(root, REL, makeTask(), options))
+    assert.ok(naIssues.some((item) => item.code === 'coverage_not_applicable'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('门禁 formatHints：单语言广播走机械复算报 missing，多语言纯推断回退自报', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    writeProjectConfig(root, { coverage: { languages: { java: { format: 'cobertura-xml' } } } })
+    writeFileSync(join(root, 'src/A.java'), 'class A {}\n')
+    writeFileSync(join(root, 'src/B.ts'), 'export const b = 1\n')
+    // 空 cobertura：内容推断 unsupported，提示使格式成为 cobertura-xml（受支持）。
+    writeFileSync(join(taskDir, 'coverage/lcov.info'), '<coverage line-rate="0"></coverage>\n')
+    const single = {
+      changedFiles: ['src/A.java'],
+      changedLines: new Map([['src/A.java', [{ start: 1, end: 5 }]]]),
+    }
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '0/0 (0.0%)', row: '| `src/A.java` | `0/0` | `0.0%` | `-` | `coverage/lcov.info` |' }))
+    const singleIssues = coverageIssues(evaluateCaseOutcomeGate(root, REL, makeTask(), single))
+    assert.ok(singleIssues.some((item) => item.code === 'coverage_missing_file'))
+    // 同报告 + 两种语言：无提示 → unsupported → 跳过缺席检测，自报达标放行。
+    const multi = {
+      changedFiles: ['src/A.java', 'src/B.ts'],
+      changedLines: new Map([
+        ['src/A.java', [{ start: 1, end: 5 }]],
+        ['src/B.ts', [{ start: 1, end: 5 }]],
+      ]),
+    }
+    writeArtifacts(taskDir, validCase(), variedResult({
+      overall: '10/10 (100.0%)',
+      row: '| `src/A.java` | `5/5` | `100%` | `-` | `coverage/lcov.info` |\n| `src/B.ts` | `5/5` | `100%` | `-` | `coverage/lcov.info` |',
+    }))
+    const multiIssues = coverageIssues(evaluateCaseOutcomeGate(root, REL, makeTask(), multi))
+    assert.ok(!multiIssues.some((item) => item.code === 'coverage_missing_file'))
+    assert.deepEqual(multiIssues, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('缺席可执行文件硬拒，非可执行后缀缺席不触发', () => {
   const { root, taskDir } = makeRoot()
   try {
@@ -819,10 +934,10 @@ test('unsupported 格式跳过机械复算，但阈值仍校验 RESULT 自报 Ov
   try {
     const task = makeTask()
     writeFileSync(join(taskDir, 'coverage/lcov.info'), 'checker reported 8/10\n')
-    writeArtifacts(taskDir, validCase(), variedResult({ overall: '8/10 (80%)', row: '| `src/a.js` | `8/10` | `80%` | `-` | `coverage/lcov.info` |' }))
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '8/10 (80%)', row: '| `notes.md` | `8/10` | `80%` | `-` | `coverage/lcov.info` |' }))
     const options = {
-      changedFiles: ['src/a.js', 'docs/guide.md'],
-      changedLines: new Map([['src/a.js', [{ start: 1, end: 10 }]]]),
+      changedFiles: ['notes.md'],
+      changedLines: new Map([['notes.md', [{ start: 1, end: 10 }]]]),
     }
     const issues = coverageIssues(evaluateCaseOutcomeGate(root, REL, task, options))
     assert.ok(issues.some((item) => item.code === 'coverage_threshold'))

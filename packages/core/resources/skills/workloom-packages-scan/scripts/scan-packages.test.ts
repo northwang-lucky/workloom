@@ -61,6 +61,42 @@ test('pnpm-workspace.yaml 排除否定模式与注释', () => {
 })
 
 // ---------------------------------------------------------------------------
+// 语言栈检测（coverage.languages 提议来源）
+// ---------------------------------------------------------------------------
+
+test('scan-packages 输出 languages：按扩展名归类内置语言，非内置与 .d.ts 忽略', () => {
+  const root = makeTempDir('scan-languages-')
+  try {
+    makePackageDir(join(root, 'packages', 'core'), 'core')
+    makePackageDir(join(root, 'packages', 'utils'), 'utils')
+    writeFileSync(join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
+    mkdirSync(join(root, 'packages', 'core', 'src'), { recursive: true })
+    writeFileSync(join(root, 'packages', 'core', 'src', 'index.ts'), 'export const a = 1\n')
+    writeFileSync(join(root, 'packages', 'core', 'types.d.ts'), 'declare const x: number\n')
+    writeFileSync(join(root, 'packages', 'utils', 'helper.py'), 'def f(): pass\n')
+    writeFileSync(join(root, 'README.md'), '# root\n')
+    writeFileSync(join(root, 'main.go'), 'package main\n')
+
+    const result = scanPackages(root)
+    assert.deepEqual(result.core.languages, ['typescript'])
+    assert.deepEqual(result.utils.languages, ['python'])
+    assert.deepEqual(result.repo.languages, ['go', 'python', 'typescript'])
+
+    // 对照：纯文档目录语言栈为空（languages 键不落）。
+    const docsOnly = makeTempDir('scan-docs-only-')
+    try {
+      writeFileSync(join(docsOnly, 'README.md'), '# docs\n')
+      writeFileSync(join(docsOnly, 'guide.adoc'), '= guide\n')
+      assert.equal(scanPackages(docsOnly).repo.languages, undefined)
+    } finally {
+      rmSync(docsOnly, { recursive: true, force: true })
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ---------------------------------------------------------------------------
 // packages/** 递归模式
 // ---------------------------------------------------------------------------
 

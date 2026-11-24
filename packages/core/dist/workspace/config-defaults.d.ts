@@ -9,6 +9,8 @@
  *   符合"无灰区"哲学；
  * - 命令渲染（renderSetupCommand）承载 packages.<name>.setup 的占位符语义。
  */
+/** 增量覆盖率默认阈值：严格大于（恰好等于不达标），门禁/脚本/文案共用单源。 */
+export declare const DEFAULT_THRESHOLD = 90;
 /** 内置默认配置（与规格一致）。 */
 export declare const DEFAULT_CONFIG: import('./config.d.ts').WorkloomConfig;
 /** resolveSubagentDefaults 的角色层并发上限兜底缺省（未配置时 3）。 */
@@ -24,6 +26,17 @@ export declare const BRANCH_TEMPLATE_PLACEHOLDERS: Set<string>;
 export declare function renderSetupCommand(command: string, values: {
     worktree: string;
     sourceCheckout: string;
+}): string;
+/**
+ * 渲染 coverage 命令占位符：先按封闭白名单校验，未知 token fail loud，再替换。
+ * @param command 模板命令串
+ * @param values 渲染值（worktree 根、报告输出路径、基线分支）
+ * @returns 渲染后的命令串
+ */
+export declare function renderCoverageCommand(command: string, values: {
+    worktree: string;
+    profile: string;
+    baseRef: string;
 }): string;
 /**
  * 配置解析错误：携带字段路径，便于上层显式报告。
@@ -67,3 +80,10 @@ export declare function assertPlaceholders(field: string, template: string, allo
  * @returns packages 映射（内存形态）
  */
 export declare function parsePackages(value: unknown): import('./config.d.ts').WorkloomConfig['packages'];
+/**
+ * 解析 coverage 配置节：缺省填默认、逐字段校验、未知子字段 fail loud。
+ * 语言映射开放：内置语言仅提供缺省，用户可为任意语言配 format/command。
+ * @param value 用户文档中的 coverage 字段
+ * @returns coverage 内存形态（含默认值）
+ */
+export declare function parseCoverage(value: unknown): import('./config.d.ts').CoverageConfig;

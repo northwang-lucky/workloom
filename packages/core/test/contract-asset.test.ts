@@ -1145,8 +1145,8 @@ test('增量覆盖率资产：三格式产物、below_threshold/Reason 载体与
   assert.ok(resultTemplate.includes('- Reason:'), 'result 模板缺 not_applicable 独立原因行')
   assert.ok(resultTemplate.includes('Changed lines covered/Total'), 'result 模板 Changed Files 表头未改增量口径')
 
-  assert.ok(checkBody.includes('Incremental coverage must be strictly greater than 90%.'), '2.3 缺增量 >90% 门禁句')
-  assert.ok(checkBody.includes('coverage is generated above 90%'), '2.3 缺合格状态增量句')
+  assert.ok(checkBody.includes('Incremental coverage must be strictly greater than the configured threshold (default 90%, `coverage.threshold`).'), '2.3 缺可配阈值门禁句')
+  assert.ok(checkBody.includes('coverage is generated above the configured threshold (default 90%)'), '2.3 缺合格状态可配阈值句')
   assert.ok(checkBody.includes('`check.coverageWaiver`'), '2.3 缺凭据写入豁免字段句')
   assert.ok(checkBody.includes('unrelated code goes back to the developer'), '2.3 缺无关代码退回 developer 路由')
   assert.ok(checkBody.includes('goes back to the Checker for additional cases'), '2.3 缺 case 缺口退回 checker 路由')
@@ -1169,9 +1169,12 @@ test('config-edit 资产 pin：SKILL.md、workflow Principles 指引句、spec �
     'prompt_injection',
     'executor',
     'session_auto_commit',
+    'coverage',
   ]) {
     assert.ok(skill.includes('| `' + field + '` |'), `config-edit 字段清单缺 ${field}`)
   }
+  assert.ok(skill.includes('The nine snake_case top-level keys'), 'config-edit 字段数未同步为 9')
+  assert.ok(skill.includes('"coverage": {'), 'config-edit 缺 coverage 示例')
   assert.equal((skill.match(/\*Completion:\*/g) ?? []).length, 5, 'config-edit 五步完成判据数不符')
   assert.ok(skill.includes('workloom-doctor'), 'config-edit 校验入口未钉 workloom-doctor')
 
@@ -1191,6 +1194,10 @@ test('config-edit 资产 pin：SKILL.md、workflow Principles 指引句、spec �
   assert.ok(entry !== undefined, 'spec/repo/workflow 缺 config-edit-skill 条目')
   assert.ok(entry.includes('`workloom-config-edit` skill'), 'spec 条目缺 config-edit 指引')
   assert.ok(entry.includes('`SKILL_ENTRIES`'), 'spec 条目缺注册说明')
+  const coverageEntry = spec.split('\n').find((line) => line.startsWith('- coverage-config:'))
+  assert.ok(coverageEntry !== undefined, 'spec/repo/workflow 缺 coverage-config 条目')
+  assert.ok(coverageEntry.includes('default 90'), 'coverage-config 条目缺默认阈值说明')
+  assert.ok(coverageEntry.includes('LANGUAGE_DEFAULTS'), 'coverage-config 条目缺内置默认说明')
 
   const scan = readFileSync(
     fileURLToPath(new URL('../resources/skills/workloom-packages-scan/SKILL.md', import.meta.url)),
@@ -1198,14 +1205,17 @@ test('config-edit 资产 pin：SKILL.md、workflow Principles 指引句、spec �
   )
   assert.ok(
     scan.includes(
-      "5. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline:",
+      "6. **Write `.workloom/config.json`** — follow the `workloom-config-edit` skill's modification discipline:",
     ),
-    'packages-scan 步骤 5 缺 config-edit 修改纪律引用',
+    'packages-scan 步骤 6 缺 config-edit 修改纪律引用',
   )
   assert.ok(
-    scan.includes('- Edits to config fields outside this scan\'s `packages` candidates go through the `workloom-config-edit` skill.'),
+    scan.includes('- Edits to config fields outside this scan\'s `packages` and `coverage.languages` proposals go through the `workloom-config-edit` skill.'),
     'packages-scan Boundaries 缺 config-edit 限定引用',
   )
+  assert.ok(scan.includes('**Propose coverage defaults**'), 'packages-scan Workflow 缺 coverage 提议步骤')
+  assert.ok(scan.includes('LANGUAGE_DEFAULTS'), 'packages-scan Workflow 缺内置默认引用')
+  assert.ok(!scan.includes('scan-packages.test.js'), 'packages-scan 仍残留旧 .test.js 引用')
 
   const migrate = readFileSync(
     fileURLToPath(new URL('../resources/skills/workloom-migrate-to-sop/SKILL.md', import.meta.url)),

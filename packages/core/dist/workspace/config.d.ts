@@ -24,6 +24,8 @@ export interface WorkloomConfig {
   worktree: WorktreeConfig
   /** 按主会话模型分档的子代理配置（顺序即匹配顺序；空数组 = 不启用，角色键缺失继承宿主默认）。 */
   subagentProfiles: SubagentProfile[]
+  /** 增量覆盖率配置（仅项目层，阈值可配 + 语言工具映射，缺省走内置语言默认）。 */
+  coverage: CoverageConfig
   /**
    * subagent_profiles 顶层 key 最后写入层（对象层看本层原始导出文档、工厂层看返回
    * 文档）；全程未出现时属性不定义、读取为 undefined（只读字段，loadConfig 挂载）。
@@ -33,6 +35,23 @@ export interface WorkloomConfig {
 
 /** 配置来源层（subagent_profiles 顶层 key 最后写入层）。 */
 export type ConfigSourceLayer = 'global' | 'project' | 'local'
+
+/** 磁盘覆盖率格式枚举（四值；go-coverprofile 在计算侧归一为 go）。 */
+export type CoverageFormatLiteral = 'go-coverprofile' | 'lcov' | 'jacoco-xml' | 'cobertura-xml'
+
+/** 单语言的覆盖率工具条目：format 必填，command 为可选骨架模板。 */
+export interface CoverageLanguageConfig {
+  format: CoverageFormatLiteral
+  command?: string
+}
+
+/** coverage 配置节（仅项目层，全局层出现报项目字段错误）。 */
+export interface CoverageConfig {
+  /** 增量覆盖率门槛（0–100 整数，严格大于；缺省 DEFAULT_THRESHOLD=90）。 */
+  threshold: number
+  /** 语言名 → 工具条目；未配置的内置语言走 LANGUAGE_DEFAULTS。 */
+  languages: Record<string, CoverageLanguageConfig>
+}
 
 /**
  * worktree 清理模式（archive 六模式）：merge-keep-branch 合并回 base + 删 worktree +
@@ -162,6 +181,9 @@ export interface ResolveSubagentDefaultsResult {
 /** 内置默认配置。 */
 export const DEFAULT_CONFIG: WorkloomConfig
 
+/** 增量覆盖率默认阈值（严格大于；0–100 整数的单源常量）。 */
+export const DEFAULT_THRESHOLD: number
+
 /** 配置解析错误：携带字段路径。 */
 export class WorkloomConfigError extends Error {
   constructor(field: string, reason: string)
@@ -235,3 +257,16 @@ export interface SetupPlaceholderValues {
 
 /** 按白名单渲染 setup 命令中的占位符（纯函数，token 之外原样保留）。 */
 export function renderSetupCommand(command: string, values: SetupPlaceholderValues): string
+
+/** coverage.command 占位符渲染值：worktree = 任务 worktree 根，profile = 报告输出路径，baseRef = 基线分支。 */
+export interface CoveragePlaceholderValues {
+  worktree: string
+  profile: string
+  baseRef: string
+}
+
+/** 按封闭白名单校验并渲染 coverage 命令占位符（未知 token 抛 WorkloomConfigError）。 */
+export function renderCoverageCommand(command: string, values: CoveragePlaceholderValues): string
+
+/** 解析 coverage 配置节：填默认、校验阈值/格式/占位符与未知子字段（fail loud）。 */
+export function parseCoverage(value: unknown): CoverageConfig

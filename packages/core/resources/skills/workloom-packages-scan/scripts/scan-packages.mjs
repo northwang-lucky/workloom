@@ -5,18 +5,20 @@
  * 识别范围：pnpm-workspace.yaml / package.json workspaces / lerna / nx / turbo /
  * go.work / Cargo workspace / .gitmodules / 嵌套 .git。
  *
- * 输出格式：{ name: { path, type?, git? } }
+ * 输出格式：{ name: { path, type?, git?, languages? } }
  *   - type: 'workspace' | 'submodule' | 'nested-git'
  *   - git: true（仅 submodule 与嵌套 git）
+ *   - languages: 源码扩展名检测出的内置语言栈（供 coverage.languages 提议）
  *
  * 命名约定：目录 basename 做 key；scoped 包（@org/name）去 org 前缀取尾部；
  * 重名以相对路径消歧。默认追加 `repo: { path: "." }` 根条目。
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join, basename, resolve, relative, isAbsolute } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+import { detectLanguage } from '../../../../dist/task/coverage-compute.js'
 import { isDir, isExcludedDir, isFile, listDirNames } from './fs-utils.mjs'
 import { expandWorkspaceGlob, expandSimpleGlob } from './glob-expand.mjs'
 
@@ -34,9 +36,43 @@ const PackageType = Object.freeze({
 /** 默认根条目 key。 */
 const ROOT_ENTRY_KEY = 'repo'
 
+/** 语言检测的最大递归深度（避免深入构建缓存/大目录）。 */
+const LANGUAGE_SCAN_MAX_DEPTH = 6
+
 // ---------------------------------------------------------------------------
 // 工具函数
 // ---------------------------------------------------------------------------
+
+/**
+ * 按源码扩展名检测目录内的内置语言栈（复用 core detectLanguage 单源）。
+ * 跳过排除目录（node_modules/dist/.git 等），只保留内置语言，结果排序去重。
+ * @param {string} absDir 待扫描目录
+ * @returns {string[]} 语言名数组
+ */
+function detectPackageLanguages(absDir) {
+  const languages = new Set()
+  /** @param {string} dir @param {number} depth */
+  function walk(dir, depth) {
+    if (depth > LANGUAGE_SCAN_MAX_DEPTH) return
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (!isExcludedDir(entry.name)) walk(join(dir, entry.name), depth + 1)
+        continue
+      }
+      if (!entry.isFile()) continue
+      const lang = detectLanguage(entry.name)
+      if (lang !== null) languages.add(lang)
+    }
+  }
+  walk(absDir, 0)
+  return [...languages].sort()
+}
 
 /** 安全读取 JSON 文件；失败返回 null。 */
 function readJsonSafe(absPath) {
@@ -92,6 +128,8 @@ class CandidateCollector {
     const entry = { path: relPath || '.' }
     entry.type = type
     if (git) entry.git = true
+    const languages = detectPackageLanguages(normalized)
+    if (languages.length > 0) entry.languages = languages
 
     this.byKey.set(key, entry)
   }
@@ -402,6 +440,8 @@ export function scanPackages(cwd) {
   if (result[ROOT_ENTRY_KEY] === undefined) {
     result[ROOT_ENTRY_KEY] = { path: '.' }
   }
+  const rootLanguages = detectPackageLanguages(resolved)
+  if (rootLanguages.length > 0) result[ROOT_ENTRY_KEY].languages = rootLanguages
   return result
 }
 

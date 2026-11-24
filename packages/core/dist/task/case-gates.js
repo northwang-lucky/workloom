@@ -12,8 +12,10 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { EXECUTOR_ROLES, tryNormalizeExecutorRole } from "../dispatch/executor-roles.js";
 import { sectionMap, splitHeadings } from "./prd-structure.js";
 import { CASE_FILES, CASE_MISSING, CASE_STRUCTURE, field, fieldBlock, inspectCaseStructure, isExcluded, issue, parseDocument, parseExclusions, parseItems, } from "./case-structure.js";
+import { DEFAULT_THRESHOLD } from "../workspace/config-defaults.js";
+import { loadConfig } from "../workspace/config-load.js";
 import { listCaseChangedFiles, listCaseChangedLines, taskDirectory, worktreeDirectory } from "./case-scope.js";
-import { computeDiffCoverage, isDiffCoverageArtifact, meetsThreshold } from "./coverage-compute.js";
+import { buildFormatHints, computeDiffCoverage, isDiffCoverageArtifact, meetsThreshold, } from "./coverage-compute.js";
 /** RESULT 缺失文案。 */
 const RESULT_MISSING = 'case-result.md is missing';
 /** CASE 门禁问题码（稳定英文 snake_case；字面量单源，避免重复字面量）。 */
@@ -21,6 +23,7 @@ const ISSUE_CODES = Object.freeze({
     ARTIFACT_MISSING: 'artifact_missing',
     ARTIFACT_PATH_INVALID: 'artifact_path_invalid',
     CASE_EXECUTION: 'case_execution',
+    COVERAGE_CONFIG: 'coverage_config',
     COVERAGE_BELOW_REASONS: 'coverage_below_reasons',
     COVERAGE_EXCLUSIONS: 'coverage_exclusions',
     COVERAGE_FILES: 'coverage_files',
@@ -327,6 +330,15 @@ export function evaluateCaseOutcomeGate(root, taskRelPath, task, options = {}) {
     const actualCoverageFiles = tablePaths(splitHeadings(coverage, 3).find((item) => item.heading === 'Changed Files')?.body ?? '');
     // 增量复算：变更行优先取入参，报告路径相对任务目录解析（与产物校验同口径）。
     const worktree = worktreeDirectory(root, task);
+    // 覆盖率配置取任务 worktree 根（分支配置优先）；非法配置报 coverage_config，不抛裸异常。
+    let coverageConfig = null;
+    try {
+        coverageConfig = loadConfig(worktree);
+    }
+    catch (error) {
+        issues.push(issue(ISSUE_CODES.COVERAGE_CONFIG, `coverage config is invalid: ${String(error)}`));
+    }
+    const threshold = coverageConfig?.coverage.threshold ?? DEFAULT_THRESHOLD;
     let changedLines = options.changedLines ?? null;
     let linesErr = null;
     if (changedLines === null) {
@@ -352,8 +364,11 @@ export function evaluateCaseOutcomeGate(root, taskRelPath, task, options = {}) {
             issues.push(issue(ISSUE_CODES.COVERAGE_REPORT_MISSING, `${path} is missing`));
         }
     }
+    const formatHints = coverageConfig === null
+        ? undefined
+        : buildFormatHints(lines.keys(), reportTexts.length, coverageConfig.coverage.languages);
     const recomputed = reportTexts.length > 0
-        ? computeDiffCoverage({ root: worktree, changedLines: lines, reports: reportTexts, exclusions })
+        ? computeDiffCoverage({ root: worktree, changedLines: lines, reports: reportTexts, exclusions, formatHints })
         : null;
     if (recomputed?.[0] !== null && recomputed?.[0] !== undefined) {
         issues.push(issue(ISSUE_CODES.COVERAGE_PARSE, recomputed[0].message));
@@ -413,13 +428,13 @@ export function evaluateCaseOutcomeGate(root, taskRelPath, task, options = {}) {
                 issues.push(issue(ISSUE_CODES.COVERAGE_RECOMPUTE, `Overall lines must be ${computed.overall.covered}/${computed.overall.total}`));
             }
         }
-        if (meetsThreshold(thresholdBasis.covered, thresholdBasis.total)) {
+        if (meetsThreshold(thresholdBasis.covered, thresholdBasis.total, threshold)) {
             if (coverageStatus === 'below_threshold') {
-                issues.push(issue(ISSUE_CODES.COVERAGE_STATUS, 'below_threshold requires incremental coverage <= 90%'));
+                issues.push(issue(ISSUE_CODES.COVERAGE_STATUS, `below_threshold requires incremental coverage <= configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%)`));
             }
         }
         else if (coverageStatus !== 'below_threshold') {
-            issues.push(issue(ISSUE_CODES.COVERAGE_THRESHOLD, 'incremental coverage must be >90% or below_threshold with a valid waiver'));
+            issues.push(issue(ISSUE_CODES.COVERAGE_THRESHOLD, `incremental coverage must be > configured threshold ${threshold}% (default ${DEFAULT_THRESHOLD}%) or below_threshold with a valid waiver`));
         }
         else {
             const valid = waiver !== null &&

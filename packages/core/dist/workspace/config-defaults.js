@@ -9,6 +9,15 @@
  *   符合"无灰区"哲学；
  * - 命令渲染（renderSetupCommand）承载 packages.<name>.setup 的占位符语义。
  */
+/** 增量覆盖率默认阈值：严格大于（恰好等于不达标），门禁/脚本/文案共用单源。 */
+export const DEFAULT_THRESHOLD = 90;
+/** 磁盘覆盖率格式枚举（四值；计算侧 FORMAT_NORMALIZE 把 go-coverprofile 归一为 go）。 */
+const COVERAGE_FORMAT_LITERALS = Object.freeze([
+    'go-coverprofile',
+    'lcov',
+    'jacoco-xml',
+    'cobertura-xml',
+]);
 /** 内置默认配置（与规格一致）。 */
 export const DEFAULT_CONFIG = {
     sessionAutoCommit: true,
@@ -34,6 +43,7 @@ export const DEFAULT_CONFIG = {
         cleanup: 'rebase-keep-branch',
     },
     subagentProfiles: [],
+    coverage: { threshold: DEFAULT_THRESHOLD, languages: {} },
 };
 /** resolveSubagentDefaults 的角色层并发上限兜底缺省（未配置时 3）。 */
 export const DEFAULT_ROLE_MAX_CONCURRENT = 3;
@@ -63,6 +73,27 @@ const SETUP_PLACEHOLDERS = new Set(Object.keys(SETUP_PLACEHOLDER_TOKENS));
 export function renderSetupCommand(command, values) {
     let rendered = command;
     for (const [token, key] of Object.entries(SETUP_PLACEHOLDER_TOKENS)) {
+        rendered = rendered.replaceAll(token, values[key]);
+    }
+    return rendered;
+}
+/** coverage 命令占位符 → 渲染值键（封闭三 token，值来源见 CoveragePlaceholderValues）。 */
+const COVERAGE_PLACEHOLDER_TOKENS = Object.freeze({
+    '<worktree>': 'worktree',
+    '<profile>': 'profile',
+    '<base-ref>': 'baseRef',
+});
+const COVERAGE_PLACEHOLDERS = new Set(Object.keys(COVERAGE_PLACEHOLDER_TOKENS));
+/**
+ * 渲染 coverage 命令占位符：先按封闭白名单校验，未知 token fail loud，再替换。
+ * @param command 模板命令串
+ * @param values 渲染值（worktree 根、报告输出路径、基线分支）
+ * @returns 渲染后的命令串
+ */
+export function renderCoverageCommand(command, values) {
+    assertPlaceholders('coverage.command', command, COVERAGE_PLACEHOLDERS);
+    let rendered = command;
+    for (const [token, key] of Object.entries(COVERAGE_PLACEHOLDER_TOKENS)) {
         rendered = rendered.replaceAll(token, values[key]);
     }
     return rendered;
@@ -184,6 +215,73 @@ export function parsePackages(value) {
             assertPlaceholders(`packages.${name}.setup`, command, SETUP_PLACEHOLDERS);
         }
         result[name] = parsed;
+    }
+    return result;
+}
+/**
+ * 校验 threshold：0–100 整数，专用文案（不复用 "0 means unlimited"）。
+ * @param field 字段路径
+ * @param value 用户文档值
+ * @returns 合法阈值
+ */
+function requireCoverageThreshold(field, value) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 100) {
+        throw new WorkloomConfigError(field, 'must be an integer between 0 and 100');
+    }
+    return value;
+}
+/**
+ * 校验磁盘覆盖率格式枚举（四值之一）。
+ * @param field 字段路径
+ * @param value 用户文档值
+ * @returns 合法格式枚举
+ */
+function requireCoverageFormat(field, value) {
+    if (typeof value !== 'string' || !COVERAGE_FORMAT_LITERALS.includes(value)) {
+        throw new WorkloomConfigError(field, `must be one of: ${COVERAGE_FORMAT_LITERALS.join(', ')}`);
+    }
+    return value;
+}
+/**
+ * 解析 coverage 配置节：缺省填默认、逐字段校验、未知子字段 fail loud。
+ * 语言映射开放：内置语言仅提供缺省，用户可为任意语言配 format/command。
+ * @param value 用户文档中的 coverage 字段
+ * @returns coverage 内存形态（含默认值）
+ */
+export function parseCoverage(value) {
+    const spec = requireMap('coverage', value);
+    for (const key of Object.keys(spec)) {
+        if (key !== 'threshold' && key !== 'languages') {
+            throw new WorkloomConfigError(`coverage.${key}`, 'unknown field (allowed: threshold, languages)');
+        }
+    }
+    const result = {
+        threshold: DEFAULT_THRESHOLD,
+        languages: {},
+    };
+    if (spec.threshold !== undefined) {
+        result.threshold = requireCoverageThreshold('coverage.threshold', spec.threshold);
+    }
+    if (spec.languages !== undefined) {
+        const languages = requireMap('coverage.languages', spec.languages);
+        for (const [lang, entry] of Object.entries(languages)) {
+            const field = `coverage.languages.${lang}`;
+            const item = requireMap(field, entry);
+            for (const key of Object.keys(item)) {
+                if (key !== 'format' && key !== 'command') {
+                    throw new WorkloomConfigError(`${field}.${key}`, 'unknown field (allowed: format, command)');
+                }
+            }
+            const parsed = {
+                format: requireCoverageFormat(`${field}.format`, item.format),
+            };
+            if (item.command !== undefined) {
+                const command = requireString(`${field}.command`, item.command);
+                assertPlaceholders(`${field}.command`, command, COVERAGE_PLACEHOLDERS);
+                parsed.command = command;
+            }
+            result.languages[lang] = parsed;
+        }
     }
     return result;
 }

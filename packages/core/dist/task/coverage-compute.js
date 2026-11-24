@@ -11,26 +11,52 @@
  */
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
+import { DEFAULT_THRESHOLD } from "../workspace/config-defaults.js";
 import { gitDiffChangedLines } from "../workspace/git-query.js";
 import { isExcluded } from "./case-structure.js";
 /**
- * 可执行后缀封闭集合（与 S4 内置语言对齐；扩展需先改本常量）：
- * 这些后缀的变更文件若缺席所有报告且未带原因排除，即报 coverage_missing_file。
+ * 扩展名 → 内置语言单源映射：detectLanguage 与 EXECUTABLE_EXTENSIONS 都从这里派生，
+ * 避免双份封闭集合漂移。新增语言先改本表，再在 LANGUAGE_DEFAULTS 补默认。
  */
-export const EXECUTABLE_EXTENSIONS = Object.freeze([
-    '.go', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.c', '.h',
-    '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.java', '.kt', '.kts',
-]);
+export const EXTENSION_LANGUAGE = Object.freeze({
+    '.go': 'go',
+    '.ts': 'typescript',
+    '.tsx': 'typescript',
+    '.js': 'javascript',
+    '.jsx': 'javascript',
+    '.mjs': 'javascript',
+    '.cjs': 'javascript',
+    '.py': 'python',
+    '.rs': 'rust',
+    '.c': 'c',
+    '.h': 'c',
+    '.cpp': 'cpp',
+    '.cc': 'cpp',
+    '.cxx': 'cpp',
+    '.hpp': 'cpp',
+    '.hxx': 'cpp',
+    '.java': 'java',
+    '.kt': 'kotlin',
+    '.kts': 'kotlin',
+});
+/** 可执行后缀封闭集合（由 EXTENSION_LANGUAGE 键派生，供缺席硬拒与一致性测试使用）。 */
+export const EXECUTABLE_EXTENSIONS = Object.freeze(Object.keys(EXTENSION_LANGUAGE));
 /** 类型声明后缀（无运行时行，任何覆盖率工具都不会报告，不属可执行集合）。 */
 const DECLARATION_SUFFIX = '.d.ts';
+/** 按扩展名归类内置语言；未命中或 .d.ts 返回 null。 */
+export function detectLanguage(file) {
+    if (file.endsWith(DECLARATION_SUFFIX))
+        return null;
+    const extension = Object.keys(EXTENSION_LANGUAGE)
+        .find((candidate) => file.endsWith(candidate));
+    return extension === undefined ? null : EXTENSION_LANGUAGE[extension];
+}
 /**
  * 判定变更文件是否属可执行集合：先排除 .d.ts（后缀匹配会把类型声明误判为 .ts），
- * 再按封闭后缀集合匹配。
+ * 再走 detectLanguage 的单源归类。
  */
 export function isExecutableFile(file) {
-    if (file.endsWith(DECLARATION_SUFFIX))
-        return false;
-    return EXECUTABLE_EXTENSIONS.some((extension) => file.endsWith(extension));
+    return detectLanguage(file) !== null;
 }
 /**
  * 交集 CLI 的固定产物名（R2 的变更行清单与机器可读交集结果）。二者与原生报告同住
@@ -45,15 +71,67 @@ export const DIFF_COVERAGE_ARTIFACTS = Object.freeze({
 export function isDiffCoverageArtifact(path) {
     return Object.values(DIFF_COVERAGE_ARTIFACTS).some((name) => path === `coverage/${name}`);
 }
-/** 严格大于 90%（整数交叉乘，恰好 90% 不达标）。 */
-export function meetsThreshold(covered, total) {
-    return covered * 100 > total * 90;
+/**
+ * 内置语言默认工具条目：format 为磁盘枚举，command 为占位符骨架。
+ * ts/js 骨架不含测试 glob，Checker 按任务追加；其余语言的 `<profile>` 是封闭白名单 token。
+ */
+export const LANGUAGE_DEFAULTS = {
+    go: {
+        format: 'go-coverprofile',
+        command: 'go test -coverprofile=<profile> -covermode=atomic ./...',
+    },
+    typescript: {
+        format: 'lcov',
+        command: 'node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=<profile>',
+    },
+    javascript: {
+        format: 'lcov',
+        command: 'node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=<profile>',
+    },
+    python: {
+        format: 'lcov',
+        command: 'coverage run -m pytest && coverage lcov -o <profile>',
+    },
+    rust: {
+        format: 'lcov',
+        command: 'cargo llvm-cov --lcov --output-path <profile>',
+    },
+    c: {
+        format: 'lcov',
+        command: 'lcov --capture --directory . --output-file <profile>',
+    },
+    cpp: {
+        format: 'lcov',
+        command: 'lcov --capture --directory . --output-file <profile>',
+    },
+    java: {
+        format: 'jacoco-xml',
+        command: 'gradle test jacocoTestReport',
+    },
+    kotlin: {
+        format: 'jacoco-xml',
+        command: 'gradle test jacocoTestReport',
+    },
+};
+/** 磁盘格式枚举 → 计算侧 CoverageFormat 的归一映射（go-coverprofile → go）。 */
+export const FORMAT_NORMALIZE = {
+    'go-coverprofile': 'go',
+    lcov: 'lcov',
+    'jacoco-xml': 'jacoco-xml',
+    'cobertura-xml': 'cobertura-xml',
+};
+/** 严格大于配置阈值（缺省 DEFAULT_THRESHOLD=90；整数交叉乘，恰好等于不达标）。 */
+export function meetsThreshold(covered, total, threshold = DEFAULT_THRESHOLD) {
+    return covered * 100 > total * threshold;
 }
 /** 构造豁免记录（审核权在主会话，时间取当前时刻）。 */
 export function buildWaiver(reason, fingerprint) {
     return { reason, fingerprint, at: new Date().toISOString(), source: 'main' };
 }
-/** 按报告正文推断格式：mode:→go、SF:/DA:→lcov、<report>→jacoco-xml。 */
+/**
+ * 按报告正文推断格式：mode:→go、SF:/DA:→lcov、<report>→jacoco-xml、
+ * 根 <coverage> + <lines>→cobertura-xml（与 jacoco <report> 区分）。
+ */
 export function inferFormat(text) {
     if (/^mode:/m.test(text))
         return 'go';
@@ -61,7 +139,31 @@ export function inferFormat(text) {
         return 'lcov';
     if (/<report\b/.test(text))
         return 'jacoco-xml';
+    if (/<coverage\b/.test(text) && /<lines\b/.test(text))
+        return 'cobertura-xml';
     return 'unsupported';
+}
+/**
+ * 由变更文件语言构造逐报告格式提示（门禁与采集脚本共用单源）：
+ * 恰好一种内置语言时广播 config.languages[lang] ?? LANGUAGE_DEFAULTS[lang]
+ * （经 FORMAT_NORMALIZE）；多语言或无命中返回 undefined，交给内容推断。
+ */
+export function buildFormatHints(changedFiles, reportCount, configured) {
+    if (reportCount === 0)
+        return undefined;
+    const detected = new Set();
+    for (const file of changedFiles) {
+        const lang = detectLanguage(file);
+        if (lang !== null)
+            detected.add(lang);
+    }
+    if (detected.size !== 1)
+        return undefined;
+    const [lang] = [...detected];
+    if (lang === undefined || !(lang in LANGUAGE_DEFAULTS))
+        return undefined;
+    const format = configured[lang]?.format ?? LANGUAGE_DEFAULTS[lang].format;
+    return Array.from({ length: reportCount }, () => FORMAT_NORMALIZE[format]);
 }
 /** 合并多报告格式：任一 unsupported → unsupported；全同 → 该格式；否则 mixed。 */
 function combineFormats(formats) {
@@ -200,6 +302,30 @@ export function parseJacocoXml(text, diffFiles = []) {
     }
     return [null, [...byFile.values()]];
 }
+/**
+ * 解析 Cobertura XML：<class filename> 定位文件，<line number hits> 逐行取值，
+ * hits>0 即覆盖；filename 走 suffix 匹配归一。根 <coverage> 缺失即 err。
+ */
+export function parseCoberturaXml(text, diffFiles = []) {
+    if (!/<coverage\b/.test(text))
+        return [new Error('cobertura <coverage> element not found'), null];
+    const byFile = new Map();
+    const classPattern = /<class\b[^>]*\bfilename="([^"]*)"[^>]*>([\s\S]*?)<\/class>/g;
+    for (const cls of text.matchAll(classPattern)) {
+        const [pathErr, file] = resolveReportPath((cls[1] ?? '').replaceAll('\\', '/'), diffFiles);
+        if (pathErr !== null)
+            return [pathErr, null];
+        const parsed = ensureFile(byFile, file ?? '');
+        for (const line of cls[2]?.matchAll(/<line\b[^>]*\/?>/g) ?? []) {
+            const number = /\bnumber="(\d+)"/.exec(line[0])?.[1];
+            if (number === undefined)
+                continue;
+            const covered = Number(/\bhits="(\d+)"/.exec(line[0])?.[1] ?? '0') > 0;
+            mergeLine(parsed, Number(number), covered);
+        }
+    }
+    return [null, [...byFile.values()]];
+}
 /** 按推断格式分派解析器（签名各异：go/lcov 需要 root 做路径归一）。 */
 function parseReport(format, text, root, diffFiles) {
     switch (format) {
@@ -209,6 +335,8 @@ function parseReport(format, text, root, diffFiles) {
             return parseLcov(text, root, diffFiles);
         case 'jacoco-xml':
             return parseJacocoXml(text, diffFiles);
+        case 'cobertura-xml':
+            return parseCoberturaXml(text, diffFiles);
         default:
             return [new Error(`unsupported coverage format: ${format}`), null];
     }
@@ -263,7 +391,11 @@ export function computeDiffCoverage(input) {
         changed = lines ?? new Map();
     }
     const diffFiles = [...changed.keys()];
-    const formats = input.reports.map(inferFormat);
+    // 内容推断优先：只有 unsupported 才回退同序 hint；hint 与内容冲突时以内容为准。
+    const formats = input.reports.map((text, index) => {
+        const inferred = inferFormat(text);
+        return inferred === 'unsupported' ? (input.formatHints?.[index] ?? inferred) : inferred;
+    });
     const format = combineFormats(formats);
     if (format === 'unsupported') {
         return [null, { files: [], overall: { covered: 0, total: 0 }, missingExecutableFiles: [], format }];

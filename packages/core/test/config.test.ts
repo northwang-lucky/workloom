@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { DEFAULT_CONFIG, WorkloomConfigError } from '../src/workspace/config-defaults.ts'
+import { DEFAULT_CONFIG, DEFAULT_THRESHOLD, WorkloomConfigError, renderCoverageCommand } from '../src/workspace/config-defaults.ts'
 import { loadConfig } from '../src/workspace/config-load.ts'
 import {
   detectExecutorConflicts,
@@ -1658,4 +1658,94 @@ test('packages.<name>.setup 白名单外占位符 → 加载期 fail loud', () =
   } finally {
     cleanup(root, home)
   }
+})
+
+// ---------- L8：coverage 配置节 ----------
+
+test('coverage 缺省：threshold 取 DEFAULT_THRESHOLD=90、languages 为空', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.equal(DEFAULT_THRESHOLD, 90)
+    assert.deepEqual(config.coverage, { threshold: 90, languages: {} })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('coverage 自定义：threshold 与 languages（command 省略）按值解析', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeProjectFile(root, 'config.json', {
+    coverage: {
+      threshold: 80,
+      languages: {
+        go: { format: 'go-coverprofile' },
+        python: { format: 'lcov', command: 'coverage run -m pytest && coverage lcov -o <profile>' },
+      },
+    },
+  })
+  try {
+    const config = loadConfig(root, { homeDir: home })
+    assert.deepEqual(config.coverage, {
+      threshold: 80,
+      languages: {
+        go: { format: 'go-coverprofile' },
+        python: { format: 'lcov', command: 'coverage run -m pytest && coverage lcov -o <profile>' },
+      },
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('coverage 非法 threshold / format / 未知子字段 / 未知占位符 → fail loud', () => {
+  const cases: [unknown, string][] = [
+    [{ coverage: { threshold: 101 } }, 'coverage.threshold'],
+    [{ coverage: { threshold: -1 } }, 'coverage.threshold'],
+    [{ coverage: { threshold: 80.5 } }, 'coverage.threshold'],
+    [{ coverage: { threshold: '90' } }, 'coverage.threshold'],
+    [{ coverage: { languages: { go: { format: 'xml' } } } }, 'coverage.languages.go.format'],
+    [{ coverage: { languages: { go: { format: 'lcov', bogus: 1 } } } }, 'coverage.languages.go.bogus'],
+    [{ coverage: { bogus: 1 } }, 'coverage.bogus'],
+    [{ coverage: { languages: { go: { format: 'lcov', command: 'echo <tests>' } } } }, 'coverage.languages.go.command'],
+  ]
+  const root = makeRoot()
+  const home = makeHome()
+  try {
+    for (const [doc, expectedField] of cases) {
+      writeProjectFile(root, 'config.json', doc)
+      assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+        return err instanceof WorkloomConfigError && err.field.includes(expectedField)
+      }, expectedField)
+    }
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('coverage 属项目字段：全局层出现 → WorkloomConfigError', () => {
+  const root = makeRoot()
+  const home = makeHome()
+  writeHomeFile(home, 'config.json', { coverage: { threshold: 80 } })
+  try {
+    assert.throws(() => loadConfig(root, { homeDir: home }), (err) => {
+      return err instanceof WorkloomConfigError && /project-level field/.test(err.message)
+    })
+  } finally {
+    cleanup(root, home)
+  }
+})
+
+test('renderCoverageCommand 三 token 渲染与未知 token fail loud', () => {
+  const values = { worktree: '/wt', profile: '/wt/coverage/lcov.info', baseRef: 'main' }
+  assert.equal(
+    renderCoverageCommand('cd <worktree> && go test -coverprofile=<profile> --base=<base-ref>', values),
+    'cd /wt && go test -coverprofile=/wt/coverage/lcov.info --base=main',
+  )
+  assert.throws(
+    () => renderCoverageCommand('echo <tests>', values),
+    (err) => err instanceof WorkloomConfigError && err.field === 'coverage.command' && /<tests>/.test(err.message),
+  )
 })
