@@ -1,0 +1,49 @@
+✔ CLI --out-dir 写 changed-lines.json 与 diff-coverage.json，stdout 输出 markdown (148.080668ms)
+✔ CLI --json 仅stdout 输出 JSON，省略 --out-dir 不写任何文件 (139.191115ms)
+✔ CLI --exclude 按 Exclusions 规则移除分母噪声与缺席可执行文件 (251.91856ms)
+✔ main 具名导出可直接调用：stdout 与 --out-dir 产物同 CLI 子进程一致 (32.499473ms)
+✔ CLI 缺失参数时抛 usage 错误 (99.372283ms)
+✔ go coverprofile：剥 module 前缀转 repo 相对，block 首末行闭区间交集 (3.296829ms)
+✔ lcov：SF 绝对路径剥 worktree 前缀，未改动行不进分母 (0.830022ms)
+✔ jacoco：package+sourcefile 后缀匹配 diff 路径，ci>0 即覆盖 (1.11103ms)
+✔ jacoco 同后缀多候选歧义时返回 err（fail loud） (0.386263ms)
+✔ 单行 hunk 与缺席可执行文件：可执行缺席入 missing，非可执行缺席不触发 (0.58467ms)
+✔ .d.ts 类型声明不计入可执行集合：缺席报告不触发 missing (0.468846ms)
+✔ 带原因的排除项不进入 missing 与交集 (0.647297ms)
+✔ 空分母：变更行不被工具统计时 files 为空、overall 为 0/0 (0.439102ms)
+✔ unsupported 报告标记 unsupported 且跳过缺席检测 (0.284558ms)
+✔ 多报告混格式按文件合并、行覆盖取并 (8.586956ms)
+✔ inferFormat / meetsThreshold / buildWaiver 边界 (0.639904ms)
+✔ 解析器直接调用：go 无 go.mod 时后缀匹配；lcov 非法 DA 返回 err (0.590185ms)
+✔ gitAddCommit 空 paths 直接报错（fail loud，防误提交空集） (9.871819ms)
+准备工作区（新分支 'task'）
+✔ gitAddCommit 剔除从未入库的已删除路径：不阻塞其余路径提交 (43.94312ms)
+✔ gitCurrentBranchSync 返回当前分支名 (19.981772ms)
+✔ gitStatusSync 报告未提交的脏文件 (9.824836ms)
+✔ 非 git 目录两个同步函数都返回 err (7.682969ms)
+✔ 非 git 目录：同步查询静默失败且无 stderr 泄漏 (7.52968ms)
+✔ 干净仓库 gitStatusSync 返回空串 (8.765136ms)
+✔ detached HEAD 时分支查询返回空串 (25.41424ms)
+准备工作区（新分支 'task'）
+✔ gitHasRebaseHead 三态：无中断 false / 冲突中断 true / abort 后 false (73.7164ms)
+准备工作区（新分支 'task'）
+✔ gitRebase 成功路径：任务提交落在新 base tip 之上且哈希改写 (62.793291ms)
+准备工作区（新分支 'task'）
+✔ gitRebase 冲突路径：exit 1 透出、文案携带 CONFLICT (54.319676ms)
+准备工作区（新分支 'task'）
+✔ gitRebaseAbort 恢复现场：HEAD 复原、无冲突标记残留 (78.125609ms)
+准备工作区（新分支 'task'）
+✔ gitMergeFfOnly 快进成功：主检出推进到任务分支 tip (54.623069ms)
+✔ gitMergeFfOnly 非快进拒绝：err 透出 stderr 且无合并态 (57.390621ms)
+✔ gitDiffChangedLines 三点口径：新增/修改/删除/单行 hunk（删除行不进分母） (32.304242ms)
+✔ gitDiffChangedLines 重命名：纯 rename 不入分母，内容修改归到新名 (47.020378ms)
+✔ gitDiffChangedLines 无分支工作区：两点 diff + 未跟踪文件读行（二进制跳过） (21.27581ms)
+✔ gitDiffChangedLines 无效 ref 与非 git 目录都返回 err（fail loud，不回退） (21.940208ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 35
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 801.084452

@@ -1,0 +1,423 @@
+{
+  "files": [
+    {
+      "file": "packages/core/resources/scripts/task-diff-coverage.mjs",
+      "covered": 96,
+      "total": 97,
+      "uncoveredRanges": [
+        {
+          "start": 56,
+          "end": 56
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 1,
+          "end": 97
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/injection/surface.ts",
+      "covered": 5,
+      "total": 5,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 51,
+          "end": 51
+        },
+        {
+          "start": 83,
+          "end": 83
+        },
+        {
+          "start": 137,
+          "end": 139
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/case-gates.ts",
+      "covered": 182,
+      "total": 198,
+      "uncoveredRanges": [
+        {
+          "start": 324,
+          "end": 324
+        },
+        {
+          "start": 327,
+          "end": 327
+        },
+        {
+          "start": 362,
+          "end": 364
+        },
+        {
+          "start": 368,
+          "end": 369
+        },
+        {
+          "start": 375,
+          "end": 376
+        },
+        {
+          "start": 397,
+          "end": 397
+        },
+        {
+          "start": 406,
+          "end": 407
+        },
+        {
+          "start": 431,
+          "end": 432
+        },
+        {
+          "start": 450,
+          "end": 450
+        },
+        {
+          "start": 454,
+          "end": 454
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 28,
+          "end": 29
+        },
+        {
+          "start": 31,
+          "end": 31
+        },
+        {
+          "start": 37,
+          "end": 76
+        },
+        {
+          "start": 138,
+          "end": 139
+        },
+        {
+          "start": 213,
+          "end": 254
+        },
+        {
+          "start": 281,
+          "end": 281
+        },
+        {
+          "start": 292,
+          "end": 292
+        },
+        {
+          "start": 305,
+          "end": 310
+        },
+        {
+          "start": 312,
+          "end": 312
+        },
+        {
+          "start": 319,
+          "end": 319
+        },
+        {
+          "start": 324,
+          "end": 324
+        },
+        {
+          "start": 327,
+          "end": 327
+        },
+        {
+          "start": 330,
+          "end": 330
+        },
+        {
+          "start": 335,
+          "end": 336
+        },
+        {
+          "start": 342,
+          "end": 342
+        },
+        {
+          "start": 345,
+          "end": 392
+        },
+        {
+          "start": 394,
+          "end": 395
+        },
+        {
+          "start": 397,
+          "end": 397
+        },
+        {
+          "start": 399,
+          "end": 402
+        },
+        {
+          "start": 404,
+          "end": 408
+        },
+        {
+          "start": 410,
+          "end": 427
+        },
+        {
+          "start": 429,
+          "end": 441
+        },
+        {
+          "start": 444,
+          "end": 444
+        },
+        {
+          "start": 448,
+          "end": 448
+        },
+        {
+          "start": 450,
+          "end": 450
+        },
+        {
+          "start": 454,
+          "end": 454
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/case-scope.ts",
+      "covered": 27,
+      "total": 27,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 11,
+          "end": 11
+        },
+        {
+          "start": 13,
+          "end": 13
+        },
+        {
+          "start": 46,
+          "end": 70
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/case-structure.ts",
+      "covered": 10,
+      "total": 10,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 16,
+          "end": 16
+        },
+        {
+          "start": 43,
+          "end": 47
+        },
+        {
+          "start": 52,
+          "end": 54
+        },
+        {
+          "start": 84,
+          "end": 84
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/coverage-compute.ts",
+      "covered": 375,
+      "total": 380,
+      "uncoveredRanges": [
+        {
+          "start": 281,
+          "end": 281
+        },
+        {
+          "start": 330,
+          "end": 333
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 1,
+          "end": 380
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/state/guards.ts",
+      "covered": 5,
+      "total": 5,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 47,
+          "end": 48
+        },
+        {
+          "start": 220,
+          "end": 222
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/state/migrate.ts",
+      "covered": 10,
+      "total": 10,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 113,
+          "end": 113
+        },
+        {
+          "start": 119,
+          "end": 123
+        },
+        {
+          "start": 216,
+          "end": 219
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/storage/records.ts",
+      "covered": 12,
+      "total": 12,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 101,
+          "end": 111
+        },
+        {
+          "start": 116,
+          "end": 116
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/task/task-ops.ts",
+      "covered": 49,
+      "total": 51,
+      "uncoveredRanges": [
+        {
+          "start": 486,
+          "end": 487
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 20,
+          "end": 20
+        },
+        {
+          "start": 36,
+          "end": 36
+        },
+        {
+          "start": 472,
+          "end": 487
+        },
+        {
+          "start": 533,
+          "end": 557
+        },
+        {
+          "start": 567,
+          "end": 571
+        },
+        {
+          "start": 1003,
+          "end": 1004
+        },
+        {
+          "start": 1025,
+          "end": 1025
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/workspace/git-query.ts",
+      "covered": 157,
+      "total": 167,
+      "uncoveredRanges": [
+        {
+          "start": 229,
+          "end": 235
+        },
+        {
+          "start": 245,
+          "end": 246
+        },
+        {
+          "start": 274,
+          "end": 274
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 18,
+          "end": 19
+        },
+        {
+          "start": 36,
+          "end": 41
+        },
+        {
+          "start": 48,
+          "end": 49
+        },
+        {
+          "start": 55,
+          "end": 78
+        },
+        {
+          "start": 151,
+          "end": 283
+        }
+      ]
+    },
+    {
+      "file": "packages/dsh-workloom/src/tooling/tasks.ts",
+      "covered": 16,
+      "total": 16,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 108,
+          "end": 114
+        },
+        {
+          "start": 316,
+          "end": 322
+        },
+        {
+          "start": 367,
+          "end": 367
+        },
+        {
+          "start": 373,
+          "end": 373
+        }
+      ]
+    }
+  ],
+  "overall": {
+    "covered": 944,
+    "total": 978
+  },
+  "missingExecutableFiles": [],
+  "format": "lcov"
+}

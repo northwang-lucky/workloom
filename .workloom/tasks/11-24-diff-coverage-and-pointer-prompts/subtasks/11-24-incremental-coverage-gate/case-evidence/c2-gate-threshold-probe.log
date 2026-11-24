@@ -1,0 +1,17 @@
+scenario A: coverage_threshold
+PASS A 恰好 90% 无豁免 → coverage_threshold
+PASS A 无其他问题码
+scenario B: <none>
+PASS B 大于 90% → 问题列表为空
+scenario C1 (generated): coverage_missing_file, coverage_files, coverage_recompute, coverage_recompute, coverage_threshold
+PASS C1 缺席可执行文件 → coverage_missing_file
+scenario C2 (not_applicable): coverage_missing_file
+PASS C2 not_applicable 仍 → coverage_missing_file（三态统一）
+PASS C2 不报 coverage_not_applicable
+scenario D: coverage_recompute, coverage_recompute, coverage_threshold
+PASS D 自报虚高 → coverage_recompute
+scenario E1: coverage_threshold
+PASS E1 unsupported 自报 90% → coverage_threshold 且无 coverage_missing_file
+scenario E2: <none>
+PASS E2 unsupported 自报 100% 且 Changed Files 回退变更文件集 → 问题列表为空
+--- summary: 9/9 checks passed; temp project removed ---

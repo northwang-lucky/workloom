@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify：常量枚举、err 首位元组、600 行拆分、lint/tsc/test 全绿；absence-assertions 约束模板/注入文本改动的测试写法"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core 分层：task/dispatch/injection/workspace 子包划分、core 不依赖 runtime、resources 持脚本与模板"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "agent 面向资产（模板/workflow/脚本注释面向执行器）英文，源码注释中文"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "dist 同 commit 重建与部署纪律"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "asset-version-bump：workflow.md 仅改 guidance 时 states/step 与 version 不升"}

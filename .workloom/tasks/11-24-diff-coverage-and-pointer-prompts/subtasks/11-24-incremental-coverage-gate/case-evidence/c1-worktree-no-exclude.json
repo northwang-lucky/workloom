@@ -1,0 +1,65 @@
+{
+  "files": [
+    {
+      "file": "pkg/c.go",
+      "covered": 1,
+      "total": 1,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 5,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "file": "src/a.ts",
+      "covered": 1,
+      "total": 2,
+      "uncoveredRanges": [
+        {
+          "start": 4,
+          "end": 4
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 3,
+          "end": 4
+        }
+      ]
+    },
+    {
+      "file": "src/c.ts",
+      "covered": 1,
+      "total": 1,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 2,
+          "end": 2
+        }
+      ]
+    },
+    {
+      "file": "src/Mapper.java",
+      "covered": 1,
+      "total": 1,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 4,
+          "end": 4
+        }
+      ]
+    }
+  ],
+  "overall": {
+    "covered": 4,
+    "total": 5
+  },
+  "missingExecutableFiles": [
+    "src/new.ts"
+  ],
+  "format": "mixed"
+}

@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "verify 命令与 absence-assertions/red-green-expectations：核对注入文本缺失断言用完整结构形式、红绿清单覆盖全部消费方"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "核对 core 不依赖 runtime、dsh 薄投影、纪律文本与测试同改、init/doctor command 形态"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "核对改动资产的语言分工：英文资产、中文注释"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "核对 workflow.md guidance 改动未误升 front-matter version 与协议常量"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "核对 dist 与 src 同 commit、部署同步纪律"}

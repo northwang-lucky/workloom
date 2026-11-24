@@ -1,0 +1,44 @@
+expected (non-excluded executable changed files):
+  packages/core/resources/scripts/task-diff-coverage.mjs
+  packages/core/src/injection/surface.ts
+  packages/core/src/task/case-gates.ts
+  packages/core/src/task/case-scope.ts
+  packages/core/src/task/case-structure.ts
+  packages/core/src/task/coverage-compute.ts
+  packages/core/src/task/state/guards.ts
+  packages/core/src/task/state/migrate.ts
+  packages/core/src/task/storage/records.ts
+  packages/core/src/task/task-ops.ts
+  packages/core/src/workspace/git-query.ts
+  packages/dsh-workloom/src/tooling/tasks.ts
+actual (diff-coverage.json files):
+  packages/core/resources/scripts/task-diff-coverage.mjs
+  packages/core/src/injection/surface.ts
+  packages/core/src/task/case-gates.ts
+  packages/core/src/task/case-scope.ts
+  packages/core/src/task/case-structure.ts
+  packages/core/src/task/coverage-compute.ts
+  packages/core/src/task/state/guards.ts
+  packages/core/src/task/state/migrate.ts
+  packages/core/src/task/storage/records.ts
+  packages/core/src/task/task-ops.ts
+  packages/core/src/workspace/git-query.ts
+  packages/dsh-workloom/src/tooling/tasks.ts
+PASS files 集合等于非排除可执行变更文件（12 个）
+PASS missingExecutableFiles 为空
+PASS format 为 lcov（lcov）
+PASS overall 944/978 (96.5%) 严格大于 90%
+--- per-file manual recompute (changed lines ∩ DA lines) ---
+PASS packages/core/resources/scripts/task-diff-coverage.mjs manual 96/97 vs script 96/97; uncovered 56
+PASS packages/core/src/injection/surface.ts manual 5/5 vs script 5/5; uncovered -
+PASS packages/core/src/task/case-gates.ts manual 182/198 vs script 182/198; uncovered 324,327,362,363,364,368,369,375,376,397,406,407,431,432,450,454
+PASS packages/core/src/task/case-scope.ts manual 27/27 vs script 27/27; uncovered -
+PASS packages/core/src/task/case-structure.ts manual 10/10 vs script 10/10; uncovered -
+PASS packages/core/src/task/coverage-compute.ts manual 375/380 vs script 375/380; uncovered 281,330,331,332,333
+PASS packages/core/src/task/state/guards.ts manual 5/5 vs script 5/5; uncovered -
+PASS packages/core/src/task/state/migrate.ts manual 10/10 vs script 10/10; uncovered -
+PASS packages/core/src/task/storage/records.ts manual 12/12 vs script 12/12; uncovered -
+PASS packages/core/src/task/task-ops.ts manual 49/51 vs script 49/51; uncovered 486,487
+PASS packages/core/src/workspace/git-query.ts manual 157/167 vs script 157/167; uncovered 229,230,231,232,233,234,235,245,246,274
+PASS packages/dsh-workloom/src/tooling/tasks.ts manual 16/16 vs script 16/16; uncovered -
+--- summary: ALL PASS ---

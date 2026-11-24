@@ -1,0 +1,868 @@
+{
+  ".workloom/spec/repo/workflow/index.md": [
+    {
+      "start": 9,
+      "end": 9
+    }
+  ],
+  "packages/core/dist/injection/surface.d.ts": [
+    {
+      "start": 43,
+      "end": 43
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 102,
+      "end": 103
+    }
+  ],
+  "packages/core/dist/injection/surface.js": [
+    {
+      "start": 43,
+      "end": 43
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 102,
+      "end": 103
+    }
+  ],
+  "packages/core/dist/injection/surface.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/case-gates.js": [
+    {
+      "start": 14,
+      "end": 16
+    },
+    {
+      "start": 19,
+      "end": 57
+    },
+    {
+      "start": 121,
+      "end": 121
+    },
+    {
+      "start": 123,
+      "end": 123
+    },
+    {
+      "start": 194,
+      "end": 232
+    },
+    {
+      "start": 254,
+      "end": 254
+    },
+    {
+      "start": 266,
+      "end": 266
+    },
+    {
+      "start": 281,
+      "end": 281
+    },
+    {
+      "start": 283,
+      "end": 283
+    },
+    {
+      "start": 285,
+      "end": 285
+    },
+    {
+      "start": 287,
+      "end": 287
+    },
+    {
+      "start": 289,
+      "end": 289
+    },
+    {
+      "start": 291,
+      "end": 291
+    },
+    {
+      "start": 293,
+      "end": 293
+    },
+    {
+      "start": 301,
+      "end": 301
+    },
+    {
+      "start": 306,
+      "end": 306
+    },
+    {
+      "start": 309,
+      "end": 309
+    },
+    {
+      "start": 313,
+      "end": 313
+    },
+    {
+      "start": 319,
+      "end": 319
+    },
+    {
+      "start": 321,
+      "end": 321
+    },
+    {
+      "start": 325,
+      "end": 325
+    },
+    {
+      "start": 328,
+      "end": 375
+    },
+    {
+      "start": 378,
+      "end": 378
+    },
+    {
+      "start": 380,
+      "end": 380
+    },
+    {
+      "start": 382,
+      "end": 387
+    },
+    {
+      "start": 390,
+      "end": 392
+    },
+    {
+      "start": 394,
+      "end": 395
+    },
+    {
+      "start": 397,
+      "end": 422
+    },
+    {
+      "start": 424,
+      "end": 432
+    },
+    {
+      "start": 436,
+      "end": 436
+    },
+    {
+      "start": 441,
+      "end": 441
+    },
+    {
+      "start": 443,
+      "end": 443
+    },
+    {
+      "start": 447,
+      "end": 447
+    }
+  ],
+  "packages/core/dist/task/case-gates.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/case-scope.d.ts": [
+    {
+      "start": 1,
+      "end": 1
+    },
+    {
+      "start": 22,
+      "end": 29
+    }
+  ],
+  "packages/core/dist/task/case-scope.js": [
+    {
+      "start": 10,
+      "end": 10
+    },
+    {
+      "start": 39,
+      "end": 60
+    }
+  ],
+  "packages/core/dist/task/case-scope.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/case-structure.d.ts": [
+    {
+      "start": 1,
+      "end": 1
+    },
+    {
+      "start": 23,
+      "end": 27
+    },
+    {
+      "start": 32,
+      "end": 37
+    }
+  ],
+  "packages/core/dist/task/case-structure.js": [
+    {
+      "start": 33,
+      "end": 33
+    }
+  ],
+  "packages/core/dist/task/case-structure.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/state/guards.d.ts": [
+    {
+      "start": 21,
+      "end": 25
+    }
+  ],
+  "packages/core/dist/task/state/guards.js": [
+    {
+      "start": 170,
+      "end": 172
+    }
+  ],
+  "packages/core/dist/task/state/guards.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/state/migrate.d.ts": [
+    {
+      "start": 70,
+      "end": 73
+    }
+  ],
+  "packages/core/dist/task/state/migrate.js": [
+    {
+      "start": 62,
+      "end": 66
+    },
+    {
+      "start": 149,
+      "end": 152
+    }
+  ],
+  "packages/core/dist/task/state/migrate.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/storage/records.d.ts": [
+    {
+      "start": 66,
+      "end": 75
+    },
+    {
+      "start": 80,
+      "end": 80
+    }
+  ],
+  "packages/core/dist/task/storage/records.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/task/task-ops.d.ts": [
+    {
+      "start": 138,
+      "end": 141
+    },
+    {
+      "start": 235,
+      "end": 238
+    }
+  ],
+  "packages/core/dist/task/task-ops.js": [
+    {
+      "start": 19,
+      "end": 19
+    },
+    {
+      "start": 27,
+      "end": 27
+    },
+    {
+      "start": 314,
+      "end": 327
+    },
+    {
+      "start": 367,
+      "end": 391
+    },
+    {
+      "start": 399,
+      "end": 403
+    },
+    {
+      "start": 761,
+      "end": 761
+    }
+  ],
+  "packages/core/dist/task/task-ops.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/git-query.d.ts": [
+    {
+      "start": 23,
+      "end": 35
+    },
+    {
+      "start": 71,
+      "end": 82
+    }
+  ],
+  "packages/core/dist/workspace/git-query.js": [
+    {
+      "start": 17,
+      "end": 18
+    },
+    {
+      "start": 30,
+      "end": 33
+    },
+    {
+      "start": 40,
+      "end": 41
+    },
+    {
+      "start": 45,
+      "end": 58
+    },
+    {
+      "start": 110,
+      "end": 238
+    }
+  ],
+  "packages/core/dist/workspace/git-query.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/resources/templates/case-result.md": [
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 43,
+      "end": 43
+    },
+    {
+      "start": 47,
+      "end": 47
+    },
+    {
+      "start": 53,
+      "end": 53
+    },
+    {
+      "start": 58,
+      "end": 69
+    }
+  ],
+  "packages/core/resources/templates/case.md": [
+    {
+      "start": 9,
+      "end": 10
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 69,
+      "end": 69
+    },
+    {
+      "start": 71,
+      "end": 71
+    }
+  ],
+  "packages/core/resources/workflow/workflow.md": [
+    {
+      "start": 96,
+      "end": 96
+    },
+    {
+      "start": 110,
+      "end": 110
+    },
+    {
+      "start": 112,
+      "end": 112
+    }
+  ],
+  "packages/core/src/injection/surface.ts": [
+    {
+      "start": 51,
+      "end": 51
+    },
+    {
+      "start": 83,
+      "end": 83
+    },
+    {
+      "start": 137,
+      "end": 139
+    }
+  ],
+  "packages/core/src/task/case-gates.ts": [
+    {
+      "start": 28,
+      "end": 29
+    },
+    {
+      "start": 31,
+      "end": 31
+    },
+    {
+      "start": 37,
+      "end": 76
+    },
+    {
+      "start": 138,
+      "end": 139
+    },
+    {
+      "start": 213,
+      "end": 254
+    },
+    {
+      "start": 281,
+      "end": 281
+    },
+    {
+      "start": 292,
+      "end": 292
+    },
+    {
+      "start": 305,
+      "end": 310
+    },
+    {
+      "start": 312,
+      "end": 312
+    },
+    {
+      "start": 319,
+      "end": 319
+    },
+    {
+      "start": 324,
+      "end": 324
+    },
+    {
+      "start": 327,
+      "end": 327
+    },
+    {
+      "start": 330,
+      "end": 330
+    },
+    {
+      "start": 335,
+      "end": 336
+    },
+    {
+      "start": 342,
+      "end": 342
+    },
+    {
+      "start": 345,
+      "end": 392
+    },
+    {
+      "start": 394,
+      "end": 395
+    },
+    {
+      "start": 397,
+      "end": 397
+    },
+    {
+      "start": 399,
+      "end": 402
+    },
+    {
+      "start": 404,
+      "end": 408
+    },
+    {
+      "start": 410,
+      "end": 427
+    },
+    {
+      "start": 429,
+      "end": 441
+    },
+    {
+      "start": 444,
+      "end": 444
+    },
+    {
+      "start": 448,
+      "end": 448
+    },
+    {
+      "start": 450,
+      "end": 450
+    },
+    {
+      "start": 454,
+      "end": 454
+    }
+  ],
+  "packages/core/src/task/case-scope.ts": [
+    {
+      "start": 11,
+      "end": 11
+    },
+    {
+      "start": 13,
+      "end": 13
+    },
+    {
+      "start": 46,
+      "end": 70
+    }
+  ],
+  "packages/core/src/task/case-structure.ts": [
+    {
+      "start": 16,
+      "end": 16
+    },
+    {
+      "start": 43,
+      "end": 47
+    },
+    {
+      "start": 52,
+      "end": 54
+    },
+    {
+      "start": 84,
+      "end": 84
+    }
+  ],
+  "packages/core/src/task/state/guards.ts": [
+    {
+      "start": 47,
+      "end": 48
+    },
+    {
+      "start": 220,
+      "end": 222
+    }
+  ],
+  "packages/core/src/task/state/migrate.ts": [
+    {
+      "start": 113,
+      "end": 113
+    },
+    {
+      "start": 119,
+      "end": 123
+    },
+    {
+      "start": 216,
+      "end": 219
+    }
+  ],
+  "packages/core/src/task/storage/records.ts": [
+    {
+      "start": 101,
+      "end": 111
+    },
+    {
+      "start": 116,
+      "end": 116
+    }
+  ],
+  "packages/core/src/task/task-ops.ts": [
+    {
+      "start": 20,
+      "end": 20
+    },
+    {
+      "start": 36,
+      "end": 36
+    },
+    {
+      "start": 472,
+      "end": 487
+    },
+    {
+      "start": 533,
+      "end": 557
+    },
+    {
+      "start": 567,
+      "end": 571
+    },
+    {
+      "start": 1003,
+      "end": 1004
+    },
+    {
+      "start": 1025,
+      "end": 1025
+    }
+  ],
+  "packages/core/src/workspace/git-query.ts": [
+    {
+      "start": 18,
+      "end": 19
+    },
+    {
+      "start": 36,
+      "end": 41
+    },
+    {
+      "start": 48,
+      "end": 49
+    },
+    {
+      "start": 55,
+      "end": 78
+    },
+    {
+      "start": 151,
+      "end": 283
+    }
+  ],
+  "packages/core/test/case.test.ts": [
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 24,
+      "end": 25
+    },
+    {
+      "start": 142,
+      "end": 142
+    },
+    {
+      "start": 201,
+      "end": 201
+    },
+    {
+      "start": 209,
+      "end": 209
+    },
+    {
+      "start": 248,
+      "end": 248
+    },
+    {
+      "start": 253,
+      "end": 269
+    },
+    {
+      "start": 304,
+      "end": 350
+    },
+    {
+      "start": 441,
+      "end": 441
+    },
+    {
+      "start": 462,
+      "end": 462
+    },
+    {
+      "start": 486,
+      "end": 486
+    },
+    {
+      "start": 488,
+      "end": 489
+    },
+    {
+      "start": 492,
+      "end": 495
+    },
+    {
+      "start": 497,
+      "end": 502
+    },
+    {
+      "start": 669,
+      "end": 989
+    },
+    {
+      "start": 1003,
+      "end": 1003
+    },
+    {
+      "start": 1009,
+      "end": 1009
+    }
+  ],
+  "packages/core/test/contract-asset.test.ts": [
+    {
+      "start": 1088,
+      "end": 1115
+    }
+  ],
+  "packages/core/test/git.test.ts": [
+    {
+      "start": 13,
+      "end": 18
+    },
+    {
+      "start": 341,
+      "end": 439
+    }
+  ],
+  "packages/core/test/surface.test.ts": [
+    {
+      "start": 258,
+      "end": 260
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/tasks.js": [
+    {
+      "start": 78,
+      "end": 84
+    },
+    {
+      "start": 271,
+      "end": 277
+    },
+    {
+      "start": 320,
+      "end": 320
+    },
+    {
+      "start": 326,
+      "end": 326
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/tasks.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/src/tooling/tasks.ts": [
+    {
+      "start": 108,
+      "end": 114
+    },
+    {
+      "start": 316,
+      "end": 322
+    },
+    {
+      "start": 367,
+      "end": 367
+    },
+    {
+      "start": 373,
+      "end": 373
+    }
+  ],
+  "packages/dsh-workloom/test/tasks.test.ts": [
+    {
+      "start": 84,
+      "end": 129
+    }
+  ],
+  "coverage/changed-lines.json": [
+    {
+      "start": 1,
+      "end": 680
+    }
+  ],
+  "coverage/diff-coverage.json": [
+    {
+      "start": 1,
+      "end": 323
+    }
+  ],
+  "coverage/lcov-core.info": [
+    {
+      "start": 1,
+      "end": 34253
+    }
+  ],
+  "coverage/lcov-dsh.info": [
+    {
+      "start": 1,
+      "end": 20220
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.d.ts": [
+    {
+      "start": 1,
+      "end": 78
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.js": [
+    {
+      "start": 1,
+      "end": 313
+    }
+  ],
+  "packages/core/dist/task/coverage-compute.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/resources/scripts/task-diff-coverage.mjs": [
+    {
+      "start": 1,
+      "end": 97
+    }
+  ],
+  "packages/core/resources/scripts/task-diff-coverage.test.mjs": [
+    {
+      "start": 1,
+      "end": 114
+    }
+  ],
+  "packages/core/src/task/coverage-compute.ts": [
+    {
+      "start": 1,
+      "end": 380
+    }
+  ],
+  "packages/core/test/coverage-compute.test.ts": [
+    {
+      "start": 1,
+      "end": 294
+    }
+  ]
+}

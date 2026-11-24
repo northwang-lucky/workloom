@@ -1,0 +1,38 @@
+{
+  "docs/readme.md": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "pkg/c.go": [
+    {
+      "start": 5,
+      "end": 5
+    }
+  ],
+  "src/Mapper.java": [
+    {
+      "start": 4,
+      "end": 4
+    }
+  ],
+  "src/a.ts": [
+    {
+      "start": 3,
+      "end": 4
+    }
+  ],
+  "src/c.ts": [
+    {
+      "start": 2,
+      "end": 2
+    }
+  ],
+  "src/new.ts": [
+    {
+      "start": 1,
+      "end": 3
+    }
+  ]
+}

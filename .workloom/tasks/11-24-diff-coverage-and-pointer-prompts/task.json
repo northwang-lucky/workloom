@@ -1,0 +1,54 @@
+{
+  "id": "704e1888-d1cf-46b0-b442-668cb9af8838",
+  "name": "diff-coverage-and-pointer-prompts",
+  "title": "任务增量覆盖率门禁与派发注入纯指针化",
+  "description": "两项 workloom 核心改进：1) 覆盖率从整文件口径改为任务增量口径（base..HEAD 新增/修改可执行行），>90% 成为机器硬门禁，不达标时 checker/developer 附原因交主会话审核，属实记录豁免放行，不属实退回排查无关代码或 case 缺口；2) researcher/checker/judger 的派发注入改为与 developer 相同的纯指针模式，去除 prd 节块物化与 CASE/模板全文内联。",
+  "status": "in_progress",
+  "priority": "P1",
+  "mode": "parent",
+  "creator": "",
+  "assignee": "",
+  "package": "repo",
+  "branch": "",
+  "base_branch": "",
+  "createdAt": "2026-11-24T03:50:13.575Z",
+  "completedAt": null,
+  "parent": null,
+  "children": [
+    "tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-incremental-coverage-gate",
+    "tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-pointer-injection-and-template-init",
+    "tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-config-edit-skill",
+    "tasks/11-24-diff-coverage-and-pointer-prompts/subtasks/11-24-coverage-config"
+  ],
+  "scope": "",
+  "commit": "",
+  "pr_url": "",
+  "worktree_path": "",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "check": null,
+  "case": {
+    "required": true,
+    "designSession": null,
+    "phase": "none"
+  },
+  "alignment": {
+    "passedAt": "2026-11-24T05:27:01.979Z",
+    "summary": "容器 PRD 刷新：R4 与 Alignment Decisions 明确覆盖率阈值配置项 coverage.threshold（默认 90 严格 >，用户额外要求）归 S4——S1 先硬编码默认 90，S4 让门禁与脚本读配置、缺省回退 90，不单独建任务、不扩 S1。其余 R1–R5/AC1–AC5 与四子任务拆分不变。用户提出阈值配置需求即确认。",
+    "source": "user",
+    "autonomy": "semi"
+  },
+  "planConfirmation": null,
+  "overrides": [],
+  "stage": "orchestrating",
+  "autonomy": "semi",
+  "autonomyLog": [],
+  "dispatches": [],
+  "hooks": {
+    "after_create": [],
+    "after_start": [],
+    "after_finish": [],
+    "after_archive": []
+  }
+}

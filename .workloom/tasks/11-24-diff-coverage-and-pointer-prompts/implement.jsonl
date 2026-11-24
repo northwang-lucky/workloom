@@ -1,0 +1,5 @@
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "编码原则与 verify 命令：常量枚举、err 首位元组、600 行拆分、lint/tsc/test 全绿；absence-assertions 与 red-green-expectations 约束注入文本改动的测试写法"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/dsh 分层与依赖：注入组装在 core、纪律文本在 dsh discipline-text 且同改测试、插件薄投影、init/doctor 保留 command——本任务触点全在此约束下"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "agent 面向资产（模板/workflow/纪律）英文，源码注释与任务文档中文"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "dist 同 commit 重建、profile 重钉与用户授权重启的部署纪律"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "asset-version-bump：workflow.md 仅改既有步骤 guidance 文本时 states/step 不变、front-matter version 与协议常量不升"}

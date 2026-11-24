@@ -1,0 +1,19 @@
+scenario A: err=null check={"passedAt":"2026-11-24T05:55:10.602Z","summary":"probe ok","coverageWaiver":{"reason":"reviewed by main session: defensive branch","fingerprint":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","at":"2026-11-24T05:55:10.574Z","source":"main"}}
+PASS A err 为 null
+PASS A check.summary 为 probe ok 且 passedAt 为 ISO-8601
+PASS A coverageWaiver 四字段齐全（reason/fingerprint=hex-A/at ISO/source main）
+scenario B: err=null waiver={"reason":"reviewed by main session: defensive branch","fingerprint":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","at":"2026-11-24T05:55:10.574Z","source":"main"}
+PASS B 复查通过且继承既有豁免（四字段完全相同）
+PASS C1 不传豁免沿用既有记录但指纹不匹配 → 错误含 cannot be bypassed with force 与 waiver
+PASS C2 force 同样拒绝
+PASS C 两次拒绝后 task.json 字节不变且 overrides 为 []
+scenario C: err1=workloom task: CASE gate failed: below_threshold requires a waiver matching RESULT codeFingerprint (core CASE failures cannot be bypassed with force); err2=workloom task: CASE gate failed: below_threshold requires a waiver matching RESULT codeFingerprint (core CASE failures cannot be bypassed with force)
+PASS C3 显式传入新豁免才放行，且新记录绑定当前指纹 hex-B
+scenario C3: err=null waiver={"reason":"reviewed again after code change","fingerprint":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","at":"2026-11-24T05:55:10.654Z","source":"main"}
+PASS D 空原因 → 错误含 coverageWaiver 与 reason，task.json 字节不变
+scenario D: err=workloom task: coverageWaiver requires a non-empty reason
+PASS E 缺 Below Threshold → 错误文案为 coverage_below_reasons 的 message（Below Threshold requires per-file reason lines）
+scenario E: err=workloom task: CASE gate failed: Below Threshold requires per-file reason lines (core CASE failures cannot be bypassed with force)
+PASS F 缺指纹 → 错误含 task-fingerprint，task.json 字节不变
+scenario F: err=workloom task: RESULT codeBaseline must contain codeFingerprint=<64-hex> for coverageWaiver (compute it with the core package script scripts/task-fingerprint.mjs)
+--- summary: 11/11 checks passed; temp project removed ---
