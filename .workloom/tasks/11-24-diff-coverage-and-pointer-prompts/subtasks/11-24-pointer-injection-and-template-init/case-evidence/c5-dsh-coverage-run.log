@@ -1,0 +1,338 @@
+✔ DSH purpose schema 与全量/增量 CASE 注入 (7.395907ms)
+✔ DSH 模板副本缺失明确失败，失败记录保留 purpose（超预算路径已随指针化退役） (3.427554ms)
+✔ CASE 工具 schema 只保留 review，主会话限制保留 (3.314605ms)
+✔ CASE review 投影返回快照、会话链与结构阻断项（无哈希字段） (32.077202ms)
+✔ cwd 为空：内部错误与业务校验同一转述出口 (2.602709ms)
+✔ continue/finish 不再注册为命令（改造为同名 skill） (0.181355ms)
+✔ init 二次执行：relay already complete（幂等，命令成功） (3.618568ms)
+✔ init 成功：followup 注入成功转述（含 init 结果原文），返回 success (1.500913ms)
+✔ init 成功：CASE 模板副本随 init 落盘，重跑 init 刷新过期副本 (2.208628ms)
+✔ doctor 成功：followup 注入 JSON 报告 + 引导语，返回 success 回执 (10.324164ms)
+✔ doctor 无 .workloom：作为 config issue 报告，命令成功 (0.669459ms)
+✔ 五角色契约节均含标题、纪律子段并以 leaf 规则 + 权威声明收尾 (1.446044ms)
+✔ userPrompt 已含 leaf executor 关键词时仅豁免 leaf 规则行，纪律段与权威声明仍注入 (0.194964ms)
+✔ checker 纪律段按 P0/P1/P2 分级：P2 自修、P0/P1 上报 Open issues (0.26832ms)
+✔ researcher 纪律段含结构化块要素并保留只读 LSP 变体句（不含主句） (0.142883ms)
+✔ LSP 基线：developer/checker/frontend-developer 段含主句，judger 含主句，researcher 只读变体 (0.201149ms)
+✔ S4 过滤：hasLsp=false 时剔除 LSP 基线句；缺省/true 时保留（交付时过滤） (0.245253ms)
+✔ developer/checker/judger 段含「按需查材料、禁止全局 recon」指令，researcher/frontend-developer 不含 (0.186334ms)
+✔ developer/frontend-developer 段各含规定式计划执行句（逐字），researcher/checker 不含 (0.151179ms)
+✔ developer/checker 段含批处理与工具输出紧凑两句纪律（逐字），researcher/frontend-developer 不含 (0.222221ms)
+✔ 五角色契约节均含强制加载协议句（逐字，与契约 assets 同句） (0.142056ms)
+✔ 五角色契约节均含「无用户通道」共用句（逐字，命令式无弱化词） (0.144202ms)
+✔ 写范围句：researcher/judger 段含 .workloom/ 路径限制告知句（逐字），其余角色不含 (0.211189ms)
+✔ judger 纪律段：四维审查、分级口径与不改文件边界句固定 (0.133686ms)
+✔ 分层协议角色例外：checker 必读 prd 验收两节 + case.md/模板副本，judger/researcher 必读 prd (0.144793ms)
+✔ developer 版纪律段词数 ≤ 300（空白分隔的英文词元口径） (0.330925ms)
+✔ buildNewDispatchBinding: 显式参数记 param（配置命中细分被覆盖） (1.462831ms)
+✔ buildNewDispatchBinding: 配置命中透传 whenMain/fallback（legacy 分支已删） (0.224243ms)
+✔ buildNewDispatchBinding: 全部未命中记 inherit (0.233955ms)
+✔ buildNewDispatchBinding: 配置命中落解析值与来源 (1.186247ms)
+✔ buildNewDispatchBinding: inherit 落主模型快照 (0.199527ms)
+✔ buildNewDispatchBinding: inherit 且主模型不可读时不落 model (0.155743ms)
+✔ buildNewDispatchBinding: effort 未解析出时不带字段 (0.203752ms)
+✔ buildNewDispatchBinding: rotation 入参落选中条目并标 rotate（不传时现行为不变） (1.171428ms)
+✔ scanDispatchRecords：多任务聚合，记录带任务归属 (2.248758ms)
+✔ scanDispatchRecords：archive 目录排除（归档任务不入扫描） (1.863746ms)
+✔ scanDispatchRecords：坏 JSON、缺 task.json、缺 dispatches、非对象条目全部防御跳过 (0.935129ms)
+✔ scanDispatchRecords：tasks 目录缺失返回空集（不抛错） (0.344417ms)
+✔ src 源文件集合与 dist 的 .js 集合镜像相等（排除 .d.ts） (5.879406ms)
+✔ selectRotationStartIndex：无占用取主模型位（下标 0） (1.293106ms)
+✔ selectRotationStartIndex：主模型位被占用顺延至首个空闲链条目 (0.193662ms)
+✔ selectRotationStartIndex：多个同类占用继续顺延 (0.126912ms)
+✔ selectRotationStartIndex：全占用回绕主模型位（返回 0） (0.120538ms)
+✔ selectRotationStartIndex：未知模型不计占用、池为空返回 0 (0.120786ms)
+✔ materializeRingChain：i=0 恒等现状（起始主模型位、链为 1..N 段） (1.205118ms)
+✔ materializeRingChain：中段起步物化为环的剩余部分（含回绕主模型位） (0.259427ms)
+✔ materializeRingChain：末位起步时链先回绕主模型位再走完前缀 (0.155384ms)
+✔ materializeRingChain：继承形态的主模型位条目原样透传（label 由调用方归一） (0.188326ms)
+✔ materializeRingChain：空池 fail loud、越界下标防御（不放大调用方错误） (0.59599ms)
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor override: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: dispatch entry title must be a non-empty string
+workloom executor: WARNING: failed to record executor override: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom executor: WARNING: failed to record executor dispatch: Error: workloom task: failed to parse task.json: tasks/test-task: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+workloom executor: WARNING: executor failover retry: notice projection: TypeError: parent.followup is not a function
+✔ agentOptions 携带 provider+model（带前缀时） (13.630005ms)
+✔ agentOptions 仅 model（裸 id，无 provider） (2.619546ms)
+✔ agentOptions 为 undefined（无 model 配置） (3.112756ms)
+✔ s1: 派发走 startActivation（delivery: parent），返回 durable childId + receipt (3.171223ms)
+✔ s2: 续用走 sendMessage 进入同一会话（session id 不变） (3.825417ms)
+✔ s2-sendMessage: 续用走 sendMessage 进入同一会话（sender 为 parent、options 仅含 signal） (2.874935ms)
+✔ s2-sendMessage-fork: adjacency reject（belongs to another parent session）转译为引导文案且 isError (3.351225ms)
+✔ s2-sendMessage-passthrough: 非 fork 拒绝原样透传（不套引导文案） (2.625632ms)
+✔ 派发成功：task.json dispatches 记录 { kind, at, title, childId } (2.416608ms)
+✔ receipt 行出现在返回 receipt 尾部（来源标注正确，无 effort 段） (2.235094ms)
+✔ receipt 行：param 来源标注正确 (2.218071ms)
+✔ s6: 续用轮 receipt 追加 (reused)，新派发轮不标注 (3.215836ms)
+✔ receipt 行：新派发含注入统计四元组（KB 一位小数；计数来自 buildExecutorPrompt stats） (1.993819ms)
+✔ receipt 行：续用轮 reinject: true 恢复全量注入（统计同新派发口径） (2.796924ms)
+✔ s3-inc: 续接默认只发增量指令（sendMessage 内容 = 参数 prompt，不含全量注入），receipt 统计如实反映 (4.097256ms)
+✔ s3-inc-bg: 后台续接同样只发增量指令且返回增量 receipt (2.546202ms)
+✔ receipt 行：无配置时显示 default 来源（无 effort 段） (2.220484ms)
+✔ 主模型 provider/model 为空串：whenMain 按取不到跳过，回退兜底条目 (2.073439ms)
+✔ label 组装：五角色均为 [<RoleLabel>] <task title>（title 缺省回退） (5.899255ms)
+✔ label 回退：task title 空白时回退 workloom-<role>（连字符） (1.764476ms)
+✔ label 回退：readTask 失败时回退 workloom-<role>（连字符） (2.010369ms)
+✔ label 组装：title 传入时五角色均为 [<RoleLabel>] <title> (5.325522ms)
+✔ label 回退：title 为空白字符串时走缺省 task title 路径 (1.776398ms)
+✔ label 组装：title 传入时不依赖 readTask（task.json 损坏仍可用） (1.824368ms)
+✔ 参数面：title schema 必填（required + minLength 1）且描述引用 titleExecutor (0.193752ms)
+✔ 参数面：role schema 五新值 enum、无 kind 参数、required=[role,prompt,title]、additionalProperties 拒 kind（AC4） (0.190984ms)
+✔ 参数面：force/reason schema 描述引用 PARAM_DESCRIPTIONS (0.124218ms)
+✔ 参数面：schema 恢复可选 effort 参数（描述引用 PARAM_DESCRIPTIONS.effort） (0.117815ms)
+✔ 参数面：continue_executor schema 可选，描述引用 PARAM_DESCRIPTIONS.continueExecutor (0.102422ms)
+✔ 参数面：schema 不含 foreground（unknown 参数由 additionalProperties: false 拒绝） (0.109339ms)
+✔ effort 配置生效：profile roles 条目 effort 进入 reasoningEffort，receipt 标 (config) (2.257726ms)
+✔ effort 单独生效：无 model 配置时 agentOptions 仅含 reasoningEffort (2.1664ms)
+✔ effort 参数优先：显式 effort 生效并标 (param)（与配置一致时无冲突） (2.186622ms)
+✔ effort 冲突无 force：返回提示（含 effort 维度）且不派发 (1.456435ms)
+✔ effort 冲突 + force + reason：放行派发、overrides 记录 executor_model_effort (2.634705ms)
+✔ 非法 effort 档位：派发时 fail loud（assertEffort 文案） (1.339645ms)
+✔ 冲突无 force：model 冲突返回提示且不派发（未传 effort 参数，无 effort 冲突） (1.218063ms)
+✔ 冲突 + force 缺 reason：抛错 (1.260797ms)
+✔ 冲突 + force + reason：放行派发、overrides 写入、receipt 带 (forced) (2.24932ms)
+✔ 无冲突（归一化等价）：正常派发且无 (forced) 标注 (1.963748ms)
+✔ 工具白名单：默认 = 原生候选 ∩ 可见集（未知名不入 allow），经 agent/created 施加 (2.069352ms)
+✔ 工具白名单：config tools.includes 补入 lsp_* 前缀模式（可见集求交） (2.226422ms)
+✔ 工具白名单：config tools.excludes 移除原生工具；未知名静默忽略 (2.348127ms)
+✔ receipt 行：新派发含 `, K tools allowed`（K = 实际下发 allow 集大小） (2.010339ms)
+✔ executor-dispatch 拆分面：allow 成形与空清单兜底可直接导入且与工具路径一致 (0.575936ms)
+✔ s4: 跨角色续用被拒（返回提示，不派发不 sendMessage） (4.844221ms)
+✔ 续用定位：无同角色记录（latest）返回明确提示不派发 (1.330333ms)
+✔ 续用定位：旧记录缺 childId（latest）返回明确提示不报错 (1.534412ms)
+✔ 续用定位：显式 childId 不在 dispatches 中返回明确提示不派发 (1.264179ms)
+✔ 续用被上游拒绝（belongs to another parent session，fork 场景）：返回引导文案且 isError (2.148082ms)
+✔ 续用被上游以其他原因拒绝：原样透传上游错误（不套 fork 引导文案） (2.261998ms)
+✔ 本机片段：首条 prompt 注入 Local directives 段（all 前、专属后，无条件注入） (2.355332ms)
+✔ 本机片段：未知 .md 文件名 fail loud（派发中断） (1.53505ms)
+✔ 本机片段：项目共享层（prompts/）与本机层（prompts.local/）叠加注入 (2.066488ms)
+✔ S4 hasLspTooling：可见集含 lsp_ 前缀工具判定具备 LSP 工具面，否则不具 (0.160668ms)
+✔ S4 交付时过滤：allow 集无 LSP 工具时首条 prompt 不含纪律段 LSP 句，含时保留 (3.2569ms)
+✔ s1-bg: 后台派发立即返回（不等 turn 结算），返回 {kind, childId, receipt} (1.916532ms)
+✔ s2-settle: 派发初写 running；subagent/end 按 info.id 回填 completed（不用 runId） (2.541346ms)
+workloom executor: WARNING: no captured turn/end error for child child-1; settled with the generic summary
+✔ s2-settle-fail: turn/end error 捕获 → 结算以真实错误整体替换（<message> (<code>)） (22.138891ms)
+✔ s2-settle-other: refusal/max-tokens 等 stopReason 同样回填 failed + 摘要 (2.660759ms)
+✔ s2-settle-ghost: 未知 childId 的 subagent/end 不落盘（no-op，不误伤 running 记录） (1.836484ms)
+✔ s2-settle-fallback: stopReason=error 但登记缺失 → 回退泛化文案 + WARNING（不阻塞结算） (2.679386ms)
+✔ s3-error-latest: 覆盖式取最近一次 turn/end error；非 error 轮不清、登记外/非 turn/end 忽略 (2.110132ms)
+✔ s3-error-truncate: 真实错误压成单行，超 200 字符截断并追加 … (2.055514ms)
+✔ s3-extract: 真实错误提取纯函数（message+code 合并、换行压行、解码失败回退 null） (0.513762ms)
+✔ s3-listener-guard: session/event 监听器内部异常只告警不冒泡 (1.839539ms)
+✔ executor-guard：rebuildWriteGuardChildIds 从任务 task.json dispatches 重建（排除 archive） (0.885159ms)
+✔ executor-guard：重启后新派发先登记时先重建再加入新 id（防空集占位毒化） (0.803181ms)
+✔ executor-guard：confinedWriteGuard 拒绝越界 write/edit、放行域内与非受守卫角色 (0.767271ms)
+✔ executor-guard 接线：researcher 派发登记子会话 id，守卫拒绝越界 write、放行域内 (1.943814ms)
+✔ executor-guard 接线：judger 派发登记子会话 id，守卫拒绝越界 write、放行域内 (1.783681ms)
+✔ executor-guard 接线：仅受守卫角色派发登记（developer 派发不登记，越界 write 放行） (1.913651ms)
+✔ 续派 + model 同传：fail loud 拒绝（相同值也拒；无登记/结算副作用） (1.915941ms)
+✔ 续派 + effort 同传：fail loud 拒绝（不产生登记副作用） (1.072374ms)
+✔ 新派记录落绑定：param 来源标注与生效值写入 dispatches (2.043233ms)
+✔ 新派记录落绑定：whenMain 来源标注（主模型命中 profile） (4.069265ms)
+✔ 新派记录落绑定：inherit 且主模型不可读 → modelSource inherit（model 不落值） (1.880326ms)
+✔ 新派记录落绑定：fallback 来源标注（无 whenMain 的 profile 兜底条目命中） (1.816812ms)
+✔ 新派记录落绑定：inherit 时 model 落主会话模型快照（modelSource inherit） (2.317139ms)
+✔ 续派轮记录沿用 childId 首次绑定：modelSource 记 spawn (2.524176ms)
+✔ 续派回执：展示 spawn 绑定值 (spawn binding)；不再回显当前配置来源 (2.45841ms)
+✔ 续派回执：spawn 记录缺绑定 → 显示 (unrecorded spawn binding) (1.98579ms)
+✔ 确认后修改 prd 不再阻断派发（无哈希失效判定，无 stale override） (2.324517ms)
+✔ 旧凭据遗留 prdHash 字段不驱动任何派发行为 (2.103437ms)
+✔ light 派发门禁：light 任务拒绝所有角色（提示主会话包办，不 spawn） (2.252896ms)
+✔ light 派发门禁 force：带 reason 放行并记录 light_dispatch override (2.507994ms)
+✔ light 派发门禁 force 缺 reason：拒绝且不 spawn、不留痕 (1.39667ms)
+✔ light 派发门禁：full 任务（缺 mode 归一化 full）不受影响 (2.193978ms)
+✔ 循环 settle：同 childId 两条 running 一次 end 全部回填 completed (2.714836ms)
+✔ 循环 settle：同 childId 两条 running 一次 end 全部回填 failed (3.017418ms)
+✔ capacity: 全局达限拒绝（2 running / 显式 limit 2）并返回 at capacity 回执文案 (2.238237ms)
+✔ capacity: 全局显式 0 = 不限（多 running 仍放行） (2.104823ms)
+✔ capacity: 角色闸达限拒绝（role 2/2）并返回角色层回执文案 (1.875817ms)
+✔ capacity: 缺省配置（全局 0 不限、每角色 3）——同角色 3 running 拒第 4 笔、不同角色放行 (2.913114ms)
+✔ capacity: 续用不误占槽（排除目标 childId 后未达限 → 放行） (2.051882ms)
+✔ capacity: 续用目标之外达限 → 续用被拒（排除目标后其余 2/2） (1.770719ms)
+✔ capacity: 配置解析报错（executor.max_concurrent 为负） (1.355808ms)
+✔ capacity: 并发闸异步窗口——mock listDescendants 恒空 + 延迟派发，两连发第二笔必须 at capacity (23.766418ms)
+✔ capacity: in-flight 登记携带模型（getInFlightDispatches 产出携带，release 后消失） (0.410919ms)
+✔ capacity: 占用取数三级来源（in-flight 直取、dispatches 记录、native 无记录留空） (1.460938ms)
+✔ capacity: collectUsedModels 同角色过滤、模型缺失保守归一主模型位 (0.310404ms)
+✔ 工具面收窄：未登记的 agent 不施加限制（主会话与其他插件的子代理零影响） (0.25371ms)
+✔ 工具面索引：登记与撤销按 childId 精确生效 (0.165165ms)
+✔ 工具面索引：冷恢复能从任务记录读回白名单（旧记录缺字段时跳过） (0.715829ms)
+✔ planReview 联动：judger + plan-review 派发后 phase 置 reviewing，记录带 purpose (2.290795ms)
+✔ planReview 联动：reviewing 再派幂等（相位与轮数不变） (2.003624ms)
+✔ planReview 联动：clean 态派发不动轨道，仅输出一行 WARNING (1.982741ms)
+✔ planReview 联动：judger 无 purpose（追溯评审）不动轨道、记录不带 purpose (2.094587ms)
+✔ planReview 联动：checker purpose case-design 行为不变（CASE 轨道置 designing，planReview 不动） (2.046042ms)
+✔ NATIVE_TOOLS 名单钉住：DSH 原生候选全集 15 名（不含 lsp_* 与交互/编排工具） (0.185158ms)
+✔ 模型失败转移：有链一跳重派——记录 fallbackOf/fallbackAttempt=2/modelSource=fallback，prompt 保留原文加尾部 note (13.337636ms)
+✔ 模型失败转移：重派子会话二次失败不再跳（fallbackOf 非空硬挡），failed 附阻断文案 (23.834567ms)
+✔ 模型失败转移：无链结算 failed 附穷尽文案，不重派 (13.733357ms)
+✔ 模型失败转移：非白名单错误码不触发（业务失败宁可漏转不误转） (13.29694ms)
+✔ failover: respawn.failoverChain 优先（物化环序链一跳取起点后继，不读配置链） (12.585334ms)
+✔ failover: respawn.failoverChain 链耗尽（全部同 deadModel）不重派，附穷尽文案 (13.343527ms)
+✔ receipt: rotation 标注逐字追加尾部（forced→reused→rotated 顺序；非轮换零变化） (0.739307ms)
+✔ 轮换编排：主模型位与 F1 被占用时起步 F2——记录 modelSource=rotate、receipt 标注、结算重试走物化环序链 (13.312447ms)
+✔ 轮换编排：全占用回绕主模型位零痕迹——spawn 现状绑定、记录无 rotate、receipt 无标注、结算回落配置链 (13.788688ms)
+✔ 轮换编排：四路径零变化（开关关/显式 model/续用轮/容量拒绝均无轮换痕迹） (8.314348ms)
+✔ 轮换编排：dispatches 记录旧 kind 值经归一后计入占用（顺延到首个 fallback） (2.142098ms)
+✔ 轮换编排：并行同角色两笔同步段互见不撞同一模型（in-flight 登记携模型，第二笔顺延） (43.162115ms)
+✔ 旧契约（无 norms 块）：快照不追加 Always-on norms 小节 (23.967194ms)
+✔ 含 norms 块契约：快照末尾追加 Always-on norms 小节（原文保留） (8.525742ms)
+✔ 委派深度>0：快照按白名单裁剪（无 Workflow 概览行），norms 段整体替换为 executor 版（零派发语义） (1.172886ms)
+✔ assembleSessionContextText：localDirectives 传参在 norms 后渲染小节，缺省不渲染 (17.843554ms)
+✔ renderSessionContext：本机片段（main 目标）注入 Local directives 小节 (11.375158ms)
+✔ renderSessionContext：本机片段组装失败只告警，快照照常注入且无 Local directives 小节（小节级降级） (9.941995ms)
+✔ assembleSessionContextText：light 任务概览行取轻量契约步骤，norms 仍出自主契约 (10.595546ms)
+✔ isModelInaccessibleCode：白名单内全部命中，白名单外/空/undefined 一律 false (2.214545ms)
+✔ extractFailureCode：对象 code 为 string 时提取，其余形状返回 null (0.25614ms)
+✔ buildFailoverNote：注明死掉的模型、错误码与半成品风险；续用轮追加增量丢失说明 (0.516838ms)
+✔ buildFailoverNotice：一行通知含失败模型/错误码/下一模型/第几跳；穷尽与阻断各有分支（role 词汇） (0.381329ms)
+✔ 激活过程不注册文件写预执行监听（tools/pre-execute） (13.107093ms)
+✔ 激活过程注册 executor 派发终态回填通道（subagent/end） (1.898228ms)
+✔ 正常解析：name/description/body（正文 trim，whenToUse 缺省） (1.648884ms)
+✔ whenToUse 可选：存在时解析出来 (0.229831ms)
+✔ 缺少 description 报错 (0.357751ms)
+✔ 无 front-matter 报错 (0.18353ms)
+✔ 未知键忽略：兼容 vendored skills 的 license/source (0.228698ms)
+✔ 缺失 name 报错 (0.27634ms)
+✔ 缺失闭合分隔符报错 (0.168761ms)
+✔ workloom_step 深度>0：返回叶子执行器提示（含 stepId 回显，不含契约原文） (0.573976ms)
+✔ workloom_step 深度=0：返回契约原文（现状不变） (10.648159ms)
+✔ workloom_step exec 缺失时视为深度 0：返回契约原文 (1.520388ms)
+✔ skill 清单契约：注册 finish/alignment/update-spec/packages-scan/config-edit/migrate-to-sop + generic tdd/writing-for-agents，不含已退役五个 skill (2.231695ms)
+✔ workloom-finish 资产可解析：收尾五步 + taskPath 必填指引 (0.410492ms)
+✔ workloom-alignment 资产可解析：name/description/whenToUse + 固定小节叙述规则与 references 就位 (0.446913ms)
+✔ workloom-alignment evals 可解析且含 review blocker 场景（先修复再重新 review） (0.664307ms)
+✔ create 工具 schema 含 parent（type string，描述引用 PARAM_DESCRIPTIONS.parent，且非必填） (1.895126ms)
+✔ create 工具 schema：package 必填（type string，描述引用 PARAM_DESCRIPTIONS.package） (0.269747ms)
+✔ check 工具 schema 不再含 phase/required（2.2 check 单一凭据） (1.188654ms)
+✔ check 工具透传 coverageWaiver 到 core：无指纹 RESULT 以 codeFingerprint 错误拒绝，缺省则照常写凭据 (5.664744ms)
+✔ align 工具 schema：action 必填枚举 review/confirm；target 可选枚举 prd/plan；无哈希参数 (0.575695ms)
+✔ align 工具主会话限制：子代理（delegationDepth>0）调用被拒绝 (0.528972ms)
+✔ planreview 工具 schema：phase 必填枚举 revising/clean；taskPath 可选；additionalProperties false (0.238501ms)
+✔ planreview 工具主会话限制：子代理（delegationDepth>0）调用被拒绝 (0.401225ms)
+✔ archive 工具 schema：taskPath 必填且描述引用 PARAM_DESCRIPTIONS.taskPathRequired (0.214192ms)
+✔ createTaskTool 透传 parent：子任务落盘 parent 字段且父 children 联动 (6.01067ms)
+✔ create 工具 schema 含 mode（可选，枚举三值 light/standard/parent）与 autonomy（可选，枚举三值） (0.231432ms)
+✔ workloom_task_autonomy 工具：schema 必填 autonomy 枚举三值；execute 切换留痕带时间戳 (2.85058ms)
+✔ createTaskTool 透传 autonomy：落 task.json 默认 manual，指定值直落 (2.165489ms)
+✔ createTaskTool 透传 mode：light 任务落 task.json，缺省 standard (1.969255ms)
+✔ complete 工具注册存在：name/description 引 surface 常量，taskPath/force/reason 可选 (0.209158ms)
+ℹ tests 213
+ℹ suites 0
+ℹ pass 213
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 804.274315
+ℹ start of coverage report
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ file                          | line % | branch % | funcs % | uncovered lines
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ packages                      |        |          |         | 
+ℹ  core                         |        |          |         | 
+ℹ   dist                        |        |          |         | 
+ℹ    dispatch                   |        |          |         | 
+ℹ     executor-capacity.js      |  97.26 |    86.67 |  100.00 | 69-70
+ℹ     executor-roles.js         |  96.55 |    77.78 |  100.00 | 69-70 85
+ℹ     executor-tools.js         |  86.76 |    89.47 |  100.00 | 45-47 54-59
+ℹ    index.js                   | 100.00 |   100.00 |  100.00 | 
+ℹ    injection                  |        |          |         | 
+ℹ     breadcrumb.js             |  37.27 |   100.00 |    0.00 | 27-78 86-96 104-109
+ℹ     local-prompts.js          |  94.09 |    75.51 |  100.00 | 102-103 115-116 164-165 181-182 200-205
+ℹ     prompt-compose.js         |  96.83 |    76.67 |  100.00 | 107-108 188-189 245-246 249-250
+ℹ     prompt-io.js              |  68.82 |    57.14 |   37.50 | 26-33 41-46 49-50 57-65 73-74 82-83
+ℹ     prompt-sections.js        |  88.11 |    63.89 |   88.89 | 94-95 122 126-129 155-166 181-183
+ℹ     protocol.js               |  91.67 |    66.67 |  100.00 | 21-22
+ℹ     session-assemble.js       |  94.74 |    66.67 |  100.00 | 34-35
+ℹ     session-context.js        |  77.31 |    50.00 |   63.64 | 93-94 153-160 185-189 201-202 227-242 251-267 287-298 306-312 318-320 335-337 342-346 348-350 352-354 401-405 408-413 441 445-446 451-453
+ℹ     spec-index.js             |  64.80 |    45.45 |   44.44 | 34-35 53-63 68-72 89-91 94-103 105-114 122-124
+ℹ     step-lookup.js            |  88.24 |    60.00 |  100.00 | 26-27 30-31
+ℹ     surface.js                |  95.20 |    87.88 |   75.00 | 311-314 326-332 341-343 351-353
+ℹ     workflow-contract.js      |  78.96 |    50.00 |   84.62 | 49-52 65-66 84-85 87-88 92-93 96-97 126-127 129-130 132-133 139-140 142-143 156-157 160-161 163-164 170-171 175-176 178-179 181-182 194-196 198-199 224-225 232-234 266-278 284-285 306-307
+ℹ     workflow-service.js       |  67.00 |    68.75 |   45.45 | 46-55 79-80 89-111 121-122 134-135 146-147 155-164 171-177 188-189 193-195 197-199
+ℹ    resources-manifest.js      |  93.14 |    80.00 |   87.50 | 61-64 99-101
+ℹ    task                       |        |          |         | 
+ℹ     case-gates.js             |  45.80 |     8.51 |   10.71 | 72-75 94-95 103-111 117-125 132-149 154-162 167-177 183-185 191-193 195-198 200-210 212-215 217-222 228-232 237-242 254-258 261-266 268-275 278-283 286-287 292-295 300-302 306-314 320-321 325-326 333-338 343-356 359-360 374-437 442-445 447-450
+ℹ     case-scope.js             |  77.05 |    80.00 |   75.00 | 47-60
+ℹ     case-structure.js         |  53.28 |    31.82 |   26.67 | 78-86 99-104 107-115 122-124 131-134 141-152 159-164 173-193 204-225 232-237 243-252 258-259 267-291 304-305 309-317 330-334 337-349
+ℹ     coverage-compute.js       |  22.36 |   100.00 |    0.00 | 31-34 46-47 50-51 54-55 58-65 67-72 74-81 83-86 88-98 100-102 104-112 118-130 133-152 155-175 178-202 204-215 217-223 225-255 258-312
+ℹ     dispatch-records.js       |  84.91 |    66.38 |   93.75 | 86-87 140-141 171-178 182 202-203 214-215 217-218 235 245-246 248-249 251-252 255-256 270-271 279-280 288-289 304-305 310-312 316-317 321-322 324-325 327-329 334-335 340-342 348-349 401-402 410-411 432-439
+ℹ     doc-review.js             |  47.39 |    47.06 |   40.00 | 46-70 79-85 98-100 105-106 110-111 116-133 138-160 165-190 195-221 226-233 244-245 252-258 271-274 281-282 295-296 303-305
+ℹ     jsonl.js                  |  44.54 |    60.00 |   40.00 | 25-37 42-74 86-97 107-108 113-118
+ℹ     prd-structure.js          |  44.68 |   100.00 |    4.76 | 119-136 140-148 152-175 182-231 239-245 249-252 260-292 300-309 343-368 376-377 384-386 394-415 432-434 442-450 457-467 472-474 481-498 506-545 555-588 595-601
+ℹ     state                     |        |          |         | 
+ℹ      audit.js                 | 100.00 |   100.00 |  100.00 | 
+ℹ      confirm.js               |  32.28 |   100.00 |    0.00 | 25-28 42-96 110-157
+ℹ      guards.js                |  56.10 |    50.00 |   35.00 | 29-33 37-43 47-54 62-91 96-101 106 108-110 125 132-140 142-146 152-162 176-181 183-193 200-202 242-243
+ℹ      index.js                 | 100.00 |   100.00 |  100.00 | 
+ℹ      migrate.js               |  27.92 |   100.00 |    0.00 | 26-46 58-126 132-136 146-184 189-196
+ℹ      pointers.js              |  55.30 |    62.50 |   50.00 | 48-49 58-65 89-93 96-100 103-105 109-110 119-143 151-171 177-200 209-210
+ℹ      tracks.js                |  76.92 |    70.00 |   83.33 | 48-63 79-81 88-89
+ℹ      transitions.js           | 100.00 |   100.00 |  100.00 | 
+ℹ      values.js                | 100.00 |    66.67 |  100.00 | 
+ℹ      view.js                  |  91.94 |    74.65 |  100.00 | 111 131-132 139-142 151 159-160 164-165 168-169 179
+ℹ     storage                   |        |          |         | 
+ℹ      create.js                |  87.41 |    60.00 |   94.44 | 56-58 60-62 64-67 93-94 184 200-202 204-205 207-208 210-211 231-232 238-239 260-261 271-272 286-287 302-305 329-330 340-345 375-376 384-385 394-395
+ℹ      index.js                 | 100.00 |   100.00 |  100.00 | 
+ℹ      list-archive.js          |  51.47 |    55.56 |   44.44 | 37-41 51-55 62-63 77-78 93-131 140-141 151-163 173-203
+ℹ      read-write.js            |  92.54 |    86.67 |  100.00 | 31-32 47-48 63-67 78-79 196-199
+ℹ      records.js               |  97.01 |   100.00 |   50.00 | 61-62
+ℹ     task-ops.js               |  45.72 |    59.26 |   46.67 | 43-44 64-65 70-71 83-86 114-116 134-135 140-141 164-166 199-200 232-233 242-248 255-313 357-358 362-363 372-373 379-380 382-386 395-397 407-417 426-435 445-449 461-489 497-518 528-535 547-574 583-701 711-719 730-746 781-792 801-826 842-851 853-971 979-992
+ℹ    workspace                  |        |          |         | 
+ℹ     case-templates.js         |  92.37 |    70.59 |   83.33 | 39-40 50-51 103-104 111-113
+ℹ     command-ops.js            |  81.97 |    60.00 |   75.00 | 25-26 37-38 40-41 54-55 58-60
+ℹ     config-defaults.js        |  84.21 |    47.83 |   66.67 | 64-69 115-116 118-120 125-126 134-136 145-149 155-161 184-185
+ℹ     config-load.js            |  68.45 |    55.56 |   75.00 | 57-60 84-85 88-89 104-105 111-112 122-137 148-149 165-171 217-219 226-239 250-251 256-266 268-272 274-279 293-314
+ℹ     config-subagent.js        |  91.61 |    77.87 |  100.00 | 32-36 45-46 71-72 91-92 99-100 103-104 111-112 142-143 147-148 166-167 173-174 198 208-209 225-226 232-233 354-355 362-363 445-446 449
+ℹ     doctor-check-rules.js     |  54.53 |    30.00 |   70.59 | 38-40 57-66 72-73 83-93 124-135 139-149 154-164 168-169 202-212 216-226 233-243 249-259 279-289 292-307 310-324 327-337 359-369 376-377 380-391 395-405 407-417 431-441 460-470 486-498 530-531 534-536
+ℹ     doctor-checks.js          | 100.00 |    85.71 |  100.00 | 
+ℹ     doctor-tasks.js           |  94.44 |    83.33 |   80.00 | 15-16
+ℹ     doctor-types.js           | 100.00 |   100.00 |  100.00 | 
+ℹ     doctor.js                 |  90.00 |    80.00 |   75.00 | 19-20 28-30
+ℹ     file-atomic.js            |  75.61 |    66.67 |  100.00 | 30-39
+ℹ     git-ops.js                |  47.32 |   100.00 |    0.00 | 22-36 44-55 65-70 76-80 90-94 100-104 112-116 125-130 137-141 147-151 158-162 171-204
+ℹ     git-query.js              |  52.00 |    77.78 |   25.00 | 69-70 107-108 114-129 142-162 164-184 186-199 201-215 217-220 222-238 277-286 298-302 309-315 322-328 336-342 348-352 357-388 394-400 407-411 418-424
+ℹ     init.js                   |  92.47 |    85.71 |   66.67 | 38-39 51-52 90-92
+ℹ     locate.js                 |  92.77 |    75.00 |  100.00 | 42-43 64-65 79-80
+ℹ     setup-executor.js         |  48.28 |   100.00 |    0.00 | 20-32 37-49 54-57
+ℹ     spec-templates.js         |  89.55 |    71.43 |   66.67 | 33-34 44-45 64-66
+ℹ     worktree-integrate.js     |  45.45 |    37.50 |   20.00 | 37-38 51-52 61-70 81-101 123-185 190-197 201-208
+ℹ     worktree-lifecycle.js     |  16.63 |   100.00 |    0.00 | 35-79 90-103 116-248 261-449 455-466 473-480
+ℹ  dsh-workloom                 |        |          |         | 
+ℹ   src                         |        |          |         | 
+ℹ    constants.ts               | 100.00 |   100.00 |  100.00 | 
+ℹ    dispatch                   |        |          |         | 
+ℹ     discipline-text.ts        |  99.20 |    80.00 |  100.00 | 209-210
+ℹ     dispatch-binding.ts       | 100.00 |    94.74 |  100.00 | 
+ℹ     dispatch-scan.ts          | 100.00 |   100.00 |  100.00 | 
+ℹ     executor-capacity.ts      |  96.64 |    80.49 |  100.00 | 176-183
+ℹ     executor-continuation.ts  |  94.77 |    72.97 |  100.00 | 117 138-143 150-151
+ℹ     executor-dispatch.ts      | 100.00 |   100.00 |  100.00 | 
+ℹ     executor-guard.ts         |  93.67 |    85.29 |  100.00 | 69-76 134-135
+ℹ     executor-injection.ts     |  98.15 |    88.89 |  100.00 | 97-98
+ℹ     executor-receipt.ts       | 100.00 |   100.00 |  100.00 | 
+ℹ     executor-rotation.ts      |  98.46 |    84.00 |  100.00 | 122-123
+ℹ     executor-schema.ts        | 100.00 |   100.00 |  100.00 | 
+ℹ     executor-settle.ts        |  94.24 |    80.36 |   89.47 | 203-205 213-214 217-219 319 323 327 387 456-469 485-486 495-496 539-540 572
+ℹ     executor-spawn.ts         |  96.67 |    90.91 |  100.00 | 87-89
+ℹ     executor-toolface.ts      |  86.67 |    81.82 |   91.67 | 99-103 122 124-135 149-150
+ℹ     executor.ts               |  96.49 |    87.50 |   71.43 | 226-227 230-233 236-239 277-278 310-311 510-514 575-576
+ℹ     main-model.ts             | 100.00 |   100.00 |  100.00 | 
+ℹ     model-failover.ts         | 100.00 |   100.00 |  100.00 | 
+ℹ    plugin.ts                  |  78.50 |    61.90 |   50.00 | 102-104 112-114 143-146 156-164 173-190 252-258 265-271 283-285 295-305 314-315 318-319
+ℹ    tooling                    |        |          |         | 
+ℹ     commands.ts               |  85.15 |    59.09 |  100.00 | 102-107 124-126 129-130 132-133 139 143-144 147-148 159-164 167-172
+ℹ     skills.ts                 |  93.16 |    75.00 |   81.82 | 116-117 149-151 154-156 169-170 215-216 223-224 227-228
+ℹ     tasks.ts                  |  82.35 |    60.00 |   44.19 | 349-361 382-394 400-417 435 446-448 470-471 489-490 492-500 502-504 508-516 519-532 549-560
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ all files                     |  72.13 |    68.92 |   60.26 | 
+ℹ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ℹ end of coverage report

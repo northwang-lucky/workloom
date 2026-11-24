@@ -1,1 +1,5 @@
-{"_example": "check event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "核对 core/dsh 分层、executor-voice 纪律同改测试、模板落盘归 init 派发只读"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "verify 与 absence-assertions/red-green-expectations：注入缺失断言完整结构形式、红绿清单覆盖消费方"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "核对 workflow/纪律/spec 英文资产"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "核对 workflow guidance 改动未误升 version"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "核对 dist 同 commit 与升级后重跑 init 迁移说明"}

@@ -1,1 +1,5 @@
-{"_example": "implement event log: one JSON object per line; lines without a file field are skipped automatically"}
+{"file": ".workloom/spec/repo/architecture/index.md", "reason": "core/dsh 分层与 executor-voice：注入组装在 core、纪律文本在 dsh discipline-text 且同改测试；模板落盘归 init（workspace），派发只读"}
+{"file": ".workloom/spec/repo/code-style/index.md", "reason": "verify 与 absence-assertions/red-green-expectations：注入文本缺失断言用完整结构形式、红绿清单覆盖全部消费方"}
+{"file": ".workloom/spec/repo/language/index.md", "reason": "agent 面向资产（workflow/纪律/spec）英文，源码注释中文"}
+{"file": ".workloom/spec/repo/workflow/index.md", "reason": "asset-version-bump：workflow Dispatch norm/2.2/2.3 guidance 改动 states/step 与 version 不升"}
+{"file": ".workloom/spec/repo/deployment/index.md", "reason": "dist 同 commit 重建与部署纪律；升级后项目重跑 init 刷新模板副本"}

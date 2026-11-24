@@ -1,0 +1,832 @@
+{
+  ".workloom/spec/repo/workflow/index.md": [
+    {
+      "start": 12,
+      "end": 12
+    }
+  ],
+  "packages/core/dist/index.d.ts": [
+    {
+      "start": 57,
+      "end": 58
+    }
+  ],
+  "packages/core/dist/index.js": [
+    {
+      "start": 62,
+      "end": 62
+    }
+  ],
+  "packages/core/dist/index.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/injection/prompt-compose.d.ts": [
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 6,
+      "end": 14
+    },
+    {
+      "start": 30,
+      "end": 30
+    },
+    {
+      "start": 73,
+      "end": 73
+    },
+    {
+      "start": 88,
+      "end": 89
+    }
+  ],
+  "packages/core/dist/injection/prompt-compose.js": [
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 6,
+      "end": 14
+    },
+    {
+      "start": 35,
+      "end": 35
+    },
+    {
+      "start": 40,
+      "end": 40
+    },
+    {
+      "start": 65,
+      "end": 67
+    },
+    {
+      "start": 111,
+      "end": 112
+    },
+    {
+      "start": 153,
+      "end": 156
+    },
+    {
+      "start": 158,
+      "end": 159
+    },
+    {
+      "start": 163,
+      "end": 165
+    },
+    {
+      "start": 177,
+      "end": 179
+    },
+    {
+      "start": 183,
+      "end": 185
+    }
+  ],
+  "packages/core/dist/injection/prompt-compose.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/injection/prompt-sections.d.ts": [
+    {
+      "start": 6,
+      "end": 11
+    },
+    {
+      "start": 15,
+      "end": 19
+    },
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 26,
+      "end": 28
+    },
+    {
+      "start": 32,
+      "end": 39
+    }
+  ],
+  "packages/core/dist/injection/prompt-sections.js": [
+    {
+      "start": 6,
+      "end": 11
+    },
+    {
+      "start": 19,
+      "end": 22
+    },
+    {
+      "start": 41,
+      "end": 45
+    },
+    {
+      "start": 50,
+      "end": 50
+    },
+    {
+      "start": 55,
+      "end": 56
+    },
+    {
+      "start": 63,
+      "end": 63
+    },
+    {
+      "start": 65,
+      "end": 66
+    },
+    {
+      "start": 69,
+      "end": 71
+    },
+    {
+      "start": 75,
+      "end": 75
+    },
+    {
+      "start": 79,
+      "end": 81
+    },
+    {
+      "start": 84,
+      "end": 105
+    }
+  ],
+  "packages/core/dist/injection/prompt-sections.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/doctor-check-rules.d.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 19,
+      "end": 20
+    },
+    {
+      "start": 79,
+      "end": 86
+    }
+  ],
+  "packages/core/dist/workspace/doctor-check-rules.js": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 19,
+      "end": 20
+    },
+    {
+      "start": 33,
+      "end": 34
+    },
+    {
+      "start": 474,
+      "end": 520
+    }
+  ],
+  "packages/core/dist/workspace/doctor-check-rules.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/doctor-checks.d.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 16,
+      "end": 16
+    }
+  ],
+  "packages/core/dist/workspace/doctor-checks.js": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 15,
+      "end": 15
+    },
+    {
+      "start": 53,
+      "end": 53
+    },
+    {
+      "start": 60,
+      "end": 60
+    }
+  ],
+  "packages/core/dist/workspace/doctor-checks.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/doctor-types.d.ts": [
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 8,
+      "end": 10
+    },
+    {
+      "start": 15,
+      "end": 16
+    },
+    {
+      "start": 55,
+      "end": 55
+    },
+    {
+      "start": 86,
+      "end": 86
+    }
+  ],
+  "packages/core/dist/workspace/doctor-types.js": [
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 8,
+      "end": 10
+    },
+    {
+      "start": 19,
+      "end": 19
+    },
+    {
+      "start": 27,
+      "end": 27
+    }
+  ],
+  "packages/core/dist/workspace/doctor-types.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/dist/workspace/doctor.d.ts": [
+    {
+      "start": 8,
+      "end": 8
+    }
+  ],
+  "packages/core/dist/workspace/doctor.js": [
+    {
+      "start": 8,
+      "end": 8
+    }
+  ],
+  "packages/core/resources/workflow/workflow.md": [
+    {
+      "start": 89,
+      "end": 89
+    },
+    {
+      "start": 97,
+      "end": 97
+    },
+    {
+      "start": 160,
+      "end": 160
+    }
+  ],
+  "packages/core/src/index.ts": [
+    {
+      "start": 318,
+      "end": 329
+    }
+  ],
+  "packages/core/src/injection/prompt-compose.ts": [
+    {
+      "start": 4,
+      "end": 4
+    },
+    {
+      "start": 6,
+      "end": 14
+    },
+    {
+      "start": 40,
+      "end": 40
+    },
+    {
+      "start": 54,
+      "end": 54
+    },
+    {
+      "start": 87,
+      "end": 89
+    },
+    {
+      "start": 171,
+      "end": 171
+    },
+    {
+      "start": 188,
+      "end": 189
+    },
+    {
+      "start": 230,
+      "end": 233
+    },
+    {
+      "start": 235,
+      "end": 236
+    },
+    {
+      "start": 242,
+      "end": 244
+    },
+    {
+      "start": 256,
+      "end": 258
+    },
+    {
+      "start": 262,
+      "end": 264
+    }
+  ],
+  "packages/core/src/injection/prompt-sections.ts": [
+    {
+      "start": 6,
+      "end": 11
+    },
+    {
+      "start": 21,
+      "end": 28
+    },
+    {
+      "start": 55,
+      "end": 59
+    },
+    {
+      "start": 64,
+      "end": 64
+    },
+    {
+      "start": 68,
+      "end": 69
+    },
+    {
+      "start": 75,
+      "end": 77
+    },
+    {
+      "start": 81,
+      "end": 83
+    },
+    {
+      "start": 87,
+      "end": 87
+    },
+    {
+      "start": 90,
+      "end": 92
+    },
+    {
+      "start": 96,
+      "end": 118
+    }
+  ],
+  "packages/core/src/workspace/doctor-check-rules.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 19,
+      "end": 20
+    },
+    {
+      "start": 43,
+      "end": 44
+    },
+    {
+      "start": 554,
+      "end": 603
+    }
+  ],
+  "packages/core/src/workspace/doctor-checks.ts": [
+    {
+      "start": 2,
+      "end": 4
+    },
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 69,
+      "end": 69
+    },
+    {
+      "start": 77,
+      "end": 77
+    }
+  ],
+  "packages/core/src/workspace/doctor-types.ts": [
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 8,
+      "end": 10
+    },
+    {
+      "start": 17,
+      "end": 17
+    },
+    {
+      "start": 24,
+      "end": 24
+    },
+    {
+      "start": 68,
+      "end": 68
+    },
+    {
+      "start": 102,
+      "end": 102
+    },
+    {
+      "start": 114,
+      "end": 114
+    }
+  ],
+  "packages/core/src/workspace/doctor.ts": [
+    {
+      "start": 8,
+      "end": 8
+    }
+  ],
+  "packages/core/test/case-templates.test.ts": [
+    {
+      "start": 3,
+      "end": 12
+    },
+    {
+      "start": 52,
+      "end": 153
+    }
+  ],
+  "packages/core/test/contract-asset.test.ts": [
+    {
+      "start": 894,
+      "end": 932
+    }
+  ],
+  "packages/core/test/doctor.test.ts": [
+    {
+      "start": 2,
+      "end": 2
+    },
+    {
+      "start": 5,
+      "end": 5
+    },
+    {
+      "start": 20,
+      "end": 20
+    },
+    {
+      "start": 48,
+      "end": 58
+    },
+    {
+      "start": 103,
+      "end": 103
+    },
+    {
+      "start": 106,
+      "end": 106
+    },
+    {
+      "start": 111,
+      "end": 111
+    },
+    {
+      "start": 114,
+      "end": 121
+    },
+    {
+      "start": 128,
+      "end": 128
+    },
+    {
+      "start": 135,
+      "end": 135
+    },
+    {
+      "start": 138,
+      "end": 138
+    },
+    {
+      "start": 184,
+      "end": 190
+    },
+    {
+      "start": 567,
+      "end": 599
+    }
+  ],
+  "packages/core/test/prompt-compose.test.ts": [
+    {
+      "start": 5,
+      "end": 7
+    },
+    {
+      "start": 16,
+      "end": 16
+    },
+    {
+      "start": 130,
+      "end": 140
+    },
+    {
+      "start": 144,
+      "end": 144
+    },
+    {
+      "start": 199,
+      "end": 200
+    },
+    {
+      "start": 226,
+      "end": 226
+    },
+    {
+      "start": 263,
+      "end": 286
+    },
+    {
+      "start": 322,
+      "end": 322
+    },
+    {
+      "start": 326,
+      "end": 326
+    },
+    {
+      "start": 330,
+      "end": 332
+    },
+    {
+      "start": 336,
+      "end": 337
+    },
+    {
+      "start": 592,
+      "end": 592
+    },
+    {
+      "start": 600,
+      "end": 600
+    },
+    {
+      "start": 602,
+      "end": 602
+    },
+    {
+      "start": 604,
+      "end": 605
+    },
+    {
+      "start": 608,
+      "end": 609
+    },
+    {
+      "start": 718,
+      "end": 718
+    },
+    {
+      "start": 752,
+      "end": 755
+    },
+    {
+      "start": 759,
+      "end": 760
+    },
+    {
+      "start": 763,
+      "end": 771
+    },
+    {
+      "start": 888,
+      "end": 888
+    },
+    {
+      "start": 901,
+      "end": 914
+    },
+    {
+      "start": 919,
+      "end": 921
+    },
+    {
+      "start": 927,
+      "end": 927
+    },
+    {
+      "start": 934,
+      "end": 1003
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/discipline-text.js": [
+    {
+      "start": 88,
+      "end": 96
+    },
+    {
+      "start": 108,
+      "end": 108
+    },
+    {
+      "start": 133,
+      "end": 133
+    },
+    {
+      "start": 148,
+      "end": 148
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/discipline-text.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/executor-injection.js": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/dist/dispatch/executor-injection.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/commands.js": [
+    {
+      "start": 16,
+      "end": 16
+    },
+    {
+      "start": 76,
+      "end": 78
+    },
+    {
+      "start": 97,
+      "end": 113
+    }
+  ],
+  "packages/dsh-workloom/dist/tooling/commands.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/dsh-workloom/src/dispatch/discipline-text.ts": [
+    {
+      "start": 115,
+      "end": 127
+    },
+    {
+      "start": 139,
+      "end": 139
+    },
+    {
+      "start": 164,
+      "end": 164
+    },
+    {
+      "start": 179,
+      "end": 179
+    }
+  ],
+  "packages/dsh-workloom/src/tooling/commands.ts": [
+    {
+      "start": 28,
+      "end": 28
+    },
+    {
+      "start": 33,
+      "end": 34
+    },
+    {
+      "start": 114,
+      "end": 116
+    },
+    {
+      "start": 134,
+      "end": 148
+    }
+  ],
+  "packages/dsh-workloom/test/case-executor.test.ts": [
+    {
+      "start": 3,
+      "end": 3
+    },
+    {
+      "start": 10,
+      "end": 12
+    },
+    {
+      "start": 45,
+      "end": 50
+    },
+    {
+      "start": 61,
+      "end": 66
+    },
+    {
+      "start": 79,
+      "end": 80
+    },
+    {
+      "start": 82,
+      "end": 85
+    },
+    {
+      "start": 88,
+      "end": 88
+    }
+  ],
+  "packages/dsh-workloom/test/commands.test.ts": [
+    {
+      "start": 8,
+      "end": 8
+    },
+    {
+      "start": 162,
+      "end": 182
+    }
+  ],
+  "packages/dsh-workloom/test/discipline-text.test.ts": [
+    {
+      "start": 207,
+      "end": 227
+    }
+  ],
+  "packages/dsh-workloom/test/executor.test.ts": [
+    {
+      "start": 12,
+      "end": 18
+    },
+    {
+      "start": 77,
+      "end": 82
+    }
+  ],
+  "packages/core/dist/workspace/case-templates.d.ts": [
+    {
+      "start": 1,
+      "end": 58
+    }
+  ],
+  "packages/core/dist/workspace/case-templates.js": [
+    {
+      "start": 1,
+      "end": 118
+    }
+  ],
+  "packages/core/dist/workspace/case-templates.js.map": [
+    {
+      "start": 1,
+      "end": 1
+    }
+  ],
+  "packages/core/src/workspace/case-templates.ts": [
+    {
+      "start": 1,
+      "end": 165
+    }
+  ]
+}

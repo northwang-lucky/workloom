@@ -1,0 +1,310 @@
+{
+  "files": [
+    {
+      "file": "packages/core/src/index.ts",
+      "covered": 12,
+      "total": 12,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 318,
+          "end": 329
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/injection/prompt-compose.ts",
+      "covered": 33,
+      "total": 33,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 4,
+          "end": 4
+        },
+        {
+          "start": 6,
+          "end": 14
+        },
+        {
+          "start": 40,
+          "end": 40
+        },
+        {
+          "start": 54,
+          "end": 54
+        },
+        {
+          "start": 87,
+          "end": 89
+        },
+        {
+          "start": 171,
+          "end": 171
+        },
+        {
+          "start": 188,
+          "end": 189
+        },
+        {
+          "start": 230,
+          "end": 233
+        },
+        {
+          "start": 235,
+          "end": 236
+        },
+        {
+          "start": 242,
+          "end": 244
+        },
+        {
+          "start": 256,
+          "end": 258
+        },
+        {
+          "start": 262,
+          "end": 264
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/injection/prompt-sections.ts",
+      "covered": 53,
+      "total": 55,
+      "uncoveredRanges": [
+        {
+          "start": 106,
+          "end": 107
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 6,
+          "end": 11
+        },
+        {
+          "start": 21,
+          "end": 28
+        },
+        {
+          "start": 55,
+          "end": 59
+        },
+        {
+          "start": 64,
+          "end": 64
+        },
+        {
+          "start": 68,
+          "end": 69
+        },
+        {
+          "start": 75,
+          "end": 77
+        },
+        {
+          "start": 81,
+          "end": 83
+        },
+        {
+          "start": 87,
+          "end": 87
+        },
+        {
+          "start": 90,
+          "end": 92
+        },
+        {
+          "start": 96,
+          "end": 118
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/workspace/case-templates.ts",
+      "covered": 163,
+      "total": 165,
+      "uncoveredRanges": [
+        {
+          "start": 150,
+          "end": 151
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 1,
+          "end": 165
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/workspace/doctor-check-rules.ts",
+      "covered": 44,
+      "total": 57,
+      "uncoveredRanges": [
+        {
+          "start": 567,
+          "end": 579
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 2,
+          "end": 4
+        },
+        {
+          "start": 19,
+          "end": 20
+        },
+        {
+          "start": 43,
+          "end": 44
+        },
+        {
+          "start": 554,
+          "end": 603
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/workspace/doctor-checks.ts",
+      "covered": 6,
+      "total": 6,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 2,
+          "end": 4
+        },
+        {
+          "start": 24,
+          "end": 24
+        },
+        {
+          "start": 69,
+          "end": 69
+        },
+        {
+          "start": 77,
+          "end": 77
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/workspace/doctor-types.ts",
+      "covered": 9,
+      "total": 9,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 5,
+          "end": 5
+        },
+        {
+          "start": 8,
+          "end": 10
+        },
+        {
+          "start": 17,
+          "end": 17
+        },
+        {
+          "start": 24,
+          "end": 24
+        },
+        {
+          "start": 68,
+          "end": 68
+        },
+        {
+          "start": 102,
+          "end": 102
+        },
+        {
+          "start": 114,
+          "end": 114
+        }
+      ]
+    },
+    {
+      "file": "packages/core/src/workspace/doctor.ts",
+      "covered": 1,
+      "total": 1,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 8,
+          "end": 8
+        }
+      ]
+    },
+    {
+      "file": "packages/dsh-workloom/src/dispatch/discipline-text.ts",
+      "covered": 16,
+      "total": 16,
+      "uncoveredRanges": [],
+      "changedRanges": [
+        {
+          "start": 115,
+          "end": 127
+        },
+        {
+          "start": 139,
+          "end": 139
+        },
+        {
+          "start": 164,
+          "end": 164
+        },
+        {
+          "start": 179,
+          "end": 179
+        }
+      ]
+    },
+    {
+      "file": "packages/dsh-workloom/src/tooling/commands.ts",
+      "covered": 16,
+      "total": 21,
+      "uncoveredRanges": [
+        {
+          "start": 139,
+          "end": 139
+        },
+        {
+          "start": 143,
+          "end": 144
+        },
+        {
+          "start": 147,
+          "end": 148
+        }
+      ],
+      "changedRanges": [
+        {
+          "start": 28,
+          "end": 28
+        },
+        {
+          "start": 33,
+          "end": 34
+        },
+        {
+          "start": 114,
+          "end": 116
+        },
+        {
+          "start": 134,
+          "end": 148
+        }
+      ]
+    }
+  ],
+  "overall": {
+    "covered": 353,
+    "total": 375
+  },
+  "missingExecutableFiles": [],
+  "format": "lcov"
+}

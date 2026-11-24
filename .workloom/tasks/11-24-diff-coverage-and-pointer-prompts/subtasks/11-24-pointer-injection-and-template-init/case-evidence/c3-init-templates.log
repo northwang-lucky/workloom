@@ -1,0 +1,8 @@
+PASS  init 首跑成功回执 — {"kind":"success","text":"Workloom initialized at /data00/home/wangyubo.1219/tmp/c3-probe-home-Ycv8Pq/c3-probe-root-QRgc
+PASS  副本 case.md 落盘且逐字一致
+PASS  副本 case-result.md 落盘且逐字一致
+PASS  篡改后重跑 init 成功
+PASS  篡改副本被刷新恢复
+PASS  删除后重跑 init 成功
+PASS  两副本重建且逐字一致
+C3 PROBE: ALL PASS

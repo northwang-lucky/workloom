@@ -1,0 +1,58 @@
+$ grep -c "^- pointer-injection:" <WT>/.workloom/spec/repo/workflow/index.md
+1
+grep-exit=0
+
+$ git -C <WT> diff main -- packages/core/resources/workflow/workflow.md | grep -E "^[-+]version:"
+version-diff-exit=1 (1=空输出即无变更)
+
+$ git -C <WT> status --porcelain
+ M .workloom/spec/repo/workflow/index.md
+ M packages/core/dist/index.d.ts
+ M packages/core/dist/index.js
+ M packages/core/dist/index.js.map
+ M packages/core/dist/injection/prompt-compose.d.ts
+ M packages/core/dist/injection/prompt-compose.js
+ M packages/core/dist/injection/prompt-compose.js.map
+ M packages/core/dist/injection/prompt-sections.d.ts
+ M packages/core/dist/injection/prompt-sections.js
+ M packages/core/dist/injection/prompt-sections.js.map
+ M packages/core/dist/workspace/doctor-check-rules.d.ts
+ M packages/core/dist/workspace/doctor-check-rules.js
+ M packages/core/dist/workspace/doctor-check-rules.js.map
+ M packages/core/dist/workspace/doctor-checks.d.ts
+ M packages/core/dist/workspace/doctor-checks.js
+ M packages/core/dist/workspace/doctor-checks.js.map
+ M packages/core/dist/workspace/doctor-types.d.ts
+ M packages/core/dist/workspace/doctor-types.js
+ M packages/core/dist/workspace/doctor-types.js.map
+ M packages/core/dist/workspace/doctor.d.ts
+ M packages/core/dist/workspace/doctor.js
+ M packages/core/resources/workflow/workflow.md
+ M packages/core/src/index.ts
+ M packages/core/src/injection/prompt-compose.ts
+ M packages/core/src/injection/prompt-sections.ts
+ M packages/core/src/workspace/doctor-check-rules.ts
+ M packages/core/src/workspace/doctor-checks.ts
+ M packages/core/src/workspace/doctor-types.ts
+ M packages/core/src/workspace/doctor.ts
+ M packages/core/test/case-templates.test.ts
+ M packages/core/test/contract-asset.test.ts
+ M packages/core/test/doctor.test.ts
+ M packages/core/test/prompt-compose.test.ts
+ M packages/dsh-workloom/dist/dispatch/discipline-text.js
+ M packages/dsh-workloom/dist/dispatch/discipline-text.js.map
+ M packages/dsh-workloom/dist/dispatch/executor-injection.js
+ M packages/dsh-workloom/dist/dispatch/executor-injection.js.map
+ M packages/dsh-workloom/dist/tooling/commands.js
+ M packages/dsh-workloom/dist/tooling/commands.js.map
+ M packages/dsh-workloom/src/dispatch/discipline-text.ts
+ M packages/dsh-workloom/src/dispatch/executor-injection.ts
+ M packages/dsh-workloom/src/tooling/commands.ts
+ M packages/dsh-workloom/test/case-executor.test.ts
+ M packages/dsh-workloom/test/commands.test.ts
+ M packages/dsh-workloom/test/discipline-text.test.ts
+ M packages/dsh-workloom/test/executor.test.ts
+?? packages/core/dist/workspace/case-templates.d.ts
+?? packages/core/dist/workspace/case-templates.js
+?? packages/core/dist/workspace/case-templates.js.map
+?? packages/core/src/workspace/case-templates.ts
