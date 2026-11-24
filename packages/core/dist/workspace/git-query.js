@@ -14,6 +14,8 @@
  *   --is-ancestor 的 exit 1 是「非祖先」而非错误）。
  */
 import { execFile, execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 /** git 可执行文件名（两 Git 模块共用）。 */
 export const GIT_BIN = 'git';
 /**
@@ -25,17 +27,35 @@ export const GIT_ENV = { ...process.env, LC_ALL: 'C', LANG: 'C' };
 const GIT_STATUS_ARGS = ['status', '--porcelain'];
 /** branch 固定参数：输出当前分支名（未检出分支时输出为空串）。 */
 const GIT_BRANCH_ARGS = ['branch', '--show-current'];
+/** 工作区口径的比对 ref（两点 diff 相对 HEAD）。 */
+const GIT_HEAD_REF = 'HEAD';
+/** git 路径分隔符：其后的参数一律按路径解释，避免被当作 ref。 */
+const GIT_PATH_SEPARATOR = '--';
 /** diff 固定参数：相对 HEAD 的变更文件名（--diff-filter=d 排除删除项）。 */
 const GIT_DIFF_CHANGED_ARGS = Object.freeze([
     'diff',
     '--name-only',
     '--no-renames',
     '--diff-filter=d',
-    'HEAD',
-    '--',
+    GIT_HEAD_REF,
+    GIT_PATH_SEPARATOR,
 ]);
 /** ls-files 固定参数：未跟踪文件（不读 .gitignore 排除规则之外的文件）。 */
 const GIT_UNTRACKED_ARGS = Object.freeze(['ls-files', '--others', '--exclude-standard']);
+/**
+ * 变更行提取的 diff 固定参数前缀（LC_ALL=C 已由 GIT_ENV 固定）：
+ * -M 跟随重命名、--unified=0 只用 hunk 头定位、--diff-filter=d 排除删除项。
+ * ref 与路径分隔符 '--' 由调用方按口径追加。
+ */
+export const GIT_DIFF_LINES_ARGS = Object.freeze([
+    'diff',
+    '--no-color',
+    '-M',
+    '--unified=0',
+    '--diff-filter=d',
+]);
+/** hunk 头的新侧形如 `@@ -oldStart,oldCount +newStart,newCount @@`，两侧 count 均可省略。 */
+const HUNK_HEADER_RE = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
 /**
  * 同步查询的 stdio 配置：stdout 仍 pipe 取输出；stdin/stderr ignore，
  * 默认 stdio 下 execFileSync 失败会把子进程 stderr 打到宿主 stderr，
@@ -86,6 +106,135 @@ export function gitChangedFilesSync(root) {
     catch (error) {
         return [toError(error), null];
     }
+}
+/**
+ * 变更行提取专用同步 git 调用：门禁链路全程同步（guard 注册表为同步签名），
+ * stderr 走管道保留在错误文案中（声明 ref 无效时供 fail loud 指引）。
+ */
+function runGitDiffSync(root, args) {
+    try {
+        return [
+            null,
+            execFileSync(GIT_BIN, args, {
+                cwd: root,
+                encoding: 'utf8',
+                env: GIT_ENV,
+                stdio: ['ignore', 'pipe', 'pipe'],
+            }),
+        ];
+    }
+    catch (error) {
+        return [toError(error), null];
+    }
+}
+/**
+ * 提取任务 diff 中的变更行区间（新版本行号）——增量覆盖率的分母来源。
+ *
+ * - baseRef 非空：三点 diff `baseRef...HEAD`（merge-base 口径）；声明 ref 无效时
+ *   git err 透传，绝不回退到两点工作区口径（fail loud）；
+ * - baseRef=null：两点 `git diff HEAD` 加未跟踪文件读行（light/无分支工作区口径）；
+ * - 删除行不进分母（已不存在、无法覆盖）；重命名取新名归并；
+ * - 区间相邻或重叠时合并，便于下游按行展开后直接取交集。
+ *
+ * @returns [err, Map<repo 相对路径, 变更行区间[]> | null]
+ */
+export function gitDiffChangedLines(root, baseRef) {
+    const refArg = baseRef === null ? GIT_HEAD_REF : `${baseRef}...${GIT_HEAD_REF}`;
+    const [diffErr, diffOut] = runGitDiffSync(root, [...GIT_DIFF_LINES_ARGS, refArg, GIT_PATH_SEPARATOR]);
+    if (diffErr !== null)
+        return [diffErr, null];
+    const changed = parseDiffChangedLines(diffOut ?? '');
+    if (baseRef === null) {
+        const [listErr, listOut] = runGitDiffSync(root, [...GIT_UNTRACKED_ARGS]);
+        if (listErr !== null)
+            return [listErr, null];
+        for (const file of (listOut ?? '').split('\n')) {
+            if (file === '')
+                continue;
+            // 未跟踪文件全行视为新增；读取失败（并发删除等）或二进制文件跳过。
+            const ranges = readUntrackedRanges(root, file);
+            if (ranges.length === 0)
+                continue;
+            appendRanges(changed, file, ranges);
+        }
+    }
+    return [null, normalizeChangedRanges(changed)];
+}
+/** 解析 unified=0 diff 输出：只收新侧 hunk 区间，按 `+++ b/<path>` 归并重命名后路径。 */
+function parseDiffChangedLines(diff) {
+    const changed = new Map();
+    let currentFile = null;
+    for (const line of diff.split('\n')) {
+        if (line.startsWith('+++ ')) {
+            const raw = line.slice('+++ '.length);
+            currentFile = raw === '/dev/null' ? null : decodeGitDiffPath(raw);
+            continue;
+        }
+        if (currentFile === null)
+            continue;
+        const match = HUNK_HEADER_RE.exec(line);
+        if (match === null)
+            continue;
+        const start = Number(match[1]);
+        const count = match[2] === undefined ? 1 : Number(match[2]);
+        if (count > 0)
+            appendRanges(changed, currentFile, [{ start, end: start + count - 1 }]);
+    }
+    return changed;
+}
+/** git 对含特殊字符的路径加双引号，按 JSON 字符串解码后剥掉 `b/` 前缀。 */
+function decodeGitDiffPath(raw) {
+    let path = raw;
+    if (path.startsWith('"')) {
+        try {
+            const decoded = JSON.parse(path);
+            if (typeof decoded === 'string')
+                path = decoded;
+        }
+        catch {
+            // 解码失败保留原串，按普通路径处理。
+        }
+    }
+    return path.startsWith('b/') ? path.slice(2) : path;
+}
+/** 未跟踪文件读行：二进制（含 NUL）跳过，非空文本全行视为新增区间。 */
+function readUntrackedRanges(root, file) {
+    let buffer;
+    try {
+        buffer = readFileSync(join(root, file));
+    }
+    catch {
+        return [];
+    }
+    if (buffer.includes(0))
+        return [];
+    const text = buffer.toString('utf8');
+    const lines = text.split('\n');
+    const lineCount = lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
+    return lineCount > 0 ? [{ start: 1, end: lineCount }] : [];
+}
+/** 把区间追加到文件条目，再统一归一化。 */
+function appendRanges(changed, file, ranges) {
+    const existing = changed.get(file) ?? [];
+    changed.set(file, [...existing, ...ranges]);
+}
+/** 排序并合并相邻/重叠区间，保证输出稳定且下游展开无重复行。 */
+function normalizeChangedRanges(changed) {
+    for (const [file, ranges] of changed) {
+        const sorted = [...ranges].sort((a, b) => a.start - b.start);
+        const merged = [];
+        for (const range of sorted) {
+            const last = merged[merged.length - 1];
+            if (last !== undefined && range.start <= last.end + 1) {
+                last.end = Math.max(last.end, range.end);
+            }
+            else {
+                merged.push({ ...range });
+            }
+        }
+        changed.set(file, merged);
+    }
+    return changed;
 }
 /**
  * 同步读取当前分支名（git branch --show-current 的 stdout）。

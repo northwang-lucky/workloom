@@ -14,12 +14,15 @@ import {
   evaluateCaseExecutionGate,
   evaluateCaseOutcomeGate,
 } from '../src/task/case-gates.ts'
+import { listCaseChangedLines } from '../src/task/case-scope.ts'
 import { inspectPlanDoc } from '../src/task/prd-structure.ts'
 import { archiveTask, checkTask } from '../src/task/task-ops.ts'
 import { evaluateGuard, readTaskView, toTaskView } from '../src/task/state/index.ts'
 import { executeTaskCase } from '../src/task/doc-review.ts'
 
 const REL = 'tasks/demo'
+/** 夹具代码指纹（64 hex），豁免比对源。 */
+const TEST_FP = 'b'.repeat(64)
 const PRD = `# Demo
 
 ## Goal
@@ -136,7 +139,7 @@ function validResult(caseContent, rel = REL) {
   return `---
 version: 1
 task: ${rel}
-codeBaseline: main@abc
+codeBaseline: main@abc; codeFingerprint=${TEST_FP}
 checkSession: child-design
 status: passed
 startedAt: '2026-01-01T00:00:00.000Z'
@@ -195,7 +198,7 @@ completedAt: '2026-01-01T00:01:00.000Z'
 - Status: \`generated\`
 - Tool: \`node:test\`
 - Command: \`node --test\`
-- Overall lines: \`8/10 (80%)\`
+- Overall lines: \`19/20 (95%)\`
 - Raw reports:
   - \`coverage/lcov.info\`
 
@@ -203,7 +206,7 @@ completedAt: '2026-01-01T00:01:00.000Z'
 
 | File | Covered/Total | Line coverage | Uncovered lines | Details |
 | --- | --- | --- | --- | --- |
-| \`src/a.js\` | \`8/10\` | \`80%\` | \`12-13\` | \`coverage/lcov.info\` |
+| \`src/a.js\` | \`19/20\` | \`95%\` | \`10\` | \`coverage/lcov.info\` |
 
 ### Exclusions
 
@@ -242,9 +245,26 @@ function makeRoot() {
   mkdirSync(join(taskDir, 'case-evidence'), { recursive: true })
   mkdirSync(join(taskDir, 'coverage'), { recursive: true })
   writeFileSync(join(taskDir, 'case-evidence/c1.txt'), 'ok\n')
-  writeFileSync(join(taskDir, 'coverage/lcov.info'), 'TN:\n')
+  writeLcovReport(root, taskDir)
   writeFileSync(join(taskDir, 'prd.md'), PRD)
   return { root, taskDir }
+}
+
+/** 写基准 lcov 报告：src/a.js 20 行变更行，19 行覆盖（95%）。 */
+function writeLcovReport(root, taskDir, total = 20, covered = 19, file = 'src/a.js') {
+  const das = Array.from({ length: total }, (_, index) => `DA:${index + 1},${index < covered ? 1 : 0}`)
+  writeFileSync(
+    join(taskDir, 'coverage/lcov.info'),
+    [`SF:${join(root, file)}`, ...das, 'end_of_record', ''].join('\n'),
+  )
+}
+
+/** 门禁选项：显式变更行（避免测试夹具依赖真实 git 历史）。 */
+function coverageOptions(total = 20) {
+  return {
+    changedFiles: ['src/a.js', 'docs/guide.md'],
+    changedLines: new Map([['src/a.js', [{ start: 1, end: total }]]]),
+  }
 }
 
 function makeTask() {
@@ -279,6 +299,53 @@ test('createCaseRecord 保留历史字段，新记录不写确认字段', () => 
   }
   assert.deepEqual(createCaseRecord(true, previous), { ...previous, required: true })
   assert.deepEqual(Object.keys(createCaseRecord(true)), ['required', 'designSession'])
+})
+
+test('listCaseChangedLines 三点口径、无分支回退与无效 ref（.workloom 过滤）', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-case-scope-'))
+  const commit = (message) => {
+    execFileSync('git', ['add', '-A'], { cwd: root })
+    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', message], { cwd: root })
+  }
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: root })
+    writeFileSync(join(root, 'a.ts'), 'a\nb\n')
+    commit('init')
+    execFileSync('git', ['branch', 'base'], { cwd: root })
+
+    writeFileSync(join(root, 'a.ts'), 'a\nB2\n')
+    mkdirSync(join(root, '.workloom'), { recursive: true })
+    writeFileSync(join(root, '.workloom/notes.md'), 'metadata\n')
+    commit('change')
+
+    const [err, changed] = await listCaseChangedLines(root, {
+      branch: 'master',
+      base_branch: 'base',
+      worktree_path: '',
+    })
+    assert.equal(err, null)
+    assert.deepEqual(changed.get('a.ts'), [{ start: 2, end: 2 }])
+    assert.equal(changed.has('.workloom/notes.md'), false)
+
+    writeFileSync(join(root, 'untracked.ts'), 'u1\nu2\n')
+    const [lightErr, lightChanged] = await listCaseChangedLines(root, {
+      branch: '',
+      base_branch: '',
+      worktree_path: '',
+    })
+    assert.equal(lightErr, null)
+    assert.deepEqual(lightChanged.get('untracked.ts'), [{ start: 1, end: 2 }])
+
+    const [refErr, refChanged] = await listCaseChangedLines(root, {
+      branch: 'master',
+      base_branch: 'no-such-branch',
+      worktree_path: '',
+    })
+    assert.ok(refErr)
+    assert.equal(refChanged, null)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('CASE/PLAN 深度结构校验接受有效材料并聚合缺漏', () => {
@@ -371,7 +438,7 @@ test('RESULT generated 通过、失败覆盖率与 blocked 均按硬门禁处理
     const resultContent = validResult(caseContent)
     writeArtifacts(taskDir, caseContent, resultContent)
     const task = makeTask()
-    const options = { changedFiles: ['src/a.js', 'docs/guide.md'] }
+    const options = coverageOptions()
     assert.deepEqual(evaluateCaseOutcomeGate(root, REL, task, options), [])
     writeFileSync(join(taskDir, CASE_FILES.result), resultContent.replaceAll('`generated`', '`failed`'))
     assert.ok(evaluateCaseOutcomeGate(root, REL, task, options).some((item) => item.code === 'coverage_status'))
@@ -392,7 +459,7 @@ test('RESULT 会话链校验保留，结果哈希关联与结果状态记录删�
     const resultContent = validResult(caseContent).replace('checkSession: child-design', 'checkSession: child-exec')
     writeArtifacts(taskDir, caseContent, resultContent)
     const task = makeTask()
-    const options = { changedFiles: ['src/a.js', 'docs/guide.md'] }
+    const options = coverageOptions()
     // 会话链校验保留：checkSession 必须等于 designSession 或经 fallbackOf 可达
     assert.ok(evaluateCaseOutcomeGate(root, REL, task, options).some((item) => item.code === 'result_session'))
     task.dispatches.push({ kind: 'checker', childId: 'child-exec', fallbackOf: 'child-design', purpose: 'execution' })
@@ -416,13 +483,23 @@ test('纯文档范围允许 not_applicable，文件缺失或漏审仍拒绝', ()
     const caseContent = validCase().replaceAll('src/a.js', 'docs/guide.md')
     let resultContent = validResult(caseContent)
       .replaceAll('`generated`', '`not_applicable`')
-      .replace('`8/10 (80%)`', '`N/A`')
+      .replace('`19/20 (95%)`', '`N/A`')
       .replaceAll('`coverage/lcov.info`', '`none`')
-    resultContent = resultContent.replace('| `src/a.js` | `8/10` | `80%` | `12-13` | `none` |\n', '')
+    resultContent = resultContent.replace('| `src/a.js` | `19/20` | `95%` | `10` | `none` |\n', '')
+      .replace('### Exclusions', '- Reason: docs only, no executable changes\n\n### Exclusions')
     writeArtifacts(taskDir, caseContent, resultContent)
     const task = makeTask()
-    const issues = evaluateCaseOutcomeGate(root, REL, task, { changedFiles: ['docs/guide.md'] })
+    const issues = evaluateCaseOutcomeGate(root, REL, task, {
+      changedFiles: ['docs/guide.md'],
+      changedLines: new Map(),
+    })
     assert.deepEqual(issues, [])
+    // 缺 - Reason: 行时拒绝（零分母原因载体，不再依赖非空 Exclusions）
+    writeFileSync(join(taskDir, CASE_FILES.result), resultContent.replace('- Reason: docs only, no executable changes\n\n', ''))
+    assert.ok(
+      evaluateCaseOutcomeGate(root, REL, task, { changedFiles: ['docs/guide.md'], changedLines: new Map() })
+        .some((item) => item.code === 'coverage_na_reason'),
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -589,6 +666,327 @@ test('Coverage Exclusions 规则支持目录前缀与单层/任意层级通配',
   )
 })
 
+/** 构造可变的增量 RESULT 文本（默认 generated 19/20）。 */
+function variedResult({
+  status = 'generated',
+  overall = '19/20 (95%)',
+  row = '| `src/a.js` | `19/20` | `95%` | `20` | `coverage/lcov.info` |',
+  fingerprint = TEST_FP,
+  below = '',
+} = {}) {
+  let result = validResult()
+    .replace(`codeFingerprint=${TEST_FP}`, `codeFingerprint=${fingerprint}`)
+    .replace('`19/20 (95%)`', `\`${overall}\``)
+    .replace('| `src/a.js` | `19/20` | `95%` | `10` | `coverage/lcov.info` |', row)
+    .replaceAll('`generated`', `\`${status}\``)
+  if (below !== '') result = result.replace('### Exclusions', `${below}\n\n### Exclusions`)
+  return result
+}
+
+/** 只关心覆盖率相关问题的断言（排除既有的通用结构检查噪声）。 */
+function coverageIssues(issues) {
+  return issues.filter((item) => item.code.startsWith('coverage_'))
+}
+
+test('增量阈值严格大于 90%：90.0 拒、90.1 过', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    const task = makeTask()
+    const options = coverageOptions(1000)
+    writeLcovReport(root, taskDir, 1000, 900)
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '900/1000 (90%)', row: '| `src/a.js` | `900/1000` | `90%` | `1000` | `coverage/lcov.info` |' }))
+    assert.ok(coverageIssues(evaluateCaseOutcomeGate(root, REL, task, options)).some((item) => item.code === 'coverage_threshold'))
+
+    writeLcovReport(root, taskDir, 1000, 901)
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '901/1000 (90.1%)', row: '| `src/a.js` | `901/1000` | `90.1%` | `1000` | `coverage/lcov.info` |' }))
+    assert.deepEqual(coverageIssues(evaluateCaseOutcomeGate(root, REL, task, options)), [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('缺席可执行文件硬拒，非可执行后缀缺席不触发', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    const task = makeTask()
+    const options = {
+      changedFiles: ['src/a.js', 'src/missing.go', 'README.md'],
+      changedLines: new Map([
+        ['src/a.js', [{ start: 1, end: 20 }]],
+        ['src/missing.go', [{ start: 1, end: 2 }]],
+        ['README.md', [{ start: 1, end: 1 }]],
+      ]),
+    }
+    writeArtifacts(taskDir, validCase(), variedResult())
+    const issues = coverageIssues(evaluateCaseOutcomeGate(root, REL, task, options))
+    assert.ok(issues.some((item) => item.code === 'coverage_missing_file' && item.message.includes('src/missing.go')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('not_applicable 零分母时，缺席可执行文件仍硬拒', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    const caseContent = validCase()
+    const result = validResult()
+      .replaceAll('`generated`', '`not_applicable`')
+      .replace('`19/20 (95%)`', '`N/A`')
+      .replace('| `src/a.js` | `19/20` | `95%` | `10` | `coverage/lcov.info` |\n', '')
+      .replace('### Exclusions', '- Reason: no executable changed lines\n\n### Exclusions')
+    writeArtifacts(taskDir, caseContent, result)
+    const task = makeTask()
+    const issues = coverageIssues(evaluateCaseOutcomeGate(root, REL, task, {
+      changedFiles: [],
+      changedLines: new Map([['src/missing.go', [{ start: 1, end: 1 }]]]),
+    }))
+    assert.ok(issues.some((item) => item.code === 'coverage_missing_file' && item.message.includes('src/missing.go')))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('below_threshold 豁免：指纹匹配通过，指纹失效拒绝，缺逐文件原因拒绝', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    const task = makeTask()
+    const options = coverageOptions(10)
+    const below = '### Below Threshold\n\n- `src/a.js`: uncovered line 10 is a defensive branch'
+    writeLcovReport(root, taskDir, 10, 9)
+    const result = variedResult({ status: 'below_threshold', overall: '9/10 (90%)', row: '| `src/a.js` | `9/10` | `90%` | `10` | `coverage/lcov.info` |', below })
+    writeArtifacts(taskDir, validCase(), result)
+    const waiver = { reason: 'reviewed by main session', fingerprint: TEST_FP }
+    assert.deepEqual(coverageIssues(evaluateCaseOutcomeGate(root, REL, task, { ...options, coverageWaiver: waiver })), [])
+
+    const stale = coverageIssues(evaluateCaseOutcomeGate(root, REL, task, {
+      ...options,
+      coverageWaiver: { ...waiver, fingerprint: 'stale' },
+    }))
+    assert.ok(stale.some((item) => item.code === 'coverage_waiver'))
+
+    writeArtifacts(taskDir, validCase(), variedResult({ status: 'below_threshold', overall: '9/10 (90%)', row: '| `src/a.js` | `9/10` | `90%` | `10` | `coverage/lcov.info` |' }))
+    assert.ok(
+      coverageIssues(evaluateCaseOutcomeGate(root, REL, task, { ...options, coverageWaiver: waiver }))
+        .some((item) => item.code === 'coverage_below_reasons'),
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('复算不一致：RESULT 自报数字与报告交集不符时拒绝', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    const task = makeTask()
+    writeLcovReport(root, taskDir, 20, 19)
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '20/20 (100%)', row: '| `src/a.js` | `20/20` | `100%` | `-` | `coverage/lcov.info` |' }))
+    const issues = coverageIssues(evaluateCaseOutcomeGate(root, REL, task, coverageOptions()))
+    assert.ok(issues.some((item) => item.code === 'coverage_recompute'))
+
+    // 文件集合不一致：Changed Files 行路径不在复算文件集内 → coverage_files（数字一致也不放行）。
+    writeArtifacts(
+      taskDir,
+      validCase(),
+      variedResult({ row: '| `src/other.js` | `19/20` | `95%` | `20` | `coverage/lcov.info` |' }),
+    )
+    assert.ok(
+      coverageIssues(evaluateCaseOutcomeGate(root, REL, task, coverageOptions())).some((item) => item.code === 'coverage_files'),
+    )
+
+    // Raw reports 同时列出交集产物（changed-lines.json / diff-coverage.json）时仍按原生报告机械复算：
+    // 产物不得把格式推成 unsupported 而静默关闭复算。
+    writeFileSync(join(taskDir, 'coverage/changed-lines.json'), '{}\n')
+    writeFileSync(join(taskDir, 'coverage/diff-coverage.json'), '{}\n')
+    writeArtifacts(
+      taskDir,
+      validCase(),
+      variedResult({ overall: '20/20 (100%)', row: '| `src/a.js` | `20/20` | `100%` | `-` | `coverage/lcov.info` |' }).replace(
+        '  - `coverage/lcov.info`\n',
+        '  - `coverage/lcov.info`\n  - `coverage/changed-lines.json`\n  - `coverage/diff-coverage.json`\n',
+      ),
+    )
+    assert.ok(
+      coverageIssues(evaluateCaseOutcomeGate(root, REL, task, coverageOptions())).some((item) => item.code === 'coverage_recompute'),
+      '交集产物列入 Raw reports 时机械复算仍须生效',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('unsupported 格式跳过机械复算，但阈值仍校验 RESULT 自报 Overall', () => {
+  const { root, taskDir } = makeRoot()
+  try {
+    const task = makeTask()
+    writeFileSync(join(taskDir, 'coverage/lcov.info'), 'checker reported 8/10\n')
+    writeArtifacts(taskDir, validCase(), variedResult({ overall: '8/10 (80%)', row: '| `src/a.js` | `8/10` | `80%` | `-` | `coverage/lcov.info` |' }))
+    const options = {
+      changedFiles: ['src/a.js', 'docs/guide.md'],
+      changedLines: new Map([['src/a.js', [{ start: 1, end: 10 }]]]),
+    }
+    const issues = coverageIssues(evaluateCaseOutcomeGate(root, REL, task, options))
+    assert.ok(issues.some((item) => item.code === 'coverage_threshold'))
+    assert.equal(issues.some((item) => item.code === 'coverage_recompute'), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** check 豁免夹具：真实 git 三点 diff + 轻量任务 + below_threshold RESULT。 */
+function makeCheckWaiverFixture() {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-check-waiver-'))
+  const commit = () => {
+    execFileSync('git', ['add', '-A'], { cwd: root })
+    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'change'], { cwd: root })
+  }
+  execFileSync('git', ['init', '-q'], { cwd: root })
+  writeFileSync(join(root, 'seed.txt'), 'seed\n')
+  commit()
+  execFileSync('git', ['branch', 'base'], { cwd: root })
+  mkdirSync(join(root, 'src'), { recursive: true })
+  writeFileSync(join(root, 'src/a.js'), Array.from({ length: 10 }, (_, index) => `line ${index + 1}`).join('\n') + '\n')
+  commit()
+  const branch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim()
+
+  const taskDir = join(root, '.workloom', REL)
+  mkdirSync(join(taskDir, 'coverage'), { recursive: true })
+  mkdirSync(join(taskDir, 'case-evidence'), { recursive: true })
+  writeFileSync(join(taskDir, 'case-evidence/c1.txt'), 'ok\n')
+  writeFileSync(join(taskDir, 'prd.md'), PRD)
+  writeLcovReport(root, taskDir, 10, 9)
+  const caseContent = validCase()
+  writeFileSync(join(taskDir, CASE_FILES.document), caseContent)
+  const result = variedResult({
+    status: 'below_threshold',
+    overall: '9/10 (90%)',
+    row: '| `src/a.js` | `9/10` | `90%` | `10` | `coverage/lcov.info` |',
+    below: '### Below Threshold\n\n- `src/a.js`: uncovered line 10 is a defensive branch',
+  })
+  writeFileSync(join(taskDir, CASE_FILES.result), result)
+  const task = {
+    ...makeTask(),
+    id: 'demo',
+    name: 'demo',
+    title: 'Demo',
+    description: '',
+    status: 'in_progress',
+    priority: 'P2',
+    mode: 'light',
+    creator: 'test',
+    assignee: 'test',
+    package: null,
+    base_branch: 'base',
+    branch,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    completedAt: null,
+    parent: null,
+    scope: '',
+    commit: '',
+    pr_url: '',
+    relatedFiles: [],
+    notes: '',
+    meta: {},
+    check: null,
+  }
+  writeFileSync(join(taskDir, 'task.json'), JSON.stringify(task))
+  return { root, taskDir }
+}
+
+test('check 带 coverageWaiver 首次通过并记录原因/时间/来源；复查继承既有豁免', () => {
+  const { root } = makeCheckWaiverFixture()
+  try {
+    const [err, task] = checkTask(root, {
+      taskRelPath: REL,
+      summary: 'reviewed below-threshold coverage',
+      coverageWaiver: { reason: 'reviewed by main session' },
+    })
+    assert.equal(err, null, err?.message)
+    assert.equal(task.check.coverageWaiver.reason, 'reviewed by main session')
+    assert.equal(task.check.coverageWaiver.fingerprint, TEST_FP)
+    assert.equal(task.check.coverageWaiver.source, 'main')
+    assert.match(task.check.coverageWaiver.at, /^\d{4}-\d{2}-\d{2}T/)
+
+    const [recheckErr, rechecked] = checkTask(root, { taskRelPath: REL, summary: 'recheck after review' })
+    assert.equal(recheckErr, null, recheckErr?.message)
+    assert.deepEqual(rechecked.check.coverageWaiver, task.check.coverageWaiver)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('force 不能绕过增量阈值门禁（core CASE failure）', () => {
+  const { root } = makeCheckWaiverFixture()
+  try {
+    const [err] = checkTask(root, {
+      taskRelPath: REL,
+      summary: 'forced below-threshold check',
+      force: true,
+      reason: 'audit reason',
+    })
+    assert.ok(err)
+    assert.match(err.message, /core CASE failures cannot be bypassed with force/)
+    assert.match(err.message, /below_threshold requires a waiver/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('check 覆盖率豁免：reason 空与 RESULT 指纹缺失都拒绝', () => {
+  const { root, taskDir } = makeCheckWaiverFixture()
+  try {
+    const [emptyErr] = checkTask(root, {
+      taskRelPath: REL,
+      summary: 'reviewed',
+      coverageWaiver: { reason: '   ' },
+    })
+    assert.ok(emptyErr)
+    assert.match(emptyErr.message, /coverageWaiver requires a non-empty reason/)
+
+    const result = readFileSync(join(taskDir, CASE_FILES.result), 'utf8')
+    writeFileSync(join(taskDir, CASE_FILES.result), result.replace(`; codeFingerprint=${TEST_FP}`, ''))
+    const [fpErr] = checkTask(root, {
+      taskRelPath: REL,
+      summary: 'reviewed',
+      coverageWaiver: { reason: 'reviewed by main session' },
+    })
+    assert.ok(fpErr)
+    assert.match(fpErr.message, /codeBaseline must contain codeFingerprint/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('IMPLEMENTING 首次 check：below_threshold 须带有效豁免才迁移通过并持久化', () => {
+  const { root, taskDir } = makeCheckWaiverFixture()
+  try {
+    const taskPath = join(taskDir, 'task.json')
+    const record = JSON.parse(readFileSync(taskPath, 'utf8'))
+    record.mode = 'standard'
+    record.stage = 'implementing'
+    record.case = { ...record.case, required: true, designSession: 'child-design', phase: 'approved' }
+    writeFileSync(taskPath, JSON.stringify(record))
+    writeFileSync(join(taskDir, 'check.jsonl'), '{"file": "AGENTS.md", "reason": "spec"}\n')
+
+    const [missingErr] = checkTask(root, { taskRelPath: REL, summary: 'first check' })
+    assert.ok(missingErr)
+    assert.match(missingErr.message, /coverage_waiver|below_threshold requires a waiver/)
+
+    const [err, migrated] = checkTask(root, {
+      taskRelPath: REL,
+      summary: 'first check with review',
+      coverageWaiver: { reason: 'reviewed by main session' },
+    })
+    assert.equal(err, null, err?.message)
+    assert.equal(migrated.stage, 'checking')
+    const stored = JSON.parse(readFileSync(taskPath, 'utf8'))
+    assert.equal(stored.stage, 'checking')
+    assert.equal(stored.check.coverageWaiver.fingerprint, TEST_FP)
+    assert.equal(stored.check.coverageWaiver.reason, 'reviewed by main session')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('RESULT 排除表与规则化 CASE 排除一致时通过且不计入覆盖范围', () => {
   const { root, taskDir } = makeRoot()
   try {
@@ -602,13 +1000,13 @@ test('RESULT 排除表与规则化 CASE 排除一致时通过且不计入覆盖�
     )
     writeArtifacts(taskDir, caseContent, resultContent)
     const task = makeTask()
-    const issues = evaluateCaseOutcomeGate(root, REL, task, { changedFiles: ['src/a.js', 'docs/guide.md'] })
+    const issues = evaluateCaseOutcomeGate(root, REL, task, coverageOptions())
     assert.deepEqual(issues, [])
     // RESULT 排除表与 CASE 规则不一致仍拒绝
     const stale = validResult(caseContent)
     writeFileSync(join(taskDir, CASE_FILES.result), stale)
     assert.ok(
-      evaluateCaseOutcomeGate(root, REL, task, { changedFiles: ['src/a.js', 'docs/guide.md'] })
+      evaluateCaseOutcomeGate(root, REL, task, coverageOptions())
         .some((item) => item.code === 'coverage_exclusions'),
     )
   } finally {

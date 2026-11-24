@@ -59,7 +59,11 @@ export function evaluateTransition(root, taskRelPath, to, options = {}) {
         const projectRoot = requireProjectRoot(root);
         const record = requireTaskRecord(projectRoot, taskRelPath);
         const view = toTaskView(record, taskRelPath);
-        const ctx = { root: projectRoot, taskRelPath };
+        const ctx = {
+            root: projectRoot,
+            taskRelPath,
+            ...(options.coverageWaiver === undefined ? {} : { coverageWaiver: options.coverageWaiver }),
+        };
         const path = findTransitionPath(view.mode, view.stage, to);
         if (path === null || path.length === 0) {
             return [
@@ -142,6 +146,10 @@ export function migrateTask(root, params) {
     const [err, evaluation] = evaluateTransition(root, params.taskRelPath, params.to, {
         ...(params.force !== undefined ? { force: params.force } : {}),
         ...(params.reason !== undefined ? { reason: params.reason } : {}),
+        // 首次 check 的豁免随 check patch 透传守卫（凭据写入前 task.check 仍为 null）。
+        ...(params.patch?.check?.coverageWaiver === undefined
+            ? {}
+            : { coverageWaiver: params.patch.check.coverageWaiver }),
     });
     if (err !== null || evaluation === null)
         return [err, null];

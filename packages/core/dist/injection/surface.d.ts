@@ -40,7 +40,7 @@ export declare const TOOL_NAMES: {
 export declare const TOOL_DESCRIPTIONS: {
     readonly taskCreate: "Create a new workloom task in planning state (with prd.md skeleton and jsonl seeds)";
     readonly taskStart: "Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)";
-    readonly taskCheck: "Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)";
+    readonly taskCheck: "Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded; the optional coverageWaiver records an approved below-threshold exemption with its reason, bound to the RESULT code fingerprint)";
     readonly taskComplete: "Mark the task completed without archiving (completed-not-archived: the task stays in place awaiting the parent cascade archive; force bypasses and is recorded)";
     readonly taskMerge: "Merge the task branch into the base branch in the main checkout per the worktree.cleanup config mode (merge-* true merge, rebase-* rebase + fast-forward; 2.4 step, main session only, requires a recorded check; refuses keep-branch/manual modes and when the branch content is already merged)";
     readonly taskAlign: "Content confirmation for the PRD and the PLAN: target=prd (default) or target=plan; action=review returns the current content snapshot with structural issues and the readyToConfirm flag without writing; action=confirm records the content confirmation (time + summary, no hashes; atomic, main-session only; the PLAN confirmation requires the PRD confirmation first)";
@@ -61,7 +61,7 @@ export declare const TOOL_DESCRIPTIONS: {
 export declare const TOOL_SNIPPETS: {
     readonly taskCreate: "workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?, autonomy?) — create a task";
     readonly taskStart: "workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress";
-    readonly taskCheck: "workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass";
+    readonly taskCheck: "workloom_task_check(summary?, taskPath?, force?, reason?, coverageWaiver?) — record the 2.3 check pass";
     readonly taskComplete: "workloom_task_complete(taskPath?, force?, reason?) — mark the task completed without archiving";
     readonly taskMerge: "workloom_task_merge(taskPath?) — merge the task branch into the base branch (2.4, per worktree.cleanup mode)";
     readonly taskAlign: "workloom_task_align(action, taskPath?, target?, summary?) — review or confirm the PRD/PLAN content";
@@ -99,6 +99,8 @@ export declare const PARAM_DESCRIPTIONS: {
     readonly status: "Filter: planning/in_progress/completed";
     /** check 工具的 summary 参数（2.2 通过摘要）。 */
     readonly summary: "Summary of the passed check (what was verified)";
+    /** check 工具的覆盖率不达标豁免参数（原因必填，指纹由服务端从 RESULT 读取）。 */
+    readonly coverageWaiver: "Optional approved below-threshold coverage waiver: an object with a required non-empty reason; the code fingerprint is bound to the RESULT automatically and the waiver is recorded with the check credential";
     /** align 工具的参数：动作（review 只读诊断 / confirm 写入内容确认记录）。 */
     readonly action: "Alignment action: review returns the current PRD/PLAN content snapshot, structural issues and the readyToConfirm flag without writing; confirm records the content confirmation for the reviewed document";
     /** align 工具的 target 参数（确认对象：PRD 缺省；PLAN 须在 PRD 确认之后）。 */

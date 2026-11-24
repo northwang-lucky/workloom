@@ -8,8 +8,9 @@
  */
 import { resolve } from 'node:path'
 
-import { gitChangedFilesSync } from '../workspace/git-query.ts'
+import { gitChangedFilesSync, gitDiffChangedLines } from '../workspace/git-query.ts'
 import { insideWorkloom } from '../workspace/locate.js'
+import type { ChangedLineRange } from '../workspace/git-query.ts'
 import type { TaskRecord } from './storage/index.ts'
 
 /**
@@ -40,6 +41,31 @@ export function worktreeDirectory(root: string, task: TaskRecord): string {
  */
 export function listCaseChangedFiles(root: string, task: TaskRecord): [Error | null, string[] | null] {
   return gitChangedFilesSync(worktreeDirectory(root, task))
+}
+
+/**
+ * 任务 diff 变更行清单（增量覆盖率门禁的分母口径）：
+ * branch 与 base_branch 均非空时用 base_branch...HEAD 三点 diff；字段为空时走
+ * 两点工作区 diff + 未跟踪文件；声明 ref 无效由原语 err 透传，不回退。
+ * .workloom/ 元数据不属源码分母，直接过滤。
+ * @returns {[Error | null, Map<string, ChangedLineRange[]> | null]} git 错误或变更行
+ */
+export function listCaseChangedLines(
+  root: string,
+  task: TaskRecord,
+): [Error | null, Map<string, ChangedLineRange[]> | null] {
+  const hasBranch =
+    typeof task.branch === 'string' && task.branch !== '' &&
+    typeof task.base_branch === 'string' && task.base_branch !== ''
+  const baseRef = hasBranch ? task.base_branch : null
+  const [err, changed] = gitDiffChangedLines(worktreeDirectory(root, task), baseRef)
+  if (err !== null || changed === null) return [err, null]
+  const filtered = new Map<string, ChangedLineRange[]>()
+  for (const [file, ranges] of changed) {
+    if (file.startsWith('.workloom/')) continue
+    filtered.set(file, ranges)
+  }
+  return [null, filtered]
 }
 
 

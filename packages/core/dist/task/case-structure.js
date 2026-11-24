@@ -30,7 +30,7 @@ export const CASE_STRUCTURE = Object.freeze({
     cFields: Object.freeze(['Covers', 'Preconditions', 'Steps', 'Expected', 'Evidence', 'Cleanup']),
     coverageFields: Object.freeze(['Tool', 'Instrumentation', 'Aggregate command', 'Scope', 'Exclusions', 'Raw outputs']),
     resultStatuses: Object.freeze(['in_progress', 'passed', 'failed']),
-    coverageStatuses: Object.freeze(['generated', 'not_applicable', 'failed']),
+    coverageStatuses: Object.freeze(['generated', 'below_threshold', 'not_applicable', 'failed']),
 });
 const REQUIRED_CASE_SECTIONS = CASE_STRUCTURE.caseSections;
 const SR_FIELDS = CASE_STRUCTURE.srFields;

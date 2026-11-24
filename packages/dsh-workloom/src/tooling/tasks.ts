@@ -105,6 +105,13 @@ export function registerTaskTools(ctx: Context): void {
         taskPath: { type: 'string', description: PARAM_DESCRIPTIONS.taskPath },
         force: { type: 'boolean', description: PARAM_DESCRIPTIONS.force },
         reason: { type: 'string', description: PARAM_DESCRIPTIONS.reason },
+        coverageWaiver: {
+          type: 'object',
+          description: PARAM_DESCRIPTIONS.coverageWaiver,
+          properties: { reason: { type: 'string', description: PARAM_DESCRIPTIONS.coverageWaiver } },
+          required: ['reason'],
+          additionalProperties: false,
+        },
       },
       required: [],
       additionalProperties: false,
@@ -306,6 +313,13 @@ function stringOf(args: Record<string, unknown>, key: string): string | undefine
   return typeof value === 'string' ? value : undefined
 }
 
+/** 提取可选覆盖率豁免对象：reason 缺失时给空串，由 core 统一报参数错误。 */
+function coverageWaiverOf(args: Record<string, unknown>): { reason: string } | undefined {
+  const value = args.coverageWaiver
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  return { reason: stringOf(value as Record<string, unknown>, 'reason') ?? '' }
+}
+
 /** create 工具：创建任务并设为当前会话活跃任务（编排下沉 core）。 */
 async function createTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
@@ -350,11 +364,13 @@ async function startTaskTool(args: unknown, exec: ToolRunContext): Promise<unkno
 async function checkTaskTool(args: unknown, exec: ToolRunContext): Promise<unknown> {
   const typed = args as Record<string, unknown>
   const cwd = cwdOf(exec)
+  const waiver = coverageWaiverOf(typed)
   const [err, task] = await executeCheckTask(cwd, contextKeyOf(exec), {
     summary: typeof typed.summary === 'string' ? typed.summary : undefined,
     taskPath: taskPathOf(typed),
     force: boolOf(typed, 'force'),
     reason: stringOf(typed, 'reason'),
+    ...(waiver === undefined ? {} : { coverageWaiver: waiver }),
   })
   if (err !== null || task === null) {
     throw err ?? new Error(`${ERR_PREFIX.taskTool}: check returned no result`)

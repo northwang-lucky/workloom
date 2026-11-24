@@ -98,10 +98,22 @@ export interface TaskHooks {
   after_archive: string[]
 }
 
+/**
+ * 覆盖率不达标豁免记录：原因、绑定 RESULT codeBaseline 的代码指纹、审核时间与来源。
+ * 指纹随代码变化即失效，复查回退通过时继承既有有效豁免。
+ */
+export interface CoverageWaiverRecord {
+  reason: string
+  fingerprint: string
+  at: string
+  source: 'main' | 'user' | 'auto'
+}
+
 /** 2.2 check 通过凭据（workloom_task_check 写入 task.json.check）。 */
 export interface TaskCheckRecord {
   passedAt: string
   summary: string
+  coverageWaiver?: CoverageWaiverRecord
 }
 
 /**

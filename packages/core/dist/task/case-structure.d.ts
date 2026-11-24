@@ -1,3 +1,4 @@
+import type { ChangedLineRange } from '../workspace/git-query.ts';
 /** CASE/RESULT 解析目标（task purpose 值域）。 */
 export type CasePurpose = 'case-design' | 'execution';
 /** CASE_PURPOSES 的键类型。 */
@@ -19,11 +20,21 @@ export interface CaseStructureIssue {
     code: string;
     message: string;
 }
-/** CASE 深度校验选项（任务路径、子任务与实际 git 变更）。 */
+/**
+ * CASE 深度校验选项（任务路径、子任务与实际 git 变更）。
+ * 增量覆盖率字段由门禁传递：changedLines 优先于现场 git 提取，exclusions 为
+ * CASE 声明的排除规则，coverageWaiver 为不达标时的有效豁免。
+ */
 export interface CaseStructureOptions {
     taskRelPath?: string;
     children?: string[];
     changedFiles?: string[];
+    coverageWaiver?: {
+        reason: string;
+        fingerprint: string;
+    };
+    changedLines?: Map<string, ChangedLineRange[]>;
+    exclusions?: Map<string, string>;
 }
 /** CASE 结构条目（SR 或 C，id + 正文）。 */
 export interface CaseItem {

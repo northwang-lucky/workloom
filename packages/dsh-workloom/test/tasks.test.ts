@@ -81,6 +81,52 @@ test('check 工具 schema 不再含 phase/required（2.2 check 单一凭据）',
   assert.ok(!('phase' in props), 'check tool must not declare phase')
   assert.ok(!('required' in props), 'check tool must not declare required')
   assert.equal(props.summary.description, PARAM_DESCRIPTIONS.summary)
+  const waiver = props.coverageWaiver
+  assert.equal(waiver.type, 'object')
+  assert.deepEqual(waiver.required, ['reason'])
+  assert.equal(waiver.additionalProperties, false)
+  assert.equal(waiver.properties.reason.type, 'string')
+  assert.equal(waiver.properties.reason.description, PARAM_DESCRIPTIONS.coverageWaiver)
+})
+
+test('check 工具透传 coverageWaiver 到 core：无指纹 RESULT 以 codeFingerprint 错误拒绝，缺省则照常写凭据', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-check-waiver-'))
+  const rel = 'tasks/waiver-probe'
+  const taskDir = join(root, '.workloom', rel)
+  mkdirSync(taskDir, { recursive: true })
+  // 轻量任务且 CASE 不启用：不带豁免时 check 直接写凭据，便于对照出豁免参数确实到达 core。
+  writeFileSync(
+    join(taskDir, 'task.json'),
+    JSON.stringify({
+      title: 'Waiver Probe',
+      status: 'in_progress',
+      mode: 'light',
+      case: { required: false, designSession: null },
+      children: [],
+      dispatches: [],
+      worktree_path: '',
+      check: null,
+      overrides: [],
+      hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
+    }),
+  )
+  try {
+    const { ctx, registered } = makeCtx()
+    registerTaskTools(ctx)
+    const def = registered.find((entry) => entry.name === 'workloom_task_check')
+    assert.ok(def, 'check tool must be registered')
+    const exec = { agent: makeAgent(root), signal: new AbortController().signal }
+    await assert.rejects(
+      () => def.execute({ summary: 'probe', taskPath: rel, coverageWaiver: { reason: 'reviewed' } }, exec),
+      /codeFingerprint/,
+    )
+    assert.equal(readTaskJson(root, rel).check, null, '拒绝时不写凭据')
+    const result = await def.execute({ summary: 'probe', taskPath: rel }, exec)
+    assert.equal(result.taskRelPath, rel)
+    assert.equal(readTaskJson(root, rel).check.summary, 'probe')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('align 工具 schema：action 必填枚举 review/confirm；target 可选枚举 prd/plan；无哈希参数', () => {

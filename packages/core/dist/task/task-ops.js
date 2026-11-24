@@ -16,7 +16,7 @@
  * - 生命周期错误消息沿用旧 task-store 的 `workloom task` 前缀（行为移植，
  *   测试钉住字面量）；工具编排错误消息使用 surface.ERR_PREFIX.taskTool 前缀。
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findWorkloomRoot, insideWorkloom, WORKLOOM_DIR } from '../workspace/locate.js';
 import { loadConfig } from "../workspace/config-load.js";
@@ -24,6 +24,7 @@ import { gitAddCommit, gitBranchContentMerged, gitMerge, gitMergeAbort, gitMerge
 import { gitBranchExists, gitHasMergeHead, gitRevParse, gitStatusSync, gitWorktreeList, runGit, } from "../workspace/git-query.js";
 import { cleanupTaskWorktree, createTaskWorktree } from "../workspace/worktree-lifecycle.js";
 import { createCaseRecord } from "./case-structure.js";
+import { buildWaiver } from "./coverage-compute.js";
 import { recordGateOverride } from "./dispatch-records.js";
 import { AUTONOMY, MODES, OVERRIDE_GATES, STAGES, clearActiveTask, clearPointersToTask, evaluateGuard, evaluateTransition, isArchivePath, migrateTask, resolveActiveTask, setActiveTask, toTaskView, } from "./state/index.js";
 import { TaskStatus, archiveRelPathOf, createTask, findArchivedTaskPath, listTasks, logWarnings, moveTaskToArchive, readTaskRecord, requireProjectRoot, requireTaskRecord, runTaskHooks, writeTaskRecord, writeTaskRecordToDir, FILE_NAMES, } from "./storage/index.js";
@@ -311,6 +312,20 @@ async function startTaskInternal(root, params) {
     return migrated.view;
 }
 /**
+ * 读取 RESULT front-matter 的 codeBaseline 中的 codeFingerprint=<64-hex>
+ * （豁免绑定源，与 task-fingerprint.mjs 输出同形），缺失返回 null。
+ */
+function readResultFingerprint(root, taskRelPath) {
+    try {
+        const content = readFileSync(join(insideWorkloom(root, taskRelPath), 'case-result.md'), 'utf8');
+        const baseline = /^codeBaseline:\s*(.*)$/m.exec(content)?.[1] ?? '';
+        return /codeFingerprint=([0-9a-f]{64})/.exec(baseline)?.[1] ?? null;
+    }
+    catch {
+        return null;
+    }
+}
+/**
  * 记录 2.2 check 通过凭据（task.json check 字段，同步）。
  * 前置：in_progress、summary 非空；force 豁免见 checkTaskInternal。
  * @param root 项目根
@@ -349,7 +364,31 @@ function checkTaskInternal(root, params) {
     // force 契约（与旧门禁口一致）：force=true 恒要求非空 reason。
     if (params.force === true)
         assertTaskForceReason(params.reason);
-    const ctx = { root: projectRoot, taskRelPath: params.taskRelPath };
+    // 覆盖率豁免：reason 必填，指纹取 RESULT codeFingerprint（缺失即抛错）。
+    const existingWaiver = view.check?.coverageWaiver;
+    let waiverRecord;
+    if (params.coverageWaiver !== undefined) {
+        if (typeof params.coverageWaiver.reason !== 'string' || params.coverageWaiver.reason.trim() === '') {
+            throw new Error(`${TASK_ERR_PREFIX}: coverageWaiver requires a non-empty reason`);
+        }
+        const fingerprint = readResultFingerprint(projectRoot, params.taskRelPath);
+        if (fingerprint === null) {
+            throw new Error(`${TASK_ERR_PREFIX}: RESULT codeBaseline must contain codeFingerprint=<64-hex> for coverageWaiver ` +
+                '(compute it with the core package script scripts/task-fingerprint.mjs)');
+        }
+        waiverRecord = buildWaiver(params.coverageWaiver.reason, fingerprint);
+    }
+    else if (existingWaiver !== undefined) {
+        // 复查回退：既有豁免指纹仍匹配当前 RESULT 时随新凭据继承。
+        const fingerprint = readResultFingerprint(projectRoot, params.taskRelPath);
+        if (fingerprint !== null && existingWaiver.fingerprint === fingerprint)
+            waiverRecord = existingWaiver;
+    }
+    const ctx = {
+        root: projectRoot,
+        taskRelPath: params.taskRelPath,
+        ...(waiverRecord === undefined ? {} : { coverageWaiver: { reason: waiverRecord.reason, fingerprint: waiverRecord.fingerprint } }),
+    };
     // CASE 核心门禁（不可 force）：CASE 文档/会话链/RESULT 实质校验不过一律拒绝写凭据。
     const [outcomeErr, outcomeReason] = evaluateGuard('case-outcome-ready', view, ctx);
     if (outcomeErr !== null) {
@@ -357,7 +396,11 @@ function checkTaskInternal(root, params) {
             '(core CASE failures cannot be bypassed with force)');
     }
     const forced = params.force === true;
-    const credential = { passedAt: new Date().toISOString(), summary };
+    const credential = {
+        passedAt: new Date().toISOString(),
+        summary,
+        ...(waiverRecord === undefined ? {} : { coverageWaiver: waiverRecord }),
+    };
     // 完整任务首次 check：经迁移表进入 checking（case-approved 硬拦未批 CASE；
     // check-ready 与 ui-dispatch-ready 可 force 豁免并随迁移原子留痕）。
     if (view.mode === MODES.STANDARD && view.stage === STAGES.IMPLEMENTING) {
@@ -715,6 +758,7 @@ export function executeCheckTask(cwd, contextKey, params) {
         const [err, task] = checkTask(cwd, {
             taskRelPath,
             ...(params.summary !== undefined ? { summary: params.summary } : {}),
+            ...(params.coverageWaiver !== undefined ? { coverageWaiver: params.coverageWaiver } : {}),
             ...forceOverride(params),
         });
         if (err !== null || task === null) {

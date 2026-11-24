@@ -44,6 +44,8 @@ export interface GuardContext {
   root: string
   /** 任务目录相对 .workloom 的路径。 */
   taskRelPath: string
+  /** 覆盖率不达标豁免（check 入参或迁移 patch 透传，供 case-outcome-ready 消费）。 */
+  coverageWaiver?: { reason: string; fingerprint: string }
 }
 
 /**
@@ -215,7 +217,9 @@ function guardCaseExecutionReady(view: TaskView, ctx: GuardContext): GuardResult
 
 /** CASE 结果门禁（收编 case-gates 的结果门禁：RESULT 深度硬校验，不可 force）。 */
 function guardCaseOutcomeReady(view: TaskView, ctx: GuardContext): GuardResult {
-  const issues = evaluateCaseOutcomeGate(ctx.root, ctx.taskRelPath, view)
+  const issues = evaluateCaseOutcomeGate(ctx.root, ctx.taskRelPath, view, {
+    ...(ctx.coverageWaiver === undefined ? {} : { coverageWaiver: ctx.coverageWaiver }),
+  })
   return issues.length > 0 ? guardReject(issues.map((item) => item.message).join('; ')) : GUARD_PASS
 }
 

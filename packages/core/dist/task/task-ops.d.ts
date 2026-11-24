@@ -135,6 +135,10 @@ export interface CheckTaskParams {
     force?: boolean;
     /** force 豁免原因（force=true 时必填非空，审计用）。 */
     reason?: string;
+    /** 覆盖率不达标豁免（仅 reason 由调用方提供，指纹从 RESULT 读取）。 */
+    coverageWaiver?: {
+        reason: string;
+    };
 }
 /**
  * 记录 2.2 check 通过凭据（task.json check 字段，同步）。
@@ -228,6 +232,10 @@ export interface ExecuteCheckTaskParams {
     summary?: string;
     force?: boolean;
     reason?: string;
+    /** 覆盖率不达标豁免原因（工具侧透传）。 */
+    coverageWaiver?: {
+        reason: string;
+    };
 }
 /**
  * check 工具编排：记录 2.2 check 通过凭据（task.json check）。

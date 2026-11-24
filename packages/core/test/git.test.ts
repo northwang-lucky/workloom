@@ -10,7 +10,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { gitCurrentBranchSync, gitHasRebaseHead, gitStatusSync } from '../src/workspace/git-query.ts'
+import {
+  gitCurrentBranchSync,
+  gitDiffChangedLines,
+  gitHasRebaseHead,
+  gitStatusSync,
+} from '../src/workspace/git-query.ts'
 import { gitAddCommit, gitMergeFfOnly, gitRebase, gitRebaseAbort } from '../src/workspace/git-ops.ts'
 
 /** git 提交所需的最小身份环境变量（不依赖全局 git config）。 */
@@ -331,5 +336,104 @@ test('gitMergeFfOnly 非快进拒绝：err 透出 stderr 且无合并态', async
     assert.equal(gitStatusOf(rig.root, ['rev-parse', '-q', '--verify', 'MERGE_HEAD']), 1)
   } finally {
     rmSync(rig.root, { recursive: true, force: true })
+  }
+})
+
+/** gitDiffChangedLines 夹具：暂存全部改动后提交，避免依赖旧 helper 的预暂存假设。 */
+function commitAll(root, message) {
+  execFileSync('git', ['add', '-A'], { cwd: root })
+  gitCommit(root, message)
+}
+
+test('gitDiffChangedLines 三点口径：新增/修改/删除/单行 hunk（删除行不进分母）', async () => {
+  const root = makeGitRepo()
+  try {
+    writeFileSync(join(root, 'app.ts'), 'a\nb\nc\nd\ne\n')
+    writeFileSync(join(root, 'old.ts'), 'x\n')
+    commitAll(root, 'init')
+    execFileSync('git', ['branch', 'base'], { cwd: root })
+
+    writeFileSync(join(root, 'app.ts'), 'a\nB2\nc\nD4\nE5\nNEW6\n')
+    writeFileSync(join(root, 'new.ts'), 'n1\nn2\n')
+    rmSync(join(root, 'old.ts'))
+    commitAll(root, 'change')
+
+    const [err, changed] = await gitDiffChangedLines(root, 'base')
+    assert.equal(err, null)
+    assert.deepEqual(changed.get('app.ts'), [
+      { start: 2, end: 2 },
+      { start: 4, end: 6 },
+    ])
+    assert.deepEqual(changed.get('new.ts'), [{ start: 1, end: 2 }])
+    assert.equal(changed.has('old.ts'), false, '删除行已不存在，不进分母')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('gitDiffChangedLines 重命名：纯 rename 不入分母，内容修改归到新名', async () => {
+  const root = makeGitRepo()
+  try {
+    writeFileSync(join(root, 'old-name.ts'), 'a\nb\nc\n')
+    commitAll(root, 'init')
+    execFileSync('git', ['branch', 'base'], { cwd: root })
+
+    execFileSync('git', ['mv', 'old-name.ts', 'new-name.ts'], { cwd: root })
+    commitAll(root, 'rename only')
+    const [renameErr, afterRename] = await gitDiffChangedLines(root, 'base')
+    assert.equal(renameErr, null)
+    assert.equal(afterRename.size, 0, '纯重命名没有新增/修改行')
+
+    writeFileSync(join(root, 'new-name.ts'), 'a\nB2\nc\n')
+    commitAll(root, 'modify after rename')
+    const [err, changed] = await gitDiffChangedLines(root, 'base')
+    assert.equal(err, null)
+    assert.deepEqual([...changed.keys()], ['new-name.ts'])
+    assert.deepEqual(changed.get('new-name.ts'), [{ start: 2, end: 2 }])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('gitDiffChangedLines 无分支工作区：两点 diff + 未跟踪文件读行（二进制跳过）', async () => {
+  const root = makeGitRepo()
+  try {
+    writeFileSync(join(root, 'app.ts'), 'a\nb\n')
+    commitAll(root, 'init')
+
+    writeFileSync(join(root, 'app.ts'), 'a\nB2\n')
+    writeFileSync(join(root, 'untracked.ts'), 'u1\nu2\nu3\n')
+    writeFileSync(join(root, 'binary.dat'), Buffer.from([0, 1, 2, 3]))
+
+    const [err, changed] = await gitDiffChangedLines(root, null)
+    assert.equal(err, null)
+    assert.deepEqual(changed.get('app.ts'), [{ start: 2, end: 2 }])
+    assert.deepEqual(changed.get('untracked.ts'), [{ start: 1, end: 3 }])
+    assert.equal(changed.has('binary.dat'), false, '二进制未跟踪文件跳过')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('gitDiffChangedLines 无效 ref 与非 git 目录都返回 err（fail loud，不回退）', async () => {
+  const root = makeGitRepo()
+  try {
+    writeFileSync(join(root, 'app.ts'), 'a\n')
+    commitAll(root, 'init')
+    const [err, changed] = await gitDiffChangedLines(root, 'no-such-branch')
+    assert.ok(err, '声明 ref 无效必须报错')
+    assert.equal(changed, null)
+    assert.match(String(err.message), /no-such-branch/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+
+  const outside = mkdtempSync(join(tmpdir(), 'workloom-git-'))
+  try {
+    const [err, changed] = await gitDiffChangedLines(outside, null)
+    assert.ok(err)
+    assert.equal(changed, null)
+  } finally {
+    rmSync(outside, { recursive: true, force: true })
   }
 })

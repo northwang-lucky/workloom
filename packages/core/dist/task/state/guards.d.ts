@@ -18,6 +18,11 @@ export interface GuardContext {
     root: string;
     /** 任务目录相对 .workloom 的路径。 */
     taskRelPath: string;
+    /** 覆盖率不达标豁免（check 入参或迁移 patch 透传，供 case-outcome-ready 消费）。 */
+    coverageWaiver?: {
+        reason: string;
+        fingerprint: string;
+    };
 }
 /**
  * 守卫求值结果：[err, reason]。err 空即通过（reason 同为 null）；

@@ -7,7 +7,7 @@
  * - 无变更时由结果校验回退到 SR 声明范围（消费方决定）。
  */
 import { resolve } from 'node:path';
-import { gitChangedFilesSync } from "../workspace/git-query.js";
+import { gitChangedFilesSync, gitDiffChangedLines } from "../workspace/git-query.js";
 import { insideWorkloom } from '../workspace/locate.js';
 /**
  * @param {string} root 项目根
@@ -35,5 +35,27 @@ export function worktreeDirectory(root, task) {
  */
 export function listCaseChangedFiles(root, task) {
     return gitChangedFilesSync(worktreeDirectory(root, task));
+}
+/**
+ * 任务 diff 变更行清单（增量覆盖率门禁的分母口径）：
+ * branch 与 base_branch 均非空时用 base_branch...HEAD 三点 diff；字段为空时走
+ * 两点工作区 diff + 未跟踪文件；声明 ref 无效由原语 err 透传，不回退。
+ * .workloom/ 元数据不属源码分母，直接过滤。
+ * @returns {[Error | null, Map<string, ChangedLineRange[]> | null]} git 错误或变更行
+ */
+export function listCaseChangedLines(root, task) {
+    const hasBranch = typeof task.branch === 'string' && task.branch !== '' &&
+        typeof task.base_branch === 'string' && task.base_branch !== '';
+    const baseRef = hasBranch ? task.base_branch : null;
+    const [err, changed] = gitDiffChangedLines(worktreeDirectory(root, task), baseRef);
+    if (err !== null || changed === null)
+        return [err, null];
+    const filtered = new Map();
+    for (const [file, ranges] of changed) {
+        if (file.startsWith('.workloom/'))
+            continue;
+        filtered.set(file, ranges);
+    }
+    return [null, filtered];
 }
 //# sourceMappingURL=case-scope.js.map

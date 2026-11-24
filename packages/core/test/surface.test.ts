@@ -255,6 +255,9 @@ test('taskCheck 描述与 snippet 提及 2.3 check 凭据（不含 grilling 阶�
   assert.match(TOOL_DESCRIPTIONS.taskCheck, /2\.3 check pass/, 'taskCheck description must describe the check credential')
   assert.ok(!TOOL_DESCRIPTIONS.taskCheck.includes('grilling'), 'taskCheck description must not mention grilling')
   assert.ok(!TOOL_SNIPPETS.taskCheck.includes('grilling'), 'taskCheck snippet must not mention grilling')
+  assert.match(TOOL_SNIPPETS.taskCheck, /coverageWaiver\?/, 'taskCheck snippet must expose the waiver option')
+  assert.match(TOOL_DESCRIPTIONS.taskCheck, /coverageWaiver/, 'taskCheck description must explain the waiver option')
+  assert.match(PARAM_DESCRIPTIONS.coverageWaiver, /reason/, 'waiver parameter must explain the required reason')
 })
 
 test('taskCase 工具：名称/描述/snippet/参数描述齐全且只指向 review（无哈希无确认动作）', () => {

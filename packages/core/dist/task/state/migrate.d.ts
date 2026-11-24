@@ -67,6 +67,10 @@ export declare function findTransitionPath(mode: TaskModeValue, from: TaskStageV
 export declare function evaluateTransition(root: string, taskRelPath: string, to: TaskStageValue, options?: {
     force?: boolean;
     reason?: string;
+    coverageWaiver?: {
+        reason: string;
+        fingerprint: string;
+    };
 }): [Error | null, TransitionEvaluation | null];
 /**
  * 主线迁移单一写入口：查表、跑守卫、经 task/storage 写 status 与 stage 与

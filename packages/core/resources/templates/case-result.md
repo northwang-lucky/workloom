@@ -14,7 +14,7 @@ completedAt: <ISO-8601-or-empty>
 
 - Static review: `<passed-count>/<total-count>`
 - Runtime cases: `<passed-count>/<total-count>; blocked: <count>`
-- Coverage: `<generated|not_applicable|failed>`
+- Coverage: `<generated|below_threshold|not_applicable|failed>`
 - Standard verification: `<passed|failed|pending>`
 
 ## Static Review Results
@@ -40,20 +40,32 @@ completedAt: <ISO-8601-or-empty>
 
 ## Coverage
 
-- Status: `<generated|not_applicable|failed>`
+- Status: `<generated|below_threshold|not_applicable|failed>`
 - Tool: `<tool-and-version>`
 - Command: `<actual-command>`
 - Overall lines: `1234/5678 (21.7%)`
-  Write only the `covered/total (pct%)` form on this line — no wording, no extra units.
+  Write only the `covered/total (pct%)` form on this line — no wording, no extra units. The denominator is the task diff's new and modified executable lines; deleted lines do not count. A value at or under 90% requires `below_threshold` plus an approved waiver. With no measurable changed lines, use `N/A` and a standalone `- Reason:` line below.
 - Raw reports:
   - `coverage/<tool-native-report>`
 
 ### Changed Files
 
-| File | Covered/Total | Line coverage | Uncovered lines | Details |
+| File | Changed lines covered/Total | Line coverage | Uncovered changed lines | Details |
 | --- | --- | --- | --- | --- |
 | `packages/core/src/task/case-gates.ts` | 182/195 | 93.3% | 188-195 | `coverage/lcov-detail` |
 | `<path>` | `<n>/<n>` | `<percentage>` | `<line-ranges>` | `coverage/<details>` |
+
+### Below Threshold
+
+Only for `below_threshold`: one reason line per file, and an approved coverage waiver must be passed to `workloom_task_check`.
+
+- `<path>`: `<why-these-changed-lines-are-uncovered>`
+
+### Not Applicable
+
+Only for `not_applicable` with zero measurable changed lines: the standalone reason line replaces a non-empty Exclusions table.
+
+- Reason: `<why-no-executable-changed-lines-exist>`
 
 ### Exclusions
 

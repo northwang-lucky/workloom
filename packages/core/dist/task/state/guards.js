@@ -167,7 +167,9 @@ function guardCaseExecutionReady(view, ctx) {
 }
 /** CASE 结果门禁（收编 case-gates 的结果门禁：RESULT 深度硬校验，不可 force）。 */
 function guardCaseOutcomeReady(view, ctx) {
-    const issues = evaluateCaseOutcomeGate(ctx.root, ctx.taskRelPath, view);
+    const issues = evaluateCaseOutcomeGate(ctx.root, ctx.taskRelPath, view, {
+        ...(ctx.coverageWaiver === undefined ? {} : { coverageWaiver: ctx.coverageWaiver }),
+    });
     return issues.length > 0 ? guardReject(issues.map((item) => item.message).join('; ')) : GUARD_PASS;
 }
 /** 子任务全归档（parent 进入 integrating 的守卫；归档兼容解析按名回退）。 */

@@ -20,6 +20,19 @@ export declare const GIT_BIN = "git";
  * stderr 按英文原文假定，运行时文案不随宿主 locale 变化。
  */
 export declare const GIT_ENV: NodeJS.ProcessEnv;
+/**
+ * 变更行提取的 diff 固定参数前缀（LC_ALL=C 已由 GIT_ENV 固定）：
+ * -M 跟随重命名、--unified=0 只用 hunk 头定位、--diff-filter=d 排除删除项。
+ * ref 与路径分隔符 '--' 由调用方按口径追加。
+ */
+export declare const GIT_DIFF_LINES_ARGS: readonly string[];
+/** 变更行闭区间（新版本行号，供覆盖率交集消费）。 */
+export interface ChangedLineRange {
+    /** 起始行（含）。 */
+    start: number;
+    /** 结束行（含）。 */
+    end: number;
+}
 /** linked worktree 注册项（`worktree list --porcelain` 解析结果）。 */
 export interface GitWorktreeEntry {
     /** worktree 绝对路径。 */
@@ -55,6 +68,18 @@ export declare function gitStatusSync(root: string): [Error | null, string | nul
  * @returns 排序去重后的 repo 相对路径
  */
 export declare function gitChangedFilesSync(root: string): [Error | null, string[] | null];
+/**
+ * 提取任务 diff 中的变更行区间（新版本行号）——增量覆盖率的分母来源。
+ *
+ * - baseRef 非空：三点 diff `baseRef...HEAD`（merge-base 口径）；声明 ref 无效时
+ *   git err 透传，绝不回退到两点工作区口径（fail loud）；
+ * - baseRef=null：两点 `git diff HEAD` 加未跟踪文件读行（light/无分支工作区口径）；
+ * - 删除行不进分母（已不存在、无法覆盖）；重命名取新名归并；
+ * - 区间相邻或重叠时合并，便于下游按行展开后直接取交集。
+ *
+ * @returns [err, Map<repo 相对路径, 变更行区间[]> | null]
+ */
+export declare function gitDiffChangedLines(root: string, baseRef: string | null): [GitCommandError | null, Map<string, ChangedLineRange[]> | null];
 /**
  * 同步读取当前分支名（git branch --show-current 的 stdout）。
  * 非 git 目录静默返回 err；仓库存在但未检出分支时输出为空串（value 为 ''）。

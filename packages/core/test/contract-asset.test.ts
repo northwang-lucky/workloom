@@ -1085,3 +1085,31 @@ test('CASE 模板资产覆盖公共 CASE_STRUCTURE 全部章节、字段与状�
     assert.ok(resultTemplate.includes(status), `result 模板缺覆盖率状态 ${status}`)
   }
 })
+
+test('增量覆盖率资产：三格式产物、below_threshold/Reason 载体与 workflow 2.3 三句逐字 pin', () => {
+  const caseTemplate = readFileSync(
+    fileURLToPath(new URL('../resources/templates/case.md', import.meta.url)),
+    'utf8',
+  )
+  const resultTemplate = readFileSync(
+    fileURLToPath(new URL('../resources/templates/case-result.md', import.meta.url)),
+    'utf8',
+  )
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
+
+  for (const artifact of ['coverage/changed-lines.json', 'coverage/diff-coverage.json']) {
+    assert.ok(caseTemplate.includes(artifact), `case 模板 Raw outputs 缺 ${artifact}`)
+  }
+  assert.ok(resultTemplate.includes('### Below Threshold'), 'result 模板缺 Below Threshold 子节')
+  assert.ok(resultTemplate.includes('- Reason:'), 'result 模板缺 not_applicable 独立原因行')
+  assert.ok(resultTemplate.includes('Changed lines covered/Total'), 'result 模板 Changed Files 表头未改增量口径')
+
+  assert.ok(checkBody.includes('Incremental coverage must be strictly greater than 90%.'), '2.3 缺增量 >90% 门禁句')
+  assert.ok(checkBody.includes('coverage is generated above 90%'), '2.3 缺合格状态增量句')
+  assert.ok(checkBody.includes('`check.coverageWaiver`'), '2.3 缺凭据写入豁免字段句')
+  assert.ok(checkBody.includes('unrelated code goes back to the developer'), '2.3 缺无关代码退回 developer 路由')
+  assert.ok(checkBody.includes('goes back to the Checker for additional cases'), '2.3 缺 case 缺口退回 checker 路由')
+  assert.ok(checkBody.includes('full rerun of static review, every C item, and coverage'), '2.3 缺全量重跑句')
+})

@@ -48,7 +48,7 @@ export const TOOL_DESCRIPTIONS = {
   taskStart:
     'Move the active task (or the given taskPath) from planning to in_progress (gated on a filled prd.md, recorded PRD and PLAN content confirmations, and effective jsonl records; force bypasses and is recorded)',
   taskCheck:
-    'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded)',
+    'Record the 2.3 check pass credential (summary) into task.json check (required before archiving; force bypasses and is recorded; the optional coverageWaiver records an approved below-threshold exemption with its reason, bound to the RESULT code fingerprint)',
   taskComplete:
     'Mark the task completed without archiving (completed-not-archived: the task stays in place awaiting the parent cascade archive; force bypasses and is recorded)',
   taskMerge:
@@ -80,7 +80,7 @@ export const TOOL_SNIPPETS = {
     'workloom_task_create(title, package, slug?, priority?, description?, parent?, mode?, autonomy?) — create a task',
   taskStart: 'workloom_task_start(taskPath?, force?, reason?) — move the task to in_progress',
   taskCheck:
-    'workloom_task_check(summary?, taskPath?, force?, reason?) — record the 2.3 check pass',
+    'workloom_task_check(summary?, taskPath?, force?, reason?, coverageWaiver?) — record the 2.3 check pass',
   taskComplete:
     'workloom_task_complete(taskPath?, force?, reason?) — mark the task completed without archiving',
   taskMerge:
@@ -134,6 +134,9 @@ export const PARAM_DESCRIPTIONS = {
   status: 'Filter: planning/in_progress/completed',
   /** check 工具的 summary 参数（2.2 通过摘要）。 */
   summary: 'Summary of the passed check (what was verified)',
+  /** check 工具的覆盖率不达标豁免参数（原因必填，指纹由服务端从 RESULT 读取）。 */
+  coverageWaiver:
+    'Optional approved below-threshold coverage waiver: an object with a required non-empty reason; the code fingerprint is bound to the RESULT automatically and the waiver is recorded with the check credential',
   /** align 工具的参数：动作（review 只读诊断 / confirm 写入内容确认记录）。 */
   action:
     'Alignment action: review returns the current PRD/PLAN content snapshot, structural issues and the readyToConfirm flag without writing; confirm records the content confirmation for the reviewed document',

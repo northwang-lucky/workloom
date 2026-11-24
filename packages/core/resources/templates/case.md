@@ -6,8 +6,8 @@ task: <task-relative-path>
 <!-- checker-discipline: how the Checker authors and revises this CASE; re-read before writing or changing any section
 - SR/C writing: one entry covers one cohesive slice of one file — Target names a single file path (`<file>#<symbol>` or the whole file), every Check is a decidable yes/no structure, type, naming, behavior, or spec conformance check, and Expected states a decidable code property, never a restatement of requirement intent.
 - Traceability: every AC in prd.md is covered by at least one SR or one C row in the Traceability table; an uncovered AC is a CASE defect, and Coverage Exclusions only relax statistics, never the AC mapping.
-- Evidence integrity: Evidence cites real observed anchors as `<file>:<line>` instead of restating the Expected text; probe scripts live in `case-evidence/probes/` with only pointers in prose; compute `codeFingerprint` for C5 with the core package's package-relative script `scripts/task-fingerprint.mjs` (under `resources/`, never a repo-absolute path) and record the 64-hex value in the result's codeBaseline.
-- Result discipline: the Standard Verification exit-code cell is bare `0`; both cells of every Exclusions row are backtick-wrapped; Overall coverage lines use the `covered/total (pct%)` form only; the last section of the result is `## Open issues` and its body is exactly `- none` when clean.
+- Evidence integrity: Evidence cites real observed anchors as `<file>:<line>` instead of restating the Expected text; probe scripts live in `case-evidence/probes/` with only pointers in prose; compute `codeFingerprint` for C5 with the core package's package-relative script `scripts/task-fingerprint.mjs` (under `resources/`, never a repo-absolute path) and record the 64-hex value inside the result's `codeBaseline` front-matter string as `codeFingerprint=<64-hex>`.
+- Result discipline: the Standard Verification exit-code cell is bare `0`; both cells of every Exclusions row are backtick-wrapped; Overall coverage lines use the `covered/total (pct%)` form only and count changed executable lines from the task diff, not whole files; use `below_threshold` with per-file reasons plus an approved coverage waiver when the delta is at or under 90%, `not_applicable` with a standalone `- Reason:` line when there are no measurable changed lines; the last section of the result is `## Open issues` and its body is exactly `- none` when clean.
 -->
 
 # CASE: <task-title>
@@ -61,12 +61,14 @@ task: <task-relative-path>
   ```bash
   <command>
   ```
-- Scope: `<project-source-and-changed-executable-files>`
+- Scope: `<task-diff-new-and-modified-executable-lines; deleted lines excluded>`
 - Exclusions:
   - `<path>: <reason>`
   Pattern semantics: a trailing `/` prefix-matches a whole directory subtree, an exact path without globs matches one file, a single `*` is anchored within its own path segment (never crosses `/`), and a `**` segment crosses directory levels (zero or more levels mid-pattern, any remaining path at the tail).
 - Raw outputs:
+  - `coverage/changed-lines.json`
   - `coverage/<tool-native-report>`
+  - `coverage/diff-coverage.json`
 
 ## Traceability
 
