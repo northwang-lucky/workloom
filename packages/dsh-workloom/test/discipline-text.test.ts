@@ -204,6 +204,27 @@ test('judger 纪律段：四维审查、分级口径与不改文件边界句固�
   assert.match(section, /stay untouched by you\./)
 })
 
+test('分层协议角色例外：checker 必读 prd 验收两节 + case.md/模板副本，judger/researcher 必读 prd', () => {
+  const checker = buildExecutorContractSection('checker', undefined, 'Do the thing')
+  assert.ok(checker.includes('Role exception to the layered loading protocol'))
+  assert.ok(checker.includes('read the prd Requirements and Acceptance Criteria sections'))
+  assert.ok(checker.includes('.workloom/templates/ CASE template copies via their pointer lines'))
+  assert.ok(checker.includes('read the task case.md via its pointer line'))
+  for (const role of ['judger', 'researcher']) {
+    const section = buildExecutorContractSection(role, undefined, 'Do the thing')
+    assert.ok(section.includes('Role exception to the layered loading protocol'), role)
+    assert.ok(section.includes('read the prd'), role)
+  }
+  for (const role of ['developer', 'frontend-developer']) {
+    assert.ok(
+      !buildExecutorContractSection(role, undefined, 'Do the thing').includes(
+        'Role exception to the layered loading protocol',
+      ),
+      `${role} must not carry a role exception`,
+    )
+  }
+})
+
 test('developer 版纪律段词数 ≤ 300（空白分隔的英文词元口径）', () => {
   const section = buildExecutorContractSection('developer', undefined, 'Do the thing')
   // 口径与 HEAD 测试一致：从 `### <RoleLabel> executor directives` 子标题起计

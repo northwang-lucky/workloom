@@ -2,25 +2,26 @@
  * workloom-doctor 检查引擎的类型、检查元信息与共享常量（TypeScript）。
  *
  * 设计意图：
- * - 集中定义 DoctorReport 相关类型、五类检查集元信息（CHECK_META）与跨模块常量；
+ * - 集中定义 DoctorReport 相关类型、六类检查集元信息（CHECK_META）与跨模块常量；
  * - doctor-checks.ts / doctor.ts / doctor-check-rules.ts 各自从此处引用类型与
  *   常量，避免循环依赖；
- * - 检查集五类（状态机重建后）：生命周期一致性、确认记录完整性（对照
- *   autonomy）、CASE 记录一致性、worktree 一致性、config；空槽提示行已随
- *   五类就位退役；
+ * - 检查集六类（状态机重建后）：生命周期一致性、确认记录完整性（对照
+ *   autonomy）、CASE 记录一致性、worktree 一致性、config、CASE 模板副本；空槽
+ *   提示行已随五类就位退役；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 
 import type { TaskRecordWithPath } from '../task/storage/index.ts'
 import type { TaskView } from '../task/state/index.ts'
 
-/** 检查项 code 枚举（五类：生命周期/确认完整性/CASE 一致性/worktree/config）。 */
+/** 检查项 code 枚举（六类：生命周期/确认完整性/CASE 一致性/worktree/config/CASE 模板副本）。 */
 export type DoctorIssueCode =
   | 'lifecycle-consistency'
   | 'confirm-completeness'
   | 'case-consistency'
   | 'worktree'
   | 'config'
+  | 'case_templates'
 
 /** 严重级别。 */
 export type DoctorSeverity = 'error' | 'warn'
@@ -64,7 +65,7 @@ export interface DoctorSummary {
   manual: number
 }
 
-/** doctor 报告（空槽提示行已随五类检查集就位退役）。 */
+/** doctor 报告（空槽提示行已随五类检查集就位退役，第六类随后追加）。 */
 export interface DoctorReport {
   checks: DoctorCheck[]
   summary: DoctorSummary
@@ -98,7 +99,7 @@ export const ARCHIVE_DIR = 'archive'
 export const JSON_INDENT = 2
 
 /**
- * 五类检查集元信息（顺序即输出顺序；每类必出现）。
+ * 六类检查集元信息（顺序即输出顺序；每类必出现）。
  */
 export const CHECK_META: ReadonlyArray<{
   code: DoctorIssueCode
@@ -110,4 +111,5 @@ export const CHECK_META: ReadonlyArray<{
   { code: 'case-consistency', title: 'CASE record consistency', severity: 'warn' },
   { code: 'worktree', title: 'Worktree consistency', severity: 'warn' },
   { code: 'config', title: 'Configuration', severity: 'warn' },
+  { code: 'case_templates', title: 'CASE template copies', severity: 'warn' },
 ]

@@ -54,6 +54,8 @@ export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStart
 export { lookupWorkflowStep } from './injection/step-lookup.ts';
 export { runDoctor, buildDoctorRelayText } from './workspace/doctor.ts';
 export { ensureSpecTemplates } from './workspace/spec-templates.ts';
+export { CASE_TEMPLATE_COPY_DIR, CASE_TEMPLATE_COPY_FILES, compareCaseTemplateCopies, ensureCaseTemplates, } from './workspace/case-templates.ts';
+export type { CaseTemplatesParams, CaseTemplatesResult, CaseTemplateCopyStatus, } from './workspace/case-templates.ts';
 export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossRoleReuseRejectText, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, renderOutput, renderBackground, renderTask, PARENT_MODEL_LABEL, } from './injection/surface.ts';
 export type { ExecutorInjectionStats, TextBlockLike } from './injection/surface.ts';
 export type { WorkloomConfig, WorktreeConfig, WorktreeCleanupMode, SubagentConfigEntry, SubagentFallbackModel, SubagentProfile, SubagentTools, SubagentDefaultSource, SubagentConfigSource, ResolveSubagentDefaultsResult, ExecutorConflict, } from './workspace/config.d.ts';

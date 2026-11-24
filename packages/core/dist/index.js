@@ -59,6 +59,7 @@ export { requireWorkloomCwd, resolveTaskRelPath, executeCreateTask, executeStart
 export { lookupWorkflowStep } from "./injection/step-lookup.js";
 export { runDoctor, buildDoctorRelayText } from "./workspace/doctor.js";
 export { ensureSpecTemplates } from "./workspace/spec-templates.js";
+export { CASE_TEMPLATE_COPY_DIR, CASE_TEMPLATE_COPY_FILES, compareCaseTemplateCopies, ensureCaseTemplates, } from "./workspace/case-templates.js";
 export { COMMAND_NAMES, COMMAND_DESCRIPTIONS, TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_SNIPPETS, PARAM_DESCRIPTIONS, ERR_PREFIX, EMPTY_OUTPUT_TEXT, CONTINUE_REBIND_REJECT_TEXT, CONTINUE_EXECUTOR_LATEST, buildContinueNoDispatchText, buildContinueNoChildIdText, buildCrossRoleReuseRejectText, COMMAND_FAILURE_ACK, buildErrorRelayText, buildSuccessRelayText, buildExecutorReceipt, buildSpawnBindingReceipt, TASK_ARCHIVE_NOTE, TASK_CREATE_NOTE, TASK_CREATE_LIGHT_NOTE, 
 // 投影统一：TextBlockLike 与 render 族唯一实现在 surface（dsh 四站点消费）。
 renderOutput, renderBackground, renderTask, 

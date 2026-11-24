@@ -1,24 +1,22 @@
 /**
  * executor 上下文注入组装（行为移植模块；平铺三件套的入口文件）。
  *
- * 设计意图（注入瘦身任务 09-22：段落白名单 + 分层加载协议）：
+ * 设计意图（注入瘦身任务 09-22：段落白名单 + 分层加载协议；11-24：纯指针化）：
  * - 子代理派发前组装首条 prompt，段落按角色白名单统一排序：任务标注 + 注入
- *   marker → （checker/researcher/judger：prd 全文节块）→ Pointer list（researcher
- *   无；首行为 plan.md 纯指针行，后接 jsonl 条目）→ Research materials →
- *   （developer/frontend-developer：prd 软指针行）→ （worktree_path 非空：
- *   `## Worktree` 纪律段）→ Local directives → Task prompt → Executor contract；
- * - 指针化（体积压到指针级）：jsonl 条目、research/*.md、plan.md 均只给
- *   「路径 + reason」指针行，无逐行读后判后缀；prd 仅 checker/researcher/judger
- *   物化 Requirements/Acceptance 全文 + 其余节标题指针（验收基线/问题框架，职责
- *   必需），developer/frontend-developer 只出软指针行（有歧义时按需查阅，非必读）；
+ *   marker → Pointer list（researcher 无；plan.md、checker 的 case.md 与两份
+ *   模板副本、jsonl 条目均为纯指针行）→ Research materials → prd 软指针行（全
+ *   角色）→ （worktree_path 非空：`## Worktree` 纪律段）→ Local directives →
+ *   Task prompt → Executor contract；
+ * - 纯指针口径：jsonl 条目、research/*.md、plan.md、prd、case.md 与模板副本
+ *   全部只给路径指针行，没有任何 artifact 全文块；正文由执行器按分层协议在步骤
+ *   需要时读，filesInlined 恒 0、filesPointed 如实计指针行；
+ * - checker 派发前只读校验 .workloom/templates/ 副本存在且与插件模板一致（缺失/
+ *   过期 fail loud 指引重跑 init，不自动补落）；写入归 init，派发只读；
  * - 分层加载协议（取代开工前强制全读）：开工前必读计划 artifact，其余指针步骤
  *   需要时定点读区间，显式禁止 upfront 通读整个指针清单；措辞与 assets 契约
  *   workflow.md Loading protocol 行同源（check 逐字核对）；
  * - 可靠性护栏（切片 ⑤）：每次派发注入唯一 marker token，纪律句要求执行器报告
  *   首行回显（证明注入到达且协议被读）；
- * - 预算来自 config.contextInjection：max_artifact_bytes 限 prd 块、max_total_bytes
- *   限总量；指针行极轻量无截断语义，预算仅对 artifact 内容生效（128KB 上限保留
- *   作兜底）；超限截断并追加 [...truncated at N bytes] 提示；
  * - jsonl 缺失按空处理；jsonl 行解析失败显式报错（fail loud，无灰区）；
  * - 拆分布局：本入口持常量、校验、类型与主组装；各注入段函数在兄弟文件
  *   prompt-sections.ts，预算与文件工具在 prompt-io.ts（跨文件共享常量留本入口，
@@ -29,7 +27,7 @@ import type { DispatchPurpose } from '../task/storage/index.ts';
 export declare const EFFORT_LEVELS: readonly string[];
 /** 错误消息前缀（运行时文案英文；prompt-io 的字段校验共用）。 */
 export declare const ERR_PREFIX = "workloom executor context";
-/** prd 文件名（唯一物化 artifact：checker/researcher/judger 内联全文节块，developer/frontend-developer 软指针；prompt-sections 共用）。 */
+/** prd 文件名（全角色统一软指针行：有歧义时按需查阅，非 Pointer list 必读项）。 */
 export declare const PRD_ARTIFACT = "prd.md";
 /**
  * 校验 effort 档位；undefined 通过（未指定）。非法值抛 Error（英文文案）。
@@ -65,11 +63,6 @@ export interface BuildExecutorPromptParams {
      * execution；judger：plan-review 标记 PLAN 评审派发，注入组装不消费）。
      */
     purpose?: DispatchPurpose;
-    /** CASE 模板正文（仅 checker 角色注入）。缺省不注入。 */
-    caseTemplates?: {
-        path: string;
-        content: string;
-    }[];
     /** 本机片段合成文本；空串/未传 = 不注入。 */
     localDirectives?: string;
     /** 目标环境是否具备 LSP 工具面（仅透传给统计语义，纪律过滤在契约节组装方）。 */
@@ -77,7 +70,7 @@ export interface BuildExecutorPromptParams {
 }
 /** 组装统计：内联/指针/截断计数。 */
 export interface ExecutorPromptStats {
-    /** 注入的 artifact 块数（checker/researcher/judger 物化的 prd 全文节块）。 */
+    /** 内联 artifact 块数（纯指针注入恒 0，保留字段供统计投影兼容）。 */
     filesInlined: number;
     /** 指针引用条数（plan.md/jsonl/research/prd 软指针等）。 */
     filesPointed: number;
@@ -92,8 +85,8 @@ export interface ExecutorPromptResult {
     stats: ExecutorPromptStats;
 }
 /**
- * 组装 executor 首条 prompt：段落按角色白名单排序（任务标注 + marker → prd 块
- * → Pointer list → Research materials → prd 软指针 → worktree 纪律段（worktree_path
+ * 组装 executor 首条 prompt：段落按角色白名单排序（任务标注 + marker →
+ * Pointer list → Research materials → prd 软指针 → worktree 纪律段（worktree_path
  * 非空时）→ Local directives → Task prompt → Executor contract）。
  * @param {BuildExecutorPromptParams} params
  *   入参（root 为项目根；taskRelPath 为任务目录相对 .workloom 的路径）

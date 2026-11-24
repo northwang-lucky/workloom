@@ -1,12 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
   buildExecutorIncrementalPrompt,
   createCaseRecord,
+  ensureCaseTemplates,
+  loadCaseResultTemplateText,
+  loadCaseTemplateText,
   PARAM_DESCRIPTIONS,
   readTaskView,
   recordExecutorDispatch,
@@ -39,6 +42,12 @@ function makeRoot(maxArtifactBytes = 0) {
     children: [], dispatches: [], overrides: [],
     hooks: { after_create: [], after_start: [], after_finish: [], after_archive: [] },
   }))
+  // 模板副本随夹具播种（派发只读守卫前提）。
+  const caseTemplate = loadCaseTemplateText()
+  const caseResultTemplate = loadCaseResultTemplateText()
+  assert.ok(caseTemplate !== null && caseResultTemplate !== null)
+  const [seedErr] = ensureCaseTemplates({ root, caseTemplate, caseResultTemplate })
+  assert.equal(seedErr, null)
   return root
 }
 
@@ -49,9 +58,12 @@ test('DSH purpose schema 与全量/增量 CASE 注入', () => {
   const root = makeRoot()
   try {
     const full = buildFullInjection(root, REL, 'checker', 'design', '', false, 'case-design')
-    assert.ok(full.text.includes(CASE_TEXT))
-    assert.ok(full.text.includes('packages/core/resources/templates/case.md'))
-    assert.ok(full.text.includes('packages/core/resources/templates/case-result.md'))
+    // 纯指针：CASE 与模板副本只给路径，全文不进注入。
+    assert.ok(full.text.includes('- .workloom/tasks/demo/case.md'))
+    assert.ok(full.text.includes('- .workloom/templates/case.md'))
+    assert.ok(full.text.includes('- .workloom/templates/case-result.md'))
+    assert.ok(!full.text.includes(CASE_TEXT))
+    assert.equal(full.stats.filesInlined, 0)
     const incremental = buildExecutorIncrementalPrompt({
       root, taskRelPath: REL, role: 'checker', userPrompt: 'execute', purpose: 'execution',
     })
@@ -64,12 +76,16 @@ test('DSH purpose schema 与全量/增量 CASE 注入', () => {
   }
 })
 
-test('DSH 超预算 CASE 明确失败，失败记录保留 purpose', () => {
-  const root = makeRoot(8)
+test('DSH 模板副本缺失明确失败，失败记录保留 purpose（超预算路径已随指针化退役）', () => {
+  const root = makeRoot()
   try {
+    // CASE 全文不再内联，超预算不再触发失败；改由模板副本缺失触发派发拒绝，
+    // 继续保护「失败派发记录保留 purpose」这条审计不变式。
+    assert.equal(existsSync(join(root, '.workloom', 'templates', 'case.md')), true)
+    rmSync(join(root, '.workloom', 'templates'), { recursive: true, force: true })
     assert.throws(
       () => buildFullInjection(root, REL, 'checker', 'design', '', false, 'case-design'),
-      /exceeding maxArtifactBytes=8/,
+      /rerun workloom init/,
     )
     // 失败派发留痕（core 正式写口）：failed 记录保留 purpose 字段（审计可溯）；
     // 换新设计会话按 core 不变式要求带 fallbackOf 链回旧会话。

@@ -9,7 +9,13 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { PARAM_DESCRIPTIONS, TOOL_NAMES } from '@workloom-ai/core'
+import {
+  ensureCaseTemplates,
+  loadCaseResultTemplateText,
+  loadCaseTemplateText,
+  PARAM_DESCRIPTIONS,
+  TOOL_NAMES,
+} from '@workloom-ai/core'
 import { registerExecutor } from '../src/dispatch/executor.ts'
 import {
   assertAllowListNonEmpty,
@@ -68,6 +74,12 @@ function makeProject(configDoc = {}) {
   )
   writeFileSync(join(taskDir, 'prd.md'), '# PRD\n')
   writeFileSync(join(taskDir, 'plan.md'), '# Plan\n')
+  // checker 派发前只读守卫要求模板副本就绪：夹具先经 core ensureCaseTemplates 播种。
+  const caseTemplate = loadCaseTemplateText()
+  const caseResultTemplate = loadCaseResultTemplateText()
+  assert.ok(caseTemplate !== null && caseResultTemplate !== null)
+  const [seedErr] = ensureCaseTemplates({ root, caseTemplate, caseResultTemplate })
+  assert.equal(seedErr, null)
   return root
 }
 

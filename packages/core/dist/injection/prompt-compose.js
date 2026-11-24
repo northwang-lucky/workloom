@@ -1,24 +1,22 @@
 /**
  * executor 上下文注入组装（行为移植模块；平铺三件套的入口文件）。
  *
- * 设计意图（注入瘦身任务 09-22：段落白名单 + 分层加载协议）：
+ * 设计意图（注入瘦身任务 09-22：段落白名单 + 分层加载协议；11-24：纯指针化）：
  * - 子代理派发前组装首条 prompt，段落按角色白名单统一排序：任务标注 + 注入
- *   marker → （checker/researcher/judger：prd 全文节块）→ Pointer list（researcher
- *   无；首行为 plan.md 纯指针行，后接 jsonl 条目）→ Research materials →
- *   （developer/frontend-developer：prd 软指针行）→ （worktree_path 非空：
- *   `## Worktree` 纪律段）→ Local directives → Task prompt → Executor contract；
- * - 指针化（体积压到指针级）：jsonl 条目、research/*.md、plan.md 均只给
- *   「路径 + reason」指针行，无逐行读后判后缀；prd 仅 checker/researcher/judger
- *   物化 Requirements/Acceptance 全文 + 其余节标题指针（验收基线/问题框架，职责
- *   必需），developer/frontend-developer 只出软指针行（有歧义时按需查阅，非必读）；
+ *   marker → Pointer list（researcher 无；plan.md、checker 的 case.md 与两份
+ *   模板副本、jsonl 条目均为纯指针行）→ Research materials → prd 软指针行（全
+ *   角色）→ （worktree_path 非空：`## Worktree` 纪律段）→ Local directives →
+ *   Task prompt → Executor contract；
+ * - 纯指针口径：jsonl 条目、research/*.md、plan.md、prd、case.md 与模板副本
+ *   全部只给路径指针行，没有任何 artifact 全文块；正文由执行器按分层协议在步骤
+ *   需要时读，filesInlined 恒 0、filesPointed 如实计指针行；
+ * - checker 派发前只读校验 .workloom/templates/ 副本存在且与插件模板一致（缺失/
+ *   过期 fail loud 指引重跑 init，不自动补落）；写入归 init，派发只读；
  * - 分层加载协议（取代开工前强制全读）：开工前必读计划 artifact，其余指针步骤
  *   需要时定点读区间，显式禁止 upfront 通读整个指针清单；措辞与 assets 契约
  *   workflow.md Loading protocol 行同源（check 逐字核对）；
  * - 可靠性护栏（切片 ⑤）：每次派发注入唯一 marker token，纪律句要求执行器报告
  *   首行回显（证明注入到达且协议被读）；
- * - 预算来自 config.contextInjection：max_artifact_bytes 限 prd 块、max_total_bytes
- *   限总量；指针行极轻量无截断语义，预算仅对 artifact 内容生效（128KB 上限保留
- *   作兜底）；超限截断并追加 [...truncated at N bytes] 提示；
  * - jsonl 缺失按空处理；jsonl 行解析失败显式报错（fail loud，无灰区）；
  * - 拆分布局：本入口持常量、校验、类型与主组装；各注入段函数在兄弟文件
  *   prompt-sections.ts，预算与文件工具在 prompt-io.ts（跨文件共享常量留本入口，
@@ -27,7 +25,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { insideWorkloom, WORKLOOM_DIR } from '../workspace/locate.js';
-import { loadConfig } from "../workspace/config-load.js";
 import { evaluateGuard, readTaskView } from "../task/state/index.js";
 import { CASE_PURPOSES } from "../task/case-structure.js";
 // 角色值域与 jsonl 解析的单一实现外移（纯常量与共享解析层，任务层与注入层
@@ -35,12 +32,12 @@ import { CASE_PURPOSES } from "../task/case-structure.js";
 import { EXECUTOR_ROLES, isExecutorRole, normalizeExecutorRole } from "../dispatch/executor-roles.js";
 import { jsonlPointerLines } from "../task/jsonl.js";
 import { requireStringField, toError } from "./prompt-io.js";
-import { buildWorktreeSection, inlineCaseTemplates, inlineCurrentCase, inlinePrdArtifact, inlineResearchMaterials, pointerLine, } from "./prompt-sections.js";
+import { assertCaseTemplatesReady, buildWorktreeSection, inlineCaseTemplates, inlineCurrentCase, inlineResearchMaterials, pointerLine, } from "./prompt-sections.js";
 /** effort 合法档位（低 → 高）。 */
 export const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
 /** 错误消息前缀（运行时文案英文；prompt-io 的字段校验共用）。 */
 export const ERR_PREFIX = 'workloom executor context';
-/** prd 文件名（唯一物化 artifact：checker/researcher/judger 内联全文节块，developer/frontend-developer 软指针；prompt-sections 共用）。 */
+/** prd 文件名（全角色统一软指针行：有歧义时按需查阅，非 Pointer list 必读项）。 */
 export const PRD_ARTIFACT = 'prd.md';
 /** Pointer list 首部的 artifact 指针文件名（按顺序；文件缺失不出行）。 */
 const ARTIFACT_POINTER_FILES = Object.freeze(['plan.md']);
@@ -65,9 +62,9 @@ const LOCAL_DIRECTIVES_KEYWORD = 'Local directives';
 /** jsonl 指针清单段标题（Pointer list：artifacts 指针之后、research 之前；指针行极轻量无预算语义）。 */
 const POINTER_LIST_HEADING = '## Pointer list';
 /**
- * prd 软指针行（developer/frontend-developer 专有，独立一行无标题）：仅在派发正文或计划
- * 有歧义时按需查阅 prd.md——刻意不进 `## Pointer list`，避免被强制加载语义
- * 变成必读；prd.md 缺失时不出该行。
+ * prd 软指针行（全角色统一，独立一行无标题）：仅在派发正文或计划有歧义时按需
+ * 查阅 prd.md——刻意不进 `## Pointer list`，避免被强制加载语义变成必读；
+ * prd.md 缺失时不出该行。
  * @param {string} prdRelPath prd 相对项目根的路径
  * @returns {string} 软指针行
  */
@@ -111,8 +108,8 @@ export function assertRole(role) {
     }
 }
 /**
- * 组装 executor 首条 prompt：段落按角色白名单排序（任务标注 + marker → prd 块
- * → Pointer list → Research materials → prd 软指针 → worktree 纪律段（worktree_path
+ * 组装 executor 首条 prompt：段落按角色白名单排序（任务标注 + marker →
+ * Pointer list → Research materials → prd 软指针 → worktree 纪律段（worktree_path
  * 非空时）→ Local directives → Task prompt → Executor contract）。
  * @param {BuildExecutorPromptParams} params
  *   入参（root 为项目根；taskRelPath 为任务目录相对 .workloom 的路径）
@@ -140,8 +137,6 @@ function buildInternal(params) {
     requireStringField(params, 'root');
     requireStringField(params, 'taskRelPath');
     requireStringField(params, 'userPrompt');
-    const config = loadConfig(params.root);
-    const ci = config.contextInjection;
     /** @type {ExecutorPromptStats} */
     const stats = {
         filesInlined: 0,
@@ -155,22 +150,19 @@ function buildInternal(params) {
         `${ACTIVE_TASK_PREFIX}${params.taskRelPath}\n${buildInjectionMarkerLine(params.taskRelPath)}`,
     ];
     const taskDir = insideWorkloom(params.root, params.taskRelPath);
-    // checker/researcher/judger 物化 prd 全文节块（验收基线/问题框架/审查对象，职责必需）；
-    // developer/frontend-developer 不物化 prd（下方软指针行代替，正文按需查阅）。
-    if (role === EXECUTOR_ROLES.CHECKER ||
-        role === EXECUTOR_ROLES.RESEARCHER ||
-        role === EXECUTOR_ROLES.JUDGER) {
-        inlinePrdArtifact(parts, params.taskRelPath, taskDir, ci, stats);
+    const isChecker = role === EXECUTOR_ROLES.CHECKER;
+    // checker 派发前只读校验模板副本（缺失/过期 fail loud 指引 init）；写入归 init。
+    if (isChecker) {
+        assertCaseTemplatesReady(params.root);
     }
-    // CASE 全文与模板（仅 checker）：CASE 紧跟 prd（验收基线之后、指针之前），模板在
-    // Pointer list 之前；execution 轮先校验确认状态，超预算直接抛错不静默截断。
-    inlineCurrentCase(parts, params, taskDir, ci, stats);
-    inlineCaseTemplates(parts, params, stats);
-    // Pointer list（researcher 无此段）：首行固定 plan.md 纯指针行（文件缺失
-    // 不出行），后接当前角色的 jsonl 条目指针行；文件不存在不指向空。
+    // Pointer list（researcher 无此段）：plan.md 纯指针行（文件缺失不出行），checker
+    // 追加 case.md 指针（存在才出）与两份模板副本指针，后接当前角色的 jsonl 条目。
     if (role !== EXECUTOR_ROLES.RESEARCHER) {
         const pointerLines = ARTIFACT_POINTER_FILES.filter((name) => existsSync(join(taskDir, name))).map((name) => pointerLine(join(WORKLOOM_DIR, params.taskRelPath, name)));
         stats.filesPointed += pointerLines.length;
+        // checker 的 CASE 与模板副本指针（正文不内联，按分层协议按需读）。
+        inlineCurrentCase(pointerLines, params, taskDir, stats);
+        inlineCaseTemplates(pointerLines, params, stats);
         const jsonlName = JSONL_FILES[role];
         if (typeof jsonlName === 'string') {
             pointerLines.push(...jsonlPointerLines({ root: params.root, taskDir, jsonlName, stats }));
@@ -182,16 +174,15 @@ function buildInternal(params) {
     // research 产物指针注入（自动行为，不由主会话控制）：指针行给路径，正文由
     // 执行器按分层协议在步骤需要时读；无 research 产物时为空段，不报错。
     inlineResearchMaterials(parts, params.taskRelPath, taskDir, stats);
-    // prd 软指针行（developer/frontend-developer 专有，独立一行无标题）：有歧义时按需查阅，
-    // 不进 Pointer list（避免被强制加载语义变成必读）；prd 缺失不出行。
-    if ((role === EXECUTOR_ROLES.DEVELOPER || role === EXECUTOR_ROLES.FRONTEND_DEVELOPER) &&
-        existsSync(join(taskDir, PRD_ARTIFACT))) {
+    // prd 软指针行（全角色统一，独立一行无标题）：有歧义时按需查阅，不进 Pointer
+    // list（避免被强制加载语义变成必读）；prd 缺失不出行。
+    if (existsSync(join(taskDir, PRD_ARTIFACT))) {
         parts.push(prdSoftPointerLine(join(WORKLOOM_DIR, params.taskRelPath, PRD_ARTIFACT)));
         stats.filesPointed += 1;
     }
-    // worktree 纪律段（design §1）：task.worktree_path 非空时注入（prd 软指针/artifact
-    // 块之后、Local directives/Task prompt 之前）；readTask 失败或路径为空静默降级
-    // 不注入（prompt 产物零变化）。段为常量文本，不计 filesInlined/filesPointed。
+    // worktree 纪律段（design §1）：task.worktree_path 非空时注入（prd 软指针之后、
+    // Local directives/Task prompt 之前）；readTask 失败或路径为空静默降级不注入
+    // （prompt 产物零变化）。段为常量文本，不计 filesInlined/filesPointed。
     const worktreeSection = buildWorktreeSection(params.root, params.taskRelPath);
     if (worktreeSection !== null) {
         parts.push(worktreeSection);

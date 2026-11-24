@@ -25,10 +25,13 @@ import {
   COMMAND_FAILURE_ACK,
   COMMAND_NAMES,
   ERR_PREFIX,
+  ensureCaseTemplates,
   ensureSpecTemplates,
   executeInitCommand,
   readResourceText,
   runDoctor,
+  TEMPLATE_CASE_ENTRY,
+  TEMPLATE_CASE_RESULT_ENTRY,
   TEMPLATE_SPEC_DETAIL_ENTRY,
   TEMPLATE_SPEC_INDEX_ENTRY,
 } from '@workloom-ai/core'
@@ -108,9 +111,9 @@ function handleInit(invocation: CommandInvocation): CommandResult {
 }
 
 /**
- * 补落 spec 模板到项目 .workloom/spec/.templates/（幂等，core 写盘）。
- * 模板是 init 的附属物：资产缺失、写盘失败或任何非预期异常都只告警，
- * 不阻塞 init 成功路径。
+ * 补落 spec 模板与 CASE 模板副本（core 写盘）。模板是 init 的附属物：资产缺失、
+ * 写盘失败或任何非预期异常都只告警，不阻塞 init 成功路径。spec 模板「已存在不
+ * 覆盖」，CASE 副本按内容比对刷新（随插件版本同步）。
  * @param cwd init 命令的工作目录（项目根或根下目录均可）
  */
 function ensureTemplates(cwd: string): void {
@@ -127,6 +130,21 @@ function ensureTemplates(cwd: string): void {
     }
   } catch (error) {
     console.warn(`${ERR_PREFIX.command}: spec templates: ${String(error)}`)
+  }
+  // CASE 模板副本：与 spec 模板独立告警，任一失败不影响另一类模板落盘。
+  try {
+    const caseTemplate = readResourceText(TEMPLATE_CASE_ENTRY)
+    const caseResultTemplate = readResourceText(TEMPLATE_CASE_RESULT_ENTRY)
+    if (caseTemplate === null || caseResultTemplate === null) {
+      console.warn(`${ERR_PREFIX.command}: CASE template asset missing; skipped`)
+    } else {
+      const [err] = ensureCaseTemplates({ root: cwd, caseTemplate, caseResultTemplate })
+      if (err !== null) {
+        console.warn(`${ERR_PREFIX.command}: CASE templates: ${err.message}`)
+      }
+    }
+  } catch (error) {
+    console.warn(`${ERR_PREFIX.command}: CASE templates: ${String(error)}`)
   }
 }
 

@@ -113,6 +113,19 @@ const WRITE_SCOPE_DISCIPLINE =
   'Your write/edit reach is confined to the .workloom/ directory: paths ' + 'outside it are denied.'
 
 /**
+ * 分层加载协议的角色例外句：这些角色的特定指针是开工前必读，不受「按需读指针」
+ * 的一般规则豁免；英文运行时文案。
+ */
+const CHECKER_REQUIRED_READING =
+  'Role exception to the layered loading protocol: before acting, read the prd Requirements and Acceptance Criteria sections; ' +
+  'in the design round read the two .workloom/templates/ CASE template copies via their pointer lines, ' +
+  'and in the execution round read the task case.md via its pointer line.'
+const JUDGER_REQUIRED_READING =
+  'Role exception to the layered loading protocol: before acting, read the prd Requirements and Acceptance Criteria sections (the audit baseline).'
+const RESEARCHER_REQUIRED_READING =
+  'Role exception to the layered loading protocol: before acting, read the prd Goal, Scope, Requirements and Acceptance Criteria sections (the research frame).'
+
+/**
  * 按角色的执行器纪律段正文（硬指令，单一来源；并入注入文本末尾的终极权威段
  * `### <RoleLabel> executor directives` 子段）。去重只看 leaf 关键词且仅豁免 leaf
  * 规则行——纪律段与权威声明始终注入。键为角色字符串（新五值值域）。
@@ -123,6 +136,7 @@ Ground every conclusion in the real source: read the actual files or data before
 Separate verified findings from suggestions, and mark anything unverified as such.
 ${LSP_RESEARCH_BASELINE_SENTENCE}
 ${WRITE_SCOPE_DISCIPLINE}
+${RESEARCHER_REQUIRED_READING}
 
 Structure the report in research-facts blocks (see the research-facts spec and its template asset):
 - Use '##' section headings, each heading stating the section's takeaway in one sentence.
@@ -147,6 +161,7 @@ Fix P2 yourself — an unfixed P2 is a dereliction of duty. Do not fix P0/P1; es
 - <file>:<line> [P0|P1|P2] <issue> — fix: <suggestion>
 Write "- none" when no issue remains.
 After fixing, verify with the project's checks (lint / typecheck / tests) and re-read the code you touched.
+${CHECKER_REQUIRED_READING}
 ${LSP_BASELINE_SENTENCE}
 ${BATCHING_DISCIPLINE}
 ${COMPACT_OUTPUT_DISCIPLINE}
@@ -161,6 +176,7 @@ Audit in four dimensions, item by item:
 Classify every finding: P0 = executing the plan as written must fail or violates acceptance; P1 = feasibility risk or a clearly better approach not adopted; P2 = imprecise wording or incomplete references.
 Write the report to plan-review.md in the task directory (append a new section per round); every finding carries its severity, the plan anchor, and a fix suggestion. The plan, the prd, and all code files stay untouched by you.
 ${WRITE_SCOPE_DISCIPLINE}
+${JUDGER_REQUIRED_READING}
 ${LSP_BASELINE_SENTENCE}
 ${BATCHING_DISCIPLINE}
 ${COMPACT_OUTPUT_DISCIPLINE}

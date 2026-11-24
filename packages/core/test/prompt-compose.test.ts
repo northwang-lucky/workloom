@@ -2,8 +2,9 @@
  * executor-context 单测：上下文注入组装的段落白名单/分层协议/统计/报错行为（临时项目目录）。
  *
  * 覆盖：五角色段落白名单与顺序（Task prompt 在 Local directives 之后、contract 末段）；
- * checker/researcher/judger 物化 prd 块、developer/frontend-developer 物化 prd 软指针
- * （无全文、无 H2 目录预览）；`## Involved files` 段全角色删除；指针行无
+ * 纯指针注入——全角色 prd 软指针（无全文、无 H2 目录预览），checker 的 case.md 与
+ * 模板副本走 Pointer list 指针行，副本缺失/过期 fail loud 指引 init，filesInlined 恒 0；
+ * `## Involved files` 段全角色删除；指针行无
  * 「read before acting」后缀；分层按需加载协议句（回声句后半逐字保留、禁 upfront
  * 通读）；researcher 只含 prd；末尾终极权威段（角色纪律段 + leaf 规则 + 权威声明）
  * 的注入位置/去重/分级语义；developer/checker 纪律段按需查材料/禁止全局 recon 指令；
@@ -12,7 +13,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import {
@@ -126,10 +127,21 @@ const POINTER_LIST_HEADING = '## Pointer list'
 /** 本机片段注入段标题（与实现一致，测试自给自足）。 */
 const LOCAL_DIRECTIVES_HEADING = '## Local directives'
 
-/** 创建临时项目根（含任务目录）；测试结束清理。 */
+/** 经 core 逻辑播种模板副本（纯指针派发的正向夹具前提：内容取自插件资产）。 */
+function seedCaseTemplates(root) {
+  const dir = join(root, '.workloom', 'templates')
+  mkdirSync(dir, { recursive: true })
+  for (const name of ['case.md', 'case-result.md']) {
+    const template = readFileSync(new URL(`../resources/templates/${name}`, import.meta.url), 'utf8')
+    writeFileSync(join(dir, name), template)
+  }
+}
+
+/** 创建临时项目根（含任务目录 + 模板副本）；测试结束清理。 */
 function makeProject() {
   const root = mkdtempSync(join(tmpdir(), 'workloom-exec-'))
   mkdirSync(join(root, '.workloom', TASK_REL_PATH), { recursive: true })
+  seedCaseTemplates(root)
   return root
 }
 
@@ -184,8 +196,8 @@ test('S1 jsonl 纯指针：developer/checker 注入只含「路径 + reason」�
     const expected = {
       // developer：不内联任何 artifact（prd 走软指针），指针 = prd 软指针 + plan + jsonl×2
       developer: { filesInlined: 0, filesPointed: 4, truncated: 0 },
-      // checker：内联 prd 块，指针 = plan + jsonl×2
-      checker: { filesInlined: 1, filesPointed: 3, truncated: 0 },
+      // checker：纯指针，指针 = prd 软指针 + plan + jsonl×2 + 模板副本×2（无 case.md）
+      checker: { filesInlined: 0, filesPointed: 6, truncated: 0 },
     }
     for (const value of ['developer', 'checker']) {
       const [err, result] = buildExecutorPrompt(baseParams(root, value))
@@ -211,7 +223,7 @@ test('S1 jsonl 纯指针：developer/checker 注入只含「路径 + reason」�
   }
 })
 
-test('S2 artifacts 提取：check/research 物化 prd 全文节块；plan.md 仅纯指针行（无 H2 目录预览）；implement 软指针不进 prd 全文', () => {
+test('纯指针化：prd 不再物化节块，plan.md 仅纯指针行（无 H2 目录预览），五角色仅软指针', () => {
   const root = makeProject()
   try {
     writeTaskFile(
@@ -248,37 +260,30 @@ test('S2 artifacts 提取：check/research 物化 prd 全文节块；plan.md 仅
         '',
       ].join('\n'),
     )
-    // check：Requirements/Acceptance 两节全文保留，其余节标题指针（prd 块职责必需）
-    const [checkErr, checkResult] = buildExecutorPrompt(baseParams(root, 'checker'))
-    assert.equal(checkErr, null)
-    const checkText = checkResult.text
-    assert.ok(checkText.includes('## Requirements'))
-    assert.ok(checkText.includes('REQ_BODY_MARKER'))
-    assert.ok(checkText.includes('## Acceptance Criteria'))
-    assert.ok(checkText.includes('ACC_BODY_MARKER'))
-    assert.ok(checkText.includes('Read in file: ## Goal, ## Notes'))
-    assert.ok(!checkText.includes('GOAL_BODY_MARKER'))
-    assert.ok(!checkText.includes('NOTES_BODY_MARKER'))
-    // plan.md：纯指针行，无 H2 目录预览、无正文、无目录尾注指针
-    assert.ok(!checkText.includes('## 1. 决策一'))
-    assert.ok(!checkText.includes('DESIGN_BODY_MARKER'))
-    assert.ok(!checkText.includes('BODY2_MARKER'))
-    assert.ok(!checkText.includes('Read the full document in the file.'))
-    assert.ok(checkText.endsWith('STUB-AUTHORITY'))
-    // implement：prd 不再全文内联（软指针独立一行），plan.md 同为纯指针行
-    const [implErr, implResult] = buildExecutorPrompt(baseParams(root, 'developer'))
-    assert.equal(implErr, null)
-    const implText = implResult.text
-    assert.ok(!implText.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
-    assert.ok(!implText.includes('## Requirements'))
-    assert.ok(!implText.includes('REQ_BODY_MARKER'))
-    assert.ok(!implText.includes('ACC_BODY_MARKER'))
-    assert.ok(!implText.includes('GOAL_BODY_MARKER'))
-    assert.ok(implText.includes(PRD_SOFT_POINTER_LINE))
-    assert.ok(!implText.includes('## 1. 决策一'))
-    assert.ok(!implText.includes('DESIGN_BODY_MARKER'))
-    assert.ok(!implText.includes('Read the full document in the file.'))
-    assert.ok(implText.endsWith('STUB-AUTHORITY'))
+    for (const role of ['checker', 'researcher', 'judger', 'developer', 'frontend-developer']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, role))
+      assert.equal(err, null, role)
+      const text = result.text
+      // prd 全文节块与 H2 目录预览全灭：只留软指针行
+      assert.ok(!text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'), role)
+      for (const marker of [
+        'REQ_BODY_MARKER',
+        'ACC_BODY_MARKER',
+        'GOAL_BODY_MARKER',
+        'NOTES_BODY_MARKER',
+        'Read in file:',
+        'Read the full document in the file.',
+      ]) {
+        assert.ok(!text.includes(marker), `${role} must not materialize prd: ${marker}`)
+      }
+      assert.ok(text.includes(PRD_SOFT_POINTER_LINE), role)
+      // plan.md 纯指针行：无 H2 标题预览、无正文
+      assert.ok(!text.includes('## 1. 决策一'), role)
+      assert.ok(!text.includes('DESIGN_BODY_MARKER'), role)
+      assert.ok(!text.includes('BODY2_MARKER'), role)
+      assert.ok(text.endsWith('STUB-AUTHORITY'), role)
+      assert.equal(result.stats.filesInlined, 0, role)
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -314,20 +319,22 @@ test('jsonl 纯指针：指针行不受文件/总量预算影响（无截断、�
   }
 })
 
-test('research 只内联 prd，无 jsonl 引用行', () => {
+test('researcher 无 Pointer list：prd 只出软指针，无 jsonl/plan 引用行', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
-    // 不建 plan.md 与 jsonl，验证 research 不读 jsonl、缺失 artifact 跳过
+    // 不建 plan.md 与 jsonl，验证 researcher 不读 jsonl、缺失 artifact 跳过
     const [err, result] = buildExecutorPrompt(baseParams(root, 'researcher'))
     assert.equal(err, null)
     const text = result.text
-    assert.ok(text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
+    assert.ok(!text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'))
+    assert.ok(text.includes(PRD_SOFT_POINTER_LINE))
+    assert.ok(!text.includes(POINTER_LIST_HEADING))
     assert.ok(!text.includes('.workloom/tasks/08-24-demo/plan.md'))
     assert.ok(!text.includes('implement.jsonl'))
     assert.deepEqual(result.stats, {
-      filesInlined: 1,
-      filesPointed: 0,
+      filesInlined: 0,
+      filesPointed: 1,
       truncated: 0,
     })
     assert.ok(text.includes('## Task prompt\nDo the thing'))
@@ -582,7 +589,7 @@ test('research 多文件按文件名排序输出指针行（无截断/无预算�
   }
 })
 
-test('researcher 注入 research 材料段与 prd 块，且全角色无 Involved files 段', () => {
+test('researcher 注入 research 材料段与 prd 软指针，且全角色无 Involved files 段', () => {
   const root = makeProject()
   try {
     writeTaskFile(root, 'prd.md', '# PRD\n')
@@ -590,16 +597,16 @@ test('researcher 注入 research 材料段与 prd 块，且全角色无 Involved
     const [err, result] = buildExecutorPrompt(baseParams(root, 'researcher'))
     assert.equal(err, null)
     const text = result.text
-    // 材料段在 prd 块之后、Task prompt 之前；锚点上下文包不再产生 Involved files 段
-    const prdAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
+    // 材料段在 prd 软指针之前、Task prompt 之前；锚点上下文包不再产生 Involved files 段
     const materialsAt = text.indexOf(RESEARCH_MATERIALS_HEADING)
+    const softAt = text.indexOf(PRD_SOFT_POINTER_LINE)
     const taskPromptAt = text.indexOf('## Task prompt')
-    assert.ok(prdAt !== -1 && materialsAt !== -1 && taskPromptAt !== -1)
-    assert.ok(prdAt < materialsAt && materialsAt < taskPromptAt)
+    assert.ok(materialsAt !== -1 && softAt !== -1 && taskPromptAt !== -1)
+    assert.ok(materialsAt < softAt && softAt < taskPromptAt)
     assert.ok(!text.includes(FILES_LIST_HEADING), 'Involved files section must be removed')
     assert.ok(!text.includes('pkg/a.js'), 'anchor file list must not be injected')
-    assert.equal(result.stats.filesPointed, 1)
-    assert.equal(result.stats.filesInlined, 1)
+    assert.equal(result.stats.filesPointed, 2)
+    assert.equal(result.stats.filesInlined, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -708,7 +715,7 @@ test('S5 护栏：注入含唯一 marker token（两次派发不同）', () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
-test('段落白名单与顺序：五角色按 prd Requirements 1 组装，Task prompt 在 Local directives 之后、contract 恒末段', () => {
+test('段落白名单与顺序：五角色纯指针组装，Task prompt 在 Local directives 之后、contract 恒末段', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
@@ -742,29 +749,26 @@ test('段落白名单与顺序：五角色按 prd Requirements 1 组装，Task p
       const prdBlockAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
       const pointerAt = text.indexOf(POINTER_LIST_HEADING)
       const softAt = text.indexOf(PRD_SOFT_POINTER_LINE)
-      if (role === 'checker' || role === 'researcher' || role === 'judger') {
-        // prd 块物化（check/research/review），位于 pointer list（research 无此段）之前
-        assert.ok(prdBlockAt !== -1 && prdBlockAt < materialsAt, role)
-        assert.ok(text.includes('REQ_BODY_MARKER'), role)
-      } else {
-        assert.equal(prdBlockAt, -1, `${role} must not inline the prd block`)
-        assert.ok(!text.includes('REQ_BODY_MARKER'), role)
-        // prd 软指针独立一行无标题，位于 Research materials 之后、Local directives 之前
-        assert.ok(softAt !== -1 && materialsAt < softAt && softAt < localAt, role)
-      }
+      // prd 全文块全角色删除；软指针独立一行无标题，位于 Research materials 之后、Local directives 之前
+      assert.equal(prdBlockAt, -1, `${role} must not inline the prd block`)
+      assert.ok(!text.includes('REQ_BODY_MARKER'), role)
+      assert.ok(softAt !== -1 && materialsAt < softAt && softAt < localAt, role)
       if (role === 'researcher') {
         assert.equal(pointerAt, -1, 'research has no pointer list section')
-        assert.equal(softAt, -1, 'research has no prd soft pointer')
       } else {
-        // Pointer list：首行固定 plan.md 纯指针行，后接 jsonl 条目
-        assert.ok(pointerAt !== -1 && pointerAt > prdBlockAt && pointerAt < materialsAt, role)
+        // Pointer list：plan.md 纯指针行起头；checker 追加模板副本指针，后接 jsonl 条目
+        assert.ok(pointerAt !== -1 && pointerAt < materialsAt, role)
         const pointerBlock = text.slice(pointerAt, materialsAt)
         const lines = pointerBlock.split('\n').filter((line) => line.startsWith('- '))
-        assert.deepEqual(
-          lines.slice(0, 2),
-          ['- .workloom/tasks/08-24-demo/plan.md', '- packages/a.js (spec)'],
-          `${role} pointer list must lead with plan.md then jsonl entries`,
-        )
+        const expected = ['- .workloom/tasks/08-24-demo/plan.md']
+        if (role === 'checker') {
+          expected.push(
+            '- .workloom/templates/case.md',
+            '- .workloom/templates/case-result.md',
+          )
+        }
+        expected.push('- packages/a.js (spec)')
+        assert.deepEqual(lines, expected, `${role} pointer list structure`)
       }
       // H2 目录预览全灭：plan.md 正文与标题均不进注入
       assert.ok(!text.includes('## 决策') && !text.includes('DESIGN_BODY_MARKER'), role)
@@ -881,7 +885,7 @@ test('S2 worktree 零 diff：worktree_path 空串 / task.json 损坏（readTask 
   }
 })
 
-test('CASE 注入顺序与 purpose：CASE 位于 prd 之后、模板之前，模板位于 Pointer list 之前', () => {
+test('CASE 指针顺序：Pointer list 内 plan → case.md → 模板副本 → jsonl，全文不入注入', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
@@ -890,47 +894,113 @@ test('CASE 注入顺序与 purpose：CASE 位于 prd 之后、模板之前，模
     const [err, result] = buildExecutorPrompt({
       ...baseParams(root, 'checker'),
       purpose: 'case-design',
-      caseTemplates: [
-        { path: 'packages/core/resources/templates/case.md', content: 'TEMPLATE_CASE_MARKER' },
-        { path: 'packages/core/resources/templates/case-result.md', content: 'TEMPLATE_RESULT_MARKER' },
-      ],
     })
     assert.equal(err, null)
     const text = result.text
-    const prdAt = text.indexOf('--- .workloom/tasks/08-24-demo/prd.md ---')
-    const caseAt = text.indexOf('--- .workloom/tasks/08-24-demo/case.md ---')
-    const templateCaseAt = text.indexOf('--- packages/core/resources/templates/case.md ---')
-    const templateResultAt = text.indexOf('--- packages/core/resources/templates/case-result.md ---')
     const pointerAt = text.indexOf(POINTER_LIST_HEADING)
-    assert.ok(prdAt !== -1, 'prd 块必须存在')
-    assert.ok(caseAt !== -1, 'CASE 块必须存在')
-    assert.ok(prdAt < caseAt, 'CASE 必须位于 prd 之后')
-    assert.ok(caseAt < templateCaseAt && templateCaseAt < templateResultAt, '模板必须位于 CASE 之后且按序')
-    assert.ok(templateResultAt < pointerAt, '模板必须位于 Pointer list 之前')
-    assert.ok(text.includes('CASE_BODY_MARKER') && text.includes('TEMPLATE_CASE_MARKER'), '全文注入')
-    // 非 checker 角色不注入 CASE 与模板
+    assert.ok(pointerAt !== -1)
+    const list = text
+      .slice(pointerAt, text.indexOf(RESEARCH_MATERIALS_HEADING))
+      .split('\n')
+      .filter((line) => line.startsWith('- '))
+    assert.deepEqual(list, [
+      '- .workloom/tasks/08-24-demo/plan.md',
+      '- .workloom/tasks/08-24-demo/case.md',
+      '- .workloom/templates/case.md',
+      '- .workloom/templates/case-result.md',
+      '- packages/a.js (spec)',
+    ])
+    assert.ok(!text.includes('CASE_BODY_MARKER'), 'CASE 正文不外泄')
+    // 非 checker 角色不注入 CASE 指针与模板副本指针
     const [, implement] = buildExecutorPrompt({
       ...baseParams(root, 'developer'),
       purpose: 'case-design',
-      caseTemplates: [{ path: 't.md', content: 'TEMPLATE_CASE_MARKER' }],
     })
-    assert.ok(!implement.text.includes('TEMPLATE_CASE_MARKER'), 'implement 不注入模板')
+    assert.ok(!implement.text.includes('- .workloom/tasks/08-24-demo/case.md'))
+    assert.ok(!implement.text.includes('- .workloom/templates/case.md'))
+    assert.ok(!implement.text.includes('- .workloom/templates/case-result.md'))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('CASE 超预算直接抛错，不做静默截断', () => {
+test('CASE 超预算 pin 退役：大 CASE 只出指针，不再因 maxArtifactBytes 抛错或截断', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
     writeTaskFile(root, 'case.md', 'X'.repeat(64))
     writeCaseTask(root, 'X'.repeat(64))
     writeConfig(root, { context_injection: { max_artifact_bytes: 8 } })
-    // core 层预算失败走元组 err（buildFullInjection 包装层再抛错）。
-    const [err] = buildExecutorPrompt({ ...baseParams(root, 'checker'), purpose: 'case-design' })
-    assert.ok(err)
-    assert.match(err.message, /exceeding maxArtifactBytes=8/)
+    const [err, result] = buildExecutorPrompt({
+      ...baseParams(root, 'checker'),
+      purpose: 'case-design',
+    })
+    assert.equal(err, null)
+    assert.ok(result.text.includes('- .workloom/tasks/08-24-demo/case.md'))
+    assert.ok(!result.text.includes('X'.repeat(64)))
+    assert.equal(result.stats.truncated, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('纯指针注入：prd 对所有角色只出软指针，checker 的 case.md 与模板副本为 Pointer list 指针行', () => {
+  const root = makeProject()
+  try {
+    writeFullFixture(root)
+    writeTaskFile(root, 'case.md', 'CASE_BODY_MARKER\n')
+    writeCaseTask(root, 'CASE_BODY_MARKER\n')
+    for (const role of ['researcher', 'developer', 'checker', 'frontend-developer', 'judger']) {
+      const [err, result] = buildExecutorPrompt(baseParams(root, role))
+      assert.equal(err, null, role)
+      const text = result.text
+      // 无 prd 全文块：全角色只出软指针
+      assert.ok(!text.includes('--- .workloom/tasks/08-24-demo/prd.md ---'), role)
+      assert.ok(!text.includes('REQ_BODY_MARKER'), role)
+      assert.ok(text.includes(PRD_SOFT_POINTER_LINE), role)
+      assert.equal(result.stats.filesInlined, 0, role)
+      if (role === 'checker') {
+        const pointerAt = text.indexOf(POINTER_LIST_HEADING)
+        assert.ok(pointerAt !== -1)
+        const listBlock = text.slice(pointerAt, text.indexOf(RESEARCH_MATERIALS_HEADING))
+        const list = listBlock.split('\n').filter((line) => line.startsWith('- '))
+        assert.deepEqual(list, [
+          '- .workloom/tasks/08-24-demo/plan.md',
+          '- .workloom/tasks/08-24-demo/case.md',
+          '- .workloom/templates/case.md',
+          '- .workloom/templates/case-result.md',
+          '- packages/a.js (spec)',
+        ])
+        assert.ok(!text.includes('CASE_BODY_MARKER'))
+      } else if (role === 'researcher') {
+        assert.ok(!text.includes(POINTER_LIST_HEADING), 'researcher has no Pointer list')
+      }
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('checker 模板副本缺失/过期 fail loud，拒绝派发并指引重跑 init', () => {
+  const root = makeProject()
+  try {
+    writeFullFixture(root)
+    writeCaseTask(root, 'CASE_BODY_MARKER\n')
+    rmSync(join(root, '.workloom', 'templates'), { recursive: true, force: true })
+    // 副本缺失：拒绝派发
+    const [missingErr, missing] = buildExecutorPrompt(baseParams(root, 'checker'))
+    assert.ok(missingErr instanceof Error)
+    assert.match(missingErr.message, /rerun workloom init/)
+    assert.equal(missing, null)
+    // 副本过期：写脏后同样拒绝
+    seedCaseTemplates(root)
+    writeFileSync(join(root, '.workloom/templates/case.md'), '# stale copy\n')
+    const [staleErr] = buildExecutorPrompt(baseParams(root, 'checker'))
+    assert.ok(staleErr instanceof Error)
+    assert.match(staleErr.message, /rerun workloom init/)
+    // 非 checker 不受守卫影响
+    const [devErr] = buildExecutorPrompt(baseParams(root, 'developer'))
+    assert.equal(devErr, null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

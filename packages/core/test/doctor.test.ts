@@ -1,8 +1,8 @@
 /**
- * doctor 五类检查集单测（状态机重建后）：临时目录探针输出五类检查结果；
+ * doctor 六类检查集单测（状态机重建后）：临时目录探针输出六类检查结果；
  * 非法状态任务样本触发 lifecycle-consistency；确认与 CASE 样本各自触发
  * confirm-completeness / case-consistency；轨道值非法样本经兼容读转为可判定
- * issue；worktree 与 config 两类判定行为抽样。
+ * issue；worktree、config 与 CASE 模板副本三类判定行为抽样。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -17,6 +17,7 @@ import { initWorkloom } from '../src/workspace/init.ts'
 import { WORKLOOM_DIR } from '../src/workspace/locate.js'
 import { createTask } from '../src/task/storage/index.ts'
 import { archiveTask, checkTask, startTask } from '../src/task/task-ops.ts'
+import { loadCaseResultTemplateText, loadCaseTemplateText } from '../src/resources-manifest.ts'
 
 /** 初始化 git 仓并落首个提交（worktree 一致性比对需要注册集）。 */
 function gitInitWithCommit(root: string): void {
@@ -42,6 +43,17 @@ process.env.TMPDIR = isolatedHome
 /** 创建临时项目根。 */
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'workloom-doctor-'))
+}
+
+/** 播种 CASE 模板副本（零 issue 探针前提：副本随 init 落盘）。 */
+function seedCaseTemplates(root: string): void {
+  const caseTemplate = loadCaseTemplateText()
+  const resultTemplate = loadCaseResultTemplateText()
+  assert.ok(caseTemplate !== null && resultTemplate !== null)
+  const dir = join(root, WORKLOOM_DIR, 'templates')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'case.md'), caseTemplate)
+  writeFileSync(join(dir, 'case-result.md'), resultTemplate)
 }
 
 /** 最小合法 task.json 记录（字段可覆写；直接落盘构造样本）。 */
@@ -88,33 +100,42 @@ function checkOf(report, code) {
   return check
 }
 
-test('探针：临时目录 doctor 输出五类检查结果，空槽提示行已退役', () => {
+test('探针：临时目录 doctor 输出六类检查结果，空槽提示行已退役', () => {
   const root = makeRoot()
   initWorkloom(root)
+  seedCaseTemplates(root)
   try {
     const [err, report] = runDoctor(root)
     assert.equal(err, null)
     assert.ok(report)
-    // 五类检查集就位（顺序即输出顺序）。
+    // 六类检查集就位（顺序即输出顺序）。
     assert.deepEqual(
       report.checks.map((check) => check.code),
-      ['lifecycle-consistency', 'confirm-completeness', 'case-consistency', 'worktree', 'config'],
+      [
+        'lifecycle-consistency',
+        'confirm-completeness',
+        'case-consistency',
+        'worktree',
+        'config',
+        'case_templates',
+      ],
     )
     // 空槽提示行退役：报告不再携带 slotsNote 字段。
     assert.equal('slotsNote' in report, false)
     // relay 文本不再携带「检查集重建中」说明行。
     const relay = buildDoctorRelayText(report)
     assert.ok(!relay.includes('check set is being rebuilt'))
-    // 正常骨架项目（无任务）五类检查零 issue。
+    // 正常骨架项目（无任务）六类检查零 issue。
     assert.equal(report.summary.total, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('端到端探针：light 任务走完 create→start→check→archive 后五类检查零 issue', async () => {
+test('端到端探针：light 任务走完 create→start→check→archive 后六类检查零 issue', async () => {
   const root = makeRoot()
   initWorkloom(root)
+  seedCaseTemplates(root)
   // 声明 package 并关闭 worktree（探针聚焦状态机生命周期，不涉 git worktree）。
   writeFileSync(
     join(root, WORKLOOM_DIR, 'config.json'),
@@ -160,7 +181,13 @@ test('无 .workloom 目录：config 报 no .workloom issue，其余检查为空'
     const config = checkOf(report, 'config')
     assert.equal(config.issues.length, 1)
     assert.match(config.issues[0].message, /no \.workloom directory found/)
-    for (const code of ['lifecycle-consistency', 'confirm-completeness', 'case-consistency', 'worktree']) {
+    for (const code of [
+      'lifecycle-consistency',
+      'confirm-completeness',
+      'case-consistency',
+      'worktree',
+      'case_templates',
+    ]) {
       assert.equal(checkOf(report, code).issues.length, 0)
     }
   } finally {
@@ -533,6 +560,39 @@ test('worktree 检查：残留未注册目录报 issue（不自动删除）', ()
       worktree.issues.some((issue) => issue.title === 'Unregistered worktree directory'),
       'stray directory must be reported',
     )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('case_templates 检查：副本缺失与过期各报 issue（fixable，hint 重跑 init）；播种后零 issue', () => {
+  const root = makeRoot()
+  initWorkloom(root)
+  try {
+    // 缺失两份副本：两条 issue
+    const [err, missingReport] = runDoctor(root)
+    assert.equal(err, null)
+    const missing = checkOf(missingReport, 'case_templates')
+    assert.equal(missing.issues.length, 2)
+    for (const issue of missing.issues) {
+      assert.equal(issue.title, 'Missing CASE template copy')
+      assert.equal(issue.fixable, true)
+      assert.match(issue.hint, /workloom init/)
+    }
+    // 播种后过期一份：一条 issue
+    seedCaseTemplates(root)
+    const casePath = join(root, WORKLOOM_DIR, 'templates', 'case.md')
+    writeFileSync(casePath, '# stale copy\n')
+    const [, staleReport] = runDoctor(root)
+    const stale = checkOf(staleReport, 'case_templates')
+    assert.equal(stale.issues.length, 1)
+    assert.equal(stale.issues[0].title, 'Outdated CASE template copy')
+    assert.equal(stale.issues[0].path, '.workloom/templates/case.md')
+    assert.match(stale.issues[0].hint, /workloom init/)
+    // 重新播种后零 issue（doctor 不写盘，只反映副本状态）
+    seedCaseTemplates(root)
+    const [, cleanReport] = runDoctor(root)
+    assert.equal(checkOf(cleanReport, 'case_templates').issues.length, 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

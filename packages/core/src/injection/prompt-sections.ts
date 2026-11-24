@@ -3,11 +3,12 @@
  *
  * 设计意图：
  * - 承载主组装（prompt-compose 入口的 buildInternal）逐段调用的注入段实现：
- *   CASE 全文与模板、worktree 纪律段、prd 全文节块（Requirements/Acceptance
- *   两节保留、其余节标题指针）、research 材料指针段与通用指针行拼装；
- * - 段落顺序与白名单语义由入口的主组装统一编排，本文件只产段文本与统计增量；
- * - 跨文件共享的 PRD_ARTIFACT 常量与 assertCheckDispatchGuards 守卫查询单源在
- *   prompt-compose 入口（兄弟文件相对导入）；预算与文件工具在 prompt-io。
+ *   CASE/模板副本指针行、worktree 纪律段、research 材料指针段与通用指针行拼装；
+ * - 段落顺序与白名单语义由入口的主组装统一编排，本文件只产段文本、指针行与统计增量；
+ * - 纯指针口径：CASE、模板副本、research 材料只给路径指针行，正文由执行器按
+ *   分层协议在步骤需要时读；prd 软指针由入口对所有角色统一发；
+ * - 跨文件共享的 assertCheckDispatchGuards 守卫查询单源在 prompt-compose 入口
+ *   （兄弟文件相对导入），副本只读比对在 case-templates，插件模板 loader 在 resources 清单。
  */
 
 import { existsSync, readdirSync } from 'node:fs'
@@ -17,16 +18,16 @@ import { WORKLOOM_DIR } from '../workspace/locate.js'
 import { readTaskView } from '../task/state/index.ts'
 import { CASE_FILES, CASE_PURPOSES } from '../task/case-structure.ts'
 import { EXECUTOR_ROLES, normalizeExecutorRole } from '../dispatch/executor-roles.ts'
-import { byteLength, isMissingLike, limitByBytes, readTaskFile } from './prompt-io.ts'
-import { PRD_ARTIFACT, assertCheckDispatchGuards } from './prompt-compose.ts'
+import { isMissingLike } from './prompt-io.ts'
+import { ERR_PREFIX, assertCheckDispatchGuards } from './prompt-compose.ts'
+import {
+  CASE_TEMPLATE_COPY_DIR,
+  CASE_TEMPLATE_COPY_FILES,
+  compareCaseTemplateCopies,
+} from '../workspace/case-templates.ts'
+import { loadCaseResultTemplateText, loadCaseTemplateText } from '../resources-manifest.ts'
 
 import type { BuildExecutorPromptParams, ExecutorPromptStats } from './prompt-compose.ts'
-
-/** 文件块分隔模板：--- <path> ---（path 相对项目根）。 */
-const BLOCK_SEPARATOR = '--- '
-
-/** 文件块分隔结尾。 */
-const BLOCK_SEPARATOR_END = ' ---'
 
 /** worktree 纪律段标题（task.worktree_path 非空时注入，与 Local directives 同层级的独立段）。 */
 const WORKTREE_HEADING = '## Worktree'
@@ -50,63 +51,69 @@ const RESEARCH_DIR = 'research'
 /** research 材料注入段标题（Pointer list 之后、prd 软指针/Task prompt 之前）。 */
 const RESEARCH_MATERIALS_HEADING = '## Research materials'
 
-/** prd 全文保留节（Requirements/Acceptance 两节全文；其余节只留标题指针）。 */
-const PRD_FULL_SECTIONS = Object.freeze(['Requirements', 'Acceptance Criteria'])
-
-/** H2 标题行判定正则（## 起头且非 ###/####）。 */
-const H2_HEADING_RE = /^##\s+\S/
-
-/** H2 标题文字捕获正则（截取 ## 之后的标题文本）。 */
-const H2_TITLE_RE = /^##\s+(.+)$/
-
 /**
- * 内联当前 CASE 全文（内部，仅 checker）：紧跟 prd 块。execution 轮先校验执行
- * 前置（CASE 文档缺失/设计会话缺失抛错，拒绝启动 child）；文件缺失静默跳过
- * （case-design 首轮尚未写 case.md）；超预算直接抛错——CASE 是验收基线，
- * 不允许静默截断。
- * @param {string[]} parts prompt 段落列表
+ * 当前 CASE 指针行（内部，仅 checker）：execution 轮先校验执行前置（CASE 文档
+ * 缺失/设计会话缺失抛错，拒绝启动 child）；case.md 存在才追加路径指针行，正文
+ * 不进注入（执行器按分层协议在步骤需要时读）；case-design 首轮未写 case.md 时
+ * 静默跳过。
+ * @param {string[]} lines 指针行列表（Pointer list 段的内容）
  * @param {import('./prompt-compose.ts').BuildExecutorPromptParams} params 注入参数
  * @param {string} taskDir 任务目录绝对路径
- * @param {import('../workspace/config.d.ts').WorkloomConfig['contextInjection']} ci 注入预算
  * @param {import('./prompt-compose.ts').ExecutorPromptStats} stats 注入统计
  */
-export function inlineCurrentCase(parts: string[], params: BuildExecutorPromptParams, taskDir: string, ci: import('../workspace/config.d.ts').WorkloomConfig['contextInjection'], stats: ExecutorPromptStats): void {
+export function inlineCurrentCase(lines: string[], params: BuildExecutorPromptParams, taskDir: string, stats: ExecutorPromptStats): void {
   // 判定点经兼容读归一（过渡期 params.role 可能仍是旧值；脏值抛可判定错误）。
   if (normalizeExecutorRole(params.role) !== EXECUTOR_ROLES.CHECKER) return
   const [taskErr, task] = readTaskView(params.root, params.taskRelPath)
-  // 任务记录缺失/损坏静默降级（与 worktree 段同口径：prompt 组装对坏记录宽容，
-  // S2 零 diff 用例钉死该不变量）；记录可读时 execution 轮才做执行前置校验（fail loud）。
+  // 任务记录缺失/损坏静默降级（与 worktree 段同口径：prompt 组装对坏记录宽容）；
+  // 记录可读时 execution 轮才做执行前置校验（fail loud）。
   if (taskErr !== null || task === null) return
   const purpose = params.purpose ?? CASE_PURPOSES.EXECUTION
   if (purpose === CASE_PURPOSES.EXECUTION) {
     assertCheckDispatchGuards(params.root, params.taskRelPath, task)
   }
-  const path = join(taskDir, CASE_FILES.document)
-  const text = readTaskFile(path)
-  if (text === null) return
-  const bytes = byteLength(text)
-  if (ci.maxArtifactBytes > 0 && bytes > ci.maxArtifactBytes) {
-    throw new Error(`case.md is ${bytes} bytes, exceeding maxArtifactBytes=${ci.maxArtifactBytes}; reduce the CASE or raise the project budget`)
-  }
-  const relPath = join(WORKLOOM_DIR, params.taskRelPath, CASE_FILES.document)
-  parts.push(`${BLOCK_SEPARATOR}${relPath}${BLOCK_SEPARATOR_END}\n${text}`)
-  stats.filesInlined += 1
+  if (!existsSync(join(taskDir, CASE_FILES.document))) return
+  lines.push(pointerLine(join(WORKLOOM_DIR, params.taskRelPath, CASE_FILES.document)))
+  stats.filesPointed += 1
 }
 
 /**
- * 内联 CASE 模板（内部，仅 checker）：adapter 从 assets 读取两份模板正文传入
- * （core 不 import assets），按传入顺序紧随 CASE 块、Pointer list 之前。
- * @param {string[]} parts prompt 段落列表
+ * CASE 模板副本指针行（内部，仅 checker）：副本经 init 落盘且派发前守卫已校验
+ * 与插件模板一致；这里只给两行路径指针（按 new/result 顺序），全文不进注入。
+ * @param {string[]} lines 指针行列表（Pointer list 段的内容）
  * @param {import('./prompt-compose.ts').BuildExecutorPromptParams} params 注入参数
  * @param {import('./prompt-compose.ts').ExecutorPromptStats} stats 注入统计
  */
-export function inlineCaseTemplates(parts: string[], params: BuildExecutorPromptParams, stats: ExecutorPromptStats): void {
+export function inlineCaseTemplates(lines: string[], params: BuildExecutorPromptParams, stats: ExecutorPromptStats): void {
   // 判定点经兼容读归一（与 inlineCurrentCase 同口径）。
   if (normalizeExecutorRole(params.role) !== EXECUTOR_ROLES.CHECKER) return
-  for (const artifact of params.caseTemplates ?? []) {
-    parts.push(`${BLOCK_SEPARATOR}${artifact.path}${BLOCK_SEPARATOR_END}\n${artifact.content}`)
-    stats.filesInlined += 1
+  for (const name of CASE_TEMPLATE_COPY_FILES) {
+    lines.push(pointerLine(`${CASE_TEMPLATE_COPY_DIR}/${name}`))
+    stats.filesPointed += 1
   }
+}
+
+/**
+ * checker 派发前的 CASE 模板副本只读守卫：副本缺失或与插件模板不一致即抛错拒绝
+ * 派发，并指引重跑 init 刷新副本（不自动补落——写入是 init 的职责）。插件模板
+ * 资产缺失属部署残缺，同样 fail loud。
+ * @param {string} root 项目根
+ */
+export function assertCaseTemplatesReady(root: string): void {
+  const caseTemplate = loadCaseTemplateText()
+  const caseResultTemplate = loadCaseResultTemplateText()
+  if (caseTemplate === null || caseResultTemplate === null) {
+    throw new Error(`${ERR_PREFIX}: missing CASE template asset (incomplete deployment)`)
+  }
+  const status = compareCaseTemplateCopies(root, caseTemplate, caseResultTemplate)
+  // 无 .workloom 时由 doctor/config 检查报错，本守卫不额外阻塞。
+  if (status === null) return
+  const stale = [...status.missing, ...status.outdated]
+  if (stale.length === 0) return
+  const relPaths = stale.map((name) => `${CASE_TEMPLATE_COPY_DIR}/${name}`).join(', ')
+  throw new Error(
+    `${ERR_PREFIX}: CASE template copies missing or outdated: ${relPaths}; rerun workloom init to refresh them`,
+  )
 }
 
 /**
@@ -131,87 +138,6 @@ export function buildWorktreeSection(root: string, taskRelPath: string): string 
   }
   lines.push(...WORKTREE_DISCIPLINE_LINES)
   return lines.join('\n')
-}
-
-/**
- * 内联 prd.md 全文节块（checker/researcher/judger 共用；验收基线/偏差判定/审查对象，职责必需）：
- * 按节提取注入，文件缺失跳过；块文本写入 parts；返回实际写入的字节数（缺失为 0）。
- * Requirements/Acceptance 两节全文保留，其余节只留标题指针；按 maxArtifactBytes
- * 截断（预算兜底）。
- * @param {string[]} parts prompt 段落列表（块文本追加于此）
- * @param {string} taskRelPath 任务目录相对 .workloom 的路径
- * @param {string} taskDir 任务目录绝对路径
- * @param {import('../workspace/config.d.ts').WorkloomConfig['contextInjection']} ci 注入预算
- * @param {import('./prompt-compose.ts').ExecutorPromptStats} stats 统计
- * @returns {number} 注入字节数（写入调用方累计预算）
- */
-export function inlinePrdArtifact(
-  parts: string[],
-  taskRelPath: string,
-  taskDir: string,
-  ci: import('../workspace/config.d.ts').WorkloomConfig['contextInjection'],
-  stats: ExecutorPromptStats,
-): number {
-  const text = readTaskFile(join(taskDir, PRD_ARTIFACT))
-  if (text === null) return 0
-  const relPath = join(WORKLOOM_DIR, taskRelPath, PRD_ARTIFACT)
-  const content = extractPrdContent(text)
-  const limited = limitByBytes(content, ci.maxArtifactBytes)
-  parts.push(`${BLOCK_SEPARATOR}${relPath}${BLOCK_SEPARATOR_END}\n${limited.text}`)
-  if (limited.truncated) stats.truncated += 1
-  stats.filesInlined += 1
-  return byteLength(limited.text)
-}
-
-/**
- * prd 提取：Requirements/Acceptance 两节全文保留，其余 H2 节只留标题指针。
- * 无 Requirements/Acceptance 节时整体只给文件指针（不猜节、无启发式）。
- * @param {string} text prd 全文
- * @returns {string} 注入正文
- */
-export function extractPrdContent(text: string): string {
-  const kept = []
-  const others = []
-  for (const section of splitH2Sections(text)) {
-    if (PRD_FULL_SECTIONS.includes(section.heading)) {
-      kept.push(`## ${section.heading}\n${section.body.trim()}`)
-    } else {
-      others.push(`## ${section.heading}`)
-    }
-  }
-  const parts = []
-  if (kept.length > 0) parts.push(kept.join('\n\n'))
-  if (others.length > 0) parts.push(`Read in file: ${others.join(', ')}`)
-  if (parts.length === 0) {
-    parts.push(
-      'Read the full document in the file (no Requirements or Acceptance Criteria sections).',
-    )
-  }
-  return parts.join('\n\n')
-}
-
-/**
- * 按 H2 节切分 markdown 文本：返回 [{heading, body}]，body 不含标题行；
- * H2 之前（H1 标题等）的内容不属于任何节，跳过。
- * @param {string} text markdown 全文
- * @returns {{heading: string, body: string}[]}
- */
-export function splitH2Sections(text: string): { heading: string; body: string }[] {
-  const sections: { heading: string; bodyLines: string[] }[] = []
-  let current: { heading: string; bodyLines: string[] } | null = null
-  for (const line of text.split('\n')) {
-    if (H2_HEADING_RE.test(line)) {
-      const title = H2_TITLE_RE.exec(line)?.[1]?.trim() ?? ''
-      current = { heading: title, bodyLines: [] }
-      sections.push(current)
-      continue
-    }
-    if (current !== null) current.bodyLines.push(line)
-  }
-  return sections.map((section) => ({
-    heading: section.heading,
-    body: section.bodyLines.join('\n'),
-  }))
 }
 
 /**

@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -154,6 +154,27 @@ test('init 成功：followup 注入成功转述（含 init 结果原文），返
     const text = followupText(followups[0])
     assert.ok(text.includes(COMMAND_NAMES.init), 'relay text must name the command')
     assert.ok(text.includes('Workloom initialized'), 'relay text must keep the init result')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('init 成功：CASE 模板副本随 init 落盘，重跑 init 刷新过期副本', async () => {
+  const { ctx, handlers } = makeCtx()
+  registerCommands(ctx)
+  const root = makeRoot()
+  try {
+    await handlers.get(COMMAND_NAMES.init)(makeInvocation(root).invocation)
+    const casePath = join(root, '.workloom', 'templates', 'case.md')
+    const resultPath = join(root, '.workloom', 'templates', 'case-result.md')
+    assert.ok(existsSync(casePath), 'init seeds the case.md template copy')
+    assert.ok(existsSync(resultPath), 'init seeds the case-result.md template copy')
+    const caseText = readFileSync(casePath, 'utf8')
+    assert.ok(caseText.startsWith('---\nversion: 1\ntask:'))
+    // 内容比对刷新：写脏副本后重跑 init，恢复为插件模板正文（与 spec 模板的「不覆盖」不同）。
+    writeFileSync(casePath, '# stale local copy\n')
+    await handlers.get(COMMAND_NAMES.init)(makeInvocation(root).invocation)
+    assert.equal(readFileSync(casePath, 'utf8'), caseText)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

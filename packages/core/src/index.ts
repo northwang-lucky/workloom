@@ -316,6 +316,18 @@ export { runDoctor, buildDoctorRelayText } from './workspace/doctor.ts'
 export { ensureSpecTemplates } from './workspace/spec-templates.ts'
 
 export {
+  CASE_TEMPLATE_COPY_DIR,
+  CASE_TEMPLATE_COPY_FILES,
+  compareCaseTemplateCopies,
+  ensureCaseTemplates,
+} from './workspace/case-templates.ts'
+export type {
+  CaseTemplatesParams,
+  CaseTemplatesResult,
+  CaseTemplateCopyStatus,
+} from './workspace/case-templates.ts'
+
+export {
   COMMAND_NAMES,
   COMMAND_DESCRIPTIONS,
   TOOL_NAMES,

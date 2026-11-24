@@ -1,7 +1,7 @@
 /**
- * doctor 检查引擎（状态机重建后的五类，TypeScript）：收集 lifecycle-consistency、
- * confirm-completeness、case-consistency、worktree、config 五类只读检查；
- * 空槽提示行已随五类就位退役。
+ * doctor 检查引擎（状态机重建后的六类，TypeScript）：收集 lifecycle-consistency、
+ * confirm-completeness、case-consistency、worktree、config、case_templates 六类
+ * 只读检查；空槽提示行已随五类就位退役。
  *
  * 设计意图：
  * - 全部检查只读，不写任何 `.workloom/` 文件；
@@ -13,5 +13,5 @@
 import type { DoctorCheck, DoctorReport } from './doctor-types.ts';
 /** 收集全部检查：无 .workloom 时只出 config issue，其余检查为空。 */
 export declare function collectChecks(root: string): DoctorCheck[];
-/** 组装报告：summary 取自当前 checks（空槽提示行已随五类检查集就位退役）。 */
+/** 组装报告：summary 取自当前 checks（空槽提示行已随五类检查集就位退役，第六类追加）。 */
 export declare function buildReport(checks: DoctorCheck[]): DoctorReport;

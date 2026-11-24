@@ -1,24 +1,5 @@
-import { buildExecutorPrompt, ERR_PREFIX, EXECUTOR_ROLES, loadCaseResultTemplateText, loadCaseTemplateText, readTaskView, ROLE_LABELS, TEMPLATE_CASE_ENTRY, TEMPLATE_CASE_RESULT_ENTRY, } from '@workloom-ai/core';
+import { buildExecutorPrompt, ERR_PREFIX, readTaskView, ROLE_LABELS, } from '@workloom-ai/core';
 import { buildExecutorContractSection } from "./discipline-text.js";
-/** resources 条目在仓内的展示路径前缀（注入头与缺失报错用）。 */
-const RESOURCES_REPO_PREFIX = 'packages/core/resources/';
-/** CASE 模板资产（loader 由 core resources 清单提供；路径为仓内事实路径）。 */
-const CASE_TEMPLATE_FILES = Object.freeze([
-    { path: `${RESOURCES_REPO_PREFIX}${TEMPLATE_CASE_ENTRY}`, load: loadCaseTemplateText },
-    { path: `${RESOURCES_REPO_PREFIX}${TEMPLATE_CASE_RESULT_ENTRY}`, load: loadCaseResultTemplateText },
-]);
-/**
- * 读取两份 CASE 模板正文（内部）：缺失即抛错（模板缺资产属部署残缺，不静默降级）。
- * @returns {Array<{path: string, content: string}>} 按注入顺序的模板内容
- */
-function caseTemplates() {
-    return CASE_TEMPLATE_FILES.map(({ path, load }) => {
-        const content = load();
-        if (content === null)
-            throw new Error(`${ERR_PREFIX.executor}: missing CASE template ${path}`);
-        return { path, content };
-    });
-}
 /**
  * 组装全量注入 prompt（新派发/reinject 续接共用）：本机片段已由调用方探测，此处
  * 调用 core buildExecutorPrompt；组装失败 fail loud。hasLsp 由调用方按可见工具集
@@ -42,7 +23,6 @@ export function buildFullInjection(root, taskRelPath, role, userPrompt, localDir
         localDirectives,
         hasLsp,
         purpose,
-        caseTemplates: role === EXECUTOR_ROLES.CHECKER ? caseTemplates() : [],
     });
     if (promptErr !== null || built === null) {
         throw promptErr ?? new Error(`${ERR_PREFIX.executor}: prompt assembly returned no result`);

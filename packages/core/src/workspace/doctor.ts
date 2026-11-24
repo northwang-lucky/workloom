@@ -5,7 +5,7 @@
  * - 本文件只做编排：runDoctor 收口异常 → doctorInternal 出「检查报告」；
  *   具体只读检查见 doctor-checks.ts，类型与元信息见 doctor-types.ts；
  * - --fix 修复能力已随 doctor-fixes 退役：本命令只出报告；检查集已由状态机
- *   重建为五类（生命周期一致性/确认完整性/CASE 一致性/worktree/config）；
+ *   重建为六类（生命周期一致性/确认完整性/CASE 一致性/worktree/config/CASE 模板副本）；
  * - 复用 task-storage/state-machine/config API；仅在必要时补充极薄只读辅助；
  * - 运行时 issue/message 文案英文；注释中文。
  */

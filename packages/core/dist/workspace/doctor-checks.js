@@ -1,7 +1,7 @@
 /**
- * doctor 检查引擎（状态机重建后的五类，TypeScript）：收集 lifecycle-consistency、
- * confirm-completeness、case-consistency、worktree、config 五类只读检查；
- * 空槽提示行已随五类就位退役。
+ * doctor 检查引擎（状态机重建后的六类，TypeScript）：收集 lifecycle-consistency、
+ * confirm-completeness、case-consistency、worktree、config、case_templates 六类
+ * 只读检查；空槽提示行已随五类就位退役。
  *
  * 设计意图：
  * - 全部检查只读，不写任何 `.workloom/` 文件；
@@ -12,7 +12,7 @@
  */
 import { findWorkloomRoot } from './locate.js';
 import { CHECK_META } from "./doctor-types.js";
-import { checkCaseConsistency, checkConfig, checkConfirmCompleteness, checkLifecycleConsistency, checkWorktree, loadTaskNodes, } from "./doctor-check-rules.js";
+import { checkCaseConsistency, checkCaseTemplates, checkConfig, checkConfirmCompleteness, checkLifecycleConsistency, checkWorktree, loadTaskNodes, } from "./doctor-check-rules.js";
 import { allIssues, makeIssue, pushIssues } from "./doctor-tasks.js";
 /** 收集全部检查：无 .workloom 时只出 config issue，其余检查为空。 */
 export function collectChecks(root) {
@@ -50,13 +50,14 @@ export function collectChecks(root) {
     pushIssues(issueMap, 'case-consistency', checkCaseConsistency(projectRoot, nodes));
     pushIssues(issueMap, 'worktree', checkWorktree(projectRoot));
     pushIssues(issueMap, 'config', checkConfig(projectRoot));
+    pushIssues(issueMap, 'case_templates', checkCaseTemplates(projectRoot));
     return CHECK_META.map((meta) => ({
         ...meta,
         issues: issueMap.get(meta.code) ?? [],
         info: infoMap.get(meta.code) ?? [],
     }));
 }
-/** 组装报告：summary 取自当前 checks（空槽提示行已随五类检查集就位退役）。 */
+/** 组装报告：summary 取自当前 checks（空槽提示行已随五类检查集就位退役，第六类追加）。 */
 export function buildReport(checks) {
     const issues = allIssues(checks);
     return {

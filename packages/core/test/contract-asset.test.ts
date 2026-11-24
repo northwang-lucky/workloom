@@ -891,6 +891,45 @@ test('契约 CASE 无用户确认：2.2/2.3/norms 一致改为主会话复核后
   assert.ok(!contract.norms.includes('CASE confirmation gates execution'), 'norms 不得保留旧确认门禁句')
 })
 
+test('契约指针化：norms Dispatch 与 2.2/2.3 改给 CASE/模板副本指针，缺副本指引 init，版本不变', () => {
+  const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
+  assert.equal(err, null)
+  const designBody = contract.steps.find((step) => step.id === '2.2').body
+  const checkBody = contract.steps.find((step) => step.id === '2.3').body
+  assert.ok(
+    contract.norms.includes('carry pointers to the current CASE and both CASE template copies under `.workloom/templates/` instead of full text'),
+    'norms 缺指针携带句',
+  )
+  assert.ok(contract.norms.includes('rerun `workloom init` to refresh the copies'), 'norms 缺副本过期指引 init')
+  assert.ok(!contract.norms.includes('carry the current CASE and both CASE template assets in full'), 'norms 不得保留全文携带旧句')
+  assert.ok(
+    designBody.includes('two CASE template copies through their `.workloom/templates/` pointer lines'),
+    '2.2 缺模板副本指针必读句',
+  )
+  assert.ok(
+    checkBody.includes('reads `case.md` through its task-directory pointer line'),
+    '2.3 缺执行轮 case.md 指针必读句',
+  )
+  assert.ok(
+    checkBody.includes('two template copies through their `.workloom/templates/` pointer lines'),
+    '2.3 缺执行轮模板副本指针必读句',
+  )
+  // 仅 guidance 改动：版本与步骤集合不变（asset-version-bump 纪律）。
+  assert.equal(contract.version, WORKFLOW_PROTOCOL_VERSION)
+  assert.deepEqual(contract.steps.map((step) => step.id), [
+    '1.0',
+    '1.1',
+    '1.2',
+    '1.3',
+    '1.4',
+    '2.1',
+    '2.2',
+    '2.3',
+    '2.4',
+    '3.1',
+  ])
+})
+
 test('契约 norms 对齐条目含用户主动变更免二次确认与系统变化集中提问', () => {
   const [err, contract] = parseContract(readFileSync(assetPath, 'utf8'))
   assert.equal(err, null)

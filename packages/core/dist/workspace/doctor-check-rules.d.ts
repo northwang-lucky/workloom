@@ -1,6 +1,7 @@
 /**
- * doctor 检查规则（状态机重建后的五类，TypeScript）：
- * lifecycle-consistency / confirm-completeness / case-consistency / worktree / config。
+ * doctor 检查规则（状态机重建后的六类，TypeScript）：
+ * lifecycle-consistency / confirm-completeness / case-consistency / worktree / config /
+ * case_templates。
  *
  * 设计意图：
  * - 全部检查只读，不写任何 `.workloom/` 文件；
@@ -15,7 +16,8 @@
  * - CASE 一致性对照 case.phase 轨道与 dispatches/case-result.md 实况：
  *   light 无 CASE 轨道、designSession 须有 case-design 派发、approved 及之后
  *   须有执行派发、done 须有 RESULT 文档；
- * - worktree 与 config 两类维持原只读检查；
+ * - worktree 与 config 两类维持原只读检查；CASE 模板副本类只读比对项目副本与
+ *   插件模板，缺失/过期给 issue 并指引重跑 init（doctor 自身不写盘）；
  * - 运行时 issue/message 文案英文；注释中文。
  */
 import type { DoctorIssue, DoctorTaskNode } from './doctor-types.ts';
@@ -74,3 +76,11 @@ export declare function checkWorktree(root: string): DoctorIssue[];
  * @returns 检查出的 issue 列表
  */
 export declare function checkConfig(root: string): DoctorIssue[];
+/**
+ * 检查⑥CASE 模板副本：项目副本缺失或与插件模板不一致时各出一条 issue（可经
+ * init 修复，hint 指引重跑）；插件模板资产缺失属部署残缺，报 error；无 .workloom
+ * 跳过（由 config 检查报告）。本检查只读，不写任何文件。
+ * @param root 项目根
+ * @returns 检查出的 issue 列表
+ */
+export declare function checkCaseTemplates(root: string): DoctorIssue[];
