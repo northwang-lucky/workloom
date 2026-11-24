@@ -1,9 +1,0 @@
-[A-recompute] PASS format=cobertura-xml file=src/main/App.java 3/4 overall=3/4 uncovered=[{"start":4,"end":4}] missing=[]
-[B-root-missing] PASS err=cobertura <coverage> element not found
-[C-infer-format] PASS cobertura=cobertura-xml jacoco=jacoco-xml
-[D-content-first] PASS format=cobertura-xml
-[E-hint-fallback] PASS format=cobertura-xml files=0 missing=["src/A.java"]
-[F-multi-no-hint] PASS format=lcov overall=2/3
-[G-render-command] PASS rendered=go test -coverprofile=/p ./... err=workloom config: coverage.command: unknown placeholder <bad>
-[H-meets-threshold] PASS 80/1000@80=false 801/1000@80=true 90/100@default=false 91/100@default=true
-c2-cobertura-hints-probe: ALL PASS

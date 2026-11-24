@@ -1,9 +1,0 @@
-PASS  无副本: checker 拒绝 — Error: workloom executor context: CASE template copies missing or outdated: .workloom/templates/case.md, .workloom/templates/case-result.md; rerun workloom init to refresh them
-PASS  无副本: err 含模板副本路径
-PASS  无副本: err 含 init 指引
-PASS  无副本: developer 不受限 — null
-PASS  篡改副本: checker 拒绝 — Error: workloom executor context: CASE template copies missing or outdated: .workloom/templates/case-result.md; rerun workloom init to refresh them
-PASS  篡改副本: err 含 init 指引
-PASS  刷新后: checker 组装成功 — null
-PASS  刷新后: filesInlined===0 — actual=0
-C2 PROBE: ALL PASS

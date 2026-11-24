@@ -1,6 +1,0 @@
-subagent_profiles[0]: subagents -> roles
-subagent_profiles[0].roles: research -> researcher
-dry-exit=0
-sha256 before: 13cd1654db055013d511788227ee16c28396ab89ed331d814c5ef760f52e0943
-sha256 after:  13cd1654db055013d511788227ee16c28396ab89ed331d814c5ef760f52e0943
-file unchanged: YES

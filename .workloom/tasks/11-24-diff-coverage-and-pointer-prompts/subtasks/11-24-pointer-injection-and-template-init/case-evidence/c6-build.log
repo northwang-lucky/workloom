@@ -1,6 +1,0 @@
-Scope: 2 of 3 workspace projects
-packages/core build$ tsc -p tsconfig.json && node scripts/copy-domain-dts.mjs
-packages/core build: copy-domain-dts: 已分发 7 个手写 d.ts 到 dist 子包目录
-packages/core build: Done
-packages/dsh-workloom build$ tsc -p tsconfig.json
-packages/dsh-workloom build: Done
