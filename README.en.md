@@ -337,7 +337,7 @@ Each directory holds Markdown files. The file name decides which role receives t
 | `checker.md` | The checker role |
 | `all.md` | Every target |
 
-`all.md` applies to the main session and every executor role, and within each layer it is placed before that layer's role-specific file. The old file names `research.md`, `implement.md`, `check.md`, `frontend.md`, and `review.md` still work, mapping to the matching new roles, so existing files need no rename.
+`all.md` applies to the main session and every executor role, and within each layer it is placed before that layer's role-specific file.
 
 ### Notes
 
