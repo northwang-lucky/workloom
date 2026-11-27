@@ -20,12 +20,7 @@ const COVERAGE_FORMAT_LITERALS = Object.freeze([
 ]);
 /** 内置默认配置（与规格一致）。 */
 export const DEFAULT_CONFIG = {
-    sessionAutoCommit: true,
-    contextInjection: {
-        maxFileBytes: 32768,
-        maxArtifactBytes: 65536,
-        maxTotalBytes: 131072,
-    },
+    archiveAutoCommit: true,
     promptInjection: {
         skipKeyword: 'no-workloom',
     },
@@ -113,10 +108,10 @@ const BOOLEAN_WORDS = new Map([
  * 配置解析错误：携带字段路径，便于上层显式报告。
  */
 export class WorkloomConfigError extends Error {
-    /** 出错字段的路径（如 context_injection.max_file_bytes）。 */
+    /** 出错字段的路径（如 prompt_injection.skip_keyword）。 */
     field;
     /**
-     * @param field 出错字段的路径（如 context_injection.max_file_bytes）
+     * @param field 出错字段的路径（如 prompt_injection.skip_keyword）
      * @param reason 具体原因
      */
     constructor(field, reason) {

@@ -5,8 +5,8 @@
  * 设计意图：
  * - 对象层顶层 key 覆盖、deepMerge 废止；函数工厂接收低层合并结果（无则
  *   undefined）、同步返回本层最终文档（不再自动合并）；工厂入参逐层传递；
- * - 全局层仅消费项目无关字段（白名单校验）：subagent_profiles / session_auto_commit /
- *   prompt_injection / context_injection；packages / hooks 报"项目字段"专属错误，
+ * - 全局层仅消费项目无关字段（白名单校验）：subagent_profiles / archive_auto_commit /
+ *   prompt_injection；packages / hooks 报"项目字段"专属错误，
  *   其余白名单外顶层字段报"全局配置不支持"；
  * - 根层级 subagents 已退役（R5）：任一层出现即抛迁移指引错误（fail loud，
  *   替代旧 deprecation WARNING 放行）；
@@ -29,9 +29,8 @@ const LEGACY_YAML_BY_LAYER = Object.freeze({ main: 'config.yaml', local: 'config
 /** 全局层允许消费的项目无关顶层字段。 */
 const GLOBAL_ALLOWED_TOP_FIELDS = new Set([
     'subagent_profiles',
-    'session_auto_commit',
+    'archive_auto_commit',
     'prompt_injection',
-    'context_injection',
     'executor',
 ]);
 /** 全局层禁止出现的项目级字段（报专属错误）。 */
@@ -249,20 +248,8 @@ function mergeWithDefaults(doc) {
     if (doc.subagents !== undefined) {
         throw legacySubagentsError();
     }
-    if (doc.session_auto_commit !== undefined) {
-        config.sessionAutoCommit = requireBoolean('session_auto_commit', doc.session_auto_commit);
-    }
-    if (doc.context_injection !== undefined) {
-        const ci = requireMap('context_injection', doc.context_injection);
-        if (ci.max_file_bytes !== undefined) {
-            config.contextInjection.maxFileBytes = requireNonNegativeInt('context_injection.max_file_bytes', ci.max_file_bytes);
-        }
-        if (ci.max_artifact_bytes !== undefined) {
-            config.contextInjection.maxArtifactBytes = requireNonNegativeInt('context_injection.max_artifact_bytes', ci.max_artifact_bytes);
-        }
-        if (ci.max_total_bytes !== undefined) {
-            config.contextInjection.maxTotalBytes = requireNonNegativeInt('context_injection.max_total_bytes', ci.max_total_bytes);
-        }
+    if (doc.archive_auto_commit !== undefined) {
+        config.archiveAutoCommit = requireBoolean('archive_auto_commit', doc.archive_auto_commit);
     }
     if (doc.prompt_injection !== undefined) {
         const pi = requireMap('prompt_injection', doc.prompt_injection);

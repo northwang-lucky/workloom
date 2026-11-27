@@ -138,13 +138,13 @@ test('force 幂等补建且不覆盖已有 config.json', () => {
   const root = makeRoot()
   try {
     mkdirSync(join(root, '.workloom'))
-    writeFileSync(join(root, '.workloom', 'config.json'), '{"session_auto_commit": false}\n')
+    writeFileSync(join(root, '.workloom', 'config.json'), '{"archive_auto_commit": false}\n')
     const [err, result] = initWorkloom(root, { force: true })
     assert.equal(err, null)
     assert.ok(result)
     assert.equal(
       readFileSync(join(root, '.workloom', 'config.json'), 'utf8'),
-      '{"session_auto_commit": false}\n',
+      '{"archive_auto_commit": false}\n',
     )
     assert.ok(existsSync(join(root, '.workloom', 'tasks')))
     assert.ok(!result.created.includes('.workloom/config.json'))

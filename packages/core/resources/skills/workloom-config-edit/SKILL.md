@@ -1,6 +1,6 @@
 ---
 name: workloom-config-edit
-description: Edit workloom config fields in a user project — config.json, config.js, config.local.json, config.local.js — through a five-step discipline and the on-disk field whitelist. Triggers on config field edits (packages, worktree, hooks, subagent_profiles, context_injection, prompt_injection, executor, session_auto_commit, coverage); package-structure scanning stays with workloom-packages-scan.
+description: Edit workloom config fields in a user project — config.json, config.js, config.local.json, config.local.js — through a five-step discipline and the on-disk field whitelist. Triggers on config field edits (packages, worktree, hooks, subagent_profiles, prompt_injection, executor, archive_auto_commit, coverage); package-structure scanning stays with workloom-packages-scan.
 whenToUse: Use when the user asks to change, add, or remove a field in `.workloom/config.json`, `.workloom/config.js`, `.workloom/config.local.json`, or `.workloom/config.local.js` — e.g. "set the worktree cleanup mode", "raise executor concurrency", "change the prompt skip keyword", "配置 config.local.json".
 ---
 
@@ -18,7 +18,7 @@ Edit workloom configuration in the user's project through a fixed five-step disc
 
 ## Disk field whitelist
 
-The nine snake_case top-level keys accepted on disk. Authoritative source: `packages/core/src/workspace/config-defaults.ts` (`DEFAULT_CONFIG`) and the field parsing in `packages/core/src/workspace/config-load.ts` (`mergeWithDefaults`).
+The eight snake_case top-level keys accepted on disk. Authoritative source: `packages/core/src/workspace/config-defaults.ts` (`DEFAULT_CONFIG`) and the field parsing in `packages/core/src/workspace/config-load.ts` (`mergeWithDefaults`).
 
 | Field | Accepted shape |
 | --- | --- |
@@ -26,10 +26,9 @@ The nine snake_case top-level keys accepted on disk. Authoritative source: `pack
 | `worktree` | `{ enabled?, branch_template?, cleanup? }` |
 | `hooks` | `{ after_create?, after_start?, after_finish?, after_archive? }`, each a string array |
 | `subagent_profiles` | array of `{ whenMain?, roles }` |
-| `context_injection` | `{ max_file_bytes?, max_artifact_bytes?, max_total_bytes? }` |
 | `prompt_injection` | `{ skip_keyword? }` |
 | `executor` | `{ max_concurrent? }` |
-| `session_auto_commit` | boolean |
+| `archive_auto_commit` | boolean |
 | `coverage` | `{ threshold?, languages? }` — see [Coverage configuration](#coverage-configuration) |
 
 `loadConfig` silently ignores unknown top-level keys in the project and local layers. Step 2 is the only enforcement point: a key outside the whitelist is rejected before any write. Known keys are shape-checked by `loadConfig`; doctor surfaces those errors.

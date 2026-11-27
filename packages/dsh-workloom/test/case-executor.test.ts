@@ -28,11 +28,10 @@ process.env.TMPDIR = isolatedHome
 const REL = 'tasks/demo'
 const CASE_TEXT = '# CASE custom marker\n'
 
-function makeRoot(maxArtifactBytes = 0) {
+function makeRoot() {
   const root = mkdtempSync(join(tmpdir(), 'workloom-dsh-case-executor-'))
   const dir = join(root, '.workloom', REL)
   mkdirSync(dir, { recursive: true })
-  writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify({ context_injection: { max_artifact_bytes: maxArtifactBytes } }))
   writeFileSync(join(dir, 'prd.md'), '# Demo\n\n## Requirements\n\n- R1: test\n\n## Acceptance Criteria\n\n- AC1: test\n')
   writeFileSync(join(dir, 'case.md'), CASE_TEXT)
   const caseRecord = createCaseRecord(true)

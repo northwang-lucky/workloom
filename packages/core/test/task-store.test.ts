@@ -360,7 +360,7 @@ test('finishTask 清理指向本任务的会话指针', async () => {
 })
 
 test('archiveTask 移动目录、置 completed 并 git 自动提交', async () => {
-  const root = makeRoot({ config: { session_auto_commit: true } })
+  const root = makeRoot({ config: { archive_auto_commit: true } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])
@@ -396,7 +396,7 @@ test('archiveTask 移动目录、置 completed 并 git 自动提交', async () =
 })
 
 test('archiveTask 关闭自动提交时不产生 git 提交', async () => {
-  const root = makeRoot({ config: { session_auto_commit: false } })
+  const root = makeRoot({ config: { archive_auto_commit: false } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])
@@ -421,7 +421,7 @@ test('archiveTask 关闭自动提交时不产生 git 提交', async () => {
 })
 
 test('archiveTask 在非 git 目录中 git 失败不阻塞归档', async () => {
-  const root = makeRoot({ config: { session_auto_commit: true } })
+  const root = makeRoot({ config: { archive_auto_commit: true } })
   try {
     const [, created] = await createTask(root, { title: 'No Git' })
     const [err, task] = await archiveTask(root, {
@@ -570,7 +570,7 @@ test('startTask 传入 contextKey 时写入会话指针', async () => {
 })
 
 test('archiveTask 显式 autoCommit: false 覆盖 config 默认开启', async () => {
-  const root = makeRoot({ config: { session_auto_commit: true } })
+  const root = makeRoot({ config: { archive_auto_commit: true } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])
@@ -596,7 +596,7 @@ test('archiveTask 显式 autoCommit: false 覆盖 config 默认开启', async ()
 })
 
 test('archiveTask auto-commit 只暂存本任务路径：另一个在途任务的脏文件零接触', async () => {
-  const root = makeRoot({ config: { session_auto_commit: true } })
+  const root = makeRoot({ config: { archive_auto_commit: true } })
   runGit(root, ['init'])
   runGit(root, ['config', 'user.email', 'test@example.com'])
   runGit(root, ['config', 'user.name', 'test'])

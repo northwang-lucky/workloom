@@ -109,7 +109,7 @@ const EXECUTOR_NORMS = [
 const GUIDELINES_INDENT = '  '
 
 /** guidelines 截断提示（行为规格 §4.2）。 */
-const TRUNCATED_NOTICE = 'more index files; raise context_injection or trim spec/'
+const TRUNCATED_NOTICE = 'more index files; trim spec/'
 
 /** assembleSessionContext 入参。 */
 export interface SessionContextParams {

@@ -5,8 +5,8 @@
  * 设计意图：
  * - 对象层顶层 key 覆盖、deepMerge 废止；函数工厂接收低层合并结果（无则
  *   undefined）、同步返回本层最终文档（不再自动合并）；工厂入参逐层传递；
- * - 全局层仅消费项目无关字段（白名单校验）：subagent_profiles / session_auto_commit /
- *   prompt_injection / context_injection；packages / hooks 报"项目字段"专属错误，
+ * - 全局层仅消费项目无关字段（白名单校验）：subagent_profiles / archive_auto_commit /
+ *   prompt_injection；packages / hooks 报"项目字段"专属错误，
  *   其余白名单外顶层字段报"全局配置不支持"；
  * - 根层级 subagents 已退役（R5）：任一层出现即抛迁移指引错误（fail loud，
  *   替代旧 deprecation WARNING 放行）；

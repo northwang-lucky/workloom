@@ -55,7 +55,7 @@ function makeRoot() {
 function makeWorkloomRoot() {
   const root = makeRoot()
   mkdirSync(join(root, '.workloom', 'tasks'), { recursive: true })
-  writeFileSync(join(root, '.workloom', 'config.json'), '{"session_auto_commit": false}')
+  writeFileSync(join(root, '.workloom', 'config.json'), '{"archive_auto_commit": false}')
   return root
 }
 

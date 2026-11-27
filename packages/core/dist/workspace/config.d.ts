@@ -1,11 +1,6 @@
 /** workloom 配置对象：loadConfig 的返回类型（快照字段，供 JSDoc 引用）。 */
 export interface WorkloomConfig {
-  sessionAutoCommit: boolean
-  contextInjection: {
-    maxFileBytes: number
-    maxArtifactBytes: number
-    maxTotalBytes: number
-  }
+  archiveAutoCommit: boolean
   promptInjection: {
     skipKeyword: string
   }

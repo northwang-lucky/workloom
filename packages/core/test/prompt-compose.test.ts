@@ -159,11 +159,6 @@ function writeRootFile(root, rel, content) {
   writeFileSync(abs, content)
 }
 
-/** 写 .workloom/config.json（对象 → JSON）。 */
-function writeConfig(root, doc) {
-  writeFileSync(join(root, '.workloom', 'config.json'), JSON.stringify(doc))
-}
-
 /** 组装入参（role 之外字段固定）。 */
 function baseParams(root, role) {
   return {
@@ -289,10 +284,9 @@ test('纯指针化：prd 不再物化节块，plan.md 仅纯指针行（无 H2 �
   }
 })
 
-test('jsonl 纯指针：指针行不受文件/总量预算影响（无截断、无索引降级）', () => {
+test('jsonl 纯指针：指针行不随文件内容膨胀（无截断、无索引降级）', () => {
   const root = makeProject()
   try {
-    writeConfig(root, { context_injection: { max_file_bytes: 16, max_total_bytes: 1 } })
     writeTaskFile(root, 'prd.md', '# PRD\n')
     writeTaskFile(root, 'plan.md', '# P\n')
     writeTaskFile(
@@ -924,13 +918,12 @@ test('CASE 指针顺序：Pointer list 内 plan → case.md → 模板副本 →
   }
 })
 
-test('CASE 超预算 pin 退役：大 CASE 只出指针，不再因 maxArtifactBytes 抛错或截断', () => {
+test('CASE 大内容只出指针：全文不进注入', () => {
   const root = makeProject()
   try {
     writeFullFixture(root)
     writeTaskFile(root, 'case.md', 'X'.repeat(64))
     writeCaseTask(root, 'X'.repeat(64))
-    writeConfig(root, { context_injection: { max_artifact_bytes: 8 } })
     const [err, result] = buildExecutorPrompt({
       ...baseParams(root, 'checker'),
       purpose: 'case-design',

@@ -79,7 +79,7 @@ const EXECUTOR_NORMS = [
 /** guidelines 条目缩进。 */
 const GUIDELINES_INDENT = '  ';
 /** guidelines 截断提示（行为规格 §4.2）。 */
-const TRUNCATED_NOTICE = 'more index files; raise context_injection or trim spec/';
+const TRUNCATED_NOTICE = 'more index files; trim spec/';
 /**
  * 组装当前会话的上下文快照文本（同步）。
  * @param params 入参

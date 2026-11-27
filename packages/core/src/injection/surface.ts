@@ -130,7 +130,7 @@ export const PARAM_DESCRIPTIONS = {
   /** 自治度参数（create 与 workloom_task_autonomy 共用；三值互切，只影响未发生的确认）。 */
   autonomy:
     'Task autonomy level: "manual" (default; every content confirmation is human), "semi" (the PRD confirmation stays human, the PLAN confirmation is auto-recorded once the plan review track is clean), or "auto" (both confirmations are auto-recorded with an audit trail); switching only affects confirmations that have not happened yet',
-  autoCommit: 'Override the config session_auto_commit for this archive',
+  autoCommit: 'Override the config archive_auto_commit for this archive',
   status: 'Filter: planning/in_progress/completed',
   /** check 工具的 summary 参数（2.2 通过摘要）。 */
   summary: 'Summary of the passed check (what was verified)',

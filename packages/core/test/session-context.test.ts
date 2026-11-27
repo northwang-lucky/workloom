@@ -264,7 +264,7 @@ test('spec 索引超预算时渲染截断提示行', () => {
     assert.equal(err, null)
     assert.match(
       text,
-      /\n {2}\(… 5 more index files; raise context_injection or trim spec\/\)\n<\/workloom-session-context>/,
+      /\n {2}\(… 5 more index files; trim spec\/\)\n<\/workloom-session-context>/,
     )
   } finally {
     rmSync(root, { recursive: true, force: true })

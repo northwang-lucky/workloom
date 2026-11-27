@@ -95,7 +95,7 @@ export declare const PARAM_DESCRIPTIONS: {
     readonly mode: "Optional task mode: \"light\" for a lightweight task that the main session implements, self-checks, and commits itself (no executor dispatch, relaxed start/check gates); \"standard\" (default) for the full workflow with executor dispatch and the CASE track; \"parent\" for a container task that orchestrates child tasks";
     /** 自治度参数（create 与 workloom_task_autonomy 共用；三值互切，只影响未发生的确认）。 */
     readonly autonomy: "Task autonomy level: \"manual\" (default; every content confirmation is human), \"semi\" (the PRD confirmation stays human, the PLAN confirmation is auto-recorded once the plan review track is clean), or \"auto\" (both confirmations are auto-recorded with an audit trail); switching only affects confirmations that have not happened yet";
-    readonly autoCommit: "Override the config session_auto_commit for this archive";
+    readonly autoCommit: "Override the config archive_auto_commit for this archive";
     readonly status: "Filter: planning/in_progress/completed";
     /** check 工具的 summary 参数（2.2 通过摘要）。 */
     readonly summary: "Summary of the passed check (what was verified)";

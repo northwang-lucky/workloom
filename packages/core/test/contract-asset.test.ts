@@ -1165,15 +1165,14 @@ test('config-edit 资产 pin：SKILL.md、workflow Principles 指引句、spec �
     'worktree',
     'hooks',
     'subagent_profiles',
-    'context_injection',
     'prompt_injection',
     'executor',
-    'session_auto_commit',
+    'archive_auto_commit',
     'coverage',
   ]) {
     assert.ok(skill.includes('| `' + field + '` |'), `config-edit 字段清单缺 ${field}`)
   }
-  assert.ok(skill.includes('The nine snake_case top-level keys'), 'config-edit 字段数未同步为 9')
+  assert.ok(skill.includes('The eight snake_case top-level keys'), 'config-edit 字段数未同步为 8')
   assert.ok(skill.includes('"coverage": {'), 'config-edit 缺 coverage 示例')
   assert.equal((skill.match(/\*Completion:\*/g) ?? []).length, 5, 'config-edit 五步完成判据数不符')
   assert.ok(skill.includes('workloom-doctor'), 'config-edit 校验入口未钉 workloom-doctor')

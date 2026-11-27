@@ -31,7 +31,7 @@ export const FIXTURE_DATE_PREFIX = '09-15'
  */
 export function legacyConfigDoc() {
   return {
-    session_auto_commit: false,
+    archive_auto_commit: false,
     subagent_profiles: [
       {
         whenMain: 'anthropic/claude-opus-4',

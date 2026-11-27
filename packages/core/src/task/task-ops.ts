@@ -946,7 +946,7 @@ async function autoCommitIfEnabled(
   slug: string,
   paths: string[],
 ): Promise<string[]> {
-  const enabled = autoCommit ?? loadConfig(root).sessionAutoCommit
+  const enabled = autoCommit ?? loadConfig(root).archiveAutoCommit
   if (!enabled) return []
   const [gitErr] = await gitAddCommit(root, `${ARCHIVE_COMMIT_PREFIX} ${slug}`, paths)
   if (gitErr) return [`git auto-commit failed (archival proceeds anyway): ${gitErr.message}`]

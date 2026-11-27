@@ -709,7 +709,7 @@ async function archiveTaskInternal(root, params) {
  * @returns WARNING 消息列表
  */
 async function autoCommitIfEnabled(root, autoCommit, slug, paths) {
-    const enabled = autoCommit ?? loadConfig(root).sessionAutoCommit;
+    const enabled = autoCommit ?? loadConfig(root).archiveAutoCommit;
     if (!enabled)
         return [];
     const [gitErr] = await gitAddCommit(root, `${ARCHIVE_COMMIT_PREFIX} ${slug}`, paths);

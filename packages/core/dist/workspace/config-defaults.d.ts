@@ -42,10 +42,10 @@ export declare function renderCoverageCommand(command: string, values: {
  * 配置解析错误：携带字段路径，便于上层显式报告。
  */
 export declare class WorkloomConfigError extends Error {
-    /** 出错字段的路径（如 context_injection.max_file_bytes）。 */
+    /** 出错字段的路径（如 prompt_injection.skip_keyword）。 */
     field: string;
     /**
-     * @param field 出错字段的路径（如 context_injection.max_file_bytes）
+     * @param field 出错字段的路径（如 prompt_injection.skip_keyword）
      * @param reason 具体原因
      */
     constructor(field: string, reason: string);

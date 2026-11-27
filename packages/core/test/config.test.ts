@@ -72,12 +72,12 @@ test('config.json 对象层加载：字段覆盖与布尔解析', () => {
   const root = makeRoot()
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
-    session_auto_commit: false,
+    archive_auto_commit: false,
     prompt_injection: { skip_keyword: '' },
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.sessionAutoCommit, false)
+    assert.equal(config.archiveAutoCommit, false)
     assert.equal(config.promptInjection.skipKeyword, '')
   } finally {
     cleanup(root, home)
@@ -87,10 +87,10 @@ test('config.json 对象层加载：字段覆盖与布尔解析', () => {
 test('config.js CommonJS 导出加载（module.exports）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.js', 'module.exports = { session_auto_commit: false }\n')
+  writeProjectFile(root, 'config.js', 'module.exports = { archive_auto_commit: false }\n')
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.sessionAutoCommit, false)
+    assert.equal(config.archiveAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -99,10 +99,10 @@ test('config.js CommonJS 导出加载（module.exports）', () => {
 test('config.js ESM 导出归一（export default 取 .default）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.js', 'export default { session_auto_commit: false }\n')
+  writeProjectFile(root, 'config.js', 'export default { archive_auto_commit: false }\n')
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.sessionAutoCommit, false)
+    assert.equal(config.archiveAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -113,7 +113,7 @@ test('config.js 导出函数：工厂入参为低层合并结果，返回值即�
   const home = makeHome()
   writeProjectFile(root, 'config.json', {
     prompt_injection: { skip_keyword: 'base' },
-    session_auto_commit: false,
+    archive_auto_commit: false,
   })
   writeProjectFile(
     root,
@@ -123,8 +123,8 @@ test('config.js 导出函数：工厂入参为低层合并结果，返回值即�
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.deepEqual(config.promptInjection, { skipKeyword: 'factory' })
-    // 工厂返回值即本层最终形态：session_auto_commit 保留（来自 ...base 展开）
-    assert.equal(config.sessionAutoCommit, false)
+    // 工厂返回值即本层最终形态：archive_auto_commit 保留（来自 ...base 展开）
+    assert.equal(config.archiveAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -161,11 +161,11 @@ test('三层优先级链：全局 → 项目 → local 逐层覆盖', () => {
     prompt_injection: { skip_keyword: 'project' },
     packages: { cli: { path: 'packages/cli' } },
   })
-  writeProjectFile(root, 'config.local.json', { session_auto_commit: false })
+  writeProjectFile(root, 'config.local.json', { archive_auto_commit: false })
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.promptInjection.skipKeyword, 'project') // 项目覆盖全局
-    assert.equal(config.sessionAutoCommit, false) // local 覆盖项目
+    assert.equal(config.archiveAutoCommit, false) // local 覆盖项目
     assert.deepEqual(config.packages, { cli: { path: 'packages/cli', setup: [] } }) // 项目字段保留
   } finally {
     cleanup(root, home)
@@ -175,10 +175,10 @@ test('三层优先级链：全局 → 项目 → local 逐层覆盖', () => {
 test('全局层缺失 = 零行为（项目配置不受影响）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.json', { session_auto_commit: false })
+  writeProjectFile(root, 'config.json', { archive_auto_commit: false })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.sessionAutoCommit, false)
+    assert.equal(config.archiveAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
@@ -258,7 +258,7 @@ test('遗留 config.local.yaml 探测报错（错误文案指明迁移目标文�
 test('JSON 解析失败报错（带字段路径）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.json', '{"session_auto_commit": ')
+  writeProjectFile(root, 'config.json', '{"archive_auto_commit": ')
   try {
     assert.throws(
       () => loadConfig(root, { homeDir: home }),
@@ -335,15 +335,13 @@ test('全局白名单：项目无关字段放行', () => {
   const home = makeHome()
   writeHomeFile(home, 'config.json', {
     subagent_profiles: [{ roles: { developer: { model: 'm' } } }],
-    session_auto_commit: false,
+    archive_auto_commit: false,
     prompt_injection: { skip_keyword: 'skip' },
-    context_injection: { max_file_bytes: 100 },
   })
   try {
     const config = loadConfig(root, { homeDir: home })
-    assert.equal(config.sessionAutoCommit, false)
+    assert.equal(config.archiveAutoCommit, false)
     assert.equal(config.promptInjection.skipKeyword, 'skip')
-    assert.equal(config.contextInjection.maxFileBytes, 100)
     assert.deepEqual(config.subagentProfiles, [
       { roles: { developer: { model: 'm' } } },
     ])
@@ -801,7 +799,7 @@ test('未知字段容错忽略（旧平台字段与 executor.gate 残留不报�
 test('非法值显式抛错（fail loud）', () => {
   const root = makeRoot()
   const home = makeHome()
-  writeProjectFile(root, 'config.json', { session_auto_commit: 'maybe' })
+  writeProjectFile(root, 'config.json', { archive_auto_commit: 'maybe' })
   try {
     assert.throws(() => loadConfig(root, { homeDir: home }), WorkloomConfigError)
   } finally {
@@ -1177,11 +1175,11 @@ test('provenance：全程无 subagent_profiles 时来源字段为 undefined（�
   // 配置文件存在但只写无关字段：同样不定义来源字段
   const withDoc = makeRoot()
   const withDocHome = makeHome()
-  writeProjectFile(withDoc, 'config.json', { session_auto_commit: false })
+  writeProjectFile(withDoc, 'config.json', { archive_auto_commit: false })
   try {
     const config = loadConfig(withDoc, { homeDir: withDocHome })
     assert.equal(config.subagentProfilesSource, undefined)
-    assert.equal(config.sessionAutoCommit, false)
+    assert.equal(config.archiveAutoCommit, false)
   } finally {
     cleanup(withDoc, withDocHome)
   }
@@ -1240,7 +1238,7 @@ test('provenance：对象层不含该 key 时沿用低层来源（顶层 key 覆
   })
   // 项目/local 对象层只写了别的字段：不覆盖来源层
   writeProjectFile(root, 'config.json', { prompt_injection: { skip_keyword: 'p' } })
-  writeProjectFile(root, 'config.local.json', { session_auto_commit: false })
+  writeProjectFile(root, 'config.local.json', { archive_auto_commit: false })
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.subagentProfilesSource, 'global')
@@ -1280,13 +1278,13 @@ test('provenance：工厂层返回文档不含 subagent_profiles 时沿用低层
   writeProjectFile(
     root,
     'config.local.js',
-    'module.exports = () => ({ session_auto_commit: false })\n',
+    'module.exports = () => ({ archive_auto_commit: false })\n',
   )
   try {
     const config = loadConfig(root, { homeDir: home })
     assert.equal(config.subagentProfilesSource, 'project')
     assert.deepEqual(config.subagentProfiles, [])
-    assert.equal(config.sessionAutoCommit, false)
+    assert.equal(config.archiveAutoCommit, false)
   } finally {
     cleanup(root, home)
   }
