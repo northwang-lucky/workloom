@@ -310,3 +310,35 @@ Besides capabilities the workflow loads automatically, you can invoke the follow
 Invoking is simple. Say the trigger phrase, such as "scan packages", "configure config.local.json", or "finish", or name the skill directly.
 
 One note. CASE design, task continuation, and plan migration run through the workflow contract. They have no separate skill.
+
+## Customizing role prompts
+
+You can append your own prompts for the main session and each executor role, to add team conventions, coding preferences, or reminders. The mechanism is three directories plus fixed file names; the content is injected into the matching role under a `## Local directives` section.
+
+### Three directories
+
+- `$HOME/.workloom/prompts/`: the global layer, applied to every project on this machine.
+- `.workloom/prompts/`: the project shared layer, for team-wide conventions, usually committed.
+- `.workloom/prompts.local/`: the project local layer, for one machine only, not committed.
+
+The layers stack in that order, with each later layer placed after the earlier ones. A missing directory means no fragments and no behavior at all.
+
+### File names and targets
+
+Each directory holds Markdown files. The file name decides which role receives the text, and the file body is the full text.
+
+| File name | Target |
+| --- | --- |
+| `main.md` | The main session |
+| `researcher.md` | The researcher role |
+| `judger.md` | The judger role |
+| `developer.md` | The developer role |
+| `frontend-developer.md` | The frontend-developer role |
+| `checker.md` | The checker role |
+| `all.md` | Every target |
+
+`all.md` applies to the main session and every executor role, and within each layer it is placed before that layer's role-specific file. The old file names `research.md`, `implement.md`, `check.md`, `frontend.md`, and `review.md` still work, mapping to the matching new roles, so existing files need no rename.
+
+### Notes
+
+Empty files, hidden files, and non-`.md` files are skipped. A file name must be one from the table above; a wrong name raises an error listing the valid names instead of failing silently. For example, to add a convention for the developer role, place a `developer.md` in any layer with the text you want to append.
