@@ -12,7 +12,6 @@ workloom is a working method that has AI deliver requirements through a fixed pr
 - [Role collaboration](#role-collaboration)
 - [Workflow](#workflow)
 - [Configuration](#configuration)
-- [Skills you can invoke](#skills-you-can-invoke)
 
 ## Quick start
 
@@ -137,6 +136,38 @@ The main session and roles pass only the paths to these files, not the full text
 
 **Commit authority stays centralized.** Only the main session commits code. Executor roles change working-tree files but never touch git commits. Dispatches run in the background by default, so the main session keeps working without waiting.
 
+### Customizing role prompts
+
+You can append your own prompts for the main session and each executor role, to add team conventions, coding preferences, or reminders. The mechanism is three directories plus fixed file names; the content is injected into the matching role under a `## Local directives` section.
+
+#### Three directories
+
+- `$HOME/.workloom/prompts/`: the global layer, applied to every project on this machine.
+- `.workloom/prompts/`: the project shared layer, for team-wide conventions, usually committed.
+- `.workloom/prompts.local/`: the project local layer, for one machine only, not committed.
+
+The layers stack in that order, with each later layer placed after the earlier ones. A missing directory means no fragments and no behavior at all.
+
+#### File names and targets
+
+Each directory holds Markdown files. The file name decides which role receives the text, and the file body is the full text.
+
+| File name | Target |
+| --- | --- |
+| `main.md` | The main session |
+| `researcher.md` | The researcher role |
+| `judger.md` | The judger role |
+| `developer.md` | The developer role |
+| `frontend-developer.md` | The frontend-developer role |
+| `checker.md` | The checker role |
+| `all.md` | Every target |
+
+`all.md` applies to the main session and every executor role, and within each layer it is placed before that layer's role-specific file.
+
+#### Notes
+
+Empty files, hidden files, and non-`.md` files are skipped. A file name must be one from the table above; a wrong name raises an error listing the valid names instead of failing silently. For example, to add a convention for the developer role, place a `developer.md` in any layer with the text you want to append.
+
 ## Workflow
 
 A complete task goes through ten phases. Implementation and checking run in parallel. User confirmations and check results can loop back. The diagram shows the whole path.
@@ -247,6 +278,21 @@ Check that every acceptance criterion is decidable before moving on, and ask the
 Run case.md in order, record the actual action and evidence for each item, and collect coverage separately.
 ```
 
+### Skills you can invoke
+
+Besides capabilities the workflow loads automatically, you can invoke the following four skills in a session.
+
+| Skill | When to use | What it does |
+| --- | --- | --- |
+| `workloom-packages-scan` | You want to scan the package structure | Produces packages candidates and worktree setup commands, and detects the language stack. |
+| `workloom-config-edit` | You want to change a config field | Edits configuration with the five-step discipline so fields cannot be written wrong. |
+| `workloom-finish` | The session is ending | Checks dirty files, archives the task, and separates work commits from bookkeeping commits. |
+| `workloom-update-spec` | You want to record a team standard | Maintains entries under `.workloom/spec/`. |
+
+Invoking is simple. Say the trigger phrase, such as "scan packages", "configure config.local.json", or "finish", or name the skill directly.
+
+One note. CASE design, task continuation, and plan migration run through the workflow contract. They have no separate skill.
+
 ## Configuration
 
 workloom configuration spans three layers, each overriding the one before it.
@@ -296,49 +342,4 @@ One warning here. The loader silently ignores unknown top-level fields, so a typ
 
 `.workloom/workflow.override.md` changes step guidance; see [Customizing workflow guidance](#customizing-workflow-guidance). Configuration manages project and role parameters. Keep the two distinct.
 
-## Skills you can invoke
 
-Besides capabilities the workflow loads automatically, you can invoke the following four skills in a session.
-
-| Skill | When to use | What it does |
-| --- | --- | --- |
-| `workloom-packages-scan` | You want to scan the package structure | Produces packages candidates and worktree setup commands, and detects the language stack. |
-| `workloom-config-edit` | You want to change a config field | Edits configuration with the five-step discipline so fields cannot be written wrong. |
-| `workloom-finish` | The session is ending | Checks dirty files, archives the task, and separates work commits from bookkeeping commits. |
-| `workloom-update-spec` | You want to record a team standard | Maintains entries under `.workloom/spec/`. |
-
-Invoking is simple. Say the trigger phrase, such as "scan packages", "configure config.local.json", or "finish", or name the skill directly.
-
-One note. CASE design, task continuation, and plan migration run through the workflow contract. They have no separate skill.
-
-## Customizing role prompts
-
-You can append your own prompts for the main session and each executor role, to add team conventions, coding preferences, or reminders. The mechanism is three directories plus fixed file names; the content is injected into the matching role under a `## Local directives` section.
-
-### Three directories
-
-- `$HOME/.workloom/prompts/`: the global layer, applied to every project on this machine.
-- `.workloom/prompts/`: the project shared layer, for team-wide conventions, usually committed.
-- `.workloom/prompts.local/`: the project local layer, for one machine only, not committed.
-
-The layers stack in that order, with each later layer placed after the earlier ones. A missing directory means no fragments and no behavior at all.
-
-### File names and targets
-
-Each directory holds Markdown files. The file name decides which role receives the text, and the file body is the full text.
-
-| File name | Target |
-| --- | --- |
-| `main.md` | The main session |
-| `researcher.md` | The researcher role |
-| `judger.md` | The judger role |
-| `developer.md` | The developer role |
-| `frontend-developer.md` | The frontend-developer role |
-| `checker.md` | The checker role |
-| `all.md` | Every target |
-
-`all.md` applies to the main session and every executor role, and within each layer it is placed before that layer's role-specific file.
-
-### Notes
-
-Empty files, hidden files, and non-`.md` files are skipped. A file name must be one from the table above; a wrong name raises an error listing the valid names instead of failing silently. For example, to add a convention for the developer role, place a `developer.md` in any layer with the text you want to append.
