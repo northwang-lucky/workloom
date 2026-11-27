@@ -79,10 +79,10 @@ This keeps the doers and the manager apart, so the process stays traceable.
 | Role | Responsibility |
 | --- | --- |
 | researcher | Technical research. Writes findings to files and reports only paths plus a one-line summary. |
+| judger | Plan review. Audits the plan against the requirements and the real code. |
 | developer | Implementation. Writes code and changes files. |
 | frontend-developer | Frontend implementation. Touches only frontend UI files. Uses annotated placeholders when a backend interface is not ready. |
 | checker | Checking. Designs checks first, then runs them item by item and records evidence. |
-| judger | Plan review. Audits the plan against the requirements and the real code. |
 
 There are three reasons for this split.
 
@@ -93,6 +93,20 @@ There are three reasons for this split.
 ### Effort tiers
 
 Every executor role has an effort tier: low, medium, high, xhigh, or max. It controls how deeply the role reasons. Simple tasks use a lower tier, complex ones a higher tier. You can set it per role in the configuration; see [Configuration](#configuration).
+
+### Recommended model configuration
+
+Roles differ in what they do, so their models and effort tiers should differ too. The table below gives a recommendation per role; set it through `subagent_profiles` in the configuration.
+
+| Role | Recommended model | Recommended effort | Focus |
+| --- | --- | --- | --- |
+| researcher | An economical flash-class model | medium | Exploration and speed |
+| judger | A flagship model | max | Finding plan flaws and raising plan quality |
+| developer | An economical flash-class model | max | Executing the plan |
+| frontend-developer | An economical flash-class multimodal model | max | Executing the plan and understanding visuals |
+| checker | A flagship model | max | Implementation quality and scenario design |
+
+Two roles use flagship models. The judger finds flaws in the plan, and the checker judges implementation quality and scenario design; both need stronger reasoning. The other roles use flash-class models, keeping their speed for exploration and execution. Frontend work reads mockups or interfaces, so it calls for a multimodal model.
 
 ## Role collaboration
 
