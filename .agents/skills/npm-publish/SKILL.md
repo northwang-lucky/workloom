@@ -58,7 +58,11 @@ workloom 是 pnpm monorepo，两个包同版本发布：`@workloom-ai/core` 与 
 
 ## Changelog 与 Release
 
-根目录 CHANGELOG.md 是唯一事实源。CI 发布前把它复制到 `packages/core/CHANGELOG.md` 与 `packages/dsh-workloom/CHANGELOG.md`，两个包的 `files` 都包含它，npm 包里能看到。复制产物已加入 .gitignore，不单独入库。
+根目录 CHANGELOG.md 是唯一事实源。CI 发布前把它复制到 `packages/core/CHANGELOG.md` 与 `packages/dsh-workloom/CHANGELOG.md`，两个包的 `files` 都包含它，npm 包里能看到。
+
+根目录的 README.md 与 README.en.md 只随 `@workloom-ai/dsh-workloom` 发布。CI 发布前把它们复制到 `packages/dsh-workloom/`，该包的 `files` 包含两者。core 不带 README。
+
+所有复制产物都进了 .gitignore，不单独入库。
 
 CI 用 `node .agents/skills/npm-publish/scripts/extract-changelog.mjs <版本>` 提取对应段落作为 GitHub Release notes。Release 已存在时跳过，重跑不会失败。
 
@@ -69,3 +73,9 @@ CI 用 `node .agents/skills/npm-publish/scripts/extract-changelog.mjs <版本>` 
 ## 校验发布结果
 
 tag push 后确认 GitHub Actions 的 Publish npm packages 工作流全部通过，并在 npm 上核对两个包的版本。
+
+首次把包发布到 npm 时，registry 分两步写入。publish 请求先建包记录，放一个 `0.0.0-stage` 占位版本，`latest` 指向它。占位包里只有一个标了 `stub: true` 的空 package.json。等 tarball 上传、校验、元数据写完，正式版本才写入，`latest` 迁移过去。这个过程通常要两分钟。
+
+这段时间里，`npm view` 可能只查到 0.0.0-stage，单版本查询与 tarball 下载可能返回 404，npmjs 网页也可能把 0.0.0-stage 显示为 latest。这些都是占位阶段的表现，不是发布失败。等几分钟再核验，或者以 `npm pack <包名>@<版本>` 能下载为准。不要在占位阶段重发版本或另打 tag。
+
+这是首次发布专有的一步，包记录建好后的后续版本发布不会再出现。

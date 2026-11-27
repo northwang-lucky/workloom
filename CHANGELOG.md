@@ -2,6 +2,18 @@
 
 本文件记录 workloom 各版本的主要变更。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/spec/v2.0.0.html)。
 
+## [1.0.1] - 2026-11-27
+
+### Added
+
+- 根目录的 README.md 与 README.en.md 随 `@workloom-ai/dsh-workloom` 一起发布。
+- 两个包声明仓库地址、包路径、作者、主页与问题反馈地址。
+
+### Changed
+
+- README 的「前置条件」改为「安装插件」，写清 DSH 命令行与界面两种安装方式。
+- npm-publish skill 补记首次发布时 npm registry 的 0.0.0-stage 占位阶段。
+
 ## [1.0.0] - 2026-11-27
 
 首个正式版本。workloom 以 `@workloom-ai/core` 与 `@workloom-ai/dsh-workloom` 两个包发布，均可从 npm 安装。

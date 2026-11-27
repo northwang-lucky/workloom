@@ -15,9 +15,27 @@ workloom 是一套让 AI 按固定流程交付需求的工作方式，它把一�
 
 ## 快速上手
 
-### 前置条件
+### 安装插件
 
-workloom 以插件形式运行在 DeepSeek Harness 里，开始之前，先确认你的环境里已经装上它。
+workloom 以 DSH 组合包的形式分发，包名是 `@workloom-ai/dsh-workloom`。先装好 DeepSeek Harness，再用下面任意一种方式把它装进你的 profile。
+
+#### 用 dsh 命令安装
+
+`dsh plugin` 会把参数转给 profile 里的 pnpm，用 `add` 接一段安装来源：
+
+```sh
+dsh plugin --profile web add @workloom-ai/dsh-workloom
+```
+
+把 `web` 换成你的 profile 名。安装来源也支持 Git 地址和本地路径，例如 `github:northwang-lucky/workloom#path:packages/dsh-workloom`。卸载用 `dsh plugin --profile web remove @workloom-ai/dsh-workloom`。
+
+#### 在界面里安装
+
+1. 在侧栏打开**插件**，或从「设置 → 插件管理」进入。
+2. 点**添加插件**，也可以点旁边的箭头选**安装第三方插件**。
+3. 在输入框填 `@workloom-ai/dsh-workloom`。这里填的就是 `dsh plugin add` 后面那段。
+4. 点**安装**，等检查和安装完成。
+5. 在结果页点**立即启用**，让组合包生效。
 
 ### 初始化项目
 

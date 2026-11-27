@@ -1,8 +1,18 @@
 {
   "name": "@workloom-ai/core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "runtime 无关核心：任务状态机、注入组装、workspace 与 git 能力，含 resources 内容目录",
   "license": "MIT",
+  "author": "northwang-lucky <wyb_goodluck@163.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/northwang-lucky/workloom.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/northwang-lucky/workloom",
+  "bugs": {
+    "url": "https://github.com/northwang-lucky/workloom/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,8 +1,18 @@
 {
   "name": "@workloom-ai/dsh-workloom",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "workloom 的 DeepSeek Harness adapter：profile bundle（命令/注入/skills/executor）",
   "license": "MIT",
+  "author": "northwang-lucky <wyb_goodluck@163.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/northwang-lucky/workloom.git",
+    "directory": "packages/dsh-workloom"
+  },
+  "homepage": "https://github.com/northwang-lucky/workloom",
+  "bugs": {
+    "url": "https://github.com/northwang-lucky/workloom/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -15,7 +25,9 @@
   "files": [
     "dist",
     "cordis.patch.yml",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "README.md",
+    "README.en.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
