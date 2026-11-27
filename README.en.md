@@ -219,6 +219,14 @@ The autonomy tier decides whether these confirmations are recorded automatically
 
 When a task holds three or more independently deliverable pieces, the main session recommends splitting it. It always asks you before splitting. Each subtask runs the full lifecycle, and the container task does the final acceptance and archiving.
 
+### Customizing workflow guidance
+
+The workflow has two layers. The state machine is fixed: states, steps, and transitions ship with the package and cannot be changed by a project, while the natural-language guidance for each step has shipped defaults that a project can override.
+
+The override file is `.workloom/workflow.override.md`, optional, and placed at the project root. It changes only how a step is done, such as tweaking wording, adding team conventions, or emphasizing a check. It never changes the state machine, so stage order and transitions stay untouched.
+
+Teams can use it to make guidance fit their habits without changing the process structure.
+
 ## Configuration
 
 workloom configuration spans three layers, each overriding the one before it.
@@ -266,7 +274,7 @@ One warning here. The loader silently ignores unknown top-level fields, so a typ
 
 ### Difference from workflow override
 
-`.workloom/workflow.override.md` is a different thing. It changes how a step is done, not the state machine itself. Configuration manages project and role parameters. Keep the two distinct.
+`.workloom/workflow.override.md` changes step guidance; see [Customizing workflow guidance](#customizing-workflow-guidance). Configuration manages project and role parameters. Keep the two distinct.
 
 ## Skills you can invoke
 
