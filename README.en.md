@@ -227,6 +227,8 @@ The override file is `.workloom/workflow.override.md`, optional, and placed at t
 
 Teams can use it to make guidance fit their habits without changing the process structure.
 
+The built-in workflow contract lives at [`packages/core/resources/workflow/workflow.md`](packages/core/resources/workflow/workflow.md). It lists every state, step id, and its default guidance, so compare it before writing an override.
+
 The file is Markdown. Tags and headings decide which part is overridden, and there are two kinds of block.
 
 - A state guidance block wraps its text in a pair of `[workflow-state:name]` tags, overriding the guidance injected for that state. The name must be one of the built-in states: `no_task`, `planning`, `in_progress`, `completed`.

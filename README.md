@@ -227,6 +227,8 @@ autonomy 三档决定这两道确认要不要自动记录，manual 档全部由�
 
 团队可以用它让指引更贴合自己的习惯，同时不动流程结构。
 
+内置的 workflow 契约在 [`packages/core/resources/workflow/workflow.md`](packages/core/resources/workflow/workflow.md)，里面列出全部状态、步骤 id 和各自的默认指引，写覆盖前可以先对照它。
+
 文件用 Markdown 写，靠标签和标题认出要覆盖哪段，只有两种块。
 
 - 状态指引块用一对 `[workflow-state:状态名]` 标签包住正文，覆盖对应状态注入的指引，状态名只能用内置的 `no_task`、`planning`、`in_progress`、`completed`。
