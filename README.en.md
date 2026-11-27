@@ -21,13 +21,21 @@ workloom is distributed as a DSH bundle named `@workloom-ai/dsh-workloom`. Insta
 
 #### Install with the dsh command
 
-`dsh plugin` forwards its arguments to pnpm inside a profile. Use `add` with an install source:
+`dsh plugin` forwards its arguments to pnpm inside a profile. Use `add` with an install source. Replace `web` in the commands below with your profile name.
+
+To install from npm:
 
 ```sh
 dsh plugin --profile web add @workloom-ai/dsh-workloom
 ```
 
-Replace `web` with your profile name. The source also accepts a Git URL or a local path, for example `github:northwang-lucky/workloom#path:packages/dsh-workloom`. To uninstall, run `dsh plugin --profile web remove @workloom-ai/dsh-workloom`.
+To install from this repository's Git subdirectory:
+
+```sh
+dsh plugin --profile web add github:northwang-lucky/workloom#path:packages/dsh-workloom
+```
+
+To uninstall, run `dsh plugin --profile web remove @workloom-ai/dsh-workloom`.
 
 #### Install from the GUI
 

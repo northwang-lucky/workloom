@@ -21,13 +21,21 @@ workloom 以 DSH 组合包的形式分发，包名是 `@workloom-ai/dsh-workloom
 
 #### 用 dsh 命令安装
 
-`dsh plugin` 会把参数转给 profile 里的 pnpm，用 `add` 接一段安装来源：
+`dsh plugin` 会把参数转给 profile 里的 pnpm，用 `add` 接一段安装来源。下面命令里的 `web` 换成你的 profile 名。
+
+从 npm 安装：
 
 ```sh
 dsh plugin --profile web add @workloom-ai/dsh-workloom
 ```
 
-把 `web` 换成你的 profile 名。安装来源也支持 Git 地址和本地路径，例如 `github:northwang-lucky/workloom#path:packages/dsh-workloom`。卸载用 `dsh plugin --profile web remove @workloom-ai/dsh-workloom`。
+从本仓库的 Git 子目录安装：
+
+```sh
+dsh plugin --profile web add github:northwang-lucky/workloom#path:packages/dsh-workloom
+```
+
+卸载用 `dsh plugin --profile web remove @workloom-ai/dsh-workloom`。
 
 #### 在界面里安装
 
