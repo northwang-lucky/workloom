@@ -227,6 +227,24 @@ The override file is `.workloom/workflow.override.md`, optional, and placed at t
 
 Teams can use it to make guidance fit their habits without changing the process structure.
 
+The file is Markdown. Tags and headings decide which part is overridden, and there are two kinds of block.
+
+- A state guidance block wraps its text in a pair of `[workflow-state:name]` tags, overriding the guidance injected for that state. The name must be one of the built-in states: `no_task`, `planning`, `in_progress`, `completed`.
+- A step body block starts with `#### step-id original title` followed by the new text, overriding how that step is done. The step id must be a built-in one such as `1.1` or `2.3`; keep the original title.
+
+Write only the blocks you want to change; everything else keeps the shipped content. Using a state name or step id that is not built in raises an error. `[workflow-norms]` is contract-level and cannot be overridden.
+
+Here is an example that changes only the planning guidance and the body of step 2.3.
+
+```markdown
+[workflow-state:planning]
+Check that every acceptance criterion is decidable before moving on, and ask the user about any doubt.
+[/workflow-state:planning]
+
+#### 2.3 Check
+Run case.md in order, record the actual action and evidence for each item, and collect coverage separately.
+```
+
 ## Configuration
 
 workloom configuration spans three layers, each overriding the one before it.
