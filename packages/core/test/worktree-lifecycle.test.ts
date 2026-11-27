@@ -455,7 +455,8 @@ test('④b 分支被另一 worktree 占用：start 拒绝（git 文案透传）'
 
   const [startErr] = await executeStartTask(root, contextKey, {})
   assert.ok(startErr, 'start must reject branch checked out elsewhere')
-  assert.match(startErr.message, /already checked out/)
+  // 不同 git 版本文案不同：旧版 "already checked out"，新版 "is already used by worktree"。
+  assert.match(startErr.message, /already (checked out|used by worktree)/)
   assert.equal(
     existsSync(join(root, '.workloom', '.runtime', 'worktrees', dirName)),
     false,

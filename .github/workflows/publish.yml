@@ -28,6 +28,12 @@ jobs:
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
+      # core 的部分测试会在临时仓库里 commit，CI runner 默认没有 git 身份。
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
