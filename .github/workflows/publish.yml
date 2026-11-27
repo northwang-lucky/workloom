@@ -1,0 +1,64 @@
+name: Publish npm packages
+
+# 打 v* tag 触发发布。两个 workspace 包同版本，tag 形如 v1.0.0。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test
+        run: pnpm -r test
+
+      # dist 随源码入库，发布产物就是仓库里的 dist。这里拦住未重建就打 tag 的情况。
+      - name: Verify committed dist is up to date
+        run: git diff --exit-code -- packages/core/dist packages/dsh-workloom/dist
+
+      # tag 版本必须与两个包版本一致，避免发出错版。
+      - name: Verify tag matches package versions
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          for pkg in packages/core/package.json packages/dsh-workloom/package.json; do
+            VERSION=$(node -p "JSON.parse(require('fs').readFileSync('$pkg','utf8')).version")
+            if [ "$VERSION" != "$TAG_VERSION" ]; then
+              echo "Tag version $TAG_VERSION does not match $pkg version $VERSION"
+              exit 1
+            fi
+          done
+
+      # pnpm -r 按依赖拓扑顺序发布，core 先于 dsh-workloom。
+      # workspace:* 在发布时由 pnpm 替换成真实版本号。
+      - name: Publish
+        run: pnpm -r publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

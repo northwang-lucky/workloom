@@ -1,6 +1,6 @@
 {
   "name": "@workloom-ai/core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "runtime 无关核心：任务状态机、注入组装、workspace 与 git 能力，含 resources 内容目录",
   "license": "MIT",
   "type": "module",

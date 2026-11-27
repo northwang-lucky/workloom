@@ -43,7 +43,7 @@ importers:
   packages/dsh-workloom:
     dependencies:
       '@workloom-ai/core':
-        specifier: file:../core
+        specifier: workspace:*
         version: link:../core
     devDependencies:
       '@deepseek-ai/cordis':
