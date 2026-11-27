@@ -1,6 +1,6 @@
 ---
 name: npm-publish
-description: '发布 workloom 的 npm 包（@workloom-ai/core 与 @workloom-ai/dsh-workloom）。当用户说发版、发布 npm 包、打 tag 发布、release、升版本，或需要同步升级两个包版本并触发自动发布时使用。负责版本 bump、lockfile 更新、重建 dist、提交与打 tag，并给出推送指令。GitHub Actions 在 tag push 后完成校验与发布。'
+description: '发布 workloom 的 npm 包（@workloom-ai/core 与 @workloom-ai/dsh-workloom）。当用户说发版、发布 npm 包、打 tag 发布、release、升版本，或需要同步升级两个包版本并触发自动发布时使用。负责版本 bump、写 changelog、lockfile 更新、重建 dist、提交与打 tag，并给出推送指令。GitHub Actions 在 tag push 后完成校验、发布与 GitHub Release。'
 ---
 
 # npm 包发版
@@ -33,26 +33,34 @@ workloom 是 pnpm monorepo，两个包同版本发布：`@workloom-ai/core` 与 
 
    脚本只改 `version` 字段并打印新版本。
 
-2. **更新 lockfile。** 运行 `pnpm install --lockfile-only`，让 importer 版本与 package.json 一致。
+2. **写 changelog。** 根目录 `CHANGELOG.md` 是唯一事实源。读 `git log <上个tag>..HEAD` 收集本次变更（没有上个 tag 时读全部），按 Added、Changed、Fixed 分组写简洁中文条目，在文件顶部追加 `## [新版本] - 日期` 段落。条目概括主题，不逐条抄 commit。
 
-3. **重建 dist。** 运行 `pnpm -r build`。dist 随源码入库，过期 dist 会让 CI 的版本校验失败，也会给 git 子目录安装发过期行为。
+3. **更新 lockfile。** 运行 `pnpm install --lockfile-only`，让 importer 版本与 package.json 一致。
 
-4. **验证。** 依次运行 `pnpm -r typecheck` 与 `pnpm -r test`，全部通过后继续。
+4. **重建 dist。** 运行 `pnpm -r build`。dist 随源码入库，过期 dist 会让 CI 的版本校验失败，也会给 git 子目录安装发过期行为。
 
-5. **核对 dist。** `git status --short packages/core/dist packages/dsh-workloom/dist` 应只显示 build 产生的预期变化。确认 dist 与 src 文件清单镜像一致，没有已删模块的残留。
+5. **验证。** 依次运行 `pnpm -r typecheck` 与 `pnpm -r test`，全部通过后继续。
 
-6. **提交。** commit message 用 `chore(release): vX.Y.Z`，把两个 package.json、pnpm-lock.yaml 与 dist 一并提交。
+6. **核对 dist。** `git status --short packages/core/dist packages/dsh-workloom/dist` 应只显示 build 产生的预期变化。确认 dist 与 src 文件清单镜像一致，没有已删模块的残留。
 
-7. **打本地 tag。** 运行 `git tag -a vX.Y.Z -m "Release vX.Y.Z"`。tag 名必须与包版本完全一致。
+7. **提交。** commit message 用 `chore(release): vX.Y.Z`，把两个 package.json、pnpm-lock.yaml、CHANGELOG.md 与 dist 一并提交。
 
-8. **交给用户推送。** 打印下面两条命令，让用户自行执行，agent 不主动 push：
+8. **打本地 tag。** 运行 `git tag -a vX.Y.Z -m "Release vX.Y.Z"`。tag 名必须与包版本完全一致。
+
+9. **交给用户推送。** 打印下面两条命令，让用户自行执行，agent 不主动 push：
 
    ```bash
    git push origin main
    git push origin vX.Y.Z
    ```
 
-   tag push 触发 `.github/workflows/publish.yml`：校验 tag 与包版本一致、dist 干净，然后按拓扑顺序发布 core 与 dsh-workloom。
+   tag push 触发 `.github/workflows/publish.yml`：校验 tag 与包版本一致、dist 干净，把 CHANGELOG.md 复制进两个包目录后按拓扑顺序发布，最后用对应版本段落创建 GitHub Release。
+
+## Changelog 与 Release
+
+根目录 CHANGELOG.md 是唯一事实源。CI 发布前把它复制到 `packages/core/CHANGELOG.md` 与 `packages/dsh-workloom/CHANGELOG.md`，两个包的 `files` 都包含它，npm 包里能看到。复制产物已加入 .gitignore，不单独入库。
+
+CI 用 `node .agents/skills/npm-publish/scripts/extract-changelog.mjs <版本>` 提取对应段落作为 GitHub Release notes。Release 已存在时跳过，重跑不会失败。
 
 ## 依赖说明
 

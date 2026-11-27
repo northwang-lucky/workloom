@@ -3,6 +3,9 @@ dist/
 # dist 入库例外：core 与 dsh-workloom 的构建产物随源码提交，git 子目录安装免构建
 !packages/core/dist/
 !packages/dsh-workloom/dist/
+# 发版时从根 CHANGELOG.md 复制到包目录，随 npm 包发布，不单独入库
+packages/core/CHANGELOG.md
+packages/dsh-workloom/CHANGELOG.md
 *.tsbuildinfo
 .DS_Store
 *.log

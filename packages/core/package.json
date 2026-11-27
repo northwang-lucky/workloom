@@ -14,7 +14,8 @@
   },
   "files": [
     "dist",
-    "resources"
+    "resources",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/copy-domain-dts.mjs",

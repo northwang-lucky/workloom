@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -56,9 +56,27 @@ jobs:
             fi
           done
 
+      # 根 CHANGELOG.md 是唯一事实源。复制到包目录才能进 npm 包，产物不入库。
+      - name: Distribute changelog to packages
+        run: |
+          cp CHANGELOG.md packages/core/CHANGELOG.md
+          cp CHANGELOG.md packages/dsh-workloom/CHANGELOG.md
+
       # pnpm -r 按依赖拓扑顺序发布，core 先于 dsh-workloom。
       # workspace:* 在发布时由 pnpm 替换成真实版本号。
       - name: Publish
         run: pnpm -r publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node .agents/skills/npm-publish/scripts/extract-changelog.mjs "$VERSION" > /tmp/release-notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists, skipping"
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file /tmp/release-notes.md
+          fi
