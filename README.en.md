@@ -100,11 +100,11 @@ Roles differ in what they do, so their models and effort tiers should differ too
 
 | Role | Recommended model | Recommended effort | Focus |
 | --- | --- | --- | --- |
-| researcher | An economical flash-class model | medium | Exploration and speed |
-| judger | A flagship model | max | Finding plan flaws and raising plan quality |
-| developer | An economical flash-class model | max | Executing the plan |
-| frontend-developer | An economical flash-class multimodal model | max | Executing the plan and understanding visuals |
-| checker | A flagship model | max | Implementation quality and scenario design |
+| researcher | An economical flash-class model | medium/high | Exploration and speed |
+| judger | A flagship model | xhigh/max | Finding plan flaws and raising plan quality |
+| developer | An economical flash-class model | xhigh/max | Executing the plan |
+| frontend-developer | An economical flash-class multimodal model | xhigh/max | Executing the plan and understanding visuals |
+| checker | A flagship model | xhigh/max | Implementation quality and scenario design |
 
 Two roles use flagship models. The judger finds flaws in the plan, and the checker judges implementation quality and scenario design; both need stronger reasoning. The other roles use flash-class models, keeping their speed for exploration and execution. Frontend work reads mockups or interfaces, so it calls for a multimodal model.
 

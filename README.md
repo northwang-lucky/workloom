@@ -100,11 +100,11 @@ workloom 针对这三点。
 
 | 角色 | 建议模型 | 建议 effort | 侧重 |
 | --- | --- | --- | --- |
-| researcher | 经济的 flash 类模型 | medium | 探索与速度 |
-| judger | 旗舰模型 | max | 挖掘计划漏洞，提升计划质量 |
-| developer | 经济的 flash 类模型 | max | 按计划执行 |
-| frontend-developer | 经济的 flash 类多模态模型 | max | 按计划执行，兼顾视觉理解 |
-| checker | 旗舰模型 | max | 实现质量与应用场景设计 |
+| researcher | 经济的 flash 类模型 | medium/high | 探索与速度 |
+| judger | 旗舰模型 | xhigh/max | 挖掘计划漏洞，提升计划质量 |
+| developer | 经济的 flash 类模型 | xhigh/max | 按计划执行 |
+| frontend-developer | 经济的 flash 类多模态模型 | xhigh/max | 按计划执行，兼顾视觉理解 |
+| checker | 旗舰模型 | xhigh/max | 实现质量与应用场景设计 |
 
 两类角色用旗舰模型。judger 要找出计划里的漏洞，checker 要判断实现质量和场景设计，都需要较强的推理。其余角色用 flash 类模型即可，把速度优势留给探索和执行。前端实现要读设计稿或界面，所以指定多模态模型。
 
